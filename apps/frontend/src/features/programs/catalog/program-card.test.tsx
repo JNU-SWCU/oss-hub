@@ -16,7 +16,7 @@ describe('ProgramCard', () => {
     );
 
     expect(html).toContain(`src="${coverImageUrl}"`);
-    expect(html).toContain('object-contain');
+    expect(html).toContain('object-cover object-top');
     expect(html).toContain('referrerPolicy="no-referrer"');
   });
 

@@ -4,15 +4,24 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
+import { listCardClasses, listCardCoverClasses } from '@/components/list-card';
 import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
+import { cn } from '@/lib/utils';
 import { programHref } from '../program-paths';
 import {
   getProgramListBadge,
@@ -54,6 +63,47 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 
 const PAGE_SIZE = 20;
+
+function SkeletonLine({ className }: { readonly className: string }) {
+  return (
+    <div className="flex h-[1lh] items-center">
+      <SkeletonBlock className={cn('h-[1em] rounded', className)} />
+    </div>
+  );
+}
+
+function ProgramCardSkeleton() {
+  return (
+    <Card className={listCardCoverClasses.root}>
+      <SkeletonBlock className="aspect-video w-full" />
+      <CardHeader className={listCardClasses.header}>
+        <CardDescription>
+          <SkeletonLine className="w-2/5" />
+        </CardDescription>
+        <CardTitle className={listCardCoverClasses.title}>
+          <SkeletonLine className="w-full" />
+          <SkeletonLine className="w-3/4" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent
+        className={cn(listCardClasses.content, listCardCoverClasses.content)}
+      >
+        <div className={listCardClasses.meta}>
+          <SkeletonLine className="w-3/5" />
+        </div>
+        <div className={cn(listCardClasses.note, listCardCoverClasses.note)}>
+          <SkeletonLine className="w-1/3" />
+        </div>
+      </CardContent>
+      <div
+        data-slot="list-card-affordance"
+        className={listCardClasses.affordance}
+      >
+        <SkeletonLine className="w-12" />
+      </div>
+    </Card>
+  );
+}
 
 function formatApplicationPeriod(program: ProgramListItem): string {
   const formatter = new Intl.DateTimeFormat('ko-KR', {
@@ -152,7 +202,7 @@ function ProgramListPage({
         <Skeleton label="프로그램 목록을 불러오는 중">
           <CardGrid>
             {[0, 1, 2].map((index) => (
-              <SkeletonBlock className="h-48 rounded-xl" key={index} />
+              <ProgramCardSkeleton key={index} />
             ))}
           </CardGrid>
         </Skeleton>
@@ -212,7 +262,7 @@ function ProgramListPage({
   })();
 
   return (
-    <section className="grid gap-6 p-4 sm:p-6">
+    <section className="mx-auto w-full max-w-[1200px] grid gap-6 p-4 sm:p-6">
       <PageHeader
         title={getProgramListHeading(status)}
         description={getProgramListSubtitle(viewerRole)}

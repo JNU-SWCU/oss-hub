@@ -9,6 +9,51 @@ function render(props: Parameters<typeof ListCard>[0]) {
 }
 
 describe('ListCard', () => {
+  for (const cover of [undefined, <div key="cover">cover</div>]) {
+    it(`G6 clamps titles ${cover ? 'with' : 'without'} a cover`, () => {
+      const view = render({ title: '합성 제목', cover });
+      const title = view.querySelector('[data-slot="card-title"]');
+      expect(title?.classList.contains('line-clamp-2')).toBe(true);
+    });
+  }
+
+  it('AC7 reserves cover title and note rows with compact flexible content', () => {
+    const view = render({
+      title: '합성 제목',
+      cover: <div>cover</div>,
+      meta: '2026.01 ~ 2026.12',
+      href: '/programs/synthetic',
+    });
+    const card = view.querySelector('[data-slot="list-card"]');
+    const title = view.querySelector('[data-slot="card-title"]');
+    const content = view.querySelector('[data-slot="card-content"]');
+    expect(card?.classList.contains('[--card-spacing:--spacing(3)]')).toBe(
+      true,
+    );
+    expect(title?.classList.contains('min-h-[2lh]')).toBe(true);
+    expect(content?.classList.contains('flex-1')).toBe(true);
+    expect(content?.children).toHaveLength(2);
+    expect(content?.lastElementChild?.textContent).toBe('');
+    expect(
+      view
+        .querySelector('[data-slot="list-card-affordance"]')
+        ?.classList.contains('mt-auto'),
+    ).toBe(true);
+  });
+
+  it('AC7 preserves non-cover spacing without reserved rows or flexible content', () => {
+    const view = render({ title: '합성 제목', meta: '2026.01' });
+    const card = view.querySelector('[data-slot="list-card"]');
+    const title = view.querySelector('[data-slot="card-title"]');
+    const content = view.querySelector('[data-slot="card-content"]');
+    expect(card?.classList.contains('[--card-spacing:--spacing(3)]')).toBe(
+      false,
+    );
+    expect(title?.classList.contains('min-h-[2lh]')).toBe(false);
+    expect(content?.classList.contains('flex-1')).toBe(false);
+    expect(content?.children).toHaveLength(1);
+  });
+
   it('makes the whole card one link without nested interactive controls', () => {
     const view = render({
       title: '합성 프로젝트',

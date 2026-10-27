@@ -196,6 +196,42 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     expect(container.textContent).toContain('합성 프로그램');
   });
 
+  it('G5 constrains and centers the program section', async () => {
+    await renderPage();
+    const section = container.querySelector('section');
+    for (const className of ['max-w-[1200px]', 'mx-auto', 'w-full']) {
+      expect(section?.classList.contains(className), className).toBe(true);
+    }
+  });
+
+  it('AC8 renders three banner skeleton cards with reserved content rows', async () => {
+    const pending =
+      Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
+    listProgramsMock.mockReturnValueOnce(pending.promise);
+    await renderPage();
+    const grid = container.querySelector(
+      '[data-slot="skeleton"] [data-slot="card-grid"]',
+    );
+    expect(grid?.children).toHaveLength(3);
+    for (const card of Array.from(grid?.children ?? [])) {
+      expect(card.querySelector('.aspect-video')).not.toBeNull();
+      expect(
+        card
+          .querySelector('[data-slot="card-title"]')
+          ?.classList.contains('min-h-[2lh]'),
+      ).toBe(true);
+      expect(
+        card.querySelector('[data-slot="card-content"]')?.children.length,
+      ).toBeGreaterThanOrEqual(2);
+      expect(
+        card.querySelector('[data-slot="list-card-affordance"]'),
+      ).not.toBeNull();
+    }
+    expect(
+      container.querySelector('[role="status"]')?.classList.contains('sr-only'),
+    ).toBe(true);
+  });
+
   it('URL에 없는 정렬은 기본값(생략)으로 표시되고, listPrograms를 sort 없이 호출한다', async () => {
     await renderPage();
 

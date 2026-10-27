@@ -177,9 +177,8 @@ test.describe('/programs 스크롤 격리 (AC1-AC3)', () => {
     await page.clock.setFixedTime(RECRUITING_NOW);
     await page.goto('/programs');
 
-    const before = await test.step(
-      '(1) cards render and #main-content overflows',
-      async () => {
+    const before =
+      await test.step('(1) cards render and #main-content overflows', async () => {
         await expect(page.locator('[data-slot="program-card"]')).toHaveCount(
           PROGRAM_COUNT,
         );
@@ -189,8 +188,7 @@ test.describe('/programs 스크롤 격리 (AC1-AC3)', () => {
           `#main-content overflows (${JSON.stringify(metrics)})`,
         ).toBeGreaterThan(metrics.mainClientHeight);
         return metrics;
-      },
-    );
+      });
 
     await test.step('(2) pointer over visible #main-content', async () => {
       const box = await page.locator('#main-content').boundingBox();

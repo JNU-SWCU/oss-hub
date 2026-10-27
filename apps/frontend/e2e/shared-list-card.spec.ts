@@ -121,12 +121,16 @@ async function installRoutes(page: Page) {
 }
 
 for (const width of [1440, 390]) {
-  test(`두 목록은 같은 카드와 한 번의 키보드 초점으로 상세를 연다 (${width}px)`, async ({
+  test(`AC7 두 목록은 같은 카드와 한 번의 키보드 초점으로 상세를 연다 (${width}px)`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await installRoutes(page);
-    const styles: unknown[] = [];
+    const styles: {
+      readonly radius: string;
+      readonly padding: string;
+      readonly fontSize: string;
+    }[] = [];
     for (const [route, slot, detail] of [
       ['/archive', 'list-card', `/archive/${projectId}`],
       ['/programs', 'program-card', `/programs/${programId}`],
@@ -187,6 +191,14 @@ for (const width of [1440, 390]) {
       await card.click();
       await expect(page).toHaveURL(detail);
     }
-    expect(styles[0]).toEqual(styles[1]);
+    expect(styles[0].radius).toEqual(styles[1].radius);
+    expect(styles[0].fontSize).toEqual(styles[1].fontSize);
+    expect(styles[0].padding, 'AC7 archive header keeps 24px padding').toBe(
+      '24px',
+    );
+    expect(
+      styles[1].padding,
+      'AC7 program header uses 12px compact padding',
+    ).toBe('12px');
   });
 }

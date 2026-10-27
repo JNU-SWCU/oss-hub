@@ -77,6 +77,28 @@ describe('card components', () => {
     expect(html).toContain('자세히 ›');
   });
 
+  it('AC7 gives ProgramCard compact cover spacing and a reserved clamped title', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        title="합성 프로그램"
+        category="합성 주관"
+        period="2026.01 ~ 2026.12"
+        status="recruiting"
+        badgeText="모집중"
+        href="/programs/synthetic"
+      />,
+    );
+    const classes =
+      /data-slot="program-card"[^>]*class="([^"]*)"/
+        .exec(html)?.[1]
+        .split(' ') ?? [];
+    expect(classes).toContain('[--card-spacing:--spacing(3)]');
+    expect(html).toContain('line-clamp-2');
+    expect(html).toContain('min-h-[2lh]');
+    expect(html).toContain('flex-1');
+    expect(html).toContain('mt-auto');
+  });
+
   it('renders a large StatusBadge for prominent card status', () => {
     const html = renderToStaticMarkup(
       <StatusBadge size="lg" variant="recruiting">

@@ -20,10 +20,11 @@ afterEach(async () => {
 });
 
 describe('program cover', () => {
-  it('keeps poster geometry, falls back after a failed load, and tries a replacement URL', async () => {
+  it('AC6 crops the card image at the top and recovers from failed loads', async () => {
     await act(async () => root.render(<ProgramCover src="/cover-one" />));
     const image = container.querySelector('img');
-    expect(image?.className).toContain('object-contain');
+    expect(image?.className).toContain('object-cover');
+    expect(image?.className).toContain('object-top');
     expect(image?.alt).toBe('');
     await act(async () => image?.dispatchEvent(new Event('error')));
     expect(
@@ -65,11 +66,15 @@ describe('program cover', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('puts every list card in the same poster frame and draws the default graphic when empty', async () => {
+  it('AC6 reserves a banner frame and top-crops the empty graphic', async () => {
     await act(async () => root.render(<ProgramCover src={null} />));
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.getAttribute('data-cover-state')).toBe('empty');
-    expect(cover?.className).toContain('aspect-[1/1.414]');
+    expect(cover?.className).toContain('aspect-video');
+    expect(cover?.className).toContain('w-full');
+    expect(
+      cover?.querySelector('svg')?.getAttribute('preserveAspectRatio'),
+    ).toBe('xMidYMin slice');
     expect(cover?.querySelector('svg[aria-hidden="true"]')?.textContent).toBe(
       'OSS Hub',
     );
@@ -77,7 +82,7 @@ describe('program cover', () => {
     await act(async () => root.render(<ProgramCover src="/poster" />));
     expect(
       container.querySelector('[data-slot="program-cover"]')?.className,
-    ).toContain('aspect-[1/1.414]');
+    ).toContain('aspect-video');
   });
 
   it('keeps small thumbnails at 16:9 with only the icon', async () => {
@@ -87,6 +92,13 @@ describe('program cover', () => {
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.className).toContain('aspect-video');
     expect(cover?.textContent).toBe('');
+    await act(async () =>
+      root.render(<ProgramCover src="/thumbnail" size="thumbnail" />),
+    );
+    const image = container.querySelector('img');
+    expect(image?.className).toContain('object-contain');
+    expect(image?.className).not.toContain('object-cover');
+    expect(image?.className).not.toContain('object-top');
   });
 
   it('shows a detail image at its own ratio up to an A4 height instead of a fixed frame', async () => {
