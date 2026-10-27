@@ -39,8 +39,6 @@ const DESKTOP_MIN_WIDTH = 1024;
 
 let entrancePlayed = false;
 
-const isPendingCount = (value: string): boolean => !/\d/.test(value);
-
 const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 1', '신청·팀 구성', '초대를 수락해 팀에 합류'],
   ['STEP 2', '저장소 연결', '승인되면 팀 저장소가 열림'],
@@ -238,32 +236,25 @@ export function LandingJourney({
               <span className={styles.eyebrow}>프로그램</span>
             </div>
             <h2 id="landing-program-heading">
-              모든 활동은 프로그램 단위로 묶입니다
+              모든 활동은 프로그램{'\u00a0'}단위로 묶입니다
             </h2>
             <p>
               경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은
               학생, 저장소와 연결되어 관리됩니다.
             </p>
-            <ul className={styles.stats}>
-              {(
-                [
-                  [stats.programs, '공개 프로그램'],
-                  [stats.repositories, '공개 저장소'],
-                  [stats.students, '공개 기여자'],
-                ] as const
-              ).map(([value, key]) => (
-                <li key={key}>
-                  <div
-                    className={styles.statValue}
-                    data-pending={isPendingCount(value) ? 'true' : undefined}
-                  >
-                    {value}
-                  </div>
-                  <div className={styles.statKey}>{key}</div>
-                </li>
-              ))}
-            </ul>
-            <span className={styles.statNote}>{stats.note}</span>
+            {stats.items.length > 0 ? (
+              <ul className={styles.stats}>
+                {stats.items.map(({ key, value }) => (
+                  <li key={key}>
+                    <div className={styles.statValue}>{value}</div>
+                    <div className={styles.statKey}>{key}</div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {stats.note ? (
+              <span className={styles.statNote}>{stats.note}</span>
+            ) : null}
           </section>
 
           <section

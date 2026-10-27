@@ -100,11 +100,10 @@ describe('landing page sections', () => {
   it('renders the story sections with stats, flow steps and activity copy', () => {
     const html = renderJourney();
 
-    expect(html).toContain('공개 프로그램');
-    expect(html).toContain('공개 저장소');
-    expect(html).toContain('공개 기여자');
+    expect(html).not.toContain('공개 프로그램');
+    expect(html).not.toContain('예시 데이터 기준');
     expect(html.match(/STEP \d/g)).toHaveLength(4);
-    expect(html).toContain('모든 활동은 프로그램 단위로 묶입니다');
+    expect(html).toContain('모든 활동은 프로그램\u00a0단위로 묶입니다');
     expect(html).toContain(
       '경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은 학생, 저장소와 연결되어 관리됩니다.',
     );

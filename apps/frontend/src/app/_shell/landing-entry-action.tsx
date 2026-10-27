@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, LoaderCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GitHubMark } from '@/components/github-mark';
 import { cn } from '@/lib/utils';
@@ -31,15 +31,6 @@ export function LandingEntryActionView({
     inverted && 'bg-background text-primary hover:bg-background/90',
   );
 
-  if (status === 'loading') {
-    return (
-      <Button className={className} size="lg" disabled aria-busy="true">
-        <LoaderCircle className="animate-spin" aria-hidden="true" />
-        세션 확인 중
-      </Button>
-    );
-  }
-
   const signInButton = (
     <Button asChild className={className} size="lg">
       <GitHubSignInLink
@@ -54,7 +45,7 @@ export function LandingEntryActionView({
     </Button>
   );
 
-  if (status === 'anonymous') return signInButton;
+  if (status === 'loading' || status === 'anonymous') return signInButton;
 
   if (status === 'error') {
     return (

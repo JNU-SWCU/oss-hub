@@ -154,7 +154,7 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   const dy = new Float64Array(n);
   const dz = new Float64Array(n);
 
-  const weights = { rs: 1.85, sp: 1.0, ss: 0.32 } as const;
+  const weights = { rs: 1.0, sp: 0.8, ss: 0.32 } as const;
   const k2 = k * k;
   const ITER = 240;
 
@@ -245,12 +245,12 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   }
   const sorted = Array.from(radii).sort((a, b) => a - b);
   const p92 = sorted[Math.floor(n * 0.92)] || 1;
-  const scale = 0.82 / p92;
+  const scale = 0.95 / p92;
   for (let i = 0; i < n; i += 1) {
     const node = nodes[i];
     if (!node) continue;
     node.x = px[i] * scale;
-    node.y = py[i] * scale * 0.88;
+    node.y = py[i] * scale;
     node.z = pz[i] * scale;
   }
 }

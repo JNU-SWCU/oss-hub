@@ -4,13 +4,18 @@ import { githubLoginPath } from '@/features/auth/login-paths';
 import { LandingEntryActionView } from './landing-entry-action';
 
 describe('LandingEntryActionView', () => {
-  it('shows only a loading status while the session is loading', () => {
+  it('shows the GitHub sign-in button while the session is still loading', () => {
     const html = renderToStaticMarkup(
       <LandingEntryActionView status="loading" isProfileComplete={false} />,
     );
 
-    expect(html).toContain('세션 확인 중');
-    expect(html).not.toContain(githubLoginPath);
+    expect(html).toContain(`href="${githubLoginPath}"`);
+    expect(html).toContain('시작하기');
+    expect(html).toContain('aria-label="GitHub으로 시작하기"');
+    expect(html).not.toContain('세션 확인 중');
+    expect(html).not.toContain('animate-spin');
+    expect(html).not.toContain('aria-busy');
+    expect(html).not.toContain('<button');
   });
 
   it('sends an anonymous visitor straight to GitHub sign-in', () => {

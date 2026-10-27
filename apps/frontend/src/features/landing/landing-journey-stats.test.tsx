@@ -43,9 +43,12 @@ const PUBLIC_GRAPH = graphOf('public', [
   'student',
 ]);
 
-function renderWith(completeness: LandingGraphCompleteness): string {
+function renderWith(
+  completeness: LandingGraphCompleteness,
+  graph: LandingGraph = PUBLIC_GRAPH,
+): string {
   mocks.useLandingGraph.mockReturnValue({
-    graph: PUBLIC_GRAPH,
+    graph,
     completeness,
     programs: [],
   });
@@ -58,16 +61,16 @@ const statValue = (html: string, key: string): string | undefined =>
   new RegExp(`>([^<>]*)</div><div[^>]*>${key}</div>`).exec(html)?.[1];
 
 describe('LandingJourney program story stats', () => {
-  it('renders the contributor slot as pending and badges 일부 집계 when the graph is partial', () => {
+  it('omits the contributor slot and badges 일부 집계 when the graph is partial', () => {
     const html = renderWith('partial');
-
-    expect(statValue(html, '공개 기여자')).toBe('집계 중');
-    expect(html).toContain('data-pending="true"');
-    expect(html).toContain('일부 집계');
-    expect(html).not.toContain('공개 아카이브 기준');
 
     expect(statValue(html, '공개 프로그램')).toBe('1');
     expect(statValue(html, '공개 저장소')).toBe('2');
+    expect(html).not.toContain('공개 기여자');
+    expect(html).not.toContain('집계 중');
+    expect(html).not.toContain('data-pending');
+    expect(html).toContain('일부 집계');
+    expect(html).not.toContain('공개 아카이브 기준');
   });
 
   it('renders exact counts under 공개 아카이브 기준 when the graph is complete', () => {
@@ -76,5 +79,17 @@ describe('LandingJourney program story stats', () => {
     expect(statValue(html, '공개 기여자')).toBe('2');
     expect(html).toContain('공개 아카이브 기준');
     expect(html).not.toContain('일부 집계');
+  });
+
+  it('renders no stats row and no note when nothing has been counted', () => {
+    const html = renderWith('complete', graphOf('public', []));
+
+    expect(html).not.toContain('<ul');
+    expect(html).not.toContain('공개 프로그램');
+    expect(html).not.toContain('공개 저장소');
+    expect(html).not.toContain('공개 기여자');
+    expect(html).not.toContain('집계');
+    expect(html).not.toContain('공개 아카이브 기준');
+    expect(html).not.toContain('예시 데이터 기준');
   });
 });

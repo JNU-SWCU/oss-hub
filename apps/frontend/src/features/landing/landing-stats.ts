@@ -1,56 +1,41 @@
 import type {
   LandingGraph,
   LandingGraphCompleteness,
+  LandingGraphNodeKind,
 } from './landing-overview';
 
+interface LandingStatItem {
+  readonly key: string;
+  readonly value: string;
+}
+
 export interface LandingStatsDisplay {
-  readonly programs: string;
-  readonly repositories: string;
-  readonly students: string;
-
-  readonly note: string;
+  readonly items: readonly LandingStatItem[];
+  readonly note: string | null;
 }
 
-interface GraphCounts {
-  readonly programs: number;
-  readonly repositories: number;
-  readonly students: number;
-}
-
-const COUNT_PENDING = '집계 중';
-
-function formatCount(value: number): string {
-  return value > 0 ? String(value) : COUNT_PENDING;
-}
-
-function countByKind(graph: LandingGraph): GraphCounts {
-  return {
-    programs: graph.nodes.filter((node) => node.kind === 'program').length,
-    repositories: graph.nodes.filter((node) => node.kind === 'repository')
-      .length,
-    students: graph.nodes.filter((node) => node.kind === 'student').length,
-  };
+function countByKind(graph: LandingGraph, kind: LandingGraphNodeKind): number {
+  return graph.nodes.filter((node) => node.kind === kind).length;
 }
 
 export function deriveLandingStats(
   graph: LandingGraph,
   completeness: LandingGraphCompleteness,
 ): LandingStatsDisplay {
-  const counts = countByKind(graph);
-  const hasCounts = counts.programs + counts.repositories + counts.students > 0;
-
+  if (graph.source !== 'public') return { items: [], note: null };
   const isPartial = completeness === 'partial';
+  const counts: readonly (readonly [string, number | null])[] = [
+    ['공개 프로그램', countByKind(graph, 'program')],
+    ['공개 저장소', countByKind(graph, 'repository')],
+    ['공개 기여자', isPartial ? null : countByKind(graph, 'student')],
+  ];
+  const items = counts.flatMap(([key, count]) =>
+    count ? [{ key, value: String(count) }] : [],
+  );
+  if (items.length === 0) return { items, note: null };
 
   return {
-    programs: formatCount(counts.programs),
-    repositories: formatCount(counts.repositories),
-    students: isPartial ? COUNT_PENDING : formatCount(counts.students),
-    note: !hasCounts
-      ? '공개 집계 준비 중'
-      : isPartial
-        ? '일부 집계'
-        : graph.source === 'public'
-          ? '공개 아카이브 기준'
-          : '예시 데이터 기준',
+    items,
+    note: isPartial ? '일부 집계' : '공개 아카이브 기준',
   };
 }
