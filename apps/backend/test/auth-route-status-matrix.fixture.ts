@@ -54,6 +54,16 @@ export const AUTH_ROUTE_STATUS_CASES = {
   },
   '/api/v1/health': { anonymous: 200, authenticated: 200, expired: 200 },
   '/api/v1/programs': { anonymous: 200, authenticated: 200, expired: 200 },
+  '/api/v1/programs?status=current&year=2027': {
+    anonymous: 200,
+    authenticated: 200,
+    expired: 200,
+  },
+  '/api/v1/programs/ended-years': {
+    anonymous: 200,
+    authenticated: 200,
+    expired: 200,
+  },
   '/api/v1/programs/status-counts': {
     anonymous: 200,
     authenticated: 200,
@@ -90,6 +100,7 @@ export class AuthRouteStatusHarness {
       getMe: jest.fn().mockResolvedValue(syntheticUser),
     };
     const programsService = {
+      endedYears: jest.fn().mockResolvedValue([2027, 2026]),
       list: jest.fn().mockResolvedValue({
         items: [],
         page: 1,
@@ -262,6 +273,14 @@ export class AuthRouteStatusHarness {
           ? { connection: 'close' }
           : { connection: 'close', cookie },
       redirect: 'manual',
-    }).then((response) => response.status);
+    }).then((response) => {
+      if (
+        path === '/api/v1/programs' ||
+        path === '/api/v1/programs/ended-years'
+      ) {
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+      }
+      return response.status;
+    });
   }
 }

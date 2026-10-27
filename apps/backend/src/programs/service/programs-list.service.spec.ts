@@ -304,6 +304,42 @@ describe('ProgramsRepository list', () => {
       },
     });
   });
+
+  it('composes the Seoul year interval with status for count and page rows', async () => {
+    queryRaw.mockResolvedValue([]);
+    count.mockResolvedValue(0);
+    transaction.mockResolvedValue([[], 0]);
+
+    await repository.listPrograms(
+      {
+        page: 2,
+        pageSize: 10,
+        search: 'Archive',
+        status: 'current',
+        year: 2027,
+      },
+      NOW,
+    );
+
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        lifecycle: 'PUBLISHED',
+        endAt: { gte: NOW },
+        name: { contains: 'Archive', mode: 'insensitive' },
+        AND: [
+          {
+            endAt: {
+              gte: new Date('2026-12-31T15:00:00.000Z'),
+              lt: new Date('2027-12-31T15:00:00.000Z'),
+            },
+          },
+        ],
+      },
+    });
+    expect(queryRaw.mock.calls[0]?.[0].values).toEqual(
+      expect.arrayContaining([2027, '%Archive%', 10]),
+    );
+  });
 });
 
 describe('ProgramsRepository viewer personalization batch queries', () => {

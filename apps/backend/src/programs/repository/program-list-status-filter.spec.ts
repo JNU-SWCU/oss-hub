@@ -2,11 +2,40 @@ import {
   programListOrderBySql,
   programListSortRankSql,
   programListStatusSortRank,
+  programListPrismaWhere,
+  programListSqlWhere,
 } from './program-list-status-filter';
 
 function normalize(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim();
 }
+
+describe('programListSqlWhere archive filters', () => {
+  const now = new Date('2028-01-01T00:00:00.000Z');
+
+  it('composes Seoul end year with status and search as bound parameters', () => {
+    const where = programListSqlWhere('ended', 'Archive', now, 2027);
+
+    expect(normalize(where.sql)).toContain(
+      `EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int = ?`,
+    );
+    expect(where.values).toEqual([now, now, now, 'ended', 2027, '%Archive%']);
+  });
+
+  it('excludes lifecycle and date ended programs from current', () => {
+    const where = programListSqlWhere('current', '', now);
+
+    expect(normalize(where.sql)).toContain(
+      `WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'`,
+    );
+    expect(normalize(where.sql)).toContain(`WHEN p."endAt" < ? THEN 'ended'`);
+    expect(normalize(where.sql)).toContain(`!= 'ended'`);
+    expect(programListPrismaWhere('current', now)).toEqual({
+      lifecycle: 'PUBLISHED',
+      endAt: { gte: now },
+    });
+  });
+});
 
 describe('programListStatusSortRank', () => {
   it('orders 모집중 → 진행중 → 예정 → 종료 (?sort=status 전용 순서)', () => {

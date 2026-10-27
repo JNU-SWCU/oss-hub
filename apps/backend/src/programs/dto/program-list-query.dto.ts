@@ -39,6 +39,13 @@ export class ProgramListQueryRequestDto {
   readonly status: ProgramListQueryStatus = 'all';
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  readonly year?: number;
+
+  @IsOptional()
   @IsIn(PROGRAM_LIST_QUERY_SORTS)
   readonly sort?: ProgramListQuerySort;
 
@@ -52,6 +59,7 @@ export class ProgramListQueryRequestDto {
       pageSize: this.pageSize,
       search: this.search.trim(),
       status: this.status,
+      year: this.year,
       sort: this.sort,
       direction: this.direction,
     };

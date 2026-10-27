@@ -10,6 +10,7 @@ import {
 } from '../../auth/controller/http-auth';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
+import { OPTIONAL_SESSION_ROUTE_METADATA } from '../../auth/controller/auth-route-metadata';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
@@ -83,6 +84,7 @@ describe('ProgramsController read boundaries', () => {
     detail: jest.fn(),
     list: jest.fn(),
     statusCounts: jest.fn(),
+    endedYears: jest.fn(),
   };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
@@ -265,6 +267,58 @@ describe('ProgramsController read boundaries', () => {
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),
     ).toEqual([SessionGuard, OriginGuard]);
   });
+
+  it.each([{ years: [2027, 2026, 2025] }, { years: [] }])(
+    'returns ended years over HTTP before matching the detail route: %j',
+    async ({ years }) => {
+      programs.endedYears.mockResolvedValue(years);
+      const app = moduleRef.createNestApplication();
+      await app.listen(0, '127.0.0.1');
+      try {
+        const response = await fetch(
+          `${await app.getUrl()}/programs/ended-years`,
+        );
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ years });
+        expect(programs.detail).not.toHaveBeenCalled();
+        expect(
+          Reflect.getMetadata(
+            OPTIONAL_SESSION_ROUTE_METADATA,
+            controllerMethod('endedYears'),
+          ),
+        ).toBe(
+          Reflect.getMetadata(
+            OPTIONAL_SESSION_ROUTE_METADATA,
+            controllerMethod('list'),
+          ),
+        );
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each(['1999', '2101', '2026.5', 'invalid', ''])(
+    'rejects invalid list year %s with HTTP 400',
+    async (year) => {
+      const app = moduleRef.createNestApplication();
+      app.useGlobalPipes(
+        new ValidationPipe({ transform: true, whitelist: true }),
+      );
+      await app.listen(0, '127.0.0.1');
+      try {
+        const response = await fetch(
+          `${await app.getUrl()}/programs?year=${year}`,
+        );
+
+        expect(response.status).toBe(400);
+        expect(programs.list).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    },
+  );
 
   it('공개 상세는 익명 viewer만 전달하고 인증·private 조회를 시작하지 않는다', async () => {
     programs.detail.mockResolvedValue({

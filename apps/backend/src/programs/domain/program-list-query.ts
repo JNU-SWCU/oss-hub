@@ -1,5 +1,6 @@
 const PROGRAM_LIST_QUERY_STATUSES = [
   'all',
+  'current',
   'recruiting',
   'in_progress',
   'upcoming',
@@ -25,6 +26,7 @@ interface ProgramListQuery {
   readonly pageSize: number;
   readonly search: string;
   readonly status: ProgramListQueryStatus;
+  readonly year?: number;
 
   readonly sort?: ProgramListQuerySort;
 
