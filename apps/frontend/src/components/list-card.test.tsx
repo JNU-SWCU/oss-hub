@@ -9,31 +9,30 @@ function render(props: Parameters<typeof ListCard>[0]) {
 }
 
 describe('ListCard', () => {
-  for (const cover of [undefined, <div key="cover">cover</div>]) {
-    it(`G6 clamps titles ${cover ? 'with' : 'without'} a cover`, () => {
-      const view = render({ title: '합성 제목', cover });
+  for (const media of [undefined, <div key="media">media</div>]) {
+    it(`G6 clamps titles ${media ? 'with' : 'without'} a media`, () => {
+      const view = render({ title: '합성 제목', media });
       const title = view.querySelector('[data-slot="card-title"]');
       expect(title?.classList.contains('line-clamp-2')).toBe(true);
     });
   }
 
-  it('AC5 lays a cover card out as a poster column beside a padded text column', () => {
+  it('AC5 lays a media card out as a caller-sized media column beside a padded text column', () => {
     const view = render({
       title: '합성 제목',
       subtitle: '합성 주관',
-      cover: <div>cover</div>,
+      media: <div>media</div>,
       meta: '2026.01 ~ 2026.12',
       href: '/programs/synthetic',
     });
     const card = view.querySelector('[data-slot="list-card"]');
     for (const className of [
       'grid',
-      'grid-cols-[88px_minmax(0,1fr)]',
+      'grid-cols-[auto_minmax(0,1fr)]',
       'grid-rows-[auto_1fr_auto]',
       'gap-x-3',
       'gap-y-1',
       'p-(--card-spacing)',
-      '[--card-spacing:--spacing(3)]',
     ]) {
       expect(card?.classList.contains(className), className).toBe(true);
     }
@@ -41,15 +40,15 @@ describe('ListCard', () => {
       Array.from(card?.classList ?? []).filter((className) =>
         className.includes('grid-cols-'),
       ),
-    ).toEqual(['grid-cols-[88px_minmax(0,1fr)]']);
+    ).toEqual(['grid-cols-[auto_minmax(0,1fr)]']);
     for (const className of ['flex', 'py-(--card-spacing)', 'pt-0']) {
       expect(card?.classList.contains(className), className).toBe(false);
     }
-    const coverSlot = view.querySelector('[data-slot="list-card-cover"]');
-    expect(coverSlot?.previousElementSibling).toBeNull();
-    expect(coverSlot?.classList.contains('row-span-full')).toBe(true);
-    expect(coverSlot?.classList.contains('self-start')).toBe(true);
-    expect(coverSlot?.firstElementChild?.textContent).toBe('cover');
+    const mediaSlot = view.querySelector('[data-slot="list-card-media"]');
+    expect(mediaSlot?.previousElementSibling).toBeNull();
+    expect(mediaSlot?.classList.contains('row-span-full')).toBe(true);
+    expect(mediaSlot?.classList.contains('self-start')).toBe(true);
+    expect(mediaSlot?.firstElementChild?.textContent).toBe('media');
     for (const slot of [
       'card-header',
       'card-content',
@@ -77,7 +76,7 @@ describe('ListCard', () => {
     ).toBe(true);
   });
 
-  it('AC7 keeps non-cover cards as padded flex columns without reserved rows', () => {
+  it('AC7 keeps non-media cards compact without reserved title rows', () => {
     const view = render({
       title: '합성 제목',
       meta: '2026.01',
@@ -88,9 +87,9 @@ describe('ListCard', () => {
     expect(card?.classList.contains('grid')).toBe(false);
     expect(card?.classList.contains('py-(--card-spacing)')).toBe(true);
     expect(card?.classList.contains('[--card-spacing:--spacing(3)]')).toBe(
-      false,
+      true,
     );
-    expect(view.querySelector('[data-slot="list-card-cover"]')).toBeNull();
+    expect(view.querySelector('[data-slot="list-card-media"]')).toBeNull();
     for (const slot of [
       'card-header',
       'card-content',
@@ -106,6 +105,35 @@ describe('ListCard', () => {
     const content = view.querySelector('[data-slot="card-content"]');
     expect(title?.classList.contains('min-h-[2lh]')).toBe(false);
     expect(content?.children).toHaveLength(1);
+  });
+
+  it('keeps labeled details inline and unlabeled summaries as blocks', () => {
+    const view = render({
+      title: '합성 프로젝트',
+      details: [
+        { label: '저장소', value: <code>oss-public</code> },
+        {
+          value: (
+            <dl>
+              <dt>Commit</dt>
+              <dd>5</dd>
+            </dl>
+          ),
+        },
+      ],
+    });
+    const rows = view.querySelector('[data-slot="card-content"]')
+      ?.firstElementChild?.children;
+    const labeled = rows?.[0];
+    expect(labeled?.textContent).toBe('저장소 oss-public');
+    expect(labeled?.querySelector('div')).toBeNull();
+    expect(
+      labeled?.firstElementChild?.classList.contains('text-muted-foreground'),
+    ).toBe(true);
+    expect(labeled?.lastElementChild?.querySelector('code')?.textContent).toBe(
+      'oss-public',
+    );
+    expect(rows?.[1].querySelector('div > dl')?.textContent).toBe('Commit5');
   });
 
   it('makes the whole card one link without nested interactive controls', () => {

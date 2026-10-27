@@ -1,7 +1,11 @@
-import { ListCard } from '@/components/list-card';
-import { ProgramCover } from '@/components/program/program-cover';
+import { ListCard, ListCardSkeleton } from '@/components/list-card';
+import {
+  ProgramCover,
+  programCoverCardFrame,
+} from '@/components/program/program-cover';
 import { programCoverSource } from '@/components/program/program-cover-source';
 import * as React from 'react';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import type { VariantProps } from 'class-variance-authority';
 
 import { statusBadgeVariants } from '@/components/status-badge';
@@ -96,7 +100,11 @@ function ProgramCard({
       subtitle={category}
       badge={{ text: badgeText, variant: STATUS_BADGE_VARIANT[status] }}
       statusDescription={srStatusPrefix}
-      cover={<ProgramCover src={programCoverSource(coverImageUrl)} />}
+      media={
+        <div data-slot="list-card-cover" className="w-[88px]">
+          <ProgramCover src={programCoverSource(coverImageUrl)} />
+        </div>
+      }
       meta={period}
       note={
         note ? (
@@ -107,6 +115,18 @@ function ProgramCard({
         ) : undefined
       }
       href={href}
+    />
+  );
+}
+
+export function ProgramCardSkeleton() {
+  return (
+    <ListCardSkeleton
+      media={
+        <div data-slot="list-card-cover" className="w-[88px]">
+          <SkeletonBlock className={programCoverCardFrame} />
+        </div>
+      }
     />
   );
 }

@@ -241,7 +241,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
         'h-full',
         'min-h-[170px]',
         'grid',
-        'grid-cols-[88px_minmax(0,1fr)]',
+        'grid-cols-[auto_minmax(0,1fr)]',
       ]) {
         expect(card.classList.contains(className), className).toBe(true);
       }
