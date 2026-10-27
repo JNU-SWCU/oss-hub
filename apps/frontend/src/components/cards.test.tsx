@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CardGrid } from './card-grid';
+import { Card } from './ui/card';
 import { ProgramCard } from '@/features/programs/catalog/program-card';
 import { StatusBadge } from './status-badge';
 import { EmptyState } from './empty-state';
@@ -30,6 +31,13 @@ describe('card components', () => {
     expect(html).toContain('캡스톤 디자인 경진대회');
     expect(html).toContain('모집중');
     expect(html).toContain('마감');
+  });
+
+  it('positions the Card root so absolute descendants (sr-only) stay inside it', () => {
+    const html = renderToStaticMarkup(<Card>본문</Card>);
+    const match = /data-slot="card"[^>]*class="([^"]*)"/.exec(html);
+    expect(match).not.toBeNull();
+    expect((match?.[1] ?? '').split(' ')).toContain('relative');
   });
 
   it('renders all StatusBadge variants without throwing', () => {
@@ -67,6 +75,32 @@ describe('card components', () => {
     expect(html.match(/<a\b/g)).toHaveLength(1);
     expect(html).toContain('JNU SWCU');
     expect(html).toContain('자세히 ›');
+  });
+
+  it('AC5 gives ProgramCard a compact poster-beside-text grid with a reserved clamped title', () => {
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        title="합성 프로그램"
+        category="합성 주관"
+        period="2026.01 ~ 2026.12"
+        status="recruiting"
+        badgeText="모집중"
+        href="/programs/synthetic"
+      />,
+    );
+    const classes =
+      /data-slot="program-card"[^>]*class="([^"]*)"/
+        .exec(html)?.[1]
+        .split(' ') ?? [];
+    expect(classes).toContain('[--card-spacing:--spacing(3)]');
+    expect(classes).toContain('grid');
+    expect(classes).toContain('grid-cols-[88px_minmax(0,1fr)]');
+    expect(html).toContain('data-slot="list-card-cover"');
+    expect(html).toContain('aspect-[1/1.414]');
+    expect(html).not.toContain('aspect-video');
+    expect(html).toContain('line-clamp-2');
+    expect(html).toContain('min-h-[2lh]');
+    expect(html).toContain('mt-auto');
   });
 
   it('renders a large StatusBadge for prominent card status', () => {

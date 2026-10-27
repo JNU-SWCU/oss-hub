@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CardGrid } from './card-grid';
 
 describe('CardGrid', () => {
-  it('preserves its bounded layout contract while merging custom classes', () => {
+  it('H1 uses RAM tracks without fixed children while merging custom classes', () => {
     const children = [
       <article key="first">첫 번째 프로그램</article>,
       <article key="second">두 번째 프로그램</article>,
@@ -24,10 +24,12 @@ describe('CardGrid', () => {
     expect(classes).not.toContain('gap-4');
     expect(classes).toContain('[&amp;&gt;*]:min-h-tile');
     expect(classes).toContain(
-      '[grid-template-columns:repeat(auto-fill,minmax(min(18rem,100%),max-content))]',
+      '[grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr))]',
     );
-    expect(classes).toContain('[&amp;&gt;*]:w-[22rem]');
-    expect(classes).toContain('[&amp;&gt;*]:max-w-full');
+    expect(html).not.toContain('w-[22rem]');
+    expect(html).not.toContain('max-content');
+    expect(html).not.toContain('container-type');
+    expect(classes).toContain('[&amp;&gt;*]:min-w-0');
     expect(html.indexOf('첫 번째 프로그램')).toBeLessThan(
       html.indexOf('두 번째 프로그램'),
     );

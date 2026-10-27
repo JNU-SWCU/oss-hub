@@ -73,6 +73,12 @@ function mockSession(
   });
 }
 
+function mainContentClasses(html: string): readonly string[] {
+  const match = /id="main-content"[^>]*class="([^"]*)"/.exec(html);
+  if (match === null) throw new Error('#main-content missing');
+  return (match[1] ?? '').split(' ');
+}
+
 function render(pathname: string) {
   mocks.usePathname.mockReturnValue(pathname);
   mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
@@ -234,6 +240,25 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     mockSession();
     const html = render('/programs/prog-1');
     expect(html).toMatch(/id="main-content"[^>]*overflow-y-auto/);
+  });
+
+  it('사이드바 셸의 #main-content는 relative 스크롤 컨테이너다(absolute 자손의 containing block)', () => {
+    mockSession();
+    for (const pathname of ['/programs', '/programs/prog-1', '/dashboard']) {
+      const classes = mainContentClasses(render(pathname));
+      expect(classes, pathname).toContain('relative');
+      expect(classes, pathname).toContain('overflow-y-auto');
+    }
+  });
+
+  it('사이드바 없는 셸(section null)의 #main-content도 relative 스크롤 컨테이너다', () => {
+    mockSession();
+    const html = render('/profile/synthetic-user');
+    expect(html).not.toContain('data-slot="product-shell"');
+    expect(html).not.toContain('data-slot="app-sidebar"');
+    const classes = mainContentClasses(html);
+    expect(classes).toContain('relative');
+    expect(classes).toContain('overflow-y-auto');
   });
 
   it('/dashboard 등 다른 섹션은 랭킹 시계를 그리지 않는다', () => {

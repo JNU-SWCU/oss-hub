@@ -9,6 +9,105 @@ function render(props: Parameters<typeof ListCard>[0]) {
 }
 
 describe('ListCard', () => {
+  for (const cover of [undefined, <div key="cover">cover</div>]) {
+    it(`G6 clamps titles ${cover ? 'with' : 'without'} a cover`, () => {
+      const view = render({ title: '합성 제목', cover });
+      const title = view.querySelector('[data-slot="card-title"]');
+      expect(title?.classList.contains('line-clamp-2')).toBe(true);
+    });
+  }
+
+  it('AC5 lays a cover card out as a poster column beside a padded text column', () => {
+    const view = render({
+      title: '합성 제목',
+      subtitle: '합성 주관',
+      cover: <div>cover</div>,
+      meta: '2026.01 ~ 2026.12',
+      href: '/programs/synthetic',
+    });
+    const card = view.querySelector('[data-slot="list-card"]');
+    for (const className of [
+      'grid',
+      'grid-cols-[88px_minmax(0,1fr)]',
+      'grid-rows-[auto_1fr_auto]',
+      'gap-x-3',
+      'gap-y-1',
+      'p-(--card-spacing)',
+      '[--card-spacing:--spacing(3)]',
+    ]) {
+      expect(card?.classList.contains(className), className).toBe(true);
+    }
+    expect(
+      Array.from(card?.classList ?? []).filter((className) =>
+        className.includes('grid-cols-'),
+      ),
+    ).toEqual(['grid-cols-[88px_minmax(0,1fr)]']);
+    for (const className of ['flex', 'py-(--card-spacing)', 'pt-0']) {
+      expect(card?.classList.contains(className), className).toBe(false);
+    }
+    const coverSlot = view.querySelector('[data-slot="list-card-cover"]');
+    expect(coverSlot?.previousElementSibling).toBeNull();
+    expect(coverSlot?.classList.contains('row-span-full')).toBe(true);
+    expect(coverSlot?.classList.contains('self-start')).toBe(true);
+    expect(coverSlot?.firstElementChild?.textContent).toBe('cover');
+    for (const slot of [
+      'card-header',
+      'card-content',
+      'list-card-affordance',
+    ]) {
+      const element = view.querySelector(`[data-slot="${slot}"]`);
+      expect(element?.classList.contains('col-start-2'), slot).toBe(true);
+      expect(element?.classList.contains('px-0'), slot).toBe(true);
+      expect(element?.classList.contains('px-(--card-spacing)'), slot).toBe(
+        false,
+      );
+    }
+    const title = view.querySelector('[data-slot="card-title"]');
+    const content = view.querySelector('[data-slot="card-content"]');
+    expect(title?.classList.contains('min-h-[2lh]')).toBe(true);
+    expect(content?.children).toHaveLength(2);
+    expect(content?.lastElementChild?.textContent).toBe('');
+    expect(content?.lastElementChild?.classList.contains('min-h-[1lh]')).toBe(
+      true,
+    );
+    expect(
+      view
+        .querySelector('[data-slot="list-card-affordance"]')
+        ?.classList.contains('mt-auto'),
+    ).toBe(true);
+  });
+
+  it('AC7 keeps non-cover cards as padded flex columns without reserved rows', () => {
+    const view = render({
+      title: '합성 제목',
+      meta: '2026.01',
+      href: '/archive/synthetic',
+    });
+    const card = view.querySelector('[data-slot="list-card"]');
+    expect(card?.classList.contains('flex')).toBe(true);
+    expect(card?.classList.contains('grid')).toBe(false);
+    expect(card?.classList.contains('py-(--card-spacing)')).toBe(true);
+    expect(card?.classList.contains('[--card-spacing:--spacing(3)]')).toBe(
+      false,
+    );
+    expect(view.querySelector('[data-slot="list-card-cover"]')).toBeNull();
+    for (const slot of [
+      'card-header',
+      'card-content',
+      'list-card-affordance',
+    ]) {
+      const element = view.querySelector(`[data-slot="${slot}"]`);
+      expect(element?.classList.contains('px-(--card-spacing)'), slot).toBe(
+        true,
+      );
+      expect(element?.classList.contains('col-start-2'), slot).toBe(false);
+    }
+    const title = view.querySelector('[data-slot="card-title"]');
+    const content = view.querySelector('[data-slot="card-content"]');
+    expect(title?.classList.contains('min-h-[2lh]')).toBe(false);
+    expect(content?.children).toHaveLength(1);
+  });
+
   it('makes the whole card one link without nested interactive controls', () => {
     const view = render({
       title: '합성 프로젝트',
@@ -23,6 +122,18 @@ describe('ListCard', () => {
     expect(view.querySelectorAll('a, button, [tabindex]')).toHaveLength(1);
     expect(link?.textContent).toContain('합성 프로젝트');
     expect(link?.querySelector('time')?.dateTime).toBe('2026-09-01');
+  });
+
+  it('keeps the sr-only status span inside a positioned card root', () => {
+    const view = render({
+      title: '합성 프로그램',
+      badge: { text: '모집중', variant: 'recruiting' },
+      statusDescription: '상태: 모집중. ',
+      href: '/programs/synthetic',
+    });
+    const root = view.querySelector('[data-slot="list-card"]');
+    expect(root?.classList.contains('relative')).toBe(true);
+    expect(root?.querySelector('.sr-only')?.textContent).toBe('상태: 모집중. ');
   });
 
   it('omits absent badge, subtitle, metadata and action rows', () => {

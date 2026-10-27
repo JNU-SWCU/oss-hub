@@ -12,6 +12,27 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+export const listCardClasses = {
+  root: 'h-full min-h-[170px] min-w-0 break-keep [overflow-wrap:anywhere]',
+  header: 'min-w-0 gap-1.5',
+  title: 'line-clamp-2',
+  content: 'grid min-w-0 gap-2 text-small',
+  meta: 'text-muted-foreground tabular-nums',
+  note: 'font-semibold text-accent',
+  affordance:
+    'mt-auto flex justify-end px-(--card-spacing) text-small font-semibold text-primary',
+} as const;
+
+export const listCardCoverClasses = {
+  root: 'grid grid-cols-[88px_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-3 gap-y-1 p-(--card-spacing) [--card-spacing:--spacing(3)]',
+  cover: 'col-start-1 row-span-full self-start',
+  header: 'col-start-2 px-0',
+  title: 'min-h-[2lh]',
+  content: 'col-start-2 px-0',
+  note: 'min-h-[1lh]',
+  affordance: 'col-start-2 px-0',
+} as const;
+
 export interface ListCardProps extends Omit<
   ComponentProps<'div'>,
   'title' | 'children'
@@ -56,8 +77,8 @@ export function ListCard({
     <Card
       data-slot="list-card"
       className={cn(
-        'h-full min-h-[170px] min-w-0 break-keep [overflow-wrap:anywhere]',
-        cover && 'pt-0',
+        listCardClasses.root,
+        cover && listCardCoverClasses.root,
         href
           ? 'cursor-pointer transition-[box-shadow] duration-150 hover:ring-ring hover:shadow-[0_2px_8px_rgba(0,26,77,0.08)] motion-reduce:transition-none'
           : 'cursor-default',
@@ -65,8 +86,17 @@ export function ListCard({
       )}
       {...props}
     >
-      {cover}
-      <CardHeader className="min-w-0 gap-1.5">
+      {cover ? (
+        <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
+          {cover}
+        </div>
+      ) : null}
+      <CardHeader
+        className={cn(
+          listCardClasses.header,
+          cover && listCardCoverClasses.header,
+        )}
+      >
         {badge ? (
           <CardAction>
             <StatusBadge
@@ -80,18 +110,26 @@ export function ListCard({
           </CardAction>
         ) : null}
         {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
-        <CardTitle>
+        <CardTitle
+          className={cn(
+            listCardClasses.title,
+            cover && listCardCoverClasses.title,
+          )}
+        >
           {statusDescription ? (
             <span className="sr-only">{statusDescription}</span>
           ) : null}
           {title}
         </CardTitle>
       </CardHeader>
-      {meta || note || details?.length ? (
-        <CardContent className="grid min-w-0 gap-2 text-small">
-          {meta ? (
-            <div className="text-muted-foreground tabular-nums">{meta}</div>
-          ) : null}
+      {cover || meta || note || details?.length ? (
+        <CardContent
+          className={cn(
+            listCardClasses.content,
+            cover && listCardCoverClasses.content,
+          )}
+        >
+          {meta ? <div className={listCardClasses.meta}>{meta}</div> : null}
           {details?.length ? (
             <div className="grid gap-4">
               {details.map(({ label, value }, index) => (
@@ -104,8 +142,15 @@ export function ListCard({
               ))}
             </div>
           ) : null}
-          {note ? (
-            <div className="font-semibold text-accent">{note}</div>
+          {cover || note ? (
+            <div
+              className={cn(
+                listCardClasses.note,
+                cover && listCardCoverClasses.note,
+              )}
+            >
+              {note}
+            </div>
           ) : null}
         </CardContent>
       ) : null}
@@ -113,7 +158,10 @@ export function ListCard({
         <div
           data-slot="list-card-affordance"
           aria-hidden="true"
-          className="mt-auto flex justify-end px-(--card-spacing) text-small font-semibold text-primary"
+          className={cn(
+            listCardClasses.affordance,
+            cover && listCardCoverClasses.affordance,
+          )}
         >
           자세히 ›
         </div>
