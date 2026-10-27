@@ -182,10 +182,10 @@ export function ProductShell({
           className={cn(
             'grid min-h-0 flex-1 grid-cols-1',
 
-            'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
+            'shell:transition-[grid-template-columns] motion-reduce:transition-none',
             collapsed
-              ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
-              : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
+              ? 'shell:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] shell:duration-[var(--sidebar-collapse-duration)] shell:ease-in'
+              : 'shell:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] shell:duration-[var(--sidebar-expand-duration)] shell:ease-out',
           )}
         >
           {programDetailId ? (

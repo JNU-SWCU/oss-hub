@@ -43,8 +43,8 @@ export function ProgramScopeSidebar({
       data-breakpoint-visibility="desktop"
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
-        'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
-        'border-sidebar-border bg-sidebar min-[900px]:border-r',
+        'hidden shell:flex shell:h-full shell:min-h-0 shell:flex-col shell:overflow-hidden',
+        'border-sidebar-border bg-sidebar shell:border-r',
       )}
     >
       <div
@@ -84,7 +84,7 @@ export function ProgramScopeSidebar({
           <ShellIcon
             name="chevronLeft"
             className={cn(
-              'size-[18px] shrink-0 transition-transform',
+              'size-sidebar-icon shrink-0 transition-transform',
               collapsed && 'rotate-180',
             )}
           />

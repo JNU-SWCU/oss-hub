@@ -60,7 +60,7 @@ function NavBar({
 
           className={cn(
             'shrink-0 text-foreground/80 focus-visible:bg-muted focus-visible:text-foreground',
-            'aria-expanded:bg-transparent aria-expanded:text-foreground/80 min-[900px]:hidden',
+            'aria-expanded:bg-transparent aria-expanded:text-foreground/80 shell:hidden',
           )}
         >
           <svg

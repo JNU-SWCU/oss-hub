@@ -74,12 +74,12 @@ export function SidebarDrawer({
   return (
     <div
       data-slot="sidebar-drawer-root"
-      className="fixed inset-0 z-50 min-[900px]:hidden"
+      className="fixed inset-0 z-50 shell:hidden"
     >
       <div
         data-slot="sidebar-drawer-backdrop"
         aria-hidden="true"
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-overlay"
         onClick={onClose}
       />
       <div
@@ -90,7 +90,7 @@ export function SidebarDrawer({
         id={SIDEBAR_DRAWER_DIALOG_ID}
         data-slot="sidebar-drawer"
         className={cn(
-          'border-sidebar-border bg-sidebar relative flex h-full w-[min(85vw,320px)] flex-col border-r',
+          'border-sidebar-border bg-sidebar relative flex h-full w-sidebar-drawer flex-col border-r',
         )}
       >
         <div className="flex h-topbar shrink-0 items-center justify-between gap-3 border-b border-sidebar-border px-4">
@@ -116,7 +116,7 @@ export function SidebarDrawer({
               stroke="currentColor"
               strokeWidth={1.7}
               strokeLinecap="round"
-              className="size-[18px]"
+              className="size-sidebar-icon"
             >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>

@@ -87,7 +87,7 @@ export function ScopeSidebarLink({
         <span
           aria-hidden
           data-slot="program-scope-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
+          className="absolute top-1/2 left-0 h-5 w-sidebar-marker -translate-y-1/2 rounded-full bg-sidebar-current-marker"
         />
       ) : null}
       {depth === 0 || collapsed ? <ShellIcon name={item.icon} /> : null}
@@ -106,7 +106,7 @@ export function ScopeSidebarLink({
         <span
           data-slot="program-scope-sidebar-count"
           className={cn(
-            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
+            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-badge font-semibold tabular-nums text-secondary-foreground',
             current &&
               'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}

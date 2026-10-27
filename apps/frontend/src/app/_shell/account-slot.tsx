@@ -50,7 +50,7 @@ export function AccountSlot() {
         <StatusBadge
           variant="approved"
           data-breakpoint-visibility="mobile"
-          className="hidden min-[480px]:inline-flex min-[900px]:hidden"
+          className="hidden min-[480px]:inline-flex shell:hidden"
           aria-label={`${accountRoles} 권한`}
         >
           권한 {surfaces.length}개
@@ -63,7 +63,7 @@ export function AccountSlot() {
           data-breakpoint-visibility={accountRoles ? 'desktop' : undefined}
           className={
             accountRoles
-              ? 'hidden min-[900px]:inline-flex'
+              ? 'hidden shell:inline-flex'
               : 'hidden min-[480px]:inline-flex'
           }
           aria-label={`${SURFACE_CHIP_LABEL[surface]} 권한`}

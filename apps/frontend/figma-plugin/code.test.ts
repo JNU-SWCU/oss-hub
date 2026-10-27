@@ -412,7 +412,7 @@ describe('figma plugin code.js', () => {
       'Dark',
     ]);
 
-    expect(fake.variables.length).toBe(44 + 23 + 77 + 8);
+    expect(fake.variables.length).toBe(44 + 26 + 77 + 8);
     const primary = fake.variables.find((v) => v.name === 'semantic/primary');
     const navy600 = fake.variables.find((v) => v.name === 'palette/navy/600');
     const navy300 = fake.variables.find((v) => v.name === 'palette/navy/300');

@@ -4,6 +4,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  --breakpoint-shell: 900px;
+}
+
 :root {
   --palette-navy-50: #eef2fb;
   --palette-navy-100: #d6e0f5;
@@ -82,6 +86,8 @@
   --step-landing-step: clamp(15px, 13.7px + 0.09vw, 16px);
   --step-landing-link: clamp(15px, 13.7px + 0.09vw, 16px);
 
+  --measure-3: 3px;
+  --measure-18: 18px;
   --measure-26: 26px;
   --measure-44: 44px;
   --measure-64: 64px;
@@ -89,6 +95,7 @@
   --measure-76: 76px;
   --measure-148: 148px;
   --measure-248: 248px;
+  --measure-320: 320px;
   --measure-1600: 1600px;
 }
 
@@ -176,6 +183,10 @@
   --spacing-topbar: var(--topbar-height);
   --spacing-sidebar-open: var(--sidebar-open-width);
   --spacing-sidebar-collapsed: var(--sidebar-collapsed-width);
+  --spacing-sidebar-icon: var(--sidebar-icon-size);
+  --spacing-sidebar-marker: var(--sidebar-marker-width);
+  --spacing-sidebar-drawer: var(--sidebar-drawer-width);
+  --color-overlay: var(--overlay);
   --text-page: var(--step-page);
   --text-section: var(--step-section);
   --text-body: var(--step-body);
@@ -257,6 +268,10 @@
   --landing-content-width: var(--measure-1600);
   --sidebar-expand-duration: 200ms;
   --sidebar-collapse-duration: 140ms;
+  --sidebar-icon-size: var(--measure-18);
+  --sidebar-marker-width: var(--measure-3);
+  --sidebar-drawer-width: min(85vw, var(--measure-320));
+  --overlay: color-mix(in oklch, var(--palette-black) 50%, transparent);
 
   --status-recruiting-bg: var(--palette-navy-50);
   --status-recruiting-fg: var(--palette-navy-700);

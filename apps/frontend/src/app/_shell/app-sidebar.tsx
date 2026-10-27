@@ -62,8 +62,8 @@ export function AppSidebar({
       data-breakpoint-visibility="desktop"
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
-        'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
-        'border-sidebar-border bg-sidebar min-[900px]:border-r',
+        'hidden shell:flex shell:h-full shell:min-h-0 shell:flex-col shell:overflow-hidden',
+        'border-sidebar-border bg-sidebar shell:border-r',
       )}
     >
       <div
@@ -95,7 +95,7 @@ export function AppSidebar({
           <ShellIcon
             name="chevronLeft"
             className={cn(
-              'size-[18px] shrink-0 transition-transform',
+              'size-sidebar-icon shrink-0 transition-transform',
               collapsed && 'rotate-180',
             )}
           />
@@ -232,7 +232,7 @@ function SidebarLink({
         <span
           aria-hidden
           data-slot="app-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
+          className="absolute top-1/2 left-0 h-5 w-sidebar-marker -translate-y-1/2 rounded-full bg-sidebar-current-marker"
         />
       ) : null}
       <ShellIcon name={item.icon} />
@@ -243,7 +243,7 @@ function SidebarLink({
         <span
           data-slot="app-sidebar-count"
           className={cn(
-            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
+            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-badge font-semibold tabular-nums text-secondary-foreground',
             current &&
               'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}
