@@ -52,6 +52,7 @@ function NavBar({
           variant="ghost"
           size="icon"
           data-slot="nav-bar-sidebar-drawer-trigger"
+          data-breakpoint-visibility="mobile"
           aria-label="사이드바 메뉴 열기"
           aria-expanded={sidebarDrawerOpen ?? false}
           aria-controls={sidebarDrawerId}
@@ -90,6 +91,7 @@ function NavBar({
       <details
         key={menuResetKey}
         data-slot="nav-bar-menu"
+        data-breakpoint-visibility="narrow"
         className="group relative min-w-0 flex-1 max-[480px]:static min-[640px]:hidden"
 
         onKeyDown={(event) => {
@@ -157,6 +159,7 @@ function NavBar({
       </details>
       <ul
         data-slot="nav-bar-items"
+        data-breakpoint-visibility="wide"
         className="hidden min-w-0 flex-1 items-center gap-0 min-[640px]:flex sm:gap-1"
       >
         {items.map((item) => (

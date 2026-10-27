@@ -170,13 +170,13 @@ describe('AppFrame', () => {
     }
   });
 
-  it('900px 미만 사이드바 드로어 토글은 세션과 무관하게 렌더되고 min-[900px]:hidden이다', () => {
+  it('셸 브레이크포인트 미만 사이드바 드로어 토글은 세션과 무관하게 렌더되고 모바일 전용이다', () => {
     const html = render('/dashboard');
     const trigger = html.match(
       /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
     )?.[0];
     expect(trigger).toBeDefined();
-    expect(trigger).toContain('min-[900px]:hidden');
+    expect(trigger).toContain('data-breakpoint-visibility="mobile"');
     expect(trigger).toContain('aria-expanded="false"');
     expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
   });
@@ -217,10 +217,10 @@ describe('AppFrame', () => {
     },
   );
 
-  it('회원 셸 그리드는 사이드바 토큰을 쓴다', () => {
+  it('회원 셸 그리드는 펼친 사이드바 상태로 렌더된다', () => {
     const html = render('/dashboard');
-    expect(html).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+    expect(html).toMatch(
+      /data-slot="product-shell"[^>]*data-collapsed="false"/,
     );
   });
 

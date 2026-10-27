@@ -76,7 +76,9 @@ function renderWithCounts(collapsed: boolean) {
 describe('AppSidebar', () => {
   it('is desktop-only and keeps filters flat with distinct icons', () => {
     const html = render('/programs', false);
-    expect(html).toContain('hidden min-[900px]:flex');
+    expect(html).toMatch(
+      /data-slot="app-sidebar"[^>]*data-breakpoint-visibility="desktop"/,
+    );
     expect(html).toContain('프로그램 메뉴');
     expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
     expect(html).toContain('data-depth="0"');

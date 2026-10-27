@@ -221,17 +221,14 @@ describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프
     expect(html).not.toContain('data-slot="program-scope-sidebar-count"');
   });
 
-  it('회원 셸 그리드는 두 사이드바가 같은 사이드바 폭 토큰을 쓴다', () => {
+  it('회원 셸 그리드는 두 사이드바 모두 같은 펼침 상태로 렌더된다', () => {
     mockSession();
     const listHtml = render('/programs');
     const scopeHtml = render('/programs/prog-1');
+    const shellOpen = /data-slot="product-shell"[^>]*data-collapsed="false"/;
 
-    expect(listHtml).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
-    );
-    expect(scopeHtml).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
-    );
+    expect(listHtml).toMatch(shellOpen);
+    expect(scopeHtml).toMatch(shellOpen);
   });
 
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {

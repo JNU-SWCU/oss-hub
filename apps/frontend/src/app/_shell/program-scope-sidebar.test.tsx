@@ -116,7 +116,9 @@ describe('ProgramScopeSidebar', () => {
 
   it('is desktop-only, same shell as AppSidebar', () => {
     const html = render();
-    expect(html).toContain('hidden min-[900px]:flex');
+    expect(html).toMatch(
+      /data-slot="program-scope-sidebar"[^>]*data-breakpoint-visibility="desktop"/,
+    );
     expect(html).not.toContain('sticky');
     expect(html).not.toContain('100dvh-3.5rem');
     expect(html).toContain('min-h-0');

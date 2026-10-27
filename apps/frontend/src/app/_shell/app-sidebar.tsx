@@ -59,6 +59,7 @@ export function AppSidebar({
   return (
     <aside
       data-slot="app-sidebar"
+      data-breakpoint-visibility="desktop"
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
         'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
