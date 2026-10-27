@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { ListCard } from './list-card';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { ListCard, type ListCardProps } from './list-card';
 
 function render(props: Parameters<typeof ListCard>[0]) {
   const container = document.createElement('div');
@@ -134,6 +134,49 @@ describe('ListCard', () => {
       'oss-public',
     );
     expect(rows?.[1].querySelector('div > dl')?.textContent).toBe('Commit5');
+  });
+
+  it('renders standalone actions without creating a card link', () => {
+    const view = render({
+      title: '합성 저장소',
+      actions: (
+        <a
+          href="https://github.com/JNU-SWCU/oss-public"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub에서 열기
+        </a>
+      ),
+    });
+    const card = view.querySelector('[data-slot="list-card"]');
+    const actions = card?.querySelector('[data-slot="list-card-actions"]');
+    expect(card?.parentElement?.tagName).toBe('DIV');
+    expect(view.querySelectorAll('a')).toHaveLength(1);
+    expect(actions?.querySelector('a')?.getAttribute('target')).toBe('_blank');
+    expect(actions?.querySelector('a')?.getAttribute('rel')).toBe('noreferrer');
+    expect(actions?.classList.contains('mt-auto')).toBe(true);
+    expect(actions?.classList.contains('justify-end')).toBe(true);
+    expect(actions?.getAttribute('aria-hidden')).toBeNull();
+    expect(
+      card?.querySelector('[data-slot="list-card-affordance"]'),
+    ).toBeNull();
+  });
+
+  it('makes link and actions modes mutually exclusive in the public type', () => {
+    expectTypeOf<{
+      title: string;
+      href: string;
+      actions: string;
+    }>().not.toMatchTypeOf<ListCardProps>();
+    expectTypeOf<{
+      title: string;
+      href: string;
+    }>().toMatchTypeOf<ListCardProps>();
+    expectTypeOf<{
+      title: string;
+      actions: string;
+    }>().toMatchTypeOf<ListCardProps>();
   });
 
   it('makes the whole card one link without nested interactive controls', () => {

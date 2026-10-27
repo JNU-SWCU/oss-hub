@@ -507,6 +507,12 @@ describe('my repositories test fixtures and view', () => {
       <MyRepositoriesView state={{ kind: 'error' }} onRetry={vi.fn()} />,
     );
 
+    expect(readyHtml.match(/data-slot="list-card"/g)).toHaveLength(
+      repositories.items.length,
+    );
+    expect(readyHtml).toContain(
+      'href="https://github.com/JNU-SWCU/oss-personal-ready" target="_blank" rel="noreferrer"',
+    );
     expect(readyHtml).toContain('내 저장소');
     expect(readyHtml).toContain('생성 전');
     expect(readyHtml).toContain('저장소 생성 중');

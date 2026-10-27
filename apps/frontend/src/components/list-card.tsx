@@ -55,11 +55,13 @@ interface ListCardFields extends Omit<
   readonly note?: ReactNode;
 }
 
-export interface ListCardProps extends ListCardFields {
+export type ListCardProps = ListCardFields & {
   readonly title: string;
   readonly subtitle?: string;
-  readonly href?: string;
-}
+} & (
+    | { readonly href?: string; readonly actions?: never }
+    | { readonly href?: never; readonly actions?: ReactNode }
+  );
 
 function ListCardFrame({
   title,
@@ -70,11 +72,13 @@ function ListCardFrame({
   meta,
   details,
   note,
+  actions,
   affordance,
   interactive = false,
   className,
   ...props
 }: ListCardFields & {
+  readonly actions?: ReactNode;
   readonly affordance?: ReactNode;
   readonly interactive?: boolean;
 }) {
@@ -177,14 +181,26 @@ function ListCardFrame({
           {affordance}
         </div>
       ) : null}
+      {actions ? (
+        <div
+          data-slot="list-card-actions"
+          className={cn(
+            'mt-auto flex justify-end px-(--card-spacing)',
+            media && 'col-start-2 px-0',
+          )}
+        >
+          {actions}
+        </div>
+      ) : null}
     </Card>
   );
 }
 
-export function ListCard({ href, ...props }: ListCardProps) {
+export function ListCard({ href, actions, ...props }: ListCardProps) {
   const card = (
     <ListCardFrame
       {...props}
+      actions={actions}
       interactive={Boolean(href)}
       affordance={href ? '자세히 ›' : undefined}
     />
