@@ -1,9 +1,9 @@
 import type { NavItem } from '@/components';
 import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
-import { archiveListHref } from '@/features/archive/types';
+import { archiveListHref } from '@/features/programs/catalog/program-archive-filter';
 import { programHref } from '@/features/programs/program-paths';
 import {
-  PROGRAM_LIST_STATUSES,
+  CURRENT_PROGRAM_LIST_STATUSES,
   type ProgramListStatus,
 } from '@/features/programs/catalog/program-list-options';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
@@ -84,12 +84,17 @@ const PROGRAM_STATUS_ICONS: Readonly<Record<ProgramListStatus, ShellIconName>> =
 export function programSidebarGroup(
   counts?: Partial<Record<ProgramListStatus, number>>,
 ): SidebarGroup {
-  const items: SidebarItem[] = PROGRAM_LIST_STATUSES.map((status) => ({
+  const items: SidebarItem[] = CURRENT_PROGRAM_LIST_STATUSES.map((status) => ({
     label: PROGRAM_LIST_STATUS_LABELS[status],
     href: buildProgramListHref({ status }),
     icon: PROGRAM_STATUS_ICONS[status],
     depth: 0 as const,
-    count: counts?.[status],
+    count:
+      status === 'all' && counts
+        ? (counts.recruiting ?? 0) +
+          (counts.in_progress ?? 0) +
+          (counts.upcoming ?? 0)
+        : counts?.[status],
   }));
   return { label: '프로그램 메뉴', items };
 }

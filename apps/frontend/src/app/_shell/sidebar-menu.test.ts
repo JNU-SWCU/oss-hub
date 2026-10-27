@@ -46,6 +46,7 @@ describe('shellSectionFromPathname', () => {
     expect(shellSectionFromPathname('/programs/new')).toBe('programs');
     expect(shellSectionFromPathname('/programs/x')).toBe('programs');
     expect(shellSectionFromPathname('/archive')).toBe('archive');
+    expect(shellSectionFromPathname('/projects/project-1')).toBeNull();
     expect(shellSectionFromPathname('/ranking')).toBe('ranking');
     expect(shellSectionFromPathname('/dashboard')).toBe('dashboard');
     expect(shellSectionFromPathname('/my-repos')).toBe('dashboard');
@@ -80,7 +81,6 @@ describe('sidebarGroupsFor (context)', () => {
       PROGRAM_LIST_STATUS_LABELS.recruiting,
       PROGRAM_LIST_STATUS_LABELS.in_progress,
       PROGRAM_LIST_STATUS_LABELS.upcoming,
-      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
   });
 
@@ -92,14 +92,29 @@ describe('sidebarGroupsFor (context)', () => {
       PROGRAM_LIST_STATUS_LABELS.recruiting,
       PROGRAM_LIST_STATUS_LABELS.in_progress,
       PROGRAM_LIST_STATUS_LABELS.upcoming,
-      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
     const icons = items.map((i) => i.icon);
     expect(new Set(icons).size).toBe(icons.length);
   });
 
   it('anonymous still sees programs menu', () => {
-    expect(sidebarGroupsFor('programs', null)[0]?.items).toHaveLength(5);
+    expect(sidebarGroupsFor('programs', null)[0]?.items).toHaveLength(4);
+  });
+
+  it('전체 집계는 미종료 상태 세 개만 합산한다', () => {
+    const group = programSidebarGroup({
+      all: 15,
+      recruiting: 3,
+      in_progress: 2,
+      upcoming: 1,
+    });
+    expect(group.items.map(({ count }) => count)).toEqual([6, 3, 2, 1]);
+    expect(group.items.map(({ href }) => href)).toEqual([
+      '/programs',
+      '/programs?status=recruiting',
+      '/programs?status=in_progress',
+      '/programs?status=upcoming',
+    ]);
   });
 
   it('dashboard section is role menus only including activity', () => {

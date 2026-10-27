@@ -19,7 +19,8 @@ const project = {
 async function installRoutes(page: Page) {
   await page.clock.setFixedTime(new Date('2026-09-15T00:00:00.000Z'));
   await page.route('**/api/v1/**', async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
     if (path === '/api/v1/auth/session') {
       await route.fulfill({
         json: {
@@ -52,7 +53,10 @@ async function installRoutes(page: Page) {
               lifecycle: 'PUBLISHED',
               applicationStartAt: '2026-01-01T00:00:00.000Z',
               applicationEndAt: '2026-12-31T00:00:00.000Z',
-              endAt: null,
+              endAt:
+                url.searchParams.get('status') === 'ended'
+                  ? '2026-08-01T00:00:00.000Z'
+                  : null,
               description: '합성 카드 검증',
             },
           ],
@@ -62,7 +66,7 @@ async function installRoutes(page: Page) {
           totalPages: 1,
         },
       });
-    } else if (path === '/api/v1/projects/years') {
+    } else if (path === '/api/v1/programs/ended-years') {
       await route.fulfill({ json: { years: [2026] } });
     } else if (path === '/api/v1/projects') {
       await route.fulfill({
@@ -134,7 +138,7 @@ for (const width of [1440, 390]) {
       readonly headerPadding: string;
     }[] = [];
     for (const [route, slot, detail] of [
-      ['/archive', 'list-card', `/archive/${projectId}`],
+      ['/archive', 'program-card', `/programs/${programId}`],
       ['/programs', 'program-card', `/programs/${programId}`],
     ]) {
       await page.goto(route);
@@ -204,8 +208,8 @@ for (const width of [1440, 390]) {
     );
     expect(
       styles[0].headerPadding,
-      'AC7 archive header uses 12px inline padding',
-    ).toBe('12px');
+      'AC7 archive program header carries no inline padding',
+    ).toBe('0px');
     expect(styles[1].inset, 'AC7 program card uses 12px compact padding').toBe(
       12,
     );

@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
+import {
+  CardGrid,
+  EmptyState,
+  FailureState,
+  FilterChip,
+  FilterChipGroup,
+  PageHeader,
+} from '@/components';
 import { ProgramCard, ProgramCardSkeleton } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -38,14 +45,19 @@ import type {
 import type { ViewerRole } from '../program-contract';
 import { PROGRAM_LIST_SORT_LABELS } from './program-list-labels';
 import {
+  archiveListHref,
+  parseProgramArchiveFilter,
+} from './program-archive-filter';
+import {
   PROGRAM_LIST_SORTS,
-  PROGRAM_LIST_STATUSES,
+  CURRENT_PROGRAM_LIST_STATUSES,
 } from './program-list-options';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
 
   readonly viewerRole: ViewerRole;
+  readonly archiveYears?: readonly number[];
 }
 
 type LoadState =
@@ -68,7 +80,7 @@ function formatApplicationPeriod(program: ProgramListItem): string {
 function parseStatus(value: string | null): ProgramListStatus {
   if (
     value !== null &&
-    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
+    (CURRENT_PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
   ) {
     return value as ProgramListStatus;
   }
@@ -78,6 +90,7 @@ function parseStatus(value: string | null): ProgramListStatus {
 function ProgramListPage({
   canCreateProgram,
   viewerRole,
+  archiveYears,
 }: ProgramListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,12 +98,16 @@ function ProgramListPage({
   const sort = parseProgramListSort(searchParams.get('sort'));
   const direction = parseProgramListDirection(searchParams.get('direction'));
   const purgeNotice = searchParams.get('purged');
+  const archive = archiveYears !== undefined;
+  const yearFilter = parseProgramArchiveFilter(searchParams.get('year'));
+  const year = archive && yearFilter !== 'all' ? yearFilter : undefined;
 
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const latestRequestId = useRef(0);
-  const hasFilters = search.trim() !== '' || status !== 'all';
+  const hasFilters =
+    search.trim() !== '' || (archive ? year !== undefined : status !== 'all');
 
   const load = useCallback(async (): Promise<void> => {
     const requestId = latestRequestId.current + 1;
@@ -101,9 +118,10 @@ function ProgramListPage({
         page,
         pageSize: PAGE_SIZE,
         search,
-        status,
+        status: archive ? 'ended' : status === 'all' ? 'current' : status,
         sort,
         direction,
+        year,
       });
       if (requestId !== latestRequestId.current) return;
       setLoadState({ kind: 'ready', programPage });
@@ -117,7 +135,7 @@ function ProgramListPage({
             : '프로그램 목록을 불러오지 못했습니다.',
       });
     }
-  }, [page, search, status, sort, direction]);
+  }, [page, search, status, sort, direction, archive, year]);
 
   useEffect(() => {
     void load();
@@ -128,7 +146,7 @@ function ProgramListPage({
 
   useEffect(() => {
     setPage(1);
-  }, [status, sort, direction]);
+  }, [status, sort, direction, year]);
 
   const now = useMemo(() => new Date(), []);
 
@@ -137,6 +155,16 @@ function ProgramListPage({
   };
 
   const goSort = (nextSort: ProgramListSort | undefined) => {
+    if (archive) {
+      const params = new URLSearchParams();
+      if (year !== undefined) params.set('year', String(year));
+      if (nextSort) {
+        params.set('sort', nextSort);
+        if (direction) params.set('direction', direction);
+      }
+      router.push(`/archive${params.size ? `?${params.toString()}` : ''}`);
+      return;
+    }
     router.push(
       buildProgramListHref({
         status,
@@ -173,12 +201,28 @@ function ProgramListPage({
           title={
             hasFilters
               ? '조건에 맞는 프로그램이 없습니다'
-              : '등록된 프로그램이 없습니다'
+              : archive
+                ? '종료된 프로그램이 없습니다'
+                : '등록된 프로그램이 없습니다'
           }
           description={
             hasFilters
-              ? '검색어나 프로그램 상태를 바꿔 다시 찾아보세요.'
-              : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
+              ? archive
+                ? '검색어나 연도를 바꿔 다시 찾아보세요.'
+                : '검색어나 프로그램 상태를 바꿔 다시 찾아보세요.'
+              : archive
+                ? '프로그램이 종료되면 이곳에서 확인할 수 있습니다.'
+                : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
+          }
+          action={
+            archive && year !== undefined ? (
+              <Button
+                variant="outline"
+                onClick={() => router.push(archiveListHref('all'))}
+              >
+                필터 초기화
+              </Button>
+            ) : undefined
           }
         />
       );
@@ -214,8 +258,12 @@ function ProgramListPage({
   return (
     <section className="mx-auto w-full max-w-[1200px] grid gap-6 p-4 sm:p-6">
       <PageHeader
-        title={getProgramListHeading(status)}
-        description={getProgramListSubtitle(viewerRole)}
+        title={archive ? '공개 아카이브' : getProgramListHeading(status)}
+        description={
+          archive
+            ? '종료된 프로그램을 모아 봅니다.'
+            : getProgramListSubtitle(viewerRole)
+        }
         descriptionClassName="break-keep"
         actions={
           canCreateProgram ? (
@@ -225,18 +273,36 @@ function ProgramListPage({
           ) : undefined
         }
       />
-      {purgeNotice ? (
+      {!archive && purgeNotice ? (
         <Alert>
           <AlertTitle>프로그램 전체 삭제를 완료했습니다</AlertTitle>
           <AlertDescription>{purgeNotice}</AlertDescription>
         </Alert>
       ) : null}
 
-      <ProgramListStatusChips
-        className="min-[900px]:hidden"
-        value={status}
-        onChange={goStatus}
-      />
+      {archive ? (
+        <FilterChipGroup
+          data-slot="archive-list-year-chips"
+          aria-label="연도 필터"
+          className="min-[900px]:hidden"
+        >
+          {(['all', ...archiveYears] as const).map((filter) => (
+            <FilterChip
+              key={filter}
+              pressed={yearFilter === filter}
+              onClick={() => router.push(archiveListHref(filter))}
+            >
+              {filter === 'all' ? '전체' : filter}
+            </FilterChip>
+          ))}
+        </FilterChipGroup>
+      ) : (
+        <ProgramListStatusChips
+          className="min-[900px]:hidden"
+          value={status}
+          onChange={goStatus}
+        />
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <Input
           aria-label="프로그램명 검색"

@@ -10,8 +10,6 @@ import {
   parseArchivePage,
 } from './api';
 import { ArchiveDetailContent } from './components/archive-detail-view';
-import { ArchiveListContent } from './components/archive-list-content';
-import { archiveListHref, parseArchiveListFilter } from './types';
 
 vi.mock('@/lib/api-client', () => ({
   ApiError: class ApiError extends Error {
@@ -148,16 +146,6 @@ describe('public archive parsers', () => {
   });
 });
 
-describe('archive list filter helpers', () => {
-  it('builds year deep links and parses unknown as all', () => {
-    expect(archiveListHref('all')).toBe('/archive');
-    expect(archiveListHref(2026)).toBe('/archive?year=2026');
-    expect(parseArchiveListFilter(null)).toBe('all');
-    expect(parseArchiveListFilter('2026')).toBe(2026);
-    expect(parseArchiveListFilter('UNKNOWN')).toBe('all');
-  });
-});
-
 describe('public archive API boundary', () => {
   it('uses apiClient with keyset cursor pagination', async () => {
     vi.mocked(apiClient).mockResolvedValue(pageResponse);
@@ -224,63 +212,8 @@ describe('public archive API boundary', () => {
 
 describe('public archive views', () => {
   const callbacks = {
-    onFilterChange: vi.fn(),
-    onNext: vi.fn(),
-    onPrevious: vi.fn(),
     onRetry: vi.fn(),
   };
-
-  it('renders results and pagination controls', () => {
-    const html = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{ kind: 'ready', page: parseArchivePage(pageResponse) }}
-        filter="all"
-        years={[]}
-        hasPrevious={true}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(html).toContain('공개 프로젝트');
-    expect(html).toContain('public');
-    expect(html).toContain('href="/archive/repo_123"');
-    expect(html).toContain('data-slot="archive-list-year-chips"');
-    expect(html).not.toContain('id="archive-category"');
-  });
-
-  it('renders ordinary and filter-empty states', () => {
-    const emptyPage = { items: [], pageSize: 12, nextPageId: null };
-    const emptyHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{ kind: 'ready', page: emptyPage }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-
-    const filterEmptyHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{ kind: 'ready', page: emptyPage }}
-        filter={2026}
-        years={[2026]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(emptyHtml).toContain('아직 공개된 프로젝트가 없습니다');
-    expect(filterEmptyHtml).toContain('이 연도의 공개 프로젝트가 없습니다');
-    expect(filterEmptyHtml).toContain('필터 초기화');
-  });
 
   it('renders detail activity copy, contributors, and the not-found state', () => {
     const detailHtml = renderToStaticMarkup(
@@ -321,30 +254,10 @@ describe('public archive views', () => {
     );
     expect(html).toContain('등록된 기여자가 없습니다');
   });
-
-  it('never renders raw load error text', () => {
-    const html = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{ kind: 'error' }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(html).toContain('다시 시도');
-    expect(html).not.toContain('SECRET');
-  });
 });
 
 describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => {
   const callbacks = {
-    onFilterChange: vi.fn(),
-    onNext: vi.fn(),
-    onPrevious: vi.fn(),
     onRetry: vi.fn(),
   };
 
@@ -357,34 +270,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
     '@example.com',
   ];
 
-  it('outcome-1: 발행 전(platform PRIVATE) 프로젝트는 목록 응답에 없고, 상세 조회는 not-found로 렌더된다', () => {
-    const otherItem = {
-      ...item,
-      projectId: 'synthetic-exposure-sibling-project',
-      repositoryName: 'synthetic-exposure-sibling-repo',
-      githubUrl: 'https://github.com/JNU-SWCU/synthetic-exposure-sibling-repo',
-    };
-    const listHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{
-          kind: 'ready',
-          page: parseArchivePage({
-            items: [otherItem],
-            pageSize: 12,
-            nextPageId: null,
-          }),
-        }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(listHtml).not.toContain('synthetic-outcome1');
-
+  it('outcome-1: 발행 전(platform PRIVATE) 프로젝트 상세는 not-found로 렌더된다', () => {
     const detailHtml = renderToStaticMarkup(
       <ArchiveDetailContent
         state={{ kind: 'not-found' }}
@@ -471,58 +357,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
     expect(html).toContain('@synthetic-outcome4-other-login');
   });
 
-  it('outcome-5: 발행 후 비공개 관측(회수)이 반영되면 목록에서 사라지고 상세는 not-found로 바뀐다', () => {
-    const outcome5Item = {
-      ...item,
-      projectId: 'synthetic-outcome5-project',
-      displayName: 'synthetic 회수 예정 프로젝트',
-      repositoryName: 'synthetic-outcome5-repo',
-      githubUrl: 'https://github.com/JNU-SWCU/synthetic-outcome5-repo',
-    };
-
-    const beforeRevocationHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{
-          kind: 'ready',
-          page: parseArchivePage({
-            items: [outcome5Item],
-            pageSize: 12,
-            nextPageId: null,
-          }),
-        }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(beforeRevocationHtml).toContain('synthetic 회수 예정 프로젝트');
-
-    const afterRevocationHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{
-          kind: 'ready',
-          page: parseArchivePage({
-            items: [],
-            pageSize: 12,
-            nextPageId: null,
-          }),
-        }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(afterRevocationHtml).not.toContain('synthetic 회수 예정 프로젝트');
-    expect(afterRevocationHtml).toContain('아직 공개된 프로젝트가 없습니다');
-
+  it('outcome-5: 발행 후 비공개 관측(회수)이 반영되면 상세는 not-found로 바뀐다', () => {
     const detailAfterRevocationHtml = renderToStaticMarkup(
       <ArchiveDetailContent
         state={{ kind: 'not-found' }}
@@ -535,7 +370,7 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
     expect(detailAfterRevocationHtml).toContain('목록으로 돌아가기');
   });
 
-  it('outcome-8: 4중 게이트 통과 후 발행되면 목록과 상세에 즉시 노출된다(관리 화면 감사 항목은 audit-log-view.test.tsx가 REPOSITORY_PUBLISHED로 별도 고정)', () => {
+  it('outcome-8: 4중 게이트 통과 후 발행되면 상세에 즉시 노출된다(관리 화면 감사 항목은 audit-log-view.test.tsx가 REPOSITORY_PUBLISHED로 별도 고정)', () => {
     const outcome8Item = {
       ...item,
       projectId: 'synthetic-outcome8-project',
@@ -561,28 +396,6 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
         },
       ],
     };
-
-    const listHtml = renderToStaticMarkup(
-      <ArchiveListContent
-        state={{
-          kind: 'ready',
-          page: parseArchivePage({
-            items: [outcome8Item],
-            pageSize: 12,
-            nextPageId: null,
-          }),
-        }}
-        filter="all"
-        years={[]}
-        hasPrevious={false}
-        onFilterChange={callbacks.onFilterChange}
-        onNext={callbacks.onNext}
-        onPrevious={callbacks.onPrevious}
-        onRetry={callbacks.onRetry}
-      />,
-    );
-    expect(listHtml).toContain('synthetic 방금 발행된 프로젝트');
-    expect(listHtml).toContain('href="/archive/synthetic-outcome8-project"');
 
     const detailHtml = renderToStaticMarkup(
       <ArchiveDetailContent

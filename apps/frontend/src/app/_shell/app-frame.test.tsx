@@ -133,7 +133,7 @@ describe('AppFrame', () => {
     });
     expect(html).toContain('프로그램 메뉴');
     expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
-    expect(html).toContain('href="/programs?status=ended"');
+    expect(html).not.toContain('href="/programs?status=ended"');
     expect(html).not.toContain('>대시보드<');
   });
 

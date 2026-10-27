@@ -1,5 +1,7 @@
-import { loadArchiveYears } from '@/features/archive/api';
-import { getProgramStatusCounts } from '@/features/programs/catalog/api';
+import {
+  getProgramEndedYears,
+  getProgramStatusCounts,
+} from '@/features/programs/catalog/api';
 import type { ProgramListStatus } from '@/features/programs/catalog/program-list-options';
 import { getRankingYears } from '@/features/ranking/api';
 import type { ShellSection, SidebarItem } from './sidebar-menu';
@@ -43,7 +45,7 @@ async function loadProgramFacets(
 async function loadArchiveFacets(
   signal: AbortSignal,
 ): Promise<SectionFacetData> {
-  const archiveYears = await loadArchiveYears(signal);
+  const archiveYears = await getProgramEndedYears(signal);
   abortIfSignalAborted(signal);
   return { archiveYears };
 }
