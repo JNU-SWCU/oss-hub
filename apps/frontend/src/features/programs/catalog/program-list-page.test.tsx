@@ -35,8 +35,8 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
 });
 
-const PROGRAM_GRID_TRACK =
-  '[grid-template-columns:repeat(auto-fill,minmax(min(24rem,100%),1fr))]';
+const CARD_GRID_TRACK =
+  '[grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr))]';
 
 function trackClasses(grid: Element | null): string[] {
   return Array.from(grid?.classList ?? []).filter((className) =>
@@ -213,14 +213,14 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     }
   });
 
-  it('G3 passes only the 24rem track to the programs grid', async () => {
+  it('G3 keeps the shared 20rem track on the programs grid', async () => {
     await renderPage();
     const grid = container.querySelector('[data-slot="card-grid"]');
     expect(grid?.querySelector('[data-slot="program-card"]')).not.toBeNull();
-    expect(trackClasses(grid)).toEqual([PROGRAM_GRID_TRACK]);
+    expect(trackClasses(grid)).toEqual([CARD_GRID_TRACK]);
   });
 
-  it('AC8 renders four horizontal skeleton cards with reserved content rows', async () => {
+  it('AC8 renders six horizontal skeleton cards with reserved content rows', async () => {
     const pending =
       Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
     listProgramsMock.mockReturnValueOnce(pending.promise);
@@ -228,13 +228,23 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     const grid = container.querySelector(
       '[data-slot="skeleton"] [data-slot="card-grid"]',
     );
-    expect(trackClasses(grid)).toEqual([PROGRAM_GRID_TRACK]);
-    expect(grid?.children).toHaveLength(4);
-    for (const card of Array.from(grid?.children ?? [])) {
-      expect(card.classList.contains('grid')).toBe(true);
-      expect(
-        card.classList.contains('sm:grid-cols-[104px_minmax(0,1fr)]'),
-      ).toBe(true);
+    expect(trackClasses(grid)).toEqual([CARD_GRID_TRACK]);
+    expect(grid?.children).toHaveLength(6);
+    for (const wrapper of Array.from(grid?.children ?? [])) {
+      for (const className of ['h-full', 'min-w-0']) {
+        expect(wrapper.classList.contains(className), className).toBe(true);
+      }
+      const card = wrapper.firstElementChild;
+      expect(card).not.toBeNull();
+      if (!card) continue;
+      for (const className of [
+        'h-full',
+        'min-h-[170px]',
+        'grid',
+        'grid-cols-[88px_minmax(0,1fr)]',
+      ]) {
+        expect(card.classList.contains(className), className).toBe(true);
+      }
       const poster = card.querySelector(
         '[data-slot="list-card-cover"] > [data-slot="skeleton-block"]',
       );

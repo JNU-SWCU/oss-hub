@@ -5,7 +5,8 @@ import { installBrowserAudit } from './support/browser-audit';
 const LONG_KOREAN_TITLE = '가나다라마바사아자차카타파하'.repeat(12);
 const RECRUITING_NOW = new Date('2026-06-15T00:00:00.000Z');
 const CARDS = '[data-slot="card-grid"] [data-slot="program-card"]';
-const TRACK_REM = 24;
+const TRACK_REM = 20;
+const POSTER_WIDTH = 88;
 const POSTER_RATIO = 1.414;
 const COVER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAAFCAIAAADg0arLAAAAFUlEQVR4nGP4z8DwnwGMQRScgUQBAKx2CfecwJG/AAAAAElFTkSuQmCC',
@@ -200,7 +201,6 @@ async function measureCardGrid(
             (width + gap) / (Math.min(trackRem * rootFont, width) + gap),
           ),
         ),
-        twoColumnThreshold: 2 * trackRem * rootFont + gap,
         occupiedColumns: new Set(cards.map(({ left }) => Math.round(left)))
           .size,
         rows: rowTops.map((rowTop) =>
@@ -260,6 +260,12 @@ function assertPosterRatio(result: Layout, label: string) {
   for (const card of result.cards) {
     expect.soft(card.poster, `${label} poster exists`).not.toBeNull();
     if (!card.poster) continue;
+    expect
+      .soft(
+        Math.abs(card.poster.width - POSTER_WIDTH),
+        `${label} poster column width`,
+      )
+      .toBeLessThanOrEqual(1);
     expect
       .soft(
         Math.abs(card.poster.height / card.poster.width - POSTER_RATIO),
@@ -367,8 +373,14 @@ test('H1 tablet wrap matches available RAM capacity', async ({ page }) => {
   audit.assertClean();
 });
 
-for (const width of [783, 784, 1152]) {
-  test(`G3 H1 forced grid ${width}px resolves against the two-column threshold`, async ({
+for (const [width, columns] of [
+  [655, 1],
+  [656, 2],
+  [991, 2],
+  [992, 3],
+  [1152, 3],
+] as const) {
+  test(`G3 H1 forced grid ${width}px resolves to ${columns} columns`, async ({
     page,
   }) => {
     const audit = await openPrograms(page, {}, 1920);
@@ -380,7 +392,6 @@ for (const width of [783, 784, 1152]) {
     ).toBeLessThanOrEqual(1);
     assertTracks(result);
     assertNoOverflow(result);
-    const columns = width < result.twoColumnThreshold ? 1 : 2;
     expect.soft(result.trackCapacity, 'G3 threshold tracks').toBe(columns);
     expect.soft(result.occupiedColumns, 'G3 threshold columns').toBe(columns);
     for (const card of result.cards) {
@@ -414,7 +425,7 @@ for (const containerWidth of [null, 300]) {
   });
 }
 
-test('G5 H1 wide section is centered with at most two columns', async ({
+test('G5 H1 wide section is centered with at most three columns', async ({
   page,
 }) => {
   const audit = await openPrograms(page, {}, 1920);
@@ -422,8 +433,8 @@ test('G5 H1 wide section is centered with at most two columns', async ({
   await record('G5 H1', result);
   assertTracks(result);
   expect
-    .soft(result.trackCapacity, 'G5 maximum two tracks')
-    .toBeLessThanOrEqual(2);
+    .soft(result.trackCapacity, 'G5 maximum three tracks')
+    .toBeLessThanOrEqual(3);
   expect
     .soft(result.grid.width, 'G5 grid inner maximum 1152')
     .toBeLessThanOrEqual(1153);
@@ -468,11 +479,8 @@ test('AC5 two full rows of compact cards fit the scrollport', async ({
     ).toBeGreaterThanOrEqual(2);
     for (const card of result.cards) {
       expect
-        .soft(
-          card.height,
-          `AC5 ${sidebar} card height maximum 180px plus rounding`,
-        )
-        .toBeLessThanOrEqual(181);
+        .soft(card.height, `AC5 ${sidebar} card height maximum 190px`)
+        .toBeLessThanOrEqual(190);
     }
     for (const card of result.rows.slice(0, 2).flat()) {
       expect
@@ -659,7 +667,7 @@ for (const notes of ['all', 'none'] as const) {
     await page.goto('/programs?status=recruiting');
     await expect(
       page.locator('[data-slot="skeleton"] [data-slot="card-grid"] > *'),
-    ).toHaveCount(4);
+    ).toHaveCount(6);
     await settleFrames(page);
     const before = await measureCardGrid(page);
     list.resolve();

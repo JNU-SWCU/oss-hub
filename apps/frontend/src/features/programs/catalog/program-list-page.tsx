@@ -65,9 +65,6 @@ type LoadState =
 
 const PAGE_SIZE = 20;
 
-const PROGRAM_GRID_TRACK =
-  '[grid-template-columns:repeat(auto-fill,minmax(min(24rem,100%),1fr))]';
-
 function SkeletonLine({ className }: { readonly className: string }) {
   return (
     <div className="flex h-[1lh] items-center">
@@ -78,43 +75,45 @@ function SkeletonLine({ className }: { readonly className: string }) {
 
 function ProgramCardSkeleton() {
   return (
-    <Card className={listCardCoverClasses.root}>
-      <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
-        <SkeletonBlock className={programCoverCardFrame} />
-      </div>
-      <CardHeader
-        className={cn(listCardClasses.header, listCardCoverClasses.header)}
-      >
-        <CardDescription>
-          <SkeletonLine className="w-2/5" />
-        </CardDescription>
-        <CardTitle
-          className={cn(listCardClasses.title, listCardCoverClasses.title)}
+    <div className="h-full min-w-0">
+      <Card className={cn(listCardClasses.root, listCardCoverClasses.root)}>
+        <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
+          <SkeletonBlock className={programCoverCardFrame} />
+        </div>
+        <CardHeader
+          className={cn(listCardClasses.header, listCardCoverClasses.header)}
         >
-          <SkeletonLine className="w-full" />
-          <SkeletonLine className="w-3/4" />
-        </CardTitle>
-      </CardHeader>
-      <CardContent
-        className={cn(listCardClasses.content, listCardCoverClasses.content)}
-      >
-        <div className={listCardClasses.meta}>
-          <SkeletonLine className="w-3/5" />
+          <CardDescription>
+            <SkeletonLine className="w-2/5" />
+          </CardDescription>
+          <CardTitle
+            className={cn(listCardClasses.title, listCardCoverClasses.title)}
+          >
+            <SkeletonLine className="w-full" />
+            <SkeletonLine className="w-3/4" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent
+          className={cn(listCardClasses.content, listCardCoverClasses.content)}
+        >
+          <div className={listCardClasses.meta}>
+            <SkeletonLine className="w-3/5" />
+          </div>
+          <div className={cn(listCardClasses.note, listCardCoverClasses.note)}>
+            <SkeletonLine className="w-1/3" />
+          </div>
+        </CardContent>
+        <div
+          data-slot="list-card-affordance"
+          className={cn(
+            listCardClasses.affordance,
+            listCardCoverClasses.affordance,
+          )}
+        >
+          <SkeletonLine className="w-12" />
         </div>
-        <div className={cn(listCardClasses.note, listCardCoverClasses.note)}>
-          <SkeletonLine className="w-1/3" />
-        </div>
-      </CardContent>
-      <div
-        data-slot="list-card-affordance"
-        className={cn(
-          listCardClasses.affordance,
-          listCardCoverClasses.affordance,
-        )}
-      >
-        <SkeletonLine className="w-12" />
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -213,8 +212,8 @@ function ProgramListPage({
     if (loadState.kind === 'loading') {
       return (
         <Skeleton label="프로그램 목록을 불러오는 중">
-          <CardGrid className={PROGRAM_GRID_TRACK}>
-            {[0, 1, 2, 3].map((index) => (
+          <CardGrid>
+            {[0, 1, 2, 3, 4, 5].map((index) => (
               <ProgramCardSkeleton key={index} />
             ))}
           </CardGrid>
@@ -247,7 +246,7 @@ function ProgramListPage({
       );
     }
     return (
-      <CardGrid className={PROGRAM_GRID_TRACK}>
+      <CardGrid>
         {loadState.programPage.items.map((program) => {
           const badge = getProgramListBadge(program, now);
 

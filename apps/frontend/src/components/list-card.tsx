@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 
 export const listCardClasses = {
+  root: 'h-full min-h-[170px] min-w-0 break-keep [overflow-wrap:anywhere]',
   header: 'min-w-0 gap-1.5',
   title: 'line-clamp-2',
   content: 'grid min-w-0 gap-2 text-small',
@@ -23,7 +24,7 @@ export const listCardClasses = {
 } as const;
 
 export const listCardCoverClasses = {
-  root: 'grid grid-cols-[88px_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-1 p-(--card-spacing) [--card-spacing:--spacing(3)] sm:grid-cols-[104px_minmax(0,1fr)]',
+  root: 'grid grid-cols-[88px_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-3 gap-y-1 p-(--card-spacing) [--card-spacing:--spacing(3)]',
   cover: 'col-start-1 row-span-full self-start',
   header: 'col-start-2 px-0',
   title: 'min-h-[2lh]',
@@ -76,7 +77,7 @@ export function ListCard({
     <Card
       data-slot="list-card"
       className={cn(
-        'h-full min-h-[170px] min-w-0 break-keep [overflow-wrap:anywhere]',
+        listCardClasses.root,
         cover && listCardCoverClasses.root,
         href
           ? 'cursor-pointer transition-[box-shadow] duration-150 hover:ring-ring hover:shadow-[0_2px_8px_rgba(0,26,77,0.08)] motion-reduce:transition-none'

@@ -29,14 +29,19 @@ describe('ListCard', () => {
     for (const className of [
       'grid',
       'grid-cols-[88px_minmax(0,1fr)]',
-      'sm:grid-cols-[104px_minmax(0,1fr)]',
       'grid-rows-[auto_1fr_auto]',
-      'gap-x-4',
+      'gap-x-3',
+      'gap-y-1',
       'p-(--card-spacing)',
       '[--card-spacing:--spacing(3)]',
     ]) {
       expect(card?.classList.contains(className), className).toBe(true);
     }
+    expect(
+      Array.from(card?.classList ?? []).filter((className) =>
+        className.includes('grid-cols-'),
+      ),
+    ).toEqual(['grid-cols-[88px_minmax(0,1fr)]']);
     for (const className of ['flex', 'py-(--card-spacing)', 'pt-0']) {
       expect(card?.classList.contains(className), className).toBe(false);
     }

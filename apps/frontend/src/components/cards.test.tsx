@@ -94,7 +94,7 @@ describe('card components', () => {
         .split(' ') ?? [];
     expect(classes).toContain('[--card-spacing:--spacing(3)]');
     expect(classes).toContain('grid');
-    expect(classes).toContain('sm:grid-cols-[104px_minmax(0,1fr)]');
+    expect(classes).toContain('grid-cols-[88px_minmax(0,1fr)]');
     expect(html).toContain('data-slot="list-card-cover"');
     expect(html).toContain('aspect-[1/1.414]');
     expect(html).not.toContain('aspect-video');
