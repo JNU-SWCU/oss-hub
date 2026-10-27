@@ -1,12 +1,10 @@
 import { programOverviewHref } from '@/lib/program-route';
-import type { CosmosProgram } from './cosmos';
 import type {
   LandingArchiveDetail,
   LandingArchiveItem,
   LandingGraph,
   LandingGraphEdge,
   LandingGraphNode,
-  LandingProgramName,
 } from './landing-overview';
 
 const PROGRAM_POSITIONS = [
@@ -85,80 +83,5 @@ export function buildPublicLandingGraph(
     });
   });
 
-  return { source: 'public', nodes, edges };
+  return { nodes, edges };
 }
-
-export function selectLandingStarPrograms(
-  graph: LandingGraph,
-  listed: readonly LandingProgramName[],
-): readonly CosmosProgram[] {
-  const fromGraph =
-    graph.source === 'public'
-      ? graph.nodes
-          .filter((node) => node.kind === 'program')
-          .map((node): CosmosProgram => ({ name: node.label, href: node.href }))
-      : [];
-  const seen = new Set(fromGraph.map((program) => program.href));
-  const fromList = listed
-    .map((program): CosmosProgram => ({
-      name: program.name,
-      href: programOverviewHref(program.id),
-    }))
-    .filter((program) => !seen.has(program.href));
-  return [...fromGraph, ...fromList];
-}
-
-export const LANDING_GRAPH_EXAMPLE: LandingGraph = {
-  source: 'example',
-  nodes: [
-    {
-      id: 'program:example',
-      kind: 'program',
-      label: 'OSS 기여 프로그램',
-      href: '/programs',
-      x: 74,
-      y: 30,
-    },
-    {
-      id: 'repository:example',
-      kind: 'repository',
-      label: 'sample-campus-map',
-      href: '/archive',
-      x: 48,
-      y: 52,
-    },
-    {
-      id: 'student:example-01',
-      kind: 'student',
-      label: '@sample-dev-01',
-      href: null,
-      x: 18,
-      y: 28,
-    },
-    {
-      id: 'student:example-02',
-      kind: 'student',
-      label: '@sample-dev-02',
-      href: null,
-      x: 20,
-      y: 72,
-    },
-  ],
-  edges: [
-    {
-      sourceId: 'student:example-01',
-      targetId: 'repository:example',
-      label: '기여',
-    },
-    {
-      sourceId: 'student:example-02',
-      targetId: 'repository:example',
-      label: '기여',
-    },
-    {
-      sourceId: 'repository:example',
-      targetId: 'program:example',
-      label: '운영',
-    },
-  ],
-};

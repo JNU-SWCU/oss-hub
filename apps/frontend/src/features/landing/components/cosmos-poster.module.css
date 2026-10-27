@@ -1,0 +1,26 @@
+.poster {
+  --cosmos-radius: min(46cqw, 42cqh);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.edges {
+  position: absolute;
+  left: calc(50% - var(--cosmos-radius));
+  top: calc(48% - var(--cosmos-radius));
+  width: calc(var(--cosmos-radius) * 2);
+  height: calc(var(--cosmos-radius) * 2);
+}
+
+.nodes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}

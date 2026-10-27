@@ -3,21 +3,10 @@
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program-cover-source';
-import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programOverviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import { ArrowRight, CalendarDays } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { loadLandingPrograms } from '../api';
 import type { LandingProgram } from '../landing-overview';
-
-type ProgramLoadState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'error' }
-  | {
-      readonly kind: 'ready';
-      readonly programs: readonly LandingProgram[];
-    };
 
 function deadlineLabel(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -27,10 +16,10 @@ function deadlineLabel(value: string): string {
   }).format(new Date(value));
 }
 
-export function CurrentProgramSectionView({
-  state,
+export function CurrentProgramSection({
+  programs,
 }: {
-  readonly state: ProgramLoadState;
+  readonly programs: readonly LandingProgram[];
 }) {
   return (
     <section
@@ -65,45 +54,16 @@ export function CurrentProgramSectionView({
           </Link>
         </div>
 
-        {state.kind === 'loading' ? (
-          <Skeleton
-            label="현재 모집 중인 프로그램을 불러오는 중입니다"
-            className="mt-10 divide-y divide-border border-y border-border"
-          >
-            {[0, 1, 2].map((index) => (
-              <div
-                key={index}
-                className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"
-              >
-                <SkeletonBlock className="h-5 w-3/5 rounded" />
-                <SkeletonBlock className="h-5 w-28 rounded" />
-              </div>
-            ))}
-          </Skeleton>
-        ) : null}
-
-        {state.kind === 'error' ? (
-          <div className="mt-10 break-keep border-y border-border py-8 text-sm text-muted-foreground">
-            모집 정보를 불러오지 못했습니다.{' '}
-            <Link
-              href="/programs"
-              className="font-semibold text-primary underline"
-            >
-              프로그램 목록에서 확인하기
-            </Link>
-          </div>
-        ) : null}
-
-        {state.kind === 'ready' && state.programs.length === 0 ? (
+        {programs.length === 0 ? (
           <div className="mt-10 break-keep border-y border-border py-8 text-sm text-muted-foreground">
             현재 공개 모집 중인 프로그램이 없습니다. 새 모집은 프로그램 목록에
             반영됩니다.
           </div>
         ) : null}
 
-        {state.kind === 'ready' && state.programs.length > 0 ? (
+        {programs.length > 0 ? (
           <ul className="mt-10 divide-y divide-border border-y border-border">
-            {state.programs.map((program) => (
+            {programs.map((program) => (
               <li key={program.id}>
                 <Link
                   href={programOverviewHref(program.id)}
@@ -142,29 +102,4 @@ export function CurrentProgramSectionView({
       </div>
     </section>
   );
-}
-
-export function CurrentProgramSection() {
-  const [state, setState] = useState<ProgramLoadState>({ kind: 'loading' });
-
-  useEffect(() => {
-    let active = true;
-    void loadLandingPrograms()
-      .then((programs) => {
-        if (active) setState({ kind: 'ready', programs });
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Error) {
-          if (!active) return;
-          setState({ kind: 'error' });
-          return;
-        }
-        throw error;
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return <CurrentProgramSectionView state={state} />;
 }

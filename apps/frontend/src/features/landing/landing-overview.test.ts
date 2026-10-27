@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildPublicLandingGraph,
-  LANDING_GRAPH_EXAMPLE,
-  selectLandingStarPrograms,
-} from './landing-graph';
+import { buildPublicLandingGraph } from './landing-graph';
 import {
   parseLandingArchiveDetail,
   parseLandingArchivePage,
@@ -104,7 +100,6 @@ describe('landing public overview boundary', () => {
 
     const graph = buildPublicLandingGraph(archive, [detail]);
 
-    expect(graph.source).toBe('public');
     expect(graph.nodes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -158,54 +153,6 @@ describe('landing public overview boundary', () => {
         items: [{ id: 'program_public_01', name: '   ' }],
       }),
     ).toThrow('랜딩 공개 응답 형식이 올바르지 않습니다');
-  });
-
-  it('labels stars from public graph programs first, then from listed programs without repeats', () => {
-    const graph = buildPublicLandingGraph(
-      parseLandingArchivePage({
-        items: [
-          {
-            projectId: 'repo_public_01',
-            programId: 'seed:program_public_01',
-            programName: '공개 OSS 기여 프로그램',
-            displayName: 'campus-map',
-          },
-        ],
-        pageSize: 3,
-        nextPageId: null,
-      }),
-      [],
-    );
-
-    const programs = selectLandingStarPrograms(graph, [
-      { id: 'seed:program_public_01', name: '공개 OSS 기여 프로그램' },
-      {
-        id: 'seed:intake:program-seven-templates:BASIC',
-        name: 'seed-program-basic',
-      },
-    ]);
-
-    expect(programs).toEqual([
-      {
-        name: '공개 OSS 기여 프로그램',
-        href: '/programs/seed%3Aprogram_public_01',
-      },
-      {
-        name: 'seed-program-basic',
-        href: '/programs/seed%3Aintake%3Aprogram-seven-templates%3ABASIC',
-      },
-    ]);
-  });
-
-  it('never labels stars from the example graph', () => {
-    expect(selectLandingStarPrograms(LANDING_GRAPH_EXAMPLE, [])).toEqual([]);
-    expect(
-      selectLandingStarPrograms(LANDING_GRAPH_EXAMPLE, [
-        { id: 'program_public_01', name: 'seed-program-basic' },
-      ]),
-    ).toEqual([
-      { name: 'seed-program-basic', href: '/programs/program_public_01' },
-    ]);
   });
 
   it('rejects archive ids that could escape the public app routes', () => {

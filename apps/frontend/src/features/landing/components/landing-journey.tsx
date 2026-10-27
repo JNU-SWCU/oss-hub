@@ -2,42 +2,24 @@
 
 import { CircleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  applyCosmosPrograms,
-  attachCosmosInteraction,
-  buildCosmosGraph,
-  createCosmosQualityGovernor,
-  createCosmosRenderer,
-  layoutCosmosGraph,
-  type CosmosFocus,
-  type CosmosGraph,
-  type CosmosProgram,
-} from '@/features/landing/cosmos';
-import { deriveLandingStats } from '../landing-stats';
-import { isCosmosFocus, observeChapterFocus } from './landing-focus';
+import type { CosmosProgram } from '../cosmos';
+import type { LandingStatsDisplay } from '../landing-stats';
 import styles from './landing-journey.module.css';
 import { useRevealOnce } from './landing-reveal';
-import { useLandingGraph } from './use-landing-graph';
+import { useCosmosCanvas } from './use-cosmos-canvas';
 
 export interface LandingJourneyProps {
   readonly authErrorMessage?: string;
   readonly notice?: ReactNode;
   readonly primaryAction: ReactNode;
-
+  readonly starPrograms: readonly CosmosProgram[];
+  readonly stats: LandingStatsDisplay;
+  readonly poster: ReactNode;
   readonly contentAnchor?: string;
 }
-
-const ENTRANCE_MS = 1400;
-const DESKTOP_FRAME_BUDGET_MS = 16.7;
-const MOBILE_FRAME_BUDGET_MS = 33;
-const DESKTOP_MIN_WIDTH = 1024;
-
-let entrancePlayed = false;
 
 const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 1', '신청·팀 구성', '초대를 수락해 팀에 합류'],
@@ -50,128 +32,14 @@ export function LandingJourney({
   authErrorMessage,
   notice,
   primaryAction,
+  starPrograms,
+  stats,
+  poster,
   contentAnchor = '#current-programs',
 }: LandingJourneyProps) {
-  const router = useRouter();
-  const journeyRef = useRef<HTMLDivElement>(null);
-  const skyRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const graphRef = useRef<CosmosGraph | null>(null);
-  const focusRef = useRef<CosmosFocus>('hero');
-  const [focus, setFocus] = useState<CosmosFocus>('hero');
+  const { journeyRef, skyRef, canvasRef, focus } =
+    useCosmosCanvas(starPrograms);
   const revealRef = useRevealOnce();
-  const { graph: publicGraph, completeness, programs } = useLandingGraph();
-
-  const programsRef = useRef<readonly CosmosProgram[]>([]);
-
-  const stats = useMemo(
-    () => deriveLandingStats(publicGraph, completeness),
-    [publicGraph, completeness],
-  );
-
-  useEffect(() => {
-    programsRef.current = programs;
-    if (graphRef.current) applyCosmosPrograms(graphRef.current, programs);
-  }, [programs]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const sky = skyRef.current;
-    const journey = journeyRef.current;
-    if (!canvas || !sky || !journey) return;
-
-    if (!graphRef.current) {
-      const graph = buildCosmosGraph();
-      layoutCosmosGraph(graph);
-      graphRef.current = graph;
-    }
-    const graph = graphRef.current;
-    applyCosmosPrograms(graph, programsRef.current);
-
-    const renderer = createCosmosRenderer({
-      canvas,
-      graph,
-      fontFamily:
-        window.getComputedStyle(journey).fontFamily || 'system-ui, sans-serif',
-      entranceMs: entrancePlayed ? 0 : ENTRANCE_MS,
-    });
-    const quality = createCosmosQualityGovernor();
-    const interaction = attachCosmosInteraction({
-      canvas,
-      pick: renderer.pick,
-      canOpen: (index) => typeof graph.nodes[index]?.href === 'string',
-      open: (index) => {
-        const href = graph.nodes[index]?.href;
-        if (href) router.push(href);
-      },
-    });
-
-    let frame: number | null = null;
-    let visible = true;
-
-    const loop = (t: number): void => {
-      frame = window.requestAnimationFrame(loop);
-      entrancePlayed = true;
-      const startedAt = performance.now();
-      interaction.advance();
-      renderer.render({
-        ...interaction.orbit(),
-        time: t,
-        hovered: interaction.hovered(),
-        qualityScale: quality.qualityScale(),
-        focus: focusRef.current,
-      });
-      quality.recordFrame(
-        performance.now() - startedAt,
-        window.innerWidth < DESKTOP_MIN_WIDTH
-          ? MOBILE_FRAME_BUDGET_MS
-          : DESKTOP_FRAME_BUDGET_MS,
-      );
-    };
-
-    const start = (): void => {
-      if (frame === null) frame = window.requestAnimationFrame(loop);
-    };
-    const stop = (): void => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      frame = null;
-    };
-    const syncActivity = (): void => {
-      if (visible && document.visibilityState === 'visible') start();
-      else stop();
-    };
-
-    start();
-
-    const visibilityObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) visible = entry.isIntersecting;
-      syncActivity();
-    });
-    visibilityObserver.observe(sky);
-    document.addEventListener('visibilitychange', syncActivity);
-
-    const targets = new Map<Element, CosmosFocus>();
-    for (const element of journey.querySelectorAll<HTMLElement>(
-      'section[data-focus]',
-    )) {
-      const mode = element.dataset.focus;
-      if (isCosmosFocus(mode)) targets.set(element, mode);
-    }
-    const stopFocus = observeChapterFocus(targets, (next) => {
-      focusRef.current = next;
-      setFocus(next);
-    });
-
-    return () => {
-      stop();
-      stopFocus();
-      visibilityObserver.disconnect();
-      document.removeEventListener('visibilitychange', syncActivity);
-      interaction.dispose();
-      renderer.dispose();
-    };
-  }, [router]);
-
   return (
     <div id="landing-journey" ref={journeyRef} className={styles.journey}>
       <a className={styles.skip} href={contentAnchor}>
@@ -310,7 +178,10 @@ export function LandingJourney({
           data-focus={focus}
           aria-hidden="true"
         >
-          <canvas ref={canvasRef} className={styles.sky} />
+          <div className={styles.skyStage}>
+            {poster}
+            <canvas ref={canvasRef} className={styles.sky} />
+          </div>
           <div className={styles.corner}>
             <div className={styles.legend}>
               <span>
