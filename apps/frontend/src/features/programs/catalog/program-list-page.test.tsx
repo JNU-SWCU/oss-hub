@@ -35,6 +35,15 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
 });
 
+const PROGRAM_GRID_TRACK =
+  '[grid-template-columns:repeat(auto-fill,minmax(min(24rem,100%),1fr))]';
+
+function trackClasses(grid: Element | null): string[] {
+  return Array.from(grid?.classList ?? []).filter((className) =>
+    className.startsWith('[grid-template-columns:'),
+  );
+}
+
 describe('ProgramListPage 등록 동선', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -204,7 +213,14 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     }
   });
 
-  it('AC8 renders three banner skeleton cards with reserved content rows', async () => {
+  it('G3 passes only the 24rem track to the programs grid', async () => {
+    await renderPage();
+    const grid = container.querySelector('[data-slot="card-grid"]');
+    expect(grid?.querySelector('[data-slot="program-card"]')).not.toBeNull();
+    expect(trackClasses(grid)).toEqual([PROGRAM_GRID_TRACK]);
+  });
+
+  it('AC8 renders four horizontal skeleton cards with reserved content rows', async () => {
     const pending =
       Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
     listProgramsMock.mockReturnValueOnce(pending.promise);
@@ -212,9 +228,31 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     const grid = container.querySelector(
       '[data-slot="skeleton"] [data-slot="card-grid"]',
     );
-    expect(grid?.children).toHaveLength(3);
+    expect(trackClasses(grid)).toEqual([PROGRAM_GRID_TRACK]);
+    expect(grid?.children).toHaveLength(4);
     for (const card of Array.from(grid?.children ?? [])) {
-      expect(card.querySelector('.aspect-video')).not.toBeNull();
+      expect(card.classList.contains('grid')).toBe(true);
+      expect(
+        card.classList.contains('sm:grid-cols-[104px_minmax(0,1fr)]'),
+      ).toBe(true);
+      const poster = card.querySelector(
+        '[data-slot="list-card-cover"] > [data-slot="skeleton-block"]',
+      );
+      expect(poster?.classList.contains('aspect-[1/1.414]')).toBe(true);
+      expect(poster?.classList.contains('w-full')).toBe(true);
+      expect(card.querySelector('.aspect-video')).toBeNull();
+      for (const slot of [
+        'card-header',
+        'card-content',
+        'list-card-affordance',
+      ]) {
+        expect(
+          card
+            .querySelector(`[data-slot="${slot}"]`)
+            ?.classList.contains('px-0'),
+          slot,
+        ).toBe(true);
+      }
       expect(
         card
           .querySelector('[data-slot="card-title"]')

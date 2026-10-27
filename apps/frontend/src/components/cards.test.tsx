@@ -77,7 +77,7 @@ describe('card components', () => {
     expect(html).toContain('자세히 ›');
   });
 
-  it('AC7 gives ProgramCard compact cover spacing and a reserved clamped title', () => {
+  it('AC5 gives ProgramCard a compact poster-beside-text grid with a reserved clamped title', () => {
     const html = renderToStaticMarkup(
       <ProgramCard
         title="합성 프로그램"
@@ -93,9 +93,13 @@ describe('card components', () => {
         .exec(html)?.[1]
         .split(' ') ?? [];
     expect(classes).toContain('[--card-spacing:--spacing(3)]');
+    expect(classes).toContain('grid');
+    expect(classes).toContain('sm:grid-cols-[104px_minmax(0,1fr)]');
+    expect(html).toContain('data-slot="list-card-cover"');
+    expect(html).toContain('aspect-[1/1.414]');
+    expect(html).not.toContain('aspect-video');
     expect(html).toContain('line-clamp-2');
     expect(html).toContain('min-h-[2lh]');
-    expect(html).toContain('flex-1');
     expect(html).toContain('mt-auto');
   });
 

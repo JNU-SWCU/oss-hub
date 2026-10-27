@@ -20,11 +20,12 @@ afterEach(async () => {
 });
 
 describe('program cover', () => {
-  it('AC6 crops the card image at the top and recovers from failed loads', async () => {
+  it('AC6 shows the whole card image and recovers from failed loads', async () => {
     await act(async () => root.render(<ProgramCover src="/cover-one" />));
     const image = container.querySelector('img');
-    expect(image?.className).toContain('object-cover');
-    expect(image?.className).toContain('object-top');
+    expect(image?.className).toContain('object-contain');
+    expect(image?.className).not.toContain('object-cover');
+    expect(image?.className).not.toContain('object-top');
     expect(image?.alt).toBe('');
     await act(async () => image?.dispatchEvent(new Event('error')));
     expect(
@@ -66,15 +67,17 @@ describe('program cover', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('AC6 reserves a banner frame and top-crops the empty graphic', async () => {
+  it('AC6 reserves an A4 frame and shows the empty graphic uncropped', async () => {
     await act(async () => root.render(<ProgramCover src={null} />));
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.getAttribute('data-cover-state')).toBe('empty');
-    expect(cover?.className).toContain('aspect-video');
+    expect(cover?.className).toContain('aspect-[1/1.414]');
     expect(cover?.className).toContain('w-full');
+    expect(cover?.className).toContain('rounded-md');
+    expect(cover?.className).not.toContain('aspect-video');
     expect(
       cover?.querySelector('svg')?.getAttribute('preserveAspectRatio'),
-    ).toBe('xMidYMin slice');
+    ).toBeNull();
     expect(cover?.querySelector('svg[aria-hidden="true"]')?.textContent).toBe(
       'OSS Hub',
     );
@@ -82,7 +85,7 @@ describe('program cover', () => {
     await act(async () => root.render(<ProgramCover src="/poster" />));
     expect(
       container.querySelector('[data-slot="program-cover"]')?.className,
-    ).toContain('aspect-video');
+    ).toContain('aspect-[1/1.414]');
   });
 
   it('keeps small thumbnails at 16:9 with only the icon', async () => {

@@ -5,6 +5,8 @@ import { installBrowserAudit } from './support/browser-audit';
 const LONG_KOREAN_TITLE = '가나다라마바사아자차카타파하'.repeat(12);
 const RECRUITING_NOW = new Date('2026-06-15T00:00:00.000Z');
 const CARDS = '[data-slot="card-grid"] [data-slot="program-card"]';
+const TRACK_REM = 24;
+const POSTER_RATIO = 1.414;
 const COVER_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAAFCAIAAADg0arLAAAAFUlEQVR4nGP4z8DwnwGMQRScgUQBAKx2CfecwJG/AAAAAElFTkSuQmCC',
   'base64',
@@ -112,92 +114,115 @@ async function measureCardGrid(
   page: Page,
   containerWidth: number | null = null,
 ) {
-  return page.evaluate((forcedWidth) => {
-    const grid = document.querySelector<HTMLElement>('[data-slot="card-grid"]');
-    const main = document.querySelector<HTMLElement>('#main-content');
-    const input = document.querySelector('[aria-label="프로그램명 검색"]');
-    const select = document.querySelector('[aria-label="프로그램 정렬 기준"]');
-    const section = grid?.closest('section');
-    if (!grid || !main || !input || !select || !section) {
-      throw new Error('Missing grid, scrollport, section or filter controls');
-    }
-    grid.style.width = forcedWidth === null ? '' : `${forcedWidth}px`;
-    const rect = (element: Element) => {
-      const { left, right, top, bottom, width, height } =
-        element.getBoundingClientRect();
-      return { left, right, top, bottom, width, height };
-    };
-    const cards = Array.from(grid.children).map((child) => {
-      const card = child.matches('[data-slot="program-card"]')
-        ? child
-        : (child.querySelector('[data-slot="program-card"]') ?? child);
-      const title = card.querySelector('[data-slot="card-title"]');
-      const content = card.querySelector('[data-slot="card-content"]');
-      const meta = content?.firstElementChild;
-      const cover = card.querySelector(
-        '[data-slot="program-cover"], .aspect-video',
+  return page.evaluate(
+    ({ forcedWidth, trackRem }) => {
+      const grid = document.querySelector<HTMLElement>(
+        '[data-slot="card-grid"]',
       );
-      const image = cover?.querySelector('img');
-      const affordance = card.querySelector(
-        '[data-slot="list-card-affordance"]',
+      const main = document.querySelector<HTMLElement>('#main-content');
+      const input = document.querySelector('[aria-label="프로그램명 검색"]');
+      const select = document.querySelector(
+        '[aria-label="프로그램 정렬 기준"]',
       );
-      const text = meta?.firstChild;
-      const range = document.createRange();
-      if (text) range.selectNodeContents(text);
-      return {
-        ...rect(child),
-        title: title ? rect(title) : null,
-        lineHeight: title
-          ? Number.parseFloat(getComputedStyle(title).lineHeight)
-          : 0,
-        metaTop: meta ? rect(meta).top : null,
-        metaBaseline: text ? (range.getClientRects()[0]?.bottom ?? null) : null,
-        affordanceBottom: affordance ? rect(affordance).bottom : null,
-        banner: cover ? rect(cover) : null,
-        image: image
-          ? {
-              complete: image.complete,
-              naturalWidth: image.naturalWidth,
-              fit: getComputedStyle(image).objectFit,
-              position: getComputedStyle(image).objectPosition,
-            }
-          : null,
+      const section = grid?.closest('section');
+      if (!grid || !main || !input || !select || !section) {
+        throw new Error('Missing grid, scrollport, section or filter controls');
+      }
+      grid.style.width = forcedWidth === null ? '' : `${forcedWidth}px`;
+      const rect = (element: Element) => {
+        const { left, right, top, bottom, width, height } =
+          element.getBoundingClientRect();
+        return { left, right, top, bottom, width, height };
       };
-    });
-    const style = getComputedStyle(grid);
-    const tracks = style.gridTemplateColumns
-      .split(/\s+/)
-      .map(Number.parseFloat);
-    const gap = Number.parseFloat(style.columnGap);
-    const rootFont = Number.parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
-    );
-    const width = rect(grid).width;
-    const firstTop = cards[0]?.top;
-    return {
-      cards,
-      tracks,
-      gap,
-      rootFont,
-      trackCapacity: tracks.length,
-      expectedCapacity: Math.max(
-        1,
-        Math.floor((width + gap) / (Math.min(17 * rootFont, width) + gap)),
-      ),
-      occupiedColumns: new Set(cards.map(({ left }) => Math.round(left))).size,
-      firstRow: cards.filter(({ top }) => Math.abs(top - (firstTop ?? 0)) <= 1),
-      grid: rect(grid),
-      section: rect(section),
-      main: rect(main),
-      mainClientWidth: main.clientWidth,
-      input: rect(input),
-      select: rect(select),
-      gridOverflow: grid.scrollWidth - grid.clientWidth,
-      documentOverflow:
-        document.documentElement.scrollWidth -
-        document.documentElement.clientWidth,
-    };
-  }, containerWidth);
+      const cards = Array.from(grid.children).map((child) => {
+        const card = child.matches('[data-slot="program-card"]')
+          ? child
+          : (child.querySelector('[data-slot="program-card"]') ?? child);
+        const title = card.querySelector('[data-slot="card-title"]');
+        const content = card.querySelector('[data-slot="card-content"]');
+        const meta = content?.firstElementChild;
+        const poster = card.querySelector('[data-slot="list-card-cover"] > *');
+        const image = poster?.querySelector('img');
+        const affordance = card.querySelector(
+          '[data-slot="list-card-affordance"]',
+        );
+        const text = meta?.firstChild;
+        const range = document.createRange();
+        if (text) range.selectNodeContents(text);
+        return {
+          ...rect(child),
+          title: title ? rect(title) : null,
+          lineHeight: title
+            ? Number.parseFloat(getComputedStyle(title).lineHeight)
+            : 0,
+          metaTop: meta ? rect(meta).top : null,
+          metaBaseline: text
+            ? (range.getClientRects()[0]?.bottom ?? null)
+            : null,
+          affordanceBottom: affordance ? rect(affordance).bottom : null,
+          poster: poster ? rect(poster) : null,
+          image: image
+            ? {
+                complete: image.complete,
+                naturalWidth: image.naturalWidth,
+                naturalHeight: image.naturalHeight,
+                fit: getComputedStyle(image).objectFit,
+                position: getComputedStyle(image).objectPosition,
+              }
+            : null,
+        };
+      });
+      const style = getComputedStyle(grid);
+      const tracks = style.gridTemplateColumns
+        .split(/\s+/)
+        .map(Number.parseFloat);
+      const gap = Number.parseFloat(style.columnGap);
+      const rootFont = Number.parseFloat(
+        getComputedStyle(document.documentElement).fontSize,
+      );
+      const width = rect(grid).width;
+      const rowTops = cards
+        .map(({ top }) => top)
+        .filter(
+          (top, index, tops) =>
+            tops.findIndex((other) => Math.abs(other - top) <= 1) === index,
+        )
+        .sort((first, second) => first - second);
+      return {
+        cards,
+        tracks,
+        gap,
+        rootFont,
+        trackCapacity: tracks.length,
+        expectedCapacity: Math.max(
+          1,
+          Math.floor(
+            (width + gap) / (Math.min(trackRem * rootFont, width) + gap),
+          ),
+        ),
+        twoColumnThreshold: 2 * trackRem * rootFont + gap,
+        occupiedColumns: new Set(cards.map(({ left }) => Math.round(left)))
+          .size,
+        rows: rowTops.map((rowTop) =>
+          cards.filter(({ top }) => Math.abs(top - rowTop) <= 1),
+        ),
+        firstRow: cards.filter(
+          ({ top }) => Math.abs(top - (rowTops[0] ?? 0)) <= 1,
+        ),
+        grid: rect(grid),
+        section: rect(section),
+        main: rect(main),
+        mainClientWidth: main.clientWidth,
+        input: rect(input),
+        select: rect(select),
+        gridOverflow: grid.scrollWidth - grid.clientWidth,
+        documentOverflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      };
+    },
+    { forcedWidth: containerWidth, trackRem: TRACK_REM },
+  );
 }
 
 type Layout = Awaited<ReturnType<typeof measureCardGrid>>;
@@ -229,6 +254,19 @@ function assertNoOverflow(result: Layout) {
   expect
     .soft(result.documentOverflow, 'document horizontal overflow')
     .toBeLessThanOrEqual(0);
+}
+
+function assertPosterRatio(result: Layout, label: string) {
+  for (const card of result.cards) {
+    expect.soft(card.poster, `${label} poster exists`).not.toBeNull();
+    if (!card.poster) continue;
+    expect
+      .soft(
+        Math.abs(card.poster.height / card.poster.width - POSTER_RATIO),
+        `${label} A4 poster ratio`,
+      )
+      .toBeLessThanOrEqual(0.02);
+  }
 }
 
 async function record(id: string, result: unknown) {
@@ -291,6 +329,9 @@ for (const count of [1, 2]) {
     expect(partial.trackCapacity, 'H1 empty track capacity retained').toBe(
       full.trackCapacity,
     );
+    expect
+      .soft(partial.occupiedColumns, 'H1 occupied columns equal item count')
+      .toBe(Math.min(count, partial.trackCapacity));
     for (const track of partial.tracks) {
       expect
         .soft(
@@ -301,23 +342,21 @@ for (const count of [1, 2]) {
     }
     audit.assertClean();
   });
-
-  test(`G2 H1 retains empty tracks with ${count} cards`, async ({ page }) => {
-    const audit = await openPrograms(page, { cardCount: count });
-    const result = await measureCardGrid(page);
-    await record('G2 H1', result);
-    assertTracks(result);
-    assertNoOverflow(result);
-    expect(
-      Math.abs(result.cards[0].left - result.input.left),
-      'G2 Input left alignment',
-    ).toBeLessThanOrEqual(1);
-    expect(result.trackCapacity, 'G2 empty tracks remain').toBeGreaterThan(
-      count,
-    );
-    audit.assertClean();
-  });
 }
+
+test('G2 H1 retains an empty track with a single card', async ({ page }) => {
+  const audit = await openPrograms(page, { cardCount: 1 });
+  const result = await measureCardGrid(page);
+  await record('G2 H1', result);
+  assertTracks(result);
+  assertNoOverflow(result);
+  expect(
+    Math.abs(result.cards[0].left - result.input.left),
+    'G2 Input left alignment',
+  ).toBeLessThanOrEqual(1);
+  expect(result.trackCapacity, 'G2 empty track remains').toBeGreaterThan(1);
+  audit.assertClean();
+});
 
 test('H1 tablet wrap matches available RAM capacity', async ({ page }) => {
   const audit = await openPrograms(page, { cardCount: 3 }, 768);
@@ -328,21 +367,11 @@ test('H1 tablet wrap matches available RAM capacity', async ({ page }) => {
   audit.assertClean();
 });
 
-for (const width of [559, 560, 847, 848, 1135, 1136]) {
-  test(`G3 H1 forced grid ${width}px crosses intrinsic thresholds`, async ({
+for (const width of [783, 784, 1152]) {
+  test(`G3 H1 forced grid ${width}px resolves against the two-column threshold`, async ({
     page,
   }) => {
-    const audit = await openPrograms(page);
-    if (width === 560 || width === 848 || width === 1136) {
-      const below = await measureCardGrid(page, width - 1);
-      await record(`G3 ${width} lower boundary`, below);
-      expect
-        .soft(
-          below.occupiedColumns,
-          'G3 column transition occurs at threshold, not before',
-        )
-        .toBe(width === 560 ? 1 : width === 848 ? 2 : 3);
-    }
+    const audit = await openPrograms(page, {}, 1920);
     const result = await measureCardGrid(page, width);
     await record(`G3 ${width}`, result);
     expect(
@@ -351,14 +380,14 @@ for (const width of [559, 560, 847, 848, 1135, 1136]) {
     ).toBeLessThanOrEqual(1);
     assertTracks(result);
     assertNoOverflow(result);
-    expect
-      .soft(result.occupiedColumns, 'G3 threshold columns')
-      .toBe(width < 560 ? 1 : width < 848 ? 2 : width < 1136 ? 3 : 4);
-    if (width === 847) {
+    const columns = width < result.twoColumnThreshold ? 1 : 2;
+    expect.soft(result.trackCapacity, 'G3 threshold tracks').toBe(columns);
+    expect.soft(result.occupiedColumns, 'G3 threshold columns').toBe(columns);
+    for (const card of result.cards) {
       expect
         .soft(
-          Math.abs(result.cards[0].width - 415.5),
-          'G3 847px card width 415.5',
+          Math.abs(card.width - (width - result.gap * (columns - 1)) / columns),
+          'G3 card width splits the forced width evenly',
         )
         .toBeLessThanOrEqual(1);
     }
@@ -374,6 +403,7 @@ for (const containerWidth of [null, 300]) {
     const result = await measureCardGrid(page, containerWidth);
     await record('G4', result);
     assertNoOverflow(result);
+    assertPosterRatio(result, 'G4');
     for (const card of result.cards) {
       expect(
         Math.abs(card.width - result.grid.width),
@@ -384,7 +414,7 @@ for (const containerWidth of [null, 300]) {
   });
 }
 
-test('G5 H1 wide section is centered with at most four columns', async ({
+test('G5 H1 wide section is centered with at most two columns', async ({
   page,
 }) => {
   const audit = await openPrograms(page, {}, 1920);
@@ -392,8 +422,8 @@ test('G5 H1 wide section is centered with at most four columns', async ({
   await record('G5 H1', result);
   assertTracks(result);
   expect
-    .soft(result.trackCapacity, 'G5 maximum four tracks')
-    .toBeLessThanOrEqual(4);
+    .soft(result.trackCapacity, 'G5 maximum two tracks')
+    .toBeLessThanOrEqual(2);
   expect
     .soft(result.grid.width, 'G5 grid inner maximum 1152')
     .toBeLessThanOrEqual(1153);
@@ -424,7 +454,7 @@ test('G6 long Korean title stays within two lines at 320px', async ({
   audit.assertClean();
 });
 
-test('AC5 first row fits the scrollport with complete compact cards', async ({
+test('AC5 two full rows of compact cards fit the scrollport', async ({
   page,
 }) => {
   const audit = await openPrograms(page);
@@ -433,20 +463,20 @@ test('AC5 first row fits the scrollport with complete compact cards', async ({
     const result = await measureCardGrid(page);
     await record(`AC5 ${sidebar}`, result);
     expect(
-      result.firstRow.length,
-      `AC5 ${sidebar} first row holds three cards`,
-    ).toBeGreaterThanOrEqual(3);
+      result.rows.length,
+      `AC5 ${sidebar} at least two rows`,
+    ).toBeGreaterThanOrEqual(2);
     for (const card of result.cards) {
       expect
         .soft(
           card.height,
-          `AC5 ${sidebar} card height maximum 400px plus rounding`,
+          `AC5 ${sidebar} card height maximum 180px plus rounding`,
         )
-        .toBeLessThanOrEqual(401);
+        .toBeLessThanOrEqual(181);
     }
-    for (const card of result.firstRow) {
+    for (const card of result.rows.slice(0, 2).flat()) {
       expect
-        .soft(card.bottom, `AC5 ${sidebar} first row fully visible`)
+        .soft(card.bottom, `AC5 ${sidebar} first two rows fully visible`)
         .toBeLessThanOrEqual(result.main.bottom + 1);
     }
   }
@@ -464,7 +494,7 @@ async function decodeImages(page: Page) {
 }
 
 for (const state of ['load', 'error', 'none'] as const) {
-  test(`AC6 ${state} keeps 16:9 banner geometry before and after image settlement`, async ({
+  test(`AC6 ${state} keeps A4 poster geometry before and after image settlement`, async ({
     page,
   }) => {
     const image = Promise.withResolvers<void>();
@@ -492,27 +522,22 @@ for (const state of ['load', 'error', 'none'] as const) {
       after = await measureCardGrid(page);
     }
     await record(`AC6 ${state}`, { before, loaded, after });
+    assertPosterRatio(before, 'AC6 before load');
+    assertPosterRatio(loaded, 'AC6 loaded');
+    assertPosterRatio(after, `AC6 ${state}`);
     const comparisons =
       state === 'load'
         ? [['before load', before] as const]
         : [['before load', before] as const, [state, after] as const];
     for (const [index, card] of after.cards.entries()) {
-      expect.soft(card.banner, 'AC6 banner exists').not.toBeNull();
-      if (!card.banner) continue;
-      expect
-        .soft(
-          Math.abs(card.banner.width / card.banner.height - 16 / 9),
-          'AC6 16:9 ratio',
-        )
-        .toBeLessThanOrEqual(0.02);
       for (const [label, snapshot] of comparisons) {
         const reference = loaded.cards[index];
         const measured = snapshot.cards[index];
         expect
-          .soft(measured.banner, `AC6 ${label} banner exists`)
+          .soft(measured.poster, `AC6 ${label} poster exists`)
           .not.toBeNull();
         expect
-          .soft(reference.banner, 'AC6 loaded reference banner exists')
+          .soft(reference.poster, 'AC6 loaded reference poster exists')
           .not.toBeNull();
         for (const key of [
           'left',
@@ -525,9 +550,9 @@ for (const state of ['load', 'error', 'none'] as const) {
           expect
             .soft(
               Math.abs(
-                (measured.banner?.[key] ?? 0) - (reference.banner?.[key] ?? 0),
+                (measured.poster?.[key] ?? 0) - (reference.poster?.[key] ?? 0),
               ),
-              `AC6 ${label} vs loaded banner ${key}`,
+              `AC6 ${label} vs loaded poster ${key}`,
             )
             .toBeLessThanOrEqual(1);
           expect
@@ -541,12 +566,15 @@ for (const state of ['load', 'error', 'none'] as const) {
       if (state === 'load') {
         expect.soft(card.image?.complete, 'AC6 loaded PNG complete').toBe(true);
         expect
-          .soft(card.image?.naturalWidth, 'AC6 PNG decoded')
+          .soft(card.image?.naturalWidth, 'AC6 PNG decoded width')
           .toBeGreaterThan(0);
-        expect.soft(card.image?.fit, 'AC6 top crop fit').toBe('cover');
         expect
-          .soft(card.image?.position, 'AC6 top crop position')
-          .toBe('50% 0%');
+          .soft(card.image?.naturalHeight, 'AC6 PNG decoded height')
+          .toBeGreaterThan(0);
+        expect.soft(card.image?.fit, 'AC6 uncropped fit').toBe('contain');
+        expect
+          .soft(card.image?.position, 'AC6 centered position')
+          .toBe('50% 50%');
       }
     }
     audit.assertClean(
@@ -560,36 +588,46 @@ for (const state of ['load', 'error', 'none'] as const) {
   });
 }
 
-test('AC7 mixed title and note rows align metadata and affordance baselines', async ({
+test('AC7 mixed title and note rows align card edges, metadata and affordance baselines', async ({
   page,
 }) => {
   const audit = await openPrograms(page);
   const result = await measureCardGrid(page);
   await record('AC7', result);
-  const first = result.firstRow[0];
-  for (const card of result.firstRow) {
-    expect
-      .soft(card.title?.height, 'AC7 two-line title clamp')
-      .toBeLessThanOrEqual(2 * card.lineHeight + 1);
-    expect.soft(card.metaTop, 'AC7 metadata exists').not.toBeNull();
-    expect
-      .soft(
-        Math.abs((card.metaTop ?? 0) - (first.metaTop ?? 0)),
-        'AC7 metadata tops align',
-      )
-      .toBeLessThanOrEqual(1);
-    expect
-      .soft(
-        Math.abs((card.metaBaseline ?? 0) - (first.metaBaseline ?? 0)),
-        'AC7 text baselines align',
-      )
-      .toBeLessThanOrEqual(1);
-    expect
-      .soft(
-        Math.abs((card.affordanceBottom ?? 0) - (first.affordanceBottom ?? 0)),
-        'AC7 affordance bottoms align',
-      )
-      .toBeLessThanOrEqual(1);
+  for (const row of result.rows) {
+    const first = row[0];
+    for (const card of row) {
+      expect
+        .soft(card.title?.height, 'AC7 two-line title clamp')
+        .toBeLessThanOrEqual(2 * card.lineHeight + 1);
+      expect
+        .soft(Math.abs(card.top - first.top), 'AC7 card tops align')
+        .toBeLessThanOrEqual(1);
+      expect
+        .soft(Math.abs(card.bottom - first.bottom), 'AC7 card bottoms align')
+        .toBeLessThanOrEqual(1);
+      expect.soft(card.metaTop, 'AC7 metadata exists').not.toBeNull();
+      expect
+        .soft(
+          Math.abs((card.metaTop ?? 0) - (first.metaTop ?? 0)),
+          'AC7 metadata tops align',
+        )
+        .toBeLessThanOrEqual(1);
+      expect
+        .soft(
+          Math.abs((card.metaBaseline ?? 0) - (first.metaBaseline ?? 0)),
+          'AC7 text baselines align',
+        )
+        .toBeLessThanOrEqual(1);
+      expect
+        .soft(
+          Math.abs(
+            (card.affordanceBottom ?? 0) - (first.affordanceBottom ?? 0),
+          ),
+          'AC7 affordance bottoms align',
+        )
+        .toBeLessThanOrEqual(1);
+    }
   }
   audit.assertClean();
 });
@@ -621,7 +659,7 @@ for (const notes of ['all', 'none'] as const) {
     await page.goto('/programs?status=recruiting');
     await expect(
       page.locator('[data-slot="skeleton"] [data-slot="card-grid"] > *'),
-    ).toHaveCount(3);
+    ).toHaveCount(4);
     await settleFrames(page);
     const before = await measureCardGrid(page);
     list.resolve();
@@ -631,35 +669,33 @@ for (const notes of ['all', 'none'] as const) {
     await settleFrames(page);
     const after = await measureCardGrid(page);
     await record(`AC8 ${notes}`, { before, after });
-    const maxHeight = Math.max(...after.firstRow.map(({ height }) => height));
+    assertPosterRatio(before, 'AC8 skeleton');
+    expect(before.firstRow.length, 'AC8 skeleton first row is full').toBe(
+      before.trackCapacity,
+    );
     for (const [index, skeleton] of before.firstRow.entries()) {
       const ready = after.firstRow[index];
+      for (const key of ['width', 'height', 'top', 'left'] as const) {
+        expect
+          .soft(
+            Math.abs(skeleton[key] - ready[key]),
+            `AC8 skeleton card ${key} equals ready`,
+          )
+          .toBeLessThanOrEqual(1);
+      }
       expect
-        .soft(
-          Math.abs(skeleton.width - ready.width),
-          'AC8 skeleton width equals ready',
-        )
-        .toBeLessThanOrEqual(1);
-      expect
-        .soft(skeleton.banner, 'AC8 skeleton reserves banner')
+        .soft(skeleton.poster, 'AC8 skeleton reserves the poster')
         .not.toBeNull();
-      expect
-        .soft(
-          Math.abs(
-            (skeleton.banner?.height ?? 0) - (ready.banner?.height ?? 0),
-          ),
-          'AC8 skeleton banner height equals ready',
-        )
-        .toBeLessThanOrEqual(1);
-      expect
-        .soft(
-          Math.abs(skeleton.height - maxHeight),
-          'AC8 skeleton height equals ready maximum',
-        )
-        .toBeLessThanOrEqual(2);
-      expect
-        .soft(Math.abs(skeleton.top - ready.top), 'AC8 first-row displacement')
-        .toBeLessThanOrEqual(1);
+      for (const key of ['width', 'height', 'top', 'left'] as const) {
+        expect
+          .soft(
+            Math.abs(
+              (skeleton.poster?.[key] ?? 0) - (ready.poster?.[key] ?? 0),
+            ),
+            `AC8 skeleton poster ${key} equals ready`,
+          )
+          .toBeLessThanOrEqual(1);
+      }
     }
     audit.assertClean();
   });

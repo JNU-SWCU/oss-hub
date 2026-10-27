@@ -13,11 +13,12 @@ export interface ProgramCoverProps {
   readonly className?: string;
 }
 
-function DefaultCover({ crop = false }: { readonly crop?: boolean }) {
+export const programCoverCardFrame = 'aspect-[1/1.414] w-full rounded-md';
+
+function DefaultCover() {
   return (
     <svg
       viewBox="0 0 200 283"
-      preserveAspectRatio={crop ? 'xMidYMin slice' : undefined}
       className="size-full"
       aria-hidden="true"
       focusable="false"
@@ -66,7 +67,7 @@ export function ProgramCover({
       className={cn(
         'relative flex items-center justify-center overflow-hidden bg-muted text-primary/50',
         size === 'thumbnail' && 'aspect-video w-24 shrink-0 rounded-md',
-        size === 'card' && 'aspect-video w-full',
+        size === 'card' && programCoverCardFrame,
         size === 'detail' && '@container rounded-card border border-border',
         size === 'detail' && !available && 'aspect-[1/1.414]',
         className,
@@ -82,16 +83,14 @@ export function ProgramCover({
           className={
             size === 'detail'
               ? 'block h-auto max-h-[141.4cqw] w-full object-cover object-top'
-              : size === 'card'
-                ? 'absolute inset-0 h-full w-full object-cover object-top'
-                : 'absolute inset-0 h-full w-full object-contain'
+              : 'absolute inset-0 h-full w-full object-contain'
           }
           onError={() => setFailedSource(src)}
         />
       ) : size === 'thumbnail' ? (
         <ImageIcon className="size-6" aria-hidden="true" />
       ) : (
-        <DefaultCover crop={size === 'card'} />
+        <DefaultCover />
       )}
     </div>
   );

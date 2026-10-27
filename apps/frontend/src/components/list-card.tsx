@@ -23,10 +23,13 @@ export const listCardClasses = {
 } as const;
 
 export const listCardCoverClasses = {
-  root: 'pt-0 [--card-spacing:--spacing(3)]',
+  root: 'grid grid-cols-[88px_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-1 p-(--card-spacing) [--card-spacing:--spacing(3)] sm:grid-cols-[104px_minmax(0,1fr)]',
+  cover: 'col-start-1 row-span-full self-start',
+  header: 'col-start-2 px-0',
   title: 'min-h-[2lh]',
-  content: 'flex-1',
+  content: 'col-start-2 px-0',
   note: 'min-h-[1lh]',
+  affordance: 'col-start-2 px-0',
 } as const;
 
 export interface ListCardProps extends Omit<
@@ -82,8 +85,17 @@ export function ListCard({
       )}
       {...props}
     >
-      {cover}
-      <CardHeader className={listCardClasses.header}>
+      {cover ? (
+        <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
+          {cover}
+        </div>
+      ) : null}
+      <CardHeader
+        className={cn(
+          listCardClasses.header,
+          cover && listCardCoverClasses.header,
+        )}
+      >
         {badge ? (
           <CardAction>
             <StatusBadge
@@ -145,7 +157,10 @@ export function ListCard({
         <div
           data-slot="list-card-affordance"
           aria-hidden="true"
-          className={listCardClasses.affordance}
+          className={cn(
+            listCardClasses.affordance,
+            cover && listCardCoverClasses.affordance,
+          )}
         >
           자세히 ›
         </div>

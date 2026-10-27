@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { listCardClasses, listCardCoverClasses } from '@/components/list-card';
+import { programCoverCardFrame } from '@/components/program-cover';
 import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,9 @@ type LoadState =
 
 const PAGE_SIZE = 20;
 
+const PROGRAM_GRID_TRACK =
+  '[grid-template-columns:repeat(auto-fill,minmax(min(24rem,100%),1fr))]';
+
 function SkeletonLine({ className }: { readonly className: string }) {
   return (
     <div className="flex h-[1lh] items-center">
@@ -75,12 +79,18 @@ function SkeletonLine({ className }: { readonly className: string }) {
 function ProgramCardSkeleton() {
   return (
     <Card className={listCardCoverClasses.root}>
-      <SkeletonBlock className="aspect-video w-full" />
-      <CardHeader className={listCardClasses.header}>
+      <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
+        <SkeletonBlock className={programCoverCardFrame} />
+      </div>
+      <CardHeader
+        className={cn(listCardClasses.header, listCardCoverClasses.header)}
+      >
         <CardDescription>
           <SkeletonLine className="w-2/5" />
         </CardDescription>
-        <CardTitle className={listCardCoverClasses.title}>
+        <CardTitle
+          className={cn(listCardClasses.title, listCardCoverClasses.title)}
+        >
           <SkeletonLine className="w-full" />
           <SkeletonLine className="w-3/4" />
         </CardTitle>
@@ -97,7 +107,10 @@ function ProgramCardSkeleton() {
       </CardContent>
       <div
         data-slot="list-card-affordance"
-        className={listCardClasses.affordance}
+        className={cn(
+          listCardClasses.affordance,
+          listCardCoverClasses.affordance,
+        )}
       >
         <SkeletonLine className="w-12" />
       </div>
@@ -200,8 +213,8 @@ function ProgramListPage({
     if (loadState.kind === 'loading') {
       return (
         <Skeleton label="프로그램 목록을 불러오는 중">
-          <CardGrid>
-            {[0, 1, 2].map((index) => (
+          <CardGrid className={PROGRAM_GRID_TRACK}>
+            {[0, 1, 2, 3].map((index) => (
               <ProgramCardSkeleton key={index} />
             ))}
           </CardGrid>
@@ -234,7 +247,7 @@ function ProgramListPage({
       );
     }
     return (
-      <CardGrid>
+      <CardGrid className={PROGRAM_GRID_TRACK}>
         {loadState.programPage.items.map((program) => {
           const badge = getProgramListBadge(program, now);
 

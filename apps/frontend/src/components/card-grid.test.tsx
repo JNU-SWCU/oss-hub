@@ -24,7 +24,7 @@ describe('CardGrid', () => {
     expect(classes).not.toContain('gap-4');
     expect(classes).toContain('[&amp;&gt;*]:min-h-tile');
     expect(classes).toContain(
-      '[grid-template-columns:repeat(auto-fill,minmax(min(17rem,100%),1fr))]',
+      '[grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr))]',
     );
     expect(html).not.toContain('w-[22rem]');
     expect(html).not.toContain('max-content');

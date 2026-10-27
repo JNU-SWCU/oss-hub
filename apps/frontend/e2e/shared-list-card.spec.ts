@@ -128,8 +128,10 @@ for (const width of [1440, 390]) {
     await installRoutes(page);
     const styles: {
       readonly radius: string;
-      readonly padding: string;
       readonly fontSize: string;
+      readonly inset: number;
+      readonly rootPadding: string;
+      readonly headerPadding: string;
     }[] = [];
     for (const [route, slot, detail] of [
       ['/archive', 'list-card', `/archive/${projectId}`],
@@ -148,10 +150,14 @@ for (const width of [1440, 390]) {
           const heading = getComputedStyle(
             element.querySelector('[data-slot="card-title"]')!,
           );
+          const outer = element.getBoundingClientRect();
+          const first = element.firstElementChild!.getBoundingClientRect();
           return {
             radius: root.borderRadius,
-            padding: header.paddingLeft,
             fontSize: heading.fontSize,
+            inset: Math.round(first.top - outer.top),
+            rootPadding: root.padding,
+            headerPadding: header.paddingLeft,
           };
         }),
       );
@@ -193,12 +199,21 @@ for (const width of [1440, 390]) {
     }
     expect(styles[0].radius).toEqual(styles[1].radius);
     expect(styles[0].fontSize).toEqual(styles[1].fontSize);
-    expect(styles[0].padding, 'AC7 archive header keeps 24px padding').toBe(
-      '24px',
+    expect(styles[0].inset, 'AC7 archive card keeps 24px padding').toBe(24);
+    expect(
+      styles[0].headerPadding,
+      'AC7 archive header keeps 24px inline padding',
+    ).toBe('24px');
+    expect(styles[1].inset, 'AC7 program card uses 12px compact padding').toBe(
+      12,
     );
     expect(
-      styles[1].padding,
-      'AC7 program header uses 12px compact padding',
+      styles[1].rootPadding,
+      'AC7 program card pads uniformly by 12px',
     ).toBe('12px');
+    expect(
+      styles[1].headerPadding,
+      'AC7 program header carries no inline padding of its own',
+    ).toBe('0px');
   });
 }
