@@ -1,7 +1,7 @@
 'use client';
 
 import { ProgramCover } from '@/components';
-import { programCoverSource } from '@/components/program-cover-source';
+import { programCoverSource } from '@/components/program/program-cover-source';
 
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';

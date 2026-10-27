@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { StatusBadge } from '@/components/status-badge';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Card,
   CardAction,
@@ -12,8 +13,8 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-export const listCardClasses = {
-  root: 'h-full min-h-[170px] min-w-0 break-keep [overflow-wrap:anywhere]',
+const listCardClasses = {
+  root: 'h-full min-w-0 break-keep [overflow-wrap:anywhere] [--card-spacing:--spacing(3)]',
   header: 'min-w-0 gap-1.5',
   title: 'line-clamp-2',
   content: 'grid min-w-0 gap-2 text-small',
@@ -23,9 +24,9 @@ export const listCardClasses = {
     'mt-auto flex justify-end px-(--card-spacing) text-small font-semibold text-primary',
 } as const;
 
-export const listCardCoverClasses = {
-  root: 'grid grid-cols-[88px_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-3 gap-y-1 p-(--card-spacing) [--card-spacing:--spacing(3)]',
-  cover: 'col-start-1 row-span-full self-start',
+const listCardMediaClasses = {
+  root: 'grid min-h-[170px] grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-x-3 gap-y-1 p-(--card-spacing)',
+  media: 'col-start-1 row-span-full self-start',
   header: 'col-start-2 px-0',
   title: 'min-h-[2lh]',
   content: 'col-start-2 px-0',
@@ -33,68 +34,76 @@ export const listCardCoverClasses = {
   affordance: 'col-start-2 px-0',
 } as const;
 
-export interface ListCardProps extends Omit<
+interface ListCardFields extends Omit<
   ComponentProps<'div'>,
   'title' | 'children'
 > {
-  title: string;
-  subtitle?: string;
-  badge?: {
-    text: string;
-    variant: ComponentProps<typeof StatusBadge>['variant'];
-
-    icon?: ReactNode;
+  readonly title: ReactNode;
+  readonly subtitle?: ReactNode;
+  readonly badge?: {
+    readonly text: string;
+    readonly variant: ComponentProps<typeof StatusBadge>['variant'];
+    readonly icon?: ReactNode;
   };
-
-  statusDescription?: string;
-
-  cover?: ReactNode;
-
-  meta?: ReactNode;
-
-  details?: ReadonlyArray<{
+  readonly statusDescription?: string;
+  readonly media?: ReactNode;
+  readonly meta?: ReactNode;
+  readonly details?: ReadonlyArray<{
     readonly label?: string;
     readonly value: ReactNode;
   }>;
-  note?: ReactNode;
-  href?: string;
+  readonly note?: ReactNode;
 }
 
-export function ListCard({
+export type ListCardProps = ListCardFields & {
+  readonly title: string;
+  readonly subtitle?: string;
+} & (
+    | { readonly href?: string; readonly actions?: never }
+    | { readonly href?: never; readonly actions?: ReactNode }
+  );
+
+function ListCardFrame({
   title,
   subtitle,
   badge,
   statusDescription,
-  cover,
+  media,
   meta,
   details,
   note,
-  href,
+  actions,
+  affordance,
+  interactive = false,
   className,
   ...props
-}: ListCardProps) {
-  const card = (
+}: ListCardFields & {
+  readonly actions?: ReactNode;
+  readonly affordance?: ReactNode;
+  readonly interactive?: boolean;
+}) {
+  return (
     <Card
       data-slot="list-card"
       className={cn(
         listCardClasses.root,
-        cover && listCardCoverClasses.root,
-        href
+        media && listCardMediaClasses.root,
+        interactive
           ? 'cursor-pointer transition-[box-shadow] duration-150 hover:ring-ring hover:shadow-[0_2px_8px_rgba(0,26,77,0.08)] motion-reduce:transition-none'
           : 'cursor-default',
         className,
       )}
       {...props}
     >
-      {cover ? (
-        <div data-slot="list-card-cover" className={listCardCoverClasses.cover}>
-          {cover}
+      {media ? (
+        <div data-slot="list-card-media" className={listCardMediaClasses.media}>
+          {media}
         </div>
       ) : null}
       <CardHeader
         className={cn(
           listCardClasses.header,
-          cover && listCardCoverClasses.header,
+          media && listCardMediaClasses.header,
         )}
       >
         {badge ? (
@@ -113,7 +122,7 @@ export function ListCard({
         <CardTitle
           className={cn(
             listCardClasses.title,
-            cover && listCardCoverClasses.title,
+            media && listCardMediaClasses.title,
           )}
         >
           {statusDescription ? (
@@ -122,31 +131,37 @@ export function ListCard({
           {title}
         </CardTitle>
       </CardHeader>
-      {cover || meta || note || details?.length ? (
+      {media || meta || note || details?.length ? (
         <CardContent
           className={cn(
             listCardClasses.content,
-            cover && listCardCoverClasses.content,
+            media && listCardMediaClasses.content,
           )}
         >
-          {meta ? <div className={listCardClasses.meta}>{meta}</div> : null}
           {details?.length ? (
-            <div className="grid gap-4">
+            <div className="grid gap-2">
               {details.map(({ label, value }, index) => (
-                <div className="grid gap-1" key={label ?? index}>
+                <div key={label ?? index}>
                   {label ? (
-                    <span className="text-muted-foreground">{label}</span>
-                  ) : null}
-                  <div className="text-foreground tabular-nums">{value}</div>
+                    <>
+                      <span className="text-muted-foreground">{label}</span>{' '}
+                      <span className="text-foreground tabular-nums">
+                        {value}
+                      </span>
+                    </>
+                  ) : (
+                    <div className="text-foreground tabular-nums">{value}</div>
+                  )}
                 </div>
               ))}
             </div>
           ) : null}
-          {cover || note ? (
+          {meta ? <div className={listCardClasses.meta}>{meta}</div> : null}
+          {media || note ? (
             <div
               className={cn(
                 listCardClasses.note,
-                cover && listCardCoverClasses.note,
+                media && listCardMediaClasses.note,
               )}
             >
               {note}
@@ -154,21 +169,42 @@ export function ListCard({
           ) : null}
         </CardContent>
       ) : null}
-      {href ? (
+      {affordance ? (
         <div
           data-slot="list-card-affordance"
           aria-hidden="true"
           className={cn(
             listCardClasses.affordance,
-            cover && listCardCoverClasses.affordance,
+            media && listCardMediaClasses.affordance,
           )}
         >
-          자세히 ›
+          {affordance}
+        </div>
+      ) : null}
+      {actions ? (
+        <div
+          data-slot="list-card-actions"
+          className={cn(
+            'mt-auto flex justify-end px-(--card-spacing)',
+            media && 'col-start-2 px-0',
+          )}
+        >
+          {actions}
         </div>
       ) : null}
     </Card>
   );
+}
 
+export function ListCard({ href, actions, ...props }: ListCardProps) {
+  const card = (
+    <ListCardFrame
+      {...props}
+      actions={actions}
+      interactive={Boolean(href)}
+      affordance={href ? '자세히 ›' : undefined}
+    />
+  );
   return href ? (
     <Link
       href={href}
@@ -178,5 +214,33 @@ export function ListCard({
     </Link>
   ) : (
     card
+  );
+}
+
+function SkeletonLine({ className }: { readonly className: string }) {
+  return (
+    <div className="flex h-[1lh] items-center">
+      <SkeletonBlock className={cn('h-[1em] rounded', className)} />
+    </div>
+  );
+}
+
+export function ListCardSkeleton({ media }: Pick<ListCardProps, 'media'>) {
+  return (
+    <div className="h-full min-w-0">
+      <ListCardFrame
+        media={media}
+        subtitle={<SkeletonLine className="w-2/5" />}
+        title={
+          <>
+            <SkeletonLine className="w-full" />
+            <SkeletonLine className="w-3/4" />
+          </>
+        }
+        meta={<SkeletonLine className="w-3/5" />}
+        note={<SkeletonLine className="w-1/3" />}
+        affordance={<SkeletonLine className="w-12" />}
+      />
+    </div>
   );
 }

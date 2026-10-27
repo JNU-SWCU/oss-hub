@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditableMilestone, EditableProgram } from './dto';
@@ -125,6 +125,41 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+  });
+
+  it('늦게 도착한 이전 초기 응답이 편집 중인 교과 구분을 덮어쓰지 않는다', async () => {
+    const older = Promise.withResolvers<EditableProgram>();
+    const current = Promise.withResolvers<EditableProgram>();
+    getEditableProgramMock
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(current.promise);
+
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <ProgramEditPage programId="program-1" canDeleteProgram={false} />
+        </StrictMode>,
+      );
+    });
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      current.resolve({ ...editableProgram, trackType: null });
+    });
+    const track = container.querySelector('select');
+    if (!(track instanceof HTMLSelectElement)) {
+      throw new TypeError('교과 구분 선택을 찾지 못했습니다.');
+    }
+    await act(async () => {
+      track.value = 'EXTRACURRICULAR';
+      track.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(track.value).toBe('EXTRACURRICULAR');
+
+    await act(async () => {
+      older.resolve({ ...editableProgram, trackType: null });
+    });
+
+    expect(track.value).toBe('EXTRACURRICULAR');
   });
 
   it('마일스톤 마감을 앞당긴 직후 새 마감 이후의 프로그램 종료일을 저장한다', async () => {

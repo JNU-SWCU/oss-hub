@@ -199,11 +199,13 @@ for (const width of [1440, 390]) {
     }
     expect(styles[0].radius).toEqual(styles[1].radius);
     expect(styles[0].fontSize).toEqual(styles[1].fontSize);
-    expect(styles[0].inset, 'AC7 archive card keeps 24px padding').toBe(24);
+    expect(styles[0].inset, 'AC7 archive card uses 12px compact padding').toBe(
+      12,
+    );
     expect(
       styles[0].headerPadding,
-      'AC7 archive header keeps 24px inline padding',
-    ).toBe('24px');
+      'AC7 archive header uses 12px inline padding',
+    ).toBe('12px');
     expect(styles[1].inset, 'AC7 program card uses 12px compact padding').toBe(
       12,
     );

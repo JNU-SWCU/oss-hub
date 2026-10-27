@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ProgramCountdown } from '@/components';
-import type { CountdownMilestone } from '@/components/program-countdown';
+import type { CountdownMilestone } from '@/components/program/program-countdown';
 import { ShellIcon } from './shell-icons';
 import type {
   ProgramScopeSidebarGroup,
