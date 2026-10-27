@@ -5,9 +5,14 @@ import {
   type CosmosProjected,
 } from './cosmos-camera';
 import type { CosmosGraph, CosmosNode, CosmosNodeKind } from './cosmos-graph';
+import { cosmosNodeRadius as baseRadius } from './cosmos-initial';
+import {
+  COSMOS_LABEL_GAP,
+  cosmosLabelText as truncate,
+  cosmosLabelWidth,
+} from './cosmos-label';
 import {
   clamp,
-  createRng,
   DAWN_THEME,
   LABEL_MIN_ALPHA,
   LABEL_PLATE_ALPHA,
@@ -52,7 +57,6 @@ interface FlowPath {
   readonly repository: number;
 }
 
-const LABEL_MAX_CHARS = 28;
 const EDGE_BUCKETS = 24;
 const EDGE_ALPHA_FAR = 0.1;
 const EDGE_ALPHA_NEAR = 0.3;
@@ -65,7 +69,6 @@ const LABEL_PLATE_RADIUS = 4;
 const HOVER_EASE_MS = 110;
 const FOCUS_EASE_MS = 600;
 const ENTRANCE_MS = 1400;
-const ENTRANCE_MAX_DELAY = 0.35;
 const FLOW_PERIOD_MS = 3600;
 const FLOW_LEG_ONE = [0.02, 0.36] as const;
 const FLOW_LEG_TWO = [0.4, 0.74] as const;
@@ -78,18 +81,6 @@ const FOCUS_MODES: readonly CosmosFocus[] = [
   'flow',
   'activity',
 ];
-
-function truncate(text: string): string {
-  return text.length > LABEL_MAX_CHARS
-    ? `${text.slice(0, LABEL_MAX_CHARS - 1)}…`
-    : text;
-}
-
-function baseRadius(node: CosmosNode): number {
-  if (node.kind === 'p') return 3.4 + 1.6 * node.degN;
-  if (node.kind === 's') return 1.8 + 0.9 * node.degN;
-  return 1.1 + 0.55 * node.sz;
-}
 
 function easeOutCubic(t: number): number {
   const u = 1 - t;
@@ -215,20 +206,6 @@ export function createCosmosRenderer({
     if (me >= 0 && (edge.a === me || edge.b === me)) edgeNearMe[e] = 1;
   });
 
-  const scatter = new Float64Array(count * 3);
-  const delays = new Float64Array(count);
-  const scatterRand = createRng(11);
-  graph.nodes.forEach((node, i) => {
-    const u = scatterRand() * 2 - 1;
-    const theta = scatterRand() * 6.283;
-    const q = Math.sqrt(1 - u * u);
-    const distance = 1.1 + scatterRand() * 1.3;
-    scatter[i * 3] = node.x + q * Math.cos(theta) * distance;
-    scatter[i * 3 + 1] = node.y + u * distance;
-    scatter[i * 3 + 2] = node.z + q * Math.sin(theta) * distance;
-    delays[i] = scatterRand() * ENTRANCE_MAX_DELAY;
-  });
-
   const weights: Record<CosmosFocus, number> = {
     hero: 1,
     programs: 0,
@@ -266,13 +243,11 @@ export function createCosmosRenderer({
   let viewW = 0;
   let viewH = 0;
 
-  function measure(text: string, font: string): number {
-    if (!ctx) return 0;
-    const key = `${font}|${text}`;
+  function measure(text: string, size: number): number {
+    const key = `${size}|${text}`;
     const cached = widthCache.get(key);
     if (cached !== undefined) return cached;
-    ctx.font = font;
-    const width = ctx.measureText(text).width;
+    const width = cosmosLabelWidth(text, size);
     widthCache.set(key, width);
     return width;
   }
@@ -312,20 +287,7 @@ export function createCosmosRenderer({
       const node = graph.nodes[i];
       const P = proj[i];
       if (!node || !P) continue;
-      if (entrance >= 1) {
-        projectPoint(node.x, node.y, node.z, frame, view, P);
-        continue;
-      }
-      const delay = delays[i] ?? 0;
-      const t = easeOutCubic(clamp((entrance - delay) / (1 - delay), 0, 1));
-      projectPoint(
-        lerp(scatter[i * 3] ?? node.x, node.x, t),
-        lerp(scatter[i * 3 + 1] ?? node.y, node.y, t),
-        lerp(scatter[i * 3 + 2] ?? node.z, node.z, t),
-        frame,
-        view,
-        P,
-      );
+      projectPoint(node.x, node.y, node.z, frame, view, P);
     }
   }
 
@@ -356,7 +318,7 @@ export function createCosmosRenderer({
 
   function drawStars(w: number, h: number): void {
     if (!ctx) return;
-    const fade = (1 - wActivity) * smoothstep(0, 0.4, entrance);
+    const fade = 1 - wActivity;
     if (fade <= 0.01) return;
     const total = Math.min(
       graph.stars.length,
@@ -441,7 +403,7 @@ export function createCosmosRenderer({
     if (!ctx) return;
     for (const bucket of edgeBuckets) bucket.length = 0;
     const hoverSet = hovered === null ? null : neighbors[hovered];
-    const reveal = smoothstep(0.45, 0.95, entrance);
+    const reveal = 0.7 + 0.3 * smoothstep(0, 1, entrance);
     if (reveal <= 0) return;
     ctx.lineWidth = 1;
     for (let e = 0; e < graph.edges.length; e += 1) {
@@ -634,7 +596,7 @@ export function createCosmosRenderer({
     const P = proj[i];
     if (!node || !P || !P.ok) return;
     const font = `${weight} ${size}px ${fontFamily}`;
-    const width = measure(text, font);
+    const width = measure(text, size);
     const offset = baseRadius(node) * P.scale * radiusScale(i, node) + 6;
     const flip = P.x + offset + width > w - 12;
     const x0 = flip ? P.x - offset - width : P.x + offset;
@@ -673,8 +635,6 @@ export function createCosmosRenderer({
   ): void {
     if (!ctx) return;
     labelBoxes.length = 0;
-    const reveal = smoothstep(0.7, 1, entrance);
-    if (reveal <= 0) return;
     if (hovered !== null) {
       const node = graph.nodes[hovered];
       if (node && node.kind === 'p' && node.name) {
@@ -683,7 +643,7 @@ export function createCosmosRenderer({
           node.name,
           14,
           600,
-          lerp(LABEL_MIN_ALPHA, 1, mix) * reveal,
+          lerp(LABEL_MIN_ALPHA, 1, mix),
           w,
           h,
         );
@@ -696,17 +656,26 @@ export function createCosmosRenderer({
       if (P && P.ok && i !== hovered && graph.nodes[i]?.name) programs.push(i);
     }
     programs.sort((a, b) => (proj[b]?.depth ?? 0) - (proj[a]?.depth ?? 0));
+    const higherProgramYs: number[] = [];
     for (const i of programs) {
       const node = graph.nodes[i];
       const P = proj[i];
       if (!node || !P) continue;
+      const gap = Math.min(...higherProgramYs.map((y) => Math.abs(P.y - y)));
+      higherProgramYs.push(P.y);
+      if (
+        hovered === null &&
+        wPrograms + wFlow + wActivity === 0 &&
+        gap < COSMOS_LABEL_GAP
+      )
+        continue;
       const lit = lerp(lerp(LABEL_MIN_ALPHA, 0.95, P.depth), 1, wPrograms);
       placeLabel(
         i,
         truncate(node.name),
         Math.round(lerp(lerp(10, 13, P.depth), 13, wPrograms)),
         500,
-        lerp(lit, LABEL_MIN_ALPHA, dimTo) * reveal,
+        lerp(lit, LABEL_MIN_ALPHA, dimTo),
         w,
         h,
       );

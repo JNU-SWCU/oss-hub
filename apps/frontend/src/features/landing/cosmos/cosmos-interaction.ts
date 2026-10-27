@@ -1,5 +1,6 @@
 import type { CosmosOrbit } from './cosmos-camera';
 import { clamp } from './cosmos-theme';
+import { INITIAL_ORBIT } from './cosmos-initial';
 
 export interface CosmosInteractionOptions {
   readonly canvas: HTMLCanvasElement;
@@ -32,8 +33,6 @@ const AUTO_SPEED = (Math.PI * 2) / 150_000;
 const ROTATE_PER_PX = 0.0045;
 const PITCH_MIN = -0.9;
 const PITCH_MAX = 0.9;
-const INITIAL_YAW = 0.6;
-const INITIAL_PITCH = 0.36;
 const ZOOM_MIN = 0.65;
 const ZOOM_MAX = 2.2;
 const WHEEL_ZOOM_RATE = 0.0025;
@@ -54,8 +53,8 @@ export function attachCosmosInteraction({
   open,
   now = () => performance.now(),
 }: CosmosInteractionOptions): CosmosInteraction {
-  let yaw = INITIAL_YAW;
-  let pitch = INITIAL_PITCH;
+  let yaw: number = INITIAL_ORBIT.yaw;
+  let pitch: number = INITIAL_ORBIT.pitch;
   let zoom = 1;
   let yawVel = 0;
   let pitchVel = 0;
