@@ -62,7 +62,7 @@ describe('public archive parsers', () => {
     expect(parseArchivePage(pageResponse)).toMatchObject({
       pageSize: 12,
       nextPageId: 'cursor-2',
-      items: [{ modeLabel: '팀' }],
+      items: [{ modeLabel: '팀', detailUrl: '/projects/repo_123' }],
     });
     expect(parseArchiveDetail(detailResponse)).toMatchObject({
       repositoryName: 'oss-public',

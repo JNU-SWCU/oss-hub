@@ -185,7 +185,7 @@ function listItem(value: unknown): ArchiveListItem {
     return invalidResponse();
   }
   const fields = projectFields(value);
-  return { ...withLabels(fields), detailUrl: `/archive/${fields.projectId}` };
+  return { ...withLabels(fields), detailUrl: `/projects/${fields.projectId}` };
 }
 
 const METRICS_KEYS = [

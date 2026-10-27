@@ -76,7 +76,7 @@ describe('public profile parser', () => {
         {
           modeLabel: '팀',
           repositoryName: 'oss-public',
-          detailUrl: '/archive/project_123',
+          detailUrl: '/projects/project_123',
           observed: true,
         },
       ],
@@ -240,7 +240,7 @@ describe('public profile views', () => {
     expect(html).toContain('oss-public');
     expect(html).toContain('관측됨');
     expect(html).toContain('활동량 안내: 평가·점수·랭킹이 아닙니다');
-    expect(html).toContain('href="/archive/project_123"');
+    expect(html).toContain('href="/projects/project_123"');
   });
 
   it('renders unobserved and observed-zero states distinctly', () => {
