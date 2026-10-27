@@ -248,8 +248,12 @@ describe('AppSidebar', () => {
     );
     expect(html).not.toContain('data-slot="app-sidebar-count"');
 
-    expect(html).toContain('truncate hidden">2026</span>');
-    expect(html).toContain('aria-label="2026"');
-    expect(html).toContain('aria-label="2025"');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const aside = doc.querySelector('aside[data-slot="app-sidebar"]');
+    expect(aside?.getAttribute('data-collapsed')).toBe('true');
+    const yearLinks = Array.from(
+      aside?.querySelectorAll<HTMLAnchorElement>('a[aria-label]') ?? [],
+    ).map((link) => link.getAttribute('aria-label'));
+    expect(yearLinks).toEqual(expect.arrayContaining(['2026', '2025']));
   });
 });

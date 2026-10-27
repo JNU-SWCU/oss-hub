@@ -54,23 +54,34 @@ describe('NavBar 현재 탭', () => {
     expect(home[0]).toContain('href="/"');
   });
 
-  it('현재 탭은 강조 색·굵기와 마커 바를, 나머지는 평범한 링크를 가진다', () => {
+  it('현재 탭만 마커를 품고, 나머지는 현재 표시가 없는 평범한 링크다', () => {
     const html = render('/ranking');
-    const list = wideList(html);
-    expect(list.match(/data-slot="nav-bar-current-marker"/g)).toHaveLength(1);
-    const current = currentLinks(list)[0];
-    expect(current).toContain('font-semibold');
-    expect(current).toContain('text-sidebar-current-foreground');
-    expect(list).toMatch(
-      /data-slot="nav-bar-current-marker"[^>]*class="[^"]*\bbg-sidebar-current-marker\b/,
+    const doc = new DOMParser().parseFromString(
+      wideList(html),
+      'text/html',
     );
-    const others = (list.match(/<a[^>]*>/g) ?? []).filter(
-      (tag) => !tag.includes('aria-current'),
+    const links = Array.from(doc.querySelectorAll('a'));
+    expect(links).toHaveLength(ITEMS.length);
+    const current = links.filter(
+      (link) => link.getAttribute('aria-current') === 'page',
     );
-    expect(others).toHaveLength(ITEMS.length - 1);
-    for (const tag of others) {
-      expect(tag).not.toContain('font-semibold');
-      expect(tag).not.toContain('data-current');
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute('href')).toBe('/ranking');
+    expect(current[0].dataset.current).toBe('true');
+    expect(doc.querySelectorAll('[data-slot="nav-bar-current-marker"]')).toHaveLength(1);
+    expect(
+      current[0].parentElement?.querySelector(
+        '[data-slot="nav-bar-current-marker"]',
+      ),
+    ).not.toBeNull();
+    for (const link of links.filter((l) => l !== current[0])) {
+      expect(link.hasAttribute('aria-current')).toBe(false);
+      expect(link.hasAttribute('data-current')).toBe(false);
+      expect(
+        link.parentElement?.querySelector(
+          '[data-slot="nav-bar-current-marker"]',
+        ),
+      ).toBeNull();
     }
   });
 
