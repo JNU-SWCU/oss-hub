@@ -12,10 +12,11 @@ export interface CosmosTheme {
 
 const COSMOS_INK: CosmosColor = [5, 10, 26];
 const COSMOS_SKY: CosmosColor = [233, 241, 248];
+const COSMOS_PROGRAM: CosmosColor = [242, 212, 155];
+const COSMOS_STUDENT: CosmosColor = [201, 214, 255];
+const COSMOS_REPOSITORY_STAR: CosmosColor = [154, 163, 181];
 const PALETTE_WHITE: CosmosColor = [255, 255, 255];
-const PALETTE_GREEN_300: CosmosColor = [92, 198, 135];
-const PALETTE_GREEN_600: CosmosColor = [0, 122, 52];
-const PALETTE_NAVY_200: CosmosColor = [173, 193, 235];
+const PALETTE_AMBER_800: CosmosColor = [128, 88, 20];
 const PALETTE_NAVY_600: CosmosColor = [0, 51, 153];
 const PALETTE_NAVY_950: CosmosColor = [0, 13, 41];
 
@@ -24,9 +25,9 @@ export const NIGHT_THEME: CosmosTheme = {
   star: PALETTE_WHITE,
   edge: PALETTE_WHITE,
   label: PALETTE_WHITE,
-  program: PALETTE_GREEN_300,
-  student: PALETTE_NAVY_200,
-  repository: PALETTE_WHITE,
+  program: COSMOS_PROGRAM,
+  student: COSMOS_STUDENT,
+  repository: COSMOS_REPOSITORY_STAR,
 };
 
 export const DAWN_THEME: CosmosTheme = {
@@ -34,10 +35,27 @@ export const DAWN_THEME: CosmosTheme = {
   star: PALETTE_WHITE,
   edge: PALETTE_NAVY_950,
   label: PALETTE_NAVY_950,
-  program: PALETTE_GREEN_600,
+  program: PALETTE_AMBER_800,
   student: PALETTE_NAVY_600,
   repository: PALETTE_NAVY_950,
 };
+
+export const LABEL_MIN_ALPHA = 0.85;
+export const LABEL_PLATE_ALPHA = 0.75;
+
+export interface CosmosLabelInk {
+  readonly text: CosmosColor;
+  readonly plate: CosmosColor;
+}
+
+export const labelInk = (
+  night: CosmosTheme,
+  day: CosmosTheme,
+  dayMix: number,
+): CosmosLabelInk =>
+  dayMix < 0.5
+    ? { text: night.label, plate: night.void }
+    : { text: day.label, plate: day.void };
 
 const clamp01 = (value: number): number =>
   value < 0 ? 0 : value > 1 ? 1 : value;

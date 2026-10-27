@@ -47,6 +47,7 @@ function renderWith(completeness: LandingGraphCompleteness): string {
   mocks.useLandingGraph.mockReturnValue({
     graph: PUBLIC_GRAPH,
     completeness,
+    programs: [],
   });
   return renderToStaticMarkup(
     <LandingJourney primaryAction={<a href="/login">GitHub으로 로그인</a>} />,

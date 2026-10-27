@@ -1,17 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { streamLandingGraph } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { loadLandingProgramNames, streamLandingGraph } from '../api';
 import type { LandingGraphStage } from '../api';
-import { LANDING_GRAPH_EXAMPLE } from '../landing-graph';
+import type { CosmosProgram } from '../cosmos';
+import {
+  LANDING_GRAPH_EXAMPLE,
+  selectLandingStarPrograms,
+} from '../landing-graph';
+import type { LandingProgramName } from '../landing-overview';
 
 const EXAMPLE_STAGE: LandingGraphStage = {
   graph: LANDING_GRAPH_EXAMPLE,
   completeness: 'complete',
 };
 
-export function useLandingGraph(): LandingGraphStage {
+export interface LandingGraphState extends LandingGraphStage {
+  readonly programs: readonly CosmosProgram[];
+}
+
+const ignoreRequestFailure = (error: unknown): void => {
+  if (error instanceof Error) return;
+  throw error;
+};
+
+export function useLandingGraph(): LandingGraphState {
   const [stage, setStage] = useState<LandingGraphStage>(EXAMPLE_STAGE);
+  const [names, setNames] = useState<readonly LandingProgramName[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -22,14 +37,21 @@ export function useLandingGraph(): LandingGraphStage {
         const enriched = await complete;
         if (active) setStage(enriched);
       })
-      .catch((error: unknown) => {
-        if (error instanceof Error) return;
-        throw error;
-      });
+      .catch(ignoreRequestFailure);
+    void loadLandingProgramNames()
+      .then((loaded) => {
+        if (active) setNames(loaded);
+      })
+      .catch(ignoreRequestFailure);
     return () => {
       active = false;
     };
   }, []);
 
-  return stage;
+  const programs = useMemo(
+    () => selectLandingStarPrograms(stage.graph, names),
+    [stage.graph, names],
+  );
+
+  return { ...stage, programs };
 }

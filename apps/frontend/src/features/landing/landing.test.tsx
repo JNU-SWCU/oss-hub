@@ -60,8 +60,10 @@ describe('landing page sections', () => {
 
     expect(html.match(/<h1[^>]*>/g)).toHaveLength(1);
     expect(html).toContain('<h1 id="landing-hero-heading">');
-    expect(html).toContain('오픈소스로 성장하는 곳');
-    expect(html).toContain('GitHub 계정 하나면 시작할 수 있습니다.');
+    expect(html).toContain('흩어진 정보를 하나로');
+    expect(html).toContain(
+      'OSS Hub는 오픈소스 활동을 모아 역량으로 쌓아줍니다. 교내 활동, 팀 프로젝트, 대외 활동 등의 제출 및 검토를 간편하게 만들어줍니다.',
+    );
   });
 
   it('renders the primary action once, beside the programs link in the hero', () => {
@@ -81,24 +83,18 @@ describe('landing page sections', () => {
     expect(html).not.toContain('로그인·프로그램 정보로 건너뛰기');
   });
 
-  it('renders the legend without progress ticks or a scroll hint', () => {
+  it('renders the three legend items without an example note, a hint or progress ticks', () => {
     const html = renderJourney();
 
     expect(html).toContain('학생');
     expect(html).toContain('저장소');
     expect(html).toContain('프로그램');
-    expect(html).toContain('예시 구성');
+    expect(html).not.toContain('예시 구성');
+    expect(html).not.toContain('끌어서 돌리고');
+    expect(html).not.toContain('점을 누르면 열립니다');
     expect(html).not.toContain('소개 진행 상태');
     expect(html).not.toContain('단계</span>');
     expect(html).not.toContain('SCROLL');
-  });
-
-  it('renders the graph interaction hint beside the legend', () => {
-    const html = renderJourney();
-
-    expect(html).toContain(
-      '끌어서 돌리고, 확대해서 들여다보고, 점을 누르면 열립니다',
-    );
   });
 
   it('renders the story sections with stats, flow steps and activity copy', () => {
@@ -108,12 +104,26 @@ describe('landing page sections', () => {
     expect(html).toContain('공개 저장소');
     expect(html).toContain('공개 기여자');
     expect(html.match(/STEP \d/g)).toHaveLength(4);
-    expect(html).toContain('해커톤도, 스터디도 하나의 별자리로');
-    expect(html).toContain('실제 오픈소스처럼 일합니다');
-    expect(html).toContain('내 기여가 포트폴리오가 됩니다');
-    expect(html).toContain('팀 꾸리기');
-    expect(html).toContain('초대를 수락해 함께 시작합니다');
-    expect(html).toContain('연도별 아카이브에 남습니다');
+    expect(html).toContain('모든 활동은 프로그램 단위로 묶입니다');
+    expect(html).toContain(
+      '경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은 학생, 저장소와 연결되어 관리됩니다.',
+    );
+    expect(html).toContain('신청부터 공개까지, 하나의 흐름');
+    expect(html).toContain(
+      '익숙한 GitHub 위에서 신청, 협업, 검토가 끊김 없이 이어집니다.',
+    );
+    expect(html).toContain('신청·팀 구성');
+    expect(html).toContain('초대를 수락해 팀에 합류');
+    expect(html).toContain('저장소 연결');
+    expect(html).toContain('승인되면 팀 저장소가 열림');
+    expect(html).toContain('제출·검토');
+    expect(html).toContain('마일스톤 단위로 교직원이 검토');
+    expect(html).toContain('공개 아카이브');
+    expect(html).toContain('연도별 아카이브에 남음');
+    expect(html).toContain('참여 기록이 모두 남습니다');
+    expect(html).toContain(
+      '참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다. 진행 중인 저장소는 팀과 교직원만 볼 수 있고, 공개는 검토 후 명시적 승인을 거칩니다.',
+    );
   });
 
   it('serves the story sections visible: no reveal attribute in server markup', () => {
@@ -153,6 +163,8 @@ describe('landing page sections', () => {
       /별무리/,
       /자산으로 쌓인다/,
       /개발 패널/,
+      /한 곳/,
+      /오픈소스로 성장하는 곳/,
     ]) {
       expect(html, `${rejected.source} 문구가 남아 있습니다`).not.toMatch(
         rejected,

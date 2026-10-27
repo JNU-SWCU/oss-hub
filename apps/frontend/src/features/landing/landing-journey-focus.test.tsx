@@ -17,6 +17,7 @@ vi.mock('./components/use-landing-graph', () => ({
   useLandingGraph: () => ({
     graph: LANDING_GRAPH_EXAMPLE,
     completeness: 'complete',
+    programs: [],
   }),
 }));
 

@@ -5,8 +5,8 @@
   --journey-card: color-mix(in oklch, var(--cosmos-copy) 5%, transparent);
   --journey-panel: rgb(var(--cosmos-ink-rgb) / 86%);
   --legend-student: var(--cosmos-student);
-  --legend-repository: var(--cosmos-copy);
-  --legend-program: var(--cosmos-repository);
+  --legend-repository: var(--cosmos-repository-star);
+  --legend-program: var(--cosmos-program);
   --journey-ink-hold: 60svh;
   --journey-deep-at: 135svh;
   --journey-dusk-until: 115svh;
@@ -405,27 +405,6 @@
   width: 9px;
   height: 9px;
   background: var(--legend-program);
-}
-
-.legendNote {
-  color: var(--journey-muted);
-}
-
-.hint {
-  margin: 0;
-  border: 1px solid var(--journey-rule);
-  background: var(--journey-panel);
-  backdrop-filter: blur(8px);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: var(--step-badge);
-  letter-spacing: 0.01em;
-  text-align: right;
-  color: var(--journey-muted);
-  transition:
-    color 600ms ease,
-    background-color 600ms ease,
-    border-color 600ms ease;
 }
 
 .skip {

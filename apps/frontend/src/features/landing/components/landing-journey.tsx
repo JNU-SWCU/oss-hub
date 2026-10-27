@@ -42,10 +42,10 @@ let entrancePlayed = false;
 const isPendingCount = (value: string): boolean => !/\d/.test(value);
 
 const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
-  ['STEP 1', '팀 꾸리기', '초대를 수락해 함께 시작합니다'],
-  ['STEP 2', '저장소 받기', '승인되면 팀 저장소가 열립니다'],
-  ['STEP 3', '제출과 리뷰', '단계마다 교직원 피드백을 받습니다'],
-  ['STEP 4', '공개 아카이브', '연도별 아카이브에 남습니다'],
+  ['STEP 1', '신청·팀 구성', '초대를 수락해 팀에 합류'],
+  ['STEP 2', '저장소 연결', '승인되면 팀 저장소가 열림'],
+  ['STEP 3', '제출·검토', '마일스톤 단위로 교직원이 검토'],
+  ['STEP 4', '공개 아카이브', '연도별 아카이브에 남음'],
 ];
 
 export function LandingJourney({
@@ -62,19 +62,9 @@ export function LandingJourney({
   const focusRef = useRef<CosmosFocus>('hero');
   const [focus, setFocus] = useState<CosmosFocus>('hero');
   const revealRef = useRevealOnce();
-  const { graph: publicGraph, completeness } = useLandingGraph();
+  const { graph: publicGraph, completeness, programs } = useLandingGraph();
 
   const programsRef = useRef<readonly CosmosProgram[]>([]);
-  const programs = useMemo(
-    () =>
-      publicGraph.nodes
-        .filter((node) => node.kind === 'program')
-        .map((node): CosmosProgram => ({
-          name: node.label,
-          href: publicGraph.source === 'public' ? node.href : null,
-        })),
-    [publicGraph],
-  );
 
   const stats = useMemo(
     () => deriveLandingStats(publicGraph, completeness),
@@ -202,11 +192,11 @@ export function LandingJourney({
               <span className={styles.eyebrow}>
                 전남대학교 SW중심대학사업단
               </span>
-              <h1 id="landing-hero-heading">오픈소스로 성장하는 곳</h1>
+              <h1 id="landing-hero-heading">흩어진 정보를 하나로</h1>
               <p>
-                교내 프로그램에서 팀을 꾸리고, 실제 저장소에서 협업하고, 그
-                기록을 공개 포트폴리오로 남기세요. GitHub 계정 하나면 시작할 수
-                있습니다.
+                OSS Hub는 오픈소스 활동을 모아 역량으로 쌓아줍니다. 교내 활동,
+                팀 프로젝트, 대외 활동 등의 제출 및 검토를 간편하게
+                만들어줍니다.
               </p>
               {authErrorMessage ? (
                 <Alert className="mt-6 max-w-xl border-hero-danger/40 bg-hero-danger/10 text-hero-danger">
@@ -248,11 +238,11 @@ export function LandingJourney({
               <span className={styles.eyebrow}>프로그램</span>
             </div>
             <h2 id="landing-program-heading">
-              해커톤도, 스터디도 하나의 별자리로
+              모든 활동은 프로그램 단위로 묶입니다
             </h2>
             <p>
-              경진대회, 해커톤, 기여 챌린지, 스터디, 세미나. 참여한 모든 활동이
-              학생과 저장소로 이어져 오픈소스 경험으로 쌓입니다.
+              경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은
+              학생, 저장소와 연결되어 관리됩니다.
             </p>
             <ul className={styles.stats}>
               {(
@@ -288,11 +278,8 @@ export function LandingJourney({
               </span>
               <span className={styles.eyebrow}>흐름</span>
             </div>
-            <h2 id="landing-flow-heading">실제 오픈소스처럼 일합니다</h2>
-            <p>
-              익숙한 GitHub 위에서 팀을 꾸리고, 저장소에서 협업하고, 리뷰를
-              받습니다.
-            </p>
+            <h2 id="landing-flow-heading">신청부터 공개까지, 하나의 흐름</h2>
+            <p>익숙한 GitHub 위에서 신청, 협업, 검토가 끊김 없이 이어집니다.</p>
             <ol className={styles.steps}>
               {FLOW_STEPS.map(([no, title, description]) => (
                 <li key={no} className={styles.step}>
@@ -317,11 +304,11 @@ export function LandingJourney({
               </span>
               <span className={styles.eyebrow}>나의 활동</span>
             </div>
-            <h2 id="landing-activity-heading">내 기여가 포트폴리오가 됩니다</h2>
+            <h2 id="landing-activity-heading">참여 기록이 모두 남습니다</h2>
             <p>
-              참여한 프로그램과 팀, 저장소, 제출 기록을 한 화면에서 봅니다. 진행
-              중인 저장소는 팀과 교직원만 보고, 검토를 거쳐 승인된 것만
-              공개됩니다.
+              참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다.
+              진행 중인 저장소는 팀과 교직원만 볼 수 있고, 공개는 검토 후 명시적
+              승인을 거칩니다.
             </p>
           </section>
         </div>
@@ -347,11 +334,7 @@ export function LandingJourney({
                 <i className={styles.dotProgram} />
                 프로그램
               </span>
-              <span className={styles.legendNote}>예시 구성</span>
             </div>
-            <p className={styles.hint}>
-              끌어서 돌리고, 확대해서 들여다보고, 점을 누르면 열립니다
-            </p>
           </div>
         </div>
       </div>

@@ -1,14 +1,27 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CosmosGraph, CosmosNode } from './cosmos-graph';
+import {
+  applyCosmosPrograms,
+  buildCosmosGraph,
+  layoutCosmosGraph,
+  type CosmosGraph,
+  type CosmosNode,
+} from './cosmos-graph';
+import {
+  JOURNEY_BANDS,
+  labelContrast,
+  parseRgba,
+} from './cosmos-contrast-test-support';
 import {
   createCosmosRenderer,
   type CosmosFocus,
   type CosmosFrame,
 } from './cosmos-renderer';
+import { DAWN_THEME, NIGHT_THEME } from './cosmos-theme';
 
 const fillText = vi.fn<(text: string, x: number, y: number) => void>();
 const arc = vi.fn<(x: number, y: number, r: number) => void>();
 const createRadialGradient = vi.fn(() => ({ addColorStop: vi.fn() }));
+const labelPairs: { plate: string; text: string }[] = [];
 
 class FakeCanvas {
   width = 300;
@@ -17,21 +30,35 @@ class FakeCanvas {
   readonly clientHeight = 800;
 
   getContext() {
-    return {
+    let plateArmed = false;
+    let plate = '';
+    const ctx = {
+      fillStyle: '',
       setTransform: vi.fn(),
       clearRect: vi.fn(),
       fillRect: vi.fn(),
       beginPath: vi.fn(),
       moveTo: vi.fn(),
       lineTo: vi.fn(),
+      roundRect: () => {
+        plateArmed = true;
+      },
       arc,
-      fill: vi.fn(),
+      fill: () => {
+        if (!plateArmed) return;
+        plate = ctx.fillStyle;
+        plateArmed = false;
+      },
       stroke: vi.fn(),
       strokeText: vi.fn(),
-      fillText,
+      fillText: (text: string, x: number, y: number) => {
+        labelPairs.push({ plate, text: ctx.fillStyle });
+        fillText(text, x, y);
+      },
       createRadialGradient,
       measureText: (text: string) => ({ width: text.length * 7 }),
     };
+    return ctx;
   }
 }
 
@@ -77,6 +104,20 @@ const frame = (overrides: Partial<CosmosFrame> = {}): CosmosFrame => ({
   ...overrides,
 });
 
+function setupGraph(
+  graph: CosmosGraph,
+  options: { devicePixelRatio?: number; entranceMs?: number } = {},
+) {
+  vi.stubGlobal('window', { devicePixelRatio: options.devicePixelRatio ?? 2 });
+  const canvas = new FakeCanvas();
+  const renderer = createCosmosRenderer({
+    canvas: canvas as unknown as HTMLCanvasElement,
+    graph,
+    entranceMs: options.entranceMs ?? 0,
+  });
+  return { canvas, renderer };
+}
+
 function setup(
   nodes: CosmosNode[],
   options: {
@@ -85,15 +126,10 @@ function setup(
     edges?: CosmosGraph['edges'];
   } = {},
 ) {
-  vi.stubGlobal('window', { devicePixelRatio: options.devicePixelRatio ?? 2 });
-  const canvas = new FakeCanvas();
-  const renderer = createCosmosRenderer({
-    canvas: canvas as unknown as HTMLCanvasElement,
-    graph: graphWith(nodes, options.edges),
-    entranceMs: options.entranceMs ?? 0,
-  });
-  return { canvas, renderer };
+  return setupGraph(graphWith(nodes, options.edges), options);
 }
+
+const drawnLabels = (): string[] => fillText.mock.calls.map(([text]) => text);
 
 const arcsAt = (x: number, y: number) =>
   arc.mock.calls.filter(
@@ -127,7 +163,12 @@ afterEach(() => {
   fillText.mockClear();
   arc.mockClear();
   createRadialGradient.mockClear();
+  labelPairs.length = 0;
 });
+
+const colorKey = (css: string): string => parseRgba(css).color.join(',');
+const NIGHT_PAIR = `${NIGHT_THEME.label.join(',')} on ${NIGHT_THEME.void.join(',')}`;
+const DAWN_PAIR = `${DAWN_THEME.label.join(',')} on ${DAWN_THEME.void.join(',')}`;
 
 describe('createCosmosRenderer', () => {
   it('sizes the backing store by device pixel ratio times quality, capped at 2', () => {
@@ -174,6 +215,83 @@ describe('createCosmosRenderer', () => {
     fillText.mockClear();
     renderer.render(frame({ time: 1000, hovered: 0 }));
     expect(fillText.mock.calls.map(([text]) => text)).toEqual([name]);
+  });
+
+  it('labels only program stars that carry a real program name, never students or repositories', () => {
+    const graph = buildCosmosGraph();
+    layoutCosmosGraph(graph);
+    for (const node of graph.nodes) {
+      if (node.kind === 's') node.name = '@example-100';
+      if (node.kind === 'r') node.name = 'team-nova/api-server';
+    }
+    const realNames = ['seed-program-basic', 'seed-program-capstone'];
+    applyCosmosPrograms(
+      graph,
+      realNames.map((name) => ({ name, href: `/programs/${name}` })),
+    );
+    const { renderer } = setupGraph(graph);
+
+    renderer.render(frame());
+    expect(drawnLabels().length).toBeGreaterThan(0);
+    for (const label of drawnLabels()) expect(realNames).toContain(label);
+
+    const student = graph.nodes.findIndex((node) => node.kind === 's');
+    fillText.mockClear();
+    renderer.render(frame({ time: 1000, hovered: student }));
+    for (const label of drawnLabels()) expect(realNames).toContain(label);
+
+    for (const focus of ['programs', 'flow', 'activity'] as const) {
+      fillText.mockClear();
+      settle(renderer, focus, 1000, 600);
+      for (const label of drawnLabels()) expect(realNames).toContain(label);
+    }
+  });
+
+  it('leaves program stars without a real program unlabeled', () => {
+    const graph = buildCosmosGraph();
+    layoutCosmosGraph(graph);
+    const { renderer } = setupGraph(graph);
+
+    renderer.render(frame());
+    renderer.render(frame({ time: 1000, hovered: 0 }));
+
+    expect(fillText).not.toHaveBeenCalled();
+  });
+
+  it('keeps every label at AA against its plate on every band throughout the dawn transition', () => {
+    const graph = buildCosmosGraph();
+    layoutCosmosGraph(graph);
+    applyCosmosPrograms(
+      graph,
+      [
+        'seed-program-basic',
+        'seed-program-capstone',
+        'seed-program-overdue',
+      ].map((name) => ({ name, href: `/programs/${name}` })),
+    );
+    const { renderer } = setupGraph(graph);
+    let time = 0;
+
+    for (const from of ['hero', 'flow'] as const) {
+      time = settle(renderer, from, time, 700);
+      const pairsSeen = new Set<string>();
+      for (let elapsed = 0; elapsed <= 700; elapsed += 20) {
+        labelPairs.length = 0;
+        time += 20;
+        renderer.render(frame({ time, focus: 'activity' }));
+        expect(labelPairs.length).toBeGreaterThan(0);
+        for (const pair of labelPairs) {
+          pairsSeen.add(`${colorKey(pair.text)} on ${colorKey(pair.plate)}`);
+          for (const [band, color] of Object.entries(JOURNEY_BANDS)) {
+            expect(
+              labelContrast(parseRgba(pair.text), parseRgba(pair.plate), color),
+              `${from} -> activity at ${elapsed}ms on ${band}`,
+            ).toBeGreaterThanOrEqual(4.5);
+          }
+        }
+      }
+      expect([...pairsSeen].sort()).toEqual([DAWN_PAIR, NIGHT_PAIR].sort());
+    }
   });
 
   it('grows program nodes over the 600ms focus transition and settles at 1.35x', () => {

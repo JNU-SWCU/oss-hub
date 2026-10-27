@@ -92,12 +92,12 @@ test('retired persona cookie cannot replace anonymous backend traffic or navigat
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: '오픈소스로 성장하는 곳' }),
+    page.getByRole('heading', { name: '흩어진 정보를 하나로' }),
   ).toBeVisible();
   await attachOverview(page, testInfo, 'runtime-boundary-desktop-overview');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
-    page.getByRole('heading', { name: '오픈소스로 성장하는 곳' }),
+    page.getByRole('heading', { name: '흩어진 정보를 하나로' }),
   ).toBeVisible();
   await attachOverview(page, testInfo, 'runtime-boundary-mobile-overview');
 

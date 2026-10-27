@@ -39,60 +39,27 @@ export interface CosmosProgram {
   readonly href: string | null;
 }
 
-const PROGRAM_TYPE_NAMES = [
-  '오픈소스 해커톤',
-  'OSS 기여 챌린지',
-  '데이터·AI 스터디',
-  'SW 경진대회',
-  '세미나 · 워크숍',
-  '멘토링 프로그램',
-] as const;
-
-const TEAM_WORDS = [
-  'nova',
-  'orion',
-  'vega',
-  'lyra',
-  'atlas',
-  'pulsar',
-  'comet',
-  'aurora',
-];
-const REPO_WORDS = [
-  'api-server',
-  'web-client',
-  'infra',
-  'docs',
-  'mobile',
-  'pipeline',
-  'dashboard',
-  'crawler',
-];
+export const COSMOS_PROGRAM_COUNT = 6;
 
 const STUDENT_COUNT = 64;
 const REPO_COUNT = 88;
 const PEER_EDGE_COUNT = 18;
 const STAR_COUNT = 260;
 
-function pick(words: readonly string[], value: number): string {
-  return words[Math.floor(value * words.length)] ?? words[0] ?? '';
-}
-
 export function buildCosmosGraph(): CosmosGraph {
   const rand = createRng(42);
-  const programCount = PROGRAM_TYPE_NAMES.length;
+  const programCount = COSMOS_PROGRAM_COUNT;
   const nodes: CosmosNode[] = [];
   const edges: CosmosEdge[] = [];
 
   const emptyNode = (
     kind: CosmosNodeKind,
     prog: number,
-    name: string,
     sz: number,
   ): CosmosNode => ({
     kind,
     prog,
-    name,
+    name: '',
     href: null,
     sz,
     degN: 0,
@@ -102,15 +69,13 @@ export function buildCosmosGraph(): CosmosGraph {
   });
 
   for (let i = 0; i < programCount; i += 1) {
-    nodes.push(emptyNode('p', i, PROGRAM_TYPE_NAMES[i] ?? '', 1));
+    nodes.push(emptyNode('p', i, 1));
   }
 
   const studentStart = nodes.length;
   for (let i = 0; i < STUDENT_COUNT; i += 1) {
     const prog = Math.floor(rand() * programCount);
-    nodes.push(
-      emptyNode('s', prog, `@example-${100 + i}`, 0.85 + rand() * 0.4),
-    );
+    nodes.push(emptyNode('s', prog, 0.85 + rand() * 0.4));
     edges.push({ a: prog, b: nodes.length - 1, kind: 'sp' });
   }
 
@@ -118,14 +83,7 @@ export function buildCosmosGraph(): CosmosGraph {
     const pi = studentStart + Math.floor(rand() * STUDENT_COUNT);
     const parent = nodes[pi];
     if (!parent) continue;
-    nodes.push(
-      emptyNode(
-        'r',
-        parent.prog,
-        `team-${pick(TEAM_WORDS, rand())}/${pick(REPO_WORDS, rand())}`,
-        0.62 + rand() * rand() * 1.5,
-      ),
-    );
+    nodes.push(emptyNode('r', parent.prog, 0.62 + rand() * rand() * 1.5));
     edges.push({ a: pi, b: nodes.length - 1, kind: 'rs' });
   }
 
@@ -169,9 +127,8 @@ export function applyCosmosPrograms(
     if (node.kind !== 'p') continue;
     const program = programs[cursor];
     cursor += 1;
-    if (!program) continue;
-    node.name = program.name;
-    node.href = program.href;
+    node.name = program?.name ?? '';
+    node.href = program?.href ?? null;
   }
 }
 

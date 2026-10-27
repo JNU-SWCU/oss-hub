@@ -140,6 +140,8 @@
   --color-cosmos-muted: var(--cosmos-muted);
   --color-cosmos-student: var(--cosmos-student);
   --color-cosmos-repository: var(--cosmos-repository);
+  --color-cosmos-program: var(--cosmos-program);
+  --color-cosmos-repository-star: var(--cosmos-repository-star);
   --color-cosmos-edge: var(--cosmos-edge);
   --color-cosmos-border: var(--cosmos-border);
   --color-cosmos-danger: var(--cosmos-danger);
@@ -261,8 +263,10 @@
   --cosmos-near: #063a8f;
   --cosmos-copy: var(--palette-white);
   --cosmos-muted: var(--palette-navy-200);
-  --cosmos-student: var(--palette-navy-200);
+  --cosmos-student: #c9d6ff;
   --cosmos-repository: var(--palette-green-300);
+  --cosmos-program: #f2d49b;
+  --cosmos-repository-star: #9aa3b5;
   --cosmos-edge: var(--palette-navy-300);
   --cosmos-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --cosmos-danger: var(--palette-red-300);
@@ -282,7 +286,7 @@
   --cosmos-day-muted: var(--palette-gray-700);
   --cosmos-day-border: rgb(var(--cosmos-day-copy-rgb) / 16%);
   --cosmos-day-student: var(--palette-navy-600);
-  --cosmos-day-program: var(--palette-green-600);
+  --cosmos-day-program: var(--palette-amber-800);
   --cosmos-day-repository: var(--palette-navy-950);
 }
 

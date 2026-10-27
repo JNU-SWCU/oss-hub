@@ -9,12 +9,16 @@ import {
   clamp,
   createRng,
   DAWN_THEME,
+  LABEL_MIN_ALPHA,
+  LABEL_PLATE_ALPHA,
+  labelInk,
   lerp,
   mixColor,
   NIGHT_THEME,
   rgba,
   smoothstep,
   type CosmosColor,
+  type CosmosLabelInk,
   type CosmosTheme,
 } from './cosmos-theme';
 
@@ -57,9 +61,7 @@ const EDGE_ALPHA_LIT = 0.8;
 const STAR_ALPHA_STEPS = 5;
 const PICK_RADIUS = 14;
 const STAR_AREA_PER_STAR = 5200;
-const NEAR_LABEL_LIMIT = 5;
-const NEAR_LABEL_DEPTH = 0.74;
-const NEAR_LABEL_MIN_WIDTH = 480;
+const LABEL_PLATE_RADIUS = 4;
 const HOVER_EASE_MS = 110;
 const FOCUS_EASE_MS = 600;
 const ENTRANCE_MS = 1400;
@@ -233,9 +235,15 @@ export function createCosmosRenderer({
     flow: 0,
     activity: 0,
   };
-  const palette: { -readonly [K in keyof CosmosTheme]: CosmosColor } = {
-    ...theme,
+  const palette: {
+    -readonly [K in 'edge' | 'program' | 'student' | 'repository']: CosmosColor;
+  } = {
+    edge: theme.edge,
+    program: theme.program,
+    student: theme.student,
+    repository: theme.repository,
   };
+  let ink: CosmosLabelInk = labelInk(theme, dayTheme, 0);
   const kindColor: Record<CosmosNodeKind, CosmosColor> = {
     p: theme.program,
     s: theme.student,
@@ -278,9 +286,8 @@ export function createCosmosRenderer({
     wPrograms = smoothstep(0, 1, weights.programs);
     wFlow = smoothstep(0, 1, weights.flow);
     wActivity = smoothstep(0, 1, weights.activity);
-    palette.void = mixColor(theme.void, dayTheme.void, wActivity);
+    ink = labelInk(theme, dayTheme, wActivity);
     palette.edge = mixColor(theme.edge, dayTheme.edge, wActivity);
-    palette.label = mixColor(theme.label, dayTheme.label, wActivity);
     palette.program = mixColor(theme.program, dayTheme.program, wActivity);
     palette.student = mixColor(theme.student, dayTheme.student, wActivity);
     palette.repository = mixColor(
@@ -619,7 +626,6 @@ export function createCosmosRenderer({
     size: number,
     weight: number,
     alpha: number,
-    color: CosmosColor,
     w: number,
     h: number,
   ): void {
@@ -642,14 +648,20 @@ export function createCosmosRenderer({
       }
     }
     labelBoxes.push(box);
+    ctx.beginPath();
+    ctx.roundRect(
+      box[0],
+      box[1],
+      box[2] - box[0],
+      box[3] - box[1],
+      LABEL_PLATE_RADIUS,
+    );
+    ctx.fillStyle = rgba(ink.plate, alpha * LABEL_PLATE_ALPHA);
+    ctx.fill();
     ctx.font = font;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = rgba(palette.void, alpha * 0.85);
-    ctx.strokeText(text, x0, P.y);
-    ctx.fillStyle = rgba(color, alpha);
+    ctx.fillStyle = rgba(ink.text, alpha);
     ctx.fillText(text, x0, P.y);
   }
 
@@ -665,89 +677,36 @@ export function createCosmosRenderer({
     if (reveal <= 0) return;
     if (hovered !== null) {
       const node = graph.nodes[hovered];
-      if (node) {
+      if (node && node.kind === 'p' && node.name) {
         placeLabel(
           hovered,
           node.name,
-          node.kind === 'p' ? 14 : 12,
-          node.kind === 'p' ? 600 : 500,
-          lerp(0.5, 1, mix) * reveal,
-          palette.label,
+          14,
+          600,
+          lerp(LABEL_MIN_ALPHA, 1, mix) * reveal,
           w,
           h,
         );
       }
     }
-    const dim = (hovered === null ? 1 : 1 - 0.6 * mix) * reveal;
-    const featured: number[] = [];
-    if (path && wFlow > 0.01) featured.push(path.student, path.repository);
-    if (me >= 0 && wActivity > 0.01 && !featured.includes(me)) {
-      featured.push(me);
-    }
-    for (const i of featured) {
-      const node = graph.nodes[i];
-      if (!node || i === hovered) continue;
-      const strength = i === me ? Math.max(wFlow, wActivity) : wFlow;
-      placeLabel(
-        i,
-        truncate(node.name),
-        12,
-        500,
-        0.9 * strength * dim,
-        palette.label,
-        w,
-        h,
-      );
-    }
+    const dimTo = clamp(wFlow + wActivity + (hovered === null ? 0 : mix), 0, 1);
     const programs: number[] = [];
     for (let i = 0; i < graph.programCount; i += 1) {
       const P = proj[i];
-      if (P && P.ok && i !== hovered) programs.push(i);
+      if (P && P.ok && i !== hovered && graph.nodes[i]?.name) programs.push(i);
     }
     programs.sort((a, b) => (proj[b]?.depth ?? 0) - (proj[a]?.depth ?? 0));
-    const shadeOthers = 1 - DIM_STRENGTH * clamp(wFlow + wActivity, 0, 1);
     for (const i of programs) {
       const node = graph.nodes[i];
       const P = proj[i];
       if (!node || !P) continue;
-      const depthAlpha = lerp(0.35, 0.95, P.depth);
+      const lit = lerp(lerp(LABEL_MIN_ALPHA, 0.95, P.depth), 1, wPrograms);
       placeLabel(
         i,
         truncate(node.name),
         Math.round(lerp(lerp(10, 13, P.depth), 13, wPrograms)),
         500,
-        lerp(depthAlpha, 1, wPrograms) * shadeOthers * dim,
-        palette.label,
-        w,
-        h,
-      );
-    }
-    if (w < NEAR_LABEL_MIN_WIDTH) return;
-    const near: number[] = [];
-    for (let i = graph.programCount; i < count; i += 1) {
-      const P = proj[i];
-      if (
-        P &&
-        P.ok &&
-        P.depth > NEAR_LABEL_DEPTH &&
-        i !== hovered &&
-        !featured.includes(i)
-      ) {
-        near.push(i);
-      }
-    }
-    near.sort((a, b) => (proj[b]?.depth ?? 0) - (proj[a]?.depth ?? 0));
-    for (const i of near.slice(0, NEAR_LABEL_LIMIT)) {
-      const node = graph.nodes[i];
-      const P = proj[i];
-      if (!node || !P) continue;
-      placeLabel(
-        i,
-        truncate(node.name),
-        10,
-        400,
-        smoothstep(NEAR_LABEL_DEPTH, 0.96, P.depth) * 0.6 * shadeOthers * dim,
-        kindColor[node.kind],
+        lerp(lit, LABEL_MIN_ALPHA, dimTo) * reveal,
         w,
         h,
       );

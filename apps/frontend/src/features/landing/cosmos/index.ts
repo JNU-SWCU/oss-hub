@@ -1,6 +1,7 @@
 export {
   applyCosmosPrograms,
   buildCosmosGraph,
+  COSMOS_PROGRAM_COUNT,
   layoutCosmosGraph,
 } from './cosmos-graph';
 export type { CosmosGraph, CosmosProgram } from './cosmos-graph';
