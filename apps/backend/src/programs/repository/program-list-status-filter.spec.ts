@@ -10,7 +10,7 @@ function normalize(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim();
 }
 
-describe('programListSqlWhere archive filters', () => {
+describe('programListSqlWhere ended filters', () => {
   const now = new Date('2028-01-01T00:00:00.000Z');
 
   it('composes Seoul end year with status and search as bound parameters', () => {

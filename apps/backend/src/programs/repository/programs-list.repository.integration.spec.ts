@@ -577,8 +577,8 @@ describe('ProgramsRepository list ordering integration', () => {
     await expect(repository.findEndedYears(NOW)).resolves.toEqual([]);
   });
 
-  describe('archive end years and current status', () => {
-    const archiveNow = new Date('2028-01-01T00:00:00.000Z');
+  describe('ended program years and current status', () => {
+    const endedNow = new Date('2028-01-01T00:00:00.000Z');
 
     beforeEach(async () => {
       await prisma.program.createMany({
@@ -603,7 +603,7 @@ describe('ProgramsRepository list ordering integration', () => {
             applicationStartAt: '2028-02-01T00:00:00.000Z',
             applicationEndAt: '2028-03-01T00:00:00.000Z',
           },
-          { id: 'exact-now', endAt: archiveNow.toISOString() },
+          { id: 'exact-now', endAt: endedNow.toISOString() },
         ].map((fixture) => ({
           organizer: 'OSS Hub',
           category: ProgramCategory.BASIC,
@@ -638,7 +638,7 @@ describe('ProgramsRepository list ordering integration', () => {
           sort: 'name',
           direction: 'asc',
         },
-        archiveNow,
+        endedNow,
       );
 
       expect(total).toBe(2);
@@ -648,7 +648,7 @@ describe('ProgramsRepository list ordering integration', () => {
     });
 
     it('returns distinct descending Seoul years including archived programs only from the ended catalog', async () => {
-      await expect(repository.findEndedYears(archiveNow)).resolves.toEqual([
+      await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
         2029, 2027, 2026,
       ]);
     });
@@ -662,7 +662,7 @@ describe('ProgramsRepository list ordering integration', () => {
           status: 'current',
           sort: 'name',
         },
-        archiveNow,
+        endedNow,
       );
 
       expect(total).toBe(4);

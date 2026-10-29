@@ -35,7 +35,7 @@ import { SubmissionFileCleanupService } from '../../submissions/service/submissi
 import { ObjectStorageConfig } from '../../storage/object-storage.config';
 import { SubmissionFilesRepository } from '../../submissions/repository/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PublicProjectsRepository } from '../archive/public-projects/repository/public-projects.repository';
+import { PublicProjectsRepository } from '../public/public-projects/repository/public-projects.repository';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';
 import { ProgramErrorCode } from '../domain/program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.repository';

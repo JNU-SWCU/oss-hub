@@ -11,7 +11,7 @@ import { SubmissionReviewsModule } from './submission-reviews/submission-reviews
 import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
-import { PublicProjectsModule } from './programs/archive/public-projects/public-projects.module';
+import { PublicProjectsModule } from './programs/public/public-projects/public-projects.module';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
