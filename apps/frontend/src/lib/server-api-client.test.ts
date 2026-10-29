@@ -1,15 +1,26 @@
-import { unstable_cache } from 'next/cache';
 import { afterEach, expect, it, vi } from 'vitest';
-import * as originConfig from '../../backend-origin';
-import { serverApiClient } from './server-api-client';
 
 vi.mock('next/cache', () => ({
   unstable_cache: vi.fn((work: () => Promise<unknown>) => work),
 }));
+vi.mock('../../backend-origin', () => ({
+  backendOrigin: vi.fn(() => 'https://approved.example'),
+}));
+
+async function freshClient() {
+  vi.resetModules();
+  const cacheModule = await import('next/cache');
+  const originModule = await import('../../backend-origin');
+  const clientModule = await import('./server-api-client');
+  return {
+    unstableCache: vi.mocked(cacheModule.unstable_cache),
+    backendOrigin: vi.mocked(originModule.backendOrigin),
+    serverApiClient: clientModule.serverApiClient,
+  };
+}
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.mocked(unstable_cache).mockClear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -17,9 +28,7 @@ afterEach(() => {
 const cache = { revalidate: 300, tags: ['landing'] };
 
 it('reuses the validated origin when concurrent public requests arrive', async () => {
-  const origin = vi
-    .spyOn(originConfig, 'backendOrigin')
-    .mockReturnValue('https://approved.example');
+  const { backendOrigin, serverApiClient } = await freshClient();
   const fetchMock = vi
     .fn<typeof fetch>()
     .mockImplementation(() => Promise.resolve(Response.json({ items: [] })));
@@ -30,7 +39,7 @@ it('reuses the validated origin when concurrent public requests arrive', async (
     serverApiClient('projects', cache),
   ]);
 
-  expect(origin).toHaveBeenCalledTimes(1);
+  expect(backendOrigin).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
     'https://approved.example/api/v1/programs',
     'https://approved.example/api/v1/projects',
@@ -38,6 +47,7 @@ it('reuses the validated origin when concurrent public requests arrive', async (
 });
 
 it('caches through unstable_cache while every origin read bypasses the fetch cache', async () => {
+  const { unstableCache, serverApiClient } = await freshClient();
   const fetchMock = vi
     .fn<typeof fetch>()
     .mockImplementation(() => Promise.resolve(Response.json({ items: [] })));
@@ -45,7 +55,7 @@ it('caches through unstable_cache while every origin read bypasses the fetch cac
 
   await serverApiClient('programs', cache);
 
-  expect(unstable_cache).toHaveBeenCalledWith(
+  expect(unstableCache).toHaveBeenCalledWith(
     expect.any(Function),
     ['server-api', 'https://approved.example/api/v1/programs'],
     { revalidate: 300, tags: ['landing'] },
@@ -54,6 +64,7 @@ it('caches through unstable_cache while every origin read bypasses the fetch cac
 });
 
 it('aborts the origin read at the deadline', async () => {
+  const { serverApiClient } = await freshClient();
   vi.useFakeTimers();
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(
     (_url, init) =>
@@ -77,6 +88,7 @@ it('aborts the origin read at the deadline', async () => {
 });
 
 it('rejects at the deadline even when the request ignores its abort signal', async () => {
+  const { serverApiClient } = await freshClient();
   vi.useFakeTimers();
   vi.stubGlobal(
     'fetch',
