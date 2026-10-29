@@ -28,6 +28,10 @@ const NAV = (
   </nav>
 );
 
+function slots(html: string): string[] {
+  return [...html.matchAll(/data-slot="([^"]+)"/g)].map((match) => match[1]);
+}
+
 function render(
   overrides: Partial<React.ComponentProps<typeof SidebarShell>> = {},
 ) {
@@ -43,12 +47,15 @@ describe('SidebarShell', () => {
       /<aside[^>]*id="app-sidebar-aside"[^>]*data-slot="app-sidebar"[^>]*data-breakpoint-visibility="desktop"[^>]*data-collapsed="false"/,
     );
     expect(SIDEBAR_ASIDE_ID).toBe('app-sidebar-aside');
-    expect(html).toContain('data-slot="app-sidebar-nav"');
-    expect(html).not.toContain('h-topbar');
+    expect(html).toMatch(/<aside[^>]*data-variant="aside"/);
+    expect(html.match(/<aside\b/g)).toHaveLength(1);
+    expect(slots(html)).toEqual([
+      'app-sidebar',
+      'app-sidebar-nav',
+      'app-sidebar-foot',
+    ]);
+    expect(html).not.toMatch(/<(header|h[1-6]|hr)\b/);
     expect(html).not.toMatch(/data-slot="[a-z-]+-brand"/);
-    expect(html.match(/border-r\b/g)).toHaveLength(1);
-    expect(html).not.toContain('border-t');
-    expect(html).not.toContain('border-b');
   });
 
   it('kind에 따라 data-slot과 footer 슬롯 이름이 바뀐다', () => {
@@ -110,9 +117,13 @@ describe('SidebarShell', () => {
     );
     expect(html).not.toContain('data-breakpoint-visibility');
     expect(html).not.toContain(`id="${SIDEBAR_ASIDE_ID}"`);
-    expect(html).not.toContain('border-r');
-    expect(html).toContain('data-slot="app-sidebar-nav"');
-    expect(html).toContain('data-slot="program-scope-sidebar-foot"');
+    expect(html).not.toContain('data-variant="aside"');
+    expect(slots(html)).toEqual([
+      'sidebar-shell',
+      'app-sidebar-nav',
+      'program-scope-sidebar-foot',
+    ]);
+    expect(html).not.toMatch(/<(header|h[1-6]|hr)\b/);
   });
 });
 
@@ -130,8 +141,9 @@ describe('SidebarScopeRow', () => {
       /<a[^>]*href="\/programs\?status=in_progress"[^>]*data-slot="sidebar-shell-back"[^>]*>‹ 프로그램 목록<\/a>/,
     );
     expect(html).toMatch(
-      /data-slot="sidebar-shell-scope-title"[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>2026-2 오픈소스 SW 프로젝트</,
+      /<p[^>]*data-slot="sidebar-shell-scope-title"[^>]*>2026-2 오픈소스 SW 프로젝트<\/p>/,
     );
+    expect(html).not.toContain('aria-label="프로그램 목록"');
   });
 
   it('접힘: 아이콘 뒤로 링크만 남기고 라벨은 aria-label과 툴팁으로 옮긴다', () => {
