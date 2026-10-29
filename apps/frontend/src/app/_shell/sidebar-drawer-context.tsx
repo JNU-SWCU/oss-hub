@@ -14,6 +14,27 @@ import {
   SIDEBAR_OPEN_VALUE,
   SIDEBAR_STORAGE_KEY,
 } from './sidebar-collapsed';
+import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
+
+export const SIDEBAR_KEY_SHORTCUTS = 'Meta+Backslash Control+Backslash';
+
+function isSidebarShortcut(event: KeyboardEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) {
+    return false;
+  }
+  return event.code === 'Backslash' || event.key === '\\';
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return target.closest('input, textarea, select, [contenteditable="true"]') !== null;
+}
+
+function desktopSidebarVisible(): boolean {
+  const aside = document.getElementById(SIDEBAR_ASIDE_ID);
+  return aside !== null && getComputedStyle(aside).display !== 'none';
+}
 
 interface SidebarDrawerContextValue {
   readonly open: boolean;
@@ -47,6 +68,20 @@ export function SidebarDrawerProvider({
     () => setCollapsed((current) => !current),
     [],
   );
+
+  useEffect(() => {
+    if (!sidebarAvailable) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (open || !isSidebarShortcut(event) || isTypingTarget(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      if (desktopSidebarVisible()) toggleCollapsed();
+      else toggle();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarAvailable, open, toggle, toggleCollapsed]);
 
   useEffect(() => {
     document.cookie = `${SIDEBAR_STORAGE_KEY}=${

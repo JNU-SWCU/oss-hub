@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
 import { SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
-import { useSidebarDrawer } from './sidebar-drawer-context';
+import {
+  SIDEBAR_KEY_SHORTCUTS,
+  useSidebarDrawer,
+} from './sidebar-drawer-context';
 import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
 
 const TOGGLE_CLASS = cn(
@@ -27,7 +30,8 @@ export function SidebarToggle() {
         data-slot="nav-bar-sidebar-toggle"
         data-breakpoint-visibility="desktop"
         aria-label={collapseLabel}
-        title={collapseLabel}
+        aria-keyshortcuts={SIDEBAR_KEY_SHORTCUTS}
+        title={`${collapseLabel} (⌘\\)`}
         aria-expanded={!shell.collapsed}
         aria-controls={SIDEBAR_ASIDE_ID}
         onClick={shell.toggleCollapsed}
@@ -42,6 +46,7 @@ export function SidebarToggle() {
         data-slot="nav-bar-sidebar-drawer-trigger"
         data-breakpoint-visibility="mobile"
         aria-label="사이드바 메뉴 열기"
+        aria-keyshortcuts={SIDEBAR_KEY_SHORTCUTS}
         aria-expanded={shell.open}
         aria-controls={SIDEBAR_DRAWER_DIALOG_ID}
         onClick={shell.toggle}

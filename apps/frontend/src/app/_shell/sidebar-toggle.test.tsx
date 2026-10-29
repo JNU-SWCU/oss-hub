@@ -189,6 +189,99 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     expect(document.cookie).toContain(`${SIDEBAR_STORAGE_KEY}=open`);
   });
 
+  describe('단축키와 현재 항목 스크롤', () => {
+    function press(
+      target: EventTarget,
+      modifier: 'metaKey' | 'ctrlKey',
+    ): KeyboardEvent {
+      const event = new KeyboardEvent('keydown', {
+        key: '\\',
+        code: 'Backslash',
+        [modifier]: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(event);
+      return event;
+    }
+
+    it('토글은 aria-keyshortcuts로 ⌘\\ / Ctrl+\\를 알린다', async () => {
+      await renderFrame('/archive');
+      expect(desktopToggle()?.getAttribute('aria-keyshortcuts')).toBe(
+        'Meta+Backslash Control+Backslash',
+      );
+      expect(drawerTrigger()?.getAttribute('aria-keyshortcuts')).toBe(
+        'Meta+Backslash Control+Backslash',
+      );
+    });
+
+    it('Meta+\\ 와 Control+\\ 는 데스크톱에서 접힘을 뒤집는다', async () => {
+      await renderFrame('/archive');
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+
+      let event!: KeyboardEvent;
+      await act(async () => {
+        event = press(document.body, 'metaKey');
+      });
+      expect(event.defaultPrevented).toBe(true);
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('true');
+
+      await act(async () => {
+        press(document.body, 'ctrlKey');
+      });
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+    });
+
+    it('입력 중에는 단축키를 무시한다', async () => {
+      await renderFrame('/archive');
+      const input = document.createElement('input');
+      document.body.append(input);
+      input.focus();
+
+      let event!: KeyboardEvent;
+      await act(async () => {
+        event = press(input, 'ctrlKey');
+      });
+      input.remove();
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+    });
+
+    it('데스크톱 aside가 숨겨진 폭에서는 드로어를 연다', async () => {
+      await renderFrame('/archive');
+      const aside = document.getElementById(SIDEBAR_ASIDE_ID);
+      if (aside) aside.style.display = 'none';
+
+      await act(async () => {
+        press(document.body, 'metaKey');
+      });
+
+      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+    });
+
+    it('현재 항목을 nearest로 스크롤해 보여 준다', async () => {
+      const scrolled: { element: Element; options: unknown }[] = [];
+      const spy = vi
+        .spyOn(Element.prototype, 'scrollIntoView')
+        .mockImplementation(function (this: Element, options?: unknown) {
+          scrolled.push({ element: this, options });
+        });
+      try {
+        await renderFrame('/archive');
+
+        const asideCall = scrolled.find(({ element }) =>
+          document.getElementById(SIDEBAR_ASIDE_ID)?.contains(element),
+        );
+        expect(asideCall?.options).toEqual({ block: 'nearest' });
+        expect(asideCall?.element.getAttribute('aria-current')).toBe('page');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
   describe('패널 애니메이션 단계', () => {
     const root = document.documentElement;
 

@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
   type TransitionEvent,
@@ -108,6 +109,23 @@ export const SidebarPhaseContext = createContext<SidebarPhaseState | null>(
   null,
 );
 
+function useCurrentItemInView<T extends HTMLElement>() {
+  const containerRef = useRef<T>(null);
+  const lastScrolled = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const current =
+      container?.querySelector<HTMLElement>('[data-selected="true"]') ??
+      container?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!current || current === lastScrolled.current) return;
+    lastScrolled.current = current;
+    current.scrollIntoView({ block: 'nearest' });
+  });
+
+  return containerRef;
+}
+
 export interface SidebarShellProps {
   readonly kind: SidebarShellKind;
 
@@ -129,6 +147,8 @@ export function SidebarShell({
   bottom,
 }: SidebarShellProps) {
   const phaseState = useContext(SidebarPhaseContext);
+  const drawerRef = useCurrentItemInView<HTMLDivElement>();
+  const panelRef = useCurrentItemInView<HTMLDivElement>();
   const body = (
     <>
       {scope ? (
@@ -160,6 +180,7 @@ export function SidebarShell({
   if (variant === 'drawer') {
     return (
       <div
+        ref={drawerRef}
         data-slot="sidebar-shell"
         data-variant="drawer"
         data-kind={kind}
@@ -184,6 +205,7 @@ export function SidebarShell({
       )}
     >
       <div
+        ref={panelRef}
         data-slot="sidebar-shell-panel"
         data-phase={phaseState?.phase ?? (collapsed ? 'collapsed' : 'open')}
         onTransitionEnd={phaseState?.onPanelTransitionEnd}
