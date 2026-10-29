@@ -43,6 +43,7 @@ vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
 }));
 
 import { AppFrame } from './app-frame';
+import { nextFocus } from './drawer-test-signals';
 
 const ITEMS: NavItem[] = [
   { label: '프로그램', href: '/programs' },
@@ -237,6 +238,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     await renderFrame('/dashboard');
     await openDrawer();
     expect(dialog()).not.toBeNull();
+    const refocused = nextFocus(trigger());
 
     await act(async () => {
       document.dispatchEvent(
@@ -249,7 +251,8 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     });
 
     expect(dialog()).toBeNull();
-    await vi.waitFor(() => expect(document.activeElement).toBe(trigger()));
+    await act(() => refocused);
+    expect(document.activeElement).toBe(trigger());
   });
 
   it('경로가 바뀌면(라우트 전환) 드로어가 자동으로 닫힌다', async () => {

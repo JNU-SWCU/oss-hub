@@ -1,18 +1,18 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  bodyAttributeRemoved,
+  callSignal,
+  documentListenerAdded,
+  nextFocus,
+} from './drawer-test-signals';
 import { SidebarDrawer, SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
-
-async function flushMacrotask(): Promise<void> {
-  await act(async () => {
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  });
-}
 
 function Content() {
   return (
@@ -80,8 +80,10 @@ describe('SidebarDrawer', () => {
 
   it('닫히면(트리거로) 열기 전 포커스로 복귀한다', async () => {
     await renderDrawer(true, () => {});
+    const refocused = nextFocus(trigger);
     await renderDrawer(false, () => {});
-    await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+    await act(() => refocused);
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('Escape를 누르면 onClose가 호출된다', async () => {
@@ -105,10 +107,10 @@ describe('SidebarDrawer', () => {
     expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
     await renderDrawer(true, () => {});
     expect(document.body.hasAttribute('data-scroll-locked')).toBe(true);
+    const unlocked = bodyAttributeRemoved('data-scroll-locked');
     await renderDrawer(false, () => {});
-    await vi.waitFor(() =>
-      expect(document.body.hasAttribute('data-scroll-locked')).toBe(false),
-    );
+    await act(() => unlocked);
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
   });
 
   it('Tab이 드로어 밖으로 나가지 않는다(포커스 트랩) — 마지막에서 Tab하면 첫 요소로', async () => {
@@ -160,9 +162,11 @@ describe('SidebarDrawer', () => {
   });
 
   it('배경(backdrop) 클릭 시 onClose가 호출된다', async () => {
-    const onClose = vi.fn();
+    const closeSignal = callSignal();
+    const onClose = vi.fn(closeSignal.notify);
+    const outsideListenerReady = documentListenerAdded('pointerdown');
     await renderDrawer(true, onClose);
-    await flushMacrotask();
+    await act(() => outsideListenerReady);
     const backdrop = document.querySelector<HTMLElement>(
       '[data-slot="sidebar-drawer-backdrop"]',
     );
@@ -178,7 +182,8 @@ describe('SidebarDrawer', () => {
       );
       backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await act(() => closeSignal.called);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('닫기 버튼 클릭 시 onClose가 호출된다', async () => {
