@@ -252,6 +252,25 @@ describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프
     expect(scopeHtml).toMatch(shellOpen);
   });
 
+  it('접힘 쿠키(initialCollapsed)로 SSR하면 첫 HTML부터 레일 상태다', () => {
+    mockSession();
+    mocks.usePathname.mockReturnValue('/programs');
+    const html = renderToStaticMarkup(
+      <ProductShell initialCollapsed>
+        <p>본문</p>
+      </ProductShell>,
+    );
+
+    expect(html).toMatch(
+      /data-slot="product-shell"[^>]*data-collapsed="true"[^>]*data-sidebar-phase="collapsed"/,
+    );
+    expect(html).toMatch(/<aside[^>]*data-collapsed="true"/);
+    expect(html).toMatch(
+      /data-slot="sidebar-shell-panel"[^>]*data-phase="collapsed"/,
+    );
+    expect(html).not.toContain('data-slot="app-sidebar-foot"');
+  });
+
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {
     mockSession();
     expect(render('/programs/prog-1')).toContain('id="main-content"');

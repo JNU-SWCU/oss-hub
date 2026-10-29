@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  type TransitionEvent,
+} from 'react';
 import { SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Tooltip,
@@ -23,6 +32,82 @@ const FOOT_SLOT: Readonly<Record<SidebarShellKind, string>> = {
   'program-scope-sidebar': 'program-scope-sidebar-foot',
 };
 
+export type SidebarPhase = 'open' | 'collapsing' | 'collapsed' | 'expanding';
+
+function cssDurationMs(name: string): number {
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  const value = Number.parseFloat(raw);
+  if (!Number.isFinite(value)) return 0;
+  return raw.endsWith('ms') ? value : value * 1000;
+}
+
+export interface SidebarPhaseState {
+  readonly phase: SidebarPhase;
+  readonly onPanelTransitionEnd: (event: TransitionEvent<HTMLElement>) => void;
+}
+
+export function useSidebarPhase(collapsed: boolean): SidebarPhaseState {
+  const [phase, setPhase] = useState<SidebarPhase>(
+    collapsed ? 'collapsed' : 'open',
+  );
+
+  useEffect(() => {
+    setPhase((current) => {
+      if (collapsed) return current === 'collapsed' ? current : 'collapsing';
+      return current === 'open' ? current : 'expanding';
+    });
+  }, [collapsed]);
+
+  useEffect(() => {
+    if (phase === 'collapsing') {
+      const duration = cssDurationMs('--sidebar-collapse-duration');
+      if (duration === 0) {
+        setPhase('collapsed');
+        return;
+      }
+      const timer = window.setTimeout(() => {
+        setPhase((current) =>
+          current === 'collapsing' ? 'collapsed' : current,
+        );
+      }, duration);
+      return () => window.clearTimeout(timer);
+    }
+    if (phase === 'expanding') {
+      if (cssDurationMs('--sidebar-expand-duration') === 0) {
+        setPhase('open');
+        return;
+      }
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          setPhase((current) => (current === 'expanding' ? 'open' : current));
+        });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [phase]);
+
+  const onPanelTransitionEnd = useCallback(
+    (event: TransitionEvent<HTMLElement>) => {
+      if (event.target !== event.currentTarget) return;
+      setPhase((current) =>
+        current === 'collapsing' ? 'collapsed' : current,
+      );
+    },
+    [],
+  );
+
+  return useMemo(
+    () => ({ phase, onPanelTransitionEnd }),
+    [phase, onPanelTransitionEnd],
+  );
+}
+
+export const SidebarPhaseContext = createContext<SidebarPhaseState | null>(
+  null,
+);
+
 export interface SidebarShellProps {
   readonly kind: SidebarShellKind;
 
@@ -43,6 +128,7 @@ export function SidebarShell({
   scope,
   bottom,
 }: SidebarShellProps) {
+  const phaseState = useContext(SidebarPhaseContext);
   const body = (
     <>
       {scope ? (
@@ -97,7 +183,14 @@ export function SidebarShell({
         'border-sidebar-border bg-sidebar shell:border-r',
       )}
     >
-      {body}
+      <div
+        data-slot="sidebar-shell-panel"
+        data-phase={phaseState?.phase ?? (collapsed ? 'collapsed' : 'open')}
+        onTransitionEnd={phaseState?.onPanelTransitionEnd}
+        className="flex min-h-0 flex-1 flex-col motion-reduce:transition-none"
+      >
+        {body}
+      </div>
     </aside>
   );
 }

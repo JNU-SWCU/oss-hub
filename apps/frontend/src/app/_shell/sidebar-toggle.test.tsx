@@ -189,6 +189,92 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     expect(document.cookie).toContain(`${SIDEBAR_STORAGE_KEY}=open`);
   });
 
+  describe('패널 애니메이션 단계', () => {
+    const root = document.documentElement;
+
+    beforeEach(() => {
+      root.style.setProperty('--sidebar-collapse-duration', '140ms');
+      root.style.setProperty('--sidebar-expand-duration', '200ms');
+    });
+
+    afterEach(() => {
+      root.style.removeProperty('--sidebar-collapse-duration');
+      root.style.removeProperty('--sidebar-expand-duration');
+      vi.useRealTimers();
+    });
+
+    function panel(): HTMLElement | null {
+      return container.querySelector('[data-slot="sidebar-shell-panel"]');
+    }
+
+    function phase(): string | null | undefined {
+      return productShell()?.getAttribute('data-sidebar-phase');
+    }
+
+    function railCollapsed(): string | null | undefined {
+      return document
+        .getElementById(SIDEBAR_ASIDE_ID)
+        ?.getAttribute('data-collapsed');
+    }
+
+    function nextFrame(): Promise<void> {
+      return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+
+    it('접기는 패널을 먼저 숨기고 transitionend 뒤에야 레일로 좁힌다', async () => {
+      await renderFrame('/archive');
+      await act(async () => desktopToggle()?.click());
+
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('true');
+      expect(phase()).toBe('collapsing');
+      expect(panel()?.getAttribute('data-phase')).toBe('collapsing');
+      expect(railCollapsed()).toBe('false');
+
+      await act(async () => {
+        panel()?.dispatchEvent(new Event('transitionend', { bubbles: true }));
+      });
+
+      expect(phase()).toBe('collapsed');
+      expect(railCollapsed()).toBe('true');
+    });
+
+    it('transitionend가 오지 않아도 접기 시간 뒤 레일로 끝난다', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      await renderFrame('/archive');
+      await act(async () => desktopToggle()?.click());
+      expect(phase()).toBe('collapsing');
+
+      await act(async () => {
+        vi.advanceTimersByTime(140);
+      });
+
+      expect(phase()).toBe('collapsed');
+      expect(railCollapsed()).toBe('true');
+    });
+
+    it('펼치기는 그리드를 즉시 넓히고 다음 프레임에 패널을 드러낸다', async () => {
+      await renderFrame('/archive');
+      await act(async () => desktopToggle()?.click());
+      await act(async () => {
+        panel()?.dispatchEvent(new Event('transitionend', { bubbles: true }));
+      });
+      expect(phase()).toBe('collapsed');
+
+      await act(async () => desktopToggle()?.click());
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+      expect(phase()).toBe('expanding');
+      expect(railCollapsed()).toBe('false');
+
+      await act(async () => {
+        await nextFrame();
+        await nextFrame();
+      });
+
+      expect(phase()).toBe('open');
+      expect(panel()?.getAttribute('data-phase')).toBe('open');
+    });
+  });
+
   it('드로어 트리거는 드로어를 열고 aria-expanded를 반영한다', async () => {
     await renderFrame('/archive');
     expect(document.querySelector('[role="dialog"]')).toBeNull();

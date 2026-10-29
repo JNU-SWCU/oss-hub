@@ -51,6 +51,7 @@ describe('SidebarShell', () => {
     expect(html.match(/<aside\b/g)).toHaveLength(1);
     expect(slots(html)).toEqual([
       'app-sidebar',
+      'sidebar-shell-panel',
       'app-sidebar-nav',
       'app-sidebar-foot',
     ]);

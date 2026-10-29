@@ -29,6 +29,8 @@ import {
 } from './sidebar-presence';
 import {
   SidebarBottomSkeleton,
+  SidebarPhaseContext,
+  useSidebarPhase,
   type SidebarShellVariant,
 } from './sidebar-shell';
 import { useSessionRole } from './use-session-role';
@@ -136,6 +138,8 @@ export function ProductShell({
   });
   const shell = useSidebarDrawer();
   const collapsed = shell?.collapsed ?? initialCollapsed;
+  const sidebarPhase = useSidebarPhase(collapsed);
+  const railCollapsed = sidebarPhase.phase === 'collapsed';
   const closeDrawer = shell?.close;
 
   useEffect(() => {
@@ -229,7 +233,7 @@ export function ProductShell({
         groups={scopeGroups}
         pathname={pathname}
         search={search}
-        collapsed={variant === 'aside' && collapsed}
+        collapsed={variant === 'aside' && railCollapsed}
         backHref={programScopeBackHref()}
         bottom={bottom}
       />
@@ -239,7 +243,7 @@ export function ProductShell({
         groups={groups}
         pathname={pathname}
         search={search}
-        collapsed={variant === 'aside' && collapsed}
+        collapsed={variant === 'aside' && railCollapsed}
         brandTitle={brandTitle}
         bottom={bottom}
         countsPending={facetCountsPending}
@@ -252,16 +256,17 @@ export function ProductShell({
         <div
           data-slot="product-shell"
           data-collapsed={collapsed ? 'true' : 'false'}
+          data-sidebar-phase={sidebarPhase.phase}
           className={cn(
             'grid min-h-0 flex-1 grid-cols-1',
-
-            'shell:transition-[grid-template-columns] motion-reduce:transition-none',
-            collapsed
-              ? 'shell:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] shell:duration-[var(--sidebar-collapse-duration)] shell:ease-in'
-              : 'shell:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] shell:duration-[var(--sidebar-expand-duration)] shell:ease-out',
+            railCollapsed
+              ? 'shell:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)]'
+              : 'shell:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
           )}
         >
-          {sidebar('aside')}
+          <SidebarPhaseContext.Provider value={sidebarPhase}>
+            {sidebar('aside')}
+          </SidebarPhaseContext.Provider>
           <div
             id="main-content"
             tabIndex={-1}

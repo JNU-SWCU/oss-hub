@@ -431,3 +431,23 @@
     @apply font-sans;
   }
 }
+
+@layer components {
+  [data-slot='sidebar-shell-panel'] {
+    transition-property: transform, opacity;
+    transition-duration: var(--sidebar-expand-duration);
+    transition-timing-function: ease-out;
+  }
+  [data-slot='sidebar-shell-panel'][data-phase='collapsing'],
+  [data-slot='sidebar-shell-panel'][data-phase='expanding'] {
+    opacity: 0;
+    transform: translateX(calc(var(--spacing) * -3));
+  }
+  [data-slot='sidebar-shell-panel'][data-phase='collapsing'] {
+    transition-duration: var(--sidebar-collapse-duration);
+    transition-timing-function: ease-in;
+  }
+  [data-slot='sidebar-shell-panel'][data-phase='expanding'] {
+    transition-duration: 0ms;
+  }
+}
