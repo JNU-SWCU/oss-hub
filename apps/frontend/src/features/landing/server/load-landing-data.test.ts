@@ -1,5 +1,10 @@
+import { unstable_cache } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadLandingData } from './load-landing-data';
+
+vi.mock('next/cache', () => ({
+  unstable_cache: vi.fn((work: () => Promise<unknown>) => work),
+}));
 
 const program = {
   id: 'seed:program',
@@ -42,23 +47,24 @@ describe('server landing data', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+    vi.mocked(unstable_cache).mockClear();
     fetchMock.mockReset();
   });
 
-  it('passes cache tags revalidation and timeout when fetching each public endpoint', async () => {
-    const timeout = vi.spyOn(AbortSignal, 'timeout');
-
+  it('caches each public endpoint with landing tags and reads the origin with a deadline', async () => {
     await loadLandingData();
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     for (const [url, options] of fetchMock.mock.calls) {
       expect(requestUrl(url)).toMatch(/^http:\/\/127\.0\.0\.1:4390\/api\/v1\//);
-      expect(options).toMatchObject({
-        next: { revalidate: 300, tags: ['landing'] },
-      });
+      expect(options).toMatchObject({ cache: 'no-store' });
       expect(options?.signal).toBeInstanceOf(AbortSignal);
     }
-    expect(timeout.mock.calls).toEqual([[2000], [2000], [2000], [2000]]);
+    expect(
+      vi.mocked(unstable_cache).mock.calls.map(([, , opts]) => opts),
+    ).toEqual(
+      Array.from({ length: 4 }, () => ({ revalidate: 300, tags: ['landing'] })),
+    );
   });
 
   it('returns render ready public fields when all responses parse', async () => {

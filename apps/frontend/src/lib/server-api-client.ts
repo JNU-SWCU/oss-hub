@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_cache } from 'next/cache';
 import { backendOrigin } from '../../backend-origin';
 
 let origin: string | undefined;
@@ -20,16 +21,30 @@ class ServerApiTimeoutError extends Error {
   }
 }
 
-async function withinDeadline<T>(work: Promise<T>): Promise<T> {
+async function fetchPublicJson(
+  url: string,
+  credential: string | undefined,
+): Promise<unknown> {
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new ServerApiTimeoutError()),
-      REQUEST_DEADLINE_MS,
-    );
+    timer = setTimeout(() => {
+      const error = new ServerApiTimeoutError();
+      controller.abort(error);
+      reject(error);
+    }, REQUEST_DEADLINE_MS);
   });
+  const read = (async () => {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal: controller.signal,
+      ...(credential ? { headers: { Authorization: credential } } : {}),
+    });
+    if (!response.ok) throw new ServerApiError(response.status);
+    return (await response.json()) as unknown;
+  })();
   try {
-    return await Promise.race([work, deadline]);
+    return await Promise.race([read, deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -42,15 +57,9 @@ export async function serverApiClient(
   origin ??= backendOrigin();
   const credential = process.env.ORIGIN_BASIC_AUTH;
   const url = `${origin}/api/v1/${path}`;
-  return withinDeadline(
-    (async () => {
-      const response = await fetch(url, {
-        next: { revalidate: cache.revalidate, tags: [...cache.tags] },
-        signal: AbortSignal.timeout(REQUEST_DEADLINE_MS),
-        ...(credential ? { headers: { Authorization: credential } } : {}),
-      });
-      if (!response.ok) throw new ServerApiError(response.status);
-      return (await response.json()) as unknown;
-    })(),
-  );
+  return unstable_cache(
+    () => fetchPublicJson(url, credential),
+    ['server-api', url],
+    { revalidate: cache.revalidate, tags: [...cache.tags] },
+  )();
 }
