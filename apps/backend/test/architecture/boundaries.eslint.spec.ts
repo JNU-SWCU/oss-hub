@@ -341,31 +341,31 @@ edge(
 );
 edge(
   'nested module owns its repository',
-  'src/programs/archive/overview/service/read.ts',
-  'src/programs/archive/overview/repository/target.ts',
+  'src/programs/public/overview/service/read.ts',
+  'src/programs/public/overview/repository/target.ts',
   true,
 );
 edge(
   'nested modules cannot share repositories',
-  'src/programs/archive/projects/service/read.ts',
-  'src/programs/archive/overview/repository/target.ts',
+  'src/programs/public/projects/service/read.ts',
+  'src/programs/public/overview/repository/target.ts',
   false,
 );
 edge(
   'nested module is not parent module',
-  'src/programs/service/archive.ts',
-  'src/programs/archive/overview/repository/target.ts',
+  'src/programs/service/public.ts',
+  'src/programs/public/overview/repository/target.ts',
   false,
 );
 edge(
   'nested dto may use foreign domain',
-  'src/programs/archive/projects/dto/read.ts',
+  'src/programs/public/projects/dto/read.ts',
   'src/alpha/domain/target.ts',
   true,
 );
 edge(
   'nested controller cannot use parent module dto',
-  'src/programs/archive/projects/controller/read.ts',
+  'src/programs/public/projects/controller/read.ts',
   'src/programs/dto/target.ts',
   false,
 );
@@ -513,7 +513,7 @@ add(
 );
 add(
   'nested DTO class is accepted',
-  'src/programs/archive/overview/dto/result.ts',
+  'src/programs/public/overview/dto/result.ts',
   'export class ResultResponseDto {}',
   null,
 );
@@ -640,8 +640,8 @@ for (const file of [
   'src/enums/service/client.spec.ts',
   'test/client.ts',
   'prisma/seeds/synthetic.ts',
-  'src/programs/archive/overview/repository/client.ts',
-  'src/programs/archive/overview/overview.module.ts',
+  'src/programs/public/overview/repository/client.ts',
+  'src/programs/public/overview/overview.module.ts',
 ]) {
   add(
     `DB access exemption ${file}`,

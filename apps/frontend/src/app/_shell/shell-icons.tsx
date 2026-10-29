@@ -19,13 +19,6 @@ const ICON_PATHS = {
       <path d="M8 8h8M8 12h8M8 16h5" />
     </>
   ),
-  archive: (
-    <>
-      <rect x="3" y="4" width="18" height="5" rx="1" />
-      <path d="M5 9v10h14V9" />
-      <path d="M10 13h4" />
-    </>
-  ),
   repo: (
     <>
       <path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z" />
@@ -87,30 +80,6 @@ const ICON_PATHS = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M8.5 12.5l2.5 2.5 4.5-5" />
-    </>
-  ),
-
-  layers: (
-    <>
-      <path d="M12 3 3 8l9 5 9-5-9-5z" />
-      <path d="M3 12l9 5 9-5" />
-      <path d="M3 16l9 5 9-5" />
-    </>
-  ),
-
-  globe: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z" />
-    </>
-  ),
-
-  code: (
-    <>
-      <path d="M8 8 4 12l4 4" />
-      <path d="M16 8l4 4-4 4" />
-      <path d="M14 6l-4 12" />
     </>
   ),
 

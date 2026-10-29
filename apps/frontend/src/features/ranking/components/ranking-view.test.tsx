@@ -337,7 +337,7 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
   }
 });
 
-test('outcome-4: 발행 이전 stale 관측 때문에 아카이브에는 여전히 노출되는 프로젝트라도, 현재 관측이 비공개면 그 기여자는 랭킹에서 제외된다', () => {
+test('outcome-4: 발행 이전 stale 관측 때문에 프로젝트에는 여전히 노출되는 프로젝트라도, 현재 관측이 비공개면 그 기여자는 랭킹에서 제외된다', () => {
   const html = renderToStaticMarkup(
     <RankingView
       page={1}

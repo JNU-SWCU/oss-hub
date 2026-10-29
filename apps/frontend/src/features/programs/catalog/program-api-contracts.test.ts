@@ -10,7 +10,11 @@ import {
   decideApplication,
   getApplicationDetail,
 } from '../applications/api';
-import { getProgramStatusCounts, listPrograms } from './api';
+import {
+  getProgramEndedYears,
+  getProgramStatusCounts,
+  listPrograms,
+} from './api';
 import type { ProgramListPage, ProgramStatusCounts } from './dto';
 
 vi.mock('@/lib/api-client', () => ({
@@ -37,10 +41,11 @@ describe('listPrograms', () => {
       pageSize: 20,
       search: '동명 프로그램',
       status: 'ended',
+      year: 2026,
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs?page=2&pageSize=20&search=%EB%8F%99%EB%AA%85+%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8&status=ended',
+      'programs?page=2&pageSize=20&search=%EB%8F%99%EB%AA%85+%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8&status=ended&year=2026',
     );
     expect(result).toEqual(response);
   });
@@ -119,6 +124,17 @@ describe('getProgramStatusCounts', () => {
 
     await expect(getProgramStatusCounts()).resolves.toEqual(response);
     expect(apiClient).toHaveBeenCalledWith('programs/status-counts');
+  });
+});
+
+describe('getProgramEndedYears', () => {
+  it('종료 프로그램 연도 API를 취소 신호와 함께 읽는다', async () => {
+    const signal = new AbortController().signal;
+    vi.mocked(apiClient).mockResolvedValue({ years: [2026, 2025] });
+    await expect(getProgramEndedYears(signal)).resolves.toEqual([2026, 2025]);
+    expect(apiClient).toHaveBeenLastCalledWith('programs/ended-years', {
+      signal,
+    });
   });
 });
 
