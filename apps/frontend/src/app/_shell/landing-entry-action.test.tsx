@@ -1,26 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import {
-  githubAccountChoicePath,
-  githubLoginPath,
-} from '@/features/auth/login-paths';
-import { ACCOUNT_SWITCH_LINK_ID } from '@/features/auth/logout-notice';
+import { githubLoginPath } from '@/features/auth/login-paths';
 import { LandingEntryActionView } from './landing-entry-action';
-
-const ACCOUNT_SWITCH_HREF = `href="${githubAccountChoicePath}"`;
-
-function accountSwitchAnchor(html: string): {
-  readonly tag: string;
-  readonly text: string;
-} {
-  const at = html.indexOf(ACCOUNT_SWITCH_HREF);
-  if (at === -1) throw new Error('계정 선택 링크가 없습니다');
-  const open = html.indexOf('>', at) + 1;
-  return {
-    tag: html.slice(html.lastIndexOf('<a', at), open),
-    text: html.slice(open, html.indexOf('</a>', open)),
-  };
-}
 
 describe('LandingEntryActionView', () => {
   it('shows the GitHub sign-in button while the session is still loading', () => {
@@ -176,67 +157,5 @@ describe('LandingEntryActionView', () => {
     expect(html).toContain('aria-label="GitHub으로 다시 시도"');
     expect(html).toContain(`href="${githubLoginPath}"`);
     expect(html).not.toContain('href="/signup"');
-  });
-});
-
-describe('다른 계정으로 로그인 링크', () => {
-  it('로그아웃 안내나 인증 오류 없이는 시작하기만 둘 뿐 계정 선택 링크를 내지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <LandingEntryActionView status="anonymous" isProfileComplete={false} />,
-    );
-
-    expect(html).not.toContain(ACCOUNT_SWITCH_HREF);
-    expect(html).not.toContain('다른 계정으로 로그인');
-  });
-
-  it.each(['loading', 'anonymous'] as const)(
-    '%s 상태에서 요청되면 시작하기 옆에 계정 선택 링크를 둔다',
-    (status) => {
-      const html = renderToStaticMarkup(
-        <LandingEntryActionView
-          status={status}
-          isProfileComplete={false}
-          showAccountSwitch
-        />,
-      );
-      const link = accountSwitchAnchor(html);
-
-      expect(html.indexOf(`href="${githubLoginPath}"`)).toBeLessThan(
-        html.indexOf(ACCOUNT_SWITCH_HREF),
-      );
-      expect(link.tag).toContain(`id="${ACCOUNT_SWITCH_LINK_ID}"`);
-      expect(link.text).toBe('다른 계정으로 로그인');
-    },
-  );
-
-  it('세션 조회가 실패해도 계정 선택 링크는 남는다', () => {
-    const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="error"
-        isProfileComplete={false}
-        showAccountSwitch
-      />,
-    );
-
-    expect(html).toContain(ACCOUNT_SWITCH_HREF);
-    expect(html).toContain('로그인 상태를 확인하지 못했습니다.');
-  });
-
-  it('이미 로그인한 사용자에게는 요청되어도 계정 선택 링크를 내지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <LandingEntryActionView
-        status="assigned"
-        access={{
-          memberKind: 'STUDENT',
-          hasStaffAccess: false,
-          hasAdminAccess: false,
-        }}
-        isProfileComplete
-        showAccountSwitch
-      />,
-    );
-
-    expect(html).toContain('href="/dashboard"');
-    expect(html).not.toContain(ACCOUNT_SWITCH_HREF);
   });
 });

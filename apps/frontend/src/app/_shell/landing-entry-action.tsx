@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { GitHubMark } from '@/components/github-mark';
 import { cn } from '@/lib/utils';
 import { GitHubSignInLink } from '@/features/auth/components/github-sign-in-link';
-import { ACCOUNT_SWITCH_LINK_ID } from '@/features/auth/logout-notice';
-import { landingHeroLinkClassName } from '@/features/landing/components/landing-hero-link';
 import { resolveSessionEntry } from './role-home-link';
 import { EMPTY_MEMBER_ACCESS, type MemberAccess } from './member-access';
 import type { SessionStatus } from './use-session-role';
@@ -20,7 +18,6 @@ interface LandingEntryActionViewProps {
   readonly hasAuthError?: boolean;
   readonly inverted?: boolean;
   readonly returnTo?: string | null;
-  readonly showAccountSwitch?: boolean;
 }
 
 export function LandingEntryActionView({
@@ -30,7 +27,6 @@ export function LandingEntryActionView({
   hasAuthError = false,
   inverted = false,
   returnTo = null,
-  showAccountSwitch = false,
 }: LandingEntryActionViewProps) {
   const className = cn(
     'min-h-11',
@@ -51,44 +47,23 @@ export function LandingEntryActionView({
     </Button>
   );
 
-  const accountSwitchLink = showAccountSwitch ? (
-    <GitHubSignInLink
-      id={ACCOUNT_SWITCH_LINK_ID}
-      selectAccount
-      returnTo={returnTo}
-      className={landingHeroLinkClassName}
-    >
-      다른 계정으로 로그인
-    </GitHubSignInLink>
-  ) : null;
-
-  if (status === 'loading' || status === 'anonymous') {
-    return (
-      <>
-        {signInButton}
-        {accountSwitchLink}
-      </>
-    );
-  }
+  if (status === 'loading' || status === 'anonymous') return signInButton;
 
   if (status === 'error') {
     return (
-      <>
-        <div className="flex flex-col items-stretch gap-2 sm:items-start">
-          {signInButton}
-          <p
-            className={cn(
-              'max-w-sm break-keep text-xs leading-relaxed',
+      <div className="flex flex-col items-stretch gap-2 sm:items-start">
+        {signInButton}
+        <p
+          className={cn(
+            'max-w-sm break-keep text-xs leading-relaxed',
 
-              inverted ? 'text-hero-muted' : 'text-muted-foreground',
-            )}
-          >
-            로그인 상태를 확인하지 못했습니다. 잠시 뒤 새로고침하거나 다시
-            로그인해 주세요.
-          </p>
-        </div>
-        {accountSwitchLink}
-      </>
+            inverted ? 'text-hero-muted' : 'text-muted-foreground',
+          )}
+        >
+          로그인 상태를 확인하지 못했습니다. 잠시 뒤 새로고침하거나 다시
+          로그인해 주세요.
+        </p>
+      </div>
     );
   }
 

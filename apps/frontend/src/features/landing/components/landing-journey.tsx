@@ -3,7 +3,6 @@
 import { CircleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -26,8 +25,7 @@ import { useLandingGraph } from './use-landing-graph';
 
 export interface LandingJourneyProps {
   readonly authErrorMessage?: string;
-  readonly notice?: ReactNode;
-  readonly primaryAction: ReactNode;
+  readonly primaryAction?: ReactNode;
 
   readonly contentAnchor?: string;
 }
@@ -48,7 +46,6 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
 
 export function LandingJourney({
   authErrorMessage,
-  notice,
   primaryAction,
   contentAnchor = '#current-programs',
 }: LandingJourneyProps) {
@@ -203,23 +200,15 @@ export function LandingJourney({
                     {authErrorMessage}
                   </AlertDescription>
                 </Alert>
-              ) : notice ? (
-                <div
-                  role="status"
-                  className={cn(
-                    'mt-6 max-w-xl rounded-lg border border-cosmos-border bg-cosmos-muted/10',
-                    'px-4 py-3 text-sm leading-relaxed text-cosmos-muted',
-                  )}
-                >
-                  {notice}
+              ) : null}
+              {primaryAction ? (
+                <div className={styles.actions}>
+                  {primaryAction}
+                  <Link className={styles.link} href="/programs">
+                    프로그램 둘러보기
+                  </Link>
                 </div>
               ) : null}
-              <div className={styles.actions}>
-                {primaryAction}
-                <Link className={styles.link} href="/programs">
-                  프로그램 둘러보기
-                </Link>
-              </div>
             </div>
           </section>
 

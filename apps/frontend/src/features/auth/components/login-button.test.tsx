@@ -77,6 +77,28 @@ describe('LoginButtonView', () => {
     expect(html).not.toContain('/signup');
   });
 
+  it('계정 선택이 요청되면 같은 로그인 버튼이 계정 선택 경로로 간다', () => {
+    const session = { isAuthenticated: false } satisfies AuthSession;
+
+    const html = renderToStaticMarkup(
+      <LoginButtonView
+        session={session}
+        returnTo={null}
+        selectAccount
+        logoutError={null}
+        menuOpen={false}
+        onMenuOpenChange={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain(
+      `href="${apiPath('auth/github?prompt=select_account')}"`,
+    );
+    expect(html).toContain('<span>로그인</span>');
+    expect(html).not.toContain('다른 계정');
+  });
+
   it('보이는 라벨은 "로그인"이고 GitHub 표기는 접근성 이름에만 둔다', () => {
     const session = { isAuthenticated: false } satisfies AuthSession;
 

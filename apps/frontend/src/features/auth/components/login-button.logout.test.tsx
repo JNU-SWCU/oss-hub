@@ -7,6 +7,9 @@ import {
   rememberLoginDestination,
   takeLoginDestination,
 } from '../login-destination';
+import { githubAccountChoicePath, githubLoginPath } from '../login-paths';
+
+const LOGGED_OUT_HOME = '/?loggedOut=1';
 
 const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
@@ -111,12 +114,12 @@ describe('LoginButton 로그아웃 착지', () => {
   }
 
   it.each(['/dashboard', '/programs/42', '/consent', '/onboarding/role'])(
-    '확정된 로그아웃은 %s에서 홈으로 전체 이동한다',
+    '확정된 로그아웃은 %s에서 로그아웃 표시가 붙은 홈으로 전체 이동한다',
     async (pathname) => {
       rememberLoginDestination(sessionStorage, '/programs/42/apply');
       mocks.logout.mockResolvedValue({ isAuthenticated: false });
       await logoutFrom(pathname);
-      expect(mocks.assign).toHaveBeenCalledExactlyOnceWith('/');
+      expect(mocks.assign).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HOME);
       expect(takeLoginDestination(sessionStorage)).toBeNull();
     },
   );
@@ -127,7 +130,7 @@ describe('LoginButton 로그아웃 착지', () => {
     });
     mocks.logout.mockResolvedValue({ isAuthenticated: false });
     await logoutFrom('/dashboard');
-    expect(mocks.assign).toHaveBeenCalledExactlyOnceWith('/');
+    expect(mocks.assign).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HOME);
   });
 
   it('로그아웃이 확정되지 않으면 공유 세션만 다시 읽는다', async () => {
@@ -158,5 +161,56 @@ describe('LoginButton 로그아웃 착지', () => {
     expect(mocks.assign).not.toHaveBeenCalled();
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
     expect(takeLoginDestination(sessionStorage)).toBe('/programs/42/apply');
+  });
+});
+
+describe('로그아웃 직후 랜딩의 상단 로그인', () => {
+  const anonymousState: AuthSessionResult = {
+    status: 'anonymous',
+    user: null,
+    retry: vi.fn(),
+  };
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    mocks.useSession.mockReset().mockReturnValue(anonymousState);
+    mocks.usePathname.mockReset();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  async function renderAt(pathname: string, search: string): Promise<string> {
+    mocks.usePathname.mockReturnValue(pathname);
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign: mocks.assign, search, pathname },
+    });
+    await act(async () => {
+      root.render(<LoginButton />);
+    });
+    const href = container.querySelector('a')?.getAttribute('href');
+    if (!href) throw new Error('로그인 링크를 찾지 못했다');
+    return href;
+  }
+
+  it('로그아웃 표시가 있는 랜딩에서는 계정 선택 로그인으로 보낸다', async () => {
+    expect(await renderAt('/', '?loggedOut=1')).toBe(githubAccountChoicePath);
+  });
+
+  it.each([
+    ['/', ''],
+    ['/', '?returnTo=%2Fprograms'],
+    ['/programs', '?loggedOut=1'],
+  ])('%s%s 에서는 일반 로그인 경로를 쓴다', async (pathname, search) => {
+    expect(await renderAt(pathname, search)).toBe(githubLoginPath);
   });
 });

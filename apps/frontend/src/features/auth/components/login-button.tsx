@@ -16,11 +16,20 @@ import {
   getLoginDestinationStorage,
   readReturnTo,
 } from '../login-destination';
+import { hasLogoutNotice, LOGOUT_NOTICE_PARAM } from '../logout-notice';
+
+interface LandingEntry {
+  readonly returnTo: string | null;
+  readonly selectAccount: boolean;
+}
+
+const OUTSIDE_LANDING: LandingEntry = { returnTo: null, selectAccount: false };
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
 
   readonly returnTo: string | null;
+  readonly selectAccount?: boolean;
   readonly accountRoles?: string;
   readonly logoutError: string | null;
   readonly menuOpen: boolean;
@@ -53,6 +62,7 @@ function AccountAvatar({ user }: { readonly user: Me }) {
 export function LoginButtonView({
   session,
   returnTo,
+  selectAccount = false,
   accountRoles,
   logoutError,
   menuOpen,
@@ -95,7 +105,11 @@ export function LoginButtonView({
     case false:
       return (
         <Button asChild variant="ghost">
-          <GitHubSignInLink returnTo={returnTo} aria-label="GitHub으로 로그인">
+          <GitHubSignInLink
+            returnTo={returnTo}
+            selectAccount={selectAccount}
+            aria-label="GitHub으로 로그인"
+          >
             <GitHubMark className="size-4" />
             <span>로그인</span>
           </GitHubSignInLink>
@@ -187,18 +201,26 @@ export function LoginButton({
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
-  const [landingReturnTo, setLandingReturnTo] = useState<string | null>(null);
+  const [landingEntry, setLandingEntry] =
+    useState<LandingEntry>(OUTSIDE_LANDING);
 
   useEffect(() => {
-    setLandingReturnTo(
-      pathname === '/' ? readReturnTo(window.location.search) : null,
+    const search = window.location.search;
+    setLandingEntry(
+      pathname === '/'
+        ? {
+            returnTo: readReturnTo(search),
+            selectAccount: hasLogoutNotice(search),
+          }
+        : OUTSIDE_LANDING,
     );
   }, [pathname]);
 
   return (
     <LoginButtonView
       session={session}
-      returnTo={pathname === '/' ? landingReturnTo : pathname}
+      returnTo={pathname === '/' ? landingEntry.returnTo : pathname}
+      selectAccount={landingEntry.selectAccount}
       accountRoles={accountRoles}
       logoutError={logoutError}
       menuOpen={menuOpen}
@@ -213,7 +235,7 @@ export function LoginButton({
             if (next.me === null) {
               clearLoginDestination(getLoginDestinationStorage());
 
-              window.location.assign('/');
+              window.location.assign(`/?${LOGOUT_NOTICE_PARAM}=1`);
               return;
             }
 

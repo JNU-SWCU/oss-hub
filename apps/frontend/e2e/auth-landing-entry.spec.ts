@@ -3,7 +3,6 @@ import { expect, test, type Page } from '@playwright/test';
 import { installBrowserAudit } from './support/browser-audit';
 
 const HERO_HEADING = '흩어진 정보를 하나로';
-const ACCOUNT_SWITCH = '다른 계정으로 로그인';
 
 function hero(page: Page) {
   return page.locator('#landing-hero');
@@ -26,7 +25,7 @@ test('legacy signup link lands on the hero and keeps the return path', async ({
   });
   await expect(start).toHaveText('시작하기');
   await expect(start).toHaveAttribute('href', '/api/v1/auth/github');
-  await expect(page.getByRole('link', { name: ACCOUNT_SWITCH })).toHaveCount(0);
+  await expect(hero(page).getByRole('link')).toHaveCount(2);
 
   await page.route('**/api/v1/auth/github**', (route) =>
     route.abort('aborted'),
@@ -53,25 +52,24 @@ test('legacy signup link drops an unsafe return path', async ({ page }) => {
   audit.assertClean();
 });
 
-test('logout notice adds the account switch link beside the hero action', async ({
+test('logged-out landing keeps the hero copy but drops the action row and the notice', async ({
   page,
 }) => {
   const audit = installBrowserAudit(page);
 
   await page.goto('/?loggedOut=1');
 
-  await expect(hero(page).getByRole('status')).toContainText(
-    '로그아웃되었습니다.',
-  );
-  const accountSwitch = hero(page).getByRole('link', { name: ACCOUNT_SWITCH });
-  await expect(accountSwitch).toBeVisible();
-  await expect(accountSwitch).toHaveAttribute(
+  await expect(page.getByRole('heading', { name: HERO_HEADING })).toBeVisible();
+  await expect(hero(page).getByRole('link')).toHaveCount(0);
+  await expect(hero(page).getByRole('status')).toHaveCount(0);
+  await expect(page.getByText('로그아웃되었습니다')).toHaveCount(0);
+  const navSignIn = page
+    .locator('[data-slot="nav-bar"]')
+    .getByRole('link', { name: 'GitHub으로 로그인', exact: true });
+  await expect(navSignIn).toHaveText('로그인');
+  await expect(navSignIn).toHaveAttribute(
     'href',
     '/api/v1/auth/github?prompt=select_account',
   );
-  await expect(accountSwitch).toHaveAttribute('id', 'landing-account-switch');
-  await expect(
-    hero(page).getByRole('link', { name: '계정 전환 도움말' }),
-  ).toHaveAttribute('href', '#landing-account-switch');
   audit.assertClean();
 });
