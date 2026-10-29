@@ -96,19 +96,26 @@ for (const width of [1440, 390]) {
 
     await search.fill(prefix);
     const cards = page.locator('[data-slot="program-card"]');
-    await expect(cards).toHaveCount(4);
-    await expect(cards).toContainText([names[0], names[2], names[1], names[3]]);
+    const currentNames = names.slice(0, 3);
+    await expect(cards).toHaveCount(3);
+    await expect(cards).toContainText([names[0], names[2], names[1]]);
     await select.selectOption('name');
     await expect(page).toHaveURL(/\?sort=name$/);
-    await expect(cards).toContainText(names);
+    await expect(cards).toContainText(currentNames);
     await select.selectOption('applicationPeriod');
-    await expect(cards).toContainText([names[3], names[1], names[0], names[2]]);
+    await expect(cards).toContainText([names[1], names[0], names[2]]);
     await select.selectOption('status');
-    await expect(cards).toContainText([names[0], names[1], names[2], names[3]]);
+    await expect(cards).toContainText(currentNames);
     await page.goto('/programs?sort=name&direction=desc');
     await expect(select).toHaveValue('name');
     await search.fill(prefix);
-    await expect(cards).toContainText([...names].reverse());
+    await expect(cards).toContainText([...currentNames].reverse());
     await expect(toolbar.getByRole('button')).toHaveCount(0);
+
+    await page.goto('/archive?sort=name');
+    await expect(select).toHaveValue('name');
+    await search.fill(prefix);
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText([names[3]]);
   });
 }
