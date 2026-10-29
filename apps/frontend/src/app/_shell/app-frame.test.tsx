@@ -33,7 +33,6 @@ import { readStoredCollapsed, SIDEBAR_STORAGE_KEY } from './product-shell';
 
 const ITEMS: NavItem[] = [
   { label: '프로그램', href: '/programs' },
-  { label: '공개 아카이브', href: '/archive' },
   { label: '랭킹', href: '/ranking' },
 ];
 
@@ -133,7 +132,7 @@ describe('AppFrame', () => {
     });
     expect(html).toContain('프로그램 메뉴');
     expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
-    expect(html).not.toContain('href="/programs?status=ended"');
+    expect(html).toContain('href="/programs?status=ended"');
     expect(html).not.toContain('>대시보드<');
   });
 

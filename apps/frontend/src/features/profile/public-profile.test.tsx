@@ -310,7 +310,7 @@ describe('public profile views', () => {
     expect(notFoundHtml).toContain(
       '존재하지 않거나 공개 프로젝트가 없는 사용자입니다.',
     );
-    expect(notFoundHtml).toContain('href="/archive"');
+    expect(notFoundHtml).toContain('href="/programs?status=ended"');
   });
 
   it('renders a generic retry error without raw error text', () => {

@@ -138,7 +138,7 @@ describe('AppSidebar', () => {
     const html = renderWithCounts(true);
     expect(html).toContain('aria-label="모집중 3"');
     expect(html).toContain('aria-label="전체 3"');
-    expect(html).not.toContain('aria-label="종료 9"');
+    expect(html).toContain('aria-label="종료 9"');
   });
 
   it('U5: count 0 renders when expanded; collapsed never shows count slot', () => {

@@ -112,7 +112,7 @@ for (const width of [1440, 390]) {
     await expect(cards).toContainText([...currentNames].reverse());
     await expect(toolbar.getByRole('button')).toHaveCount(0);
 
-    await page.goto('/archive?sort=name');
+    await page.goto('/programs?status=ended&sort=name');
     await expect(select).toHaveValue('name');
     await search.fill(prefix);
     await expect(cards).toHaveCount(1);

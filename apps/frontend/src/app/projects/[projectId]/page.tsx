@@ -1,4 +1,4 @@
-import { ArchiveDetailView } from '@/features/archive';
+import { ArchiveDetailView } from '@/features/projects';
 
 export default async function ProjectDetailPage({
   params,

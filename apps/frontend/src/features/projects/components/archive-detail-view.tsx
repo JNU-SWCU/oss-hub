@@ -51,7 +51,7 @@ function NotFoundState() {
         description="비공개 처리되었거나 존재하지 않는 프로젝트입니다."
         action={
           <Button asChild variant="outline">
-            <Link href="/archive">목록으로 돌아가기</Link>
+            <Link href="/programs?status=ended">목록으로 돌아가기</Link>
           </Button>
         }
       />

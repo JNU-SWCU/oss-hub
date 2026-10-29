@@ -101,7 +101,7 @@ export const LANDING_GRAPH_EXAMPLE: LandingGraph = {
       id: 'repository:example',
       kind: 'repository',
       label: 'sample-campus-map',
-      href: '/archive',
+      href: '/programs?status=ended',
       x: 48,
       y: 52,
     },

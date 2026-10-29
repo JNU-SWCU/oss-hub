@@ -2,7 +2,7 @@
 
 import { FilterChip, FilterChipGroup } from '@/components';
 import {
-  CURRENT_PROGRAM_LIST_STATUSES,
+  PROGRAM_LIST_STATUSES,
   type ProgramListStatus,
 } from './program-list-options';
 import { PROGRAM_LIST_STATUS_LABELS } from './program-list-labels';
@@ -22,7 +22,7 @@ export function ProgramListStatusChips({
       aria-label="프로그램 상태 필터"
       className={className}
     >
-      {CURRENT_PROGRAM_LIST_STATUSES.map((status) => (
+      {PROGRAM_LIST_STATUSES.map((status) => (
         <FilterChip
           key={status}
           pressed={value === status}

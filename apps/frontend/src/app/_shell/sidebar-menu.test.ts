@@ -7,7 +7,6 @@ import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
 import { STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
-  archiveSidebarGroup,
   isCurrentSidebarItem,
   programScopeBackHref,
   programScopeSidebarGroups,
@@ -45,7 +44,7 @@ describe('shellSectionFromPathname', () => {
     expect(shellSectionFromPathname('/programs')).toBe('programs');
     expect(shellSectionFromPathname('/programs/new')).toBe('programs');
     expect(shellSectionFromPathname('/programs/x')).toBe('programs');
-    expect(shellSectionFromPathname('/archive')).toBe('archive');
+    expect(shellSectionFromPathname('/archive')).toBeNull();
     expect(shellSectionFromPathname('/projects/project-1')).toBeNull();
     expect(shellSectionFromPathname('/ranking')).toBe('ranking');
     expect(shellSectionFromPathname('/dashboard')).toBe('dashboard');
@@ -81,6 +80,7 @@ describe('sidebarGroupsFor (context)', () => {
       PROGRAM_LIST_STATUS_LABELS.recruiting,
       PROGRAM_LIST_STATUS_LABELS.in_progress,
       PROGRAM_LIST_STATUS_LABELS.upcoming,
+      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
   });
 
@@ -92,13 +92,14 @@ describe('sidebarGroupsFor (context)', () => {
       PROGRAM_LIST_STATUS_LABELS.recruiting,
       PROGRAM_LIST_STATUS_LABELS.in_progress,
       PROGRAM_LIST_STATUS_LABELS.upcoming,
+      PROGRAM_LIST_STATUS_LABELS.ended,
     ]);
     const icons = items.map((i) => i.icon);
     expect(new Set(icons).size).toBe(icons.length);
   });
 
   it('anonymous still sees programs menu', () => {
-    expect(sidebarGroupsFor('programs', null)[0]?.items).toHaveLength(4);
+    expect(sidebarGroupsFor('programs', null)[0]?.items).toHaveLength(5);
   });
 
   it('전체 집계는 미종료 상태 세 개만 합산한다', () => {
@@ -107,13 +108,15 @@ describe('sidebarGroupsFor (context)', () => {
       recruiting: 3,
       in_progress: 2,
       upcoming: 1,
+      ended: 9,
     });
-    expect(group.items.map(({ count }) => count)).toEqual([6, 3, 2, 1]);
+    expect(group.items.map(({ count }) => count)).toEqual([6, 3, 2, 1, 9]);
     expect(group.items.map(({ href }) => href)).toEqual([
       '/programs',
       '/programs?status=recruiting',
       '/programs?status=in_progress',
       '/programs?status=upcoming',
+      '/programs?status=ended',
     ]);
   });
 
@@ -256,36 +259,6 @@ describe('sidebarGroupsFor (context)', () => {
     expect(labels).not.toContain('연습');
   });
 
-  it('archive section: 전체 + years as flat peers', () => {
-    const groups = sidebarGroupsFor('archive', null, {
-      archiveYears: [2026, 2025],
-    });
-    expect(groups).toHaveLength(1);
-    expect(groups[0]?.label).toBe('공개 아카이브');
-    const items = groups[0]?.items ?? [];
-    expect(items).toHaveLength(3);
-    expect(items.every((i) => (i.depth ?? 0) === 0)).toBe(true);
-    expect(
-      items.map((i) => ({ label: i.label, href: i.href, depth: i.depth })),
-    ).toEqual([
-      { label: '전체', href: '/archive', depth: 0 },
-      { label: '2026', href: '/archive?year=2026', depth: 0 },
-      { label: '2025', href: '/archive?year=2025', depth: 0 },
-    ]);
-    expect(items[0]).toMatchObject({
-      label: '전체',
-      href: '/archive',
-      icon: 'archive',
-    });
-  });
-
-  it('archive sidebar lists years from facet data', () => {
-    const group = archiveSidebarGroup([2026, 2025]);
-    expect(group.items).toHaveLength(3);
-    expect(group.items[1]?.href).toBe('/archive?year=2026');
-    expect(group.items[2]?.href).toBe('/archive?year=2025');
-  });
-
   it('ranking section: 전체 + years as flat peers', () => {
     const groups = sidebarGroupsFor('ranking', null, {
       rankingYears: [2026, 2025],
@@ -328,13 +301,16 @@ describe('isCurrentSidebarItem', () => {
     expect(isCurrentSidebarItem('/programs/x', '/programs', '')).toBe(false);
   });
 
-  it('archive year query', () => {
-    expect(isCurrentSidebarItem('/archive', '/archive', '')).toBe(true);
+  it('ended status stays selected with a year filter', () => {
     expect(
-      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2026'),
+      isCurrentSidebarItem(
+        '/programs',
+        '/programs?status=ended',
+        'status=ended&year=2025',
+      ),
     ).toBe(true);
     expect(
-      isCurrentSidebarItem('/archive', '/archive?year=2026', 'year=2025'),
+      isCurrentSidebarItem('/programs', '/programs', 'status=ended&year=2025'),
     ).toBe(false);
   });
 
@@ -410,13 +386,6 @@ describe('isCurrentSidebarItem', () => {
     });
   });
 
-  it('archive detail does not highlight filters', () => {
-    expect(isCurrentSidebarItem('/archive/123', '/archive', '')).toBe(false);
-    expect(isCurrentSidebarItem('/archive/123', '/archive?year=2026', '')).toBe(
-      false,
-    );
-  });
-
   it('회원 공통 홈 메뉴는 /dashboard에서만 강조된다', () => {
     expect(isCurrentSidebarItem('/dashboard', '/dashboard', '')).toBe(true);
     expect(isCurrentSidebarItem('/staff/dashboard', '/dashboard', '')).toBe(
@@ -466,7 +435,6 @@ describe('SECTION_FACETS registry (U4)', () => {
 
   it('registry params match peer-filter keys', () => {
     expect(SECTION_FACETS.programs?.param).toBe('status');
-    expect(SECTION_FACETS.archive?.param).toBe('year');
     expect(SECTION_FACETS.ranking?.param).toBe('year');
     expect(SECTION_FACETS.dashboard).toBeUndefined();
   });

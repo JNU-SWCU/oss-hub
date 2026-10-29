@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import ProgramsPage from '../programs/page';
+import ArchivePage from './page';
 import ArchiveDetailPage from './[repositoryId]/page';
 import ProjectDetailPage from '../projects/[projectId]/page';
-import { ArchiveDetailView } from '@/features/archive';
-import { permanentRedirect, redirect } from 'next/navigation';
+import { ArchiveDetailView } from '@/features/projects';
+import { permanentRedirect } from 'next/navigation';
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn((href: string): never => {
@@ -15,14 +15,21 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('archive route migration', () => {
-  it('옛 종료 필터는 아카이브로 이동한다', async () => {
-    await expect(
-      ProgramsPage({
-        searchParams: Promise.resolve({ status: 'ended' }),
-      }),
-    ).rejects.toThrow('/archive');
-    expect(redirect).toHaveBeenCalledWith('/archive');
-  });
+  it.each([
+    [undefined, '/programs?status=ended'],
+    ['2025', '/programs?status=ended&year=2025'],
+    ['1999', '/programs?status=ended'],
+  ])(
+    '옛 목록 연도 %s는 프로그램 종료 탭으로 영구 이동한다',
+    async (year, href) => {
+      await expect(
+        ArchivePage({
+          searchParams: Promise.resolve({ year }),
+        }),
+      ).rejects.toThrow(href);
+      expect(permanentRedirect).toHaveBeenCalledWith(href);
+    },
+  );
 
   it('옛 공개 프로젝트 상세는 새 주소로 영구 이동한다', async () => {
     await expect(

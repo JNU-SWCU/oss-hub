@@ -53,7 +53,7 @@ test('게시판의 작성·수정·삭제와 목록 갱신은 화면 분리 뒤�
   ).toHaveCount(0);
 });
 
-test('공개 아카이브 화면은 빈 종료 목록 응답과 연도 URL을 유지한다', async ({
+test('프로그램 종료 탭은 빈 종료 목록 응답과 연도 URL을 유지한다', async ({
   page,
 }, testInfo) => {
   await page.route('**/api/v1/auth/session', (route) =>
@@ -69,9 +69,9 @@ test('공개 아카이브 화면은 빈 종료 목록 응답과 연도 URL을 �
       json: { years: [2026] },
     }),
   );
-  await page.goto('/archive');
+  await page.goto('/programs?status=ended');
   await expect(
-    page.getByRole('heading', { name: '공개 아카이브', exact: true }),
+    page.getByRole('heading', { name: '종료된 프로그램', exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText('종료된 프로그램이 없습니다', { exact: true }),
@@ -82,35 +82,25 @@ test('공개 아카이브 화면은 빈 종료 목록 응답과 연도 URL을 �
       new URL(response.url()).searchParams.get('status') === 'ended' &&
       new URL(response.url()).searchParams.get('year') === '2026',
   );
-  await page.goto('/archive?year=2026');
+  await page.goto('/programs?status=ended&year=2026');
   expect((await filteredResponse).status()).toBe(200);
   await expect(
     page.getByText('조건에 맞는 프로그램이 없습니다', { exact: true }),
   ).toBeVisible();
   await page.reload();
-  await expect(page).toHaveURL(/\/archive\?year=2026$/);
+  await expect(page).toHaveURL(/\/programs\?status=ended&year=2026$/);
   await expect(
     page.getByText('조건에 맞는 프로그램이 없습니다', { exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: '필터 초기화', exact: true }).click();
-  await expect(page).toHaveURL(/\/archive$/);
+  await expect(page).toHaveURL(/\/programs\?status=ended$/);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    if (width === 390) {
-      await expect(
-        page
-          .locator('[data-slot="archive-list-year-chips"]')
-          .getByRole('button', { name: '전체', exact: true }),
-      ).toHaveAttribute('aria-pressed', 'true');
-    } else {
-      await expect(
-        page
-          .getByRole('navigation', { name: '공개 아카이브', exact: true })
-          .getByRole('link', { name: '전체', exact: true }),
-      ).toBeVisible();
-    }
+    await expect(page.getByRole('combobox', { name: '종료 연도' })).toHaveValue(
+      '',
+    );
     await page.screenshot({
-      path: testInfo.outputPath(`archive-list-${width}.png`),
+      path: testInfo.outputPath(`PR-programs-ended-empty-${width}.png`),
       fullPage: true,
       style: 'nextjs-portal { visibility: hidden; }',
     });

@@ -1,19 +1,11 @@
-import {
-  getProgramEndedYears,
-  getProgramStatusCounts,
-} from '@/features/programs/catalog/api';
+import { getProgramStatusCounts } from '@/features/programs/catalog/api';
 import type { ProgramListStatus } from '@/features/programs/catalog/program-list-options';
 import { getRankingYears } from '@/features/ranking/api';
 import type { ShellSection, SidebarItem } from './sidebar-menu';
-import {
-  archiveSidebarGroup,
-  programSidebarGroup,
-  rankingSidebarGroup,
-} from './sidebar-menu';
+import { programSidebarGroup, rankingSidebarGroup } from './sidebar-menu';
 
 export type SectionFacetData = {
   readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
-  readonly archiveYears?: readonly number[];
   readonly rankingYears?: readonly number[];
   readonly rankingCounts?: Partial<Record<'all' | number, number>>;
 };
@@ -42,14 +34,6 @@ async function loadProgramFacets(
   return { programCounts };
 }
 
-async function loadArchiveFacets(
-  signal: AbortSignal,
-): Promise<SectionFacetData> {
-  const archiveYears = await getProgramEndedYears(signal);
-  abortIfSignalAborted(signal);
-  return { archiveYears };
-}
-
 async function loadRankingFacets(
   signal: AbortSignal,
 ): Promise<SectionFacetData> {
@@ -66,12 +50,6 @@ export const SECTION_FACETS: Partial<
     load: loadProgramFacets,
     items: (data) => programSidebarGroup(data?.programCounts).items,
   },
-  archive: {
-    groupLabel: '공개 아카이브',
-    param: 'year',
-    load: loadArchiveFacets,
-    items: (data) => archiveSidebarGroup(data?.archiveYears).items,
-  },
   ranking: {
     groupLabel: '랭킹',
     param: 'year',
@@ -83,9 +61,8 @@ export const SECTION_FACETS: Partial<
 
 export function facetSectionFromHrefPath(
   hrefPath: string,
-): 'programs' | 'archive' | 'ranking' | null {
+): 'programs' | 'ranking' | null {
   if (hrefPath === '/programs') return 'programs';
-  if (hrefPath === '/archive') return 'archive';
   if (hrefPath === '/ranking') return 'ranking';
   return null;
 }

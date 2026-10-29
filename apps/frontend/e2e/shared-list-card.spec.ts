@@ -138,7 +138,7 @@ for (const width of [1440, 390]) {
       readonly headerPadding: string;
     }[] = [];
     for (const [route, slot, detail] of [
-      ['/archive', 'program-card', `/programs/${programId}`],
+      ['/programs?status=ended', 'program-card', `/programs/${programId}`],
       ['/programs', 'program-card', `/programs/${programId}`],
     ]) {
       await page.goto(route);

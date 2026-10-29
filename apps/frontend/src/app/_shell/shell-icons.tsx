@@ -19,13 +19,6 @@ const ICON_PATHS = {
       <path d="M8 8h8M8 12h8M8 16h5" />
     </>
   ),
-  archive: (
-    <>
-      <rect x="3" y="4" width="18" height="5" rx="1" />
-      <path d="M5 9v10h14V9" />
-      <path d="M10 13h4" />
-    </>
-  ),
   repo: (
     <>
       <path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z" />

@@ -3,7 +3,6 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProgramEndedYears, listPrograms } from './api';
 import { ProgramListPage } from './program-list-page';
-import { ProgramArchivePage } from './program-archive-page';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -37,12 +36,12 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
 });
 
-describe('ProgramArchivePage 종료 프로그램 목록', () => {
+describe('ProgramListPage 종료 프로그램 목록', () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
-    currentSearch = '';
+    currentSearch = 'status=ended';
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -75,11 +74,15 @@ describe('ProgramArchivePage 종료 프로그램 목록', () => {
   });
 
   async function renderArchive() {
-    await act(async () => root.render(<ProgramArchivePage />));
+    await act(async () =>
+      root.render(
+        <ProgramListPage canCreateProgram={false} viewerRole={null} />,
+      ),
+    );
   }
 
   it('종료 상태와 URL 연도를 요청하고 공용 카드로 동일한 프로그램 상세를 연다', async () => {
-    currentSearch = 'year=2025&sort=name&direction=desc';
+    currentSearch = 'status=ended&year=2025&sort=name&direction=desc';
     await renderArchive();
     expect(listProgramsMock).toHaveBeenLastCalledWith({
       page: 1,
@@ -97,16 +100,15 @@ describe('ProgramArchivePage 종료 프로그램 목록', () => {
         ?.getAttribute('href'),
     ).toBe('/programs/ended-program');
     expect(container.querySelector('a[href="/programs/new"]')).toBeNull();
-    const filters = container.querySelector(
-      '[data-slot="archive-list-year-chips"]',
+    const filter = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="종료 연도"]',
     );
-    expect(filters?.querySelectorAll('button')).toHaveLength(3);
-    const selected = filters?.querySelector('[aria-pressed="true"]');
-    expect(selected?.textContent).toBe('2025');
+    expect(filter?.options).toHaveLength(3);
+    expect(filter?.value).toBe('2025');
   });
 
   it('잘못된 연도는 전체 종료 목록으로 요청한다', async () => {
-    currentSearch = 'year=1999';
+    currentSearch = 'status=ended&year=1999';
     await renderArchive();
     expect(listProgramsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -118,11 +120,17 @@ describe('ProgramArchivePage 종료 프로그램 목록', () => {
 
   it('연도 변경은 URL로 이동한다', async () => {
     await renderArchive();
-    const button = Array.from(container.querySelectorAll('button')).find(
-      (element) => element.textContent === '2025',
+    const select = container.querySelector<HTMLSelectElement>(
+      'select[aria-label="종료 연도"]',
     );
-    await act(async () => button?.click());
-    expect(routerPushMock).toHaveBeenCalledWith('/archive?year=2025');
+    if (!select) throw new Error('종료 연도 필터가 없습니다');
+    await act(async () => {
+      select.value = '2025';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(routerPushMock).toHaveBeenCalledWith(
+      '/programs?status=ended&year=2025',
+    );
   });
 
   it('이전 연도의 늦은 응답이 최신 연도 목록을 덮어쓰지 않는다', async () => {
@@ -130,7 +138,7 @@ describe('ProgramArchivePage 종료 프로그램 목록', () => {
       Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
     listProgramsMock.mockReturnValueOnce(previous.promise);
     await renderArchive();
-    currentSearch = 'year=2025';
+    currentSearch = 'status=ended&year=2025';
     await renderArchive();
     await act(async () =>
       previous.resolve({
@@ -406,8 +414,8 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     const chips = container.querySelector(
       '[data-slot="program-list-status-chips"]',
     );
-    expect(chips?.querySelectorAll('button')).toHaveLength(4);
-    expect(chips?.textContent).not.toContain('종료');
+    expect(chips?.querySelectorAll('button')).toHaveLength(5);
+    expect(chips?.textContent).toContain('종료');
   });
 
   it('URL의 sort/direction을 select와 데이터 요청에 그대로 반영한다', async () => {
@@ -464,11 +472,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
 
     await act(async () =>
       root.render(
-        <ProgramListPage
-          canCreateProgram={false}
-          viewerRole="STUDENT"
-          archiveYears={[]}
-        />,
+        <ProgramListPage canCreateProgram={false} viewerRole="STUDENT" />,
       ),
     );
 

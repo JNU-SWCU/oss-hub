@@ -1,12 +1,8 @@
-export const CURRENT_PROGRAM_LIST_STATUSES = [
+export const PROGRAM_LIST_STATUSES = [
   'all',
   'recruiting',
   'in_progress',
   'upcoming',
-] as const;
-
-export const PROGRAM_LIST_STATUSES = [
-  ...CURRENT_PROGRAM_LIST_STATUSES,
   'ended',
 ] as const;
 

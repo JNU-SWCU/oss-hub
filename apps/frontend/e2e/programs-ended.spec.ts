@@ -34,7 +34,7 @@ const project = {
   contributors: [],
 };
 
-async function mockArchive(page: Page, staff = false) {
+async function mockPrograms(page: Page, staff = false) {
   await page.clock.setFixedTime(new Date('2026-10-27T00:00:00.000Z'));
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url());
@@ -118,14 +118,14 @@ async function mockArchive(page: Page, staff = false) {
   });
 }
 
-for (const width of [1440, 390]) {
+for (const width of [1440, 390, 1920]) {
   test(`종료 프로그램과 연도 필터에서 동일한 프로그램 상세를 연다 (${width})`, async ({
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await mockArchive(page);
+    await mockPrograms(page);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    await page.goto('/archive');
+    await page.goto('/programs?status=ended');
     const cards = page.locator('[data-slot="program-card"]');
     await expect(cards).toHaveCount(2);
     await expect(cards.first()).toHaveAttribute('data-status', 'ended');
@@ -136,8 +136,45 @@ for (const width of [1440, 390]) {
       ),
     ).toBe(0);
     await page.screenshot({
-      path: testInfo.outputPath(`archive-${width}.png`),
+      path: testInfo.outputPath(`PR-programs-ended-${width}.png`),
       style: 'nextjs-portal { visibility: hidden; }',
+    });
+    await testInfo.attach('scroll-owners', {
+      contentType: 'application/json',
+      body: JSON.stringify(
+        await page.evaluate(() =>
+          [...document.querySelectorAll<HTMLElement>('*')]
+            .filter(
+              (element) =>
+                /auto|scroll/.test(getComputedStyle(element).overflowY) &&
+                element.scrollHeight > element.clientHeight,
+            )
+            .map(
+              (element) =>
+                element.id ||
+                element.getAttribute('data-slot') ||
+                element.tagName,
+            ),
+        ),
+      ),
+    });
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.screenshot({
+      path: testInfo.outputPath(`PR-programs-ended-dark-${width}.png`),
+      style: 'nextjs-portal { visibility: hidden; }',
+    });
+    await page.evaluate(() =>
+      document.documentElement.classList.remove('dark'),
+    );
+    await page.locator('#main-content').evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await page.screenshot({
+      path: testInfo.outputPath(`PR-programs-ended-scrolled-${width}.png`),
+      style: 'nextjs-portal { visibility: hidden; }',
+    });
+    await page.locator('#main-content').evaluate((element) => {
+      element.scrollTop = 0;
     });
     const response = page.waitForResponse((result) => {
       const url = new URL(result.url());
@@ -147,23 +184,15 @@ for (const width of [1440, 390]) {
         url.searchParams.get('year') === '2025'
       );
     });
-    if (width === 390) {
-      await page
-        .locator('[data-slot="archive-list-year-chips"]')
-        .getByRole('button', { name: '2025', exact: true })
-        .click();
-    } else {
-      await page
-        .getByRole('navigation', { name: '공개 아카이브', exact: true })
-        .getByRole('link', { name: '2025', exact: true })
-        .click();
-    }
+    await page
+      .getByRole('combobox', { name: '종료 연도' })
+      .selectOption('2025');
     expect((await response).status()).toBe(200);
-    await expect(page).toHaveURL('/archive?year=2025');
+    await expect(page).toHaveURL('/programs?status=ended&year=2025');
     await expect(cards).toHaveCount(1);
     await expect(cards.first()).toContainText(ended[1].name);
     await page.screenshot({
-      path: testInfo.outputPath(`archive-year-2025-${width}.png`),
+      path: testInfo.outputPath(`PR-programs-ended-year-2025-${width}.png`),
       style: 'nextjs-portal { visibility: hidden; }',
     });
     await cards.first().click();
@@ -174,23 +203,39 @@ for (const width of [1440, 390]) {
     audit.assertClean();
   });
 
-  test(`프로그램 기본 목록은 미종료만 요청하고 종료 필터가 없다 (${width})`, async ({
+  test(`프로그램 기본 목록은 미종료만 요청하고 종료 탭으로 전환한다 (${width})`, async ({
     page,
   }, testInfo) => {
     const audit = installBrowserAudit(page);
-    await mockArchive(page);
+    await mockPrograms(page);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.goto('/programs');
     await expect(page.locator('[data-slot="program-card"]')).toHaveCount(1);
     await expect(page.locator('[data-slot="program-card"]')).toContainText(
       current.name,
     );
-    await expect(
-      page.getByRole('button', { name: '종료', exact: true }),
-    ).toHaveCount(0);
-    await expect(page.locator('a[href="/programs?status=ended"]')).toHaveCount(
+    await expect(page.getByRole('combobox', { name: '종료 연도' })).toHaveCount(
       0,
     );
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({
+      path: testInfo.outputPath(`PR-programs-ended-current-${width}.png`),
+      style: 'nextjs-portal { visibility: hidden; }',
+    });
+    if (width === 390) {
+      await page
+        .locator('[data-slot="program-list-status-chips"]')
+        .getByRole('button', { name: '종료', exact: true })
+        .click();
+    } else {
+      await page
+        .getByRole('navigation', { name: '프로그램 메뉴', exact: true })
+        .getByRole('link', { name: '종료', exact: false })
+        .click();
+    }
+    await expect(page).toHaveURL('/programs?status=ended');
+    await expect(page.locator('[data-slot="program-card"]')).toHaveCount(2);
+    await expect(page.locator('a[href="/archive"]')).toHaveCount(0);
     if (width === 1440) {
       await expect(
         page
@@ -199,30 +244,38 @@ for (const width of [1440, 390]) {
       ).toContainText('1');
     }
     await page.screenshot({
-      path: testInfo.outputPath(`programs-current-${width}.png`),
+      path: testInfo.outputPath(`PR-programs-ended-tab-switch-${width}.png`),
       style: 'nextjs-portal { visibility: hidden; }',
     });
     audit.assertClean();
   });
 }
 
-test('교직원도 같은 종료 프로그램 아카이브를 본다', async ({ page }) => {
-  await mockArchive(page, true);
-  await page.goto('/archive?year=2025');
+test('교직원도 같은 종료 프로그램 탭을 본다', async ({ page }) => {
+  await mockPrograms(page, true);
+  await page.goto('/programs?status=ended&year=2025');
   await expect(page.locator('[data-slot="program-card"]')).toHaveCount(1);
   await expect(
     page.locator('a[href="/programs/archive-ended-2025"]'),
   ).toBeVisible();
-  await expect(page.locator('a[href="/programs/new"]')).toHaveCount(0);
+  await expect(page.locator('a[href="/programs/new"]')).toHaveCount(1);
 });
 
-test('옛 종료 필터 및 공개 프로젝트 상세 URL을 새 경로로 이동한다', async ({
+test('옛 아카이브 목록 및 공개 프로젝트 상세 URL을 새 경로로 이동한다', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
-  await mockArchive(page);
+  await mockPrograms(page);
+  for (const [from, to] of [
+    ['/archive', '/programs?status=ended'],
+    ['/archive?year=2025', '/programs?status=ended&year=2025'],
+  ]) {
+    const response = await page.goto(from);
+    const redirected = await response?.request().redirectedFrom()?.response();
+    expect(redirected?.status()).toBe(308);
+    await expect(page).toHaveURL(to);
+  }
   await page.goto('/programs?status=ended');
-  await expect(page).toHaveURL('/archive');
   await expect(page.locator('[data-slot="program-card"]')).toHaveCount(2);
   const response = await page.goto(`/archive/${project.projectId}`);
   const redirected = await response?.request().redirectedFrom()?.response();
