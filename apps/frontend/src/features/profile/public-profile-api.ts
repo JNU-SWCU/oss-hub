@@ -161,7 +161,7 @@ function project(value: unknown): PublicProfileProject {
     repositoryName,
     githubUrl: githubUrl(value.githubUrl, repositoryName),
     publishedAt,
-    detailUrl: `/projects/${id}`,
+    detailUrl: `/archive/${id}`,
     modeLabel: mode === 'PERSONAL' ? '개인' : '팀',
     publishedLabel: new Intl.DateTimeFormat('ko-KR', {
       year: 'numeric',

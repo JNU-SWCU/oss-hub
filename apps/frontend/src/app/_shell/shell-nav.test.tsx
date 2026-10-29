@@ -15,6 +15,7 @@ import { ShellNav } from './shell-nav';
 const ITEMS: NavItem[] = [
   { label: '홈', href: '/' },
   { label: '프로그램', href: '/programs' },
+  { label: '아카이브', href: '/archive' },
 ];
 
 describe('ShellNav', () => {
@@ -59,7 +60,7 @@ describe('ShellNav', () => {
     expect(html).not.toContain('border-transparent');
   });
 
-  it('홈·프로그램 링크를 렌더한다', () => {
+  it('홈·프로그램·아카이브 3개 링크를 렌더하고 /archive href를 포함한다', () => {
     mocks.usePathname.mockReturnValue('/programs');
 
     const html = renderToStaticMarkup(
@@ -68,6 +69,8 @@ describe('ShellNav', () => {
 
     expect(html).toContain('홈');
     expect(html).toContain('프로그램');
+    expect(html).toContain('아카이브');
+    expect(html).toContain('href="/archive"');
 
     expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-h-11');
     expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-w-11');

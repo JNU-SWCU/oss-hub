@@ -5,7 +5,7 @@ import { NavBar } from './nav-bar';
 const ITEMS = [
   { label: '홈', href: '/' },
   { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
+  { label: '아카이브', href: '/archive' },
 ];
 
 function render() {

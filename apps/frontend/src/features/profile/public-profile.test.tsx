@@ -76,7 +76,7 @@ describe('public profile parser', () => {
         {
           modeLabel: '팀',
           repositoryName: 'oss-public',
-          detailUrl: '/projects/project_123',
+          detailUrl: '/archive/project_123',
           observed: true,
         },
       ],
@@ -227,7 +227,7 @@ describe('public profile API boundary', () => {
 describe('public profile views', () => {
   const onRetry = vi.fn();
 
-  it('renders ready content, non-evaluative copy, metrics, and project detail links', () => {
+  it('renders ready content, non-evaluative copy, metrics, and archive detail links', () => {
     const html = renderToStaticMarkup(
       <PublicProfileContent
         state={{ kind: 'ready', profile: parsePublicProfile(profileResponse) }}
@@ -240,7 +240,7 @@ describe('public profile views', () => {
     expect(html).toContain('oss-public');
     expect(html).toContain('관측됨');
     expect(html).toContain('활동량 안내: 평가·점수·랭킹이 아닙니다');
-    expect(html).toContain('href="/projects/project_123"');
+    expect(html).toContain('href="/archive/project_123"');
   });
 
   it('renders unobserved and observed-zero states distinctly', () => {
@@ -310,7 +310,7 @@ describe('public profile views', () => {
     expect(notFoundHtml).toContain(
       '존재하지 않거나 공개 프로젝트가 없는 사용자입니다.',
     );
-    expect(notFoundHtml).toContain('href="/programs?status=ended"');
+    expect(notFoundHtml).toContain('href="/archive"');
   });
 
   it('renders a generic retry error without raw error text', () => {

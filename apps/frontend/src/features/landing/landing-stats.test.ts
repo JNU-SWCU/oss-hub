@@ -41,23 +41,23 @@ describe('landing stats display derivation', () => {
     expect(stats.repositories).toBe('2');
   });
 
-  it('shows exact counts under 공개 프로젝트 기준 when the public graph is complete', () => {
+  it('shows exact counts under 공개 아카이브 기준 when the public graph is complete', () => {
     expect(deriveLandingStats(PUBLIC_GRAPH, 'complete')).toEqual({
       programs: '1',
       repositories: '2',
       students: '2',
-      note: '공개 프로젝트 기준',
+      note: '공개 아카이브 기준',
     });
   });
 
-  it('keeps 공개 프로젝트 기준 with an em dash while the first stage has no contributors yet', () => {
+  it('keeps 공개 아카이브 기준 with an em dash while the first stage has no contributors yet', () => {
     const base = graphOf('public', ['program', 'repository', 'repository']);
 
     expect(deriveLandingStats(base, 'complete')).toEqual({
       programs: '1',
       repositories: '2',
       students: '—',
-      note: '공개 프로젝트 기준',
+      note: '공개 아카이브 기준',
     });
   });
 

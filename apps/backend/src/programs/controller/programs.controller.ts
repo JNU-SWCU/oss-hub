@@ -31,7 +31,6 @@ import {
   type ProgramDetailResponseDto,
 } from '../dto/program-detail.dto';
 import { ProgramListQueryRequestDto } from '../dto/program-list-query.dto';
-import { ProgramEndedYearsResponseDto } from '../dto/program-ended-years-response.dto';
 import { ProgramListPageResponseDto } from '../dto/program-list-response.dto';
 import { ProgramStatusCountsResponseDto } from '../dto/program-status-counts-response.dto';
 import { ProgramActivityService } from '../service/program-activity.service';
@@ -79,12 +78,6 @@ export class ProgramsController {
     return ProgramStatusCountsResponseDto.from(
       await this.programs.statusCounts(),
     );
-  }
-
-  @Get('ended-years')
-  @OptionalSession()
-  async endedYears(): Promise<ProgramEndedYearsResponseDto> {
-    return ProgramEndedYearsResponseDto.from(await this.programs.endedYears());
   }
 
   @Post()

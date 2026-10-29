@@ -80,7 +80,7 @@ describe('ListCard', () => {
     const view = render({
       title: '합성 제목',
       meta: '2026.01',
-      href: '/projects/synthetic',
+      href: '/archive/synthetic',
     });
     const card = view.querySelector('[data-slot="list-card"]');
     expect(card?.classList.contains('flex')).toBe(true);
@@ -185,10 +185,10 @@ describe('ListCard', () => {
       subtitle: '합성 프로그램',
       badge: { text: 'GitHub PUBLIC', variant: 'approved' },
       meta: <time dateTime="2026-09-01">2026.09.01</time>,
-      href: '/projects/synthetic-project',
+      href: '/archive/synthetic-project',
     });
     const link = view.querySelector('a');
-    expect(link?.getAttribute('href')).toBe('/projects/synthetic-project');
+    expect(link?.getAttribute('href')).toBe('/archive/synthetic-project');
     expect(link?.querySelector('[data-slot="list-card"]')).not.toBeNull();
     expect(view.querySelectorAll('a, button, [tabindex]')).toHaveLength(1);
     expect(link?.textContent).toContain('합성 프로젝트');
