@@ -35,6 +35,15 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
 });
 
+const CARD_GRID_TRACK =
+  '[grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr))]';
+
+function trackClasses(grid: Element | null): string[] {
+  return Array.from(grid?.classList ?? []).filter((className) =>
+    className.startsWith('[grid-template-columns:'),
+  );
+}
+
 describe('ProgramListPage 등록 동선', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -194,6 +203,81 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
 
     expect(container.querySelector('h2')).toBeNull();
     expect(container.textContent).toContain('합성 프로그램');
+  });
+
+  it('G5 constrains and centers the program section', async () => {
+    await renderPage();
+    const section = container.querySelector('section');
+    for (const className of ['max-w-[1200px]', 'mx-auto', 'w-full']) {
+      expect(section?.classList.contains(className), className).toBe(true);
+    }
+  });
+
+  it('G3 keeps the shared 20rem track on the programs grid', async () => {
+    await renderPage();
+    const grid = container.querySelector('[data-slot="card-grid"]');
+    expect(grid?.querySelector('[data-slot="program-card"]')).not.toBeNull();
+    expect(trackClasses(grid)).toEqual([CARD_GRID_TRACK]);
+  });
+
+  it('AC8 renders six horizontal skeleton cards with reserved content rows', async () => {
+    const pending =
+      Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
+    listProgramsMock.mockReturnValueOnce(pending.promise);
+    await renderPage();
+    const grid = container.querySelector(
+      '[data-slot="skeleton"] [data-slot="card-grid"]',
+    );
+    expect(trackClasses(grid)).toEqual([CARD_GRID_TRACK]);
+    expect(grid?.children).toHaveLength(6);
+    for (const wrapper of Array.from(grid?.children ?? [])) {
+      for (const className of ['h-full', 'min-w-0']) {
+        expect(wrapper.classList.contains(className), className).toBe(true);
+      }
+      const card = wrapper.firstElementChild;
+      expect(card).not.toBeNull();
+      if (!card) continue;
+      for (const className of [
+        'h-full',
+        'min-h-[170px]',
+        'grid',
+        'grid-cols-[auto_minmax(0,1fr)]',
+      ]) {
+        expect(card.classList.contains(className), className).toBe(true);
+      }
+      const poster = card.querySelector(
+        '[data-slot="list-card-cover"] > [data-slot="skeleton-block"]',
+      );
+      expect(poster?.classList.contains('aspect-[1/1.414]')).toBe(true);
+      expect(poster?.classList.contains('w-full')).toBe(true);
+      expect(card.querySelector('.aspect-video')).toBeNull();
+      for (const slot of [
+        'card-header',
+        'card-content',
+        'list-card-affordance',
+      ]) {
+        expect(
+          card
+            .querySelector(`[data-slot="${slot}"]`)
+            ?.classList.contains('px-0'),
+          slot,
+        ).toBe(true);
+      }
+      expect(
+        card
+          .querySelector('[data-slot="card-title"]')
+          ?.classList.contains('min-h-[2lh]'),
+      ).toBe(true);
+      expect(
+        card.querySelector('[data-slot="card-content"]')?.children.length,
+      ).toBeGreaterThanOrEqual(2);
+      expect(
+        card.querySelector('[data-slot="list-card-affordance"]'),
+      ).not.toBeNull();
+    }
+    expect(
+      container.querySelector('[role="status"]')?.classList.contains('sr-only'),
+    ).toBe(true);
   });
 
   it('URL에 없는 정렬은 기본값(생략)으로 표시되고, listPrograms를 sort 없이 호출한다', async () => {

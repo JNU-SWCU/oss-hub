@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ProgramCover } from '@/components';
-import { programCoverSource } from '@/components/program-cover-source';
+import { programCoverSource } from '@/components/program/program-cover-source';
 import {
   isExternalProgramCover,
   type ProgramCoverSelection,

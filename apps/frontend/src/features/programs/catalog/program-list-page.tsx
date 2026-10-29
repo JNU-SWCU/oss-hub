@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
-import { ProgramCard } from './program-card';
+import { ProgramCard, ProgramCardSkeleton } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
@@ -151,8 +151,8 @@ function ProgramListPage({
       return (
         <Skeleton label="프로그램 목록을 불러오는 중">
           <CardGrid>
-            {[0, 1, 2].map((index) => (
-              <SkeletonBlock className="h-48 rounded-xl" key={index} />
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <ProgramCardSkeleton key={index} />
             ))}
           </CardGrid>
         </Skeleton>
@@ -212,7 +212,7 @@ function ProgramListPage({
   })();
 
   return (
-    <section className="grid gap-6 p-4 sm:p-6">
+    <section className="mx-auto w-full max-w-[1200px] grid gap-6 p-4 sm:p-6">
       <PageHeader
         title={getProgramListHeading(status)}
         description={getProgramListSubtitle(viewerRole)}
