@@ -103,6 +103,7 @@ export function ProgramEditPage({
   const [hasUnsavedMilestoneDocuments, setHasUnsavedMilestoneDocuments] =
     useState(false);
   const editRegionRef = useRef<HTMLDivElement>(null);
+  const latestLoadId = useRef(0);
 
   const isDirty = dirtyFields.length > 0 || cover.selection !== undefined;
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
@@ -112,22 +113,28 @@ export function ProgramEditPage({
   );
 
   const load = useCallback(async () => {
+    const loadId = ++latestLoadId.current;
     setState({ kind: 'loading' });
     setForm(null);
     try {
       const program = await getEditableProgram(programId);
+      if (loadId !== latestLoadId.current) return;
       setState({ kind: 'ready', program });
       setForm(toProgramEditForm(program));
       setDirtyFields([]);
       setErrors({});
       setGeneralAlert(null);
     } catch {
+      if (loadId !== latestLoadId.current) return;
       setState({ kind: 'failed', message: '잠시 후 다시 시도해 주세요.' });
     }
   }, [programId]);
 
   useEffect(() => {
     void load();
+    return () => {
+      latestLoadId.current += 1;
+    };
   }, [load]);
 
   useEffect(() => {

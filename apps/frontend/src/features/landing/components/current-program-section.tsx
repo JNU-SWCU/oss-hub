@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
-import { programCoverSource } from '@/components/program-cover-source';
+import { programCoverSource } from '@/components/program/program-cover-source';
 import { programOverviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import { ArrowRight, CalendarDays } from 'lucide-react';

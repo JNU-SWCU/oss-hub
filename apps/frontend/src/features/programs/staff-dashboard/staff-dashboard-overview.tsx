@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
-import { programCoverSource } from '@/components/program-cover-source';
+import { programCoverSource } from '@/components/program/program-cover-source';
 import type { ReactElement, ReactNode } from 'react';
 import { DataTable, StatusBadge, type DataTableColumn } from '@/components';
 import {

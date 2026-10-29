@@ -2,6 +2,7 @@ import { ExternalLink, FolderGit2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   CardGrid,
+  ListCard,
   EmptyState,
   PageBody,
   PageHeader,
@@ -10,13 +11,6 @@ import {
   FailureState,
 } from '@/components';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   MyRepositoriesState,
@@ -67,57 +61,48 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
 
 function RepositoryCard({ item }: { readonly item: MyRepositoryItem }) {
   return (
-    <Card className="min-w-0">
-      <CardHeader className="gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-small text-muted-foreground">
-              {item.programName}
-            </p>
-            <CardTitle className="mt-1 break-words">
-              {item.displayName}
-            </CardTitle>
+    <ListCard
+      title={item.displayName}
+      subtitle={item.programName}
+      badge={{
+        text: item.provisionLabel,
+        variant: STATUS_VARIANTS[item.provisionStatus],
+      }}
+      details={[
+        {
+          label: '저장소',
+          value: (
+            <code className="break-all">
+              {item.repositoryName ?? '생성 전'}
+            </code>
+          ),
+        },
+      ]}
+      meta={
+        item.visibility !== null || item.invitationLabel ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {item.visibility !== null ? (
+              <StatusBadge
+                variant={item.visibility === 'PUBLIC' ? 'approved' : 'closed'}
+              >
+                {item.visibility}
+              </StatusBadge>
+            ) : null}
+            {item.invitationLabel ? <span>{item.invitationLabel}</span> : null}
           </div>
-          <StatusBadge variant={STATUS_VARIANTS[item.provisionStatus]}>
-            {item.provisionLabel}
-          </StatusBadge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid min-w-0 gap-1">
-          <span className="text-small font-semibold text-muted-foreground">
-            저장소
-          </span>
-          <code className="break-all text-small text-foreground">
-            {item.repositoryName ?? '생성 전'}
-          </code>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {item.visibility !== null ? (
-            <StatusBadge
-              variant={item.visibility === 'PUBLIC' ? 'approved' : 'closed'}
-            >
-              {item.visibility}
-            </StatusBadge>
-          ) : null}
-          {item.invitationLabel ? (
-            <span className="text-small text-muted-foreground">
-              {item.invitationLabel}
-            </span>
-          ) : null}
-        </div>
-      </CardContent>
-      {item.canOpenGithub && item.githubUrl ? (
-        <CardFooter className="flex flex-wrap gap-3">
+        ) : undefined
+      }
+      actions={
+        item.canOpenGithub && item.githubUrl ? (
           <Button asChild size="sm" variant="outline">
             <a href={item.githubUrl} target="_blank" rel="noreferrer">
               <ExternalLink aria-hidden="true" />
               GitHub에서 열기
             </a>
           </Button>
-        </CardFooter>
-      ) : null}
-    </Card>
+        ) : undefined
+      }
+    />
   );
 }
 

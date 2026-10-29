@@ -13,6 +13,8 @@ export interface ProgramCoverProps {
   readonly className?: string;
 }
 
+export const programCoverCardFrame = 'aspect-[1/1.414] w-full rounded-md';
+
 function DefaultCover() {
   return (
     <svg
@@ -65,7 +67,7 @@ export function ProgramCover({
       className={cn(
         'relative flex items-center justify-center overflow-hidden bg-muted text-primary/50',
         size === 'thumbnail' && 'aspect-video w-24 shrink-0 rounded-md',
-        size === 'card' && 'aspect-[1/1.414]',
+        size === 'card' && programCoverCardFrame,
         size === 'detail' && '@container rounded-card border border-border',
         size === 'detail' && !available && 'aspect-[1/1.414]',
         className,

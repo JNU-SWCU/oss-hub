@@ -109,7 +109,7 @@ export function ProductShell({
         <div
           id="main-content"
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto"
+          className="relative min-h-0 min-w-0 flex-1 overflow-y-auto"
         >
           {children}
         </div>
@@ -198,7 +198,7 @@ export function ProductShell({
           <div
             id="main-content"
             tabIndex={-1}
-            className="min-h-0 min-w-0 overflow-y-auto"
+            className="relative min-h-0 min-w-0 overflow-y-auto"
           >
             {children}
           </div>
