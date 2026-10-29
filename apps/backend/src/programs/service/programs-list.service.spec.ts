@@ -314,7 +314,7 @@ describe('ProgramsRepository list', () => {
       {
         page: 2,
         pageSize: 10,
-        search: 'Archive',
+        search: 'Program',
         status: 'current',
         year: 2027,
       },
@@ -325,7 +325,7 @@ describe('ProgramsRepository list', () => {
       where: {
         lifecycle: 'PUBLISHED',
         endAt: { gte: NOW },
-        name: { contains: 'Archive', mode: 'insensitive' },
+        name: { contains: 'Program', mode: 'insensitive' },
         AND: [
           {
             endAt: {
@@ -337,7 +337,7 @@ describe('ProgramsRepository list', () => {
       },
     });
     expect(queryRaw.mock.calls[0]?.[0].values).toEqual(
-      expect.arrayContaining([2027, '%Archive%', 10]),
+      expect.arrayContaining([2027, '%Program%', 10]),
     );
   });
 });

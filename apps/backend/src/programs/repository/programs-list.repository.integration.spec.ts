@@ -618,10 +618,10 @@ describe('ProgramsRepository list ordering integration', () => {
           startAt: new Date('2025-03-01T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
-          description: 'Archive year fixture',
+          description: 'Program year fixture',
           lifecycle: fixture.lifecycle ?? 'PUBLISHED',
           id: `${TEST_PREFIX}${fixture.id}`,
-          name: `Archive ${fixture.id}`,
+          name: `Program ${fixture.id}`,
           endAt: new Date(fixture.endAt),
         })),
       });
@@ -632,7 +632,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           page: 2,
           pageSize: 1,
-          search: 'Archive ended',
+          search: 'Program ended',
           status: 'ended',
           year: 2027,
           sort: 'name',
@@ -658,7 +658,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           page: 1,
           pageSize: 20,
-          search: 'Archive',
+          search: 'Program',
           status: 'current',
           sort: 'name',
         },

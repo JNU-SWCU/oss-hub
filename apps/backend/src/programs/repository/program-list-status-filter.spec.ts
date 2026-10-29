@@ -14,12 +14,12 @@ describe('programListSqlWhere ended filters', () => {
   const now = new Date('2028-01-01T00:00:00.000Z');
 
   it('composes Seoul end year with status and search as bound parameters', () => {
-    const where = programListSqlWhere('ended', 'Archive', now, 2027);
+    const where = programListSqlWhere('ended', 'Program', now, 2027);
 
     expect(normalize(where.sql)).toContain(
       `EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int = ?`,
     );
-    expect(where.values).toEqual([now, now, now, 'ended', 2027, '%Archive%']);
+    expect(where.values).toEqual([now, now, now, 'ended', 2027, '%Program%']);
   });
 
   it('excludes lifecycle and date ended programs from current', () => {
