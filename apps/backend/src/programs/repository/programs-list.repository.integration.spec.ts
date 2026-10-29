@@ -621,7 +621,7 @@ describe('ProgramsRepository list ordering integration', () => {
           description: 'Program year fixture',
           lifecycle: fixture.lifecycle ?? 'PUBLISHED',
           id: `${TEST_PREFIX}${fixture.id}`,
-          name: `Program ${fixture.id}`,
+          name: `YearFixture ${fixture.id}`,
           endAt: new Date(fixture.endAt),
         })),
       });
@@ -632,7 +632,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           page: 2,
           pageSize: 1,
-          search: 'Program ended',
+          search: 'YearFixture ended',
           status: 'ended',
           year: 2027,
           sort: 'name',
@@ -658,7 +658,7 @@ describe('ProgramsRepository list ordering integration', () => {
         {
           page: 1,
           pageSize: 20,
-          search: 'Program',
+          search: 'YearFixture',
           status: 'current',
           sort: 'name',
         },
