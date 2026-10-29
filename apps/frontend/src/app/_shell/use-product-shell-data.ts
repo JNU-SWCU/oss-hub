@@ -20,6 +20,25 @@ import {
   shouldLoadProgramParticipation,
 } from './program-shell-policy';
 
+export type ShellDataStatus = 'idle' | 'pending' | 'success' | 'error';
+
+interface SettledRequest {
+  readonly key: string;
+  readonly status: 'success' | 'error';
+}
+
+function requestStatus(
+  key: string | null,
+  settled: SettledRequest | null,
+): ShellDataStatus {
+  if (key === null) return 'idle';
+  return settled?.key === key ? settled.status : 'pending';
+}
+
+function overviewRequestKey(programId: string, operationsView: boolean) {
+  return `${programId}:${operationsView ? 'operations' : 'viewer'}`;
+}
+
 export function useProductShellData({
   section,
   programDetailId,
@@ -35,14 +54,21 @@ export function useProductShellData({
   readonly operationsView?: boolean | null;
 }): {
   readonly facetData: SectionFacetData | undefined;
+  readonly facetStatus: ShellDataStatus;
   readonly scopeOverview: ProgramOverview | undefined;
+  readonly scopeOverviewStatus: ShellDataStatus;
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
 
   readonly scopeParticipant: boolean | undefined;
   readonly scopeViewerRole: ProgramScopeViewerRole;
 } {
   const [facetData, setFacetData] = useState<SectionFacetData>();
+  const [facetSettled, setFacetSettled] = useState<SettledRequest | null>(
+    null,
+  );
   const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
+  const [overviewSettled, setOverviewSettled] =
+    useState<SettledRequest | null>(null);
   const [scopeMilestones, setScopeMilestones] =
     useState<readonly ProgramNavigationMilestone[]>();
   const [scopeParticipant, setScopeParticipant] = useState<boolean>();
@@ -55,23 +81,37 @@ export function useProductShellData({
   );
   const overviewOperationsView =
     scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN';
+  const facetKey =
+    !programDetailId && section && SECTION_FACETS[section]?.load
+      ? section
+      : null;
+  const overviewKey = shouldLoadProgramOverview(programDetailId, member)
+    ? overviewRequestKey(programDetailId, overviewOperationsView)
+    : null;
+  const facetStatus = requestStatus(facetKey, facetSettled);
+  const scopeOverviewStatus = requestStatus(overviewKey, overviewSettled);
 
   useEffect(() => {
     const spec =
       !programDetailId && section ? SECTION_FACETS[section] : undefined;
-    if (!spec?.load) {
+    if (!spec?.load || !section) {
       setFacetData(undefined);
       return;
     }
     const controller = new AbortController();
     setFacetData(undefined);
+    setFacetSettled(null);
     void spec
       .load(controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted) setFacetData(data);
+        if (controller.signal.aborted) return;
+        setFacetData(data);
+        setFacetSettled({ key: section, status: 'success' });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setFacetData(undefined);
+        if (controller.signal.aborted) return;
+        setFacetData(undefined);
+        setFacetSettled({ key: section, status: 'error' });
       });
     return () => controller.abort();
   }, [section, programDetailId]);
@@ -84,6 +124,7 @@ export function useProductShellData({
       setScopeOverview(undefined);
       return;
     }
+    const key = overviewRequestKey(programDetailId, overviewOperationsView);
     const controller = new AbortController();
     let requestId = 0;
     let overview: ProgramOverview | undefined;
@@ -106,9 +147,11 @@ export function useProductShellData({
           return;
         }
         setScopeOverview(data);
+        setOverviewSettled({ key, status: 'success' });
       } catch {
-        if (!controller.signal.aborted && currentRequestId === requestId)
-          setScopeOverview(undefined);
+        if (controller.signal.aborted || currentRequestId !== requestId) return;
+        setScopeOverview(undefined);
+        setOverviewSettled({ key, status: 'error' });
       }
     };
     const refresh = (event: Event) => {
@@ -125,6 +168,7 @@ export function useProductShellData({
       }
     };
     setScopeOverview(undefined);
+    setOverviewSettled(null);
     const unsubscribeBoard = subscribeBoardListInvalidation(
       programDetailId,
       () => void load(),
@@ -181,7 +225,9 @@ export function useProductShellData({
 
   return {
     facetData,
+    facetStatus,
     scopeOverview,
+    scopeOverviewStatus,
     scopeMilestones,
     scopeParticipant,
     scopeViewerRole,

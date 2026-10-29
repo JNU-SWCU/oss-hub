@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -101,10 +102,53 @@ export function SidebarShell({
   );
 }
 
+export function SidebarCountSkeleton() {
+  return (
+    <span
+      aria-hidden
+      data-slot="sidebar-count-skeleton"
+      className={cn(
+        'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5',
+        'animate-pulse text-badge font-semibold text-transparent tabular-nums motion-reduce:animate-none',
+      )}
+    >
+      00
+    </span>
+  );
+}
+
+export function SidebarBottomSkeleton() {
+  return (
+    <div
+      aria-hidden
+      data-slot="sidebar-bottom-skeleton"
+      className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
+    >
+      <div className="text-xs">
+        <SkeletonBlock className="h-lh w-12 rounded-sm" />
+      </div>
+      <div className="text-section">
+        <SkeletonBlock className="h-lh w-24 rounded-sm" />
+      </div>
+      <div className="text-xs">
+        <SkeletonBlock className="h-lh w-20 rounded-sm" />
+      </div>
+      <div className="mt-3 text-xs">
+        <SkeletonBlock className="h-lh w-16 rounded-sm" />
+      </div>
+      <div className="mt-1 text-section">
+        <SkeletonBlock className="h-lh w-full rounded-sm" />
+      </div>
+    </div>
+  );
+}
+
 export interface SidebarScopeRowProps {
   readonly backHref: string;
   readonly backLabel: string;
   readonly title: string;
+
+  readonly titlePending?: boolean;
   readonly collapsed: boolean;
 }
 
@@ -112,6 +156,7 @@ export function SidebarScopeRow({
   backHref,
   backLabel,
   title,
+  titlePending = false,
   collapsed,
 }: SidebarScopeRowProps) {
   if (collapsed) {
@@ -148,12 +193,22 @@ export function SidebarScopeRow({
       >
         {`‹ ${backLabel}`}
       </Link>
-      <p
-        data-slot="sidebar-shell-scope-title"
-        className="truncate font-heading text-small font-semibold text-sidebar-foreground"
-      >
-        {title}
-      </p>
+      {titlePending ? (
+        <div
+          aria-hidden
+          data-slot="sidebar-scope-title-skeleton"
+          className="font-heading text-small font-semibold"
+        >
+          <SkeletonBlock className="h-lh w-3/4 rounded-sm" />
+        </div>
+      ) : (
+        <p
+          data-slot="sidebar-shell-scope-title"
+          className="truncate font-heading text-small font-semibold text-sidebar-foreground"
+        >
+          {title}
+        </p>
+      )}
     </div>
   );
 }

@@ -11,7 +11,11 @@ import {
 } from '@/components/ui/tooltip';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
-import { SidebarShell, type SidebarShellVariant } from './sidebar-shell';
+import {
+  SidebarCountSkeleton,
+  SidebarShell,
+  type SidebarShellVariant,
+} from './sidebar-shell';
 
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
@@ -22,6 +26,8 @@ interface AppSidebarProps {
   readonly brandTitle?: string;
 
   readonly bottom?: ReactNode;
+
+  readonly countsPending?: boolean;
 
   readonly variant?: SidebarShellVariant;
 }
@@ -51,6 +57,7 @@ export function AppSidebar({
   collapsed,
   brandTitle,
   bottom,
+  countsPending = false,
   variant = 'aside',
 }: AppSidebarProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
@@ -68,6 +75,7 @@ export function AppSidebar({
           search={search}
           collapsed={collapsed}
           brandTitle={title}
+          countsPending={countsPending}
         />
       }
     />
@@ -80,6 +88,8 @@ export interface AppSidebarNavProps {
   readonly search?: string;
   readonly collapsed: boolean;
   readonly brandTitle?: string;
+
+  readonly countsPending?: boolean;
 }
 
 export function AppSidebarNav({
@@ -88,6 +98,7 @@ export function AppSidebarNav({
   search = '',
   collapsed,
   brandTitle,
+  countsPending = false,
 }: AppSidebarNavProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
   const showGroupLabels = !collapsed;
@@ -129,6 +140,7 @@ export function AppSidebarNav({
                 pathname={pathname}
                 search={search}
                 collapsed={collapsed}
+                countPending={countsPending && item.count === undefined}
               />
             ))}
           </div>
@@ -143,11 +155,13 @@ function SidebarLink({
   pathname,
   search,
   collapsed,
+  countPending,
 }: {
   readonly item: SidebarGroup['items'][number];
   readonly pathname: string;
   readonly search: string;
   readonly collapsed: boolean;
+  readonly countPending: boolean;
 }) {
   const current = isCurrentSidebarItem(pathname, item.href, search);
   const showCount = !collapsed && item.count !== undefined;
@@ -180,6 +194,7 @@ function SidebarLink({
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
       </span>
+      {!collapsed && countPending ? <SidebarCountSkeleton /> : null}
       {showCount ? (
         <span
           data-slot="app-sidebar-count"

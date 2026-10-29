@@ -18,6 +18,7 @@ import {
 } from './sidebar-menu';
 import {
   RankingCycleProvider,
+  useOptionalRankingCycleReported,
   useOptionalRankingNextCycleAt,
 } from './ranking-cycle-context';
 import { useSidebarDrawer } from './sidebar-drawer-context';
@@ -26,9 +27,15 @@ import {
   isShellMember,
   shellSidebarAccess,
 } from './sidebar-presence';
-import type { SidebarShellVariant } from './sidebar-shell';
+import {
+  SidebarBottomSkeleton,
+  type SidebarShellVariant,
+} from './sidebar-shell';
 import { useSessionRole } from './use-session-role';
-import { useProductShellData } from './use-product-shell-data';
+import {
+  useProductShellData,
+  type ShellDataStatus,
+} from './use-product-shell-data';
 import {
   setProgramOperationsView,
   useProgramOperationsView,
@@ -49,6 +56,8 @@ export { shouldLoadProgramOverview } from './program-shell-policy';
 
 function RankingCycleCountdown() {
   const nextCycleAt = useOptionalRankingNextCycleAt();
+  const reported = useOptionalRankingCycleReported();
+  if (!reported) return <SidebarBottomSkeleton />;
   if (nextCycleAt === null) return null;
   return (
     <ProgramCountdown
@@ -62,13 +71,16 @@ function RankingCycleCountdown() {
 function sidebarBottomFor({
   pathname,
   programDetailId,
+  overviewStatus,
   remainingMilestones,
 }: {
   readonly pathname: string;
   readonly programDetailId: string | null;
+  readonly overviewStatus: ShellDataStatus;
   readonly remainingMilestones: readonly CountdownMilestone[] | undefined;
 }): ReactNode {
   if (programDetailId !== null) {
+    if (overviewStatus === 'pending') return <SidebarBottomSkeleton />;
     return remainingMilestones === undefined ? undefined : (
       <ProgramCountdown mode="program" milestones={remainingMilestones} />
     );
@@ -109,7 +121,9 @@ export function ProductShell({
 
   const {
     facetData,
+    facetStatus,
     scopeOverview,
+    scopeOverviewStatus,
     scopeMilestones,
     scopeParticipant,
     scopeViewerRole,
@@ -185,10 +199,13 @@ export function ProductShell({
         milestoneDocuments: scopeOverview?.milestoneDocuments,
       })
     : [];
+  const scopePending = scopeOverviewStatus === 'pending';
   const scopeGroups =
-    scopeOverview !== undefined
+    scopeOverview !== undefined || scopePending
       ? scopeGroupsRaw
       : withoutLoadingCounts(scopeGroupsRaw);
+  const facetCountsPending =
+    facetStatus === 'pending' && section === 'programs';
 
   const brandTitle = sidebarBrandTitle(section, groups);
   const drawerLabel = programDetailId
@@ -198,6 +215,7 @@ export function ProductShell({
   const bottom = sidebarBottomFor({
     pathname,
     programDetailId,
+    overviewStatus: scopeOverviewStatus,
     remainingMilestones: scopeOverview?.remainingMilestones,
   });
 
@@ -206,6 +224,8 @@ export function ProductShell({
       <ProgramScopeSidebar
         variant={variant}
         programName={scopeOverview?.name ?? programDetailId}
+        programNamePending={scopePending}
+        countsPending={scopePending}
         groups={scopeGroups}
         pathname={pathname}
         search={search}
@@ -222,6 +242,7 @@ export function ProductShell({
         collapsed={variant === 'aside' && collapsed}
         brandTitle={brandTitle}
         bottom={bottom}
+        countsPending={facetCountsPending}
       />
     );
 

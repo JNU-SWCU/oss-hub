@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
 import type { ProgramScopeSidebarItem } from './sidebar-menu';
 import { setProgramOperationsView } from './program-operations-view';
+import { SidebarCountSkeleton } from './sidebar-shell';
 
 function ViewSwitch({
   view,
@@ -43,6 +44,8 @@ interface ScopeSidebarLinkProps {
   readonly pathname: string;
   readonly collapsed: boolean;
   readonly selected: boolean;
+
+  readonly countPending?: boolean;
 }
 
 export function ScopeSidebarLink({
@@ -51,6 +54,7 @@ export function ScopeSidebarLink({
   pathname,
   collapsed,
   selected,
+  countPending = false,
 }: ScopeSidebarLinkProps) {
   const depth = item.depth ?? 0;
 
@@ -102,7 +106,8 @@ export function ScopeSidebarLink({
           선택됨
         </span>
       ) : null}
-      {showCount ? (
+      {showCount && countPending ? <SidebarCountSkeleton /> : null}
+      {showCount && !countPending ? (
         <span
           data-slot="program-scope-sidebar-count"
           className={cn(

@@ -211,8 +211,16 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   });
 
   it('랭킹 카운트다운은 한 바인딩으로 aside와 드로어 양쪽에 그려진다', async () => {
+    await renderFrame('/ranking');
+    expect(
+      document
+        .getElementById(SIDEBAR_ASIDE_ID)
+        ?.querySelector('[data-slot="sidebar-bottom-skeleton"]'),
+    ).not.toBeNull();
+
     await renderFrame('/ranking', <RankingPage />);
     const aside = document.getElementById(SIDEBAR_ASIDE_ID);
+    expect(aside?.querySelector('[data-slot="sidebar-bottom-skeleton"]')).toBeNull();
     expect(aside?.querySelector('[data-slot="program-countdown"]')).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
 

@@ -16,6 +16,10 @@ import {
 
 export interface ProgramScopeSidebarProps {
   readonly programName: string;
+
+  readonly programNamePending?: boolean;
+
+  readonly countsPending?: boolean;
   readonly groups: readonly ProgramScopeSidebarGroup[];
   readonly pathname: string;
   readonly search: string;
@@ -29,6 +33,8 @@ export interface ProgramScopeSidebarProps {
 
 export function ProgramScopeSidebar({
   programName,
+  programNamePending = false,
+  countsPending = false,
   groups,
   pathname,
   search,
@@ -48,6 +54,7 @@ export function ProgramScopeSidebar({
           backHref={backHref}
           backLabel="프로그램 목록"
           title={programName}
+          titlePending={programNamePending}
           collapsed={collapsed}
         />
       }
@@ -58,6 +65,7 @@ export function ProgramScopeSidebar({
           search={search}
           collapsed={collapsed}
           ariaLabel={programName}
+          countsPending={countsPending}
         />
       }
     />
@@ -70,6 +78,8 @@ export interface ProgramScopeSidebarNavProps {
   readonly search: string;
   readonly collapsed: boolean;
   readonly ariaLabel: string;
+
+  readonly countsPending?: boolean;
 }
 
 function stageHrefWithCurrentQuery(
@@ -98,6 +108,7 @@ export function ProgramScopeSidebarNav({
   search,
   collapsed,
   ariaLabel,
+  countsPending = false,
 }: ProgramScopeSidebarNavProps) {
   const currentSearch = new URLSearchParams(search);
   const milestoneId = currentSearch.get('milestoneId');
@@ -141,6 +152,7 @@ export function ProgramScopeSidebarNav({
                 pathname={pathname}
                 collapsed={collapsed}
                 selected={(item.depth ?? 0) === 1 && item.href === focusedHref}
+                countPending={countsPending}
               />
             ))}
           </div>
