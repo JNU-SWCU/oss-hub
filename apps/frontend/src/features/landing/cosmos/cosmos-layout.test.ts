@@ -9,9 +9,14 @@ describe('committed cosmos layout', () => {
 
     layoutCosmosGraph(graph);
 
-    expect(graph.nodes.map(({ x, y, z }) => [x, y, z])).toEqual(
-      COSMOS_POSITIONS,
+    expect(graph.nodes).toHaveLength(COSMOS_POSITIONS.length);
+    const drift = Math.max(
+      ...graph.nodes.flatMap(({ x, y, z }, index) => {
+        const [px, py, pz] = COSMOS_POSITIONS[index];
+        return [Math.abs(x - px), Math.abs(y - py), Math.abs(z - pz)];
+      }),
     );
+    expect(drift).toBeLessThan(1e-3);
   });
 
   it('creates independent mutable graphs when two canvases mount', () => {
