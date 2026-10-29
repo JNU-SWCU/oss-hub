@@ -11,7 +11,11 @@ const ITEMS = [
 
 function render(currentPath?: string) {
   return renderToStaticMarkup(
-    <NavBar brand={<span>OSS Hub</span>} items={ITEMS} currentPath={currentPath} />,
+    <NavBar
+      brand={<span>OSS Hub</span>}
+      items={ITEMS}
+      currentPath={currentPath}
+    />,
   );
 }
 
@@ -56,10 +60,7 @@ describe('NavBar 현재 탭', () => {
 
   it('현재 탭만 마커를 품고, 나머지는 현재 표시가 없는 평범한 링크다', () => {
     const html = render('/ranking');
-    const doc = new DOMParser().parseFromString(
-      wideList(html),
-      'text/html',
-    );
+    const doc = new DOMParser().parseFromString(wideList(html), 'text/html');
     const links = Array.from(doc.querySelectorAll('a'));
     expect(links).toHaveLength(ITEMS.length);
     const current = links.filter(
@@ -68,7 +69,9 @@ describe('NavBar 현재 탭', () => {
     expect(current).toHaveLength(1);
     expect(current[0].getAttribute('href')).toBe('/ranking');
     expect(current[0].dataset.current).toBe('true');
-    expect(doc.querySelectorAll('[data-slot="nav-bar-current-marker"]')).toHaveLength(1);
+    expect(
+      doc.querySelectorAll('[data-slot="nav-bar-current-marker"]'),
+    ).toHaveLength(1);
     expect(
       current[0].parentElement?.querySelector(
         '[data-slot="nav-bar-current-marker"]',

@@ -42,9 +42,7 @@ export function documentListenerAdded(type: string): Promise<void> {
   const restore = () => Reflect.deleteProperty(document, 'addEventListener');
   return withTimeout(
     new Promise<void>((resolve) => {
-      document.addEventListener = ((
-        ...args: Parameters<typeof original>
-      ) => {
+      document.addEventListener = ((...args: Parameters<typeof original>) => {
         original(...args);
         if (args[0] === type) {
           restore();

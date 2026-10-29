@@ -63,12 +63,11 @@ export function useProductShellData({
   readonly scopeViewerRole: ProgramScopeViewerRole;
 } {
   const [facetData, setFacetData] = useState<SectionFacetData>();
-  const [facetSettled, setFacetSettled] = useState<SettledRequest | null>(
+  const [facetSettled, setFacetSettled] = useState<SettledRequest | null>(null);
+  const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
+  const [overviewSettled, setOverviewSettled] = useState<SettledRequest | null>(
     null,
   );
-  const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
-  const [overviewSettled, setOverviewSettled] =
-    useState<SettledRequest | null>(null);
   const [scopeMilestones, setScopeMilestones] =
     useState<readonly ProgramNavigationMilestone[]>();
   const [scopeParticipant, setScopeParticipant] = useState<boolean>();

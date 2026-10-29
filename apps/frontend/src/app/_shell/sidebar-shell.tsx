@@ -92,9 +92,7 @@ export function useSidebarPhase(collapsed: boolean): SidebarPhaseState {
   const onPanelTransitionEnd = useCallback(
     (event: TransitionEvent<HTMLElement>) => {
       if (event.target !== event.currentTarget) return;
-      setPhase((current) =>
-        current === 'collapsing' ? 'collapsed' : current,
-      );
+      setPhase((current) => (current === 'collapsing' ? 'collapsed' : current));
     },
     [],
   );

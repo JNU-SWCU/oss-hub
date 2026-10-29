@@ -36,7 +36,12 @@ function render(
   overrides: Partial<React.ComponentProps<typeof SidebarShell>> = {},
 ) {
   return renderToStaticMarkup(
-    <SidebarShell kind="app-sidebar" collapsed={false} nav={NAV} {...overrides} />,
+    <SidebarShell
+      kind="app-sidebar"
+      collapsed={false}
+      nav={NAV}
+      {...overrides}
+    />,
   );
 }
 
@@ -96,7 +101,9 @@ describe('SidebarShell', () => {
     expect(expanded).toContain('전남대학교');
 
     const collapsed = render({ collapsed: true });
-    expect(collapsed).toMatch(/data-slot="app-sidebar"[^>]*data-collapsed="true"/);
+    expect(collapsed).toMatch(
+      /data-slot="app-sidebar"[^>]*data-collapsed="true"/,
+    );
     expect(collapsed).not.toContain('data-slot="app-sidebar-foot"');
     expect(collapsed).not.toContain('전남대학교');
   });

@@ -399,8 +399,12 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
 
     await renderFrame('/ranking', <RankingPage />);
     const aside = document.getElementById(SIDEBAR_ASIDE_ID);
-    expect(aside?.querySelector('[data-slot="sidebar-bottom-skeleton"]')).toBeNull();
-    expect(aside?.querySelector('[data-slot="program-countdown"]')).not.toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="sidebar-bottom-skeleton"]'),
+    ).toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="program-countdown"]'),
+    ).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
 
     await act(async () => {
@@ -408,9 +412,13 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
 
     const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.querySelector('[data-slot="program-countdown"]')).not.toBeNull();
     expect(
-      dialog?.querySelector('[data-slot="sidebar-shell"][data-variant="drawer"]'),
+      dialog?.querySelector('[data-slot="program-countdown"]'),
+    ).not.toBeNull();
+    expect(
+      dialog?.querySelector(
+        '[data-slot="sidebar-shell"][data-variant="drawer"]',
+      ),
     ).not.toBeNull();
   });
 });
