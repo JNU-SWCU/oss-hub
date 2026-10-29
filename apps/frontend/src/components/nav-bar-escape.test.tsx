@@ -10,6 +10,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const ITEMS = [
   { label: '프로그램', href: '/programs' },
+  { label: '공개 아카이브', href: '/archive' },
   { label: '랭킹', href: '/ranking' },
 ];
 

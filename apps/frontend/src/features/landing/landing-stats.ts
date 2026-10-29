@@ -48,7 +48,7 @@ export function deriveLandingStats(
       : isPartial
         ? '일부 집계'
         : graph.source === 'public'
-          ? '공개 프로젝트 기준'
+          ? '공개 아카이브 기준'
           : '예시 데이터 기준',
   };
 }

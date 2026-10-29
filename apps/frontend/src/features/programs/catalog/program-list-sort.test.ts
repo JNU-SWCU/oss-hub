@@ -3,7 +3,6 @@ import {
   buildProgramListHref,
   parseProgramListDirection,
   parseProgramListSort,
-  parseProgramListYear,
 } from './program-list-sort';
 
 describe('parseProgramListSort', () => {
@@ -73,32 +72,5 @@ describe('buildProgramListHref', () => {
         direction: 'desc',
       }),
     ).toBe('/programs?status=recruiting&sort=applicationPeriod&direction=desc');
-  });
-});
-
-describe('ended year URL', () => {
-  it('keeps the year while sorting ended programs', () => {
-    expect(
-      buildProgramListHref({
-        status: 'ended',
-        year: 2025,
-        sort: 'name',
-        direction: 'desc',
-      }),
-    ).toBe('/programs?status=ended&year=2025&sort=name&direction=desc');
-  });
-  it('drops the year when leaving the ended tab', () => {
-    expect(buildProgramListHref({ status: 'all', year: 2025 })).toBe(
-      '/programs',
-    );
-  });
-  it.each([null, '', '1999', '2101', '2025.5', 'invalid'])(
-    'ignores invalid year %s',
-    (value) => {
-      expect(parseProgramListYear(value)).toBeUndefined();
-    },
-  );
-  it.each(['2000', '2025', '2100'])('accepts valid year %s', (value) => {
-    expect(parseProgramListYear(value)).toBe(Number(value));
   });
 });

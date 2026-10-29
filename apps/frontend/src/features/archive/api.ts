@@ -1,41 +1,41 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
 import {
-  type ProjectApplicationMode,
-  type ProjectTrackType,
-  type ProjectContributor,
-  type ProjectDetail,
-  type ProjectListItem,
-  type ProjectMetrics,
-  type ProjectPage,
-  type ProjectYears,
+  type ArchiveApplicationMode,
+  type ArchiveTrackType,
+  type ArchiveContributor,
+  type ArchiveDetail,
+  type ArchiveListItem,
+  type ArchiveMetrics,
+  type ArchivePage,
+  type ArchiveYears,
 } from './types';
 
-const INVALID_RESPONSE_MESSAGE = '공개 프로젝트 응답 형식이 올바르지 않습니다';
+const INVALID_RESPONSE_MESSAGE = '공개 아카이브 응답 형식이 올바르지 않습니다';
 
-class ProjectResponseError extends Error {
+class ArchiveResponseError extends Error {
   constructor() {
     super(INVALID_RESPONSE_MESSAGE);
-    this.name = 'ProjectResponseError';
+    this.name = 'ArchiveResponseError';
   }
 }
 
-class ProjectLoadError extends Error {
+class ArchiveLoadError extends Error {
   constructor() {
-    super('공개 프로젝트를 불러오지 못했습니다');
-    this.name = 'ProjectLoadError';
+    super('공개 아카이브를 불러오지 못했습니다');
+    this.name = 'ArchiveLoadError';
   }
 }
 
-export class ProjectNotFoundError extends Error {
+export class ArchiveNotFoundError extends Error {
   constructor() {
     super('공개 프로젝트를 찾을 수 없습니다');
-    this.name = 'ProjectNotFoundError';
+    this.name = 'ArchiveNotFoundError';
   }
 }
 
 function invalidResponse(): never {
-  throw new ProjectResponseError();
+  throw new ArchiveResponseError();
 }
 
 function hasExactKeys(
@@ -73,12 +73,12 @@ function projectId(value: unknown): string {
   return invalidResponse();
 }
 
-function applicationMode(value: unknown): ProjectApplicationMode {
+function applicationMode(value: unknown): ArchiveApplicationMode {
   if (value === 'PERSONAL' || value === 'TEAM') return value;
   return invalidResponse();
 }
 
-function trackType(value: unknown): ProjectTrackType | null {
+function trackType(value: unknown): ArchiveTrackType | null {
   if (value === null) return null;
   if (value === 'CURRICULAR' || value === 'EXTRACURRICULAR') return value;
   return invalidResponse();
@@ -142,12 +142,12 @@ const PROJECT_FIELD_KEYS = [
   'publishedAt',
 ] as const;
 
-type ProjectFields = Omit<
-  ProjectListItem,
+type ArchiveProjectFields = Omit<
+  ArchiveListItem,
   'detailUrl' | 'modeLabel' | 'publishedLabel'
 >;
 
-function projectFields(value: Record<string, unknown>): ProjectFields {
+function projectFields(value: Record<string, unknown>): ArchiveProjectFields {
   rejectLeftoverCategory(value);
   const id = projectId(value.projectId);
   const mode = applicationMode(value.applicationMode);
@@ -166,7 +166,9 @@ function projectFields(value: Record<string, unknown>): ProjectFields {
   };
 }
 
-function withLabels(fields: ProjectFields): Omit<ProjectListItem, 'detailUrl'> {
+function withLabels(
+  fields: ArchiveProjectFields,
+): Omit<ArchiveListItem, 'detailUrl'> {
   return {
     ...fields,
     modeLabel: fields.applicationMode === 'PERSONAL' ? '개인' : '팀',
@@ -178,12 +180,12 @@ function withLabels(fields: ProjectFields): Omit<ProjectListItem, 'detailUrl'> {
   };
 }
 
-function listItem(value: unknown): ProjectListItem {
+function listItem(value: unknown): ArchiveListItem {
   if (!isRecord(value) || !hasExactKeys(value, PROJECT_FIELD_KEYS)) {
     return invalidResponse();
   }
   const fields = projectFields(value);
-  return { ...withLabels(fields), detailUrl: `/projects/${fields.projectId}` };
+  return { ...withLabels(fields), detailUrl: `/archive/${fields.projectId}` };
 }
 
 const METRICS_KEYS = [
@@ -192,7 +194,7 @@ const METRICS_KEYS = [
   'releaseCount',
 ] as const;
 
-function metrics(value: unknown): ProjectMetrics {
+function metrics(value: unknown): ArchiveMetrics {
   if (!isRecord(value) || !hasExactKeys(value, METRICS_KEYS)) {
     return invalidResponse();
   }
@@ -210,7 +212,7 @@ const CONTRIBUTOR_KEYS = [
   'releaseCount',
 ] as const;
 
-function contributor(value: unknown): ProjectContributor {
+function contributor(value: unknown): ArchiveContributor {
   if (!isRecord(value) || !hasExactKeys(value, CONTRIBUTOR_KEYS)) {
     return invalidResponse();
   }
@@ -226,7 +228,7 @@ function contributor(value: unknown): ProjectContributor {
 
 const PAGE_KEYS = ['items', 'pageSize', 'nextPageId'] as const;
 
-export function parseProjectPage(value: unknown): ProjectPage {
+export function parseArchivePage(value: unknown): ArchivePage {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, PAGE_KEYS) ||
@@ -244,7 +246,7 @@ export function parseProjectPage(value: unknown): ProjectPage {
 
 const DETAIL_KEYS = [...PROJECT_FIELD_KEYS, 'metrics', 'contributors'];
 
-export function parseProjectDetail(value: unknown): ProjectDetail {
+export function parseArchiveDetail(value: unknown): ArchiveDetail {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, DETAIL_KEYS) ||
@@ -261,27 +263,27 @@ export function parseProjectDetail(value: unknown): ProjectDetail {
   };
 }
 
-export async function loadProjectPage(input: {
+export async function loadArchivePage(input: {
   readonly pageId: string | null;
   readonly pageSize: number;
   readonly year?: number;
-}): Promise<ProjectPage> {
+}): Promise<ArchivePage> {
   const query = new URLSearchParams({ pageSize: String(input.pageSize) });
   if (input.pageId !== null) query.set('pageId', input.pageId);
   if (input.year !== undefined) query.set('year', String(input.year));
 
   try {
-    return parseProjectPage(
+    return parseArchivePage(
       await apiClient<unknown>(`projects?${query.toString()}`),
     );
   } catch {
-    throw new ProjectLoadError();
+    throw new ArchiveLoadError();
   }
 }
 
 const YEARS_KEYS = ['years'] as const;
 
-export function parseProjectYears(value: unknown): ProjectYears {
+export function parseArchiveYears(value: unknown): ArchiveYears {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, YEARS_KEYS) ||
@@ -298,11 +300,11 @@ export function parseProjectYears(value: unknown): ProjectYears {
   return { years };
 }
 
-export async function loadProjectYears(
+export async function loadArchiveYears(
   signal?: AbortSignal,
 ): Promise<readonly number[]> {
   try {
-    const parsed = parseProjectYears(
+    const parsed = parseArchiveYears(
       await apiClient<unknown>(
         'projects/years',
         signal ? { signal } : undefined,
@@ -310,19 +312,19 @@ export async function loadProjectYears(
     );
     return parsed.years;
   } catch {
-    throw new ProjectLoadError();
+    throw new ArchiveLoadError();
   }
 }
 
-export async function loadProjectDetail(
+export async function loadArchiveDetail(
   targetProjectId: string,
-): Promise<ProjectDetail> {
+): Promise<ArchiveDetail> {
   if (!/^[A-Za-z0-9_-]+$/.test(targetProjectId)) {
-    throw new ProjectNotFoundError();
+    throw new ArchiveNotFoundError();
   }
 
   try {
-    return parseProjectDetail(
+    return parseArchiveDetail(
       await apiClient<unknown>(`projects/${targetProjectId}`),
     );
   } catch (error) {
@@ -331,8 +333,8 @@ export async function loadProjectDetail(
       error.problem.status === 404 &&
       error.problem.code === 'PPJ_001'
     ) {
-      throw new ProjectNotFoundError();
+      throw new ArchiveNotFoundError();
     }
-    throw new ProjectLoadError();
+    throw new ArchiveLoadError();
   }
 }

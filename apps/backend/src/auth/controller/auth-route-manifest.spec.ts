@@ -3,7 +3,7 @@ import {
   discoverModuleControllers,
 } from '../../app-controller-discovery';
 import { compareStringsByCodeUnit } from '../../common/domain/deterministic-string-order';
-import { ProgramOverviewController } from '../../programs/public/program-overview/controller/program-overview.controller';
+import { ProgramOverviewController } from '../../programs/archive/program-overview/controller/program-overview.controller';
 import {
   collectRuntimeRouteKeys,
   discoverRuntimeControllers,
@@ -119,9 +119,9 @@ describe('authentication route metadata manifest', () => {
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual(
       EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
     );
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(5);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(4);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(138);
-    expect(manifest).toHaveLength(156);
+    expect(manifest).toHaveLength(155);
     expect(
       manifest.filter(
         ({ method, path }) =>

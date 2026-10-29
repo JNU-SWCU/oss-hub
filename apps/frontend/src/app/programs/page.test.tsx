@@ -25,7 +25,7 @@ vi.mock('@/features/programs/catalog/program-list-page', () => ({
   ),
 }));
 
-import { ProgramsScreen } from './programs-screen';
+import ProgramsPage from './page';
 
 function assigned(
   memberKind: 'STUDENT' | 'STAFF' | null,
@@ -55,7 +55,7 @@ function renderedCapability(
   mocks.useSessionRole.mockReturnValue(
     assigned(memberKind, hasStaffAccess, hasAdminAccess, isProfileComplete),
   );
-  return renderToStaticMarkup(<ProgramsScreen />);
+  return renderToStaticMarkup(<ProgramsPage />);
 }
 
 describe('ProgramsPage 생성 capability', () => {

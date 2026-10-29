@@ -4,7 +4,6 @@ import {
   ProgramCategory,
   SubmissionStatus,
   ProgramTrackType,
-  type Prisma,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -69,24 +68,6 @@ function createService() {
 }
 
 const anonymous: ProgramViewer = { githubId: null, userId: null, role: null };
-
-describe('ProgramsService ended years', () => {
-  it.each([{ years: [2027, 2026, 2025] }, { years: [] }])(
-    'returns repository years without changing their descending order: %j',
-    async ({ years }) => {
-      const queryRaw = jest
-        .fn<Promise<readonly { readonly year: number }[]>, [Prisma.Sql]>()
-        .mockResolvedValue(years.map((year) => ({ year })));
-      const prisma = { $queryRaw: queryRaw } as unknown as PrismaService;
-      const service = new ProgramsService(new ProgramsRepository(prisma));
-      const now = new Date('2028-01-01T00:00:00.000Z');
-
-      await expect(service.endedYears(now)).resolves.toEqual(years);
-      expect(queryRaw).toHaveBeenCalledTimes(1);
-      expect(queryRaw.mock.calls[0]?.[0].values).toContain(now);
-    },
-  );
-});
 
 describe('ProgramsService detail', () => {
   it('비로그인은 공개 정보만 조회하고 비공개 상태를 null로 반환한다', async () => {

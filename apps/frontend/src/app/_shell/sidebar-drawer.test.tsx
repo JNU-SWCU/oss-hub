@@ -12,7 +12,7 @@ function Content() {
   return (
     <nav>
       <a href="/programs">프로그램</a>
-      <a href="/ranking">랭킹</a>
+      <a href="/archive">공개 아카이브</a>
     </nav>
   );
 }
@@ -181,6 +181,6 @@ describe('SidebarDrawer', () => {
   it('children으로 넘긴 메뉴 콘텐츠를 그대로 렌더한다', async () => {
     await renderDrawer(true, () => {});
     expect(container.querySelector('a[href="/programs"]')).not.toBeNull();
-    expect(container.querySelector('a[href="/ranking"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/archive"]')).not.toBeNull();
   });
 });

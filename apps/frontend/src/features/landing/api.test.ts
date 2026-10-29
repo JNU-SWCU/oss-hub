@@ -3,7 +3,7 @@ import { apiClient } from '@/lib/api-client';
 import { loadLandingPrograms, streamLandingGraph } from './api';
 import { LandingOverviewResponseError } from './landing-overview';
 
-const PROJECT_PAGE = {
+const ARCHIVE_PAGE = {
   items: [
     {
       projectId: 'repo_public_01',
@@ -58,9 +58,9 @@ describe('landing public API adapter', () => {
     expect(programs).toHaveLength(1);
   });
 
-  it('hydrates graph contributors from public project detail projections', async () => {
+  it('hydrates graph contributors from public archive detail projections', async () => {
     vi.mocked(apiClient)
-      .mockResolvedValueOnce(PROJECT_PAGE)
+      .mockResolvedValueOnce(ARCHIVE_PAGE)
       .mockResolvedValueOnce({
         projectId: 'repo_public_01',
         contributors: [{ githubLogin: 'sample-dev-01' }],
@@ -82,7 +82,7 @@ describe('landing public API adapter', () => {
 
   it('draws programs and repositories from the list alone, without waiting on details', async () => {
     vi.mocked(apiClient)
-      .mockResolvedValueOnce(PROJECT_PAGE)
+      .mockResolvedValueOnce(ARCHIVE_PAGE)
       .mockReturnValue(new Promise(() => undefined));
 
     const { base } = await streamLandingGraph();
@@ -101,7 +101,7 @@ describe('landing public API adapter', () => {
 
   it('keeps the rest of the graph but flags it partial when one detail request fails', async () => {
     vi.mocked(apiClient)
-      .mockResolvedValueOnce(PROJECT_PAGE)
+      .mockResolvedValueOnce(ARCHIVE_PAGE)
       .mockRejectedValueOnce(new Error('일시적인 통신 오류'))
       .mockResolvedValueOnce({
         projectId: 'repo_public_02',
@@ -121,7 +121,7 @@ describe('landing public API adapter', () => {
 
   it('fails the enriched stage closed when a detail response violates the contract', async () => {
     vi.mocked(apiClient)
-      .mockResolvedValueOnce(PROJECT_PAGE)
+      .mockResolvedValueOnce(ARCHIVE_PAGE)
       .mockResolvedValueOnce({
         projectId: 'repo_public_01',
         contributors: '기여자 목록이 아니다',
@@ -139,7 +139,7 @@ describe('landing public API adapter', () => {
     expect(studentLabels(base.graph)).toEqual([]);
   });
 
-  it('still fails loudly when the project list itself cannot be read', async () => {
+  it('still fails loudly when the archive list itself cannot be read', async () => {
     vi.mocked(apiClient).mockRejectedValueOnce(new Error('일시적인 통신 오류'));
 
     await expect(streamLandingGraph()).rejects.toThrow();

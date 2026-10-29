@@ -273,7 +273,7 @@ describe('PublicProjectsRepository integration', () => {
   });
 
   it(
-    '공개 프로젝션 계약(#projects 회귀) — listPage의 모든 행에서 projectId는 프런트 계약 정규식' +
+    '공개 프로젝션 계약(#archive 회귀) — listPage의 모든 행에서 projectId는 프런트 계약 정규식' +
       '(/^[A-Za-z0-9_-]+$/)을 만족하고, GithubRepository.id에 콜론이 섞인 seed 스타일 행도 projectId는' +
       'githubRepositoryId 기반 콜론-free 값이며 githubUrl은 JNU-SWCU 정확 계약을 만족한다',
     async () => {

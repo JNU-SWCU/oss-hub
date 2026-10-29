@@ -58,17 +58,17 @@ describe('LandingJourney second panel stats', () => {
 
     expect(statValue(html, '공개 기여자')).toBe('—');
     expect(html).toContain('일부 집계');
-    expect(html).not.toContain('공개 프로젝트 기준');
+    expect(html).not.toContain('공개 아카이브 기준');
 
     expect(statValue(html, '공개 프로그램')).toBe('1');
     expect(statValue(html, '공개 저장소')).toBe('2');
   });
 
-  it('renders exact counts under 공개 프로젝트 기준 when the graph is complete', () => {
+  it('renders exact counts under 공개 아카이브 기준 when the graph is complete', () => {
     const html = renderWith('complete');
 
     expect(statValue(html, '공개 기여자')).toBe('2');
-    expect(html).toContain('공개 프로젝트 기준');
+    expect(html).toContain('공개 아카이브 기준');
     expect(html).not.toContain('일부 집계');
   });
 });

@@ -83,7 +83,6 @@ export const EXPECTED_PUBLIC_AUTH_ROUTES = [
 export const EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES = [
   route('GET', '/api/v1/auth/session', 'OPTIONAL_SESSION'),
   route('GET', '/api/v1/programs', 'OPTIONAL_SESSION'),
-  route('GET', '/api/v1/programs/ended-years', 'OPTIONAL_SESSION'),
   route('GET', '/api/v1/ranking', 'OPTIONAL_SESSION'),
   route('POST', '/api/v1/auth/logout', 'OPTIONAL_SESSION'),
 ] as const;
@@ -162,7 +161,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/programs/:programId/teams/:teamId/repository-url-history',
   'PROTECTED GET /api/v1/programs/:programId/teams/me',
   'PUBLIC GET /api/v1/programs/application-templates',
-  'OPTIONAL_SESSION GET /api/v1/programs/ended-years',
   'PUBLIC GET /api/v1/programs/status-counts',
   'PUBLIC GET /api/v1/projects',
   'PUBLIC GET /api/v1/projects/:projectId',

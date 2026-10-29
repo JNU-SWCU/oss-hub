@@ -61,9 +61,7 @@ function NotFoundState() {
         description="존재하지 않거나 공개 프로젝트가 없는 사용자입니다."
         action={
           <Button asChild variant="outline">
-            <Link href="/programs?status=ended">
-              종료 프로그램으로 돌아가기
-            </Link>
+            <Link href="/archive">공개 아카이브로 돌아가기</Link>
           </Button>
         }
       />

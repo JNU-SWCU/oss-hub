@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildPublicLandingGraph } from './landing-graph';
 import {
-  parseLandingProjectDetail,
-  parseLandingProjectPage,
+  parseLandingArchiveDetail,
+  parseLandingArchivePage,
   parseLandingProgramPage,
 } from './landing-overview';
 
@@ -79,8 +79,8 @@ describe('landing public overview boundary', () => {
     expect(page[0]?.id).toBe('seed:intake:program-seven-templates:BASIC');
   });
 
-  it('builds a typed graph only from public project projections', () => {
-    const project = parseLandingProjectPage({
+  it('builds a typed graph only from public archive projections', () => {
+    const archive = parseLandingArchivePage({
       items: [
         {
           projectId: 'repo_public_01',
@@ -92,12 +92,12 @@ describe('landing public overview boundary', () => {
       pageSize: 3,
       nextPageId: null,
     });
-    const detail = parseLandingProjectDetail({
+    const detail = parseLandingArchiveDetail({
       projectId: 'repo_public_01',
       contributors: [{ githubLogin: 'sample-dev-01' }],
     });
 
-    const graph = buildPublicLandingGraph(project, [detail]);
+    const graph = buildPublicLandingGraph(archive, [detail]);
 
     expect(graph.source).toBe('public');
     expect(graph.nodes).toEqual(
@@ -110,7 +110,7 @@ describe('landing public overview boundary', () => {
         expect.objectContaining({
           kind: 'repository',
           label: 'campus-map',
-          href: '/projects/repo_public_01',
+          href: '/archive/repo_public_01',
         }),
         expect.objectContaining({
           kind: 'student',
@@ -122,9 +122,9 @@ describe('landing public overview boundary', () => {
     expect(graph.edges).toHaveLength(2);
   });
 
-  it('rejects project ids that could escape the public app routes', () => {
+  it('rejects archive ids that could escape the public app routes', () => {
     expect(() =>
-      parseLandingProjectPage({
+      parseLandingArchivePage({
         items: [
           {
             projectId: '../../evil',

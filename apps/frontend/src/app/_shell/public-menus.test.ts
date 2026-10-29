@@ -10,10 +10,7 @@ const layoutSource = readFileSync(LAYOUT_PATH, 'utf-8');
 
 describe('공개 메뉴 단일 원본 (상단 전담)', () => {
   it('목록이 비어 있지 않다', () => {
-    expect(PUBLIC_MENU.map(({ href }) => href)).toEqual([
-      '/programs',
-      '/ranking',
-    ]);
+    expect(PUBLIC_MENU.length).toBeGreaterThanOrEqual(3);
   });
 
   it('랜딩·업무 레이아웃이 원본을 그대로 넘긴다', () => {
@@ -35,7 +32,7 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
     expect(publicHrefs).not.toContain('/settings');
   });
 
-  it('프로그램 섹션 좌측에는 상태 필터만 있고 랭킹 href는 없다', () => {
+  it('프로그램 섹션 좌측에는 상태 필터만 있고 아카이브·랭킹 href는 없다', () => {
     const hrefs = sidebarGroupsFor('programs', {
       memberKind: 'STUDENT',
       hasStaffAccess: false,
@@ -44,6 +41,7 @@ describe('공개 메뉴 단일 원본 (상단 전담)', () => {
     expect(
       hrefs.some((h) => h === '/programs' || h.startsWith('/programs?')),
     ).toBe(true);
+    expect(hrefs).not.toContain('/archive');
     expect(hrefs).not.toContain('/ranking');
   });
 

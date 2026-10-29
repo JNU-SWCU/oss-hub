@@ -44,8 +44,7 @@ export interface ProgramListParams {
   readonly page: number;
   readonly pageSize: number;
   readonly search: string;
-  readonly status: ProgramListStatus | 'current';
-  readonly year?: number;
+  readonly status: ProgramListStatus;
 
   readonly sort?: ProgramListSort;
   readonly direction?: ProgramListDirection;
