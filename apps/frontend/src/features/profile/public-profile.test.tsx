@@ -227,7 +227,7 @@ describe('public profile API boundary', () => {
 describe('public profile views', () => {
   const onRetry = vi.fn();
 
-  it('renders ready content, non-evaluative copy, metrics, and archive detail links', () => {
+  it('renders ready content, non-evaluative copy, metrics, and project detail links', () => {
     const html = renderToStaticMarkup(
       <PublicProfileContent
         state={{ kind: 'ready', profile: parsePublicProfile(profileResponse) }}

@@ -44,7 +44,7 @@ describe('shellSectionFromPathname', () => {
     expect(shellSectionFromPathname('/programs')).toBe('programs');
     expect(shellSectionFromPathname('/programs/new')).toBe('programs');
     expect(shellSectionFromPathname('/programs/x')).toBe('programs');
-    expect(shellSectionFromPathname('/archive')).toBeNull();
+    expect(shellSectionFromPathname('/unknown')).toBeNull();
     expect(shellSectionFromPathname('/projects/project-1')).toBeNull();
     expect(shellSectionFromPathname('/ranking')).toBe('ranking');
     expect(shellSectionFromPathname('/dashboard')).toBe('dashboard');
@@ -464,7 +464,7 @@ describe('programDetailIdFromPathname', () => {
   });
 
   it('other sections are not program detail scope', () => {
-    expect(programDetailIdFromPathname('/archive/1')).toBeNull();
+    expect(programDetailIdFromPathname('/projects/project-1')).toBeNull();
     expect(programDetailIdFromPathname('/dashboard')).toBeNull();
   });
 });

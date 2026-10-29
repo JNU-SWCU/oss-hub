@@ -6,7 +6,7 @@ describe('isInternalPath', () => {
     ['루트', '/'],
     ['일반 경로', '/dashboard'],
     ['쿼리가 붙은 경로', '/programs?status=open'],
-    ['fragment가 붙은 경로', '/archive#list'],
+    ['fragment가 붙은 경로', '/programs#list'],
     ['퍼센트 인코딩된 경로', '/profile/%EA%B9%80'],
   ])('%s는 내부 경로로 인정한다', (_label, input) => {
     expect(isInternalPath(input)).toBe(true);

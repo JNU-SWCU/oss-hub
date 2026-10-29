@@ -73,7 +73,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
     vi.clearAllMocks();
   });
 
-  async function renderArchive() {
+  async function renderEndedPrograms() {
     await act(async () =>
       root.render(
         <ProgramListPage canCreateProgram={false} viewerRole={null} />,
@@ -83,7 +83,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
 
   it('종료 상태와 URL 연도를 요청하고 공용 카드로 동일한 프로그램 상세를 연다', async () => {
     currentSearch = 'status=ended&year=2025&sort=name&direction=desc';
-    await renderArchive();
+    await renderEndedPrograms();
     expect(listProgramsMock).toHaveBeenLastCalledWith({
       page: 1,
       pageSize: 20,
@@ -109,7 +109,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
 
   it('잘못된 연도는 전체 종료 목록으로 요청한다', async () => {
     currentSearch = 'status=ended&year=1999';
-    await renderArchive();
+    await renderEndedPrograms();
     expect(listProgramsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         status: 'ended',
@@ -119,7 +119,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
   });
 
   it('연도 변경은 URL로 이동한다', async () => {
-    await renderArchive();
+    await renderEndedPrograms();
     const select = container.querySelector<HTMLSelectElement>(
       'select[aria-label="종료 연도"]',
     );
@@ -137,9 +137,9 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
     const previous =
       Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
     listProgramsMock.mockReturnValueOnce(previous.promise);
-    await renderArchive();
+    await renderEndedPrograms();
     currentSearch = 'status=ended&year=2025';
-    await renderArchive();
+    await renderEndedPrograms();
     await act(async () =>
       previous.resolve({
         items: [],

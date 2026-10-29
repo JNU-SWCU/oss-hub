@@ -1,1 +1,1 @@
-export { ArchiveDetailView } from './components/archive-detail-view';
+export { ProjectDetailView } from './components/project-detail-view';

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { installBrowserAudit } from './support/browser-audit';
 
 const ended = [2026, 2025].map((year) => ({
-  id: `archive-ended-${year}`,
+  id: `program-ended-${year}`,
   name: `${year} 합성 오픈소스 프로그램`,
   organizer: '합성 운영처',
   trackType: 'EXTRACURRICULAR',
@@ -10,25 +10,25 @@ const ended = [2026, 2025].map((year) => ({
   applicationStartAt: `${year}-01-01T00:00:00.000Z`,
   applicationEndAt: `${year}-02-01T00:00:00.000Z`,
   endAt: `${year}-06-30T00:00:00.000Z`,
-  description: '종료 프로그램 아카이브 검증',
+  description: '종료 프로그램 검증',
   coverImageUrl: null,
 }));
 const current = {
   ...ended[0],
-  id: 'archive-current',
+  id: 'program-current',
   name: '합성 모집 프로그램',
   applicationEndAt: '2026-12-01T00:00:00.000Z',
   endAt: '2027-06-30T00:00:00.000Z',
 };
 const project = {
-  projectId: 'archive-project',
+  projectId: 'public-project',
   programId: ended[0].id,
   programName: ended[0].name,
   trackType: 'EXTRACURRICULAR',
   applicationMode: 'TEAM',
   displayName: '합성 공개 프로젝트',
-  repositoryName: 'archive-project',
-  githubUrl: 'https://github.com/JNU-SWCU/archive-project',
+  repositoryName: 'public-project',
+  githubUrl: 'https://github.com/JNU-SWCU/public-project',
   publishedAt: '2026-07-01T00:00:00.000Z',
   metrics: { commitCount: 3, pullRequestCount: 1, releaseCount: 0 },
   contributors: [],
@@ -45,7 +45,7 @@ async function mockPrograms(page: Page, staff = false) {
           ? {
               isAuthenticated: true,
               user: {
-                nickname: 'archive-staff',
+                nickname: 'program-staff',
                 name: null,
                 email: null,
                 avatarUrl: null,
@@ -72,7 +72,7 @@ async function mockPrograms(page: Page, staff = false) {
           ? [current]
           : ended.filter(
               (program) =>
-                year === null || program.id === `archive-ended-${year}`,
+                year === null || program.id === `program-ended-${year}`,
             );
       await route.fulfill({
         json: {
@@ -91,7 +91,7 @@ async function mockPrograms(page: Page, staff = false) {
           path === `/api/v1/programs/${item.id}` ||
           path === `/api/v1/programs/${item.id}/viewer`,
       );
-      if (!program) throw new Error(`Unexpected archive request: ${path}`);
+      if (!program) throw new Error(`Unexpected program request: ${path}`);
       await route.fulfill({
         json: {
           id: program.id,
@@ -235,7 +235,6 @@ for (const width of [1440, 390, 1920]) {
     }
     await expect(page).toHaveURL('/programs?status=ended');
     await expect(page.locator('[data-slot="program-card"]')).toHaveCount(2);
-    await expect(page.locator('a[href="/archive"]')).toHaveCount(0);
     if (width === 1440) {
       await expect(
         page
@@ -256,37 +255,23 @@ test('교직원도 같은 종료 프로그램 탭을 본다', async ({ page }) =
   await page.goto('/programs?status=ended&year=2025');
   await expect(page.locator('[data-slot="program-card"]')).toHaveCount(1);
   await expect(
-    page.locator('a[href="/programs/archive-ended-2025"]'),
+    page.locator('a[href="/programs/program-ended-2025"]'),
   ).toBeVisible();
   await expect(page.locator('a[href="/programs/new"]')).toHaveCount(1);
 });
 
-test('옛 아카이브 목록 및 공개 프로젝트 상세 URL을 새 경로로 이동한다', async ({
+test('공개 프로젝트 상세 URL에서 프로젝트를 조회한다', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
   await mockPrograms(page);
-  for (const [from, to] of [
-    ['/archive', '/programs?status=ended'],
-    ['/archive?year=2025', '/programs?status=ended&year=2025'],
-  ]) {
-    const response = await page.goto(from);
-    const redirected = await response?.request().redirectedFrom()?.response();
-    expect(redirected?.status()).toBe(308);
-    await expect(page).toHaveURL(to);
-  }
-  await page.goto('/programs?status=ended');
-  await expect(page.locator('[data-slot="program-card"]')).toHaveCount(2);
-  const response = await page.goto(`/archive/${project.projectId}`);
-  const redirected = await response?.request().redirectedFrom()?.response();
-  expect(redirected?.status()).toBe(308);
-  await expect(page).toHaveURL(`/projects/${project.projectId}`);
+  await page.goto(`/projects/${project.projectId}`);
   await expect(
     page.getByRole('heading', { name: project.displayName, exact: true }),
   ).toBeVisible();
   await expect(page.locator('[data-slot="app-sidebar"]')).toHaveCount(0);
   await page.screenshot({
-    path: testInfo.outputPath('project-redirect.png'),
+    path: testInfo.outputPath('project-detail.png'),
     style: 'nextjs-portal { visibility: hidden; }',
   });
   audit.assertClean();

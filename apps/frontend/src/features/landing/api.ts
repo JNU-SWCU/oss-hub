@@ -1,8 +1,8 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import { buildPublicLandingGraph } from './landing-graph';
 import {
-  parseLandingArchiveDetail,
-  parseLandingArchivePage,
+  parseLandingProjectDetail,
+  parseLandingProjectPage,
   parseLandingProgramPage,
 } from './landing-overview';
 import type {
@@ -36,11 +36,11 @@ export interface LandingGraphStages {
 }
 
 export async function streamLandingGraph(): Promise<LandingGraphStages> {
-  const archive = parseLandingArchivePage(
+  const project = parseLandingProjectPage(
     await apiClient<unknown>('projects?pageSize=3'),
   );
 
-  const details = archive.map(async ({ projectId }) => {
+  const details = project.map(async ({ projectId }) => {
     let response: unknown;
     try {
       response = await apiClient<unknown>(
@@ -49,19 +49,19 @@ export async function streamLandingGraph(): Promise<LandingGraphStages> {
     } catch {
       return null;
     }
-    return parseLandingArchiveDetail(response);
+    return parseLandingProjectDetail(response);
   });
 
   return {
     base: {
-      graph: buildPublicLandingGraph(archive, []),
+      graph: buildPublicLandingGraph(project, []),
       completeness: 'complete',
     },
 
     complete: Promise.all(details).then((settled): LandingGraphStage => {
       const arrived = settled.filter((detail) => detail !== null);
       return {
-        graph: buildPublicLandingGraph(archive, arrived),
+        graph: buildPublicLandingGraph(project, arrived),
         completeness:
           arrived.length === settled.length ? 'complete' : 'partial',
       };

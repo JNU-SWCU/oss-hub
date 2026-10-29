@@ -1,4 +1,4 @@
-import { ArchiveDetailView } from '@/features/projects';
+import { ProjectDetailView } from '@/features/projects';
 
 export default async function ProjectDetailPage({
   params,
@@ -6,5 +6,5 @@ export default async function ProjectDetailPage({
   readonly params: Promise<{ readonly projectId: string }>;
 }) {
   const { projectId } = await params;
-  return <ArchiveDetailView repositoryId={projectId} />;
+  return <ProjectDetailView projectId={projectId} />;
 }

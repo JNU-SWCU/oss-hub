@@ -1,7 +1,7 @@
 import { programOverviewHref } from '@/lib/program-route';
 import type {
-  LandingArchiveDetail,
-  LandingArchiveItem,
+  LandingProjectDetail,
+  LandingProjectItem,
   LandingGraph,
   LandingGraphEdge,
   LandingGraphNode,
@@ -25,14 +25,14 @@ const STUDENT_POSITIONS = [
 ] as const;
 
 export function buildPublicLandingGraph(
-  archive: readonly LandingArchiveItem[],
-  details: readonly LandingArchiveDetail[],
+  project: readonly LandingProjectItem[],
+  details: readonly LandingProjectDetail[],
 ): LandingGraph {
   const nodes: LandingGraphNode[] = [];
   const edges: LandingGraphEdge[] = [];
   let studentPositionIndex = 0;
 
-  archive.forEach((item, index) => {
+  project.forEach((item, index) => {
     const programNodeId = `program:${item.programId}`;
     if (!nodes.some((node) => node.id === programNodeId)) {
       nodes.push({
