@@ -83,30 +83,6 @@ const ICON_PATHS = {
     </>
   ),
 
-  layers: (
-    <>
-      <path d="M12 3 3 8l9 5 9-5-9-5z" />
-      <path d="M3 12l9 5 9-5" />
-      <path d="M3 16l9 5 9-5" />
-    </>
-  ),
-
-  globe: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z" />
-    </>
-  ),
-
-  code: (
-    <>
-      <path d="M8 8 4 12l4 4" />
-      <path d="M16 8l4 4-4 4" />
-      <path d="M14 6l-4 12" />
-    </>
-  ),
-
   building: (
     <>
       <path d="M4 21V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16" />
