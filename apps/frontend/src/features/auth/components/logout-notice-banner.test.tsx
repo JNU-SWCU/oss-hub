@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { GITHUB_LOGOUT_URL, LOGOUT_NOTICE_MESSAGE } from '../logout-notice';
+import {
+  ACCOUNT_SWITCH_LINK_ID,
+  LOGOUT_NOTICE_MESSAGE,
+} from '../logout-notice';
 import { LogoutNoticeBanner } from './logout-notice-banner';
 
 describe('LogoutNoticeBanner', () => {
@@ -10,11 +13,11 @@ describe('LogoutNoticeBanner', () => {
     expect(html).toContain(LOGOUT_NOTICE_MESSAGE);
   });
 
-  it('로그인 화면의 계정 도움말로 안내한다', () => {
+  it('같은 화면의 다른 계정으로 로그인 링크로 안내한다', () => {
     const html = renderToStaticMarkup(<LogoutNoticeBanner />);
 
-    expect(html).toContain('href="/signup#account-help"');
-    expect(html).not.toContain(GITHUB_LOGOUT_URL);
+    expect(html).toContain(`href="#${ACCOUNT_SWITCH_LINK_ID}"`);
+    expect(html).not.toContain('/signup');
     expect(html).not.toContain('target="_blank"');
   });
 });

@@ -4,7 +4,7 @@ import { defaultExclude, defineConfig } from 'vitest/config';
 const happyDomTests = [
   'e2e/support/confirmation-cancel-label.test.tsx',
   'src/app/error.test.tsx',
-  'src/app/_shell/{app-frame-drawer.test.tsx,app-frame.login-destination.test.tsx,onboarding-gate.test.tsx,onboarding-rejection-reach.test.tsx,product-shell-countdown.interaction.test.tsx,product-shell-participant-menu.test.tsx,product-shell-ranking.test.tsx,program-scope-sidebar-keys.test.tsx,role-gate.test.tsx,route-notice.test.tsx,sidebar-drawer.test.tsx,sign-in-entries.test.tsx,use-product-shell-data.test.tsx,use-session-role.test.tsx,zero-surface-member-classification.test.tsx,zero-surface-member-reach.test.tsx}',
+  'src/app/_shell/{app-frame-drawer.test.tsx,app-frame.login-destination.test.tsx,landing-entry-action.return-to.test.tsx,onboarding-gate.test.tsx,onboarding-rejection-reach.test.tsx,product-shell-countdown.interaction.test.tsx,product-shell-participant-menu.test.tsx,product-shell-ranking.test.tsx,program-scope-sidebar-keys.test.tsx,role-gate.test.tsx,route-notice.test.tsx,sidebar-drawer.test.tsx,sign-in-entries.test.tsx,use-product-shell-data.test.tsx,use-session-role.test.tsx,zero-surface-member-classification.test.tsx,zero-surface-member-reach.test.tsx}',
   'src/app/onboarding/pending/role-request-count.test.tsx',
   'src/app/onboarding/role/role-selection-route.test.tsx',
   'src/app/programs/\\[id\\]/program-detail-screen.test.tsx',
@@ -14,7 +14,6 @@ const happyDomTests = [
   'src/app/programs/\\[id\\]/edit/program-edit-route.test.tsx',
   'src/app/programs/\\[id\\]/teams/program-teams-route-view.test.tsx',
   'src/app/settings/{settings-notification-flow.test.tsx,settings-page.test.tsx}',
-  'src/app/signup/signup-login-destination.test.tsx',
   'src/components/{data-table.test.tsx,dialog-shell.test.tsx,filter-chip.test.tsx,list-card.test.tsx,nav-bar-escape.test.tsx,table-scroll-region.test.tsx}',
   'src/components/program/{program-countdown.interaction.test.tsx,program-cover.test.tsx}',
   'src/components/ui/dialog.test.tsx',

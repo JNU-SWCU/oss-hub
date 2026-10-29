@@ -44,7 +44,7 @@ describe('ShellNav', () => {
   });
 
   it('어느 경로에서도 바 색 전환 클래스가 없다', () => {
-    for (const pathname of ['/', '/signup', '/programs']) {
+    for (const pathname of ['/', '/consent', '/programs']) {
       mocks.usePathname.mockReturnValue(pathname);
       const bar = navClass(
         renderToStaticMarkup(<ShellNav items={ITEMS} brand="OSS Hub" />),
@@ -77,8 +77,8 @@ describe('ShellNav', () => {
     );
   });
 
-  it('/signup 도 흰 바이고 fixed가 아니다', () => {
-    mocks.usePathname.mockReturnValue('/signup');
+  it('/consent 도 흰 바이고 fixed가 아니다', () => {
+    mocks.usePathname.mockReturnValue('/consent');
 
     const html = renderToStaticMarkup(
       <ShellNav items={ITEMS} brand="OSS Hub" />,

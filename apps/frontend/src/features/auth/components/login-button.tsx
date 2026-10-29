@@ -14,12 +14,13 @@ import type { AuthSession, Me } from '../types';
 import {
   clearLoginDestination,
   getLoginDestinationStorage,
+  readReturnTo,
 } from '../login-destination';
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
 
-  readonly pathname: string;
+  readonly returnTo: string | null;
   readonly accountRoles?: string;
   readonly logoutError: string | null;
   readonly menuOpen: boolean;
@@ -51,7 +52,7 @@ function AccountAvatar({ user }: { readonly user: Me }) {
 
 export function LoginButtonView({
   session,
-  pathname,
+  returnTo,
   accountRoles,
   logoutError,
   menuOpen,
@@ -92,15 +93,9 @@ export function LoginButtonView({
 
   switch (session.isAuthenticated) {
     case false:
-      if (pathname === '/signup') {
-        return null;
-      }
       return (
         <Button asChild variant="ghost">
-          <GitHubSignInLink
-            returnTo={pathname === '/' ? null : pathname}
-            aria-label="GitHub으로 로그인"
-          >
+          <GitHubSignInLink returnTo={returnTo} aria-label="GitHub으로 로그인">
             <GitHubMark className="size-4" />
             <span>로그인</span>
           </GitHubSignInLink>
@@ -192,11 +187,18 @@ export function LoginButton({
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
+  const [landingReturnTo, setLandingReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLandingReturnTo(
+      pathname === '/' ? readReturnTo(window.location.search) : null,
+    );
+  }, [pathname]);
 
   return (
     <LoginButtonView
       session={session}
-      pathname={pathname}
+      returnTo={pathname === '/' ? landingReturnTo : pathname}
       accountRoles={accountRoles}
       logoutError={logoutError}
       menuOpen={menuOpen}

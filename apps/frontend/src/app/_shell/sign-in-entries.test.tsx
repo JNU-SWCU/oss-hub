@@ -53,13 +53,13 @@ describe('익명 로그인 진입점은 GitHub으로 직행하며 돌아올 곳�
     container.remove();
   });
 
-  function renderNav(pathname: string) {
+  function renderNav(returnTo: string | null) {
     const session = { isAuthenticated: false } satisfies AuthSession;
     act(() =>
       root.render(
         <LoginButtonView
           session={session}
-          pathname={pathname}
+          returnTo={returnTo}
           logoutError={null}
           menuOpen={false}
           onMenuOpenChange={vi.fn()}
@@ -108,11 +108,11 @@ describe('익명 로그인 진입점은 GitHub으로 직행하며 돌아올 곳�
     expect(takeLoginDestination(sessionStorage)).toBe('/programs/p1/apply');
   });
 
-  it('랜딩(/)의 내비 클릭은 이미 저장된 복귀 경로를 바이트 단위로 보존한다', () => {
+  it('복귀 경로 없는 내비 클릭은 이미 저장된 복귀 경로를 바이트 단위로 보존한다', () => {
     rememberLoginDestination(sessionStorage, '/programs/42/apply', SEEDED_AT);
     const before = sessionStorage.getItem(KEY);
     expect(before).not.toBeNull();
-    renderNav('/');
+    renderNav(null);
     clickLink();
     expect(sessionStorage.getItem(KEY)).toBe(before);
   });
@@ -123,10 +123,5 @@ describe('익명 로그인 진입점은 GitHub으로 직행하며 돌아올 곳�
     expect(takeLoginDestination(sessionStorage)).toBe(
       '/programs/ex%3Ap1/apply',
     );
-  });
-
-  it('/signup 에서는 로그인 버튼을 내지 않는다', () => {
-    renderNav('/signup');
-    expect(container.innerHTML).toBe('');
   });
 });
