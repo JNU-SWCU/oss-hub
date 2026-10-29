@@ -13,6 +13,7 @@ function deadlineLabel(value: string): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'Asia/Seoul',
   }).format(new Date(value));
 }
 

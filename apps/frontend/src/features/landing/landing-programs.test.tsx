@@ -31,6 +31,24 @@ describe('server supplied recruiting programs', () => {
     expect(html).toContain('2026년 8월 14일 마감');
   });
 
+  it('shows the deadline in Seoul time so server and browser render the same day', () => {
+    const html = renderToStaticMarkup(
+      <CurrentProgramSection
+        programs={[
+          {
+            id: 'program_public_02',
+            name: '마감 경계 프로그램',
+            organizer: 'JNU-SWCU',
+            trackType: 'EXTRACURRICULAR',
+            applicationEndAt: '2026-11-15T15:30:00.000Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('2026년 11월 16일 마감');
+  });
+
   it('encodes seed-style program ids in detail links', () => {
     const html = renderToStaticMarkup(
       <CurrentProgramSection
