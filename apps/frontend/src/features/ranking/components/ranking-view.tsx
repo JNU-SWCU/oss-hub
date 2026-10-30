@@ -24,6 +24,8 @@ export type RankingViewState =
 
 interface RankingViewProps {
   readonly page: number;
+
+  readonly filters?: ReactNode;
   readonly state: RankingViewState;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -266,6 +268,7 @@ function rankingAsOfAction(ranking: RankingPage): ReactNode {
 
 export function RankingView({
   page,
+  filters,
   state,
   onPageChange,
   onRetry,
@@ -303,6 +306,7 @@ export function RankingView({
           ) : null
         }
       />
+      {filters}
       {ranking ? (
         <div
           className="flex flex-wrap items-center gap-3 text-sm"

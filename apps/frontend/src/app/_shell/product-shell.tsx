@@ -17,11 +17,8 @@ import {
   sidebarBrandTitle,
   sidebarGroupsFor,
 } from './sidebar-menu';
-import {
-  RankingCycleProvider,
-  useOptionalRankingCycleReported,
-  useOptionalRankingNextCycleAt,
-} from './ranking-cycle-context';
+import { RankingCycleProvider } from './ranking-cycle-context';
+import { RankingCycleCountdown } from './ranking-cycle-countdown';
 import { useSidebarDrawer } from './sidebar-drawer-context';
 import {
   hasShellSidebar,
@@ -53,20 +50,6 @@ export { SidebarDrawerProvider } from './sidebar-drawer-context';
 
 export * from './sidebar-collapsed';
 export { shouldLoadProgramOverview } from './program-shell-policy';
-
-function RankingCycleCountdown() {
-  const nextCycleAt = useOptionalRankingNextCycleAt();
-  const reported = useOptionalRankingCycleReported();
-  if (!reported) return <SidebarBottomSkeleton />;
-  if (nextCycleAt === null) return null;
-  return (
-    <ProgramCountdown
-      nextMilestoneLabel="다음 수집"
-      dueAt={nextCycleAt}
-      untilLabel="다음 수집까지"
-    />
-  );
-}
 
 function sidebarBottomFor({
   pathname,
