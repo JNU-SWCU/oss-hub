@@ -273,6 +273,11 @@ function validateRails(source) {
     ),
   );
   assert.doesNotMatch(workflowStep(ci, 'CI path 계약 검사'), /^        if:/m);
+  assert.ok(
+    workflowStep(ci, 'ADR-003 계약 검사').includes(
+      'run: node --test scripts/adr-003-contract.test.mjs\n',
+    ),
+  );
   const install = ci.indexOf('name: 의존성 설치');
   assert.ok(install >= 0);
   assert.ok(install < ci.indexOf('name: Rails 계약 테스트'));
