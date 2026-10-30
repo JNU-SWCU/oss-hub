@@ -170,6 +170,10 @@ export class ProgramsService {
     return this.repository.countProgramsByStatus(now);
   }
 
+  async endedYears(now = new Date()): Promise<readonly number[]> {
+    return this.repository.findEndedYears(now);
+  }
+
   async detail(
     programId: string,
     viewer: ProgramViewer,

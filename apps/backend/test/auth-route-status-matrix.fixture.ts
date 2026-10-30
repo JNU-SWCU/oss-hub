@@ -18,8 +18,8 @@ import { ProblemDetailFilter } from '../src/common/controller/problem-detail.fil
 import { HealthController } from '../src/health/controller/health.controller';
 import { HealthService } from '../src/health/service/health.service';
 import { LoginHistoryService } from '../src/login-history/service/login-history.service';
-import { ProgramOverviewController } from '../src/programs/archive/program-overview/controller/program-overview.controller';
-import { ProgramOverviewService } from '../src/programs/archive/program-overview/service/program-overview.service';
+import { ProgramOverviewController } from '../src/programs/public/program-overview/controller/program-overview.controller';
+import { ProgramOverviewService } from '../src/programs/public/program-overview/service/program-overview.service';
 import { ProgramsController } from '../src/programs/controller/programs.controller';
 import { ProgramActivityService } from '../src/programs/service/program-activity.service';
 import { ProgramCreationService } from '../src/programs/service/program-creation.service';
@@ -54,6 +54,11 @@ export const AUTH_ROUTE_STATUS_CASES = {
   },
   '/api/v1/health': { anonymous: 200, authenticated: 200, expired: 200 },
   '/api/v1/programs': { anonymous: 200, authenticated: 200, expired: 200 },
+  '/api/v1/programs/ended-years': {
+    anonymous: 200,
+    authenticated: 200,
+    expired: 200,
+  },
   '/api/v1/programs/status-counts': {
     anonymous: 200,
     authenticated: 200,
@@ -90,6 +95,7 @@ export class AuthRouteStatusHarness {
       getMe: jest.fn().mockResolvedValue(syntheticUser),
     };
     const programsService = {
+      endedYears: jest.fn().mockResolvedValue([2027, 2026]),
       list: jest.fn().mockResolvedValue({
         items: [],
         page: 1,
@@ -262,6 +268,14 @@ export class AuthRouteStatusHarness {
           ? { connection: 'close' }
           : { connection: 'close', cookie },
       redirect: 'manual',
-    }).then((response) => response.status);
+    }).then((response) => {
+      if (
+        path === '/api/v1/programs' ||
+        path === '/api/v1/programs/ended-years'
+      ) {
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+      }
+      return response.status;
+    });
   }
 }

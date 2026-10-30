@@ -44,6 +44,7 @@ describe('ProgramListQueryRequestDto', () => {
   it('accepts catalog status filters without practice', async () => {
     for (const status of [
       'all',
+      'current',
       'recruiting',
       'in_progress',
       'upcoming',
@@ -66,6 +67,27 @@ describe('ProgramListQueryRequestDto', () => {
     expect(result.sort).toBeUndefined();
     expect(result.direction).toBeUndefined();
   });
+
+  it.each([2000, 2027, 2100])('accepts year %i as an integer', async (year) => {
+    const query = plainToInstance(ProgramListQueryRequestDto, {
+      year: String(year),
+      status: 'current',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query.toQuery()).toMatchObject({ year, status: 'current' });
+  });
+
+  it.each(['1999', '2101', '2026.5', 'invalid', ''])(
+    'rejects invalid year %s',
+    async (year) => {
+      const query = plainToInstance(ProgramListQueryRequestDto, { year });
+
+      const errors = await validate(query);
+
+      expect(errors.map((error) => error.property)).toEqual(['year']);
+    },
+  );
 
   it('accepts every documented sort key and direction', async () => {
     for (const sort of ['name', 'applicationPeriod', 'status'] as const) {
