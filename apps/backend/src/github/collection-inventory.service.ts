@@ -50,7 +50,7 @@ export interface SweepInventory {
   readonly repositories: readonly CollectionRepositoryRow[];
 }
 
-export class CollectionInventory {
+export class CollectionInventoryService {
   constructor(
     private readonly incrementalRepository: Pick<
       CollectionIncrementalRepository,

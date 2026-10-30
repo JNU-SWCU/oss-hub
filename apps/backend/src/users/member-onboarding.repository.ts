@@ -170,7 +170,7 @@ class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
 }
 
 @Injectable()
-export class RolesRepository {
+export class MemberOnboardingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(

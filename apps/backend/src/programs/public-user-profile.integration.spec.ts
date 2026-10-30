@@ -17,7 +17,7 @@ import {
   PublicEligibilityService,
   PublicProjectsService,
 } from './public-projects.service';
-import { PublicUserProfileResponseDto } from './dto/public-profile-response.dto';
+import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
 
 assertIsolatedIntegrationDatabase({

@@ -17,7 +17,7 @@ import {
   type CreatePendingProgramAuthoringUploadInput,
 } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramCoverRepository } from './program-cover-write.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverService } from './program-creation.service';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 

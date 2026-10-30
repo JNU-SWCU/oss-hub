@@ -16,7 +16,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';

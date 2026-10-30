@@ -16,15 +16,15 @@ import type {
   StaffAccessRequestRecord,
 } from './users.types';
 import {
-  RolesRepository,
+  MemberOnboardingRepository,
   type OnboardingTransactionStore,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
 
 @Injectable()
-export class RolesService {
+export class MemberOnboardingService {
   constructor(
-    private readonly repository: RolesRepository,
+    private readonly repository: MemberOnboardingRepository,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
   ) {}

@@ -4,9 +4,9 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,
-  PublicProjectCursorSecretError,
   resolvePublicProjectCursorKey,
 } from './public-project-cursor.service';
+import { PublicProjectCursorSecretError } from './public-project-cursor.error';
 
 const SESSION_SECRET = Buffer.from(
   'synthetic-public-project-cursor-secret-0001',

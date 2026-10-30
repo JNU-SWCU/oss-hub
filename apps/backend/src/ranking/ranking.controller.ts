@@ -8,13 +8,13 @@ import {
 } from '../auth/http-auth.types';
 import { RANKING_VIEWER_CLASSES } from './ranking.policy';
 import {
-  RankingQueryRequestDto,
+  RankingRequestDto,
   resolveRankingQueryYear,
-} from './dto/ranking-query.dto';
+} from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
-} from './dto/ranking-response.dto';
+} from './dto/ranking-page-response.dto';
 import { RankingService } from './ranking.service';
 
 @Controller('ranking')
@@ -24,7 +24,7 @@ export class RankingController {
   @Get()
   @OptionalSession()
   async findPage(
-    @Query() query: RankingQueryRequestDto,
+    @Query() query: RankingRequestDto,
     @Req() request: OptionalSessionRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingPageResponseDto> {

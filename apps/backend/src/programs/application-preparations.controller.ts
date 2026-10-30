@@ -15,14 +15,12 @@ import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationPreparationsService } from './application-preparations.service';
 import {
-  CreateApplicationPreparationRequestDto,
-  InviteApplicationPreparationRequestDto,
-  SearchApplicationPreparationRequestDto,
-} from './dto/application-preparation-request.dto';
-import {
   ApplicationPreparationInvitationResponseDto,
   ApplicationPreparationResponseDto,
 } from './dto/application-preparation-response.dto';
+import { CreateApplicationPreparationRequestDto } from './dto/create-application-preparation-request.dto';
+import { InviteApplicationPreparationRequestDto } from './dto/invite-application-preparation-request.dto';
+import { SearchApplicationPreparationRequestDto } from './dto/search-application-preparation-request.dto';
 
 @Controller('application-preparations')
 @UseGuards(SessionGuard)

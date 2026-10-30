@@ -18,7 +18,7 @@ import {
   CollectionTriggerService,
 } from './collection-trigger.service';
 import { GithubAppClient } from './github-app.client';
-import { GithubAppTokenProvider } from './github-app-token.client';
+import { GithubAppTokenClient } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';
@@ -28,11 +28,11 @@ import {
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
 import {
-  RepositoryOutboxConsumer,
+  RepositoryOutboxConsumerService,
   RepositoryProvisionScheduler,
 } from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
-import { RepositoryProvisionWorker } from './repository-provision-worker.service';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
@@ -55,23 +55,23 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
     },
     GithubOperationsConfig,
     RepositoriesRepository,
-    RepositoryOutboxConsumer,
+    RepositoryOutboxConsumerService,
     RepositoryProvisionJobRepository,
     RepositoryProvisionStateRepository,
     {
-      provide: GithubAppTokenProvider,
+      provide: GithubAppTokenClient,
       inject: [GithubOperationsConfig],
-      useFactory: (config: GithubOperationsConfig): GithubAppTokenProvider =>
-        new GithubAppTokenProvider(() => config.requireCredentials()),
+      useFactory: (config: GithubOperationsConfig): GithubAppTokenClient =>
+        new GithubAppTokenClient(() => config.requireCredentials()),
     },
     {
       provide: GithubAppClient,
-      inject: [GithubAppTokenProvider],
-      useFactory: (tokenProvider: GithubAppTokenProvider): GithubAppClient =>
+      inject: [GithubAppTokenClient],
+      useFactory: (tokenProvider: GithubAppTokenClient): GithubAppClient =>
         new GithubAppClient(tokenProvider),
     },
     {
-      provide: RepositoryProvisionWorker,
+      provide: RepositoryProvisionWorkerService,
       inject: [
         RepositoryProvisionJobRepository,
         RepositoryProvisionStateRepository,
@@ -83,8 +83,8 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
         state: RepositoryProvisionStateRepository,
         github: GithubAppClient,
         enrollment: RepositoryOwnEnrollmentService,
-      ): RepositoryProvisionWorker =>
-        new RepositoryProvisionWorker(jobs, state, github, enrollment),
+      ): RepositoryProvisionWorkerService =>
+        new RepositoryProvisionWorkerService(jobs, state, github, enrollment),
     },
     {
       provide: RepositoriesService,
@@ -107,10 +107,13 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
     RepositoriesReadService,
     {
       provide: RepositoryProvisionScheduler,
-      inject: [RepositoryOutboxConsumer, RepositoryProvisionWorker],
+      inject: [
+        RepositoryOutboxConsumerService,
+        RepositoryProvisionWorkerService,
+      ],
       useFactory: (
-        outbox: RepositoryOutboxConsumer,
-        worker: RepositoryProvisionWorker,
+        outbox: RepositoryOutboxConsumerService,
+        worker: RepositoryProvisionWorkerService,
       ): RepositoryProvisionScheduler =>
         new RepositoryProvisionScheduler(outbox, worker),
     },

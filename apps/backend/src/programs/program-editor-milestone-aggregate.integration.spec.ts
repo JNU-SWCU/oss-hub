@@ -16,12 +16,9 @@ import type { ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import {
-  MilestoneDocumentMissingError,
-  upsertMilestoneDocumentSubmission,
-} from './milestone-document-submission.repository';
+import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
@@ -36,6 +33,7 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
+import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

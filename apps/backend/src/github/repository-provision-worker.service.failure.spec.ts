@@ -20,19 +20,19 @@ import {
   GithubOperationsError,
 } from './github-app.error';
 import { PROVISION_ERROR_CODES } from './repository-provision-failure.policy';
-import { RepositoryProvisionWorker } from './repository-provision-worker.service';
-import { RepositoryProvisionLeaseLostError } from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import { buildRepositoryOwnershipMarker } from './repository-name.policy';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 
-describe('RepositoryProvisionWorker failure', () => {
+describe('RepositoryProvisionWorkerService failure', () => {
   it('lease를 잃으면 외부 저장소를 건드리지 않고 즉시 중단한다', async () => {
     const jobs = jobRepositoryMock();
     jobs.renewLease.mockRejectedValue(new RepositoryProvisionLeaseLostError());
     const state = provisionStateMock();
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -57,7 +57,7 @@ describe('RepositoryProvisionWorker failure', () => {
       provisionContext({ applicationStatus: ApplicationStatus.SUBMITTED }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -92,7 +92,7 @@ describe('RepositoryProvisionWorker failure', () => {
       currentRepositorySource: RepositorySource.ORG_PROVISIONED,
     });
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -123,7 +123,7 @@ describe('RepositoryProvisionWorker failure', () => {
       }),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -159,7 +159,7 @@ describe('RepositoryProvisionWorker failure', () => {
     github.findRepository.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -189,7 +189,7 @@ describe('RepositoryProvisionWorker failure', () => {
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -221,7 +221,7 @@ describe('RepositoryProvisionWorker failure', () => {
       visibility: 'PUBLIC',
       description: buildRepositoryOwnershipMarker('synthetic-application-id'),
     });
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -256,7 +256,7 @@ describe('RepositoryProvisionWorker failure', () => {
         new Date('2026-07-22T00:10:00.000Z'),
       ),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -285,7 +285,7 @@ describe('RepositoryProvisionWorker failure', () => {
     github.findRepository.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -318,7 +318,7 @@ describe('RepositoryProvisionWorker failure', () => {
     github.ensureCollaborator.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -342,7 +342,7 @@ describe('RepositoryProvisionWorker failure', () => {
   });
 });
 
-describe('RepositoryProvisionWorker failure membership guard', () => {
+describe('RepositoryProvisionWorkerService failure membership guard', () => {
   it('관리형 job 실패는 읽어둔 팀원 지문을 함께 넘긴다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
@@ -358,7 +358,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     github.revokeCollaborator.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -395,7 +395,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
         false,
       ),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -422,7 +422,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     state.loadContext.mockResolvedValue(ownProvisionContext());
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue(null);
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -445,7 +445,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
       new RepositoryProvisionLeaseLostError(),
     );
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -462,7 +462,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
   });
 });
 
-describe('RepositoryProvisionWorker revocation failure', () => {
+describe('RepositoryProvisionWorkerService revocation failure', () => {
   it('이미 REVOKED인 행의 주기 재확인 실패도 회수 의도로 기록한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
@@ -484,7 +484,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     github.revokeCollaborator.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -534,7 +534,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     github.revokeCollaborator.mockRejectedValueOnce(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -598,7 +598,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
       }),
     ]);
     const github = githubClientMock();
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -646,7 +646,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
         false,
       ),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,

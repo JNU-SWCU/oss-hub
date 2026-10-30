@@ -12,7 +12,7 @@ import { MilestoneDocumentCollectionService } from './milestone-document-collect
 import { buildMilestoneDocumentDeliveryPage } from './milestone-document-delivery-page.policy';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 
 assertIsolatedIntegrationDatabase({

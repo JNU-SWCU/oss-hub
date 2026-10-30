@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { Test } from '@nestjs/testing';
 import { ProgramsController } from './programs.controller';
 import { ProgramCoverService } from './program-creation.service';
-import { ProgramCoverRepository } from './program-cover-write.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
 import { OBJECT_STORAGE } from '../platform/object-storage.types';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';

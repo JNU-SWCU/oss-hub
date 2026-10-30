@@ -8,7 +8,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../github/collection-admin.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
 import {

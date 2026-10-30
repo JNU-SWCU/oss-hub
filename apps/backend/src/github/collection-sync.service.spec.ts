@@ -24,7 +24,7 @@ import {
   type ReleaseListingResult,
   type ReleaseProbeResult,
 } from './collection-app.client';
-import type { CollectionAppTokenProvider } from './collection-app-token.client';
+import type { CollectionAppTokenClient } from './collection-app-token.client';
 import type { RequestFingerprint } from './github.policy';
 import { ProviderRequestQueue } from './collection-discovery.client';
 
@@ -721,7 +721,7 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
 const runtimeFor = (client: ClientMock): CollectionSyncRuntime => ({
   appId: '1',
   organizationLogin: 'synthetic-org',
-  tokens: {} as CollectionAppTokenProvider,
+  tokens: {} as CollectionAppTokenClient,
   client: client as unknown as CollectionAppClient,
   queue: new ProviderRequestQueue(),
 });
@@ -1464,7 +1464,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
       () => ({
         appId: '1',
         organizationLogin: 'synthetic-org',
-        tokens: {} as CollectionAppTokenProvider,
+        tokens: {} as CollectionAppTokenClient,
         client: currentClient as unknown as CollectionAppClient,
         queue,
       }),

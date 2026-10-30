@@ -231,7 +231,7 @@ for (const [target, allowed] of [
   ['prisma.service.ts', false],
   ['runtime-config.config.ts', true],
   ['object-storage.types.ts', true],
-  ['object-storage.client.ts', false],
+  ['s3-object-storage.client.ts', false],
   ['configure-http-app.config.ts', true],
   ['download-response.types.ts', true],
   ['lock-program-tree.repository.ts', false],
@@ -316,7 +316,7 @@ edge(
 edge(
   'service may call users authority',
   'src/alpha/service/authority.ts',
-  'src/users/authority.service.ts',
+  'src/users/users-authority.service.ts',
   true,
 );
 edge(
@@ -382,7 +382,7 @@ edge(
 edge(
   'service cannot import storage gateway',
   'src/alpha/service/storage-private.ts',
-  'src/platform/object-storage.client.ts',
+  'src/platform/s3-object-storage.client.ts',
   false,
 );
 edge(
@@ -572,7 +572,7 @@ edge(
 edge(
   'github service may call non-consumer service',
   'src/github/users.service.ts',
-  'src/users/authority.service.ts',
+  'src/users/users-authority.service.ts',
   true,
 );
 edge(

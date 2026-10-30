@@ -20,7 +20,7 @@ import {
   BoardPostDetailResponseDto,
   BoardPostsPageResponseDto,
 } from './dto/board-post-response.dto';
-import { BoardPostListRequestDto } from './dto/board-post-list-query.dto';
+import { BoardPostListRequestDto } from './dto/board-post-list-request.dto';
 import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request.dto';
 import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
 import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';

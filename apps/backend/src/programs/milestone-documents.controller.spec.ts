@@ -31,7 +31,7 @@ import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
-import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
+import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import type { MilestoneDocumentArchive } from './milestone-document-result.types';
 import {
   MilestoneDocumentArchiveEntryError,
@@ -942,14 +942,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
-    const documentScopeQuery = (): MilestoneDocumentArchiveQueryRequestDto =>
-      Object.assign(new MilestoneDocumentArchiveQueryRequestDto(), {
+    const documentScopeQuery = (): MilestoneDocumentArchiveRequestDto =>
+      Object.assign(new MilestoneDocumentArchiveRequestDto(), {
         documentId: 'synthetic-document',
       });
 
     const streamArchive = (
       probe: ArchiveResponseProbe,
-      query: MilestoneDocumentArchiveQueryRequestDto = new MilestoneDocumentArchiveQueryRequestDto(),
+      query: MilestoneDocumentArchiveRequestDto = new MilestoneDocumentArchiveRequestDto(),
     ): Promise<StreamableFile> => {
       if (application === undefined) {
         throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');

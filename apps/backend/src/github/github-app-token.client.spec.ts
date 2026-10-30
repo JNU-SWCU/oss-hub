@@ -6,7 +6,7 @@ import {
 } from './github-app.error';
 import {
   createGithubAppJwt,
-  GithubAppTokenProvider,
+  GithubAppTokenClient,
 } from './github-app-token.client';
 import {
   GithubAppCredentials,
@@ -56,7 +56,7 @@ describe('createGithubAppJwt', () => {
   });
 });
 
-describe('GithubAppTokenProvider', () => {
+describe('GithubAppTokenClient', () => {
   it('동시 요청은 installation 발견과 token 발급 promise를 공유한다', async () => {
     const fetcher = jest.fn<
       ReturnType<GithubAppFetcher>,
@@ -77,7 +77,7 @@ describe('GithubAppTokenProvider', () => {
         }),
       );
     const jwtFactory = jest.fn().mockResolvedValue('synthetic-app-jwt');
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,
@@ -116,7 +116,7 @@ describe('GithubAppTokenProvider', () => {
           expires_at: '2026-07-22T00:06:00.001Z',
         }),
       );
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,
@@ -142,7 +142,7 @@ describe('GithubAppTokenProvider', () => {
         account: { login: 'other-org' },
       }),
     );
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,
@@ -172,7 +172,7 @@ describe('GithubAppTokenProvider', () => {
         account: { login: 'synthetic-org' },
       }),
     );
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,
@@ -203,7 +203,7 @@ describe('GithubAppTokenProvider', () => {
         },
       ),
     );
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,
@@ -235,7 +235,7 @@ describe('GithubAppTokenProvider', () => {
         }),
       )
       .mockResolvedValueOnce(jsonResponse(429, {}, { 'retry-after': '120' }));
-    const provider = new GithubAppTokenProvider(
+    const provider = new GithubAppTokenClient(
       () => credentials,
       fetcher,
       () => NOW,

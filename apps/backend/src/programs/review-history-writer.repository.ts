@@ -1,5 +1,6 @@
 import { ApplicationReviewEventKind } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
 export type ReviewHistoryWriterClient = Pick<
   Prisma.TransactionClient,
@@ -18,14 +19,6 @@ export interface AppendReviewHistoryInput {
 
 export interface AppendedReviewHistory {
   readonly revision: number;
-}
-
-export class ApplicationReviewHistoryTargetMissingError extends Error {
-  override readonly name = 'ApplicationReviewHistoryTargetMissingError';
-
-  constructor(readonly applicationId: string) {
-    super('append 대상 신청을 찾을 수 없다');
-  }
 }
 
 export async function appendReviewHistory(

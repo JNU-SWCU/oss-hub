@@ -22,7 +22,7 @@ import { lockProgramAuthoringUploads } from './program-authoring-upload-transact
 import {
   createProgramCover,
   createExternalProgramCover,
-} from './program-cover-write.repository';
+} from './program-cover.repository';
 
 type AuthoringActor = {
   readonly id: string;

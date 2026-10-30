@@ -28,11 +28,11 @@ import {
   PublicProjectsService,
   PublicEligibilityService,
 } from './public-projects.service';
-import { PublicUserProfileController } from './public-profile.controller';
+import { PublicUserProfileController } from './public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 

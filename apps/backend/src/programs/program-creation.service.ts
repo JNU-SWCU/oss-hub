@@ -9,7 +9,7 @@ import {
   ObjectStorageError,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
-import { ProgramCoverRepository } from './program-cover-write.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,

@@ -16,19 +16,19 @@ import { SessionGuard } from '../auth/session.guard';
 import { requireValidUserId } from '../users/user-id.policy';
 import { AdminAccessService } from '../users/admin-access.service';
 import { AdminProfileService } from '../users/admin-profile.service';
-import { AdminAccessListRequestDto } from './dto/admin-access-query.dto';
-import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
-import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
+import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
+import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
+import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
   AdminAccessUserPageResponseDto,
   AdminProfileUpdateResponseDto,
   IndependentAuthorityMutationResponseDto,
-} from './dto/admin-access-response.dto';
-import { PatchAdminAuthorityRequestDto } from './dto/patch-independent-authority.dto';
+} from './dto/admin-access-user-page-response.dto';
+import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import { IndependentAuthorityService } from '../users/independent-authority.service';
-import { PatchMemberKindRequestDto } from './dto/patch-member-kind.dto';
+import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
 import { MemberKindService } from '../users/member-kind.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -118,7 +118,7 @@ export class UserAccessController {
   async patchAdminAccess(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
-    @Body() body: PatchAdminAuthorityRequestDto,
+    @Body() body: PatchIndependentAuthorityRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
     requireValidUserId(id);
     return IndependentAuthorityMutationResponseDto.from(

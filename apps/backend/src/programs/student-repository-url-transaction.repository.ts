@@ -20,7 +20,7 @@ import { Injectable } from '@nestjs/common';
 import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
 
-export class StudentRepositoryUrlTransaction {
+export class StudentRepositoryUrlTransactionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
@@ -166,10 +166,10 @@ export class StudentRepositoryUrlRepository {
   }
 
   withTransaction<T>(
-    operation: (store: StudentRepositoryUrlTransaction) => Promise<T>,
+    operation: (store: StudentRepositoryUrlTransactionRepository) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new StudentRepositoryUrlTransaction(transaction)),
+      operation(new StudentRepositoryUrlTransactionRepository(transaction)),
     );
   }
 }

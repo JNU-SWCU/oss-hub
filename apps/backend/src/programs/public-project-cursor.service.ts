@@ -11,6 +11,7 @@ import {
   PublicProjectsErrorCode,
 } from './public-projects-error-code.error';
 import type { PublicProjectCursor } from './public-projects.policy';
+import { PublicProjectCursorSecretError } from './public-project-cursor.error';
 
 const CURSOR_VERSION = 1;
 const IV_BYTES = 12;
@@ -21,16 +22,6 @@ const KEY_BYTES = 32;
 const CURSOR_KEY_SALT = 'oss-hub/public-projects/cursor/v1';
 const CURSOR_KEY_INFO = 'public-project-cursor-aes-256-gcm';
 const MIN_SESSION_SECRET_BYTES = 32;
-
-export class PublicProjectCursorSecretError extends Error {
-  readonly envName = 'SESSION_SECRET';
-
-  constructor(reason: string) {
-    super(`공개 프로젝트 커서 키를 만들 수 없습니다: ${reason}`);
-    this.name = PublicProjectCursorSecretError.name;
-  }
-}
-
 export type PublicProjectCursorKey = Buffer;
 
 const derivedKeyCache = new Map<string, PublicProjectCursorKey>();

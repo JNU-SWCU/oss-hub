@@ -17,7 +17,7 @@ import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-document-submission.repository';
+} from './milestone-document-submission.error';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];

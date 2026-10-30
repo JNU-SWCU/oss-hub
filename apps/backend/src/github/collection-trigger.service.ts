@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { CollectionSweepRunner } from './collection-sweep-runner.service';
+import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import { DomainException } from '../platform/error-code.error';
 import { PROCESS_RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
@@ -23,14 +23,14 @@ export const COLLECTION_CRON_EXPRESSION =
 export class CollectionTriggerService {
   private readonly logger = new Logger('CollectionSchedulerService');
   private readonly ownerId = `scheduler:${randomUUID()}`;
-  private readonly sweeps: CollectionSweepRunner;
+  private readonly sweeps: CollectionSweepRunnerService;
 
   constructor(
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
     userActivity: CollectionUserActivityService,
   ) {
-    this.sweeps = new CollectionSweepRunner(
+    this.sweeps = new CollectionSweepRunnerService(
       sync,
       userActivity,
       this.logger,

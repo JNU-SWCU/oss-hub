@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
 import { ApplicationsService } from '../../src/programs/applications.service';
-import { RepositoryOutboxConsumer } from '../../src/github/repository-outbox-consumer.service';
-import { RepositoryProvisionWorker } from '../../src/github/repository-provision-worker.service';
+import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
+import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
 import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from '../../src/programs/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
@@ -14,7 +14,7 @@ import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/pro
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { SubmissionFileCleanupService } from '../../src/programs/submission-file-cleanup.service';
-import { PrismaStorageReferenceRepository } from '../../src/programs/storage-orphan-reconciliation.repository';
+import { PrismaStorageReferenceRepository } from '../../src/programs/prisma-storage-reference.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,
@@ -170,7 +170,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   private async consumeProvisionEvent(): Promise<void> {
     const workerId = 'e2e-program-authoring-worker';
-    const outbox = this.moduleRef.get(RepositoryOutboxConsumer, {
+    const outbox = this.moduleRef.get(RepositoryOutboxConsumerService, {
       strict: false,
     });
     const consumed = await outbox.consumeNext(workerId, E2E_NOW);
@@ -178,7 +178,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   }
 
   private async runProvisionWorker(now: Date): Promise<void> {
-    const worker = this.moduleRef.get(RepositoryProvisionWorker, {
+    const worker = this.moduleRef.get(RepositoryProvisionWorkerService, {
       strict: false,
     });
     const provisioned = await worker.runNext(

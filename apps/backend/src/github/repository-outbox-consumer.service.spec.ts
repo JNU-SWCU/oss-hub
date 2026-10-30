@@ -1,12 +1,12 @@
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  RepositoryOutboxConsumer,
+  RepositoryOutboxConsumerService,
   type RepositoryOutboxConsumeResult,
   RepositoryProvisionScheduler,
 } from './repository-outbox-consumer.service';
 import {
-  RepositoryProvisionWorker,
+  RepositoryProvisionWorkerService,
   type RepositoryProvisionResult,
 } from './repository-provision-worker.service';
 
@@ -38,14 +38,23 @@ describe('repository-provision.scheduler', () => {
         testingModule = await Test.createTestingModule({
           imports: [ScheduleModule.forRoot()],
           providers: [
-            { provide: RepositoryOutboxConsumer, useValue: { consumeNext } },
-            { provide: RepositoryProvisionWorker, useValue: { runNext } },
+            {
+              provide: RepositoryOutboxConsumerService,
+              useValue: { consumeNext },
+            },
+            {
+              provide: RepositoryProvisionWorkerService,
+              useValue: { runNext },
+            },
             {
               provide: RepositoryProvisionScheduler,
-              inject: [RepositoryOutboxConsumer, RepositoryProvisionWorker],
+              inject: [
+                RepositoryOutboxConsumerService,
+                RepositoryProvisionWorkerService,
+              ],
               useFactory: (
-                outbox: RepositoryOutboxConsumer,
-                worker: RepositoryProvisionWorker,
+                outbox: RepositoryOutboxConsumerService,
+                worker: RepositoryProvisionWorkerService,
               ): RepositoryProvisionScheduler =>
                 new RepositoryProvisionScheduler(outbox, worker),
             },
@@ -100,7 +109,7 @@ describe('repository-provision.scheduler', () => {
           .mockResolvedValueOnce({ kind: 'CONSUMED' })
           .mockResolvedValueOnce({ kind: 'FAILED' })
           .mockResolvedValueOnce({ kind: 'EMPTY' }),
-      } as jest.Mocked<Pick<RepositoryOutboxConsumer, 'consumeNext'>>;
+      } as jest.Mocked<Pick<RepositoryOutboxConsumerService, 'consumeNext'>>;
       const worker = {
         runNext: jest
           .fn()
@@ -110,7 +119,7 @@ describe('repository-provision.scheduler', () => {
             repositoryId: 'synthetic-repository-id',
           })
           .mockResolvedValueOnce({ kind: 'EMPTY' }),
-      } as jest.Mocked<Pick<RepositoryProvisionWorker, 'runNext'>>;
+      } as jest.Mocked<Pick<RepositoryProvisionWorkerService, 'runNext'>>;
       const now = jest
         .fn<Date, []>()
         .mockReturnValueOnce(NOW)

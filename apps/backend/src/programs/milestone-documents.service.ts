@@ -1,6 +1,6 @@
 import { addOneCalendarYear } from '../platform/platform.policy';
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
@@ -32,14 +32,16 @@ import {
   type UpdateMilestoneDocumentInput,
 } from './milestone-documents.repository';
 import {
+  milestoneDocumentSubmissionContent,
+  type UpsertMilestoneDocumentSubmissionInput,
+} from './milestone-document-submission.repository';
+import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
-  milestoneDocumentSubmissionContent,
-  type UpsertMilestoneDocumentSubmissionInput,
-} from './milestone-document-submission.repository';
+} from './milestone-document-submission.error';
 
 @Injectable()
 export class MilestoneDocumentsService {

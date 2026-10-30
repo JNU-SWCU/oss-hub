@@ -9,7 +9,7 @@ import {
 import { RepositoriesRepository } from './repositories.repository';
 import { Interval } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
-import type { RepositoryProvisionWorker } from './repository-provision-worker.service';
+import type { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 
@@ -23,8 +23,8 @@ export type RepositoryOutboxConsumeResult =
   | { readonly kind: 'FAILED'; readonly eventId: string };
 
 @Injectable()
-export class RepositoryOutboxConsumer {
-  private readonly logger = new Logger(RepositoryOutboxConsumer.name);
+export class RepositoryOutboxConsumerService {
+  private readonly logger = new Logger(RepositoryOutboxConsumerService.name);
 
   constructor(private readonly repository: RepositoriesRepository) {}
 
@@ -106,8 +106,11 @@ export class RepositoryProvisionScheduler {
   private running = false;
 
   constructor(
-    private readonly outbox: Pick<RepositoryOutboxConsumer, 'consumeNext'>,
-    private readonly worker: Pick<RepositoryProvisionWorker, 'runNext'>,
+    private readonly outbox: Pick<
+      RepositoryOutboxConsumerService,
+      'consumeNext'
+    >,
+    private readonly worker: Pick<RepositoryProvisionWorkerService, 'runNext'>,
     private readonly now: () => Date = () => new Date(),
   ) {}
 

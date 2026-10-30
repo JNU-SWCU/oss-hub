@@ -30,7 +30,7 @@ import {
   isSameState,
   SESSION_MAX_AGE_SECONDS,
 } from './auth.policy';
-import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
+import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
 import { OriginGuard } from './origin.guard';
@@ -56,7 +56,7 @@ export class AuthController {
   @Get('github')
   @Public()
   startGithubLogin(
-    @Query() query: GithubLoginQueryRequestDto,
+    @Query() query: GithubLoginRequestDto,
     @Res() res: Response,
   ): void {
     const redirect = this.authService.buildAuthorizeRedirect(query.prompt);

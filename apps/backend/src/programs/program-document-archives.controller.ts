@@ -13,7 +13,7 @@ import {
 import type { Response } from 'express';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { ProgramDocumentArchiveQueryRequestDto } from './dto/program-document-archive-query.dto';
+import { ProgramDocumentArchiveRequestDto } from './dto/program-document-archive-request.dto';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
   setDownloadHeaders,
@@ -36,7 +36,7 @@ export class ProgramDocumentArchivesController {
   async archive(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Param('programId') programId: string,
-    @Query() query: ProgramDocumentArchiveQueryRequestDto,
+    @Query() query: ProgramDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = query.toScope();

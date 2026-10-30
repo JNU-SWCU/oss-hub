@@ -27,7 +27,7 @@ import {
   lockAttachableProgramAuthoringUploads,
 } from './program-authoring-upload-transaction.repository';
 import type { ProgramAuthoringPendingUploadConsumption } from './program-authoring.policy';
-import { replaceProgramCover } from './program-cover-write.repository';
+import { replaceProgramCover } from './program-cover.repository';
 import { programCoverImageUrl } from './program-cover.policy';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{

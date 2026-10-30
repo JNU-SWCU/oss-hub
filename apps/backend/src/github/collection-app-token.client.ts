@@ -35,7 +35,7 @@ export interface CollectionAppInstallationIdentity {
   readonly organizationId: string;
 }
 
-export class CollectionAppTokenProvider {
+export class CollectionAppTokenClient {
   private installation: CollectionAppInstallationIdentity | undefined;
   private installationRequest:
     Promise<CollectionAppInstallationIdentity> | undefined;

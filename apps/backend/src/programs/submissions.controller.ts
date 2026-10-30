@@ -17,7 +17,7 @@ import {
   type SubmissionReviewContextResponseDto,
   toCreateReviewResponse,
   toReviewContextResponse,
-} from './dto/submission-review-response.dto';
+} from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import {
   CreateResubmissionRequestDto,
@@ -28,7 +28,7 @@ import {
   presentResubmittedSubmission,
   type CreatedSubmissionResponseDto,
   type ResubmittedSubmissionResponseDto,
-} from './dto/submission-response.dto';
+} from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 
 type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

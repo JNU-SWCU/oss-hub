@@ -6,7 +6,7 @@ import {
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.policy';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type {
   ProgramTeamsRepository,
   RecordTeamMembershipAudit,

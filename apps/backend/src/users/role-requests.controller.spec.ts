@@ -4,8 +4,8 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import type { StaffAccessRequestRecord } from './users.types';
-import { StaffAccessRequestsController } from './role-requests.controller';
-import type { RolesService } from './member-onboarding.service';
+import { RoleRequestsController } from './role-requests.controller';
+import type { MemberOnboardingService } from './member-onboarding.service';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,
@@ -36,10 +36,10 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 }
 
 function createStaffAccessRequestsController(
-  getMyRequest: RolesService['getMyRequest'],
-  retryStaffRequest: RolesService['retryStaffRequest'],
-): StaffAccessRequestsController {
-  return new StaffAccessRequestsController({ getMyRequest, retryStaffRequest });
+  getMyRequest: MemberOnboardingService['getMyRequest'],
+  retryStaffRequest: MemberOnboardingService['retryStaffRequest'],
+): RoleRequestsController {
+  return new RoleRequestsController({ getMyRequest, retryStaffRequest });
 }
 
 const rejectedRequest: StaffAccessRequestRecord = {
@@ -51,7 +51,7 @@ const rejectedRequest: StaffAccessRequestRecord = {
   createdAt: REQUESTED_AT,
 };
 
-describe('StaffAccessRequestsController', () => {
+describe('RoleRequestsController', () => {
   it('요청이 없으면 GET /me에서 NONE 상태와 request null을 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(null),
@@ -132,7 +132,7 @@ describe('StaffAccessRequestsController', () => {
   });
 
   it('조회는 세션 guard, 재요청은 세션과 Origin guard를 적용한다', () => {
-    const target = StaffAccessRequestsController.prototype;
+    const target = RoleRequestsController.prototype;
 
     const getGuards = readGuards(target, 'getMe');
     const postGuards = readGuards(target, 'retry');

@@ -1,6 +1,6 @@
 import { CollectionAppClient } from '../src/github/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
-import { CollectionAppTokenProvider } from '../src/github/collection-app-token.client';
+import { CollectionAppTokenClient } from '../src/github/collection-app-token.client';
 import { ProviderRequestQueue } from '../src/github/collection-discovery.client';
 import type { CollectionSyncRuntime } from '../src/github/collection-sync.service';
 
@@ -411,11 +411,11 @@ const syntheticAppConfig: CollectionAppConfigValues = {
   deadlineMs: 30_000,
 };
 
-function createSyntheticTokenProvider(): CollectionAppTokenProvider {
+function createSyntheticTokenProvider(): CollectionAppTokenClient {
   return {
     getToken: () => Promise.resolve('synthetic-token'),
     clear: () => undefined,
-  } as unknown as CollectionAppTokenProvider;
+  } as unknown as CollectionAppTokenClient;
 }
 
 export function createSyntheticSyncRuntime(

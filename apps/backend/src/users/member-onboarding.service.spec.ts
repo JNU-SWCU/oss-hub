@@ -19,10 +19,10 @@ import {
 } from '../platform/platform.repository';
 import type {
   OnboardingTransactionStore,
-  RolesRepository,
+  MemberOnboardingRepository,
 } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
 
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
 
@@ -140,8 +140,8 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
 }
 
 class InMemoryRolesRepository implements Pick<
-  RolesRepository,
-  keyof RolesRepository
+  MemberOnboardingRepository,
+  keyof MemberOnboardingRepository
 > {
   constructor(private readonly store: InMemoryRolesStore) {}
 
@@ -167,7 +167,7 @@ function createService(
   accountStatus: AccountStatus = AccountStatus.ACTIVE,
   profile: UserProfileView = EMPTY_PROFILE,
   selectedRole: 'STUDENT' | 'STAFF' | 'ADMIN' | null = null,
-): { service: RolesService; store: InMemoryRolesStore } {
+): { service: MemberOnboardingService; store: InMemoryRolesStore } {
   const store = new InMemoryRolesStore(
     role,
     requests,
@@ -187,8 +187,10 @@ function createService(
           ),
   };
   return {
-    service: new RolesService(
-      new InMemoryRolesRepository(store) as unknown as RolesRepository,
+    service: new MemberOnboardingService(
+      new InMemoryRolesRepository(
+        store,
+      ) as unknown as MemberOnboardingRepository,
       consentsService,
     ),
     store,
@@ -210,7 +212,7 @@ function staffAccessRequest(
   };
 }
 
-describe('RolesService', () => {
+describe('MemberOnboardingService', () => {
   it('현행 정책 미동의 사용자의 역할 선택을 거부한다', async () => {
     const { service, store } = createService(null, [], false);
 

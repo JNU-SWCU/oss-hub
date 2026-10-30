@@ -6,9 +6,9 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { ConsentsService } from './consents.service';
 import { PrismaService } from '../platform/prisma.service';
-import { RolesRepository } from './member-onboarding.repository';
+import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,13 +29,13 @@ const STAFF_PROFILE = {
   affiliationName: '인공지능학부',
 } as const;
 
-describe('RolesRepository integration', () => {
+describe('MemberOnboardingRepository integration', () => {
   const prisma = new PrismaService();
-  const repository = new RolesRepository(prisma);
+  const repository = new MemberOnboardingRepository(prisma);
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };
-  const service = new RolesService(repository, consentsService);
+  const service = new MemberOnboardingService(repository, consentsService);
 
   beforeAll(async () => {
     await prisma.$connect();

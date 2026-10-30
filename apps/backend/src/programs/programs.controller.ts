@@ -38,7 +38,7 @@ import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';
 import { PurgeProgramRequestDto } from './dto/purge-program-request.dto';
 import { ProgramLifecycleService } from './program-lifecycle.service';
-import { ProgramViewerQueryRequestDto } from './dto/program-viewer-query.dto';
+import { ProgramViewerRequestDto } from './dto/program-viewer-request.dto';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
 import {
@@ -46,8 +46,8 @@ import {
   programActivityResponse,
   type ProgramActivityResponseDto,
   type ProgramDetailResponseDto,
-} from './dto/program-detail.dto';
-import { ProgramListQueryRequestDto } from './dto/program-list-query.dto';
+} from './dto/program-detail-response.dto';
+import { ProgramListRequestDto } from './dto/program-list-request.dto';
 import { ProgramEndedYearsResponseDto } from './dto/program-ended-years-response.dto';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-response.dto';
@@ -79,7 +79,7 @@ export class ProgramsController {
   @Get()
   @OptionalSession()
   async list(
-    @Query() query: ProgramListQueryRequestDto,
+    @Query() query: ProgramListRequestDto,
     @Req() request: OptionalSessionRequest,
   ): Promise<ProgramListPageResponseDto> {
     const githubId =
@@ -132,7 +132,7 @@ export class ProgramsController {
   async viewerDetail(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
-    @Query() query: ProgramViewerQueryRequestDto = {},
+    @Query() query: ProgramViewerRequestDto = {},
   ): Promise<ProgramDetailResponseDto> {
     return programDetailResponse(
       await this.programs.detail(

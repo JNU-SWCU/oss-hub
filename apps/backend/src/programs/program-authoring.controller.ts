@@ -20,10 +20,6 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import {
-  ProgramNoticePreviewRequestDto,
-  ProgramNoticePreviewResponseDto,
-} from './dto/program-notice-preview.dto';
-import {
   ProgramNoticePreviewService,
   ProgramAuthoringForbiddenError,
   ProgramAuthoringService,
@@ -51,6 +47,8 @@ import {
 } from './program-authoring-upload.error';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
+import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
+import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -4,10 +4,10 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
-import { SelectStaffAccessRequestDto } from './dto/select-role-request.dto';
+import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { OnboardingController } from './onboarding.controller';
 import { RolesErrorCode } from './roles-error-code.error';
-import type { RolesService } from './member-onboarding.service';
+import type { MemberOnboardingService } from './member-onboarding.service';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,
@@ -36,8 +36,8 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
 }
 
 function createOnboardingController(
-  selectMemberKind: RolesService['selectMemberKind'],
-  getMySelection: RolesService['getMySelection'] = () =>
+  selectMemberKind: MemberOnboardingService['selectMemberKind'],
+  getMySelection: MemberOnboardingService['getMySelection'] = () =>
     Promise.resolve({ selectedMemberKind: null }),
 ): OnboardingController {
   return new OnboardingController({ selectMemberKind, getMySelection });
@@ -50,7 +50,7 @@ describe('OnboardingController', () => {
       redirectTo: '/onboarding/profile',
     });
     const controller = createOnboardingController(selectMemberKind);
-    const body = plainToInstance(SelectStaffAccessRequestDto, {
+    const body = plainToInstance(SelectRoleRequestDto, {
       selectedRole: 'STUDENT',
     });
 
@@ -76,7 +76,7 @@ describe('OnboardingController', () => {
   });
 
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {
-    const body = plainToInstance(SelectStaffAccessRequestDto, {
+    const body = plainToInstance(SelectRoleRequestDto, {
       selectedRole: 'ADMIN',
     });
 

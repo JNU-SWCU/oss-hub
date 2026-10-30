@@ -1,14 +1,14 @@
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAppConfigError } from './collection-app.config';
-import { CollectionPublicTokenProvider } from './collection-providers.service';
+import { CollectionPublicTokenService } from './collection-public-token.service';
 
 describe('collection-public-token.service', () => {
-  describe('CollectionPublicTokenProvider', () => {
+  describe('CollectionPublicTokenService', () => {
     it('getToken()이 PAT 원문 문자열을 그대로 반환한다', async () => {
       const runtimeConfig = loadRuntimeConfig({
         GITHUB_PUBLIC_READ_TOKEN: 'test-public-read-token',
       });
-      const provider = new CollectionPublicTokenProvider(runtimeConfig);
+      const provider = new CollectionPublicTokenService(runtimeConfig);
 
       const token = await provider.getToken();
 
@@ -19,7 +19,7 @@ describe('collection-public-token.service', () => {
       const runtimeConfig = loadRuntimeConfig({
         GITHUB_PUBLIC_READ_TOKEN: 'test-public-read-token',
       });
-      const provider = new CollectionPublicTokenProvider(runtimeConfig);
+      const provider = new CollectionPublicTokenService(runtimeConfig);
 
       const first = await provider.getToken();
       const second = await provider.getToken();
@@ -31,7 +31,7 @@ describe('collection-public-token.service', () => {
       const runtimeConfig = loadRuntimeConfig({
         GITHUB_PUBLIC_READ_TOKEN: 'test-public-read-token',
       });
-      const provider = new CollectionPublicTokenProvider(runtimeConfig);
+      const provider = new CollectionPublicTokenService(runtimeConfig);
       const before = await provider.getToken();
 
       provider.clear();
@@ -42,7 +42,7 @@ describe('collection-public-token.service', () => {
 
     it('GITHUB_PUBLIC_READ_TOKEN이 없으면 getToken()이 fail-closed로 던진다', async () => {
       const runtimeConfig = loadRuntimeConfig({});
-      const provider = new CollectionPublicTokenProvider(runtimeConfig);
+      const provider = new CollectionPublicTokenService(runtimeConfig);
 
       await expect(provider.getToken()).rejects.toThrow(
         CollectionAppConfigError,
@@ -52,7 +52,7 @@ describe('collection-public-token.service', () => {
     it('생성자는 자격증명이 없어도 던지지 않는다 — 실패는 getToken() 호출 시점에만 일어난다', () => {
       const runtimeConfig = loadRuntimeConfig({});
       expect(
-        () => new CollectionPublicTokenProvider(runtimeConfig),
+        () => new CollectionPublicTokenService(runtimeConfig),
       ).not.toThrow();
     });
   });

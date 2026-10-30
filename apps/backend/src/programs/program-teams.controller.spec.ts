@@ -8,7 +8,7 @@ import {
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
-import { RepositoryUrlHistoryQueryRequestDto } from './dto/repository-url-history-query.dto';
+import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
 
@@ -427,7 +427,7 @@ describe('ProgramTeamsController', () => {
     const controller = new ProgramTeamsController(
       serviceStub({ getRepositoryUrlHistory }),
     );
-    const query = Object.assign(new RepositoryUrlHistoryQueryRequestDto(), {
+    const query = Object.assign(new RepositoryUrlHistoryRequestDto(), {
       cursor: '2026-08-15T00:00:00.000Z_change-11',
     });
 

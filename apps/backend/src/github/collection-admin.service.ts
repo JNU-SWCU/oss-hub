@@ -1,13 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { CollectionSweepRunner } from './collection-sweep-runner.service';
+import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
 } from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   COLLECTION_ERROR_CODES,
@@ -20,7 +20,7 @@ import { CollectionUserActivityService } from './collection-user-activity.servic
 export class CollectionAdminService {
   private readonly logger = new Logger('CollectionAdminController');
   private readonly ownerId = `admin:${randomUUID()}`;
-  private readonly sweeps: CollectionSweepRunner;
+  private readonly sweeps: CollectionSweepRunnerService;
 
   constructor(
     @Inject(CollectionSyncService)
@@ -33,7 +33,7 @@ export class CollectionAdminService {
     userActivity: Pick<CollectionUserActivityService, 'run'>,
     private readonly authority: UsersAuthorityService,
   ) {
-    this.sweeps = new CollectionSweepRunner(
+    this.sweeps = new CollectionSweepRunnerService(
       sync,
       userActivity,
       this.logger,

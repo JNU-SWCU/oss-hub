@@ -10,6 +10,13 @@ import { lockSubmissionMembership } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import type { MilestoneDocumentSubmissionDetail } from './milestone-document-result.types';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentPendingFileMissingError,
+  MilestoneDocumentReviewChangedError,
+  MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentSubmissionChangedError,
+  MilestoneDocumentMissingError,
+} from './milestone-document-submission.error';
 
 export function milestoneDocumentSubmissionContent(
   text: string | null,
@@ -36,26 +43,6 @@ export interface UpsertMilestoneDocumentSubmissionInput {
     readonly uploaderId: string;
     readonly milestoneId: string;
   } | null;
-}
-
-export class MilestoneDocumentPendingFileMissingError extends Error {
-  override readonly name = 'MilestoneDocumentPendingFileMissingError';
-}
-
-export class MilestoneDocumentReviewChangedError extends Error {
-  override readonly name = 'MilestoneDocumentReviewChangedError';
-}
-
-export class MilestoneDocumentDeadlineClosedError extends Error {
-  override readonly name = 'MilestoneDocumentDeadlineClosedError';
-}
-
-export class MilestoneDocumentSubmissionChangedError extends Error {
-  override readonly name = 'MilestoneDocumentSubmissionChangedError';
-}
-
-export class MilestoneDocumentMissingError extends Error {
-  override readonly name = 'MilestoneDocumentMissingError';
 }
 
 const attachedFileSelect = {

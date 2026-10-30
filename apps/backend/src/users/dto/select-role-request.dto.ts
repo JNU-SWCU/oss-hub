@@ -4,7 +4,7 @@ import { DomainException } from '../../platform/error-code.error';
 import type { SelectableMemberKind } from '../users.types';
 import { ROLES_ERROR_CODES, RolesErrorCode } from '../roles-error-code.error';
 
-export class SelectStaffAccessRequestDto {
+export class SelectRoleRequestDto {
   @IsString()
   declare readonly selectedRole: string;
 

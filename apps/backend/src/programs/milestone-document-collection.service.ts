@@ -17,7 +17,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { MilestoneDocumentDeliveryCollectionResult } from './milestone-document-result.types';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import {

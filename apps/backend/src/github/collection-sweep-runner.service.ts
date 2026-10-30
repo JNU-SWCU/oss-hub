@@ -8,7 +8,7 @@ import type {
   CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
 
-export class CollectionSweepRunner {
+export class CollectionSweepRunnerService {
   constructor(
     private readonly sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,
     private readonly userActivity: Pick<CollectionUserActivityService, 'run'>,

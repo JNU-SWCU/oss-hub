@@ -10,11 +10,11 @@ import {
 import {
   presentSubmissionChecklist,
   type SubmissionChecklistResponseDto,
-} from './dto/submission-response.dto';
+} from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import { SubmissionMatrixQueryRequestDto } from './dto/submission-matrix-query.dto';
+import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
 import {
   presentSubmissionMatrix,
   type SubmissionMatrixResponseDto,
@@ -48,7 +48,7 @@ export class ProgramSubmissionsController {
   async matrix(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
-    @Query() query: SubmissionMatrixQueryRequestDto,
+    @Query() query: SubmissionMatrixRequestDto,
   ): Promise<SubmissionMatrixResponseDto> {
     const result = await this.matrixService.matrix(
       request.sessionGithubId,

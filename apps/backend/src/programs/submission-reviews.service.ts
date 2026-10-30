@@ -5,7 +5,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import {

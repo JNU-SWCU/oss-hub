@@ -14,7 +14,7 @@ import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-pub
 import {
   type RepositoryPublishResponseDto,
   toRepositoryPublishResponse,
-} from './dto/submission-review-response.dto';
+} from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

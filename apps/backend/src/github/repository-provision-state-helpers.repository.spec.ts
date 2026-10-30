@@ -1,8 +1,6 @@
 import { RepositoryProvisionJobStatus, type Prisma } from '@prisma/client';
-import {
-  assertCurrentRequest,
-  RepositoryProvisionLeaseLostError,
-} from './repository-provision-state-helpers.repository';
+import { assertCurrentRequest } from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 
 const JOB_ID = 'synthetic-job';
 const WORKER_ID = 'synthetic-worker';

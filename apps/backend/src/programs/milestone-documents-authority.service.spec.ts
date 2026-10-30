@@ -1,5 +1,5 @@
 import { AccountStatus, ReviewDecision } from '@prisma/client';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { SubmissionFilesService } from './submission-files.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';

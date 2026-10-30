@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../platform/error-code.error';

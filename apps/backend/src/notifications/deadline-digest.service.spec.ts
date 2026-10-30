@@ -11,7 +11,7 @@ import {
   type RuntimeConfig,
 } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { GmailMailSender, LogMailSender } from './mail.client';
+import { GmailMailClient, LogMailClient } from './gmail-mail.client';
 import { MAIL_SENDER, type MailSender } from './notifications.types';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -137,32 +137,32 @@ describe('mail-sender-provider.service', () => {
       ).toThrow(/MAIL_MODE/);
     });
 
-    it('dry-run with complete credentials resolves LogMailSender', () => {
+    it('dry-run with complete credentials resolves LogMailClient', () => {
       const sender = resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
           ...COMPLETE_GMAIL,
         }),
       );
-      expect(sender).toBeInstanceOf(LogMailSender);
+      expect(sender).toBeInstanceOf(LogMailClient);
     });
 
-    it('dry-run with incomplete credentials resolves LogMailSender', () => {
+    it('dry-run with incomplete credentials resolves LogMailClient', () => {
       const sender = resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
         }),
       );
-      expect(sender).toBeInstanceOf(LogMailSender);
+      expect(sender).toBeInstanceOf(LogMailClient);
     });
-    it('send with complete four credentials resolves GmailMailSender', () => {
+    it('send with complete four credentials resolves GmailMailClient', () => {
       const sender = resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'send',
           ...COMPLETE_GMAIL,
         }),
       );
-      expect(sender).toBeInstanceOf(GmailMailSender);
+      expect(sender).toBeInstanceOf(GmailMailClient);
     });
 
     it.each([
@@ -219,7 +219,7 @@ describe('mail-sender-provider.service', () => {
           ...COMPLETE_GMAIL,
         }),
       );
-      expect(sender).toBeInstanceOf(LogMailSender);
+      expect(sender).toBeInstanceOf(LogMailClient);
     });
 
     it('contradictory process.env values do not override injected snapshot', async () => {
@@ -238,7 +238,7 @@ describe('mail-sender-provider.service', () => {
         }),
       );
 
-      expect(sender).toBeInstanceOf(LogMailSender);
+      expect(sender).toBeInstanceOf(LogMailClient);
     });
   });
 });

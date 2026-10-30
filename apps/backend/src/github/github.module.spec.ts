@@ -14,7 +14,6 @@ import {
   ProviderRequestQueue,
 } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionPublicTokenProvider } from './collection-providers.service';
 import {
   CollectionScheduler,
   CollectionTriggerService,
@@ -31,6 +30,7 @@ import {
   RepositoriesService,
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
+import { CollectionPublicTokenService } from './collection-public-token.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
@@ -198,14 +198,14 @@ describe('GithubModule', () => {
     expect(consumers).toEqual([RepositoryOwnEnrollmentService]);
   });
 
-  it('CollectionDiscoveryClient가 CollectionPublicTokenProvider를 주입받도록 배선한다', () => {
+  it('CollectionDiscoveryClient가 CollectionPublicTokenService를 주입받도록 배선한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           provide: CollectionDiscoveryClient,
-          inject: [CollectionPublicTokenProvider],
+          inject: [CollectionPublicTokenService],
         }),
       ]),
     );
@@ -224,14 +224,14 @@ describe('GithubModule', () => {
     );
   });
 
-  it('CollectionSyncService가 CollectionPublicTokenProvider를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
+  it('CollectionSyncService가 CollectionPublicTokenService를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const provider = findCollectionSyncServiceProvider(providers);
 
     expect(provider.inject).toEqual([
       CollectionIncrementalRepository,
       RUNTIME_CONFIG,
-      CollectionPublicTokenProvider,
+      CollectionPublicTokenService,
     ]);
 
     const runtimeConfig = loadRuntimeConfig({
@@ -243,7 +243,7 @@ describe('GithubModule', () => {
     const fakePublicTokens = {
       getToken: jest.fn(),
       clear: jest.fn(),
-    } as unknown as CollectionPublicTokenProvider;
+    } as unknown as CollectionPublicTokenService;
     const service = provider.useFactory(
       fakeIncrementalRepository,
       runtimeConfig,

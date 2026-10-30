@@ -8,8 +8,8 @@ import { AuditLogService } from '../src/platform/audit-log.service';
 import type { ConsentsService } from '../src/users/consents.service';
 import { PrismaService } from '../src/platform/prisma.service';
 import { loadRuntimeConfig } from '../src/platform/runtime-config.config';
-import { RolesRepository } from '../src/users/member-onboarding.repository';
-import { RolesService } from '../src/users/member-onboarding.service';
+import { MemberOnboardingRepository } from '../src/users/member-onboarding.repository';
+import { MemberOnboardingService } from '../src/users/member-onboarding.service';
 import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
@@ -47,9 +47,12 @@ describe('accountStatus migration regression', () => {
     new AuthRepository(prisma, authConfig),
   );
 
-  const rolesService = new RolesService(new RolesRepository(prisma), {
-    requireCurrent: jest.fn(),
-  } satisfies Pick<ConsentsService, 'requireCurrent'>);
+  const rolesService = new MemberOnboardingService(
+    new MemberOnboardingRepository(prisma),
+    {
+      requireCurrent: jest.fn(),
+    } satisfies Pick<ConsentsService, 'requireCurrent'>,
+  );
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
     new AuditLogService(new AuditLogRepository(prisma)),

@@ -12,7 +12,7 @@ import type {
   CollectionRelease,
   CollectionRepository as ProviderRepository,
 } from './collection-app.client';
-import type { CollectionAppTokenProvider } from './collection-app-token.client';
+import type { CollectionAppTokenClient } from './collection-app-token.client';
 import type { RequestFingerprint } from './github.policy';
 
 assertIsolatedIntegrationDatabase({
@@ -159,7 +159,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       () => ({
         appId: APP_ID.toString(),
         organizationLogin: ORG_LOGIN,
-        tokens: {} as CollectionAppTokenProvider,
+        tokens: {} as CollectionAppTokenClient,
         client,
         queue: new ProviderRequestQueue(),
       }),

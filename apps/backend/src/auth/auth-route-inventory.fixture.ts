@@ -30,7 +30,7 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'PublicProjectsController',
   'PublicUserProfileController',
   'RankingController',
-  'StaffAccessRequestsController',
+  'RoleRequestsController',
   'StaffDashboardController',
   'StudentApplicationsController',
   'StudentDashboardController',

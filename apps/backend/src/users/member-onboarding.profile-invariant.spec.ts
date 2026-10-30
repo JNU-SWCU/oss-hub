@@ -12,9 +12,9 @@ import type { ConsentsService } from './consents.service';
 import type { MemberUser } from './users.types';
 import type {
   OnboardingTransactionStore,
-  RolesRepository,
+  MemberOnboardingRepository,
 } from './member-onboarding.repository';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
 
 const GITHUB_ID = 424242n;
 const USER: MemberUser = {
@@ -29,8 +29,8 @@ const USER: MemberUser = {
 };
 
 class InMemoryProfileRolesRepository implements Pick<
-  RolesRepository,
-  keyof RolesRepository
+  MemberOnboardingRepository,
+  keyof MemberOnboardingRepository
 > {
   transactionCount = 0;
 
@@ -90,8 +90,8 @@ function buildService(
   };
 
   return {
-    service: new RolesService(
-      repository as unknown as RolesRepository,
+    service: new MemberOnboardingService(
+      repository as unknown as MemberOnboardingRepository,
       consentsService,
     ),
     store,

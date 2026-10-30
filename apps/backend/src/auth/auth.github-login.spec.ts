@@ -6,7 +6,7 @@ import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
-import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
+import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { decodeFlowCookie, toCodeChallenge } from './auth.policy';
 
 describe('GitHub login account choice', () => {
@@ -51,12 +51,12 @@ describe('GitHub login account choice', () => {
     async (prompt) => {
       const query: unknown = await validation.transform(
         prompt === undefined ? {} : { prompt },
-        { type: 'query', metatype: GithubLoginQueryRequestDto },
+        { type: 'query', metatype: GithubLoginRequestDto },
       );
       const buildRedirect = jest.spyOn(service, 'buildAuthorizeRedirect');
       const res = createResponse();
 
-      if (!(query instanceof GithubLoginQueryRequestDto)) {
+      if (!(query instanceof GithubLoginRequestDto)) {
         throw new Error('Expected parsed GitHub login query');
       }
 
@@ -90,7 +90,7 @@ describe('GitHub login account choice', () => {
     await expect(
       validation.transform(
         { prompt },
-        { type: 'query', metatype: GithubLoginQueryRequestDto },
+        { type: 'query', metatype: GithubLoginRequestDto },
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -99,7 +99,7 @@ describe('GitHub login account choice', () => {
     await expect(
       validation.transform(
         { prompt: 'select_account', scope: 'repo' },
-        { type: 'query', metatype: GithubLoginQueryRequestDto },
+        { type: 'query', metatype: GithubLoginRequestDto },
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

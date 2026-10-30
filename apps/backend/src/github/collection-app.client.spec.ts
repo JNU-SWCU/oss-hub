@@ -13,7 +13,7 @@ import {
 } from './collection-app.config';
 import {
   CollectionAppTokenError,
-  CollectionAppTokenProvider,
+  CollectionAppTokenClient,
 } from './collection-app-token.client';
 import { requestFingerprintKey } from './github.policy';
 
@@ -31,7 +31,7 @@ type Fetcher = jest.Mock<
 >;
 const fetchMock = (): Fetcher =>
   jest.fn<Promise<Response>, [input: string | URL, init?: RequestInit]>();
-const tokenProvider = new CollectionAppTokenProvider(config);
+const tokenProvider = new CollectionAppTokenClient(config);
 jest.spyOn(tokenProvider, 'getToken').mockResolvedValue('test-token');
 const json = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), { status: 200, ...init });
@@ -134,7 +134,7 @@ describe('CollectionAppConfig', () => {
   });
 });
 
-describe('CollectionAppTokenProvider', () => {
+describe('CollectionAppTokenClient', () => {
   const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
     .privateKey.export({ type: 'pkcs8', format: 'pem' })
     .toString();
@@ -164,7 +164,7 @@ describe('CollectionAppTokenProvider', () => {
           expires_at: '2026-01-01T02:00:00Z',
         }),
       );
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey },
       fetcher,
       () => now,
@@ -194,7 +194,7 @@ describe('CollectionAppTokenProvider', () => {
     const fetcher = fetchMock()
       .mockResolvedValueOnce(json(installation))
       .mockResolvedValueOnce(json(access));
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey: pkcs1Key },
       fetcher,
       () => Date.parse('2026-01-01T00:00:00Z'),
@@ -218,7 +218,7 @@ describe('CollectionAppTokenProvider', () => {
           }),
       )
       .mockResolvedValueOnce(json(access));
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey },
       fetcher,
       () => Date.parse('2026-01-01T00:00:00Z'),
@@ -250,7 +250,7 @@ describe('CollectionAppTokenProvider', () => {
           );
         }),
     );
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey, deadlineMs: 1 },
       fetcher,
       () => Date.parse('2026-01-01T00:00:00Z'),
@@ -266,7 +266,7 @@ describe('CollectionAppTokenProvider', () => {
   ] as const)(
     'classifies token endpoint status %s as %s',
     async (status, safeReason) => {
-      const provider = new CollectionAppTokenProvider(
+      const provider = new CollectionAppTokenClient(
         { ...config, privateKey },
         fetchMock()
           .mockResolvedValueOnce(json(installation))
@@ -279,7 +279,7 @@ describe('CollectionAppTokenProvider', () => {
   );
 
   it('classifies token permission-map drift without caching the token', async () => {
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey },
       fetchMock()
         .mockResolvedValueOnce(json(installation))
@@ -299,7 +299,7 @@ describe('CollectionAppTokenProvider', () => {
 
   it('accepts the optional Issues read permission so granting it does not halt collection', async () => {
     const withIssues = { ...installation.permissions, issues: 'read' };
-    const provider = new CollectionAppTokenProvider(
+    const provider = new CollectionAppTokenClient(
       { ...config, privateKey },
       fetchMock()
         .mockResolvedValueOnce(
@@ -356,7 +356,7 @@ describe('CollectionAppTokenProvider', () => {
   it.each(invalidInstallations)(
     'rejects invalid organization identity, selection, and permissions outside the allowlist',
     async (invalid, safeReason) => {
-      const provider = new CollectionAppTokenProvider(
+      const provider = new CollectionAppTokenClient(
         { ...config, privateKey },
         fetchMock().mockResolvedValue(json(invalid)),
         () => Date.parse('2026-01-01T00:00:00Z'),
@@ -545,7 +545,7 @@ describe('CollectionAppClient', () => {
   });
 
   it('invalidates a resource token on 401 and retries exactly once', async () => {
-    const tokens = new CollectionAppTokenProvider(config);
+    const tokens = new CollectionAppTokenClient(config);
     const getToken = jest
       .spyOn(tokens, 'getToken')
       .mockResolvedValueOnce('stale')
@@ -563,7 +563,7 @@ describe('CollectionAppClient', () => {
   });
 
   it('does not loop when the resource remains unauthorized', async () => {
-    const tokens = new CollectionAppTokenProvider(config);
+    const tokens = new CollectionAppTokenClient(config);
     const getToken = jest.spyOn(tokens, 'getToken').mockResolvedValue('token');
     const fetcher = fetchMock().mockResolvedValue(
       new Response('', { status: 401 }),
@@ -682,7 +682,7 @@ describe('CollectionAppClient incremental contract', () => {
     });
 
     it('retries exactly once after invalidating the token on 401', async () => {
-      const tokens = new CollectionAppTokenProvider(config);
+      const tokens = new CollectionAppTokenClient(config);
       jest
         .spyOn(tokens, 'getToken')
         .mockResolvedValueOnce('stale')

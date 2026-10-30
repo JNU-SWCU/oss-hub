@@ -9,9 +9,9 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
-import { RepositoryProvisionLeaseLostError } from './repository-provision-state-helpers.repository';
 import { RepositoryProvisionFailure } from './repository-provision-failure.policy';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.policy';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';

@@ -16,7 +16,7 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;

@@ -7,7 +7,7 @@ import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverRepository } from './program-cover-write.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;

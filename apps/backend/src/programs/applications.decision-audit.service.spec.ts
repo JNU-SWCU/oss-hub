@@ -15,7 +15,7 @@ import type {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
-import type { UsersAuthorityService } from '../users/authority.service';
+import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];

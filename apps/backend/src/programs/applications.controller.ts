@@ -16,7 +16,7 @@ import {
   type ApplicationDecisionResponseDto,
   toApplicationDecisionResponse,
 } from './dto/application-decision-response.dto';
-import { ApplicationDetailResponseDto } from './dto/application-list-response.dto';
+import { ApplicationDetailResponseDto } from './dto/application-list-page-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
 type ApplicationActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

@@ -10,7 +10,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersController } from '../users/users.controller';
 import { UsersService } from '../users/users.service';
 import { PublicProjectsService } from './public-projects.service';
-import { PublicUserProfileController } from './public-profile.controller';
+import { PublicUserProfileController } from './public-user-profile.controller';
 
 const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);

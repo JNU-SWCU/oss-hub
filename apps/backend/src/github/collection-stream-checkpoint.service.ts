@@ -14,7 +14,7 @@ function bigIntOrNull(value: string | null): bigint | null {
   return value === null ? null : BigInt(value);
 }
 
-export class CollectionStreamCheckpoint {
+export class CollectionStreamCheckpointService {
   constructor(
     private readonly incrementalRepository: Pick<
       CollectionIncrementalRepository,

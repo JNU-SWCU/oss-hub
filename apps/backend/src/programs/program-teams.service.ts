@@ -23,7 +23,7 @@ import {
 } from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import {
   ProgramTeamsRepository,
   type StaffTeamDetailRecord,

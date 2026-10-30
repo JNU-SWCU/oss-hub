@@ -13,12 +13,10 @@ import {
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import {
-  CreateProgramDocumentChangeRequestRequestDto,
-  ProgramDocumentChangeRequestTargetsQueryRequestDto,
-  ProgramDocumentChangeRequestTargetsResponseDto,
-} from './dto/program-document-change-request.dto';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
+import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-program-document-change-request-request.dto';
+import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
+import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
 
 type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -34,7 +32,7 @@ export class ProgramDocumentChangeRequestsController {
   async targets(
     @Req() request: SessionRequest,
     @Param('programId') programId: string,
-    @Query() query: ProgramDocumentChangeRequestTargetsQueryRequestDto,
+    @Query() query: ProgramDocumentChangeRequestTargetsRequestDto,
   ): Promise<ProgramDocumentChangeRequestTargetsResponseDto> {
     return ProgramDocumentChangeRequestTargetsResponseDto.from(
       await this.changeRequests.targets(

@@ -44,7 +44,7 @@ import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
-import { ProgramCoverRepository } from './program-cover-write.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
@@ -60,12 +60,12 @@ import {
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicUserProfileController } from './public-profile.controller';
+import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 import { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import {
   ApplicationPreparationsService,

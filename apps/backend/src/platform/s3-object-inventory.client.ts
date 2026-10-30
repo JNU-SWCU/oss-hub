@@ -16,7 +16,7 @@ import {
 const OBJECT_LIST_REQUEST_TIMEOUT_MS = 30_000;
 
 @Injectable()
-export class S3ObjectInventory implements ObjectInventoryPort {
+export class S3ObjectInventoryClient implements ObjectInventoryPort {
   private readonly connection: ObjectS3Connection;
 
   constructor(

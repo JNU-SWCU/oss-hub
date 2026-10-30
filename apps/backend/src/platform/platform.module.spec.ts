@@ -10,8 +10,8 @@ import {
   type StoreObjectInput,
   type StoredObject,
 } from './object-storage.types';
-import { S3ObjectInventory } from './s3-object-inventory.client';
-import { S3ObjectStorage } from './object-storage.client';
+import { S3ObjectInventoryClient } from './s3-object-inventory.client';
+import { S3ObjectStorageClient } from './s3-object-storage.client';
 import { ObjectStorageConfig, S3_OBJECT_CLIENT } from './object-storage.config';
 import { AuditLogService } from './audit-log.service';
 import { PlatformModule } from './platform.module';
@@ -67,13 +67,13 @@ describe('PlatformModule', () => {
       );
 
     expect(bindingsFor(OBJECT_STORAGE)).toEqual([
-      { provide: OBJECT_STORAGE, useClass: S3ObjectStorage },
+      { provide: OBJECT_STORAGE, useClass: S3ObjectStorageClient },
     ]);
     expect(bindingsFor(OBJECT_INVENTORY)).toEqual([
-      { provide: OBJECT_INVENTORY, useClass: S3ObjectInventory },
+      { provide: OBJECT_INVENTORY, useClass: S3ObjectInventoryClient },
     ]);
-    expect(providers).not.toContain(S3ObjectStorage);
-    expect(providers).not.toContain(S3ObjectInventory);
+    expect(providers).not.toContain(S3ObjectStorageClient);
+    expect(providers).not.toContain(S3ObjectInventoryClient);
     expect(
       providers.filter(
         (provider) => isProviderObject(provider) && 'useExisting' in provider,
@@ -101,8 +101,8 @@ describe('PlatformModule', () => {
       OBJECT_INVENTORY,
       AuditLogService,
     ]);
-    expect(exported).not.toContain(S3ObjectStorage);
-    expect(exported).not.toContain(S3ObjectInventory);
+    expect(exported).not.toContain(S3ObjectStorageClient);
+    expect(exported).not.toContain(S3ObjectInventoryClient);
   });
 
   it('override 없이 조립하면 토큰이 실제 S3 구현으로 해석된다', async () => {
@@ -111,10 +111,10 @@ describe('PlatformModule', () => {
     }).compile();
 
     expect(moduleRef.get<ObjectStoragePort>(OBJECT_STORAGE)).toBeInstanceOf(
-      S3ObjectStorage,
+      S3ObjectStorageClient,
     );
     expect(moduleRef.get<ObjectInventoryPort>(OBJECT_INVENTORY)).toBeInstanceOf(
-      S3ObjectInventory,
+      S3ObjectInventoryClient,
     );
     expect(moduleRef.get(ObjectStorageConfig)).toBeInstanceOf(
       ObjectStorageConfig,
@@ -131,7 +131,7 @@ describe('PlatformModule', () => {
     const resolved = moduleRef.get<ObjectStoragePort>(OBJECT_STORAGE);
 
     expect(resolved).toBe(fake);
-    expect(resolved).not.toBeInstanceOf(S3ObjectStorage);
+    expect(resolved).not.toBeInstanceOf(S3ObjectStorageClient);
     await expect(
       resolved.put({
         body: Buffer.from('private-file-body'),
@@ -148,10 +148,10 @@ describe('PlatformModule', () => {
     const moduleRef = await compileWithFake(fake);
 
     expect(() => {
-      moduleRef.get(S3ObjectStorage);
-    }).toThrow(/S3ObjectStorage/);
+      moduleRef.get(S3ObjectStorageClient);
+    }).toThrow(/S3ObjectStorageClient/);
     expect(() => {
-      moduleRef.get(S3ObjectInventory);
-    }).toThrow(/S3ObjectInventory/);
+      moduleRef.get(S3ObjectInventoryClient);
+    }).toThrow(/S3ObjectInventoryClient/);
   });
 });

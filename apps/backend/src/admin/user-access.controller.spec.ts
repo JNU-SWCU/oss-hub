@@ -13,11 +13,11 @@ import { RolesErrorCode } from '../users/roles-error-code.error';
 import { UserAccessController } from './user-access.controller';
 import { AdminAccessService } from '../users/admin-access.service';
 import type { AdminProfileService } from '../users/admin-profile.service';
-import { AdminAccessListRequestDto } from './dto/admin-access-query.dto';
-import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
-import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
+import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
+import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
+import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
 import { ADMIN_ACCESS_COMMANDS } from '../users/independent-authority.types';
-import { PatchAdminAuthorityRequestDto } from './dto/patch-independent-authority.dto';
+import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import type { IndependentAuthorityService } from '../users/independent-authority.service';
 
 describe('admin-access.controller', () => {
@@ -298,7 +298,7 @@ describe('independent-authority.controller', () => {
       service,
       { patchMemberKind: jest.fn() },
     );
-    const adminBody = Object.assign(new PatchAdminAuthorityRequestDto(), {
+    const adminBody = Object.assign(new PatchIndependentAuthorityRequestDto(), {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,
     });
 

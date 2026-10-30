@@ -1,7 +1,7 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import type { AuthenticatedRequest } from './http-auth.types';
 import { SessionGuard } from './session.guard';
-import { LoginHistoryQueryRequestDto } from './dto/login-history-query.dto';
+import { LoginHistoryRequestDto } from './dto/login-history-request.dto';
 import { LoginHistoryPageResponseDto } from './dto/login-history-response.dto';
 import { LoginHistoryService } from './auth.service';
 
@@ -13,7 +13,7 @@ export class LoginHistoryController {
   @UseGuards(SessionGuard)
   async findMine(
     @Req() request: AuthenticatedRequest,
-    @Query() query: LoginHistoryQueryRequestDto,
+    @Query() query: LoginHistoryRequestDto,
   ): Promise<LoginHistoryPageResponseDto> {
     const historyPage = await this.loginHistoryService.findMine(
       request.principal.id,

@@ -6,7 +6,7 @@ import { SessionGuard } from '../auth/session.guard';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { issueSessionToken } from '../auth/auth.policy';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { CollectionAdminService } from '../github/collection-admin.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';

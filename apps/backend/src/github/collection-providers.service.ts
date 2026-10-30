@@ -1,12 +1,9 @@
 import type { RuntimeConfig } from '../platform/runtime-config.config';
-import {
-  CollectionPublicReadConfig,
-  CollectionAppConfig,
-} from './collection-app.config';
+import { CollectionAppConfig } from './collection-app.config';
 import type { Provider } from '@nestjs/common';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionAppClient } from './collection-app.client';
-import { CollectionAppTokenProvider } from './collection-app-token.client';
+import { CollectionAppTokenClient } from './collection-app-token.client';
 import {
   CollectionDiscoveryClient,
   ProviderRequestQueue,
@@ -19,42 +16,20 @@ import {
   CollectionSyncRuntimeFactory,
   CollectionSyncService,
 } from './collection-sync.service';
-
-export class CollectionPublicTokenProvider {
-  private token: string | undefined;
-
-  constructor(private readonly runtimeConfig: RuntimeConfig) {}
-
-  getToken(): Promise<string> {
-    if (this.token !== undefined) return Promise.resolve(this.token);
-    try {
-      const config = CollectionPublicReadConfig.fromRuntimeConfig(
-        this.runtimeConfig,
-      );
-      this.token = config.token;
-      return Promise.resolve(this.token);
-    } catch (error) {
-      return Promise.reject(
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    }
-  }
-
-  clear(): void {}
-}
+import { CollectionPublicTokenService } from './collection-public-token.service';
 
 export const collectionProviders: Provider[] = [
   {
-    provide: CollectionPublicTokenProvider,
+    provide: CollectionPublicTokenService,
     inject: [RUNTIME_CONFIG],
-    useFactory: (runtimeConfig: RuntimeConfig): CollectionPublicTokenProvider =>
-      new CollectionPublicTokenProvider(runtimeConfig),
+    useFactory: (runtimeConfig: RuntimeConfig): CollectionPublicTokenService =>
+      new CollectionPublicTokenService(runtimeConfig),
   },
   {
     provide: CollectionDiscoveryClient,
-    inject: [CollectionPublicTokenProvider],
+    inject: [CollectionPublicTokenService],
     useFactory: (
-      tokens: CollectionPublicTokenProvider,
+      tokens: CollectionPublicTokenService,
     ): CollectionDiscoveryClient => new CollectionDiscoveryClient({}, tokens),
   },
   {
@@ -74,20 +49,20 @@ export const collectionProviders: Provider[] = [
     inject: [
       CollectionIncrementalRepository,
       RUNTIME_CONFIG,
-      CollectionPublicTokenProvider,
+      CollectionPublicTokenService,
     ],
     useFactory: (
       incrementalRepository: CollectionIncrementalRepository,
       runtimeConfig: RuntimeConfig,
-      publicTokens: CollectionPublicTokenProvider,
+      publicTokens: CollectionPublicTokenService,
     ): CollectionSyncService => {
-      let orgTokens: CollectionAppTokenProvider | undefined;
+      let orgTokens: CollectionAppTokenClient | undefined;
       let runtime: CollectionSyncRuntime | undefined;
       const runtimeFactory: CollectionSyncRuntimeFactory = () => {
         if (runtime) return runtime;
 
         const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-        orgTokens = new CollectionAppTokenProvider(config);
+        orgTokens = new CollectionAppTokenClient(config);
         const queue = new ProviderRequestQueue();
         runtime = {
           appId: config.appId,
@@ -105,7 +80,7 @@ export const collectionProviders: Provider[] = [
       const resolveGithubOrganizationId = async (): Promise<bigint> => {
         if (!orgTokens) {
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-          orgTokens = new CollectionAppTokenProvider(config);
+          orgTokens = new CollectionAppTokenClient(config);
         }
         const identity = await orgTokens.getInstallationIdentity();
         return BigInt(identity.organizationId);

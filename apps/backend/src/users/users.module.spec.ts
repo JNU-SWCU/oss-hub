@@ -13,13 +13,13 @@ import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
 import { UsersService } from './users.service';
-import { UsersAuthorityService } from './authority.service';
+import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import { ConsentsService } from './consents.service';
-import { RolesRepository } from './member-onboarding.repository';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingRepository } from './member-onboarding.repository';
+import { MemberOnboardingService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
-import { StaffAccessRequestsController } from './role-requests.controller';
+import { RoleRequestsController } from './role-requests.controller';
 
 describe('UsersModule admin access wiring', () => {
   it('registers the dependencies behind the admin access routes', () => {
@@ -67,7 +67,7 @@ describe('UsersModule admin access wiring', () => {
       AccountDeactivationController,
       UsersController,
       OnboardingController,
-      StaffAccessRequestsController,
+      RoleRequestsController,
       ConsentsController,
     ]);
   });
@@ -79,13 +79,21 @@ describe('UsersModule admin access wiring', () => {
     );
 
     expect(providers).toEqual(
-      expect.arrayContaining([RolesRepository, RolesService]),
+      expect.arrayContaining([
+        MemberOnboardingRepository,
+        MemberOnboardingService,
+      ]),
     );
     expect(
-      (Reflect.getMetadata('design:paramtypes', RolesService) as unknown[])[0],
-    ).toBe(RolesRepository);
-    expect(Reflect.getMetadata('self:paramtypes', RolesService)).toEqual([
-      { index: 1, param: ConsentsService },
-    ]);
+      (
+        Reflect.getMetadata(
+          'design:paramtypes',
+          MemberOnboardingService,
+        ) as unknown[]
+      )[0],
+    ).toBe(MemberOnboardingRepository);
+    expect(
+      Reflect.getMetadata('self:paramtypes', MemberOnboardingService),
+    ).toEqual([{ index: 1, param: ConsentsService }]);
   });
 });

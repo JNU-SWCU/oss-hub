@@ -60,7 +60,7 @@ import {
 import { MemberKindRepository } from '../../src/users/member-kind.repository';
 import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileService } from '../../src/users/admin-profile.service';
-import { UsersAuthorityService } from '../../src/users/authority.service';
+import { UsersAuthorityService } from '../../src/users/users-authority.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
 

@@ -37,7 +37,6 @@ import {
   assertSingleProvisionUpdate,
   claimGithubRepositoryForApplication,
   claimedJobWhere,
-  GithubRepositoryClaimConflictError,
   invitationIntent,
   isPrismaUniqueConstraintError,
   lockApplicationForRepositoryClaim,
@@ -47,10 +46,13 @@ import {
   membershipFingerprint,
   PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
   repositorySelection,
-  RepositoryProvisionLeaseLostError,
   teamMemberLoginSelection,
   toProvisionedRepository,
 } from './repository-provision-state-helpers.repository';
+import {
+  GithubRepositoryClaimConflictError,
+  RepositoryProvisionLeaseLostError,
+} from './repository-provision-state.error';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,

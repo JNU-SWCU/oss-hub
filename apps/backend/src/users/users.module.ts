@@ -18,16 +18,16 @@ import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
-import { UsersAuthorityService } from './authority.service';
+import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import {
   ConsentsRepository,
-  RolesRepository,
+  MemberOnboardingRepository,
 } from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
-import { StaffAccessRequestsController } from './role-requests.controller';
+import { RoleRequestsController } from './role-requests.controller';
 
 @Module({
   imports: [PlatformModule, AuthModule],
@@ -36,7 +36,7 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     AccountDeactivationController,
     UsersController,
     OnboardingController,
-    StaffAccessRequestsController,
+    RoleRequestsController,
     ConsentsController,
   ],
   providers: [
@@ -56,8 +56,8 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     UsersAuthorityService,
     ConsentsService,
     ConsentsRepository,
-    RolesRepository,
-    RolesService,
+    MemberOnboardingRepository,
+    MemberOnboardingService,
   ],
   exports: [
     UsersService,

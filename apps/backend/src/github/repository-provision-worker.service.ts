@@ -37,7 +37,7 @@ import {
 import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
-} from './repository-provision-state-helpers.repository';
+} from './repository-provision-state.error';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }
@@ -62,8 +62,8 @@ interface PreparedRepository {
   readonly ownResolution: OwnGithubRepositoryResolution | null;
 }
 
-export class RepositoryProvisionWorker {
-  private readonly logger = new Logger(RepositoryProvisionWorker.name);
+export class RepositoryProvisionWorkerService {
+  private readonly logger = new Logger(RepositoryProvisionWorkerService.name);
 
   constructor(
     private readonly jobs: Pick<

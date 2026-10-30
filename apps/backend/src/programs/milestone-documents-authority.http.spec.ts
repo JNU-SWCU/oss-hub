@@ -9,7 +9,7 @@ import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';

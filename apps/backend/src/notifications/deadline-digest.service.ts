@@ -31,10 +31,10 @@ import {
 } from './notifications-error-code.error';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
-  GmailMailSender,
+  GmailMailClient,
   type GmailSenderConfig,
-  LogMailSender,
-} from './mail.client';
+  LogMailClient,
+} from './gmail-mail.client';
 
 type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED';
 const logger = new Logger('DeadlineDigestService');
@@ -290,7 +290,7 @@ function gmailConfigFromRuntime(
 }
 
 export function isDryRunMailSender(mailSender: MailSender): boolean {
-  return mailSender instanceof LogMailSender;
+  return mailSender instanceof LogMailClient;
 }
 
 export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
@@ -300,14 +300,14 @@ export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
       `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
     );
   }
-  if (mode === 'dry-run') return new LogMailSender();
+  if (mode === 'dry-run') return new LogMailClient();
   const config = gmailConfigFromRuntime(runtimeConfig);
   if (!config) {
     throw new Error(
       'MAIL_MODE=send requires GMAIL_SENDER and GMAIL_OAUTH_* credentials.',
     );
   }
-  return new GmailMailSender(config);
+  return new GmailMailClient(config);
 }
 
 export const mailSenderProvider: Provider = {

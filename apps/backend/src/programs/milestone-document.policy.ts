@@ -176,3 +176,18 @@ export function changeRequestTargetsVersion(
     .sort();
   return createHash('sha256').update(lines.join('\n')).digest('hex');
 }
+
+export function toProgramDocumentChangeRequestScope(
+  scope: ProgramDocumentChangeRequestScope['kind'],
+  teamId: string | null | undefined,
+): ProgramDocumentChangeRequestScope {
+  if (scope === 'PROGRAM' && teamId === undefined) return { kind: 'PROGRAM' };
+  if (scope === 'TEAM' && typeof teamId === 'string') {
+    return { kind: 'TEAM', teamId };
+  }
+  throw new DomainException(
+    MILESTONE_DOCUMENTS_ERROR_CODES[
+      MilestoneDocumentsErrorCode.INVALID_REQUEST
+    ],
+  );
+}

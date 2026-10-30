@@ -1,5 +1,5 @@
 import {
-  CollectionInventory,
+  CollectionInventoryService,
   type CollectionSyncRuntime,
   type CollectionSyncRuntimeFactory,
   type SweepInventory,
@@ -7,7 +7,7 @@ import {
   RunDeadlineError,
 } from './collection-inventory.service';
 import { splitNameWithOwner, requestFingerprintKey } from './github.policy';
-import { CollectionStreamCheckpoint } from './collection-stream-checkpoint.service';
+import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -186,8 +186,8 @@ const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
 @Injectable()
 export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
-  private readonly checkpoints: CollectionStreamCheckpoint;
-  private readonly inventory: CollectionInventory;
+  private readonly checkpoints: CollectionStreamCheckpointService;
+  private readonly inventory: CollectionInventoryService;
   private readonly deadline: CollectionSyncDeadline;
 
   constructor(
@@ -200,12 +200,12 @@ export class CollectionSyncService {
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {
     this.deadline = new CollectionSyncDeadline(now);
-    this.inventory = new CollectionInventory(
+    this.inventory = new CollectionInventoryService(
       incrementalRepository,
       this.deadline,
       now,
     );
-    this.checkpoints = new CollectionStreamCheckpoint(
+    this.checkpoints = new CollectionStreamCheckpointService(
       incrementalRepository,
       now,
     );

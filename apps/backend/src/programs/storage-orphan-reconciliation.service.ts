@@ -19,7 +19,7 @@ import {
   type ObjectInventoryPort,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
-import { createStorageReferenceRepository } from './storage-orphan-reconciliation.repository';
+import { createStorageReferenceRepository } from './prisma-storage-reference.repository';
 
 export class StorageOrphanReconciliationService {
   constructor(

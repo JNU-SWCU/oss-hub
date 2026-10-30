@@ -36,13 +36,13 @@ import {
 import {
   presentMilestoneDocumentHistory,
   type MilestoneDocumentHistoryPageResponseDto,
-} from './dto/milestone-document-history-response.dto';
+} from './dto/milestone-document-history-page-response.dto';
 import { OriginGuard } from '../auth/origin.guard';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
-import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
+import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
-import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
-import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
+import { MilestoneDocumentCollectionRequestDto } from './dto/milestone-document-collection-request.dto';
+import { MilestoneDocumentHistoryRequestDto } from './dto/milestone-document-history-request.dto';
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-document-grace-request.dto';
@@ -122,7 +122,7 @@ export class MilestoneDocumentsController {
   collection(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentCollectionQueryRequestDto,
+    @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return this.collectionService
       .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
@@ -135,7 +135,7 @@ export class MilestoneDocumentsController {
   async archive(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentArchiveQueryRequestDto,
+    @Query() query: MilestoneDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = query.toScope();
@@ -216,7 +216,7 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
-    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+    @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
       .historyForStaff(
@@ -236,7 +236,7 @@ export class MilestoneDocumentsController {
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
-    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+    @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
       .historyForParticipant(
