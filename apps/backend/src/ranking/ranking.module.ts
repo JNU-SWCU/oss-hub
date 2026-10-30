@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { RankingController } from './controller/ranking.controller';
-import { RankingRepository } from './repository/ranking.repository';
-import { RankingService } from './service/ranking.service';
+import { RankingController } from './ranking.controller';
+import { RankingRepository } from './ranking.repository';
+import { RankingService } from './ranking.service';
 
 @Module({
   imports: [AuthModule],

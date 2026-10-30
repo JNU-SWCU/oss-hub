@@ -18,8 +18,8 @@ import type {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { repositoryUrlFromNameWithOwner } from '../github/domain/repository-identity';
-import { parseRepositoryProvisionEvent } from '../github/domain/repository-provision-event';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
 import {
   transferProvisionGeneration,
   writeRepositoryIssuanceHistory,

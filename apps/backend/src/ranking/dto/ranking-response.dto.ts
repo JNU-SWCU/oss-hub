@@ -4,7 +4,7 @@ import {
   type RankingPage,
   type RankingViewerClass,
   type RankingYear,
-} from '../domain/ranking';
+} from '../ranking.policy';
 
 class PublicRankingEntryResponseDto {
   readonly rank: number;

@@ -6,12 +6,12 @@ import {
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/authority.service';
-import { GithubOperationsError } from '../github/domain/github-app.error';
-import { RepositoryPublishStateError } from '../github/domain/repository-publish-state.error';
+import { GithubOperationsError } from '../github/github-app.error';
+import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import {
   RepositoriesService,
   RepositoryNotFoundError,
-} from '../github/service/repositories.service';
+} from '../github/repositories.service';
 import {
   publishBlockedReasons,
   type CreateSubmissionReviewInput,

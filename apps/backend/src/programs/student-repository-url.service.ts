@@ -4,10 +4,10 @@ import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/application-repo
 import { DomainException } from '../platform/error-code.error';
 import { canEditStudentRepositoryUrl } from './program-participant.policy';
 import { ConsentsService } from '../users/consents.service';
-import { CollectionTriggerService } from '../github/service/collection-trigger.service';
-import { GithubOperationsError } from '../github/domain/github-app.error';
-import { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
-import { RepositoryProvisionFailure } from '../github/domain/repository-provision.failure';
+import { CollectionTriggerService } from '../github/collection-trigger.service';
+import { GithubOperationsError } from '../github/github-app.error';
+import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
+import { RepositoryProvisionFailure } from '../github/repository-provision-failure.policy';
 import { ApplicationsRepository } from './applications.repository';
 import {
   APPLICATIONS_ERROR_CODES,

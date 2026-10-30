@@ -6,8 +6,8 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
-import type { OwnGithubRepositoryResolution } from '../github/domain/own-repository-resolution';
-import { parseRepositoryProvisionEvent } from '../github/domain/repository-provision-event';
+import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
 import { settleProvisionGenerationForSynchronousConnection } from '../platform/repository-provision-generation.repository';
 import {
   readTeamRepositoryUrlContext,

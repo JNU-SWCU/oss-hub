@@ -6,7 +6,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import type { RepositoriesReadService } from '../github/service/repositories-read.service';
+import type { RepositoriesReadService } from '../github/repositories-read.service';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { ProgramsRepository } from './programs.repository';

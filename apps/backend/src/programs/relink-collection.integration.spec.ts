@@ -13,10 +13,10 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
-import { CollectionAppClient } from '../github/gateway/collection-app.client';
-import { ProviderRequestQueue } from '../github/gateway/collection-provider-queue';
-import { CollectionIncrementalRepository } from '../github/repository/collection-incremental.repository';
-import { CollectionSyncService } from '../github/service/collection-sync.service';
+import { CollectionAppClient } from '../github/collection-app.client';
+import { ProviderRequestQueue } from '../github/collection-provider-queue.client';
+import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
+import { CollectionSyncService } from '../github/collection-sync.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { PlatformModule } from './platform/platform.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
-import { CollectionModule } from './github/collection.module';
+import { GithubModule } from './github/github.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoriesModule } from './github/repositories.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 
@@ -16,13 +15,12 @@ import { UsersModule } from './users/users.module';
     AuditLogModule,
     AuthModule,
 
-    CollectionModule,
+    GithubModule,
     NotificationsModule,
     SystemStatusModule,
     RankingModule,
     ProgramsModule,
     UsersModule,
-    RepositoriesModule,
   ],
 })
 export class AppModule {}

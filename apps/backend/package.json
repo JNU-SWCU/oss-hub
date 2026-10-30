@@ -18,7 +18,7 @@
     "db:migrate:dev": "pnpm run db:guard && prisma migrate dev",
     "db:reset": "pnpm run db:guard && prisma migrate reset --force",
     "db:seed": "pnpm run db:guard && prisma db seed",
-    "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/job/send-deadline-digest.ts",
+    "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/send-deadline-digest.job.ts",
     "submissions:retry-file-cleanup": "ts-node src/programs/retry-submission-file-cleanup.job.ts",
     "storage:reconcile": "ts-node src/programs/reconcile-storage-orphans.job.ts"
   },

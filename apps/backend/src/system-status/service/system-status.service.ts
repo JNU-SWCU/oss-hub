@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
+import { nextScheduledCollectionAt } from '../../github/collection-schedule.service';
 import {
   SystemStatusRepository,
   type CollectionIncrementalStatusSnapshotDto,

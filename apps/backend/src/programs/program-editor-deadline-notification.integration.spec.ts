@@ -7,10 +7,10 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
-import { DeadlineDigestRepository } from '../notifications/repository/deadline-digest.repository';
-import { DeadlineDigestService } from '../notifications/service/deadline-digest.service';
-import type { DeadlineDigestMail } from '../notifications/domain/mail-sender.port';
-import { NotificationsErrorCode } from '../notifications/notifications-error-code.enum';
+import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
+import { DeadlineDigestService } from '../notifications/deadline-digest.service';
+import type { DeadlineDigestMail } from '../notifications/mail-sender.types';
+import { NotificationsErrorCode } from '../notifications/notifications-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';

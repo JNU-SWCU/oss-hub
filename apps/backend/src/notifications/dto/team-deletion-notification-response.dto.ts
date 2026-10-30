@@ -1,4 +1,4 @@
-import type { TeamDeletionNotification } from '../domain/team-deletion-notification';
+import type { TeamDeletionNotification } from '../team-deletion-notification.types';
 
 export class TeamDeletionNotificationResponseDto {
   readonly id: string;

@@ -2,8 +2,7 @@ import { ProgramLifecycleController } from './program-lifecycle.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { RepositoriesModule } from '../github/repositories.module';
-import { CollectionModule } from '../github/collection.module';
+import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
@@ -132,13 +131,7 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    PlatformModule,
-    CollectionModule,
-    RepositoriesModule,
-    UsersModule,
-  ],
+  imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,

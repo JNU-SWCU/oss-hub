@@ -1,7 +1,7 @@
 import type {
   DeadlineDigestMail,
   MailSender,
-} from '../../src/notifications/domain/mail-sender.port';
+} from '../../src/notifications/mail-sender.types';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   E2eExternalPortFailure,

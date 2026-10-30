@@ -18,10 +18,10 @@ import { sessionCookieName } from '../../src/auth/cookies.policy';
 import { issueSessionToken } from '../../src/auth/session-token.policy';
 import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
-import { RepositoriesController } from '../../src/github/controller/repositories.controller';
+import { RepositoriesController } from '../../src/github/repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
-import { RepositoriesRepository } from '../../src/github/repository/repositories.repository';
-import { RepositoriesReadService } from '../../src/github/service/repositories-read.service';
+import { RepositoriesRepository } from '../../src/github/repositories.repository';
+import { RepositoriesReadService } from '../../src/github/repositories-read.service';
 import { MilestoneDocumentFeedbackController } from '../../src/programs/milestone-document-feedback.controller';
 import { MilestoneDocumentFeedbackRepository } from '../../src/programs/milestone-document-feedback.repository';
 import {

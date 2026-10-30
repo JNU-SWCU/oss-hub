@@ -5,7 +5,7 @@ import {
   RepositoryConnectionMode,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/domain/repository-provision-event';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.policy';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';

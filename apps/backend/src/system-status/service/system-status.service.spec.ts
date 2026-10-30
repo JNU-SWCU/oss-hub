@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
+import { nextScheduledCollectionAt } from '../../github/collection-schedule.service';
 import {
   SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
@@ -10,7 +10,7 @@ import {
 } from '../repository/system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
-jest.mock('../../github/service/collection-schedule', () => ({
+jest.mock('../../github/collection-schedule.service', () => ({
   nextScheduledCollectionAt: jest.fn(),
 }));
 

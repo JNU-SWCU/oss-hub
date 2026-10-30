@@ -543,29 +543,29 @@ edge(
   'src/beta/dto/target.ts',
   true,
 );
-for (const consumer of ['programs', 'ranking', 'system-status']) {
+for (const consumer of ['programs', 'ranking', 'admin']) {
   edge(
     `github service cannot import consumer ${consumer}`,
-    `src/github/service/${consumer}.ts`,
-    `src/${consumer}/service/target.ts`,
+    `src/github/${consumer}.service.ts`,
+    `src/${consumer}/target.service.ts`,
     false,
   );
   edge(
     `github test cannot import consumer ${consumer}`,
-    `src/github/service/${consumer}.spec.ts`,
-    `src/${consumer}/domain/target.ts`,
+    `src/github/${consumer}.spec.ts`,
+    `src/${consumer}/target.policy.ts`,
     false,
   );
   edge(
     `consumer ${consumer} may call github service`,
-    `src/${consumer}/service/github.ts`,
-    'src/github/service/target.ts',
+    `src/${consumer}/github.service.ts`,
+    'src/github/target.service.ts',
     true,
   );
 }
 edge(
   'github service may call non-consumer service',
-  'src/github/service/users.ts',
+  'src/github/users.service.ts',
   'src/users/authority.service.ts',
   true,
 );
@@ -577,20 +577,20 @@ edge(
 );
 edge(
   'consumer cannot import github repository',
-  'src/ranking/service/github-repository.ts',
-  'src/github/repository/target.ts',
+  'src/ranking/github-repository.service.ts',
+  'src/github/target.repository.ts',
   false,
 );
 edge(
   'consumer repository cannot import github service',
-  'src/programs/repository/github-service.ts',
-  'src/github/service/target.ts',
+  'src/programs/github-service.repository.ts',
+  'src/github/target.service.ts',
   false,
 );
 edge(
   'consumer repository may use github domain',
-  'src/programs/repository/github-domain.ts',
-  'src/github/domain/target.ts',
+  'src/programs/github-domain.repository.ts',
+  'src/github/target.policy.ts',
   true,
 );
 
@@ -902,7 +902,7 @@ for (const [name, code] of envAccess) {
   );
   add(
     `github rejects ${name}`,
-    `src/github/service/${name}.ts`,
+    `src/github/${name}.service.ts`,
     code,
     restrictedSyntax,
   );
@@ -931,7 +931,7 @@ add(
 );
 add(
   'canonical delegate is accepted inside github',
-  'src/github/repository/canonical.ts',
+  'src/github/canonical.repository.ts',
   canonicalDelegate,
   null,
 );

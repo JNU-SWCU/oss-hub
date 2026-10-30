@@ -6,7 +6,7 @@ import {
   RANKING_YEAR_ALL,
   RANKING_YEAR_MAX,
   RANKING_YEAR_MIN,
-} from '../domain/ranking';
+} from '../ranking.policy';
 import {
   RankingQueryRequestDto,
   resolveRankingQueryYear,

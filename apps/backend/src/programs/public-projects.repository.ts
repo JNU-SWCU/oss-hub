@@ -13,7 +13,7 @@ import {
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/domain/repository-identity';
+} from '../github/repository-identity.policy';
 
 const PROJECT_ROW_SELECT = {
   id: true,

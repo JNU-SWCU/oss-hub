@@ -17,15 +17,15 @@ import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/domain/repository-identity';
+} from '../github/repository-identity.policy';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import type { GithubAppClient } from '../github/gateway/github-app.client';
-import { RepositoriesRepository } from '../github/repository/repositories.repository';
-import { RepositoriesService } from '../github/service/repositories.service';
-import { RankingRepository } from '../ranking/repository/ranking.repository';
-import { RankingService } from '../ranking/service/ranking.service';
+import type { GithubAppClient } from '../github/github-app.client';
+import { RepositoriesRepository } from '../github/repositories.repository';
+import { RepositoriesService } from '../github/repositories.service';
+import { RankingRepository } from '../ranking/ranking.repository';
+import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsErrorCode } from './public-projects-error-code.error';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';

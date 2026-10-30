@@ -29,7 +29,7 @@ import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/users/consent.policy';
-import { repositoryUrlFromNameWithOwner } from '../src/github/domain/repository-identity';
+import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity.policy';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorage } from '../src/platform/object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';

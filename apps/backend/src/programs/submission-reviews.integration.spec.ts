@@ -15,7 +15,7 @@ import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/domain/repository-identity';
+} from '../github/repository-identity.policy';
 import {
   prisma as seedPrisma,
   seedGithubId,
@@ -28,10 +28,10 @@ import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import type { GithubAppClient } from '../github/gateway/github-app.client';
-import { BarrierRepositoriesRepository } from '../github/repository/repositories.integration-support';
-import { RepositoriesRepository } from '../github/repository/repositories.repository';
-import { RepositoriesService } from '../github/service/repositories.service';
+import type { GithubAppClient } from '../github/github-app.client';
+import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
+import { RepositoriesRepository } from '../github/repositories.repository';
+import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';

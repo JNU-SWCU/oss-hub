@@ -1,4 +1,4 @@
-import type { MyRepositoryResult } from '../domain/repositories-read.models';
+import type { MyRepositoryResult } from '../repositories-read.types';
 import type {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,

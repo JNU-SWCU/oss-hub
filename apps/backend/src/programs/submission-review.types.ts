@@ -1,6 +1,6 @@
 import { RepositoryVisibility } from '@prisma/client';
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import type { PublishBlockedReason } from '../github/domain/repository-publication';
+import type { PublishBlockedReason } from '../github/repository-publication.policy';
 
 type JsonObject = { [key in string]?: JsonValue };
 type JsonArray = JsonValue[];
@@ -21,7 +21,7 @@ export {
   publishBlockedReasons,
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
-} from '../github/domain/repository-publication';
+} from '../github/repository-publication.policy';
 
 export interface SubmissionReviewRecord {
   readonly id: string;
