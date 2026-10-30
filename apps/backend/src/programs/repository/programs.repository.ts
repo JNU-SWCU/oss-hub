@@ -103,6 +103,7 @@ export class ProgramsRepository {
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
       ${programListSqlWhere('ended', '', now)}
+      AND ${programEndYearSql} BETWEEN 2000 AND 2100
       ORDER BY year DESC
     `);
     return rows.map((row) => row.year);

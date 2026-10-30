@@ -653,6 +653,17 @@ describe('ProgramsRepository list ordering integration', () => {
       ]);
     });
 
+    it('excludes the archived undecided end date from selectable years', async () => {
+      await prisma.program.update({
+        where: { id: `${TEST_PREFIX}archived` },
+        data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
+      });
+
+      await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
+        2027, 2026,
+      ]);
+    });
+
     it('keeps recruiting, upcoming, in-progress and the exact end boundary in current', async () => {
       const [items, total] = await repository.listPrograms(
         {
