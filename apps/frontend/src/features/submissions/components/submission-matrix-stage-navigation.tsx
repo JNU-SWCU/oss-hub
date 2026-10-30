@@ -30,14 +30,17 @@ function stageOptions(
   ];
 }
 
-function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
+export function MatrixStageNavigation(
+  props: MatrixStageNavigationProps,
+): ReactElement {
   const options = stageOptions(props.milestones);
 
   return (
     <div
+      data-slot="matrix-stage-navigation"
       className={cn(
-        'sticky top-0 z-20 -mx-2 hidden border-y border-border bg-background/95 px-2 py-3',
-        'backdrop-blur min-[561px]:block shell:hidden',
+        'sticky top-0 z-20 -mx-2 border-y border-border bg-background/95 px-2 py-3',
+        'backdrop-blur shell:hidden',
       )}
     >
       <FilterChipGroup
@@ -55,48 +58,6 @@ function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
         ))}
       </FilterChipGroup>
     </div>
-  );
-}
-
-function MobileStageSelect(props: MatrixStageNavigationProps): ReactElement {
-  return (
-    <div className="sticky top-0 z-20 -mx-2 grid gap-2 border-y border-border bg-background/95 px-2 py-3 backdrop-blur min-[561px]:hidden">
-      <label
-        htmlFor="matrix-mobile-stage"
-        className="text-small font-semibold text-foreground"
-      >
-        볼 제출 단계
-      </label>
-      <select
-        id="matrix-mobile-stage"
-        aria-label="볼 제출 단계"
-        value={props.selectedMilestoneId ?? ''}
-        onChange={(event) =>
-          props.onSelectMilestone(event.target.value || null)
-        }
-        className={cn(
-          'h-control w-full rounded-control border border-input bg-background px-3',
-          'text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-      >
-        {stageOptions(props.milestones).map((option) => (
-          <option key={option.id ?? 'all'} value={option.id ?? ''}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-export function MatrixStageNavigation(
-  props: MatrixStageNavigationProps,
-): ReactElement {
-  return (
-    <>
-      <TabletStageTabs {...props} />
-      <MobileStageSelect {...props} />
-    </>
   );
 }
 
