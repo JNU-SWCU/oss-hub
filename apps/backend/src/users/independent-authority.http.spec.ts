@@ -16,7 +16,7 @@ import type {
   AdminAccessRevokedRequestInsert,
 } from './admin-access-repository.types';
 import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
-import { IndependentAuthorityController } from './independent-authority.controller';
+import { IndependentAuthorityController } from '../admin/independent-authority.controller';
 import {
   IndependentAuthorityRepository,
   type IndependentAuthorityRepositoryPort,

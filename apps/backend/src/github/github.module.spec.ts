@@ -8,7 +8,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { CollectionAdminController } from './collection-admin.controller';
+import { CollectionAdminService } from './collection-admin.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { ProviderRequestQueue } from './collection-provider-queue.client';
@@ -87,18 +87,17 @@ describe('GithubModule', () => {
     ).toBe(true);
   });
 
-  it('sync writer and admin surface are reachable', () => {
+  it('sync writer and admin service are reachable', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
-    const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
+        CollectionAdminService,
         CollectionScheduler,
         CollectionTriggerService,
         expect.objectContaining({ provide: CollectionSyncService }),
       ]),
     );
-    expect(controllers).toContain(CollectionAdminController);
   });
 
   it('does not re-register any provider bound to the dropped canonical tables', () => {
@@ -140,6 +139,7 @@ describe('GithubModule', () => {
 
   it('수집 진입과 저장소 서비스만 구체 클래스로 공개하고 별칭을 등록하지 않는다', () => {
     expect(getMetadataArray(MODULE_METADATA.EXPORTS)).toEqual([
+      CollectionAdminService,
       CollectionTriggerService,
       RepositoriesService,
       RepositoriesReadService,
@@ -156,9 +156,8 @@ describe('GithubModule', () => {
   });
 
   it('retires webhook ingress and legacy collection runtime from the module', () => {
-    const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
-    const names = [...controllers, ...providers].map((entry) =>
+    const names = providers.map((entry) =>
       typeof entry === 'function'
         ? entry.name
         : ((entry as { provide?: { name?: string } }).provide?.name ?? ''),
@@ -168,7 +167,9 @@ describe('GithubModule', () => {
         expect.stringMatching(/Webhook|GithubApiClient|CollectionService/),
       ]),
     );
-    expect(controllers).toEqual([CollectionAdminController]);
+    expect(Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, GithubModule)).toBe(
+      undefined,
+    );
   });
 
   it('동의 서비스는 저장소 본인 등록만 의존하고 배경 수집은 의존하지 않는다', () => {

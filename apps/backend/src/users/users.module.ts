@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from '../auth/auth.module';
-import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
@@ -9,10 +8,8 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import { IndependentAuthorityController } from './independent-authority.controller';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { MemberKindController } from './member-kind.controller';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
@@ -34,9 +31,6 @@ import { StaffAccessRequestsController } from './role-requests.controller';
   controllers: [
     AccountDeactivationController,
     UsersController,
-    AdminAccessController,
-    IndependentAuthorityController,
-    MemberKindController,
     OnboardingController,
     StaffAccessRequestsController,
     ConsentsController,
@@ -66,6 +60,9 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     UsersAuthorityService,
     ConsentsService,
     AdminAccessService,
+    AdminProfileService,
+    IndependentAuthorityService,
+    MemberKindService,
   ],
 })
 export class UsersModule {}

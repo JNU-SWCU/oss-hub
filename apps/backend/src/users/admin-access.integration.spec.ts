@@ -6,12 +6,12 @@ import { AuditLogService } from '../platform/audit-log.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import { AdminAccessController } from './admin-access.controller';
+import { AdminAccessController } from '../admin/admin-access.controller';
 import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
-import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
+import { PatchAdminAccessRequestDto } from '../admin/dto/patch-admin-access.dto';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 

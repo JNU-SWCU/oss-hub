@@ -5,7 +5,6 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ConsentsService } from '../users/consents.service';
 import { UsersModule } from '../users/users.module';
-import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from './collection-admin.service';
 import { CollectionCutoverRepository } from './collection-cutover.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
@@ -29,7 +28,6 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
-  controllers: [CollectionAdminController],
   providers: [
     CollectionAdminService,
     CollectionScheduler,
@@ -110,6 +108,7 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
     },
   ],
   exports: [
+    CollectionAdminService,
     CollectionTriggerService,
     RepositoriesService,
     RepositoriesReadService,

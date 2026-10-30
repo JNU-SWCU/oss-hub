@@ -14,7 +14,7 @@ import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { AccessRequestsController } from '../staff/access-requests.controller';
-import { AdminAccessController } from './admin-access.controller';
+import { AdminAccessController } from '../admin/admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';

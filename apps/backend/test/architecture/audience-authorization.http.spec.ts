@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuditLogController } from '../../src/audit-log/controller/audit-log.controller';
+import { AuditLogController } from '../../src/admin/audit-log.controller';
 import { AuditLogRepository } from '../../src/platform/audit-log.repository';
 import { AuditLogService } from '../../src/platform/audit-log.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
@@ -41,16 +41,16 @@ import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { SubmissionDashboardSummaryRepository } from '../../src/programs/submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from '../../src/programs/submission-dashboard-summary.service';
-import { SystemStatusController } from '../../src/system-status/controller/system-status.controller';
-import { SystemStatusRepository } from '../../src/system-status/repository/system-status.repository';
+import { SystemStatusController } from '../../src/admin/system-status.controller';
+import { SystemStatusRepository } from '../../src/admin/system-status.repository';
 import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
-} from '../../src/system-status/service/system-status.service';
-import { AdminAccessController } from '../../src/users/admin-access.controller';
+} from '../../src/admin/system-status.service';
+import { AdminAccessController } from '../../src/admin/admin-access.controller';
 import { AccessRequestsController } from '../../src/staff/access-requests.controller';
-import { IndependentAuthorityController } from '../../src/users/independent-authority.controller';
-import { MemberKindController } from '../../src/users/member-kind.controller';
+import { IndependentAuthorityController } from '../../src/admin/independent-authority.controller';
+import { MemberKindController } from '../../src/admin/member-kind.controller';
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
 import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
 import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';

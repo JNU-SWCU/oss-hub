@@ -491,7 +491,7 @@ const policies = [
     allow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
-    from: { file: { path: '**/src/github/*.ts' } },
+    from: { file: { path: '**/src/github/**/*.ts' } },
     disallow: {
       to: {
         file: { path: '**/src/{programs,ranking,student,staff,admin}/**' },

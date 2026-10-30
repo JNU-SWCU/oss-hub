@@ -4,7 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogController } from '../audit-log/controller/audit-log.controller';
+import { AuditLogController } from '../admin/audit-log.controller';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';

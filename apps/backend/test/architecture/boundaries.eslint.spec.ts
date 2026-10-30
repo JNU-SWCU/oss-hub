@@ -564,6 +564,12 @@ for (const consumer of ['programs', 'ranking', 'student', 'staff', 'admin']) {
   );
 }
 edge(
+  'github dto cannot import admin domain',
+  'src/github/dto/consumer.dto.ts',
+  'src/admin/system-status.types.ts',
+  false,
+);
+edge(
   'github service may call non-consumer service',
   'src/github/users.service.ts',
   'src/users/authority.service.ts',

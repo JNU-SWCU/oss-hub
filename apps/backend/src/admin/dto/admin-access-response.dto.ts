@@ -1,0 +1,163 @@
+import type {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
+import type { AuthorityLabel } from '../../users/authority-label.policy';
+import type {
+  AdminAccessFacets,
+  AdminAccessMutationResult,
+  AdminAccessPendingRequest,
+  AdminAccessUser,
+  AdminAccessUserPage,
+} from '../../users/admin-access.types';
+import type { AdminProfileUpdateResult } from '../../users/admin-profile.types';
+import type { IndependentAuthorityMutationResult } from '../../users/independent-authority.types';
+
+type PendingRequestResponseDto = {
+  readonly id: string;
+  readonly status: typeof StaffAccessRequestStatus.PENDING;
+  readonly createdAt: string;
+};
+
+export class AdminAccessUserResponseDto {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly name: string | null;
+  readonly role: AuthorityLabel | null;
+  readonly accountStatus: AccountStatus;
+  readonly isSelf: boolean;
+  readonly isProfileComplete: boolean;
+  readonly createdAt: string;
+  readonly pendingRequest: PendingRequestResponseDto | null;
+  readonly lastLoginAt: string | null;
+
+  private constructor(user: AdminAccessUser) {
+    this.id = user.id;
+    this.githubLogin = user.githubLogin;
+    this.name = user.name;
+    this.role = user.role;
+    this.accountStatus = user.accountStatus;
+    this.isSelf = user.isSelf;
+    this.isProfileComplete = user.isProfileComplete;
+    this.createdAt = user.createdAt.toISOString();
+    this.pendingRequest = toPendingRequest(user.pendingRequest);
+    this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
+  }
+
+  static from(user: AdminAccessUser): AdminAccessUserResponseDto {
+    return new AdminAccessUserResponseDto(user);
+  }
+}
+
+export class AdminAccessFacetsResponseDto {
+  readonly roles: AdminAccessFacets['roles'];
+  readonly accountStatuses: AdminAccessFacets['accountStatuses'];
+  readonly pendingRequests: AdminAccessFacets['pendingRequests'];
+
+  private constructor(facets: AdminAccessFacets) {
+    this.roles = facets.roles;
+    this.accountStatuses = facets.accountStatuses;
+    this.pendingRequests = facets.pendingRequests;
+  }
+
+  static from(facets: AdminAccessFacets): AdminAccessFacetsResponseDto {
+    return new AdminAccessFacetsResponseDto(facets);
+  }
+}
+
+export class AdminAccessUserPageResponseDto {
+  readonly items: readonly AdminAccessUserResponseDto[];
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+  readonly facets: AdminAccessFacetsResponseDto;
+
+  private constructor(page: AdminAccessUserPage) {
+    this.items = page.items.map((user) =>
+      AdminAccessUserResponseDto.from(user),
+    );
+    this.page = page.page;
+    this.limit = page.limit;
+    this.total = page.total;
+    this.facets = AdminAccessFacetsResponseDto.from(page.facets);
+  }
+
+  static from(page: AdminAccessUserPage): AdminAccessUserPageResponseDto {
+    return new AdminAccessUserPageResponseDto(page);
+  }
+}
+
+export class AdminAccessMutationResponseDto {
+  readonly id: string;
+  readonly role: AuthorityLabel | null;
+  readonly accountStatus: AccountStatus;
+  readonly pendingRequest: PendingRequestResponseDto | null;
+  readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
+
+  private constructor(result: AdminAccessMutationResult) {
+    this.id = result.id;
+    this.role = result.role;
+    this.accountStatus = result.accountStatus;
+    this.pendingRequest = toPendingRequest(result.pendingRequest);
+    this.decidedRequest = result.decidedRequest;
+  }
+
+  static from(
+    result: AdminAccessMutationResult,
+  ): AdminAccessMutationResponseDto {
+    return new AdminAccessMutationResponseDto(result);
+  }
+}
+
+export class IndependentAuthorityMutationResponseDto {
+  readonly id: string;
+  readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+
+  private constructor(result: IndependentAuthorityMutationResult) {
+    this.id = result.id;
+    this.role = result.role;
+    this.memberKind = result.memberKind;
+    this.hasStaffAccess = result.hasStaffAccess;
+    this.hasAdminAccess = result.hasAdminAccess;
+  }
+
+  static from(
+    result: IndependentAuthorityMutationResult,
+  ): IndependentAuthorityMutationResponseDto {
+    return new IndependentAuthorityMutationResponseDto(result);
+  }
+}
+
+export class AdminProfileUpdateResponseDto {
+  readonly id: string;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+
+  private constructor(result: AdminProfileUpdateResult) {
+    this.id = result.id;
+    this.name = result.name;
+    this.studentId = result.studentId;
+    this.department = result.department;
+  }
+
+  static from(result: AdminProfileUpdateResult): AdminProfileUpdateResponseDto {
+    return new AdminProfileUpdateResponseDto(result);
+  }
+}
+
+function toPendingRequest(
+  request: AdminAccessPendingRequest | null,
+): PendingRequestResponseDto | null {
+  return request
+    ? {
+        id: request.id,
+        status: request.status,
+        createdAt: request.createdAt.toISOString(),
+      }
+    : null;
+}
