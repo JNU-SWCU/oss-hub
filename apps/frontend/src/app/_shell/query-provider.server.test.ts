@@ -14,8 +14,12 @@ it('서버 렌더마다 독립된 쿼리 캐시를 만든다', () => {
     return null;
   }
 
-  renderToString(createElement(QueryProvider, { children: createElement(Probe) }));
-  renderToString(createElement(QueryProvider, { children: createElement(Probe) }));
+  renderToString(
+    createElement(QueryProvider, { children: createElement(Probe) }),
+  );
+  renderToString(
+    createElement(QueryProvider, { children: createElement(Probe) }),
+  );
 
   expect(clients).toHaveLength(2);
   expect(clients[0]).not.toBe(clients[1]);

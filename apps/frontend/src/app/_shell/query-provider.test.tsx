@@ -273,7 +273,9 @@ describe('QueryProvider', () => {
   });
 
   it('조회 실패는 자동 재시도하지 않는다', async () => {
-    vi.mocked(getProgramOverview).mockRejectedValue(new Error('overview failed'));
+    vi.mocked(getProgramOverview).mockRejectedValue(
+      new Error('overview failed'),
+    );
     await mount(<Overview />);
 
     expect(client.getQueryState(overviewKey)?.status).toBe('error');
@@ -309,9 +311,14 @@ describe('쿼리 테스트 도구와 키', () => {
   it('program 키는 프로그램 하위 쿼리를 함께 무효화한다', async () => {
     const client = createTestQueryClient();
     client.setQueryData(overviewKey, 'overview');
-    client.setQueryData(programFeatureKey('another-program', 'overview'), 'other');
+    client.setQueryData(
+      programFeatureKey('another-program', 'overview'),
+      'other',
+    );
 
-    await client.invalidateQueries({ queryKey: programKey('synthetic-program') });
+    await client.invalidateQueries({
+      queryKey: programKey('synthetic-program'),
+    });
 
     expect(client.getQueryState(overviewKey)?.isInvalidated).toBe(true);
     expect(
