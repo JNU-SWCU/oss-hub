@@ -36,11 +36,11 @@ export interface LandingGraphStages {
 }
 
 export async function streamLandingGraph(): Promise<LandingGraphStages> {
-  const project = parseLandingProjectPage(
+  const projects = parseLandingProjectPage(
     await apiClient<unknown>('projects?pageSize=3'),
   );
 
-  const details = project.map(async ({ projectId }) => {
+  const details = projects.map(async ({ projectId }) => {
     let response: unknown;
     try {
       response = await apiClient<unknown>(
@@ -54,14 +54,14 @@ export async function streamLandingGraph(): Promise<LandingGraphStages> {
 
   return {
     base: {
-      graph: buildPublicLandingGraph(project, []),
+      graph: buildPublicLandingGraph(projects, []),
       completeness: 'complete',
     },
 
     complete: Promise.all(details).then((settled): LandingGraphStage => {
       const arrived = settled.filter((detail) => detail !== null);
       return {
-        graph: buildPublicLandingGraph(project, arrived),
+        graph: buildPublicLandingGraph(projects, arrived),
         completeness:
           arrived.length === settled.length ? 'complete' : 'partial',
       };

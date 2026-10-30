@@ -25,14 +25,14 @@ const STUDENT_POSITIONS = [
 ] as const;
 
 export function buildPublicLandingGraph(
-  project: readonly LandingProjectItem[],
+  projects: readonly LandingProjectItem[],
   details: readonly LandingProjectDetail[],
 ): LandingGraph {
   const nodes: LandingGraphNode[] = [];
   const edges: LandingGraphEdge[] = [];
   let studentPositionIndex = 0;
 
-  project.forEach((item, index) => {
+  projects.forEach((item, index) => {
     const programNodeId = `program:${item.programId}`;
     if (!nodes.some((node) => node.id === programNodeId)) {
       nodes.push({
