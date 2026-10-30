@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
   loginDestination,
-  readReturnTo,
   rememberLoginDestination,
   takeLoginDestination,
 } from './login-destination';
@@ -14,6 +13,14 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
     rememberLoginDestination(sessionStorage, '/programs/42/apply', 0);
     expect(takeLoginDestination(sessionStorage, 1)).toBe('/programs/42/apply');
     expect(takeLoginDestination(sessionStorage, 2)).toBeNull();
+  });
+  it.each(['/signup', '/logout'])('저장되어 있던 옛 경로 %s도 소비 후 거절한다', (destination) => {
+    sessionStorage.setItem(
+      'oss-hub-login-destination',
+      JSON.stringify({ destination, expiresAt: 600000 }),
+    );
+    expect(takeLoginDestination(sessionStorage, 1)).toBeNull();
+    expect(sessionStorage.getItem('oss-hub-login-destination')).toBeNull();
   });
   it.each([
     'https://evil.example',
@@ -99,25 +106,5 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
       throw new DOMException('Full', 'QuotaExceededError');
     });
     expect(() => rememberLoginDestination(storage, '/ranking')).not.toThrow();
-  });
-});
-
-describe('주소의 returnTo 읽기', () => {
-  it.each([
-    ['문자열', '?returnTo=%2Fprograms%2F42%2Fapply'],
-    ['URLSearchParams', new URLSearchParams('returnTo=/programs/42/apply')],
-    ['객체', { returnTo: '/programs/42/apply' }],
-    ['배열 객체', { returnTo: ['/programs/42/apply', '/ranking'] }],
-  ])('%s 형태에서 유효한 업무 경로를 꺼낸다', (_label, input) => {
-    expect(readReturnTo(input)).toBe('/programs/42/apply');
-  });
-  it.each([
-    '',
-    '?loggedOut=1',
-    '?returnTo=%2F%2Fevil.example',
-    '?returnTo=%2Fsignup',
-    '?returnTo=%2Fprograms%3Ftoken%3Dx',
-  ])('returnTo가 없거나 거절된 %s 에서는 null이다', (search) => {
-    expect(readReturnTo(search)).toBeNull();
   });
 });

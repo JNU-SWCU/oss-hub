@@ -14,16 +14,8 @@ import type { AuthSession, Me } from '../types';
 import {
   clearLoginDestination,
   getLoginDestinationStorage,
-  readReturnTo,
 } from '../login-destination';
-import { hasLogoutNotice, LOGOUT_NOTICE_PARAM } from '../logout-notice';
-
-interface LandingEntry {
-  readonly returnTo: string | null;
-  readonly selectAccount: boolean;
-}
-
-const OUTSIDE_LANDING: LandingEntry = { returnTo: null, selectAccount: false };
+import { rememberLoggedOut, useNavigationNotices } from '@/lib/navigation-notices';
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
@@ -201,26 +193,13 @@ export function LoginButton({
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
-  const [landingEntry, setLandingEntry] =
-    useState<LandingEntry>(OUTSIDE_LANDING);
-
-  useEffect(() => {
-    const search = window.location.search;
-    setLandingEntry(
-      pathname === '/'
-        ? {
-            returnTo: readReturnTo(search),
-            selectAccount: hasLogoutNotice(search),
-          }
-        : OUTSIDE_LANDING,
-    );
-  }, [pathname]);
+  const notices = useNavigationNotices();
 
   return (
     <LoginButtonView
-      session={session}
-      returnTo={pathname === '/' ? landingEntry.returnTo : pathname}
-      selectAccount={landingEntry.selectAccount}
+      session={session?.isAuthenticated === false && notices.status === 'pending' ? null : session}
+      returnTo={pathname === '/' ? null : pathname}
+      selectAccount={notices.status === 'ready' && notices.loggedOut}
       accountRoles={accountRoles}
       logoutError={logoutError}
       menuOpen={menuOpen}
@@ -235,7 +214,8 @@ export function LoginButton({
             if (next.me === null) {
               clearLoginDestination(getLoginDestinationStorage());
 
-              window.location.assign(`/?${LOGOUT_NOTICE_PARAM}=1`);
+              rememberLoggedOut();
+              window.location.assign('/');
               return;
             }
 
