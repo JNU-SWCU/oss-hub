@@ -85,7 +85,12 @@ export class ApplicationPreparationCandidateResponseDto {
     readonly name: string | null;
     readonly avatarUrl: string | null;
   }): ApplicationPreparationCandidateResponseDto {
-    return { ...candidate };
+    return {
+      id: candidate.id,
+      nickname: candidate.nickname,
+      name: candidate.name,
+      avatarUrl: candidate.avatarUrl,
+    };
   }
 }
 
@@ -97,6 +102,6 @@ export class ApplicationPreparationAcceptResponseDto {
     readonly teamId: string;
     readonly programId: string;
   }): ApplicationPreparationAcceptResponseDto {
-    return { ...result };
+    return { teamId: result.teamId, programId: result.programId };
   }
 }

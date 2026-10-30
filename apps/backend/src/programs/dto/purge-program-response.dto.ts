@@ -9,6 +9,10 @@ export class PurgeProgramResponseDto {
   declare readonly deletedCounts: ProgramPurgeDeletedCounts;
 
   static from(result: ProgramPurgeResult): PurgeProgramResponseDto {
-    return { ...result };
+    return {
+      id: result.id,
+      deleted: result.deleted,
+      deletedCounts: result.deletedCounts,
+    };
   }
 }

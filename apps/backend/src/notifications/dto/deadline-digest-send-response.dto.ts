@@ -15,6 +15,19 @@ export class DeadlineDigestSendResponseDto {
   declare readonly failedCount: number;
 
   static from(result: DeadlineDigestSendResult): DeadlineDigestSendResponseDto {
-    return { ...result };
+    return {
+      applicationCount: result.applicationCount,
+      milestoneCount: result.milestoneCount,
+      recipientCount: result.recipientCount,
+      inactiveCount: result.inactiveCount,
+      optedOutCount: result.optedOutCount,
+      noEmailCount: result.noEmailCount,
+      staffRecipientCount: result.staffRecipientCount,
+      sentAt: result.sentAt,
+      previewVersion: result.previewVersion,
+      sentCount: result.sentCount,
+      duplicateCount: result.duplicateCount,
+      failedCount: result.failedCount,
+    };
   }
 }

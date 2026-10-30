@@ -19,6 +19,19 @@ export class DeadlineDigestPreviewResponseDto {
   static from(
     preview: DeadlineDigestPreview,
   ): DeadlineDigestPreviewResponseDto {
-    return { ...preview };
+    return {
+      applicationCount: preview.applicationCount,
+      milestoneCount: preview.milestoneCount,
+      recipientCount: preview.recipientCount,
+      inactiveCount: preview.inactiveCount,
+      optedOutCount: preview.optedOutCount,
+      noEmailCount: preview.noEmailCount,
+      staffRecipientCount: preview.staffRecipientCount,
+      previewedAt: preview.previewedAt,
+      expiresAt: preview.expiresAt,
+      previewVersion: preview.previewVersion,
+      studentPreviews: preview.studentPreviews,
+      staffPreview: preview.staffPreview,
+    };
   }
 }

@@ -1,6 +1,8 @@
 import { ApplicationDecisionNotificationResponseDto } from '../../src/notifications/dto/application-decision-notification-response.dto';
 import { NotificationSettingsResponseDto } from '../../src/notifications/dto/notification-settings-response.dto';
 import { TeamDeletionNotificationResponseDto } from '../../src/notifications/dto/team-deletion-notification-response.dto';
+import { DeadlineDigestPreviewResponseDto } from '../../src/notifications/dto/deadline-digest-preview-response.dto';
+import { DeadlineDigestSendResponseDto } from '../../src/notifications/dto/deadline-digest-send-response.dto';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -44,6 +46,71 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         programName: 'Program A',
         message: null,
         deletedAt: at('2026-02-03T04:05:06.000Z'),
+      }),
+  ],
+  [
+    'DeadlineDigestPreviewResponseDto',
+    () =>
+      DeadlineDigestPreviewResponseDto.from({
+        applicationCount: 3,
+        milestoneCount: 2,
+        recipientCount: 4,
+        inactiveCount: 1,
+        optedOutCount: 1,
+        noEmailCount: 0,
+        staffRecipientCount: 2,
+        previewedAt: '2026-05-01T00:00:00.000Z',
+        expiresAt: '2026-05-01T00:30:00.000Z',
+        previewVersion: 'preview-v1',
+        studentPreviews: [
+          {
+            subject: 'Deadline',
+            text: 'Text body',
+            html: '<p>Body</p>',
+            displayName: 'octo',
+          },
+        ],
+        staffPreview: {
+          subject: 'Staff deadline',
+          text: 'Staff text',
+          html: '<p>Staff</p>',
+        },
+      }),
+  ],
+  [
+    'DeadlineDigestPreviewResponseDto no staff',
+    () =>
+      DeadlineDigestPreviewResponseDto.from({
+        applicationCount: 0,
+        milestoneCount: 0,
+        recipientCount: 0,
+        inactiveCount: 0,
+        optedOutCount: 0,
+        noEmailCount: 0,
+        staffRecipientCount: 0,
+        previewedAt: '2026-05-01T00:00:00.000Z',
+        expiresAt: '2026-05-01T00:30:00.000Z',
+        previewVersion: 'preview-v0',
+        studentPreviews: [],
+        staffPreview: null,
+      }),
+  ],
+  [
+    'DeadlineDigestSendResponseDto',
+    () =>
+      DeadlineDigestSendResponseDto.from({
+        applicationCount: 3,
+        milestoneCount: 2,
+        recipientCount: 4,
+        inactiveCount: 1,
+        optedOutCount: 1,
+        noEmailCount: 0,
+        staffRecipientCount: 2,
+        sentAt: '2026-05-01T00:10:00.000Z',
+        previewVersion: 'preview-v1',
+        sentCount: 5,
+        duplicateCount: 1,
+        failedCount: 0,
       }),
   ],
 ];

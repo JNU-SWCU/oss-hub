@@ -14,6 +14,8 @@ exports[`admin response DTO JSON AdminAccessUserResponseDto pending 1`] = `"{"id
 
 exports[`admin response DTO JSON AdminProfileUpdateResponseDto 1`] = `"{"id":"user-1","name":"Name","studentId":"2026000001","department":null}"`;
 
+exports[`admin response DTO JSON AuditLogPageResponseDto 1`] = `"{"items":[{"id":"audit-1","actor":"Octo Cat","actorHandle":"octo","action":"COLLECTION_TRIGGERED","targetType":"COLLECTION","targetId":"run-1","target":"run-1","targetHandle":null,"occurredAt":"2026-05-01T00:00:00.000Z","legacy":false,"metadata":{"schemaVersion":1}},{"id":"audit-2","actor":"octo","actorHandle":"octo","action":"LEGACY_ACTION","targetType":"USER","targetId":"user-1","target":"user-1","targetHandle":null,"occurredAt":"2026-04-01T00:00:00.000Z","legacy":true,"metadata":null}],"total":2,"page":1,"limit":20}"`;
+
 exports[`admin response DTO JSON CollectionTriggerResponseDto 1`] = `"{"runId":"run-1","status":"PENDING"}"`;
 
 exports[`admin response DTO JSON IndependentAuthorityMutationResponseDto 1`] = `"{"id":"user-1","role":"ADMIN","memberKind":"STAFF","hasStaffAccess":true,"hasAdminAccess":true}"`;

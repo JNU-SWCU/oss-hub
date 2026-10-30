@@ -6,6 +6,6 @@ export class DeleteProgramResponseDto {
     readonly id: string;
     readonly deleted: true;
   }): DeleteProgramResponseDto {
-    return { ...result };
+    return { id: result.id, deleted: result.deleted };
   }
 }

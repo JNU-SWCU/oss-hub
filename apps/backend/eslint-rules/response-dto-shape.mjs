@@ -9,6 +9,21 @@ function returnStatements(node) {
   );
 }
 
+function objectSpreads(node) {
+  if (!node || typeof node.type !== 'string') return [];
+  const own =
+    node.type === 'SpreadElement' && node.parent?.type === 'ObjectExpression'
+      ? [node]
+      : [];
+  return own.concat(
+    Object.entries(node).flatMap(([key, value]) =>
+      key === 'parent' || typeof value !== 'object' || value === null
+        ? []
+        : [value].flat().flatMap(objectSpreads),
+    ),
+  );
+}
+
 function isFrom(member) {
   return (
     member.type === 'MethodDefinition' &&
@@ -38,6 +53,7 @@ export const responseDtoShape = {
       from: 'Response DTO에는 static from을 정확히 하나 둔다.',
       fromType: 'static from은 클래스 타입을 반환 타입으로 명시한다.',
       fromBody: 'static from은 객체 리터럴만 return한다.',
+      fromSpread: 'static from은 객체 spread 없이 선언 필드를 하나씩 나열한다.',
     },
   },
   create(context) {
@@ -74,6 +90,9 @@ export const responseDtoShape = {
             )
           ) {
             context.report({ node: from, messageId: 'fromBody' });
+          }
+          for (const spread of objectSpreads(from.value.body)) {
+            context.report({ node: spread, messageId: 'fromSpread' });
           }
         }
       },

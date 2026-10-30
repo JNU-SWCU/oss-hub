@@ -10,6 +10,12 @@ export class ProgramAuthoringUploadResponseDto {
   static from(
     upload: ProgramAuthoringUploadResponse,
   ): ProgramAuthoringUploadResponseDto {
-    return { ...upload };
+    return {
+      id: upload.id,
+      fileName: upload.fileName,
+      contentType: upload.contentType,
+      size: upload.size,
+      expiresAt: upload.expiresAt,
+    };
   }
 }

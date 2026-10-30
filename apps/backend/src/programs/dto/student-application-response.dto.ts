@@ -19,11 +19,20 @@ export class StudentApplicationResponseDto {
     application: StudentApplicationView,
   ): StudentApplicationResponseDto {
     return {
-      ...application,
-      canEdit: application.canManage,
-      canCancel: application.canManage,
+      id: application.id,
+      programId: application.programId,
+      status: application.status,
+      teamId: application.teamId,
+      answers: application.answers,
       submittedAt: application.submittedAt.toISOString(),
       updatedAt: application.updatedAt.toISOString(),
+      isRepositoryPublicationPlanned:
+        application.isRepositoryPublicationPlanned,
+      rejectionReason: application.rejectionReason,
+      isManager: application.isManager,
+      canManage: application.canManage,
+      canEdit: application.canManage,
+      canCancel: application.canManage,
     };
   }
 }
@@ -34,6 +43,6 @@ export class StudentApplicationCancellationResponseDto {
   static from(result: {
     readonly cancelled: true;
   }): StudentApplicationCancellationResponseDto {
-    return { ...result };
+    return { cancelled: result.cancelled };
   }
 }

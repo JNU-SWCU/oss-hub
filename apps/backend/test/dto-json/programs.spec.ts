@@ -137,6 +137,21 @@ import type {
 import type { PublicProjectRow } from '../../src/programs/public-projects.policy';
 import type { SubmissionReviewContext } from '../../src/programs/submission-review.types';
 import type { SentTeamInvitationRecord } from '../../src/programs/team-invitation.types';
+import {
+  ApplicationPreparationAcceptResponseDto,
+  ApplicationPreparationCandidateResponseDto,
+} from '../../src/programs/dto/application-preparation-response.dto';
+import { DeleteProgramResponseDto } from '../../src/programs/dto/delete-program-response.dto';
+import { ProgramAuthoringUploadResponseDto } from '../../src/programs/dto/program-authoring-upload-response.dto';
+import { ProgramDocumentChangeRequestCountResponseDto } from '../../src/programs/dto/program-document-change-request-count-response.dto';
+import { PurgeProgramResponseDto } from '../../src/programs/dto/purge-program-response.dto';
+import {
+  StudentApplicationCancellationResponseDto,
+  StudentApplicationResponseDto,
+} from '../../src/programs/dto/student-application-response.dto';
+import { StudentRepositoryUrlResponseDto } from '../../src/programs/dto/student-repository-url-response.dto';
+import { UploadedMilestoneDocumentFileResponseDto } from '../../src/programs/dto/uploaded-milestone-document-file-response.dto';
+import { UploadedSubmissionFileResponseDto } from '../../src/programs/dto/uploaded-submission-file-response.dto';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -1567,6 +1582,153 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         pageSize: 20,
         totalItems: 2,
         totalPages: 1,
+      }),
+  ],
+  [
+    'ApplicationPreparationCandidateResponseDto',
+    () =>
+      ApplicationPreparationCandidateResponseDto.from({
+        id: 'user-2',
+        nickname: 'hubot',
+        name: null,
+        avatarUrl: 'https://avatars.example.com/hubot.png',
+      }),
+  ],
+  [
+    'ApplicationPreparationAcceptResponseDto',
+    () =>
+      ApplicationPreparationAcceptResponseDto.from({
+        teamId: 'preparation-1',
+        programId: 'program-1',
+      }),
+  ],
+  [
+    'DeleteProgramResponseDto',
+    () => DeleteProgramResponseDto.from({ id: 'program-1', deleted: true }),
+  ],
+  [
+    'PurgeProgramResponseDto',
+    () =>
+      PurgeProgramResponseDto.from({
+        id: 'program-1',
+        deleted: true,
+        deletedCounts: {
+          applications: 1,
+          teams: 2,
+          teamMembers: 3,
+          teamInvitations: 4,
+          boardPosts: 5,
+          boardComments: 6,
+          submissions: 7,
+          submissionRevisions: 8,
+          reviews: 9,
+          submissionFiles: 10,
+          milestones: 11,
+          milestoneDocuments: 12,
+          milestoneDocumentSubmissions: 13,
+          milestoneDocumentSubmissionHistories: 14,
+          milestoneDocumentReviewHistories: 15,
+          milestoneDocumentTemplateFiles: 16,
+          programAuthoringUploads: 17,
+          programCreateRequests: 18,
+          repositoryProvisionJobs: 19,
+          githubRepositoriesDetached: 20,
+          outboxEvents: 21,
+          notifications: 22,
+          programPurgeFileTombstones: 23,
+        },
+      }),
+  ],
+  [
+    'ProgramAuthoringUploadResponseDto',
+    () =>
+      ProgramAuthoringUploadResponseDto.from({
+        id: 'upload-1',
+        fileName: 'guide.pdf',
+        contentType: 'application/pdf',
+        size: 1024,
+        expiresAt: '2026-05-02T00:00:00.000Z',
+      }),
+  ],
+  [
+    'ProgramDocumentChangeRequestCountResponseDto',
+    () =>
+      ProgramDocumentChangeRequestCountResponseDto.from({ requestedCount: 3 }),
+  ],
+  [
+    'StudentApplicationResponseDto manager',
+    () =>
+      StudentApplicationResponseDto.from({
+        id: 'application-1',
+        programId: 'program-1',
+        status: 'SUBMITTED',
+        teamId: 'team-1',
+        answers: { applicantName: 'Octo', title: 'Project' },
+        submittedAt: at('2026-01-02T03:04:05.000Z'),
+        updatedAt: at('2026-01-03T03:04:05.000Z'),
+        isRepositoryPublicationPlanned: true,
+        rejectionReason: null,
+        isManager: true,
+        canManage: true,
+      }),
+  ],
+  [
+    'StudentApplicationResponseDto rejected member',
+    () =>
+      StudentApplicationResponseDto.from({
+        id: 'application-1',
+        programId: 'program-1',
+        status: 'REJECTED',
+        teamId: null,
+        answers: { applicantName: 'Octo', title: 'Project' },
+        submittedAt: at('2026-01-02T03:04:05.000Z'),
+        updatedAt: at('2026-01-03T03:04:05.000Z'),
+        isRepositoryPublicationPlanned: false,
+        rejectionReason: 'Not eligible',
+        isManager: false,
+        canManage: false,
+      }),
+  ],
+  [
+    'StudentApplicationCancellationResponseDto',
+    () => StudentApplicationCancellationResponseDto.from({ cancelled: true }),
+  ],
+  [
+    'StudentRepositoryUrlResponseDto',
+    () =>
+      StudentRepositoryUrlResponseDto.from({
+        repositoryUrl: 'https://github.com/org/repo',
+        canEditRepositoryUrl: true,
+      }),
+  ],
+  [
+    'StudentRepositoryUrlResponseDto empty',
+    () =>
+      StudentRepositoryUrlResponseDto.from({
+        repositoryUrl: null,
+        canEditRepositoryUrl: false,
+      }),
+  ],
+  [
+    'UploadedMilestoneDocumentFileResponseDto',
+    () =>
+      UploadedMilestoneDocumentFileResponseDto.from({
+        fileId: 'file-1',
+        fileName: 'report.pdf',
+        contentType: 'application/pdf',
+        size: 2048,
+        expiresAt: '2026-05-03T00:00:00.000Z',
+      }),
+  ],
+  [
+    'UploadedSubmissionFileResponseDto',
+    () =>
+      UploadedSubmissionFileResponseDto.from({
+        fileId: 'file-2',
+        fileName: 'archive.zip',
+        contentType: 'application/zip',
+        size: 4096,
+        expiresAt: '2026-05-04T00:00:00.000Z',
       }),
   ],
 ];

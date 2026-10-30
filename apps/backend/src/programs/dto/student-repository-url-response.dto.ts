@@ -5,6 +5,9 @@ export class StudentRepositoryUrlResponseDto {
   declare readonly canEditRepositoryUrl: boolean;
 
   static from(view: StudentRepositoryUrlView): StudentRepositoryUrlResponseDto {
-    return { ...view };
+    return {
+      repositoryUrl: view.repositoryUrl,
+      canEditRepositoryUrl: view.canEditRepositoryUrl,
+    };
   }
 }

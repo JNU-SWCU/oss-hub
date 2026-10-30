@@ -10,6 +10,11 @@ export class AuditLogPageResponseDto {
   declare readonly limit: number;
 
   static from(page: AuditLogPage): AuditLogPageResponseDto {
-    return { ...page };
+    return {
+      items: page.items,
+      total: page.total,
+      page: page.page,
+      limit: page.limit,
+    };
   }
 }

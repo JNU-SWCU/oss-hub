@@ -14,6 +14,7 @@ import type {
   AdminAccessMutationResult,
   AdminAccessUser,
 } from '../../src/users/admin-access.types';
+import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -226,6 +227,43 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           ...systemStatus.externalCollection,
           lastSweep: null,
         },
+      }),
+  ],
+  [
+    'AuditLogPageResponseDto',
+    () =>
+      AuditLogPageResponseDto.from({
+        items: [
+          {
+            id: 'audit-1',
+            actor: 'Octo Cat',
+            actorHandle: 'octo',
+            action: 'COLLECTION_TRIGGERED',
+            targetType: 'COLLECTION',
+            targetId: 'run-1',
+            target: 'run-1',
+            targetHandle: null,
+            occurredAt: at('2026-05-01T00:00:00.000Z'),
+            legacy: false,
+            metadata: { schemaVersion: 1 },
+          },
+          {
+            id: 'audit-2',
+            actor: 'octo',
+            actorHandle: 'octo',
+            action: 'LEGACY_ACTION',
+            targetType: 'USER',
+            targetId: 'user-1',
+            target: 'user-1',
+            targetHandle: null,
+            occurredAt: at('2026-04-01T00:00:00.000Z'),
+            legacy: true,
+            metadata: null,
+          },
+        ],
+        total: 2,
+        page: 1,
+        limit: 20,
       }),
   ],
 ];

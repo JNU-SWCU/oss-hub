@@ -10,6 +10,12 @@ export class UploadedMilestoneDocumentFileResponseDto {
   static from(
     file: UploadedMilestoneDocumentFileResponse,
   ): UploadedMilestoneDocumentFileResponseDto {
-    return { ...file };
+    return {
+      fileId: file.fileId,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+      expiresAt: file.expiresAt,
+    };
   }
 }

@@ -10,6 +10,12 @@ export class UploadedSubmissionFileResponseDto {
   static from(
     file: UploadedSubmissionFileResponse,
   ): UploadedSubmissionFileResponseDto {
-    return { ...file };
+    return {
+      fileId: file.fileId,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+      expiresAt: file.expiresAt,
+    };
   }
 }

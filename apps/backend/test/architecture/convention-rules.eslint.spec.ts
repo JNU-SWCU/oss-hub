@@ -316,6 +316,28 @@ invalid(
 }`,
   ['fromBody'],
 );
+invalid(
+  'response-dto-shape',
+  'rejects a static from that spreads its source into the literal',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  static from(thing: { readonly id: string }): ThingResponseDto { return { ...thing }; }
+}`,
+  ['fromSpread'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects an object spread nested inside the returned literal',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly items: readonly { readonly id: string }[];
+  static from(page: { readonly items: readonly { readonly id: string }[] }): ThingResponseDto {
+    return { items: page.items.map((item) => ({ ...item })) };
+  }
+}`,
+  ['fromSpread'],
+);
 
 const requestFile = 'src/programs/dto/thing-request.dto.ts';
 valid(

@@ -4,6 +4,6 @@ export class ProgramDocumentChangeRequestCountResponseDto {
   static from(result: {
     readonly requestedCount: number;
   }): ProgramDocumentChangeRequestCountResponseDto {
-    return { ...result };
+    return { requestedCount: result.requestedCount };
   }
 }
