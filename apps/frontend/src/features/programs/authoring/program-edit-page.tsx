@@ -1,4 +1,5 @@
-﻿'use client';
+'use client';
+import { rememberProgramPurged } from '@/lib/navigation-notices';
 
 import { useProgramCoverEdit } from './use-program-cover-edit';
 
@@ -594,13 +595,10 @@ export function ProgramEditPage({
         milestoneSnapshot={milestoneSnapshot}
         canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
         canDeleteProgram={canDeleteProgram}
-        onProgramDeleted={(notice) =>
-          completeAndNavigate(
-            notice
-              ? `/programs?purged=${encodeURIComponent(notice)}`
-              : '/programs',
-          )
-        }
+        onProgramDeleted={(notice) => {
+          if (notice) rememberProgramPurged(notice);
+          completeAndNavigate('/programs');
+        }}
         onFieldChange={updateField}
         onSubmit={(event) => void submit(event)}
         onAddMilestone={openAddMilestone}

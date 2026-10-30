@@ -214,7 +214,9 @@ export async function loadProjectDetail(
 
   try {
     return parseProjectDetail(
-      await apiClient<unknown>(`projects/${targetProjectId}`),
+      await apiClient<unknown>(
+        `projects/${encodeURIComponent(targetProjectId)}`,
+      ),
     );
   } catch (error) {
     if (

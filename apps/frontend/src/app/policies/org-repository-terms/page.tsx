@@ -1,15 +1,11 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Org 저장소 운영 약관</title>
-    <link rel="stylesheet" href="/policies/policy-document.css" />
-  </head>
-  <body>
-    <main>
-      <h1>Org 저장소 운영 약관</h1>
-      <p>정책 버전: 2026-08-11</p>
+import type { Metadata } from 'next';
+import { PolicyDocument } from '../policy-document';
+
+export const metadata: Metadata = { title: 'Org 저장소 운영 약관' };
+
+export default function Page() {
+  return (
+    <PolicyDocument title="Org 저장소 운영 약관">
       <h2>소유·관리와 참여 권한</h2>
       <p>
         JNU-SWCU Org 안에 생성·이관된 저장소의 소유·관리 주체는
@@ -36,6 +32,6 @@
         공동 저작권이 성립하지 않습니다. 라이선스와 성과물 IP 조건이 필요한
         프로그램은 별도 약관으로 고지합니다.
       </p>
-    </main>
-  </body>
-</html>
+    </PolicyDocument>
+  );
+}

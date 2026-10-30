@@ -5,18 +5,10 @@ import {
   ProgramSchedule,
   type CountdownMilestone,
 } from './program-countdown-program-schedule';
-import {
-  formatClock,
-  formatCountdownDate,
-  remainingUntil,
-} from './program-countdown-time';
+import { remainingUntil } from './program-countdown-time';
 
 export { type CountdownMilestone } from './program-countdown-program-schedule';
-export {
-  formatClock,
-  formatCountdownDate,
-  remainingUntil,
-} from './program-countdown-time';
+export { formatCountdownDate, remainingUntil } from './program-countdown-time';
 interface SingleCountdownProps {
   readonly mode?: 'single';
   readonly nextMilestoneLabel: string;
@@ -82,14 +74,7 @@ function SingleCountdown({
       data-slot="program-countdown"
       className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
     >
-      <p className="text-xs text-muted-foreground">현재 시각</p>
-      <p className="text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums">
-        {formatClock(clock)}
-      </p>
-      <p className="text-xs text-muted-foreground tabular-nums">
-        {formatCountdownDate(clock)}
-      </p>
-      <p className="mt-3 text-xs text-muted-foreground">{untilText}</p>
+      <p className="text-xs text-muted-foreground">{untilText}</p>
       <div className="mt-1 flex items-baseline gap-2">
         <CountdownUnit value={remaining.days} unit="일" />
         <CountdownUnit value={remaining.hours} unit="시간" />

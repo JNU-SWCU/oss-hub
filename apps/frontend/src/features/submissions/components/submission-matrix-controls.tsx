@@ -5,8 +5,8 @@ import { FilterChip, FilterChipGroup } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
+  DOCUMENT_DELIVERY_LABELS,
   DOCUMENT_DELIVERY_STATUSES,
-  type DocumentDeliveryStatus,
 } from '@/lib/document-delivery';
 import {
   matrixPageStats,
@@ -14,13 +14,6 @@ import {
   type MatrixQuickFilter,
 } from '../matrix';
 import type { MatrixMilestone, MatrixRow } from '../types';
-
-const TEAM_DELIVERY_LABELS = {
-  MISSING: '미제출 있는 팀',
-  LATE: '지각 제출 팀',
-  COMPLETE: '제출 완료 팀',
-  NO_REQUIRED_ITEMS: '필수 서류 없는 팀',
-} as const satisfies Record<DocumentDeliveryStatus, string>;
 
 export function MatrixPagination({
   page,
@@ -117,17 +110,17 @@ export function MatrixQuickFilterButtons({
 }): ReactElement {
   const titleId = useId();
   const options = [
-    { value: 'ALL' as const, label: `전체 팀 ${rows.length}` },
+    { value: 'ALL' as const, label: `전체 ${rows.length}` },
     ...DOCUMENT_DELIVERY_STATUSES.map((value) => ({
       value,
-      label: `${TEAM_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}`,
+      label: `${DOCUMENT_DELIVERY_LABELS[value]} ${rows.filter((row) => matrixRowDeliveryStatus(row, visibleMilestones) === value).length}`,
     })),
   ];
 
   return (
     <FilterChipGroup aria-labelledby={titleId} className="max-w-full">
       <p id={titleId} className="w-full text-small font-semibold">
-        필수 서류 제출 상태
+        팀별 필수 서류 제출 상태
       </p>
       {options.map((option) => (
         <FilterChip

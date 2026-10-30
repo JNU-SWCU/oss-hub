@@ -1,13 +1,16 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
+import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
 import { StudentDashboardView } from './components/student-dashboard-view';
+import { fetchStudentDashboard } from './api';
 import {
   completedDashboardFixture,
   dashboardFeedback,
   dashboardFixture,
   dashboardItem,
   dashboardMilestone,
+  legacyDashboardLinkFieldsFixture,
   pendingDashboardFixture,
   rejectedDashboardFixture,
 } from './fixtures';
@@ -61,6 +64,28 @@ const chipLabels = (html: string) =>
   );
 
 describe('StudentDashboardView', () => {
+  it.each(legacyDashboardLinkFieldsFixture)(
+    '백엔드 링크 값 %j를 사용하지 않고 프로그램의 정규 경로를 표시한다',
+    async (links) => {
+      const item = firstItemOf(dashboardFixture);
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ items: [{ ...item, ...links }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      try {
+        const data = await fetchStudentDashboard();
+        const html = renderView({ data });
+
+        expect(html).toContain(`href="/programs/${item.programId}/team"`);
+        expect(html).toContain(`href="/programs/${item.programId}/documents"`);
+      } finally {
+        fetchMock.mockRestore();
+      }
+    },
+  );
+
   it('헤더에 내 활동 바로가기를 두지 않는다', () => {
     const html = renderView();
     const emptyHtml = renderView({ data: { items: [] } });
@@ -98,8 +123,7 @@ describe('StudentDashboardView', () => {
     expect(html).toContain(item.teamName);
     expect(html).toContain('우리 팀');
 
-    expect(item.teamUrl).toBe(`/programs/${item.programId}/my-team`);
-    expect(html).toContain(`href="${item.teamUrl}"`);
+    expect(html).toContain(`href="/programs/${item.programId}/team"`);
   });
 
   it('카드 전체를 링크로 감싸거나 링크 안에 버튼을 중첩하지 않는다', () => {
@@ -113,10 +137,10 @@ describe('StudentDashboardView', () => {
     const item = firstItemOf(dashboardFixture);
     const html = renderView();
 
-    expect(linksTo(html, item.teamUrl)).toEqual([
+    expect(linksTo(html, programMyTeamHref(item.programId))).toEqual([
       { text: '우리 팀', variant: 'outline' },
     ]);
-    expect(linksTo(html, item.checklistUrl)).toEqual([
+    expect(linksTo(html, programDocumentsHref(item.programId))).toEqual([
       { text: '서류 내기', variant: 'outline' },
     ]);
 
@@ -124,8 +148,7 @@ describe('StudentDashboardView', () => {
     expect(html).not.toContain('프로그램 상세');
     expect(html).not.toContain(`href="/programs/${item.programId}"`);
 
-    expect(item.checklistUrl).toBe(`/programs/${item.programId}/submissions`);
-    expect(item.checklistUrl).not.toBe(item.teamUrl);
+    expect(html).toContain(`href="/programs/${item.programId}/documents"`);
   });
 
   it('저장소 생성·초대 상태와 안전한 이동 링크를 제공한다', () => {
@@ -249,7 +272,7 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 현황');
     expect(html).not.toContain(
-      `href="${firstItemOf(pendingDashboardFixture).checklistUrl}"`,
+      `href="${programDocumentsHref(firstItemOf(pendingDashboardFixture).programId)}"`,
     );
   });
 
@@ -386,7 +409,7 @@ describe('StudentDashboardView', () => {
 
     expect(html).toContain('합성 프로그램 신청이 승인되었습니다');
     expect(html).toContain('다음 제출 일정과 준비할 내용을 확인해 주세요');
-    expect(html).toContain('href="/programs/program-1/submissions"');
+    expect(html).toContain('href="/programs/program-1/documents"');
     expect(html).toContain('2026. 8. 9.');
   });
 
@@ -547,13 +570,13 @@ describe('StudentDashboardView 프로그램 묶음', () => {
     const fresh = active('fresh', '2026-07-30T23:59:59+09:00');
     const html = renderView({ data: { items: [fresh, resubmit, reviewing] } });
 
-    expect(linksTo(html, reviewing.checklistUrl)).toEqual([
+    expect(linksTo(html, programDocumentsHref(reviewing.programId))).toEqual([
       { text: '제출 현황', variant: 'outline' },
     ]);
-    expect(linksTo(html, resubmit.checklistUrl)).toEqual([
+    expect(linksTo(html, programDocumentsHref(resubmit.programId))).toEqual([
       { text: '다시 내기', variant: 'default' },
     ]);
-    expect(linksTo(html, fresh.checklistUrl)).toEqual([
+    expect(linksTo(html, programDocumentsHref(fresh.programId))).toEqual([
       { text: '서류 내기', variant: 'outline' },
     ]);
     expect(html.match(/data-variant="default"/g)).toHaveLength(1);
@@ -592,19 +615,23 @@ describe('StudentDashboardView 프로그램 묶음', () => {
     expect(html).toContain('승인되면 다음 일정이 표시됩니다.');
     expect(html).toMatch(/data-variant="rejected"[^>]*>반려</);
     expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요.');
-    expect(html.indexOf(`href="${done.teamUrl}"`)).toBeLessThan(
-      html.indexOf(`href="${done.checklistUrl}"`),
+    expect(
+      html.indexOf(`href="${programMyTeamHref(done.programId)}"`),
+    ).toBeLessThan(
+      html.indexOf(`href="${programDocumentsHref(done.programId)}"`),
     );
     for (const item of [submitted, rejected]) {
       expect(linksTo(html, item.detailUrl)).toEqual([
         { text: '신청 상세', variant: 'outline' },
       ]);
       expect(html.indexOf(`href="${item.detailUrl}"`)).toBeLessThan(
-        html.indexOf(`href="${item.teamUrl}"`),
+        html.indexOf(`href="${programMyTeamHref(item.programId)}"`),
       );
-      expect(html).not.toContain(`href="${item.checklistUrl}"`);
+      expect(html).not.toContain(
+        `href="${programDocumentsHref(item.programId)}"`,
+      );
     }
-    expect(linksTo(html, done.checklistUrl)).toEqual([
+    expect(linksTo(html, programDocumentsHref(done.programId))).toEqual([
       { text: '제출 현황', variant: 'outline' },
     ]);
     expect(html).not.toContain('data-variant="default"');
@@ -898,7 +925,7 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     );
     expect(failure).toBeLessThan(html.indexOf(first.programName));
     expect(html).toContain('다시 시도');
-    expect(html).toContain(`href="${first.checklistUrl}"`);
+    expect(html).toContain(`href="${programDocumentsHref(first.programId)}"`);
     expect(html).not.toMatch(/새 피드백 \d+건/);
   });
 
