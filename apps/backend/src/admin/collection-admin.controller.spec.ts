@@ -1,0 +1,293 @@
+import { Logger } from '@nestjs/common';
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
+import { Test } from '@nestjs/testing';
+
+import { AuditLogService } from '../platform/audit-log.service';
+import type { AuditLogRecord } from '../platform/audit-log.repository';
+import { OriginGuard } from '../auth/origin.guard';
+import { SessionGuard } from '../auth/session.guard';
+import { CollectionAdminController } from './collection-admin.controller';
+import { CollectionAdminService } from '../github/collection-admin.service';
+import { UsersAuthorityService } from '../users/authority.service';
+import { CollectionCutoverRepository } from '../github/collection-cutover.repository';
+import { CollectionSyncService } from '../github/collection-sync.service';
+import {
+  CollectionUserActivityService,
+  type CollectionUserActivitySweepResult,
+} from '../github/collection-user-activity.service';
+
+const authority = {
+  assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
+} as unknown as UsersAuthorityService;
+
+function createController(
+  sync: CollectionSyncService,
+  cutover: CollectionCutoverRepository,
+  audit: AuditLogService,
+  activity: CollectionUserActivityService,
+): CollectionAdminController {
+  return new CollectionAdminController(
+    new CollectionAdminService(sync, cutover, audit, activity, authority),
+  );
+}
+
+describe('CollectionAdminController', () => {
+  const run = jest.fn<
+    Promise<{ runId: string; status: 'COMPLETED' }>,
+    [string, string?]
+  >();
+  const runExternal = jest.fn<
+    Promise<{ runId: string; status: 'COMPLETED' }>,
+    [string, string?]
+  >();
+  const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
+  const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
+  const runUserActivity = jest.fn<
+    Promise<CollectionUserActivitySweepResult>,
+    []
+  >();
+  const sessionRequest = { sessionGithubId: 4242n };
+
+  beforeEach(() => {
+    run.mockReset();
+    runExternal.mockReset();
+    runExternal.mockResolvedValue({
+      runId: 'synthetic-external-run-id',
+      status: 'COMPLETED',
+    });
+    isQuiesced.mockReset();
+    isQuiesced.mockResolvedValue(false);
+    record.mockReset();
+    record.mockResolvedValue({} as AuditLogRecord);
+    runUserActivity.mockReset();
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 0,
+      upsertedRowCount: 0,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
+    });
+  });
+
+  it('실행을 시작하고 202 응답 DTO를 반환한다', async () => {
+    const testingModule = await Test.createTestingModule({
+      controllers: [CollectionAdminController],
+      providers: [
+        CollectionAdminService,
+        { provide: UsersAuthorityService, useValue: authority },
+        { provide: CollectionSyncService, useValue: { run, runExternal } },
+        { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        { provide: AuditLogService, useValue: { record } },
+        {
+          provide: CollectionUserActivityService,
+          useValue: { run: runUserActivity },
+        },
+      ],
+    })
+      .overrideGuard(SessionGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OriginGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
+    const controller = testingModule.get(CollectionAdminController);
+    run.mockResolvedValue({
+      runId: 'synthetic-scheduler-run-id',
+      status: 'COMPLETED',
+    });
+
+    const result = await controller.trigger(sessionRequest);
+    expect(result.status).toBe('PENDING');
+    expect(typeof result.runId).toBe('string');
+    await testingModule.close();
+  });
+
+  it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await controller.trigger(sessionRequest);
+
+    expect(runExternal).toHaveBeenCalledTimes(1);
+    expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
+
+    expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
+  });
+
+  it('수동 트리거도 사람 축 sweep을 세 번째로 함께 돌린다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runUserActivity.mockResolvedValue({
+      observedUserCount: 51,
+      upsertedRowCount: 51,
+      skippedPastYearCount: 0,
+      failedUserCount: 0,
+    });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await controller.trigger(sessionRequest);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runUserActivity).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.completed',
+        scope: 'person',
+        observedUserCount: 51,
+        upsertedRowCount: 51,
+      }),
+    );
+    logger.mockRestore();
+  });
+
+  it('사람 축 sweep 실패는 별도 이벤트로만 기록되고 org sweep을 막지 않는다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runUserActivity.mockRejectedValue(new Error('person sweep unavailable'));
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(controller.trigger(sessionRequest)).resolves.toEqual(
+      expect.objectContaining({ status: 'PENDING' }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.person_sync_failed',
+        scope: 'person',
+      }),
+    );
+    logger.mockRestore();
+  });
+
+  it('quiesce lease가 걸려 있으면 COL_008을 던지고 새 writer를 호출하지 않는다', async () => {
+    isQuiesced.mockResolvedValue(true);
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(controller.trigger(sessionRequest)).rejects.toMatchObject({
+      errorCode: { code: 'COL_008', status: 409 },
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(runExternal).not.toHaveBeenCalled();
+  });
+
+  it('백그라운드 external sweep 실패는 트리거 응답이나 org sweep에 영향을 주지 않고 별도 이벤트로 기록된다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
+    runExternal.mockRejectedValue(new Error('external provider unavailable'));
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    const result = await controller.trigger(sessionRequest);
+    expect(result.status).toBe('PENDING');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.admin.external_sync_failed',
+      }),
+    );
+    expect(logger).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'collection.admin.sync_failed' }),
+    );
+  });
+
+  it('세션과 origin guard를 유지하고 HTTP 202를 선언한다', () => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      CollectionAdminController.prototype,
+      'trigger',
+    )?.value;
+    expect(typeof handler).toBe('function');
+    if (typeof handler !== 'function') {
+      return;
+    }
+    const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
+    const statusCode: unknown = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      handler,
+    );
+
+    expect(guards).toEqual([SessionGuard, OriginGuard]);
+    expect(statusCode).toBe(202);
+  });
+
+  it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
+    run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    const response = await controller.trigger(sessionRequest);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
+  });
+
+  it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
+    run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    const response = await controller.trigger(sessionRequest);
+
+    expect(record).toHaveBeenCalledWith({
+      actorGithubId: 4242n,
+      action: 'COLLECTION_SYNC_TRIGGERED',
+      targetType: 'COLLECTION_SYNC',
+      targetId: response.runId,
+      metadata: { schemaVersion: 1, runId: response.runId },
+    });
+    expect(response.status).toBe('PENDING');
+  });
+
+  it('quiesce로 거부된 트리거는 감사 기록을 남기지 않는다', async () => {
+    isQuiesced.mockResolvedValue(true);
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { record } as unknown as AuditLogService,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
+
+    expect(record).not.toHaveBeenCalled();
+  });
+});

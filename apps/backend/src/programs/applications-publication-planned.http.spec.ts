@@ -30,10 +30,10 @@ import type {
 import { ApplicationsService } from './applications.service';
 import type { ApplicationDecisionTarget } from './application-decision.policy';
 import { ProgramApplicationsController } from './program-applications.controller';
-import { StaffDashboardController } from './staff-dashboard.controller';
-import { StaffDashboardService } from './staff-dashboard.service';
-import type { StaffInsightsRepository } from './staff-insights.repository';
-import { StaffInsightsService } from './staff-insights.service';
+import { StaffDashboardController } from '../staff/staff-dashboard.controller';
+import { StaffDashboardService } from '../staff/staff-dashboard.service';
+import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
+import { StaffInsightsService } from '../staff/staff-insights.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 
 const allowedOrigin = 'http://frontend.test';

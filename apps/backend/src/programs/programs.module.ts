@@ -32,11 +32,8 @@ import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
-import { StudentDashboardController } from './student-dashboard.controller';
 import { ProgramsRepository } from './programs.repository';
-import { StudentDashboardReadRepository } from './student-dashboard-read.repository';
 import { ProgramsService } from './programs.service';
-import { StudentDashboardService } from './student-dashboard.service';
 import { ProgramCoverController } from './program-cover.controller';
 import { ProgramCoverService } from './program-cover.service';
 import { ProgramCoverRepository } from './program-cover.repository';
@@ -70,10 +67,6 @@ import { ApplicationsRepository } from './applications.repository';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
-import { StaffDashboardController } from './staff-dashboard.controller';
-import { StaffDashboardService } from './staff-dashboard.service';
-import { StaffInsightsRepository } from './staff-insights.repository';
-import { StaffInsightsService } from './staff-insights.service';
 import {
   StudentApplicationManagementRepository,
   STUDENT_APPLICATION_MANAGEMENT_CLOCK,
@@ -119,12 +112,6 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
-import { MilestoneDocumentFeedbackController } from './milestone-document-feedback.controller';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
-import {
-  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-  MilestoneDocumentFeedbackService,
-} from './milestone-document-feedback.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -135,7 +122,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,
-    StaffDashboardController,
     StudentApplicationsController,
     ProgramApplicationsController,
     ApplicationsController,
@@ -145,7 +131,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     ProgramCoverController,
     ProgramsController,
     ProgramLifecycleController,
-    StudentDashboardController,
     ProgramEditorController,
     MilestonesController,
     ProgramTeamsController,
@@ -166,7 +151,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     MilestoneDocumentsController,
     MilestoneDocumentFilesController,
     MilestoneDocumentCurrentFileController,
-    MilestoneDocumentFeedbackController,
   ],
   providers: [
     ProgramsService,
@@ -190,8 +174,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     ProgramActivitySummaryService,
     ProgramActivityService,
     ProgramViewerService,
-    StudentDashboardReadRepository,
-    StudentDashboardService,
     ProgramEditorService,
     ProgramEditorRepository,
     ProgramLifecycleService,
@@ -234,9 +216,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,
-    StaffDashboardService,
-    StaffInsightsRepository,
-    StaffInsightsService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
       useValue: () => new Date(),
@@ -260,9 +239,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     MilestoneDocumentCollectionReadRepository,
     MilestoneDocumentCurrentFileRepository,
     MilestoneDocumentCurrentFileService,
-    MilestoneDocumentFeedbackRepository,
-    MilestoneDocumentFeedbackService,
-    { provide: MILESTONE_DOCUMENT_FEEDBACK_CLOCK, useValue: () => new Date() },
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
     ProgramDocumentChangeRequestsService,
@@ -270,6 +246,8 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     MilestoneDocumentArchiveRepository,
   ],
   exports: [
+    ProgramActivityService,
+    ProgramViewerService,
     ProgramActivitySummaryService,
     ProgramAuthoringService,
     ProgramAuthoringUploadService,

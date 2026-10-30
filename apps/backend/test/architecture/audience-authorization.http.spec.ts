@@ -1,16 +1,16 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuditLogController } from '../../src/audit-log/controller/audit-log.controller';
+import { AuditLogController } from '../../src/admin/audit-log.controller';
 import { AuditLogRepository } from '../../src/platform/audit-log.repository';
 import { AuditLogService } from '../../src/platform/audit-log.service';
-import { StaffDashboardController } from '../../src/programs/staff-dashboard.controller';
+import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/applications.repository';
-import { StaffInsightsRepository } from '../../src/programs/staff-insights.repository';
+import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
 import { ApplicationJoinCodeService } from '../../src/programs/application-join-code.service';
 import { ApplicationsService } from '../../src/programs/applications.service';
-import { StaffDashboardService } from '../../src/programs/staff-dashboard.service';
-import { StaffInsightsService } from '../../src/programs/staff-insights.service';
+import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
+import { StaffInsightsService } from '../../src/staff/staff-insights.service';
 import { AuthConfig } from '../../src/auth/auth.config';
 import { OriginGuard } from '../../src/auth/origin.guard';
 import { SessionGuard } from '../../src/auth/session.guard';
@@ -18,39 +18,39 @@ import { sessionCookieName } from '../../src/auth/cookies.policy';
 import { issueSessionToken } from '../../src/auth/session-token.policy';
 import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
-import { RepositoriesController } from '../../src/github/repositories.controller';
+import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { RepositoriesRepository } from '../../src/github/repositories.repository';
 import { RepositoriesReadService } from '../../src/github/repositories-read.service';
-import { MilestoneDocumentFeedbackController } from '../../src/programs/milestone-document-feedback.controller';
-import { MilestoneDocumentFeedbackRepository } from '../../src/programs/milestone-document-feedback.repository';
+import { MilestoneDocumentFeedbackRepository } from '../../src/student/milestone-document-feedback.repository';
 import {
   MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
   MilestoneDocumentFeedbackService,
-} from '../../src/programs/milestone-document-feedback.service';
+} from '../../src/student/milestone-document-feedback.service';
 import { PrismaService } from '../../src/platform/prisma.service';
-import { StudentDashboardController } from '../../src/programs/student-dashboard.controller';
+import { StudentDashboardController } from '../../src/student/student-dashboard.controller';
 import { ProgramActivityRepository } from '../../src/programs/program-activity.repository';
 import { ProgramActivitySummaryRepository } from '../../src/programs/program-activity-summary.repository';
 import { ProgramsRepository } from '../../src/programs/programs.repository';
-import { StudentDashboardReadRepository } from '../../src/programs/student-dashboard-read.repository';
+import { StudentDashboardRepository } from '../../src/student/student-dashboard.repository';
 import { ProgramActivityService } from '../../src/programs/program-activity.service';
 import { ProgramActivitySummaryService } from '../../src/programs/program-activity-summary.service';
 import { ProgramViewerService } from '../../src/programs/program-viewer.service';
-import { StudentDashboardService } from '../../src/programs/student-dashboard.service';
+import { StudentDashboardService } from '../../src/student/student-dashboard.service';
 import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { SubmissionDashboardSummaryRepository } from '../../src/programs/submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from '../../src/programs/submission-dashboard-summary.service';
-import { SystemStatusController } from '../../src/system-status/controller/system-status.controller';
-import { SystemStatusRepository } from '../../src/system-status/repository/system-status.repository';
+import { SystemStatusController } from '../../src/admin/system-status.controller';
+import { SystemStatusRepository } from '../../src/admin/system-status.repository';
 import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
-} from '../../src/system-status/service/system-status.service';
-import { AdminAccessController } from '../../src/users/admin-access.controller';
-import { IndependentAuthorityController } from '../../src/users/independent-authority.controller';
-import { MemberKindController } from '../../src/users/member-kind.controller';
+} from '../../src/admin/system-status.service';
+import { AdminAccessController } from '../../src/admin/admin-access.controller';
+import { AccessRequestsController } from '../../src/staff/access-requests.controller';
+import { IndependentAuthorityController } from '../../src/admin/independent-authority.controller';
+import { MemberKindController } from '../../src/admin/member-kind.controller';
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
 import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
 import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';
@@ -251,9 +251,9 @@ describe('Audience authorization HTTP characterization', () => {
     const module = await Test.createTestingModule({
       controllers: [
         StudentDashboardController,
-        MilestoneDocumentFeedbackController,
-        RepositoriesController,
+        MyRepositoriesController,
         StaffDashboardController,
+        AccessRequestsController,
         AdminAccessController,
         IndependentAuthorityController,
         MemberKindController,
@@ -333,7 +333,7 @@ describe('Audience authorization HTTP characterization', () => {
           useValue: { requireOrganization: () => 'synthetic-org' },
         },
         {
-          provide: StudentDashboardReadRepository,
+          provide: StudentDashboardRepository,
           useValue: {
             findParticipatingApplications: () => Promise.resolve([]),
           },

@@ -8,11 +8,12 @@ import { OriginGuard } from '../auth/origin.guard';
 import { issueSessionToken } from '../auth/session-token.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { AdminAccessController } from './admin-access.controller';
+import { AccessRequestsController } from '../staff/access-requests.controller';
+import { AdminAccessController } from '../admin/admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
-import { IndependentAuthorityController } from './independent-authority.controller';
+import { IndependentAuthorityController } from '../admin/independent-authority.controller';
 import { IndependentAuthorityService } from './independent-authority.service';
 
 const githubId = 9_700_500_001n;
@@ -77,7 +78,11 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [AdminAccessController, IndependentAuthorityController],
+      controllers: [
+        AdminAccessController,
+        AccessRequestsController,
+        IndependentAuthorityController,
+      ],
       providers: [
         SessionGuard,
         OriginGuard,

@@ -18,6 +18,8 @@ import type {
   MemberKindTransactionStore,
 } from './member-kind.repository';
 import { MemberKindRepository } from './member-kind.repository';
+import { MemberKindController } from '../admin/member-kind.controller';
+import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
 
 const ADMIN_GITHUB_ID = 9_700_600_001n;
@@ -95,7 +97,8 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
 
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
-      imports: [PlatformModule, UsersModule],
+      imports: [PlatformModule, AuthModule, UsersModule],
+      controllers: [MemberKindController],
     });
 
     moduleBuilder.overrideProvider(PrismaService).useValue({});

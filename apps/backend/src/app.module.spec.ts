@@ -1,5 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 
+import { AdminModule } from './admin/admin.module';
 import { discoverAppModuleControllers } from './app-controller-discovery';
 import { AppModule } from './app.module';
 import { GithubModule } from './github/github.module';
@@ -7,9 +8,10 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PlatformModule } from './platform/platform.module';
 import { RankingModule } from './ranking/ranking.module';
 import { RepositoriesService } from './github/repositories.service';
-import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
+import { StaffModule } from './staff/staff.module';
+import { StudentModule } from './student/student.module';
 import { SubmissionReviewsController } from './programs/submission-reviews.controller';
 
 describe('AppModule module exposure', () => {
@@ -26,7 +28,7 @@ describe('AppModule module exposure', () => {
   it('canonical projection 뒤에 공개 system status와 ranking을 각각 한 번 노출한다', () => {
     const imports = getImports();
 
-    for (const module of [SystemStatusModule, RankingModule]) {
+    for (const module of [AdminModule, RankingModule]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
       expect(imports.indexOf(module)).toBeGreaterThan(
         imports.indexOf(GithubModule),
@@ -59,6 +61,49 @@ describe('AppModule module exposure', () => {
     const imports = getImports();
 
     expect(imports.filter((entry) => entry === ProgramsModule)).toHaveLength(1);
+  });
+
+  it('StudentModule을 ProgramsModule 뒤에 정확히 한 번 노출한다', () => {
+    const imports = getImports();
+
+    expect(imports.filter((entry) => entry === StudentModule)).toHaveLength(1);
+    expect(imports.indexOf(StudentModule)).toBeGreaterThan(
+      imports.indexOf(ProgramsModule),
+    );
+  });
+
+  it('StaffModule을 StudentModule 뒤에 정확히 한 번 노출한다', () => {
+    const imports = getImports();
+
+    expect(imports.filter((entry) => entry === StaffModule)).toHaveLength(1);
+    expect(imports.indexOf(StaffModule)).toBeGreaterThan(
+      imports.indexOf(StudentModule),
+    );
+  });
+
+  it('UsersController 다음, ProgramsModule 앞에서 AdminModule 라우트를 등록해 /users/me/profile 흡수를 막는다(#787)', () => {
+    const scanOrder: unknown[] = [];
+    const scan = (module: unknown): void => {
+      const type =
+        typeof module === 'object' && module !== null && 'module' in module
+          ? module.module
+          : module;
+      if (scanOrder.includes(type)) return;
+      scanOrder.push(type);
+      const imports = Reflect.getMetadata(
+        MODULE_METADATA.IMPORTS,
+        type as object,
+      ) as unknown[] | undefined;
+      imports?.forEach(scan);
+    };
+    scan(AppModule);
+
+    expect(scanOrder.indexOf(UsersModule)).toBeLessThan(
+      scanOrder.indexOf(AdminModule),
+    );
+    expect(scanOrder.indexOf(AdminModule)).toBeLessThan(
+      scanOrder.indexOf(ProgramsModule),
+    );
   });
 
   it('Notifications 스케줄러보다 Github 스케줄러를 먼저 로드한다', () => {

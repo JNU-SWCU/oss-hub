@@ -543,7 +543,7 @@ edge(
   'src/beta/dto/target.ts',
   true,
 );
-for (const consumer of ['programs', 'ranking', 'admin']) {
+for (const consumer of ['programs', 'ranking', 'student', 'staff', 'admin']) {
   edge(
     `github service cannot import consumer ${consumer}`,
     `src/github/${consumer}.service.ts`,
@@ -563,6 +563,12 @@ for (const consumer of ['programs', 'ranking', 'admin']) {
     true,
   );
 }
+edge(
+  'github dto cannot import admin domain',
+  'src/github/dto/consumer.dto.ts',
+  'src/admin/system-status.types.ts',
+  false,
+);
 edge(
   'github service may call non-consumer service',
   'src/github/users.service.ts',

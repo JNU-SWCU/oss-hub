@@ -5,7 +5,6 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ConsentsService } from '../users/consents.service';
 import { UsersModule } from '../users/users.module';
-import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from './collection-admin.service';
 import { CollectionCutoverRepository } from './collection-cutover.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
@@ -17,7 +16,6 @@ import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
-import { RepositoriesController } from './repositories.controller';
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoriesService } from './repositories.service';
@@ -30,7 +28,6 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
-  controllers: [CollectionAdminController, RepositoriesController],
   providers: [
     CollectionAdminService,
     CollectionScheduler,
@@ -111,6 +108,7 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
     },
   ],
   exports: [
+    CollectionAdminService,
     CollectionTriggerService,
     RepositoriesService,
     RepositoriesReadService,
