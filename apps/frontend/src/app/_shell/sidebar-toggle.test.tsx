@@ -1,7 +1,6 @@
 import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NavItem } from '@/components';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -47,10 +46,6 @@ import { useRankingCycle } from './ranking-cycle-context';
 import { SIDEBAR_STORAGE_KEY } from './sidebar-collapsed';
 import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
 
-const ITEMS: NavItem[] = [
-  { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
-];
 
 function mockSession(status: 'anonymous' | 'assigned'): void {
   mocks.useSessionRole.mockReturnValue({
@@ -117,27 +112,21 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   ): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
-      root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
-          {children}
-        </AppFrame>,
-      );
+      root.render(<AppFrame brand="OSS Hub">{children}</AppFrame>);
     });
   }
 
-  it('사이드바가 있는 경로에서만 데스크톱 토글과 드로어 트리거를 함께 그린다', async () => {
+  it('사이드바가 있는 경로에서만 데스크톱 토글을 그리고, 모바일 드로어 트리거는 없다', async () => {
     await renderFrame('/programs');
+
     const toggle = desktopToggle();
-    const trigger = drawerTrigger();
     expect(toggle).not.toBeNull();
-    expect(trigger).not.toBeNull();
+    expect(drawerTrigger()).toBeNull();
     expect(toggle?.getAttribute('data-breakpoint-visibility')).toBe('desktop');
-    expect(trigger?.getAttribute('data-breakpoint-visibility')).toBe('mobile');
 
     const nav = container.querySelector('nav[data-slot="nav-bar"]');
     expect(nav?.firstElementChild).toBe(toggle);
-    expect(toggle?.nextElementSibling).toBe(trigger);
-    expect(trigger?.nextElementSibling?.getAttribute('data-slot')).toBe(
+    expect(toggle?.nextElementSibling?.getAttribute('data-slot')).toBe(
       'nav-bar-brand',
     );
   });
@@ -202,9 +191,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     it('토글은 aria-keyshortcuts로 ⌘\\ / Ctrl+\\를 알린다', async () => {
       await renderFrame('/programs');
       expect(desktopToggle()?.getAttribute('aria-keyshortcuts')).toBe(
-        'Meta+Backslash Control+Backslash',
-      );
-      expect(drawerTrigger()?.getAttribute('aria-keyshortcuts')).toBe(
         'Meta+Backslash Control+Backslash',
       );
     });
@@ -362,19 +348,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
   });
 
-  it('드로어 트리거는 드로어를 열고 aria-expanded를 반영한다', async () => {
-    await renderFrame('/programs');
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-    expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('false');
-
-    await act(async () => {
-      drawerTrigger()?.click();
-    });
-
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('true');
-    expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
-  });
 
   it('aside 안에는 토글이 없다', async () => {
     await renderFrame('/programs');
@@ -401,8 +374,17 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     ).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
 
+    if (aside) aside.style.display = 'none';
     await act(async () => {
-      drawerTrigger()?.click();
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: '\\',
+          code: 'Backslash',
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
 
     const dialog = document.querySelector('[role="dialog"]');

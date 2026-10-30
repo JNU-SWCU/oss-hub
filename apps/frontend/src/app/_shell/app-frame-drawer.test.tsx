@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NavItem } from '@/components';
+import { Button } from '@/components/ui/button';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -44,11 +44,24 @@ vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
 
 import { AppFrame } from './app-frame';
 import { nextFocus } from './drawer-test-signals';
+import { useSidebarDrawer } from './product-shell';
 
-const ITEMS: NavItem[] = [
-  { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
-];
+function DrawerOpener() {
+  const shell = useSidebarDrawer();
+  if (shell === null) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      data-testid="drawer-opener"
+      aria-expanded={shell.open}
+      onClick={shell.toggle}
+    >
+      메뉴 열기
+    </Button>
+  );
+}
+
 
 interface DrawerSession {
   readonly status:
@@ -111,9 +124,9 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
 
   function trigger(): HTMLButtonElement {
     const el = container.querySelector<HTMLButtonElement>(
-      '[data-slot="nav-bar-sidebar-drawer-trigger"]',
+      '[data-testid="drawer-opener"]',
     );
-    if (el === null) throw new Error('드로어 토글을 찾지 못했습니다');
+    if (el === null) throw new Error('드로어 여는 버튼을 찾지 못했습니다');
     return el;
   }
 
@@ -126,7 +139,8 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
     await act(async () => {
       root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
+        <AppFrame brand="OSS Hub">
+          <DrawerOpener />
           <p>본문</p>
         </AppFrame>,
       );
@@ -159,7 +173,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     ).not.toBeNull();
     expect(
       container.querySelector('[data-slot="nav-bar-sidebar-drawer-trigger"]'),
-    ).not.toBeNull();
+    ).toBeNull();
 
     await openDrawer();
 
@@ -233,7 +247,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dlg?.querySelector('a[href="/programs/prog-1"]')).not.toBeNull();
   });
 
-  it('Escape를 누르면 닫히고 초점이 햄버거로 돌아온다', async () => {
+  it('Escape를 누르면 닫히고 초점이 연 버튼으로 돌아온다', async () => {
     mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/dashboard');
     await openDrawer();
@@ -323,7 +337,7 @@ describe('AppFrame 랜딩(/) 내비 — 처음부터 흰 바', () => {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
+        <AppFrame brand="OSS Hub">
           <section id="landing-hero">히어로</section>
         </AppFrame>,
       );

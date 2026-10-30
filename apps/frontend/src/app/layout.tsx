@@ -11,7 +11,6 @@ import {
   readStoredCollapsed,
   SIDEBAR_STORAGE_KEY,
 } from './_shell/sidebar-collapsed';
-import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 
@@ -49,7 +48,6 @@ export default async function RootLayout({
         <NavigationNoticeProvider>
           <AppFrame
             brand={<Link href="/">OSS Hub</Link>}
-            items={PUBLIC_MENU}
             actions={
               <>
                 <SessionEntryNavLink />
@@ -61,6 +59,7 @@ export default async function RootLayout({
             {children}
           </AppFrame>
         </NavigationNoticeProvider>
+
       </body>
     </html>
   );

@@ -95,4 +95,14 @@ describe('NavBar 현재 탭', () => {
     expect(html).not.toContain('data-current');
     expect(html).not.toContain('data-slot="nav-bar-current-marker"');
   });
+
+  it('compactMenu={false}면 현재 탭이 한 줄 메뉴에 한 번만 나온다', () => {
+    const html = renderToStaticMarkup(
+      <NavBar items={ITEMS} currentPath="/programs/abc" compactMenu={false} />,
+    );
+    const current = currentLinks(html);
+    expect(current).toHaveLength(1);
+    expect(current[0]).toContain('href="/programs"');
+    expect(collapsedPanel(html)).toBe('');
+  });
 });

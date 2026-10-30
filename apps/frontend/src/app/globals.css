@@ -186,6 +186,10 @@
   --spacing-sidebar-icon: var(--sidebar-icon-size);
   --spacing-sidebar-marker: var(--sidebar-marker-width);
   --spacing-sidebar-drawer: var(--sidebar-drawer-width);
+  --spacing-safe-bottom: var(--safe-area-bottom-padding);
+  --spacing-bottom-tabs-clearance: calc(
+    var(--bottom-tabs-height) + var(--safe-area-bottom-padding)
+  );
   --color-overlay: var(--overlay);
   --text-page: var(--step-page);
   --text-section: var(--step-section);
@@ -271,6 +275,8 @@
   --sidebar-icon-size: var(--measure-18);
   --sidebar-marker-width: var(--measure-3);
   --sidebar-drawer-width: min(85vw, var(--measure-320));
+  --bottom-tabs-height: var(--measure-64);
+  --safe-area-bottom-padding: env(safe-area-inset-bottom, 0px);
   --overlay: color-mix(in oklch, var(--palette-black) 50%, transparent);
 
   --status-recruiting-bg: var(--palette-navy-50);

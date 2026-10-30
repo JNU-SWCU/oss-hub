@@ -142,4 +142,17 @@ describe('ShellNav', () => {
     expect(html).not.toContain('data-slot="nav-bar-sidebar-toggle"');
     expect(html).not.toContain('data-slot="nav-bar-sidebar-drawer-trigger"');
   });
+
+  it('compactMenu={false}면 접힌 메뉴 없이 현재 탭이 한 번만 나온다', () => {
+    mocks.usePathname.mockReturnValue('/programs/prog-1/teams');
+
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" compactMenu={false} />,
+    );
+
+    expect(html).not.toContain('data-slot="nav-bar-menu"');
+    const current = html.match(/<a[^>]*aria-current="page"[^>]*>/g) ?? [];
+    expect(current).toHaveLength(1);
+    expect(current[0]).toContain('href="/programs"');
+  });
 });
