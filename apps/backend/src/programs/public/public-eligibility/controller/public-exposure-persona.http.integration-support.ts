@@ -1,5 +1,5 @@
 import { PublicEligibilityRepository } from '../repository/public-eligibility.repository';
-import { authorityFactsFor } from '../../../../users/repository/canonical-user-fixture';
+import { authorityFactsFor } from '../../../../users/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
@@ -8,14 +8,14 @@ import { AuditLogController } from '../../../../audit-log/controller/audit-log.c
 import { AuditLogRepository } from '../../../../platform/audit-log.repository';
 import { AuditLogService } from '../../../../platform/audit-log.service';
 import { AuthConfig } from '../../../../auth/auth.config';
-import { AuthenticationGuard } from '../../../../auth/controller/authentication.guard';
-import { AuthService } from '../../../../auth/service/auth.service';
+import { AuthenticationGuard } from '../../../../auth/authentication.guard';
+import { AuthService } from '../../../../auth/auth.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-import { sessionCookieName } from '../../../../auth/domain/cookies';
-import { OriginGuard } from '../../../../auth/controller/origin.guard';
-import { issueSessionToken } from '../../../../auth/domain/session-token';
-import { SessionGuard } from '../../../../auth/controller/session.guard';
+import { sessionCookieName } from '../../../../auth/cookies.policy';
+import { OriginGuard } from '../../../../auth/origin.guard';
+import { issueSessionToken } from '../../../../auth/session-token.policy';
+import { SessionGuard } from '../../../../auth/session.guard';
 import { ProblemDetailFilter } from '../../../../platform/problem-detail.filter';
 import { PrismaService } from '../../../../platform/prisma.service';
 import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
@@ -28,12 +28,12 @@ import { RankingService } from '../../../../ranking/service/ranking.service';
 import { PublicProjectsController } from '../../public-projects/controller/public-projects.controller';
 import { PublicProjectsRepository } from '../../public-projects/repository/public-projects.repository';
 import { PublicProjectsService } from '../../public-projects/service/public-projects.service';
-import { PublicUserProfileController } from '../../public-projects/controller/public-user-profile.controller';
+import { PublicUserProfileController } from '../../../../users/public-profile.controller';
 import { SubmissionRepositoryPublishingController } from '../../../../submission-reviews/controller/submission-reviews.controller';
 import { SubmissionReviewsRepository } from '../../../../submission-reviews/repository/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../../submission-reviews/service/submission-reviews.service';
-import { UsersAuthorityService } from '../../../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../../../users/authority.service';
+import { UsersAuthorityRepository } from '../../../../users/authority.repository';
 import { PublicProjectMetricsRepository } from '../../public-projects/repository/public-project-metrics.repository';
 import { PublicEligibilityService } from '../service/public-eligibility.service';
 

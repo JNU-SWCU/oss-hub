@@ -2,7 +2,7 @@ import type {
   LoginHistory,
   LoginHistoryEvent,
   LoginHistoryPage,
-} from '../../login-history/domain/login-history';
+} from '../login-history.types';
 
 export class LoginHistoryResponseDto {
   readonly id: string;

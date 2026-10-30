@@ -1,18 +1,18 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import { AuthErrorCode } from '../src/auth/domain/auth-error-code.enum';
+import { AuthErrorCode } from '../src/auth/auth-error-code.error';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthRepository } from '../src/auth/repository/auth.repository';
-import { AuthService } from '../src/auth/service/auth.service';
+import { AuthRepository } from '../src/auth/auth.repository';
+import { AuthService } from '../src/auth/auth.service';
 import { AuditLogRepository } from '../src/platform/audit-log.repository';
 import { AuditLogService } from '../src/platform/audit-log.service';
-import type { ConsentsService } from '../src/consents/service/consents.service';
+import type { ConsentsService } from '../src/users/consents.service';
 import { PrismaService } from '../src/platform/prisma.service';
 import { loadRuntimeConfig } from '../src/platform/runtime-config.config';
-import { RolesRepository } from '../src/roles/repository/roles.repository';
-import { RolesService } from '../src/roles/service/roles.service';
-import { AdminAccessRepository } from '../src/users/repository/admin-access.repository';
-import { AdminAccessService } from '../src/users/service/admin-access.service';
-import { canonicalUserCreateFromLabel } from '../src/users/repository/canonical-user-fixture';
+import { RolesRepository } from '../src/users/member-onboarding.repository';
+import { RolesService } from '../src/users/member-onboarding.service';
+import { AdminAccessRepository } from '../src/users/admin-access.repository';
+import { AdminAccessService } from '../src/users/admin-access.service';
+import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({

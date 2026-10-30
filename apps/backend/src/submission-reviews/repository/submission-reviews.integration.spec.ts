@@ -36,8 +36,8 @@ import { PublicProjectsRepository } from '../../programs/public/public-projects/
 import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from '../service/submission-reviews.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

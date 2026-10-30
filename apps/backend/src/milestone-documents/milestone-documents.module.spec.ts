@@ -1,4 +1,5 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { PublicProjectsService } from '../programs/public/public-projects/service/public-projects.service';
 import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
@@ -131,6 +132,8 @@ describe('MilestoneDocumentsModule', () => {
       .overrideProvider(PrismaService)
       .useValue({})
       .overrideProvider(AuthConfig)
+      .useValue({})
+      .overrideProvider(PublicProjectsService)
       .useValue({})
       .compile();
 

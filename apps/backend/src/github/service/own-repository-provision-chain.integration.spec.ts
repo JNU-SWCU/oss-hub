@@ -12,7 +12,7 @@ import {
 import {
   canonicalUserCreate,
   canonicalUserCreateFromLabel,
-} from '../../users/repository/canonical-user-fixture';
+} from '../../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../../applications/domain/applications-error-code.enum';
 import { ApplicationsRepository } from '../../applications/repository/applications.repository';
@@ -22,11 +22,11 @@ import { StudentRepositoryUrlService } from '../../applications/service/student-
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { AuditLogRepository } from '../../platform/audit-log.repository';
 import { AuditLogService } from '../../platform/audit-log.service';
-import { ConsentsRepository } from '../../consents/repository/consents.repository';
-import { ConsentsService } from '../../consents/service/consents.service';
+import { ConsentsRepository } from '../../users/consents.repository';
+import { ConsentsService } from '../../users/consents.service';
 import { PrismaService } from '../../platform/prisma.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
 import type { GithubAppClient } from '../gateway/github-app.client';
 import type {
   GithubPublicRepositoryMetadata,

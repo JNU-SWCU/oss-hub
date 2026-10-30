@@ -5,7 +5,6 @@ import { PublicProjectsController } from '../controller/public-projects.controll
 import { PublicProjectsModule } from '../public-projects.module';
 import { PublicProjectsRepository } from '../repository/public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
-import { PublicUserProfileController } from '../controller/public-user-profile.controller';
 
 describe('PublicProjectsModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -22,15 +21,13 @@ describe('PublicProjectsModule', () => {
     );
   });
 
-  it('두 컨트롤러(/projects, /users/:userId/public-profile)를 모두 등록한다', () => {
-    const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
-
-    expect(controllers).toEqual(
-      expect.arrayContaining([
-        PublicProjectsController,
-        PublicUserProfileController,
-      ]),
-    );
+  it('공개 프로젝트 컨트롤러를 등록하고 서비스를 export 계약으로 노출한다', () => {
+    expect(getMetadataArray(MODULE_METADATA.CONTROLLERS)).toEqual([
+      PublicProjectsController,
+    ]);
+    expect(getMetadataArray(MODULE_METADATA.EXPORTS)).toEqual([
+      PublicProjectsService,
+    ]);
   });
 
   it('repository/service를 provider로 등록한다', () => {

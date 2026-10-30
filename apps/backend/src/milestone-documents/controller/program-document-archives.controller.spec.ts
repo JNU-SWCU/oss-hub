@@ -3,13 +3,13 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { AuthConfig } from '../../auth/auth.config';
-import { AuthService } from '../../auth/service/auth.service';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { AuthService } from '../../auth/auth.service';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { DomainException } from '../../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,

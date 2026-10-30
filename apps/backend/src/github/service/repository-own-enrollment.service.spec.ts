@@ -1,4 +1,4 @@
-import type { ConsentsService } from '../../consents/service/consents.service';
+import type { ConsentsService } from '../../users/consents.service';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
 

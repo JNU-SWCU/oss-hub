@@ -11,8 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { SessionGuard } from '../../auth/controller/session.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
 import { ProgramDocumentArchiveQueryRequestDto } from '../dto/program-document-archive-query.dto';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
 import {

@@ -14,7 +14,7 @@ import { PrismaService } from '../../../../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
 import { PublicEligibilityService } from '../../public-eligibility/service/public-eligibility.service';
-import { PublicUserProfileResponseDto } from '../dto/public-project-response.dto';
+import { PublicUserProfileResponseDto } from '../../../../users/dto/public-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from '../service/public-projects.service';
 

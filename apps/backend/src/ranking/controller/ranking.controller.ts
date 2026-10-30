@@ -1,14 +1,11 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import {
-  OptionalSession,
-  Public,
-} from '../../auth/controller/auth-route-metadata';
+import { OptionalSession, Public } from '../../auth/auth-route-metadata.policy';
 import {
   assertNeverHttpAuth,
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
-} from '../../auth/controller/http-auth';
+} from '../../auth/http-auth.types';
 import { RANKING_VIEWER_CLASSES } from '../domain/ranking';
 import {
   RankingQueryRequestDto,

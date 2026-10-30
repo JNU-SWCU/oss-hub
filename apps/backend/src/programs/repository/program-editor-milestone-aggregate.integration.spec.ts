@@ -21,8 +21,8 @@ import {
   upsertMilestoneDocumentSubmission,
 } from '../../milestone-documents/repository/milestone-document-submission.repository';
 import { PrismaService } from '../../platform/prisma.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
 import type { ProgramEditorTransactionStore } from '../domain/program-editor.types';
 import {
   cleanup,

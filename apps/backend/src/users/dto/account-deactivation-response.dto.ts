@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import type { AccountDeactivationResult } from '../domain/account-deactivation';
+import type { AccountDeactivationResult } from '../account-deactivation.types';
 
 export class AccountDeactivationResponseDto {
   readonly accountStatus: typeof AccountStatus.DEACTIVATED;

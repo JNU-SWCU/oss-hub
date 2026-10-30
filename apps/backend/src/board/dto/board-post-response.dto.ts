@@ -1,5 +1,5 @@
 import { BoardPostCategory } from '@prisma/client';
-import type { AuthorityLabel } from '../../users/domain/authority-label';
+import type { AuthorityLabel } from '../../users/authority-label.policy';
 import type {
   BoardPostSummaryResult,
   BoardPostDetailResult,

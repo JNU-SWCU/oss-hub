@@ -328,7 +328,7 @@ edge(
 edge(
   'service may call users authority',
   'src/alpha/service/authority.ts',
-  'src/users/service/authority.service.ts',
+  'src/users/authority.service.ts',
   true,
 );
 edge(
@@ -400,7 +400,7 @@ edge(
 edge(
   'controller may use auth guard',
   'src/alpha/controller/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/auth/session.guard.ts',
   true,
 );
 edge(
@@ -418,7 +418,7 @@ edge(
 edge(
   'service cannot use auth controller',
   'src/alpha/service/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/auth/session.guard.ts',
   false,
 );
 edge(
@@ -608,7 +608,7 @@ for (const consumer of ['programs', 'ranking', 'system-status']) {
 edge(
   'github service may call non-consumer service',
   'src/github/service/users.ts',
-  'src/users/service/authority.service.ts',
+  'src/users/authority.service.ts',
   true,
 );
 edge(

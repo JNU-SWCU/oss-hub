@@ -15,7 +15,7 @@ import {
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../../platform/audit-log.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 import { DomainException } from '../../platform/error-code.error';
 import type { ProblemDetailExtensions } from '../../platform/error-code.error';

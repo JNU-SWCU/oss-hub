@@ -9,9 +9,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { ApplicationDecisionNotificationsService } from '../service/application-decision-notifications.service';
 import { ApplicationDecisionNotificationResponseDto } from '../dto/application-decision-notification-response.dto';
 import { TeamDeletionNotificationResponseDto } from '../dto/team-deletion-notification-response.dto';

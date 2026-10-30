@@ -7,9 +7,9 @@ import { Test } from '@nestjs/testing';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
-} from '../../auth/controller/http-auth';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+} from '../../auth/http-auth.types';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
 import { ProgramViewerService } from '../service/program-viewer.service';

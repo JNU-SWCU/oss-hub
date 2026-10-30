@@ -14,14 +14,14 @@ import {
   OptionalSession,
   Protected,
   Public,
-} from '../../auth/controller/auth-route-metadata';
+} from '../../auth/auth-route-metadata.policy';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
-} from '../../auth/controller/http-auth';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+} from '../../auth/http-auth.types';
+import { OriginGuard } from '../../auth/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
 import {

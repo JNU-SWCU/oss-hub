@@ -2,22 +2,22 @@ import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
-import { AuthenticationGuard } from '../src/auth/controller/authentication.guard';
+import { AuthenticationGuard } from '../src/auth/authentication.guard';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthController } from '../src/auth/controller/auth.controller';
-import { AuthService } from '../src/auth/service/auth.service';
-import { sessionCookieName } from '../src/auth/domain/cookies';
-import type { AuthUser } from '../src/auth/domain/auth-user';
-import { OriginGuard } from '../src/auth/controller/origin.guard';
-import { SessionGuard } from '../src/auth/controller/session.guard';
+import { AuthController } from '../src/auth/auth.controller';
+import { AuthService } from '../src/auth/auth.service';
+import { sessionCookieName } from '../src/auth/cookies.policy';
+import type { AuthUser } from '../src/auth/auth-user.types';
+import { OriginGuard } from '../src/auth/origin.guard';
+import { SessionGuard } from '../src/auth/session.guard';
 import {
   issueSessionToken,
   SESSION_MAX_AGE_SECONDS,
-} from '../src/auth/domain/session-token';
+} from '../src/auth/session-token.policy';
 import { ProblemDetailFilter } from '../src/platform/problem-detail.filter';
 import { HealthController } from '../src/platform/health.controller';
 import { HealthService } from '../src/platform/health.service';
-import { LoginHistoryService } from '../src/login-history/service/login-history.service';
+import { LoginHistoryService } from '../src/auth/login-history.service';
 import { ProgramOverviewController } from '../src/programs/public/program-overview/controller/program-overview.controller';
 import { ProgramOverviewService } from '../src/programs/public/program-overview/service/program-overview.service';
 import { ProgramsController } from '../src/programs/controller/programs.controller';

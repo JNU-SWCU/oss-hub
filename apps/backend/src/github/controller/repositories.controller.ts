@@ -6,8 +6,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { MyRepositoriesResponseDto } from '../dto/my-repositories-response.dto';
 import { RepositoriesReadService } from '../service/repositories-read.service';
 

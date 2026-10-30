@@ -10,9 +10,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
 import { ApplicationPreparationsService } from '../service/application-preparations.service';
 import {
   CreateApplicationPreparationRequestDto,

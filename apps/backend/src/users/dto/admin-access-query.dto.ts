@@ -22,7 +22,7 @@ import {
   type AdminAccessRoleFilter,
   type AdminAccessSortDirection,
   type AdminAccessSortField,
-} from '../domain/admin-access';
+} from '../admin-access.types';
 
 const trim = ({ value }: { readonly value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;

@@ -1,4 +1,4 @@
-import type { UserProfile } from '../domain/user-profile';
+import type { UserProfile } from '../user-profile-record.policy';
 
 export class UserProfileResponseDto {
   readonly name: string;

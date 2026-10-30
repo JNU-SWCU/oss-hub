@@ -1,11 +1,12 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { PlatformModule } from '../../platform/platform.module';
+import { PublicProjectsService } from '../../programs/public/public-projects/service/public-projects.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../../auth/auth.config';
-import { AuthService } from '../../auth/service/auth.service';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
+import { AuthService } from '../../auth/auth.service';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { PrismaService } from '../../platform/prisma.service';
 import { S3ObjectStorage } from '../../platform/object-storage.client';
@@ -56,6 +57,8 @@ export class MilestoneDocumentFlowFixture {
       .useValue({ sessionSecret, allowedOrigin: origin })
       .overrideProvider(AuthService)
       .useValue(auth)
+      .overrideProvider(PublicProjectsService)
+      .useValue({})
       .overrideProvider(S3ObjectStorage)
       .useValue(this.storage)
       .overrideProvider(OBJECT_STORAGE)

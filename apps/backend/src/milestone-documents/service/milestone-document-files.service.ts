@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../../platform/error-code.error';
 import { normalizeMultipartFileName } from '../../platform/multipart-file-name.policy';

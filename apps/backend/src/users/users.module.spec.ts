@@ -1,18 +1,25 @@
 import 'reflect-metadata';
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AccountDeactivationController } from './controller/account-deactivation.controller';
-import { AdminAccessController } from './controller/admin-access.controller';
-import { AdminAccessRepository } from './repository/admin-access.repository';
-import { AdminAccessService } from './service/admin-access.service';
-import { IndependentAuthorityController } from './controller/independent-authority.controller';
-import { IndependentAuthorityRepository } from './repository/independent-authority.repository';
-import { IndependentAuthorityService } from './service/independent-authority.service';
-import { MemberKindController } from './controller/member-kind.controller';
-import { UsersController } from './controller/users.controller';
+import { AccountDeactivationController } from './account-deactivation.controller';
+import { AdminAccessController } from './admin-access.controller';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessService } from './admin-access.service';
+import { IndependentAuthorityController } from './independent-authority.controller';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
+import { MemberKindController } from './member-kind.controller';
+import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
-import { UsersService } from './service/users.service';
-import { UsersAuthorityRepository } from './repository/authority.repository';
-import { UsersAuthorityService } from './service/authority.service';
+import { UsersService } from './users.service';
+import { UsersAuthorityRepository } from './authority.repository';
+import { UsersAuthorityService } from './authority.service';
+import { ConsentsController } from './consents.controller';
+import { ConsentsService } from './consents.service';
+import { RolesRepository } from './member-onboarding.repository';
+import { RolesService } from './member-onboarding.service';
+import { OnboardingController } from './onboarding.controller';
+import { PublicUserProfileController } from './public-profile.controller';
+import { StaffAccessRequestsController } from './role-requests.controller';
 
 describe('UsersModule admin access wiring', () => {
   it('registers the controller and dependencies for the access routes', () => {
@@ -49,7 +56,11 @@ describe('UsersModule admin access wiring', () => {
       UsersModule,
     );
 
-    expect(exports).toEqual([UsersService, UsersAuthorityService]);
+    expect(exports).toEqual([
+      UsersService,
+      UsersAuthorityService,
+      ConsentsService,
+    ]);
   });
 
   it('통합 접근 경로로 전환한 뒤에는 레거시 admin-users 컨트롤러를 다시 등록하지 않는다(PR04H)', () => {
@@ -64,6 +75,27 @@ describe('UsersModule admin access wiring', () => {
       AdminAccessController,
       IndependentAuthorityController,
       MemberKindController,
+      OnboardingController,
+      StaffAccessRequestsController,
+      ConsentsController,
+      PublicUserProfileController,
+    ]);
+  });
+
+  it('온보딩 서비스는 자기 저장소를 주입받고 동의 서비스를 명시적으로 주입받는다(PR04H)', () => {
+    const providers: unknown = Reflect.getMetadata(
+      MODULE_METADATA.PROVIDERS,
+      UsersModule,
+    );
+
+    expect(providers).toEqual(
+      expect.arrayContaining([RolesRepository, RolesService]),
+    );
+    expect(
+      (Reflect.getMetadata('design:paramtypes', RolesService) as unknown[])[0],
+    ).toBe(RolesRepository);
+    expect(Reflect.getMetadata('self:paramtypes', RolesService)).toEqual([
+      { index: 1, param: ConsentsService },
     ]);
   });
 

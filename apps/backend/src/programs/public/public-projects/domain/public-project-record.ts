@@ -17,6 +17,28 @@ export interface PublicProjectRow {
   readonly applicantNickname: string;
 }
 
+export enum PublicProjectApplicationMode {
+  PERSONAL = 'PERSONAL',
+  TEAM = 'TEAM',
+}
+
+export function applicationMode(
+  teamMemberCount: number,
+): PublicProjectApplicationMode {
+  return teamMemberCount > 1
+    ? PublicProjectApplicationMode.TEAM
+    : PublicProjectApplicationMode.PERSONAL;
+}
+
+export function displayNameOf(row: {
+  readonly teamName: string | null;
+  readonly teamMemberCount: number;
+  readonly applicantNickname: string;
+}): string {
+  if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
+  return row.applicantNickname;
+}
+
 export interface PublicProjectCursor {
   readonly publishedAt: Date;
   readonly id: string;

@@ -1,12 +1,15 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Matches } from 'class-validator';
-import type { AdminProfileUpdateCommand } from '../domain/admin-profile';
-import { isValidDepartment, isValidUserName } from '../domain/user-profile';
+import type { AdminProfileUpdateCommand } from '../admin-profile.types';
+import {
+  isValidDepartment,
+  isValidUserName,
+} from '../user-profile-record.policy';
 import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from '../domain/profile-text-transform';
+} from '../profile-text-transform.policy';
 
 export class PatchAdminUserProfileRequestDto {
   @IsOptional()
