@@ -17,6 +17,7 @@ interface LandingEntryActionViewProps {
   readonly isProfileComplete: boolean;
   readonly hasAuthError?: boolean;
   readonly inverted?: boolean;
+  readonly returnTo?: string | null;
 }
 
 export function LandingEntryActionView({
@@ -25,6 +26,7 @@ export function LandingEntryActionView({
   isProfileComplete,
   hasAuthError = false,
   inverted = false,
+  returnTo = null,
 }: LandingEntryActionViewProps) {
   const className = cn(
     'min-h-11',
@@ -34,7 +36,7 @@ export function LandingEntryActionView({
   const signInButton = (
     <Button asChild className={className} size="lg">
       <GitHubSignInLink
-        returnTo={null}
+        returnTo={returnTo}
         aria-label={
           hasAuthError ? 'GitHub으로 다시 시도' : 'GitHub으로 시작하기'
         }

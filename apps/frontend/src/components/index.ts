@@ -22,7 +22,6 @@ export {
 export { ProgramCountdown } from './program/program-countdown';
 export { ParticipantOnlyNotice } from './participant-only-notice';
 export { ProgramCover } from './program/program-cover';
-export { GitHubMark } from './github-mark';
 
 export { ListCard } from './list-card';
 

@@ -1,6 +1,8 @@
 import { isInternalPath } from '@/lib/internal-path';
+import { readSearchParam, type SearchParamsInput } from './auth-error';
 
 const KEY = 'oss-hub-login-destination';
+export const RETURN_TO_PARAM = 'returnTo';
 const MAX_AGE_MS = 10 * 60 * 1000;
 const EXCLUDED = [
   '/signup',
@@ -45,6 +47,10 @@ export function loginDestination(value: unknown): string | null {
   )
     return null;
   return value;
+}
+
+export function readReturnTo(searchParams: SearchParamsInput): string | null {
+  return loginDestination(readSearchParam(searchParams, RETURN_TO_PARAM));
 }
 
 export function getLoginDestinationStorage(): Storage | null {

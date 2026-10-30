@@ -143,11 +143,15 @@ describe('landing page sections', () => {
     expect(html).not.toContain('text-destructive');
   });
 
-  it('renders a status notice instead of the alert when only a notice is passed', () => {
-    const html = renderJourney({ notice: <>다시 로그인할 수 있습니다.</> });
+  it('drops the whole action row, programs link included, when no primary action is given', () => {
+    const html = renderToStaticMarkup(
+      <LandingJourney starPrograms={[]} stats={{ items: [], note: null }} />,
+    );
 
-    expect(html).toContain('role="status"');
-    expect(html).toContain('다시 로그인할 수 있습니다.');
+    expect(html).toContain('흩어진 정보를 하나로');
+    expect(html).not.toContain('href="/programs"');
+    expect(html).not.toContain('프로그램 둘러보기');
+    expect(html).not.toContain('role="status"');
     expect(html).not.toContain('role="alert"');
   });
 

@@ -2,7 +2,6 @@
 
 import { CircleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CosmosProgram } from '../cosmos';
@@ -14,8 +13,7 @@ import { useCosmosCanvas } from './use-cosmos-canvas';
 
 export interface LandingJourneyProps {
   readonly authErrorMessage?: string;
-  readonly notice?: ReactNode;
-  readonly primaryAction: ReactNode;
+  readonly primaryAction?: ReactNode;
   readonly starPrograms: readonly CosmosProgram[];
   readonly stats: LandingStatsDisplay;
   readonly contentAnchor?: string;
@@ -30,7 +28,6 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
 
 export function LandingJourney({
   authErrorMessage,
-  notice,
   primaryAction,
   starPrograms,
   stats,
@@ -70,23 +67,15 @@ export function LandingJourney({
                     {authErrorMessage}
                   </AlertDescription>
                 </Alert>
-              ) : notice ? (
-                <div
-                  role="status"
-                  className={cn(
-                    'mt-6 max-w-xl rounded-lg border border-cosmos-border bg-cosmos-muted/10',
-                    'px-4 py-3 text-sm leading-relaxed text-cosmos-muted',
-                  )}
-                >
-                  {notice}
+              ) : null}
+              {primaryAction ? (
+                <div className={styles.actions}>
+                  {primaryAction}
+                  <Link className={styles.link} href="/programs">
+                    프로그램 둘러보기
+                  </Link>
                 </div>
               ) : null}
-              <div className={styles.actions}>
-                {primaryAction}
-                <Link className={styles.link} href="/programs">
-                  프로그램 둘러보기
-                </Link>
-              </div>
             </div>
           </section>
 

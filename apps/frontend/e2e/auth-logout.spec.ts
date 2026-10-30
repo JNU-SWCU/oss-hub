@@ -50,16 +50,22 @@ test('logout success returns to the anonymous home introduction', async ({
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
   await clickLogout(page);
 
-  await expect(page).toHaveURL(new URL('/', page.url()).href);
+  await expect(page).toHaveURL(new URL('/?loggedOut=1', page.url()).href);
   await expect(
     page.getByRole('heading', { name: '흩어진 정보를 하나로' }),
   ).toBeVisible();
+  const hero = page.locator('#landing-hero');
+  await expect(hero.getByRole('link')).toHaveCount(0);
+  await expect(hero.getByRole('status')).toHaveCount(0);
   const navSignIn = page
     .locator('[data-slot="nav-bar"]')
     .getByRole('link', { name: 'GitHub으로 로그인', exact: true });
   await expect(navSignIn).toBeVisible();
   await expect(navSignIn).toHaveText('로그인');
-  await expect(navSignIn).toHaveAttribute('href', '/api/v1/auth/github');
+  await expect(navSignIn).toHaveAttribute(
+    'href',
+    '/api/v1/auth/github?prompt=select_account',
+  );
   await expect(
     page.getByRole('button', { name: ACCOUNT_MENU_LABEL }),
   ).toHaveCount(0);

@@ -85,7 +85,6 @@ describe('AppFrame 로그인 목적지 복귀', () => {
     '/onboarding/profile',
     '/onboarding/role',
     '/onboarding/pending',
-    '/signup',
     '/account-deactivated',
     '/programs/42',
   ])('%s에서는 현재 절차를 가로채지 않는다', (path) => {

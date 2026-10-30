@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
-import { LogoutNoticeBanner } from '@/features/auth/components/logout-notice-banner';
+import { readReturnTo } from '@/features/auth/login-destination';
 import { hasLogoutNotice } from '@/features/auth/logout-notice';
 import { CurrentProgramSection } from '@/features/landing/components/current-program-section';
 import { LandingJourney } from '@/features/landing/components/landing-journey';
@@ -19,19 +19,21 @@ export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
   const authErrorMessage = hasAuthError(serializedSearchParams)
     ? AUTH_ERROR_MESSAGE
     : undefined;
-  const showLogoutNotice = hasLogoutNotice(serializedSearchParams);
+  const justLoggedOut = hasLogoutNotice(serializedSearchParams);
+  const returnTo = readReturnTo(serializedSearchParams);
 
   useEffect(() => {
     setSerializedSearchParams(window.location.search);
   }, []);
 
-  const entryAction = (
+  const entryAction = justLoggedOut ? undefined : (
     <LandingEntryActionView
       hasAuthError={Boolean(authErrorMessage)}
       inverted
       isProfileComplete={isProfileComplete}
       access={session}
       status={status}
+      returnTo={returnTo}
     />
   );
 
@@ -43,7 +45,6 @@ export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
           stats={stats}
           authErrorMessage={authErrorMessage}
           contentAnchor="#current-programs"
-          notice={showLogoutNotice ? <LogoutNoticeBanner /> : undefined}
           primaryAction={entryAction}
         />
 

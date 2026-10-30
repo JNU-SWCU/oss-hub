@@ -213,19 +213,10 @@ describe('destructive Button focus indicator', () => {
   });
 });
 
-const signupEntrySource = readFileSync(
-  path.resolve(__dirname, '../../app/signup/signup-entry-screen.tsx'),
-  'utf-8',
-);
 const signupTypographySource = readFileSync(
   path.resolve(__dirname, '../signup-typography.tsx'),
   'utf-8',
 );
-const appFrameSource = readFileSync(
-  path.resolve(__dirname, '../../app/_shell/app-frame.tsx'),
-  'utf-8',
-);
-
 const INVERTED_SCOPES = ["[data-surface='inverted'] {", ':root {'] as const;
 
 function findDeclaration(selector: string, token: string): string | null {
@@ -269,52 +260,7 @@ function resolveInvertedHex(token: string): string {
   throw new Error(`반전 스코프에서 ${token} 선언을 찾지 못했습니다`);
 }
 
-function tokenOfUtility(utility: string): string {
-  return `--${utility.replace(/^(?:bg|text)-/, '')}`;
-}
-
-function readSignupSecondaryLinkSource(): string {
-  const opening = /<GitHubSignInLink\b[^>]*\bselectAccount\b[^>]*>/.exec(
-    signupEntrySource,
-  )?.[0];
-  if (!opening) {
-    throw new Error(
-      'signup-entry-screen.tsx에서 다른 계정으로 로그인 링크(GitHubSignInLink)를 찾지 못했습니다',
-    );
-  }
-  return opening;
-}
-
-function textUtilityOf(source: string): string {
-  const match =
-    /(?:^|\s)text-((?!sm\b|xs\b|lg\b|base\b|body\b|small\b)[\w-]+)/.exec(
-      source,
-    );
-  if (!match) {
-    throw new Error(`"${source}"에서 글자 색 유틸리티를 찾지 못했습니다`);
-  }
-  return `text-${match[1]}`;
-}
-
 describe('가입 무대 반전 표면 Button 대비', () => {
-  const groundUtility = /\bbg-(cosmos-[\w-]+)/.exec(appFrameSource)?.[1];
-  if (!groundUtility) {
-    throw new Error('app-frame.tsx에서 우주 바탕 유틸리티를 찾지 못했습니다');
-  }
-  const ground = resolveInvertedHex(`--${groundUtility}`);
-
-  it('「다른 계정으로 로그인」 링크가 우주 바탕에서 AA를 만족한다', () => {
-    const text = resolveInvertedHex(
-      tokenOfUtility(textUtilityOf(readSignupSecondaryLinkSource())),
-    );
-
-    expect(contrast(text, ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
-  });
-
-  it('링크임을 색만으로 알리지 않는다', () => {
-    expect(readSignupSecondaryLinkSource()).toMatch(/\bunderline\b/);
-  });
-
   it('주 버튼이 흰 바탕에서 AA를 만족한다 — 토큰을 밝게 바꾸면 여기서 깨진다', () => {
     const primaryClasses =
       /signupPrimaryClassName\s*=\s*'([^']+)'/.exec(

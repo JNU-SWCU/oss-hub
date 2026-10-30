@@ -28,12 +28,6 @@ const ADMIN_HOME: SessionEntry = {
   compactLabel: '관리',
 };
 
-export const ROLE_HOME_LABEL: Record<'STUDENT' | 'STAFF' | 'ADMIN', string> = {
-  STUDENT: STUDENT_HOME.label,
-  STAFF: STAFF_HOME.label,
-  ADMIN: ADMIN_HOME.label,
-};
-
 interface SessionEntry {
   readonly href: string;
   readonly label: string;

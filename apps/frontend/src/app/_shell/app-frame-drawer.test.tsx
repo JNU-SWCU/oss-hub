@@ -338,8 +338,8 @@ describe('AppFrame 랜딩(/) 내비 — 처음부터 흰 바', () => {
     expect(container.querySelector(OVERLAY_WRAPPER)?.contains(bar)).toBe(true);
   });
 
-  it('/signup 으로 가면 같은 흰 바이고 fixed가 아니다', async () => {
-    await renderAt('/signup');
+  it('/consent 로 가면 같은 흰 바이고 fixed가 아니다', async () => {
+    await renderAt('/consent');
 
     expect(nav().getAttribute('data-surface')).toBeNull();
     expect(nav().classList.contains('bg-background')).toBe(true);
