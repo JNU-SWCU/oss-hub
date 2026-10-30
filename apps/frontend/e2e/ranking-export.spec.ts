@@ -88,6 +88,20 @@ async function installRankingApi(
       body: JSON.stringify({ years: [2026] }),
     });
   });
+  await page.route('**/api/v1/ranking/timeline*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        year: 2026,
+        viewerClass: options.viewerClass,
+        viewerGithubLogin: null,
+        dataAsOf: null,
+        points: [],
+        series: [],
+      }),
+    });
+  });
   return requests;
 }
 
