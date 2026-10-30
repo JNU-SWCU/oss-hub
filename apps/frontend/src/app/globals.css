@@ -438,6 +438,17 @@
   }
 }
 
+/* Sticky footer rows clear the mobile bottom tab bar; dialogs sit above it. */
+@utility bottom-above-tabs {
+  bottom: var(--spacing-bottom-tabs-clearance);
+  @variant shell {
+    bottom: 0;
+  }
+  [role='dialog'] & {
+    bottom: 0;
+  }
+}
+
 @layer components {
   [data-slot='sidebar-shell-panel'] {
     transition-property: transform, opacity;

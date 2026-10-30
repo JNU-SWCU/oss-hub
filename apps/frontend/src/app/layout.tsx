@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import localFont from 'next/font/local';
@@ -32,6 +32,10 @@ const pretendard = localFont({
 export const metadata: Metadata = {
   title: 'OSS Hub',
   description: '오픈소스 허브',
+};
+
+export const viewport: Viewport = {
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({

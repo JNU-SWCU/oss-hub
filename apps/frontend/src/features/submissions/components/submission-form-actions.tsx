@@ -15,9 +15,9 @@ export function SubmissionFormActions({
   return (
     <div
       data-testid="submission-actions"
-
+      data-slot="submission-form-actions"
       className={cn(
-        'sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3',
+        'sticky bottom-above-tabs z-10 flex flex-wrap items-center justify-between gap-3',
         'border-t border-border bg-background pt-4 pb-5',
         'after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-background',
         'sm:pb-6 sm:after:h-6',
