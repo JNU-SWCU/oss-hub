@@ -56,7 +56,6 @@ export function ProgramCoverField({
   const hint = (
     <FieldDescription id={`${id}-hint`} className="grid gap-1 text-center">
       <span>JPG · PNG · 최대 5 MB</span>
-      <span>세로 포스터도 전체가 표시됩니다.</span>
     </FieldDescription>
   );
   return (
@@ -156,11 +155,6 @@ export function ProgramCoverField({
         <FieldError id={`${id}-error`} role="alert">
           {shownError}
         </FieldError>
-      ) : null}
-      {currentImageUrl !== undefined ? (
-        <p className="text-small text-muted-foreground">
-          변경한 이미지는 저장 후 반영됩니다.
-        </p>
       ) : null}
     </Field>
   );

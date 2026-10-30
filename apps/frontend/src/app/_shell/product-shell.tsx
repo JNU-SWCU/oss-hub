@@ -28,6 +28,10 @@ import { useSidebarDrawer } from './sidebar-drawer-context';
 import { useSessionRole } from './use-session-role';
 import { useProductShellData } from './use-product-shell-data';
 import {
+  setProgramOperationsView,
+  useProgramOperationsView,
+} from './program-operations-view';
+import {
   ProgramViewContext,
   isProgramOperationsPath,
   withoutLoadingCounts,
@@ -61,9 +65,18 @@ export function ProductShell({
 
   const programDetailId = programDetailIdFromPathname(pathname);
 
+  const storedOperationsView = useProgramOperationsView(programDetailId);
+  const operationsPath = isProgramOperationsPath(pathname);
   const operationsView =
-    searchParams.get('view') === 'operations' ||
-    isProgramOperationsPath(pathname);
+    storedOperationsView === null
+      ? null
+      : storedOperationsView || operationsPath;
+
+  useEffect(() => {
+    if (programDetailId !== null && operationsPath) {
+      setProgramOperationsView(programDetailId, true);
+    }
+  }, [programDetailId, operationsPath]);
 
   const {
     facetData,
@@ -101,6 +114,8 @@ export function ProductShell({
         rankingYears: facetData?.rankingYears,
         rankingCounts: facetData?.rankingCounts,
       });
+
+  if (programDetailId !== null && operationsView === null) return null;
 
   if (!programDetailId && groups.length === 0) {
     return (
@@ -143,7 +158,7 @@ export function ProductShell({
           scopeParticipant === true &&
           session.memberKind === 'STUDENT' &&
           (session.hasStaffAccess || session.hasAdminAccess),
-        operationsView,
+        operationsView: operationsView ?? false,
         milestones: scopeMilestones,
 
         milestoneDocuments: scopeOverview?.milestoneDocuments,

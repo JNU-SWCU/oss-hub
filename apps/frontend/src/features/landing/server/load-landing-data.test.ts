@@ -86,6 +86,16 @@ describe('server landing data', () => {
     });
   });
 
+  it('omits empty search parameters from program requests', async () => {
+    await loadLandingData();
+
+    const programUrls = fetchMock.mock.calls
+      .map(([url]) => requestUrl(url))
+      .filter((url) => url.includes('/programs?'));
+    expect(programUrls).toHaveLength(2);
+    expect(programUrls.every((url) => !url.includes('search='))).toBe(true);
+  });
+
   it('authenticates direct origin reads when a server credential is configured', async () => {
     vi.stubEnv('ORIGIN_BASIC_AUTH', 'Basic c3ludGhldGljOnNlcnZlcg==');
 

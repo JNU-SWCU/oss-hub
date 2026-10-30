@@ -80,7 +80,7 @@ export function tokenType(name) {
 export function tokenValue(value) {
   const alias = /^var\(--([\w-]+)\)$/.exec(value);
   if (alias) return { value: `{${tokenPath(alias[1])}}` };
-  if (/var\(|calc\(|color-mix\(|rgb\(/.test(value)) {
+  if (/var\(|calc\(|clamp\(|color-mix\(|rgb\(/.test(value)) {
     return { value, description: MANUAL_NOTE };
   }
   return { value };

@@ -218,7 +218,7 @@ describe('설정 화면', () => {
         notice?.querySelector('input, button, [role="dialog"]'),
       ).toBeNull();
       expect(notice?.querySelector('a')?.getAttribute('href')).toBe(
-        '/policies/github-activity/2026-10-19.html',
+        '/policies/github-activity',
       );
     },
   );

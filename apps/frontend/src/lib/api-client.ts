@@ -74,6 +74,11 @@ export function apiPath(path: string): string {
   return `${baseURL}${endpoint}`;
 }
 
+export function withQuery(path: string, params: URLSearchParams): string {
+  const query = params.toString();
+  return query.length === 0 ? path : `${path}?${query}`;
+}
+
 function withJsonContentType(init?: RequestInit): RequestInit | undefined {
   return typeof init?.body === 'string' && init.headers === undefined
     ? { ...init, headers: { 'Content-Type': 'application/json' } }

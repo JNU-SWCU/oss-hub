@@ -57,12 +57,10 @@ function item(
     programId: `e2e-dashboard-${key}`,
     programName,
     teamName: `합성 ${key} 팀`,
-    teamUrl: `${programPath}/my-team`,
     applicationStatus,
     nextMilestone,
     detailUrl:
       applicationStatus === 'APPROVED' ? programPath : `${programPath}/apply`,
-    checklistUrl: `${programPath}/submissions`,
     repository,
     progress,
   };
@@ -267,6 +265,12 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       has: page.getByRole('heading', { level: 3, name }),
     });
   const card = programEntry(active, /^2026 합성 오픈소스/);
+  await expect(
+    card.getByRole('link', { name: '우리 팀', exact: true }),
+  ).toHaveAttribute('href', '/programs/e2e-dashboard-urgent/team');
+  await expect(
+    card.getByRole('link', { name: '서류 내기', exact: true }),
+  ).toHaveAttribute('href', '/programs/e2e-dashboard-urgent/documents');
   await expect(card.getByText('서류 3개 남음', { exact: true })).toBeVisible();
   await expect(
     card.getByText('마일스톤 4개 중 승인 1 · 검토 대기 0', { exact: true }),
