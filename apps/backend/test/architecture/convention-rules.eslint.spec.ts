@@ -39,11 +39,24 @@ RuleTester.it = (_name, fn) => {
 };
 RuleTester.itOnly = RuleTester.it;
 const tester = new RuleTester({ languageOptions: { parser: tseslint.parser } });
+const typedTester = new RuleTester({
+  languageOptions: {
+    parser: tseslint.parser,
+    parserOptions: {
+      projectService: {
+        allowDefaultProject: ['src/programs/rule-case.controller.ts'],
+        defaultProject: 'tsconfig.json',
+      },
+      tsconfigRootDir: backendRoot,
+    },
+  },
+});
+const typedRules = new Set(['controller-explicit-return']);
 const output = [];
 for (const item of JSON.parse(casesJson)) {
   const test = { code: item.code, filename: path.join(backendRoot, item.filename) };
   current = undefined;
-  tester.run(item.rule, rules[item.rule], item.errors
+  (typedRules.has(item.rule) ? typedTester : tester).run(item.rule, rules[item.rule], item.errors
     ? { valid: [], invalid: [{ ...test, errors: item.errors.map((messageId) => ({ messageId })) }] }
     : { valid: [test], invalid: [] });
   output.push(current ?? { ok: false, message: 'case did not run' });
@@ -51,12 +64,18 @@ for (const item of JSON.parse(casesJson)) {
 process.stdout.write(JSON.stringify(output));
 `;
 
-const controllerFile = 'src/programs/things.controller.ts';
+const controllerFile = () => 'src/programs/rule-case.controller.ts';
 const handler = (
   returnType: string | null,
   route = "@Controller('things')",
   verb = '@Get()',
-) => `import { Controller, Get, StreamableFile } from '@nestjs/common';
+  declarations = '',
+) => `import { Controller, Delete, Get, StreamableFile } from '@nestjs/common';
+${declarations}
+class ThingResponseDto { declare readonly id: string; }
+class OtherResponseDto { declare readonly name: string; }
+class PageResponseDto<T> { declare readonly items: T[]; }
+class Thing { declare readonly id: string; }
 ${route}
 export class ThingsController {
   ${verb}
@@ -87,33 +106,89 @@ for (const type of [
   'StreamableFile',
   'Promise<StreamableFile>',
   'ThingResponseDto',
+  'Array<ThingResponseDto>',
+  'Promise<Array<ThingResponseDto>>',
+  'Promise<ReadonlyArray<ThingResponseDto>>',
 ]) {
   valid(
     'controller-explicit-return',
     `accepts ${type}`,
-    controllerFile,
+    controllerFile(),
     handler(type),
   );
 }
 valid(
   'controller-explicit-return',
   'ignores methods without an HTTP decorator',
-  controllerFile,
+  controllerFile(),
   handler(null, "@Controller('things')", ''),
 );
 valid(
   'controller-explicit-return',
   'skips an allowlisted route',
-  controllerFile,
+  controllerFile(),
   handler(
     'Promise<ThingResponseDto | null>',
     "@Controller('programs/:programId/applications/me')",
   ),
 );
+valid(
+  'controller-explicit-return',
+  'skips the second allowlisted route',
+  controllerFile(),
+  handler(
+    'Promise<ThingResponseDto | null>',
+    "@Controller('application-preparations/programs/:programId/me')",
+  ),
+);
+valid(
+  'controller-explicit-return',
+  'accepts an array of a real imported response DTO class',
+  controllerFile(),
+  handler(
+    'Array<ProgramIdResponseDto>',
+    undefined,
+    undefined,
+    "import { ProgramIdResponseDto } from './dto/program-id-response.dto';",
+  ),
+);
+for (const [declarations, type] of <[string, string][]>[
+  ['type FakeResponseDto = null;', 'FakeResponseDto'],
+  ['type FakeResponseDto = unknown;', 'Promise<FakeResponseDto>'],
+  ['type FakeAny = any;', 'Promise<PageResponseDto<FakeAny>>'],
+  [
+    'type MaybeResponseDto = ThingResponseDto | undefined;',
+    'MaybeResponseDto[]',
+  ],
+]) {
+  invalid(
+    'controller-explicit-return',
+    `rejects ${declarations} as ${type}`,
+    controllerFile(),
+    handler(type, undefined, undefined, declarations),
+    ['forbidden'],
+  );
+}
+for (const [declarations, type] of <[string, string][]>[
+  ['interface FakeResponseDto { readonly id: string }', 'FakeResponseDto'],
+  [
+    'type FakeResponseDto = { readonly id: string };',
+    'Promise<FakeResponseDto[]>',
+  ],
+  ['', 'Promise<MissingResponseDto>'],
+]) {
+  invalid(
+    'controller-explicit-return',
+    `rejects ${declarations || 'an undeclared name'} as ${type}`,
+    controllerFile(),
+    handler(type, undefined, undefined, declarations),
+    ['invalid'],
+  );
+}
 invalid(
   'controller-explicit-return',
   'rejects a missing return type',
-  controllerFile,
+  controllerFile(),
   handler(null),
   ['missing'],
 );
@@ -122,12 +197,12 @@ for (const type of [
   'Promise<Promise<ThingResponseDto>>',
   'Promise<Thing>',
   'Promise<{ readonly id: string }>',
-  'Promise<Array<ThingResponseDto>>',
+  'Promise<Array<Thing>>',
 ]) {
   invalid(
     'controller-explicit-return',
     `rejects ${type}`,
-    controllerFile,
+    controllerFile(),
     handler(type),
     ['invalid'],
   );
@@ -142,7 +217,7 @@ for (const type of [
   invalid(
     'controller-explicit-return',
     `rejects ${type}`,
-    controllerFile,
+    controllerFile(),
     handler(type),
     ['forbidden'],
   );
@@ -150,7 +225,7 @@ for (const type of [
 invalid(
   'controller-explicit-return',
   'rejects null on a route outside the allowlist',
-  controllerFile,
+  controllerFile(),
   handler(
     'Promise<ThingResponseDto | null>',
     "@Controller('programs/:programId/applications')",
@@ -160,7 +235,7 @@ invalid(
 invalid(
   'controller-explicit-return',
   'checks every HTTP verb',
-  controllerFile,
+  controllerFile(),
   handler(null, "@Controller('things')", "@Delete(':id')"),
   ['missing'],
 );
@@ -209,6 +284,42 @@ invalid(
   'src/programs/foo.service.ts',
   'export class FooService {} export class FooError extends Error {}',
   ['extra'],
+);
+for (const [name, code] of <[string, string][]>[
+  [
+    'an exported class-expression binding',
+    'export class FooService {} export const Wrong = class Wrong {};',
+  ],
+  [
+    'an anonymous exported class expression',
+    'export class FooService {} export const Wrong = class {};',
+  ],
+  [
+    'an anonymous default class',
+    'export class FooService {} export default class {}',
+  ],
+  [
+    'a default class expression',
+    'export class FooService {} export default (class Wrong {});',
+  ],
+  [
+    'a local class exported under another name',
+    'export class FooService {} const Hidden = class {}; export { Hidden as Wrong };',
+  ],
+]) {
+  invalid(
+    'file-class-match',
+    `rejects ${name} without the role suffix`,
+    'src/programs/foo.service.ts',
+    code,
+    ['extra'],
+  );
+}
+valid(
+  'file-class-match',
+  'accepts an exported class-expression binding with the role suffix',
+  'src/programs/foo.service.ts',
+  'export class FooService {} export const BarService = class {};',
 );
 invalid(
   'file-class-match',
@@ -365,6 +476,38 @@ invalid(
 export class ThingRequestDto { @IsOptional() declare readonly name?: string; }`,
   ['undecorated'],
 );
+valid(
+  'request-dto-decorated',
+  'accepts aliased and namespace class-validator decorators',
+  requestFile,
+  `import { IsString as Str } from 'class-validator';
+import * as v from 'class-validator';
+export class ThingRequestDto {
+  @Str() declare readonly name: string;
+  @v.IsOptional() @v.IsInt() declare readonly page?: number;
+}`,
+);
+for (const [name, code] of <[string, string][]>[
+  [
+    'an aliased @IsOptional alone',
+    `import { IsOptional as Optional } from 'class-validator';
+export class ThingRequestDto { @Optional() declare readonly title?: string; }`,
+  ],
+  [
+    'a namespace @IsOptional alone',
+    `import * as v from 'class-validator';
+export class ThingRequestDto { @v.IsOptional() declare readonly title?: string; }`,
+  ],
+  [
+    'a local decorator named like a validator',
+    `const IsString = () => () => undefined;
+export class ThingRequestDto { @IsString() declare readonly title: string; }`,
+  ],
+]) {
+  invalid('request-dto-decorated', `rejects ${name}`, requestFile, code, [
+    'undecorated',
+  ]);
+}
 invalid(
   'request-dto-decorated',
   'rejects a decorator that is not from class-validator',

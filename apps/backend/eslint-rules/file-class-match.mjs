@@ -35,25 +35,55 @@ function expectation(filename) {
     : undefined;
 }
 
+const isClass = (node) =>
+  node?.type === 'ClassDeclaration' || node?.type === 'ClassExpression';
+
+const classBindings = (declaration) =>
+  declaration?.type === 'VariableDeclaration'
+    ? declaration.declarations.filter(
+        (declarator) =>
+          declarator.id.type === 'Identifier' && isClass(declarator.init),
+      )
+    : [];
+
+const unwrap = (node) =>
+  node?.type === 'ExportNamedDeclaration' ? node.declaration : node;
+
 function exportedClasses(program) {
   const classes = new Set(
-    program.body
-      .filter((node) => node.type === 'ClassDeclaration')
-      .map((node) => node.id.name),
+    program.body.flatMap((node) => {
+      const declaration = unwrap(node);
+      if (declaration?.type === 'ClassDeclaration' && declaration.id) {
+        return [declaration.id.name];
+      }
+      return classBindings(declaration).map((item) => item.id.name);
+    }),
   );
   return program.body.flatMap((node) => {
-    if (
-      node.type === 'ExportNamedDeclaration' ||
-      node.type === 'ExportDefaultDeclaration'
-    ) {
-      if (node.declaration?.type === 'ClassDeclaration') {
-        return node.declaration.id ? [node.declaration.id] : [];
+    if (node.type === 'ExportDefaultDeclaration') {
+      const { declaration } = node;
+      if (isClass(declaration)) {
+        return [declaration.id ?? { ...declaration, name: 'default' }];
       }
-      return (node.specifiers ?? [])
-        .filter((specifier) => classes.has(specifier.local.name))
-        .map((specifier) => specifier.local);
+      return declaration.type === 'Identifier' && classes.has(declaration.name)
+        ? [declaration]
+        : [];
     }
-    return [];
+    if (node.type !== 'ExportNamedDeclaration') return [];
+    if (node.declaration?.type === 'ClassDeclaration') {
+      return [node.declaration.id];
+    }
+    if (node.declaration) {
+      return classBindings(node.declaration).map((item) => item.id);
+    }
+    if (node.source) return [];
+    return node.specifiers
+      .filter((specifier) => classes.has(specifier.local.name))
+      .map((specifier) =>
+        specifier.exported.type === 'Identifier'
+          ? specifier.exported
+          : { ...specifier.exported, name: specifier.exported.value },
+      );
   });
 }
 

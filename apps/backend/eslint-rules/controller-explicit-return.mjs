@@ -1,3 +1,5 @@
+import ts from 'typescript';
+
 const httpDecorators = new Set([
   'Get',
   'Post',
@@ -46,24 +48,62 @@ function routeName(method, verb) {
   return `${verb.callee.name.toUpperCase()} ${parts.join('/')}`;
 }
 
-function typeName(node) {
-  return node.type === 'TSTypeReference' && node.typeName.type === 'Identifier'
-    ? node.typeName.name
-    : undefined;
+const forbiddenFlags = [
+  [ts.TypeFlags.Null, 'null'],
+  [ts.TypeFlags.Undefined, 'undefined'],
+  [ts.TypeFlags.Any, 'any'],
+  [ts.TypeFlags.Unknown, 'unknown'],
+];
+
+const isErrorType = (type) => type.intrinsicName === 'error';
+
+const isReference = (type) =>
+  Boolean(
+    type.flags & ts.TypeFlags.Object &&
+    type.objectFlags & ts.ObjectFlags.Reference,
+  );
+
+function typeArguments(checker, type) {
+  const args = isReference(type) ? checker.getTypeArguments(type) : [];
+  return [...args, ...(type.aliasTypeArguments ?? [])];
 }
 
-function isResponseDto(node) {
-  return typeName(node)?.endsWith('ResponseDto') === true;
+function findForbiddenType(checker, type, seen = new Set()) {
+  if (seen.has(type) || isErrorType(type)) return undefined;
+  seen.add(type);
+  const hit = forbiddenFlags.find(([flag]) => type.flags & flag);
+  if (hit) return hit[1];
+  const children = type.isUnionOrIntersection() ? type.types : [];
+  for (const child of [...children, ...typeArguments(checker, type)]) {
+    const found = findForbiddenType(checker, child, seen);
+    if (found) return found;
+  }
+  return undefined;
 }
 
-function isAllowedMember(node) {
-  if (node.type === 'TSVoidKeyword') return true;
-  if (typeName(node) === 'StreamableFile' || isResponseDto(node)) return true;
-  const array =
-    node.type === 'TSTypeOperator' && node.operator === 'readonly'
-      ? node.typeAnnotation
-      : node;
-  return array.type === 'TSArrayType' && isResponseDto(array.elementType);
+function classSymbol(type) {
+  const symbol = type.getSymbol();
+  return symbol && symbol.flags & ts.SymbolFlags.Class ? symbol : undefined;
+}
+
+function isResponseDtoClass(type) {
+  return classSymbol(type)?.getName().endsWith('ResponseDto') === true;
+}
+
+function isAllowedType(checker, type) {
+  if (isErrorType(type)) return false;
+  if (type.flags & ts.TypeFlags.Void) return true;
+  if (classSymbol(type)?.getName() === 'StreamableFile') return true;
+  if (isResponseDtoClass(type)) return true;
+  if (!checker.isArrayType(type)) return false;
+  const [element] = checker.getTypeArguments(type);
+  return element !== undefined && isResponseDtoClass(element);
+}
+
+function unwrapPromise(checker, type) {
+  return type.getSymbol()?.getName() === 'Promise' && isReference(type)
+    ? checker.getTypeArguments(type)[0]
+    : type;
 }
 
 function findForbidden(node, visitorKeys) {
@@ -92,7 +132,13 @@ export const controllerExplicitReturn = {
     },
   },
   create(context) {
-    const { visitorKeys } = context.sourceCode;
+    const { visitorKeys, parserServices } = context.sourceCode;
+    if (!parserServices?.program) {
+      throw new Error(
+        'controller-explicit-return는 타입 정보(parserOptions.projectService)가 필요하다.',
+      );
+    }
+    const checker = parserServices.program.getTypeChecker();
     return {
       MethodDefinition(node) {
         const verb = node.decorators
@@ -113,12 +159,21 @@ export const controllerExplicitReturn = {
           });
           return;
         }
-        const body =
-          typeName(annotation) === 'Promise'
-            ? (annotation.typeArguments?.params[0] ?? annotation)
-            : annotation;
-        const members = body.type === 'TSUnionType' ? body.types : [body];
-        if (!members.every(isAllowedMember)) {
+        const declared = checker.getTypeFromTypeNode(
+          parserServices.esTreeNodeToTSNodeMap.get(annotation),
+        );
+        const forbidden = findForbiddenType(checker, declared);
+        if (forbidden) {
+          context.report({
+            node: annotation,
+            messageId: 'forbidden',
+            data: { type: forbidden },
+          });
+          return;
+        }
+        const body = unwrapPromise(checker, declared);
+        const members = body?.isUnion() ? body.types : [body];
+        if (!members.every((type) => type && isAllowedType(checker, type))) {
           context.report({ node: annotation, messageId: 'invalid' });
         }
       },

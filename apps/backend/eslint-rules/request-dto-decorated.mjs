@@ -1,3 +1,8 @@
+function decoratorTarget(decorator) {
+  const { expression } = decorator;
+  return expression.type === 'CallExpression' ? expression.callee : expression;
+}
+
 export const requestDtoDecorated = {
   meta: {
     type: 'problem',
@@ -8,25 +13,41 @@ export const requestDtoDecorated = {
     },
   },
   create(context) {
-    const validators = new Set();
+    const validators = new Map();
+    const namespaces = new Set();
+    const importedName = (target) => {
+      if (target.type === 'Identifier') return validators.get(target.name);
+      if (
+        target.type === 'MemberExpression' &&
+        !target.computed &&
+        target.object.type === 'Identifier' &&
+        namespaces.has(target.object.name) &&
+        target.property.type === 'Identifier'
+      ) {
+        return target.property.name;
+      }
+      return undefined;
+    };
     return {
       ImportDeclaration(node) {
         if (node.source.value !== 'class-validator') return;
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportSpecifier') {
-            validators.add(specifier.local.name);
+            const { imported } = specifier;
+            validators.set(
+              specifier.local.name,
+              imported.type === 'Identifier' ? imported.name : imported.value,
+            );
+          } else if (specifier.type === 'ImportNamespaceSpecifier') {
+            namespaces.add(specifier.local.name);
           }
         }
       },
       PropertyDefinition(node) {
         if (node.static) return;
         const validated = node.decorators?.some((decorator) => {
-          const { expression } = decorator;
-          const name =
-            expression.type === 'CallExpression'
-              ? expression.callee.name
-              : expression.name;
-          return validators.has(name) && name !== 'IsOptional';
+          const name = importedName(decoratorTarget(decorator));
+          return name !== undefined && name !== 'IsOptional';
         });
         if (!validated) {
           context.report({ node: node.key, messageId: 'undecorated' });

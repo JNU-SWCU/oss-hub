@@ -65,7 +65,16 @@ export default tseslint.config(
       'cross-app/no-cross-app-path': 'error',
       'cross-app/no-restricted-imports': [
         'error',
-        { patterns: crossAppImportPatterns },
+        {
+          patterns: [
+            ...crossAppImportPatterns,
+            {
+              group: ['**/node_modules/**'],
+              message:
+                'node_modules 안 경로를 상대 경로로 import하지 않는다. 패키지 이름(@nestjs/common 등)으로 import한다.',
+            },
+          ],
+        },
       ],
     },
   },
