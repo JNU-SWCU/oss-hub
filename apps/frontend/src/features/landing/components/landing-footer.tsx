@@ -6,7 +6,7 @@ interface FooterLink {
 }
 
 const POLICY_LINKS: FooterLink[] = [
-  { label: '개인정보 수집·이용', href: '/policies/privacy/2026-08-11.html' },
+  { label: '개인정보 수집·이용', href: '/policies/privacy' },
 ];
 
 export function LandingFooter() {
