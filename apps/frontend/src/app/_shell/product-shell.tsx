@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import { ProgramScopeSidebar } from './program-scope-sidebar';
 import { programDetailIdFromPathname } from './section-facets';
+import { ShellFacetsContext } from './shell-facets-context';
 import { SidebarDrawer } from './sidebar-drawer';
 import {
   programScopeBackHref,
@@ -269,7 +270,11 @@ export function ProductShell({
             tabIndex={-1}
           className="relative min-h-0 min-w-0 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
           >
-            {children}
+            <ShellFacetsContext.Provider
+              value={{ section, groups, facetStatus, pathname, search }}
+            >
+              {children}
+            </ShellFacetsContext.Provider>
           </div>
           <SidebarDrawer
             open={shell?.open ?? false}
