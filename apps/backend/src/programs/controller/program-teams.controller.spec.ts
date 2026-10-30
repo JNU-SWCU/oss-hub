@@ -244,7 +244,40 @@ describe('ProgramTeamsController', () => {
       ],
     };
 
-    it('service.getMe 결과의 허용 필드만 그대로 돌려준다', async () => {
+    it('팀이 없으면 NONE 소속과 team null을 반환한다', async () => {
+      const getMe = jest.fn().mockResolvedValue(null);
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      expect(response).toEqual({ membership: 'NONE', team: null });
+    });
+
+    it('팀장이 아닌 팀원은 MEMBER 소속으로 반환한다', async () => {
+      const getMe = jest.fn().mockResolvedValue({
+        ...view,
+        isLeader: false,
+        canInvite: false,
+        canRemoveMembers: false,
+      });
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      expect(response.membership).toBe('MEMBER');
+      expect({ ...response.team }).toMatchObject({
+        id: 'team-1',
+        isLeader: false,
+      });
+    });
+
+    it('service.getMe 결과의 허용 필드만 LEADER 소속과 함께 돌려준다', async () => {
       const getMe = jest.fn().mockResolvedValue(view);
       const controller = new ProgramTeamsController(serviceStub({ getMe }));
 
@@ -254,8 +287,10 @@ describe('ProgramTeamsController', () => {
       );
 
       expect(getMe).toHaveBeenCalledWith(4242n, 'program-1');
-      expect({ ...response }).toEqual(view);
-      expect(Object.keys({ ...response }).sort()).toEqual([
+      expect(Object.keys(response).sort()).toEqual(['membership', 'team']);
+      expect(response.membership).toBe('LEADER');
+      expect({ ...response.team }).toEqual(view);
+      expect(Object.keys({ ...response.team }).sort()).toEqual([
         'canInvite',
         'canLeave',
         'canRemoveMembers',
@@ -281,7 +316,7 @@ describe('ProgramTeamsController', () => {
         'program-1',
       );
 
-      const keys = Object.keys({ ...response });
+      const keys = Object.keys({ ...response.team });
       expect(keys).not.toContain('locked');
       expect(keys).not.toContain('currentUserId');
     });

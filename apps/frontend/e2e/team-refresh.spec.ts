@@ -98,6 +98,9 @@ for (const width of [1440, 390]) {
       await (
         await invitee.request.get(`/api/v1/programs/${programId}/teams/me`)
       ).json(),
-    ).toMatchObject({ name: '합성 신청 팀', memberCount: 2 });
+    ).toMatchObject({
+      membership: 'MEMBER',
+      team: { name: '합성 신청 팀', memberCount: 2 },
+    });
   });
 }

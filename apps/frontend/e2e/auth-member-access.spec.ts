@@ -132,13 +132,16 @@ async function installUnassignedMenuDenial(
       'GET /api/v1/role-requests/me': jsonHandler(
         settled
           ? {
-              requestedRole: 'STAFF',
               status: 'REVOKED',
-              requestedAt: '2026-08-20T00:00:00.000Z',
-              decidedAt: '2026-08-21T00:00:00.000Z',
-              rejectionReason: null,
+              request: {
+                requestedRole: 'STAFF',
+                status: 'REVOKED',
+                requestedAt: '2026-08-20T00:00:00.000Z',
+                decidedAt: '2026-08-21T00:00:00.000Z',
+                rejectionReason: null,
+              },
             }
-          : null,
+          : { status: 'NONE', request: null },
       ),
       'GET /api/v1/onboarding/role': jsonHandler({ selectedRole: null }),
       'GET /api/v1/users/me/profile': jsonHandler(
@@ -381,7 +384,10 @@ test('student onboarding completes with affiliation and conditional student ID',
     isComplete: true,
   });
   expect(persisted.selection).toEqual({ selectedRole: 'STUDENT' });
-  expect(persisted.staffRequestBody).toBe('');
+  expect(JSON.parse(persisted.staffRequestBody)).toEqual({
+    status: 'NONE',
+    request: null,
+  });
   const dashboard = await page.request.get('/api/v1/dashboard/student');
   expect(dashboard.ok(), `dashboard ${dashboard.status()}`).toBe(true);
   expect(await dashboard.json()).toEqual({ items: [] });
@@ -436,10 +442,13 @@ test('staff onboarding omits student ID and reaches pending approval', async ({
   });
   expect(persisted.selection).toEqual({ selectedRole: 'STAFF' });
   expect(JSON.parse(persisted.staffRequestBody)).toMatchObject({
-    requestedRole: 'STAFF',
     status: 'PENDING',
-    decidedAt: null,
-    rejectionReason: null,
+    request: {
+      requestedRole: 'STAFF',
+      status: 'PENDING',
+      decidedAt: null,
+      rejectionReason: null,
+    },
   });
   audit.assertClean();
 });

@@ -11,6 +11,7 @@ import {
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
+import { MyStaffAccessRequestResponseDto } from '../dto/my-staff-access-request-response.dto';
 import { StaffAccessRequestResponseDto } from '../dto/role-request-response.dto';
 import {
   RoleSelectionResponseDto,
@@ -70,13 +71,15 @@ export class StaffAccessRequestsController {
   @UseGuards(SessionGuard)
   async getMe(
     @Req() request: SessionIdentity,
-  ): Promise<StaffAccessRequestResponseDto | null> {
+  ): Promise<MyStaffAccessRequestResponseDto<StaffAccessRequestResponseDto>> {
     const staffAccessRequest = await this.rolesService.getMyRequest(
       request.sessionGithubId,
     );
-    return staffAccessRequest
-      ? StaffAccessRequestResponseDto.from(staffAccessRequest)
-      : null;
+    return MyStaffAccessRequestResponseDto.from(
+      staffAccessRequest
+        ? StaffAccessRequestResponseDto.from(staffAccessRequest)
+        : null,
+    );
   }
 
   @Post()

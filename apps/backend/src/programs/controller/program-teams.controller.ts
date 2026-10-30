@@ -15,6 +15,7 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
+import { MyProgramTeamResponseDto } from '../dto/my-program-team-response.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { TransferTeamLeaderRequestDto } from '../dto/transfer-team-leader-request.dto';
 import {
@@ -58,9 +59,11 @@ export class ProgramTeamsController {
   async me(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
-  ): Promise<ProgramTeamResponseDto | null> {
+  ): Promise<MyProgramTeamResponseDto<ProgramTeamResponseDto>> {
     const team = await this.service.getMe(request.sessionGithubId, programId);
-    return team ? ProgramTeamResponseDto.from(team) : null;
+    return MyProgramTeamResponseDto.from(
+      team ? ProgramTeamResponseDto.from(team) : null,
+    );
   }
 
   @Delete('me')

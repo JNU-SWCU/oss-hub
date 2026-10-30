@@ -345,15 +345,48 @@ describe('getMyTeam', () => {
     vi.mocked(apiClient).mockReset();
   });
 
+  function leaderOf(team: Record<string, unknown>) {
+    return { membership: 'LEADER', team };
+  }
+
+  it('NONE 소속은 팀 없음(null)으로 읽는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ membership: 'NONE', team: null });
+
+    await expect(getMyTeam('program-1')).resolves.toBeNull();
+  });
+
+  it('MEMBER 소속도 팀 본문을 그대로 읽는다', async () => {
+    const memberTeam = { ...backendTeam, isLeader: false, canInvite: false };
+    vi.mocked(apiClient).mockResolvedValue({
+      membership: 'MEMBER',
+      team: memberTeam,
+    });
+
+    await expect(getMyTeam('program-1')).resolves.toEqual(memberTeam);
+  });
+
+  it('알 수 없는 소속 상태는 응답 오류로 끊는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      membership: 'OWNER',
+      team: backendTeam,
+    });
+
+    await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
+      ProgramTeamResponseError,
+    );
+  });
+
   it('인증된 세션의 팀을 프로그램 경로로 읽고 능력 플래그를 그대로 통과시킨다', async () => {
-    vi.mocked(apiClient).mockResolvedValue(backendTeam);
+    vi.mocked(apiClient).mockResolvedValue(leaderOf(backendTeam));
 
     await expect(getMyTeam('program 1')).resolves.toEqual(backendTeam);
     expect(apiClient).toHaveBeenCalledWith('programs/program%201/teams/me');
   });
 
   it('폐기된 locked 같은 여분 키는 팀 계약에 싣지 않는다', async () => {
-    vi.mocked(apiClient).mockResolvedValue({ ...backendTeam, locked: true });
+    vi.mocked(apiClient).mockResolvedValue(
+      leaderOf({ ...backendTeam, locked: true }),
+    );
 
     const team = await getMyTeam('program-1');
 
@@ -382,7 +415,7 @@ describe('getMyTeam', () => {
   ])('능력 플래그 %s 가 빠지면 기본값 대신 응답 오류로 끊는다', async (key) => {
     const withoutCapability: Record<string, unknown> = { ...backendTeam };
     delete withoutCapability[key];
-    vi.mocked(apiClient).mockResolvedValue(withoutCapability);
+    vi.mocked(apiClient).mockResolvedValue(leaderOf(withoutCapability));
 
     await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
       ProgramTeamResponseError,
@@ -390,10 +423,12 @@ describe('getMyTeam', () => {
   });
 
   it('멤버 목록이 계약을 벗어나면 빈 팀으로 접지 않는다', async () => {
-    vi.mocked(apiClient).mockResolvedValue({
-      ...backendTeam,
-      members: [{ userId: 'user-1', nickname: 'leader' }],
-    });
+    vi.mocked(apiClient).mockResolvedValue(
+      leaderOf({
+        ...backendTeam,
+        members: [{ userId: 'user-1', nickname: 'leader' }],
+      }),
+    );
 
     await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
       ProgramTeamResponseError,
@@ -401,10 +436,9 @@ describe('getMyTeam', () => {
   });
 
   it('minMembers 가 없는 프로그램의 null 은 그대로 받는다', async () => {
-    vi.mocked(apiClient).mockResolvedValue({
-      ...backendTeam,
-      minMembers: null,
-    });
+    vi.mocked(apiClient).mockResolvedValue(
+      leaderOf({ ...backendTeam, minMembers: null }),
+    );
 
     await expect(getMyTeam('program-1')).resolves.toMatchObject({
       minMembers: null,

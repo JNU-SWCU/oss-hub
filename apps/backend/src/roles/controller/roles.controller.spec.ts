@@ -127,7 +127,7 @@ describe('OnboardingController', () => {
 });
 
 describe('StaffAccessRequestsController', () => {
-  it('요청이 없으면 GET /me에서 200 본문 null 계약을 반환한다', async () => {
+  it('요청이 없으면 GET /me에서 NONE 상태와 request null을 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(null),
       jest.fn(),
@@ -135,10 +135,10 @@ describe('StaffAccessRequestsController', () => {
 
     const result = await controller.getMe(REQUEST);
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ status: 'NONE', request: null });
   });
 
-  it('최근 요청을 ISO 날짜 응답 계약으로 반환한다', async () => {
+  it('최근 요청의 상태와 ISO 날짜 응답 계약을 함께 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(rejectedRequest),
       jest.fn(),
@@ -147,11 +147,39 @@ describe('StaffAccessRequestsController', () => {
     const result = await controller.getMe(REQUEST);
 
     expect(result).toEqual({
-      requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.REJECTED,
-      requestedAt: REQUESTED_AT.toISOString(),
-      decidedAt: DECIDED_AT.toISOString(),
-      rejectionReason: '합성 사유',
+      request: {
+        requestedRole: 'STAFF',
+        status: StaffAccessRequestStatus.REJECTED,
+        requestedAt: REQUESTED_AT.toISOString(),
+        decidedAt: DECIDED_AT.toISOString(),
+        rejectionReason: '합성 사유',
+      },
+    });
+  });
+
+  it('대기 중인 요청은 PENDING 상태로 반환한다', async () => {
+    const controller = createStaffAccessRequestsController(
+      jest.fn().mockResolvedValue({
+        ...rejectedRequest,
+        status: StaffAccessRequestStatus.PENDING,
+        decidedAt: null,
+        rejectionReason: null,
+      }),
+      jest.fn(),
+    );
+
+    const result = await controller.getMe(REQUEST);
+
+    expect(result).toEqual({
+      status: StaffAccessRequestStatus.PENDING,
+      request: {
+        requestedRole: 'STAFF',
+        status: StaffAccessRequestStatus.PENDING,
+        requestedAt: REQUESTED_AT.toISOString(),
+        decidedAt: null,
+        rejectionReason: null,
+      },
     });
   });
 
