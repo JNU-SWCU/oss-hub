@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, withQuery } from '@/lib/api-client';
 import type {
   BoardComment,
   BoardCommentWriteInput,
@@ -22,10 +22,7 @@ export function listBoardPosts(
   const search = new URLSearchParams();
   if (params?.page !== undefined) search.set('page', String(params.page));
   if (params?.limit !== undefined) search.set('limit', String(params.limit));
-  const query = search.toString();
-  return apiClient<BoardPostsPage>(
-    `${postsBase(programId)}${query ? `?${query}` : ''}`,
-  );
+  return apiClient<BoardPostsPage>(withQuery(postsBase(programId), search));
 }
 
 export function getBoardPost(

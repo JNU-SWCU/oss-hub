@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, withQuery } from '@/lib/api-client';
 import type {
   AdminAccessDetail,
   AdminAccessFacetCounts,
@@ -102,7 +102,7 @@ export async function fetchAdminAccessList(
 ): Promise<AdminAccessListPage> {
   const search = serializeAdminAccessListQuery(params);
   const value = await apiClient<unknown>(
-    `users/access${search ? `?${search}` : ''}`,
+    withQuery('users/access', new URLSearchParams(search)),
     signal ? { signal } : undefined,
   );
   return parseAdminAccessListPage(value);
@@ -117,7 +117,7 @@ export async function fetchAdminAccessRequests(
     pendingRequest: undefined,
   });
   const value = await apiClient<unknown>(
-    `users/access/requests${search ? `?${search}` : ''}`,
+    withQuery('users/access/requests', new URLSearchParams(search)),
     signal ? { signal } : undefined,
   );
   return parseAdminAccessListPage(value);
@@ -129,7 +129,7 @@ export async function fetchAdminAccessFacets(
 ): Promise<AdminAccessFacetCounts> {
   const search = serializeAdminAccessListQuery(params);
   const value = await apiClient<unknown>(
-    `users/access/facets${search ? `?${search}` : ''}`,
+    withQuery('users/access/facets', new URLSearchParams(search)),
     signal ? { signal } : undefined,
   );
   return parseAdminAccessFacets(value);
@@ -153,7 +153,10 @@ export async function fetchAdminAccessHistory(
 ): Promise<AdminAccessHistory> {
   const search = serializeAdminAccessHistoryQuery(params);
   const value = await apiClient<unknown>(
-    `users/${encodeURIComponent(id)}/access/history${search ? `?${search}` : ''}`,
+    withQuery(
+      `users/${encodeURIComponent(id)}/access/history`,
+      new URLSearchParams(search),
+    ),
     signal ? { signal } : undefined,
   );
   return parseAdminAccessHistory(value);

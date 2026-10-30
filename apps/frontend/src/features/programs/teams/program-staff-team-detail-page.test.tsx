@@ -255,9 +255,7 @@ describe('ProgramStaffTeamDetailPage', () => {
 
     expect(
       [...container.querySelectorAll('a')].some(
-        (link) =>
-          link.getAttribute('href') ===
-          '/programs/program-1/teams?view=operations',
+        (link) => link.getAttribute('href') === '/programs/program-1/teams',
       ),
     ).toBe(true);
   });
@@ -970,9 +968,7 @@ describe('ProgramStaffTeamDetailPage', () => {
         if (confirm instanceof HTMLButtonElement) confirm.click();
       });
 
-      expect(routerPushMock).toHaveBeenCalledWith(
-        '/programs/program-1/teams?view=operations',
-      );
+      expect(routerPushMock).toHaveBeenCalledWith('/programs/program-1/teams');
     });
 
     it('위험 영역에 팀 삭제 버튼이 있고 누르면 확인 창이 열린다', async () => {

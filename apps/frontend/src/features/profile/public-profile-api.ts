@@ -199,7 +199,9 @@ export async function loadPublicProfile(
 
   try {
     return parsePublicProfile(
-      await apiClient<unknown>(`users/${userId}/public-profile`),
+      await apiClient<unknown>(
+        `users/${encodeURIComponent(userId)}/public-profile`,
+      ),
     );
   } catch (error) {
     if (

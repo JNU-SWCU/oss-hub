@@ -35,12 +35,10 @@ export interface DashboardItem {
 
   readonly teamName: string;
 
-  readonly teamUrl: string;
   readonly applicationStatus: DashboardApplicationStatus;
   readonly nextMilestone: DashboardMilestone | null;
   readonly progress?: DashboardProgress | null;
   readonly detailUrl: string;
-  readonly checklistUrl: string;
   readonly repository: {
     readonly repositoryName: string | null;
     readonly provisionStatus: DashboardRepositoryProvisionStatus;

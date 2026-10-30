@@ -47,8 +47,8 @@ interface Scenario {
   readonly counts: Counts;
   readonly programName?: string;
   readonly purgeResponses?: readonly PurgeResponse[];
-  readonly purgeDelayMs?: number;
-  readonly scopeDelayMs?: number;
+  readonly purgeGate?: Promise<void>;
+  readonly scopeGate?: Promise<void>;
   readonly scopeError?: boolean;
 }
 
@@ -133,11 +133,7 @@ async function openEdit(
           deletedCounts: scenario.counts,
         },
       };
-      if (scenario.purgeDelayMs) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, scenario.purgeDelayMs),
-        );
-      }
+      await scenario.purgeGate;
       await route.fulfill({
         status: response.status,
         contentType:
@@ -161,11 +157,7 @@ async function openEdit(
       return;
     }
     if (path.endsWith(`/programs/${PROGRAM_ID}/edit`)) {
-      if (initialLoadComplete && scenario.scopeDelayMs) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, scenario.scopeDelayMs),
-        );
-      }
+      if (initialLoadComplete) await scenario.scopeGate;
       if (initialLoadComplete && scenario.scopeError) {
         await json(route, { detail: 'scope unavailable' }, 500);
         return;
@@ -188,7 +180,9 @@ async function openEdit(
   await expect(
     page.getByRole('heading', { name: '프로그램 편집' }),
   ).toBeVisible();
-  await page.waitForLoadState('networkidle');
+  await expect(
+    page.getByRole('textbox', { name: '프로그램명 *', exact: true }),
+  ).toHaveValue(scenario.programName ?? PROGRAM_NAME);
   initialLoadComplete = true;
   return { purgeRequests, normalDeletes, lifecyclePatches };
 }
@@ -222,10 +216,22 @@ test.describe('program edit purge network contract', () => {
     await expect(page.getByText('다시 게시하기', { exact: true })).toHaveCount(
       0,
     );
+    await page
+      .getByRole('textbox', { name: '프로그램명 *', exact: true })
+      .fill(`${PROGRAM_NAME} 수정`);
     await openPurge(page);
-    await expect(page.getByLabel('프로그램 이름')).toHaveCount(0);
+    await expect(
+      page.getByRole('textbox', { name: '프로그램명 *', exact: true }),
+    ).toHaveCount(0);
     await page.getByRole('button', { name: '삭제', exact: true }).click();
-    await expect(page).toHaveURL(/\/programs(?:\?|$)/);
+    await expect(page).toHaveURL(new URL('/programs', page.url()).href);
+    const notice = page
+      .getByRole('alert')
+      .filter({ hasText: '프로그램 전체 삭제' });
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText('지원서 4건');
+    await page.reload();
+    await expect(notice).toHaveCount(0);
     expect(purgeRequests).toEqual([{ expectedScope: COUNTS }]);
     expect(normalDeletes).toEqual([]);
     expect(lifecyclePatches).toEqual([]);
@@ -391,10 +397,16 @@ test.describe('program edit purge network contract', () => {
   });
 
   test('scope loading blocks confirmation', async ({ page }) => {
+    let releaseScope: () => void = () => {
+      throw new Error('Missing scope gate');
+    };
+    const scopeGate = new Promise<void>((resolve) => {
+      releaseScope = resolve;
+    });
     const loading = await openEdit(page, {
       actor: 'admin',
       counts: COUNTS,
-      scopeDelayMs: 250,
+      scopeGate,
     });
     await page
       .getByRole('button', { name: '프로그램 삭제', exact: true })
@@ -403,6 +415,7 @@ test.describe('program edit purge network contract', () => {
       page.getByRole('alertdialog').getByRole('button').last(),
     ).toBeDisabled();
     expect(loading.purgeRequests).toEqual([]);
+    releaseScope();
     await expect(
       page.getByText(
         '지원서 4건 · 팀 4개 · 게시글 2건 · 제출물 3건 · 제출·검토·파일 이력 5건',
@@ -435,10 +448,16 @@ test.describe('program edit purge network contract', () => {
   test('duplicate in-flight confirmation never mutates twice', async ({
     page,
   }) => {
+    let releasePurge: () => void = () => {
+      throw new Error('Missing purge gate');
+    };
+    const purgeGate = new Promise<void>((resolve) => {
+      releasePurge = resolve;
+    });
     const pending = await openEdit(page, {
       actor: 'admin',
       counts: COUNTS,
-      purgeDelayMs: 1000,
+      purgeGate,
     });
     await page
       .getByRole('button', { name: '프로그램 삭제', exact: true })
@@ -449,8 +468,13 @@ test.describe('program edit purge network contract', () => {
         { exact: true },
       ),
     ).toBeVisible();
+    const purgeRequested = page.waitForRequest(
+      (request) =>
+        request.method() === 'DELETE' &&
+        new URL(request.url()).pathname.endsWith('/purge'),
+    );
     await page.getByRole('button', { name: '삭제', exact: true }).click();
-    await expect.poll(() => pending.purgeRequests.length).toBe(1);
+    await purgeRequested;
     await expect(
       page.getByRole('alertdialog').getByRole('button').last(),
     ).toBeDisabled();
@@ -460,6 +484,7 @@ test.describe('program edit purge network contract', () => {
       .last()
       .click({ force: true });
     expect(pending.purgeRequests).toHaveLength(1);
+    releasePurge();
     await expect(page).toHaveURL(/\/programs(?:\?|$)/);
   });
 

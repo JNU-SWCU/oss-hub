@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
+import { useNavigationNotices } from '@/lib/navigation-notices';
 import { getProgramEndedYears, listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
@@ -88,7 +89,8 @@ function ProgramListPage({
   const status = parseStatus(searchParams.get('status'));
   const sort = parseProgramListSort(searchParams.get('sort'));
   const direction = parseProgramListDirection(searchParams.get('direction'));
-  const purgeNotice = searchParams.get('purged');
+  const notices = useNavigationNotices();
+  const purgeNotice = notices.status === 'ready' ? notices.purgeSummary : null;
   const year =
     status === 'ended'
       ? parseProgramListYear(searchParams.get('year'))

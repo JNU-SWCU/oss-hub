@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 
 import { createReview, getReviewContext, publishRepository } from './api';
+import { publishRepository as publishRepositoryDirect } from '@/lib/repository-publication';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -79,6 +80,23 @@ describe('reviews api', () => {
     );
   });
 
+  it('slash가 포함된 submission id를 경로 세그먼트로 인코딩한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getReviewContext('submission/one');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('submissions/submission%2Fone/review-context'),
+      undefined,
+    );
+  });
+
   it('repository id로 별도 공개 전환을 요청한다', async () => {
     const response = {
       repositoryId: 'repository-ready',
@@ -103,6 +121,30 @@ describe('reviews api', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isConfirmed: true }),
       },
+    );
+  });
+
+  it('repository publication은 slash가 포함된 id를 인코딩한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          repositoryId: 'repo/one',
+          visibility: 'PUBLIC',
+          publishedAt: '2026-10-01T01:00:00.000Z',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await publishRepositoryDirect('repo/one');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('repositories/repo%2Fone/publish'),
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 });

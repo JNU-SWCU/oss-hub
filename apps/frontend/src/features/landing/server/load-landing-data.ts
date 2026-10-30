@@ -61,13 +61,23 @@ function arrived<T>(
 }
 
 export async function loadLandingData(): Promise<LandingData> {
+  const recruitingQuery = new URLSearchParams({
+    page: '1',
+    pageSize: '3',
+    status: 'recruiting',
+  });
+  const namesQuery = new URLSearchParams({
+    page: '1',
+    pageSize: String(COSMOS_PROGRAM_COUNT),
+    status: 'all',
+  });
   const [recruiting, names, stats] = await Promise.allSettled([
-    landingJson('programs?page=1&pageSize=3&search=&status=recruiting').then(
+    landingJson(`programs?${recruitingQuery.toString()}`).then(
       parseLandingProgramPage,
     ),
-    landingJson(
-      `programs?page=1&pageSize=${COSMOS_PROGRAM_COUNT}&search=&status=all`,
-    ).then(parseLandingProgramNamePage),
+    landingJson(`programs?${namesQuery.toString()}`).then(
+      parseLandingProgramNamePage,
+    ),
     loadStats(),
   ]);
   return {

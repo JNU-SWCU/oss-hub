@@ -123,9 +123,7 @@ describe('StaffDashboardOverview', () => {
     expect(html).toContain('승인 대기');
     expect(html).toContain('저장소');
     expect(html).toContain('검토 대기');
-    expect(html).toContain(
-      'href="/programs/program%3Abasic/edit?view=operations"',
-    );
+    expect(html).toContain('href="/programs/program%3Abasic/edit"');
     expect(html).toContain('aria-label="기본 프로그램 편집"');
     expect(html).toContain('after:absolute');
     expect(html).toContain('after:inset-0');

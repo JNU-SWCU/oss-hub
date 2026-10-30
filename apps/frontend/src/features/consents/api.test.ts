@@ -22,6 +22,31 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test.each(['privacy', 'github-activity', 'org-repository-terms'])(
+  '버전 없는 %s 문서 주소를 동의 응답으로 허용한다',
+  async (document) => {
+    const documentUrl = `/policies/${document}`;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...currentConsentResponse,
+            requiredItems: [
+              { ...currentConsentResponse.requiredItems[0], documentUrl },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    const result = await getCurrentConsent();
+
+    expect(result.requiredItems[0]?.documentUrl).toBe(documentUrl);
+  },
+);
+
 test('현재 동의 정책을 단일 API 클라이언트 경로로 조회하고 서버 항목 순서를 보존한다', async () => {
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(currentConsentResponse), {

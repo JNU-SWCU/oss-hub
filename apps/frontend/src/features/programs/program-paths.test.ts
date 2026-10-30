@@ -3,7 +3,6 @@ import {
   decodeRouteProgramId,
   programHref,
   staffApplicationDetailHref,
-  staffProgramHref,
 } from './program-paths';
 
 describe('program-paths', () => {
@@ -13,9 +12,9 @@ describe('program-paths', () => {
     );
   });
 
-  it('staffProgramHref 로 신청자 목록 경로를 만든다', () => {
-    expect(staffProgramHref('program-1', '/teams')).toBe(
-      '/programs/program-1/teams?view=operations',
+  it('programHref 로 참여 팀 목록 경로를 만든다', () => {
+    expect(programHref('program-1', '/teams')).toBe(
+      '/programs/program-1/teams',
     );
   });
 

@@ -180,7 +180,6 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isSafePathSegment(programId) &&
     isNonEmptyString(value.programName) &&
     isNonEmptyString(value.teamName) &&
-    isProgramPath(value.teamUrl, programId, '/my-team') &&
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
@@ -191,7 +190,6 @@ function isDashboardItem(value: unknown): value is DashboardItem {
       programId,
       applicationStatus === 'APPROVED' ? '' : '/apply',
     ) &&
-    isProgramPath(value.checklistUrl, programId, '/submissions') &&
     (value.repository === null || isRepository(value.repository)) &&
     (applicationStatus === 'APPROVED' || value.repository === null)
   );
