@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { Download, Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  Download,
+  Hourglass,
+  ListOrdered,
+  RefreshCw,
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,19 +18,30 @@ import { cn } from '@/lib/utils';
 import {
   RANKING_VIEWER_CLASSES,
   type RankingPage,
+  type RankingTimeline,
   type MemberRankingItem,
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
+import {
+  RankingBumpChart,
+  RankingBumpChartLoading,
+} from './ranking-bump-chart';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly ranking: RankingPage }
   | { readonly kind: 'error' };
 
+export type RankingTimelineState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'ready'; readonly timeline: RankingTimeline }
+  | { readonly kind: 'error' };
+
 interface RankingViewProps {
   readonly page: number;
   readonly state: RankingViewState;
+  readonly timeline?: RankingTimelineState;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
   readonly onExportCsv: () => void;
@@ -35,7 +52,7 @@ interface RankingViewProps {
 const EMPTY_CELL = '-';
 
 const RANKING_METRIC_DESCRIPTION =
-  'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
+  'Commit · PR · Issue · Repo를 합산합니다. Star는 내 저장소와 그해 직접 커밋·PR한 조직 저장소의 누적입니다.';
 
 const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'rank',
@@ -213,6 +230,30 @@ function RankingTable({
   }
 }
 
+function RankingTimelineSection({
+  state,
+}: {
+  readonly state: RankingTimelineState | undefined;
+}) {
+  if (state === undefined) return null;
+  switch (state.kind) {
+    case 'loading':
+      return <RankingBumpChartLoading />;
+    case 'error':
+      return (
+        <Alert variant="destructive" data-timeline-error>
+          <AlertCircle />
+          <AlertTitle>그래프를 불러오지 못했어요</AlertTitle>
+          <AlertDescription className="break-keep">
+            순위표는 아래에서 그대로 볼 수 있어요.
+          </AlertDescription>
+        </Alert>
+      );
+    case 'ready':
+      return <RankingBumpChart timeline={state.timeline} />;
+  }
+}
+
 function formatDataAsOf(at: Date): string {
   return new Intl.DateTimeFormat('ko-KR', {
     dateStyle: 'medium',
@@ -267,6 +308,7 @@ function rankingAsOfAction(ranking: RankingPage): ReactNode {
 export function RankingView({
   page,
   state,
+  timeline,
   onPageChange,
   onRetry,
   onExportCsv,
@@ -341,6 +383,7 @@ export function RankingView({
               </AlertDescription>
             </Alert>
           ) : null}
+          <RankingTimelineSection state={timeline} />
           {state.kind === 'ready' && ranking && ranking.items.length === 0 ? (
             <EmptyState
               icon={<ListOrdered className="size-5" />}

@@ -1,0 +1,411 @@
+/* 연습장 레이스 — 모눈 연습장 위에 연필로 그린 순위 레이스.
+   색은 전부 semantic 토큰이고, 손맛은 고정 seed 난류 필터와 :nth-child 패리티에서만 온다. */
+
+.root {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background-color: var(--card);
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 23px,
+      color-mix(in oklch, var(--border) 70%, transparent) 23px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 23px,
+      color-mix(in oklch, var(--border) 70%, transparent) 23px 24px
+    );
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.titleBlock {
+  display: grid;
+  gap: 2px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--foreground);
+}
+
+.hl {
+  font-style: normal;
+  padding-inline: 3px;
+  background: linear-gradient(
+    100deg,
+    transparent 2%,
+    color-mix(in oklch, var(--chart-3) 34%, transparent) 10% 90%,
+    transparent 98%
+  );
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--step-small);
+  color: var(--muted-foreground);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.play {
+  height: auto;
+  min-height: var(--control-height);
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: var(--step-small);
+  font-weight: 700;
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--chart-3) 26%, transparent);
+  border: 2px solid var(--foreground);
+  border-radius: 10px 12px 12px 9px;
+  box-shadow: 3px 3px 0 var(--border);
+  transform: rotate(-0.6deg);
+}
+
+.play:hover {
+  background: color-mix(in oklch, var(--chart-3) 38%, transparent);
+}
+
+.play:active {
+  transform: translate(2px, 2px) rotate(-0.6deg);
+  box-shadow: 1px 1px 0 var(--border);
+}
+
+.play:focus-visible {
+  outline: 2px dashed var(--ring);
+  outline-offset: 2px;
+}
+
+.cassette {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.play[data-playing='true'] .hub {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rank-hub-spin 1.4s linear infinite;
+}
+
+@keyframes rank-hub-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.counter {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: var(--step-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.viewport {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.plot {
+  width: 100%;
+  min-width: 640px;
+}
+
+.plot :global(.recharts-cartesian-axis-tick-value) {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 12px;
+  fill: var(--muted-foreground);
+}
+
+.line :global(.recharts-line-curve) {
+  pointer-events: visibleStroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lineHoverable:hover :global(.recharts-line-curve) {
+  stroke: var(--chart-2);
+  stroke-width: 3;
+  stroke-opacity: 1;
+  filter: url(#rank-sketch-bold);
+}
+
+.underlay,
+.underlay :global(.recharts-line-curve) {
+  pointer-events: none;
+}
+
+.handDot {
+  fill: var(--background);
+  stroke-width: 2.5;
+}
+
+.axisInk path {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.axisInk line {
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.crown {
+  transition: transform 150ms ease-out;
+}
+
+.crown path {
+  fill: var(--chart-3);
+  stroke: var(--foreground);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+
+.rookie rect {
+  fill: color-mix(in oklch, var(--chart-3) 35%, transparent);
+  stroke: var(--foreground);
+  stroke-width: 1;
+}
+
+.rookieLabel {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 10px;
+  fill: var(--muted-foreground);
+}
+
+.note {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 13px;
+  fill: var(--foreground);
+}
+
+.noteArrow {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.noteSwipe {
+  fill: color-mix(in oklch, var(--chart-3) 30%, transparent);
+}
+
+.endLabel {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 12px;
+}
+
+.endLabelViewer {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--chart-1);
+}
+
+.bubble {
+  position: relative;
+  display: inline-block;
+  padding: 6px 10px;
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border: 2px solid var(--foreground);
+  border-radius: 14px 16px 14px 4px;
+  box-shadow: 3px 3px 0 var(--border);
+  transform: rotate(-1.2deg);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  bottom: -8px;
+  width: 11px;
+  height: 11px;
+  background: var(--popover);
+  border-right: 2px solid var(--foreground);
+  border-bottom: 2px solid var(--foreground);
+  transform: skewX(32deg) rotate(45deg);
+}
+
+.bubbleBelow {
+  border-radius: 4px 14px 16px 14px;
+}
+
+.bubbleBelow::after {
+  top: -8px;
+  bottom: auto;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 2px solid var(--foreground);
+  border-top: 2px solid var(--foreground);
+}
+
+.bubbleTotal {
+  display: block;
+  color: var(--muted-foreground);
+}
+
+.chip {
+  height: auto;
+  min-height: 36px;
+  padding: 3px 10px;
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1.5px dashed var(--muted-foreground);
+  border-radius: 10px 13px 11px 12px;
+  transform: rotate(-1deg);
+}
+
+.chip:nth-child(even) {
+  transform: rotate(0.75deg);
+}
+
+.chip:hover {
+  background: color-mix(in oklch, var(--chart-2) 10%, transparent);
+}
+
+.chip[aria-pressed='true'] {
+  border-style: solid;
+  border-color: var(--foreground);
+  background: color-mix(in oklch, var(--chart-2) 18%, transparent);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+.chip:focus-visible {
+  outline: 2px dashed var(--ring);
+  outline-offset: 2px;
+}
+
+.swatch {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.find {
+  height: auto;
+  min-height: 36px;
+  max-width: 280px;
+  padding-inline: 10px;
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: 12px;
+  border: 1.5px dashed var(--muted-foreground);
+  border-radius: 10px 13px 11px 12px;
+}
+
+.find:focus-visible {
+  outline: 2px dashed var(--ring);
+  outline-offset: 2px;
+}
+
+.placeholder {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-dasharray: 6 6;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.4;
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: var(--card-padding);
+  }
+
+  .title {
+    font-size: 20px;
+  }
+
+  .header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .play {
+    flex: 0 0 auto;
+    min-height: 36px;
+  }
+
+  .chip,
+  .find {
+    min-height: 28px;
+  }
+}
+
+@media (min-width: 768px) {
+  .plot {
+    min-width: 0;
+  }
+
+  /* 노트 여백선은 y축 거터(56px)와 같은 자리에만 그린다 —
+     가로 스크롤이 살아 있는 좁은 화면에선 축과 어긋나기 때문에 빌다. */
+  .card {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        transparent 0 23px,
+        color-mix(in oklch, var(--border) 70%, transparent) 23px 24px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0 23px,
+        color-mix(in oklch, var(--border) 70%, transparent) 23px 24px
+      ),
+      linear-gradient(
+        to right,
+        transparent 0 56px,
+        color-mix(in oklch, var(--destructive) 30%, transparent) 56px 57.5px,
+        transparent 57.5px
+      );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crown {
+    transition: none;
+  }
+
+  .play[data-playing='true'] .hub {
+    animation: none;
+  }
+}

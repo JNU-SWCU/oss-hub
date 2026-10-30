@@ -2,17 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getRanking } from '../api';
+import { getRanking, getRankingTimeline } from '../api';
 import {
   buildRankingCsv,
   downloadTextFile,
   RANKING_CSV_PAGE_SIZE,
   rankingCsvFilename,
 } from '../csv';
-import { RANKING_VIEWER_CLASSES, parseRankingYearSearchParam } from '../types';
-import { RankingView, type RankingViewState } from './ranking-view';
+import {
+  RANKING_VIEWER_CLASSES,
+  RANKING_YEAR_ALL,
+  parseRankingYearSearchParam,
+} from '../types';
+import {
+  RankingView,
+  type RankingTimelineState,
+  type RankingViewState,
+} from './ranking-view';
 
 const PAGE_SIZE = 100;
+const TIMELINE_FIRST_YEAR = 2026;
 
 interface RankingScreenProps {
   readonly onNextCycleAt: (nextCycleAt: string | null) => void;
@@ -26,6 +35,9 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
   );
   const [page, setPage] = useState(1);
   const [state, setState] = useState<RankingViewState>({ kind: 'loading' });
+  const [timeline, setTimeline] = useState<RankingTimelineState | undefined>(
+    undefined,
+  );
   const [retry, setRetry] = useState(0);
   const [exportStatus, setExportStatus] = useState<
     'idle' | 'preparing' | 'error'
@@ -54,6 +66,25 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
       onNextCycleAt(null);
     };
   }, [page, year, retry, onNextCycleAt]);
+
+  useEffect(() => {
+    if (year === RANKING_YEAR_ALL || year < TIMELINE_FIRST_YEAR) {
+      setTimeline(undefined);
+      return undefined;
+    }
+    const controller = new AbortController();
+    setTimeline({ kind: 'loading' });
+    void getRankingTimeline(year, controller.signal)
+      .then((loaded) => {
+        setTimeline({ kind: 'ready', timeline: loaded });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setTimeline({ kind: 'error' });
+      });
+    return () => {
+      controller.abort();
+    };
+  }, [year, retry]);
 
   const retryLoad = useCallback(() => setRetry((current) => current + 1), []);
 
@@ -104,6 +135,7 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
     <RankingView
       page={page}
       state={state}
+      timeline={timeline}
       onPageChange={setPage}
       onRetry={retryLoad}
       onExportCsv={exportCsv}

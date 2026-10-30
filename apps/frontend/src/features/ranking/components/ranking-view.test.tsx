@@ -5,11 +5,17 @@ import {
   type MemberRankingItem,
   type PublicRankingItem,
   type PublicRankingPage,
+  type RankingTimeline,
   type StaffRankingItem,
   type StaffRankingPage,
 } from '../types';
 import { parseRankingPage } from '../api';
 import { RankingView } from './ranking-view';
+
+vi.mock('./ranking-bump-chart', () => ({
+  RankingBumpChart: () => <div data-bump-chart="" />,
+  RankingBumpChartLoading: () => <div data-bump-chart-loading="" />,
+}));
 
 vi.mock('@/components', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components')>();
@@ -586,7 +592,6 @@ test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
   });
 
   expect(html).toContain('누적');
-  expect(html).toContain('계정 전체 누적');
   expect(html).toContain('(누적)');
 });
 
@@ -858,7 +863,6 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
     expect(staff).toContain(header);
   }
   expect(staff).toContain('(누적)');
-  expect(staff).toContain('계정 전체 누적');
   expect(staff).toContain('첫 수집 전입니다');
   expect(staff).toContain('data-ranking-as-of="none"');
   expect(staff).toContain('CSV 다운로드');
@@ -993,4 +997,68 @@ test('member 계층의 활동 없음 판정은 합계 열을 쓴다 — 화면�
 
   expect(zeroCommitOnly).not.toContain('집계된 활동이 아직 없습니다');
   expect(allZero).toContain('집계된 활동이 아직 없습니다');
+});
+
+const timelineFixture: RankingTimeline = {
+  year: 2026,
+  viewerClass: 'public',
+  viewerGithubLogin: null,
+  dataAsOf: null,
+  points: [{ date: '2026-03-19', starEstimated: false }],
+  series: [{ githubLogin: 'synthetic-top', ranks: [1] }],
+};
+
+function timelineMarkup(
+  timeline: Parameters<typeof RankingView>[0]['timeline'],
+): string {
+  return renderToStaticMarkup(
+    <RankingView
+      page={1}
+      state={{
+        kind: 'ready',
+        ranking: rankingEnvelope({
+          year: 2026,
+          items: [publicPersonAxisItem()],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          dataAsOf: new Date('2026-03-19T02:30:00.000Z'),
+        }),
+      }}
+      timeline={timeline}
+      {...handlers}
+    />,
+  );
+}
+
+test('순위 변화 그래프는 순위표보다 위에 그린다', () => {
+  const html = timelineMarkup({ kind: 'ready', timeline: timelineFixture });
+
+  expect(html).toContain('data-bump-chart');
+  expect(html.indexOf('data-bump-chart')).toBeLessThan(
+    html.indexOf('data-row-keys'),
+  );
+});
+
+test('그래프를 못 불러왔어도 순위표는 그대로 남는다', () => {
+  const html = timelineMarkup({ kind: 'error' });
+
+  expect(html).toContain('data-timeline-error');
+  expect(html).toContain('data-row-keys="1"');
+  expect(html).not.toContain('data-bump-chart=');
+});
+
+test('그래프 로드 중에도 순위표는 비지 않는다', () => {
+  const html = timelineMarkup({ kind: 'loading' });
+
+  expect(html).toContain('data-bump-chart-loading');
+  expect(html).toContain('data-row-keys="1"');
+});
+
+test('타임라인이 없으면 그래프 자리를 비우고 표만 그린다', () => {
+  const html = timelineMarkup(undefined);
+
+  expect(html).not.toContain('data-bump-chart');
+  expect(html).not.toContain('data-timeline-error');
+  expect(html).toContain('data-row-keys="1"');
 });
