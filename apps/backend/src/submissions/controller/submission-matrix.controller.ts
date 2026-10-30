@@ -13,8 +13,8 @@ import {
   type SubmissionMatrixResponseDto,
 } from '../dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from '../service/submission-matrix.service';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

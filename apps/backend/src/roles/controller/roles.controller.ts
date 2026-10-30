@@ -8,9 +8,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { MyStaffAccessRequestResponseDto } from '../dto/my-staff-access-request-response.dto';
 import { StaffAccessRequestResponseDto } from '../dto/role-request-response.dto';
 import {

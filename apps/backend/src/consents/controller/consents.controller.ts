@@ -7,9 +7,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { ConsentsService } from '../service/consents.service';
 import { ConsentCurrentResponseDto } from '../dto/consent-current-response.dto';
 import { ConsentResponseDto } from '../dto/consent-response.dto';

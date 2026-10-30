@@ -1,9 +1,9 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { plainToInstance } from 'class-transformer';
 import { StaffAccessRequestStatus } from '@prisma/client';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { DomainException } from '../../platform/error-code.error';
 import type { StaffAccessRequestRecord } from '../domain/member-onboarding';
 import { SelectStaffAccessRequestDto } from '../dto/select-role-request.dto';

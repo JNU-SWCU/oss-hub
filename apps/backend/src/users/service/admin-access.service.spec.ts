@@ -7,7 +7,7 @@ import {
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/domain/auth-error-code.enum';
+} from '../../auth/auth-error-code.error';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from '../domain/admin-access';
 import { AdminAccessService } from './admin-access.service';

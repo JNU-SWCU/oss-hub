@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { OriginGuard } from '../../auth/controller/origin.guard';
+import { OriginGuard } from '../../auth/origin.guard';
 import { setDownloadHeaders } from '../../platform/download-response.types';
 import { multipartFileUploadInterceptor } from '../../platform/multipart-file-upload.interceptor';
 import { SubmissionFilesService } from '../service/submission-files.service';
@@ -26,8 +26,8 @@ import {
   SubmissionsErrorCode,
 } from '../domain/submissions-error-code.enum';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../domain/submission-upload-policy';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

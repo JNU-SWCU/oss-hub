@@ -8,14 +8,14 @@ import { AuditLogController } from '../../../../audit-log/controller/audit-log.c
 import { AuditLogRepository } from '../../../../platform/audit-log.repository';
 import { AuditLogService } from '../../../../platform/audit-log.service';
 import { AuthConfig } from '../../../../auth/auth.config';
-import { AuthenticationGuard } from '../../../../auth/controller/authentication.guard';
-import { AuthService } from '../../../../auth/service/auth.service';
+import { AuthenticationGuard } from '../../../../auth/authentication.guard';
+import { AuthService } from '../../../../auth/auth.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-import { sessionCookieName } from '../../../../auth/domain/cookies';
-import { OriginGuard } from '../../../../auth/controller/origin.guard';
-import { issueSessionToken } from '../../../../auth/domain/session-token';
-import { SessionGuard } from '../../../../auth/controller/session.guard';
+import { sessionCookieName } from '../../../../auth/cookies.policy';
+import { OriginGuard } from '../../../../auth/origin.guard';
+import { issueSessionToken } from '../../../../auth/session-token.policy';
+import { SessionGuard } from '../../../../auth/session.guard';
 import { ProblemDetailFilter } from '../../../../platform/problem-detail.filter';
 import { PrismaService } from '../../../../platform/prisma.service';
 import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';

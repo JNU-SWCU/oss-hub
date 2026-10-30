@@ -6,7 +6,6 @@ import { AuthModule } from './auth/auth.module';
 import { BoardModule } from './board/board.module';
 import { CollectionModule } from './github/collection.module';
 import { ConsentsModule } from './consents/consents.module';
-import { LoginHistoryModule } from './login-history/login-history.module';
 import { MilestoneDocumentsModule } from './milestone-documents/milestone-documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProgramOverviewModule } from './programs/public/program-overview/program-overview.module';
@@ -25,7 +24,6 @@ import { UsersModule } from './users/users.module';
   imports: [
     PlatformModule,
     AuditLogModule,
-    LoginHistoryModule,
     AuthModule,
 
     CollectionModule,

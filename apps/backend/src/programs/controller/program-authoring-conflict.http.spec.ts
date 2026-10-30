@@ -4,8 +4,8 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { SessionGuard } from '../../auth/controller/session.guard';
-import { OriginGuard } from '../../auth/controller/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from '../service/program-authoring.service';

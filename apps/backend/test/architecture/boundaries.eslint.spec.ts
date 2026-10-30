@@ -400,7 +400,7 @@ edge(
 edge(
   'controller may use auth guard',
   'src/alpha/controller/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/auth/session.guard.ts',
   true,
 );
 edge(
@@ -418,7 +418,7 @@ edge(
 edge(
   'service cannot use auth controller',
   'src/alpha/service/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/auth/session.guard.ts',
   false,
 );
 edge(

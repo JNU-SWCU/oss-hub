@@ -5,11 +5,11 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { AuditLogRepository } from '../../platform/audit-log.repository';
 import { AuditLogService } from '../../platform/audit-log.service';
 import { AuthConfig } from '../../auth/auth.config';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
-import { AuthService } from '../../auth/service/auth.service';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
+import { AuthService } from '../../auth/auth.service';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { PrismaService } from '../../platform/prisma.service';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';

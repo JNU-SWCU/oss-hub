@@ -4,8 +4,8 @@ import { Test } from '@nestjs/testing';
 
 import { AuditLogService } from '../../platform/audit-log.service';
 import type { AuditLogRecord } from '../../platform/audit-log.repository';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../service/collection-admin.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';

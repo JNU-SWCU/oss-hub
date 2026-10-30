@@ -4,12 +4,12 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { AuthConfig } from '../../auth/auth.config';
-import { AuthService } from '../../auth/service/auth.service';
+import { AuthService } from '../../auth/auth.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { PrismaService } from '../../platform/prisma.service';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';

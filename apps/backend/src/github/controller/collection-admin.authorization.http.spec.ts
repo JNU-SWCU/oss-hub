@@ -2,17 +2,17 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../../auth/auth.config';
-import { SessionGuard } from '../../auth/controller/session.guard';
-import { AuthService } from '../../auth/service/auth.service';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
+import { SessionGuard } from '../../auth/session.guard';
+import { AuthService } from '../../auth/auth.service';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { CollectionAdminService } from '../service/collection-admin.service';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/domain/auth-error-code.enum';
+} from '../../auth/auth-error-code.error';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { PrismaService } from '../../platform/prisma.service';
 import { loadRuntimeConfig } from '../../platform/runtime-config.config';

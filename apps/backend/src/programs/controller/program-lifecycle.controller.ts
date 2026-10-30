@@ -6,10 +6,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Protected } from '../../auth/controller/auth-route-metadata';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { Protected } from '../../auth/auth-route-metadata.policy';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { PurgeProgramRequestDto } from '../dto/purge-program-request.dto';
 import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 

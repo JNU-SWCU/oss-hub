@@ -3,7 +3,7 @@ import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { AuditLogRepository } from '../../platform/audit-log.repository';
 import { AuditLogService } from '../../platform/audit-log.service';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
 import { PrismaService } from '../../platform/prisma.service';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import { AdminAccessController } from '../controller/admin-access.controller';

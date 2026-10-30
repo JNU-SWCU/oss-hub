@@ -1,10 +1,10 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../../auth/auth.config';
-import { AuthService } from '../../auth/service/auth.service';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { issueSessionToken } from '../../auth/domain/session-token';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { AuthService } from '../../auth/auth.service';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { issueSessionToken } from '../../auth/session-token.policy';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { SubmissionMatrixService } from '../service/submission-matrix.service';
 import { SubmissionMatrixController } from './submission-matrix.controller';

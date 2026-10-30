@@ -1,0 +1,84 @@
+import {
+  type CanActivate,
+  type ExecutionContext,
+  Injectable,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import type { Request, Response } from 'express';
+import { DomainException } from '../platform/error-code.error';
+import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
+import {
+  OPTIONAL_SESSION_ROUTE_METADATA,
+  PUBLIC_ROUTE_METADATA,
+} from './auth-route-metadata.policy';
+import { AuthConfig } from './auth.config';
+import { AuthService } from './auth.service';
+import {
+  attachAnonymousAuth,
+  attachAuthenticatedPrincipal,
+} from './http-auth.types';
+import { resolveSession } from './session-resolution.policy';
+
+@Injectable()
+export class AuthenticationGuard implements CanActivate {
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly config: AuthConfig,
+    private readonly authService: AuthService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const metadataTargets = [context.getHandler(), context.getClass()];
+    if (
+      this.reflector.getAllAndOverride<boolean>(
+        PUBLIC_ROUTE_METADATA,
+        metadataTargets,
+      ) === true
+    ) {
+      return true;
+    }
+
+    const http = context.switchToHttp();
+    const request = http.getRequest<Request>();
+    http
+      .getResponse<Response | undefined>()
+      ?.setHeader('Cache-Control', 'private, no-store');
+    const { githubId, sessionVersion, hasSessionCookie } = await resolveSession(
+      this.config,
+      request.headers.cookie,
+    );
+    const optionalSession =
+      this.reflector.getAllAndOverride<boolean>(
+        OPTIONAL_SESSION_ROUTE_METADATA,
+        metadataTargets,
+      ) === true;
+
+    if (optionalSession) {
+      if (githubId === null) {
+        attachAnonymousAuth(request, hasSessionCookie);
+        return true;
+      }
+      const principal = await this.authService.findActivePrincipal(githubId);
+      if (principal === null || principal.sessionVersion !== sessionVersion) {
+        attachAnonymousAuth(request, hasSessionCookie);
+        return true;
+      }
+      attachAuthenticatedPrincipal(request, principal, githubId);
+      return true;
+    }
+
+    if (githubId === null) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
+    const principal = await this.authService.getMe(githubId);
+    if (principal.sessionVersion !== sessionVersion) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
+    attachAuthenticatedPrincipal(request, principal, githubId);
+    return true;
+  }
+}

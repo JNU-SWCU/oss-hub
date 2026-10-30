@@ -9,7 +9,7 @@ import { AuditLogService } from '../../platform/audit-log.service';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/domain/auth-error-code.enum';
+} from '../../auth/auth-error-code.error';
 import { DomainException } from '../../platform/error-code.error';
 import {
   AccountDeactivationRepository,

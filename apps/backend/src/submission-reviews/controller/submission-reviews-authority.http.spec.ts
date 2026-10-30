@@ -5,9 +5,9 @@ import { Test } from '@nestjs/testing';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/domain/auth-error-code.enum';
+} from '../../auth/auth-error-code.error';
 import { AuthConfig } from '../../auth/auth.config';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { DomainException } from '../../platform/error-code.error';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../../users/service/authority.service';

@@ -1,7 +1,7 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 import { ProgramLifecycleController } from './program-lifecycle.controller';
 

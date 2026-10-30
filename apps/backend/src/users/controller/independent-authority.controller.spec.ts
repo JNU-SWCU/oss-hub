@@ -5,8 +5,8 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { ADMIN_ACCESS_COMMANDS } from '../domain/independent-authority';
 import { PatchAdminAuthorityRequestDto } from '../dto/patch-independent-authority.dto';
 import { IndependentAuthorityController } from './independent-authority.controller';

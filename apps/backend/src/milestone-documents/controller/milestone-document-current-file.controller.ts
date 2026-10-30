@@ -9,8 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import type { AuthenticatedRequest } from '../../auth/http-auth.types';
+import { SessionGuard } from '../../auth/session.guard';
 import { setDownloadHeaders } from '../../platform/download-response.types';
 import { MilestoneDocumentCurrentFileService } from '../service/milestone-document-current-file.service';
 

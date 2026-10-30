@@ -11,11 +11,11 @@ import {
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../../platform/audit-log.service';
 import { AuthConfig } from '../../auth/auth.config';
-import { AuthService } from '../../auth/service/auth.service';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { issueSessionToken } from '../../auth/domain/session-token';
-import { sessionCookieName } from '../../auth/domain/cookies';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { AuthService } from '../../auth/auth.service';
+import { OriginGuard } from '../../auth/origin.guard';
+import { issueSessionToken } from '../../auth/session-token.policy';
+import { sessionCookieName } from '../../auth/cookies.policy';
+import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ApplicationsController } from './applications.controller';

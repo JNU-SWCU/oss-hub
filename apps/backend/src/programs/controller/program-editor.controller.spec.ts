@@ -1,8 +1,8 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../../platform/platform.module';
 import { Test } from '@nestjs/testing';
-import { OriginGuard } from '../../auth/controller/origin.guard';
-import { SessionGuard } from '../../auth/controller/session.guard';
+import { OriginGuard } from '../../auth/origin.guard';
+import { SessionGuard } from '../../auth/session.guard';
 import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { ProgramEditorController } from './program-editor.controller';

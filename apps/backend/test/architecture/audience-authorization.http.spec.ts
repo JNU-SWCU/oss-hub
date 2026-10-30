@@ -12,11 +12,11 @@ import { ApplicationsService } from '../../src/applications/service/applications
 import { StaffDashboardService } from '../../src/applications/service/staff-dashboard.service';
 import { StaffInsightsService } from '../../src/applications/service/staff-insights.service';
 import { AuthConfig } from '../../src/auth/auth.config';
-import { OriginGuard } from '../../src/auth/controller/origin.guard';
-import { SessionGuard } from '../../src/auth/controller/session.guard';
-import { sessionCookieName } from '../../src/auth/domain/cookies';
-import { issueSessionToken } from '../../src/auth/domain/session-token';
-import { AuthService } from '../../src/auth/service/auth.service';
+import { OriginGuard } from '../../src/auth/origin.guard';
+import { SessionGuard } from '../../src/auth/session.guard';
+import { sessionCookieName } from '../../src/auth/cookies.policy';
+import { issueSessionToken } from '../../src/auth/session-token.policy';
+import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
 import { RepositoriesController } from '../../src/github/controller/repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
