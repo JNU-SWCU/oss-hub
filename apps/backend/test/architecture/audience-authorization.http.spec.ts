@@ -186,12 +186,6 @@ const routes: readonly RouteCase[] = [
   },
   {
     method: 'PATCH',
-    path: 'users/user-1/staff-access',
-    body: { command: 'GRANT_STAFF_ACCESS' },
-    statuses: [404, 404, 403, 403, 401, 401, 401, 401],
-  },
-  {
-    method: 'PATCH',
     path: 'users/user-1/admin-access',
     body: { command: 'GRANT_ADMIN_ACCESS' },
     statuses: [404, 404, 403, 403, 401, 401, 401, 401],
@@ -485,8 +479,8 @@ describe('Audience authorization HTTP characterization', () => {
     await app.close();
   });
 
-  it('covers 18 routes for 8 roles', () => {
-    expect(routes).toHaveLength(18);
+  it('covers 17 routes for 8 roles', () => {
+    expect(routes).toHaveLength(17);
     expect(roles).toHaveLength(8);
   });
 

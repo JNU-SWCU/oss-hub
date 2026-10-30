@@ -75,10 +75,6 @@ export class PublicProjectsService {
     return { items, pageSize, nextPageId };
   }
 
-  async listYears(): Promise<readonly number[]> {
-    return this.repository.listYears();
-  }
-
   async findDetail(projectId: string): Promise<PublicProjectDetailResult> {
     const row = await this.repository.findById(projectId);
     if (row === null) {

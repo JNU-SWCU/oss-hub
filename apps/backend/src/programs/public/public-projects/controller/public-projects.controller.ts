@@ -4,7 +4,6 @@ import { PublicProjectQueryRequestDto } from '../dto/public-project-query.dto';
 import {
   PublicProjectDetailResponseDto,
   PublicProjectPageResponseDto,
-  PublicProjectYearsResponseDto,
 } from '../dto/public-project-response.dto';
 import { PublicProjectsService } from '../service/public-projects.service';
 
@@ -24,14 +23,6 @@ export class PublicProjectsController {
         query.pageSize,
         query.year,
       ),
-    );
-  }
-
-  @Get('years')
-  @Header('Cache-Control', 'no-store')
-  async listYears(): Promise<PublicProjectYearsResponseDto> {
-    return PublicProjectYearsResponseDto.from(
-      await this.publicProjectsService.listYears(),
     );
   }
 

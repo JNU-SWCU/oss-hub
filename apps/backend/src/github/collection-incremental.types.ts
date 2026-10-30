@@ -149,8 +149,7 @@ export interface RecordSweepHistoryInput {
 
 export type CollectionSyncRunTrigger = 'CRON' | 'MANUAL' | 'CLI' | 'UNKNOWN';
 
-export type CollectionSyncRunStatusProjection =
-  'RUNNING' | 'FAILED' | 'COMPLETED';
+type CollectionSyncRunStatusProjection = 'RUNNING' | 'FAILED' | 'COMPLETED';
 
 export interface CollectionSyncStreamSummary {
   readyCount: number;

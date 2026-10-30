@@ -77,18 +77,6 @@ export class PublicProjectPageResponseDto {
   }
 }
 
-export class PublicProjectYearsResponseDto {
-  readonly years: readonly number[];
-
-  private constructor(years: readonly number[]) {
-    this.years = years;
-  }
-
-  static from(years: readonly number[]): PublicProjectYearsResponseDto {
-    return new PublicProjectYearsResponseDto(years);
-  }
-}
-
 class PublicProjectMetricsResponseDto {
   readonly commitCount: number;
   readonly pullRequestCount: number;

@@ -27,11 +27,9 @@ const deniedActors = [
 describe('CollectionAdminService authorization', () => {
   it.each(
     deniedActors.flatMap((actor) =>
-      ['trigger', 'listRuns', 'checkInvariants'].map(
-        (method) => [actor, method] as const,
-      ),
+      ['trigger'].map((method) => [actor, method] as const),
     ),
-  )('rejects %s before %s side effects', async (actor, method) => {
+  )('rejects %s before %s side effects', async (actor) => {
     const findActorByGithubId = jest.fn().mockResolvedValue(actor);
     const authority = new UsersAuthorityService({
       findActorByGithubId,
@@ -40,18 +38,11 @@ describe('CollectionAdminService authorization', () => {
     const service = new CollectionAdminService(
       { run: work, runExternal: work },
       { isQuiesced: work },
-      { listSyncRuns: work },
       { record: work },
-      { check: work },
       { run: work },
       authority,
     );
-    const action =
-      method === 'trigger'
-        ? service.trigger(4242n)
-        : method === 'listRuns'
-          ? service.listRuns(4242n)
-          : service.checkInvariants(4242n);
+    const action = service.trigger(4242n);
     await expect(action).rejects.toMatchObject({
       errorCode: {
         status: 403,

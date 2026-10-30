@@ -8,19 +8,13 @@ import {
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { ContributionInvariants } from '../repository/contribution-invariants';
-import type { ContributionInvariantReport } from '../domain/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from '../domain/collection-error-code.enum';
-import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import type { CollectionSyncRunRow } from '../collection-incremental.types';
-
-const COLLECTION_RUN_LIST_LIMIT = 20;
 
 @Injectable()
 export class CollectionAdminService {
@@ -33,15 +27,8 @@ export class CollectionAdminService {
     sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,
     @Inject(CollectionCutoverRepository)
     private readonly cutover: Pick<CollectionCutoverRepository, 'isQuiesced'>,
-    @Inject(CollectionIncrementalRepository)
-    private readonly incrementalRepository: Pick<
-      CollectionIncrementalRepository,
-      'listSyncRuns'
-    >,
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
-    @Inject(ContributionInvariants)
-    private readonly invariants: Pick<ContributionInvariants, 'check'>,
     @Inject(CollectionUserActivityService)
     userActivity: Pick<CollectionUserActivityService, 'run'>,
     private readonly authority: UsersAuthorityService,
@@ -64,13 +51,6 @@ export class CollectionAdminService {
     );
   }
 
-  async checkInvariants(
-    sessionGithubId: bigint,
-  ): Promise<ContributionInvariantReport> {
-    await this.assertAdmin(sessionGithubId);
-    return this.invariants.check();
-  }
-
   async trigger(
     sessionGithubId: bigint,
   ): Promise<{ runId: string; status: 'PENDING' }> {
@@ -90,15 +70,5 @@ export class CollectionAdminService {
     });
     this.sweeps.start(this.ownerId, runId);
     return { runId, status: 'PENDING' };
-  }
-
-  async listRuns(
-    sessionGithubId: bigint,
-  ): Promise<readonly CollectionSyncRunRow[]> {
-    await this.assertAdmin(sessionGithubId);
-    return this.incrementalRepository.listSyncRuns(
-      new Date(),
-      COLLECTION_RUN_LIST_LIMIT,
-    );
   }
 }

@@ -3,7 +3,6 @@ import {
   GUARDS_METADATA,
   INTERCEPTORS_METADATA,
 } from '@nestjs/common/constants';
-import { AccountStatus } from '@prisma/client';
 import type {
   ExecutionContext,
   INestApplication,
@@ -13,14 +12,9 @@ import { Test } from '@nestjs/testing';
 import type { Response } from 'express';
 import { Readable } from 'node:stream';
 import { OriginGuard } from '../../auth/controller/origin.guard';
-import { AuthConfig } from '../../auth/auth.config';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { MilestoneDocumentsRepository } from '../repository/milestone-documents.repository';
-import { DomainException } from '../../common/error-code';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -35,10 +29,6 @@ import { MilestoneDocumentFilesService } from '../service/milestone-document-fil
 import { MilestoneDocumentReviewsService } from '../service/milestone-document-reviews.service';
 import { MilestoneDocumentsService } from '../service/milestone-documents.service';
 import { MilestoneDocumentCollectionService } from '../service/milestone-document-collection.service';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from '../domain/milestone-documents-error-code.enum';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -121,43 +111,6 @@ const submit = jest.fn().mockResolvedValue({
   submittedAt: new Date('2026-09-16T14:22:00.000Z'),
   files: [],
 });
-const createDocument = jest.fn().mockResolvedValue({
-  id: 'created-document',
-  milestoneId: 'synthetic-milestone',
-  name: '새 서류',
-  required: true,
-  sortOrder: 2,
-  templateFileId: null,
-  templateFileName: null,
-});
-const updateDocument = jest.fn().mockResolvedValue({
-  id: 'synthetic-document',
-  milestoneId: 'synthetic-milestone',
-  name: '수정 서류',
-  required: false,
-  sortOrder: 1,
-  templateFileId: null,
-  templateFileName: null,
-});
-const reorderDocuments = jest.fn().mockResolvedValue([
-  {
-    id: 'synthetic-document',
-    milestoneId: 'synthetic-milestone',
-    name: '개인정보 수집·이용 동의서',
-    required: true,
-    sortOrder: 1,
-    templateFileId: null,
-    templateFileName: null,
-  },
-]);
-const deleteDocument = jest.fn().mockResolvedValue(undefined);
-
-const uploadTemplate = jest.fn().mockResolvedValue({
-  documentId: 'synthetic-document',
-  hasTemplateFile: true,
-  fileName: '양식.pdf',
-  uploadedAt: '2026-09-16T14:22:00.000Z',
-});
 const downloadTemplate = jest.fn().mockResolvedValue({
   body: Readable.from(Buffer.from('template-body')),
   fileName: '계획서 양식.pdf',
@@ -205,11 +158,6 @@ beforeEach(() => {
   collectForStaff.mockClear();
   archiveForStaff.mockClear();
   submit.mockClear();
-  createDocument.mockClear();
-  updateDocument.mockClear();
-  reorderDocuments.mockClear();
-  deleteDocument.mockClear();
-  uploadTemplate.mockClear();
   downloadTemplate.mockClear();
   downloadSubmissionFile.mockClear();
   upload.mockClear();
@@ -234,16 +182,11 @@ beforeAll(async () => {
           listForViewer,
           collectForStaff,
           submit,
-          createDocument,
-          updateDocument,
-          reorderDocuments,
-          deleteDocument,
         },
       },
       {
         provide: MilestoneDocumentFilesService,
         useValue: {
-          uploadTemplate,
           downloadTemplate,
           downloadSubmissionFile,
           upload,
@@ -292,34 +235,6 @@ afterAll(async () => {
   await application?.close();
 });
 
-interface LegacyMutationRequest {
-  readonly method: 'POST' | 'PATCH' | 'DELETE';
-  readonly path: string;
-  readonly body?: Record<string, unknown>;
-}
-
-const legacyMutationRequests: readonly LegacyMutationRequest[] = [
-  {
-    method: 'POST',
-    path: '/documents',
-    body: { name: '새 서류', required: true, sortOrder: 1 },
-  },
-  {
-    method: 'PATCH',
-    path: '/documents/synthetic-document',
-    body: { name: '수정 서류', required: true, sortOrder: 1 },
-  },
-  {
-    method: 'PATCH',
-    path: '/documents/order',
-    body: { documentIds: ['synthetic-document'] },
-  },
-  {
-    method: 'DELETE',
-    path: '/documents/synthetic-document',
-  },
-];
-
 it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
@@ -344,115 +259,6 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
     'synthetic-milestone',
   );
 });
-
-it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제를 HTTP로 수행한다', async () => {
-  const createResponse = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: baseUrl },
-      body: JSON.stringify({
-        name: ' 새 서류 ',
-        required: true,
-        sortOrder: 99,
-      }),
-    },
-  );
-  expect(createResponse.status).toBe(201);
-  await expect(createResponse.json()).resolves.toMatchObject({
-    id: 'created-document',
-    sortOrder: 2,
-  });
-  expect(createDocument.mock.calls).toEqual([
-    [
-      SESSION_GITHUB_ID,
-      'synthetic-milestone',
-      { name: '새 서류', required: true, sortOrder: 99 },
-    ],
-  ]);
-
-  const updateResponse = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document`,
-    {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', origin: baseUrl },
-      body: JSON.stringify({
-        name: '수정 서류',
-        required: false,
-        sortOrder: 100,
-      }),
-    },
-  );
-  expect(updateResponse.status).toBe(200);
-  await expect(updateResponse.json()).resolves.toMatchObject({
-    id: 'synthetic-document',
-    required: false,
-    sortOrder: 1,
-  });
-  expect(updateDocument.mock.calls).toEqual([
-    [
-      SESSION_GITHUB_ID,
-      'synthetic-milestone',
-      'synthetic-document',
-      { name: '수정 서류', required: false, sortOrder: 100 },
-    ],
-  ]);
-
-  const orderResponse = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/order`,
-    {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', origin: baseUrl },
-      body: JSON.stringify({ documentIds: ['synthetic-document'] }),
-    },
-  );
-  expect(orderResponse.status).toBe(200);
-  await expect(orderResponse.json()).resolves.toMatchObject([
-    { id: 'synthetic-document', sortOrder: 1 },
-  ]);
-  expect(reorderDocuments.mock.calls).toEqual([
-    [SESSION_GITHUB_ID, 'synthetic-milestone', ['synthetic-document']],
-  ]);
-
-  const deleteResponse = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document`,
-    { method: 'DELETE', headers: { origin: baseUrl } },
-  );
-  expect(deleteResponse.status).toBe(204);
-  expect(deleteDocument.mock.calls).toEqual([
-    [SESSION_GITHUB_ID, 'synthetic-milestone', 'synthetic-document'],
-  ]);
-});
-
-it.each([
-  [MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED, deleteDocument],
-  [MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS, deleteDocument],
-  [MilestoneDocumentsErrorCode.INVALID_REQUEST, reorderDocuments],
-] as const)(
-  'surfaces legacy document safety code %s through HTTP',
-  async (code, operation) => {
-    operation.mockRejectedValueOnce(
-      new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]),
-    );
-    const isOrder = code === MilestoneDocumentsErrorCode.INVALID_REQUEST;
-    const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents${
-        isOrder ? '/order' : '/synthetic-document'
-      }`,
-      {
-        method: isOrder ? 'PATCH' : 'DELETE',
-        headers: isOrder
-          ? { 'content-type': 'application/json', origin: baseUrl }
-          : { origin: baseUrl },
-        body: isOrder
-          ? JSON.stringify({ documentIds: ['synthetic-document'] })
-          : undefined,
-      },
-    );
-    expect(response.status).toBe(MILESTONE_DOCUMENTS_ERROR_CODES[code].status);
-    await expect(response.json()).resolves.toMatchObject({ code });
-  },
-);
 
 it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다', async () => {
   const body = { content: { text: '본문', fileId: 'synthetic-file' } };
@@ -511,31 +317,6 @@ it('내용과 파일이 모두 비어 있으면 서비스 호출 전에 422로 �
 
   expect(response.status).toBe(422);
   expect(submit).not.toHaveBeenCalled();
-});
-
-it('양식 업로드("양식 올리기"/"양식 교체")는 201로 끝나고 multipart 파일을 서비스에 전달한다', async () => {
-  const body = new FormData();
-  body.append(
-    'file',
-    new Blob([Buffer.from('%PDF-1.4\n%%EOF')], { type: 'application/pdf' }),
-    'synthetic-template.pdf',
-  );
-
-  const response = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/template`,
-    { method: 'POST', body },
-  );
-
-  expect(response.status).toBe(201);
-  await expect(response.json()).resolves.toMatchObject({
-    hasTemplateFile: true,
-  });
-  expect(uploadTemplate).toHaveBeenCalledWith(
-    SESSION_GITHUB_ID,
-    'synthetic-milestone',
-    'synthetic-document',
-    expect.objectContaining({ originalname: 'synthetic-template.pdf' }),
-  );
 });
 
 it('양식 다운로드("양식" 링크)는 attachment 스트림과 private no-store 헤더를 반환한다', async () => {
@@ -1448,175 +1229,7 @@ function readHandlerGuards(propertyKey: string): unknown {
   return Reflect.getMetadata(GUARDS_METADATA, handler as object);
 }
 
-describe('legacy mutation route HTTP guard rejections', () => {
-  let guardedApplication: INestApplication | undefined;
-  let guardedBaseUrl = '';
-  let sessionGithubId = SESSION_GITHUB_ID;
-  const studentGithubId = SESSION_GITHUB_ID + 1n;
-  const rejectedStaffGithubId = SESSION_GITHUB_ID + 2n;
-  const allowedOrigin = 'https://jnu-oss-hub.com';
-
-  beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      controllers: [MilestoneDocumentsController],
-      providers: [
-        MilestoneDocumentsService,
-        { provide: MilestoneDocumentsRepository, useValue: {} },
-        { provide: MilestoneDocumentFilesService, useValue: {} },
-        { provide: MilestoneDocumentReviewsService, useValue: {} },
-        { provide: MilestoneDocumentArchiveService, useValue: {} },
-        { provide: MilestoneDocumentCollectionService, useValue: {} },
-        UsersAuthorityService,
-        OriginGuard,
-        { provide: AuthConfig, useValue: { allowedOrigin } },
-        {
-          provide: UsersAuthorityRepository,
-          useValue: {
-            findActorByGithubId: (githubId: bigint) =>
-              Promise.resolve(
-                githubId === SESSION_GITHUB_ID
-                  ? {
-                      id: 'synthetic-staff',
-                      hasStaffAccess: true,
-                      hasAdminAccess: false,
-                      accountStatus: AccountStatus.ACTIVE,
-                    }
-                  : githubId === studentGithubId
-                    ? {
-                        id: 'synthetic-student',
-                        hasStaffAccess: false,
-                        hasAdminAccess: false,
-                        accountStatus: AccountStatus.ACTIVE,
-                      }
-                    : {
-                        id: 'inactive-staff',
-                        hasStaffAccess: true,
-                        hasAdminAccess: false,
-                        accountStatus: AccountStatus.DEACTIVATED,
-                      },
-              ),
-          },
-        },
-      ],
-    })
-      .overrideGuard(SessionGuard)
-      .useValue({
-        canActivate: (context: ExecutionContext): boolean => {
-          context
-            .switchToHttp()
-            .getRequest<AuthenticatedRequest>().sessionGithubId =
-            sessionGithubId;
-          return true;
-        },
-      })
-      .compile();
-
-    guardedApplication = moduleRef.createNestApplication();
-    guardedApplication.setGlobalPrefix('api/v1');
-    guardedApplication.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    guardedApplication.useGlobalFilters(new ProblemDetailFilter());
-    await guardedApplication.listen(0, '127.0.0.1');
-    guardedBaseUrl = await guardedApplication.getUrl();
-  });
-
-  afterAll(async () => {
-    await guardedApplication?.close();
-  });
-
-  beforeEach(() => {
-    createDocument.mockClear();
-    updateDocument.mockClear();
-    reorderDocuments.mockClear();
-    deleteDocument.mockClear();
-  });
-
-  it.each([
-    ['active student without staff/admin access', studentGithubId],
-    ['deactivated staff account despite staff access', rejectedStaffGithubId],
-  ] as const)(
-    'rejects %s on every legacy mutation route before the writer',
-    async (_state, githubId) => {
-      sessionGithubId = githubId;
-      await assertRejectedLegacyMutations(guardedBaseUrl, {
-        origin: allowedOrigin,
-      });
-    },
-  );
-
-  it.each([{}, { origin: 'https://attacker.example' }] as const)(
-    'rejects missing or foreign origin evidence on every legacy mutation route',
-    async (headers) => {
-      sessionGithubId = SESSION_GITHUB_ID;
-      await assertRejectedLegacyMutations(guardedBaseUrl, headers);
-    },
-  );
-
-  async function assertRejectedLegacyMutations(
-    applicationUrl: string,
-    headers: Readonly<Record<string, string | undefined>>,
-  ): Promise<void> {
-    for (const request of legacyMutationRequests) {
-      const response = await fetch(
-        `${applicationUrl}/api/v1/milestones/synthetic-milestone${request.path}`,
-        {
-          method: request.method,
-          headers: {
-            ...definedHeaders(headers),
-            ...(request.body === undefined
-              ? {}
-              : { 'content-type': 'application/json' }),
-          },
-          body:
-            request.body === undefined
-              ? undefined
-              : JSON.stringify(request.body),
-        },
-      );
-      expect(response.status).toBe(403);
-      if (headers.origin === allowedOrigin)
-        await expect(response.json()).resolves.toEqual({
-          type: 'about:blank',
-          title: 'FORBIDDEN',
-          status: 403,
-          detail:
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.STAFF_ONLY
-            ].message,
-          instance: `/api/v1/milestones/synthetic-milestone${request.path}`,
-          code: 'MSD_001',
-        });
-    }
-    expect(createDocument.mock.calls).toHaveLength(0);
-    expect(updateDocument.mock.calls).toHaveLength(0);
-    expect(reorderDocuments.mock.calls).toHaveLength(0);
-    expect(deleteDocument.mock.calls).toHaveLength(0);
-  }
-});
-
-function definedHeaders(
-  headers: Readonly<Record<string, string | undefined>>,
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const [name, value] of Object.entries(headers)) {
-    if (value !== undefined) result[name] = value;
-  }
-  return result;
-}
-
 describe('교직원 전용 endpoint의 가드 구성', () => {
-  it.each(['create', 'update', 'reorder', 'remove', 'uploadTemplate'])(
-    'legacy writer %s keeps SessionGuard + OriginGuard',
-    (handler) => {
-      expect(readHandlerGuards(handler)).toEqual([SessionGuard, OriginGuard]);
-    },
-  );
-
   it('서류 수합 조회는 SessionGuard만 붙인다', () => {
     const guards = readHandlerGuards('collection');
 

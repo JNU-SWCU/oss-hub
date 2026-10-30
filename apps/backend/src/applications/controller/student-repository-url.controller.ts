@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Header,
-  Param,
-  Patch,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
@@ -21,15 +12,6 @@ import {
 @UseGuards(SessionGuard)
 export class StudentRepositoryUrlController {
   constructor(private readonly service: StudentRepositoryUrlService) {}
-
-  @Get('applications/me/repository-url')
-  @Header('Cache-Control', 'private, no-store')
-  getMine(
-    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
-    @Param('programId') programId: string,
-  ): Promise<StudentRepositoryUrlView> {
-    return this.service.getMine(request.sessionGithubId, programId);
-  }
 
   @Patch('applications/me/repository-url')
   @UseGuards(OriginGuard)

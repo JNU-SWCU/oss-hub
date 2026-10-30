@@ -1,15 +1,5 @@
 [
   {
-    "method": "GET",
-    "path": "/api/v1/admin/collection/invariants",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/admin/collection/runs",
-    "access": "PROTECTED"
-  },
-  {
     "method": "POST",
     "path": "/api/v1/admin/collection/trigger",
     "access": "PROTECTED"
@@ -170,21 +160,6 @@
     "access": "PROTECTED"
   },
   {
-    "method": "POST",
-    "path": "/api/v1/milestones/:milestoneId/documents",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "DELETE",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId",
-    "access": "PROTECTED"
-  },
-  {
     "method": "GET",
     "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/file",
     "access": "PROTECTED"
@@ -225,11 +200,6 @@
     "access": "PROTECTED"
   },
   {
-    "method": "POST",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/template",
-    "access": "PROTECTED"
-  },
-  {
     "method": "GET",
     "path": "/api/v1/milestones/:milestoneId/documents/collection",
     "access": "PROTECTED"
@@ -237,16 +207,6 @@
   {
     "method": "GET",
     "path": "/api/v1/milestones/:milestoneId/documents/collection/archive",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/milestones/:milestoneId/documents/order",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/notifications/deadline-digests/failures",
     "access": "PROTECTED"
   },
   {
@@ -367,11 +327,6 @@
   {
     "method": "PATCH",
     "path": "/api/v1/programs/:programId/applications/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs/:programId/applications/me/repository-url",
     "access": "PROTECTED"
   },
   {
@@ -556,11 +511,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/projects/years",
-    "access": "PUBLIC"
-  },
-  {
-    "method": "GET",
     "path": "/api/v1/ranking",
     "access": "OPTIONAL_SESSION"
   },
@@ -602,11 +552,6 @@
   {
     "method": "POST",
     "path": "/api/v1/submission-files/checks",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/submission-files/cleanup/failures",
     "access": "PROTECTED"
   },
   {
@@ -697,11 +642,6 @@
   {
     "method": "PATCH",
     "path": "/api/v1/users/:id/profile",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/users/:id/staff-access",
     "access": "PROTECTED"
   },
   {

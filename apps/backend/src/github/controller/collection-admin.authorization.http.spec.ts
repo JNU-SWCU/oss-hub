@@ -17,9 +17,7 @@ import { ProblemDetailFilter } from '../../common/controller/problem-detail.filt
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
-import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionSyncService } from '../service/collection-sync.service';
 import { CollectionUserActivityService } from '../service/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
@@ -35,11 +33,7 @@ const roles = [
   ['anonymous', false, false, null],
 ] as const;
 
-const routes = [
-  ['get', 'invariants', 200],
-  ['get', 'runs', 200],
-  ['post', 'trigger', 202],
-] as const;
+const routes = [['post', 'trigger', 202]] as const;
 
 describe('Collection admin authorization HTTP characterization', () => {
   let app: INestApplication;
@@ -97,16 +91,8 @@ describe('Collection admin authorization HTTP characterization', () => {
         },
         { provide: CollectionUserActivityService, useValue: { run: work } },
         {
-          provide: ContributionInvariants,
-          useValue: { check: () => ({ ok: true, results: [] }) },
-        },
-        {
           provide: CollectionCutoverRepository,
           useValue: { isQuiesced: () => false },
-        },
-        {
-          provide: CollectionIncrementalRepository,
-          useValue: { listSyncRuns: () => [] },
         },
         { provide: AuditLogService, useValue: { record: () => undefined } },
       ],
@@ -125,7 +111,7 @@ describe('Collection admin authorization HTTP characterization', () => {
   });
 
   it.each(
-    ['runs', 'trigger'].flatMap((route) =>
+    ['trigger'].flatMap((route) =>
       [undefined, 'http://invalid.test'].map(
         (origin) => [route, origin] as const,
       ),
@@ -158,7 +144,7 @@ describe('Collection admin authorization HTTP characterization', () => {
     roles
       .filter((role) => role[0] !== 'anonymous')
       .flatMap((role) =>
-        ['runs', 'trigger'].flatMap((route) =>
+        ['trigger'].flatMap((route) =>
           [undefined, 'http://invalid.test'].map(
             (origin) => [role, route, origin] as const,
           ),
@@ -209,15 +195,10 @@ describe('Collection admin authorization HTTP characterization', () => {
       const body: unknown = await response.json();
       if (role[2] && role[3] === AccountStatus.ACTIVE) {
         expect(response.status).toBe(successStatus);
-        if (route === 'trigger')
-          expect(body).toEqual({
-            runId: expect.any(String) as unknown,
-            status: 'PENDING',
-          });
-        else
-          expect(body).toEqual(
-            route === 'runs' ? { runs: [] } : { ok: true, results: [] },
-          );
+        expect(body).toEqual({
+          runId: expect.any(String) as unknown,
+          status: 'PENDING',
+        });
         return;
       }
       const anonymous = role[0] === 'anonymous';

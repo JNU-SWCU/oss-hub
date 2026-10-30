@@ -175,17 +175,7 @@ describe('PublicProjectsRepository', () => {
     );
   });
 
-  describe('listYears', () => {
-    it('DISTINCT 연도를 number 배열로 매핑하고 null은 제외한다', async () => {
-      const queryRaw = jest
-        .fn()
-        .mockResolvedValue([{ year: 2026 }, { year: 2025 }, { year: null }]);
-      const { repository } = repositoryWith({ queryRaw });
-
-      await expect(repository.listYears()).resolves.toEqual([2026, 2025]);
-      expect(queryRaw).toHaveBeenCalledTimes(1);
-    });
-  });
+  describe('listYears', () => {});
 
   describe('findById', () => {
     it('projectId(githubRepositoryId 문자열)와 visibility/publishedAt 필터를 findFirst where에 함께 걸어 private/미존재를 동일하게 null로 만든다', async () => {
