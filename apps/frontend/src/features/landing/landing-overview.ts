@@ -34,7 +34,7 @@ export interface LandingProgram {
   readonly applicationEndAt: string;
 }
 
-export interface LandingArchiveItem {
+export interface LandingProjectItem {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
@@ -42,7 +42,7 @@ export interface LandingArchiveItem {
   readonly detailUrl: string;
 }
 
-export interface LandingArchiveDetail {
+export interface LandingProjectDetail {
   readonly projectId: string;
 
   readonly contributors: readonly { readonly githubLogin: string }[];
@@ -124,9 +124,9 @@ export function parseLandingProgramPage(
   });
 }
 
-export function parseLandingArchivePage(
+export function parseLandingProjectPage(
   value: unknown,
-): readonly LandingArchiveItem[] {
+): readonly LandingProjectItem[] {
   const page = record(value);
   if (!Array.isArray(page.items)) return invalidResponse();
   return page.items.slice(0, 3).map((item) => {
@@ -138,14 +138,14 @@ export function parseLandingArchivePage(
       programId: publicId(input.programId),
       programName: nonEmptyString(input.programName),
       displayName: nonEmptyString(input.displayName),
-      detailUrl: `/archive/${projectId}`,
+      detailUrl: `/projects/${projectId}`,
     };
   });
 }
 
-export function parseLandingArchiveDetail(
+export function parseLandingProjectDetail(
   value: unknown,
-): LandingArchiveDetail {
+): LandingProjectDetail {
   const input = record(value);
   if (!Array.isArray(input.contributors)) return invalidResponse();
   return {

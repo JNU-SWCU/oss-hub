@@ -12,11 +12,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { ArchiveNotFoundError, loadArchiveDetail } from '../api';
-import type { ArchiveDetail, ArchiveDetailState } from '../types';
+import { ProjectNotFoundError, loadProjectDetail } from '../api';
+import type { ProjectDetail, ProjectDetailState } from '../types';
 
-type ArchiveDetailContentProps = {
-  readonly state: ArchiveDetailState;
+type ProjectDetailContentProps = {
+  readonly state: ProjectDetailState;
   readonly onRetry: () => void;
 };
 
@@ -51,7 +51,7 @@ function NotFoundState() {
         description="비공개 처리되었거나 존재하지 않는 프로젝트입니다."
         action={
           <Button asChild variant="outline">
-            <Link href="/archive">목록으로 돌아가기</Link>
+            <Link href="/programs?status=ended">목록으로 돌아가기</Link>
           </Button>
         }
       />
@@ -59,15 +59,15 @@ function NotFoundState() {
   );
 }
 
-function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
+function DetailContent({ project }: { readonly project: ProjectDetail }) {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
-        title={archive.displayName}
-        description={archive.programName}
+        title={project.displayName}
+        description={project.programName}
         actions={
           <Button asChild>
-            <a href={archive.githubUrl} target="_blank" rel="noreferrer">
+            <a href={project.githubUrl} target="_blank" rel="noreferrer">
               <ExternalLink aria-hidden="true" />
               GitHub 저장소 열기
             </a>
@@ -84,12 +84,12 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
               <CardContent className="grid gap-4 text-sm">
                 <div className="grid gap-1">
                   <span className="text-muted-foreground">저장소</span>
-                  <code className="break-all">{archive.repositoryName}</code>
+                  <code className="break-all">{project.repositoryName}</code>
                 </div>
                 <div className="grid gap-1">
                   <span className="text-muted-foreground">공개일</span>
-                  <time dateTime={archive.publishedAt}>
-                    {archive.publishedLabel}
+                  <time dateTime={project.publishedAt}>
+                    {project.publishedLabel}
                   </time>
                 </div>
               </CardContent>
@@ -99,13 +99,13 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
                 <CardTitle>기여자</CardTitle>
               </CardHeader>
               <CardContent>
-                {archive.contributors.length === 0 ? (
+                {project.contributors.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     등록된 기여자가 없습니다.
                   </p>
                 ) : (
                   <ul className="grid gap-3">
-                    {archive.contributors.map((contributor) => (
+                    {project.contributors.map((contributor) => (
                       <li
                         key={contributor.githubLogin}
                         className="flex flex-wrap items-center justify-between gap-3"
@@ -147,19 +147,19 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
                 <div className="grid gap-1">
                   <span className="text-sm text-muted-foreground">Commit</span>
                   <strong className="text-2xl">
-                    {archive.metrics.commitCount}
+                    {project.metrics.commitCount}
                   </strong>
                 </div>
                 <div className="grid gap-1">
                   <span className="text-sm text-muted-foreground">PR</span>
                   <strong className="text-2xl">
-                    {archive.metrics.pullRequestCount}
+                    {project.metrics.pullRequestCount}
                   </strong>
                 </div>
                 <div className="grid gap-1">
                   <span className="text-sm text-muted-foreground">Release</span>
                   <strong className="text-2xl">
-                    {archive.metrics.releaseCount}
+                    {project.metrics.releaseCount}
                   </strong>
                 </div>
               </div>
@@ -174,36 +174,36 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
   );
 }
 
-export function ArchiveDetailContent({
+export function ProjectDetailContent({
   state,
   onRetry,
-}: ArchiveDetailContentProps) {
+}: ProjectDetailContentProps) {
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
   if (state.kind === 'not-found') return <NotFoundState />;
-  return <DetailContent archive={state.archive} />;
+  return <DetailContent project={state.project} />;
 }
 
-export function ArchiveDetailView({
-  repositoryId,
+export function ProjectDetailView({
+  projectId,
 }: {
-  readonly repositoryId: string;
+  readonly projectId: string;
 }) {
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<ArchiveDetailState>({ kind: 'loading' });
+  const [state, setState] = useState<ProjectDetailState>({ kind: 'loading' });
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   useEffect(() => {
     let active = true;
     setState({ kind: 'loading' });
-    loadArchiveDetail(repositoryId)
-      .then((archive) => {
-        if (active) setState({ kind: 'ready', archive });
+    loadProjectDetail(projectId)
+      .then((project) => {
+        if (active) setState({ kind: 'ready', project });
       })
       .catch((error: unknown) => {
         if (!active) return;
         setState(
-          error instanceof ArchiveNotFoundError
+          error instanceof ProjectNotFoundError
             ? { kind: 'not-found' }
             : { kind: 'error' },
         );
@@ -211,7 +211,7 @@ export function ArchiveDetailView({
     return () => {
       active = false;
     };
-  }, [attempt, repositoryId]);
+  }, [attempt, projectId]);
 
-  return <ArchiveDetailContent state={state} onRetry={retry} />;
+  return <ProjectDetailContent state={state} onRetry={retry} />;
 }

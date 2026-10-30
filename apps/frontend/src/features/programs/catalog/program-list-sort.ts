@@ -32,6 +32,7 @@ export function parseProgramListDirection(
 
 export interface ProgramListUrlState {
   readonly status: ProgramListStatus;
+  readonly year?: number;
   readonly sort?: ProgramListSort;
   readonly direction?: ProgramListDirection;
 }
@@ -39,6 +40,9 @@ export interface ProgramListUrlState {
 export function buildProgramListHref(state: ProgramListUrlState): string {
   const params = new URLSearchParams();
   if (state.status !== 'all') params.set('status', state.status);
+  if (state.status === 'ended' && state.year !== undefined) {
+    params.set('year', String(state.year));
+  }
   if (state.sort) {
     params.set('sort', state.sort);
     if (state.direction && state.direction !== 'asc') {
@@ -47,4 +51,12 @@ export function buildProgramListHref(state: ProgramListUrlState): string {
   }
   const query = params.toString();
   return query ? `/programs?${query}` : '/programs';
+}
+
+export function parseProgramListYear(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 2000 && year <= 2100
+    ? year
+    : undefined;
 }

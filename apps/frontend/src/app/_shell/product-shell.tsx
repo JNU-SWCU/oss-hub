@@ -98,7 +98,6 @@ export function ProductShell({
     ? []
     : sidebarGroupsFor(section, member ? session : EMPTY_MEMBER_ACCESS, {
         programCounts: facetData?.programCounts,
-        archiveYears: facetData?.archiveYears,
         rankingYears: facetData?.rankingYears,
         rankingCounts: facetData?.rankingCounts,
       });

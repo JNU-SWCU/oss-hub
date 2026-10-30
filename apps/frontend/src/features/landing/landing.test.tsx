@@ -205,7 +205,7 @@ describe('landing page sections', () => {
     expect(html).toContain('01');
     expect(html).toContain('요구사항에 맞춰 제출합니다.');
     expect(html).not.toContain('요구사항을 확인한 뒤 결과물을 제출합니다.');
-    expect(html).not.toContain('결과를 공개 아카이브에 남깁니다.');
+    expect(html).not.toContain('결과를 공개 프로젝트에 남깁니다.');
     expect(html).not.toContain('활동이 실시간으로 보여요');
     expect(html).toContain('sm:grid-cols-2');
     expect(html).toContain('lg:grid-cols-4');

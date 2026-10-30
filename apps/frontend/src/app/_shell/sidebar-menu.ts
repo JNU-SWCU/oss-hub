@@ -1,6 +1,5 @@
 import type { NavItem } from '@/components';
 import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
-import { archiveListHref } from '@/features/archive/types';
 import { programHref } from '@/features/programs/program-paths';
 import {
   PROGRAM_LIST_STATUSES,
@@ -36,8 +35,7 @@ export interface SidebarGroup {
   readonly items: readonly SidebarItem[];
 }
 
-export type ShellSection =
-  'programs' | 'archive' | 'ranking' | 'dashboard' | null;
+export type ShellSection = 'programs' | 'ranking' | 'dashboard' | null;
 
 const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard': 'home',
@@ -51,7 +49,6 @@ const MENU_ICONS: Readonly<Record<string, ShellIconName>> = {
   '/dashboard/audit-logs': 'shield',
   '/dashboard/system-status': 'pulse',
   '/programs': 'list',
-  '/archive': 'archive',
   '/ranking': 'chart',
 };
 
@@ -89,7 +86,12 @@ export function programSidebarGroup(
     href: buildProgramListHref({ status }),
     icon: PROGRAM_STATUS_ICONS[status],
     depth: 0 as const,
-    count: counts?.[status],
+    count:
+      status === 'all' && counts
+        ? (counts.recruiting ?? 0) +
+          (counts.in_progress ?? 0) +
+          (counts.upcoming ?? 0)
+        : counts?.[status],
   }));
   return { label: '프로그램 메뉴', items };
 }
@@ -341,28 +343,6 @@ export function programScopeSidebarGroups(
   ];
 }
 
-const ARCHIVE_SIDEBAR_ICON: ShellIconName = 'archive';
-
-export function archiveSidebarGroup(
-  years: readonly number[] = [],
-): SidebarGroup {
-  const items: SidebarItem[] = [
-    {
-      label: '전체',
-      href: archiveListHref('all'),
-      icon: ARCHIVE_SIDEBAR_ICON,
-      depth: 0,
-    },
-    ...years.map((year) => ({
-      label: String(year),
-      href: archiveListHref(year),
-      icon: ARCHIVE_SIDEBAR_ICON,
-      depth: 0 as const,
-    })),
-  ];
-  return { label: '공개 아카이브', items };
-}
-
 export function rankingSidebarGroup(
   years: readonly number[] = [],
   counts?: Partial<Record<'all' | number, number>>,
@@ -411,9 +391,6 @@ export function shellSectionFromPathname(pathname: string): ShellSection {
   if (pathname === '/programs' || pathname.startsWith('/programs/')) {
     return 'programs';
   }
-  if (pathname === '/archive' || pathname.startsWith('/archive/')) {
-    return 'archive';
-  }
   if (pathname === '/ranking' || pathname.startsWith('/ranking/')) {
     return 'ranking';
   }
@@ -433,7 +410,6 @@ export function sidebarGroupsFor(
   access: MemberAccess | null,
   options?: {
     readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
-    readonly archiveYears?: readonly number[];
     readonly rankingYears?: readonly number[];
     readonly rankingCounts?: Partial<Record<'all' | number, number>>;
   },
@@ -461,7 +437,6 @@ export function sidebarGroupsFor(
 
   const data: SectionFacetData | undefined = {
     programCounts: options?.programCounts,
-    archiveYears: options?.archiveYears,
     rankingYears: options?.rankingYears,
     rankingCounts: options?.rankingCounts,
   };
@@ -496,9 +471,6 @@ export function isCurrentSidebarItem(
     const have =
       new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
 
-    if (facetSection === 'archive') {
-      return want === have || (want === 'all' && !search.includes('year='));
-    }
     return want === have;
   }
 
