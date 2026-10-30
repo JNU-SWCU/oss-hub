@@ -137,7 +137,7 @@ describe('AppSidebar', () => {
   it('C4: collapsed links expose aria-label with label and count', () => {
     const html = renderWithCounts(true);
     expect(html).toContain('aria-label="모집중 3"');
-    expect(html).toContain('aria-label="전체 3"');
+    expect(html).toContain('aria-label="전체 6"');
     expect(html).toContain('aria-label="종료 9"');
   });
 

@@ -33,9 +33,35 @@
   ended=3, the current count was 0 instead of 6.
 - Changed the count to all minus ended.
 - GREEN: the same sidebar suite exited 0, all 67 tests passed.
+- Full-src follow-up exposed one stale collapsed-label expectation: fixture all=15,
+  ended=9 now correctly renders 6, not the sum of the incomplete status fixture (3).
+  Updated that existing assertion; initial full run: 4173 passed, 1 failed.
+- Follow-up GREEN: sidebar and collapsed sidebar suites passed 79/79.
 
 ## Removed archive routes
 
 - Inspection: no archive route files remain; next.config.ts has no redirects.
 - Added browser assertions for `/archive` and `/archive/public-project`: HTTP 404,
   no redirect chain, unchanged URL. Included in the single requested e2e run.
+
+## Verification
+
+- Final `CI=1 pnpm --filter frontend exec vitest run src --reporter=dot`:
+  381 files passed, 4174 tests passed, exit 0.
+- Frontend typecheck, lint (0 errors, 4 existing anchor warnings),
+  `pnpm lint:structure` (no issues, 5 existing configuration hints), and
+  `CI=1 pnpm exec prettier --check .` passed.
+- Requested 7-spec e2e run: 42 passed, 2 failed. Only program-list-sort lacked
+  mocks for the frontend-only current contract, so the old backend returned 400.
+  Added test-only current/ended-years route mocks, preserving backend sort order.
+  Final targeted rerun: 2 passed, exit 0. No product fallback was added.
+- Programs-ended passed all 11 scenarios, including ended-years 404 and both
+  removed archive URLs returning 404 without redirects.
+- Full formatting must run after e2e cleanup: temporary backend compiled outputs
+  are not excluded by the current formatter ignore list. They are removed by the
+  existing run-stack cleanup; no formatter configuration changes were needed.
+- Before: actual production v0.23.8; After: this branch with public program data
+  replayed through route mocks. Eight PNGs uploaded to the existing v0.23.8 release
+  with the PR-programs-ended-v2 prefix. No images committed.
+- Production gate checked on 2026-10-30: status=current 400, ended-years 404.
+  PR A #1611 must deploy first; both endpoints must return 200 before merge.
