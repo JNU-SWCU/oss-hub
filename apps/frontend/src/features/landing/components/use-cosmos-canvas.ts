@@ -97,7 +97,7 @@ export function useCosmosCanvas(programs: readonly CosmosProgram[]) {
     document.addEventListener('visibilitychange', syncActivity);
     const targets = new Map<Element, CosmosFocus>();
     for (const element of journey.querySelectorAll<HTMLElement>(
-      'section[data-focus]',
+      'section[data-focus], section [data-focus]',
     )) {
       const mode = element.dataset.focus;
       if (isCosmosFocus(mode)) targets.set(element, mode);

@@ -21,27 +21,32 @@ const renderJourney = (
   );
 
 describe('landing page sections', () => {
-  it('renders the hero followed by the three story sections', () => {
+  it('renders the hero followed by the two story chapters', () => {
     const html = renderJourney();
 
     expect(html).toContain('id="landing-journey"');
     expect(html).toContain('id="landing-hero"');
     expect(html).toContain('aria-labelledby="landing-hero-heading"');
     expect(html).toContain('aria-labelledby="landing-program-heading"');
-    expect(html).toContain('aria-labelledby="landing-flow-heading"');
     expect(html).toContain('aria-labelledby="landing-activity-heading"');
-    expect(html.match(/<section/g)).toHaveLength(4);
+    expect(html.match(/<section/g)).toHaveLength(3);
+    expect(html).not.toContain(
+      '<section aria-labelledby="landing-flow-heading"',
+    );
     expect(html).not.toContain('landing-entry-heading');
     expect(html).not.toContain('data-panel=');
   });
 
-  it('tags the hero and each chapter with the graph focus it drives', () => {
+  it('tags the hero and each chapter with the graph focus it drives, with the flow focus nested in the programs chapter', () => {
     const html = renderJourney();
 
     expect(html).toContain('data-focus="hero"');
     expect(html).toContain('data-focus="programs"');
-    expect(html).toContain('data-focus="flow"');
     expect(html).toContain('data-focus="activity"');
+    expect(html.match(/<section[^>]*data-focus="/g)).toHaveLength(3);
+    expect(html).toMatch(
+      /data-focus="programs"(?:(?!<\/section>)[\s\S])*<div class="[^"]*" data-focus="flow">/,
+    );
     expect(html).toContain('data-tone="dawn"');
     expect(html.match(/<canvas /g)).toHaveLength(1);
   });
@@ -107,9 +112,7 @@ describe('landing page sections', () => {
       '경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은 학생, 저장소와 연결되어 관리됩니다.',
     );
     expect(html).toContain('신청부터 공개까지, 하나의 흐름');
-    expect(html).toContain(
-      '익숙한 GitHub 위에서 신청, 협업, 검토가 끊김 없이 이어집니다.',
-    );
+    expect(html).not.toContain('익숙한 GitHub 위에서');
     expect(html).toContain('신청·팀 구성');
     expect(html).toContain('초대를 수락해 팀에 합류');
     expect(html).toContain('저장소 연결');
@@ -117,7 +120,7 @@ describe('landing page sections', () => {
     expect(html).toContain('제출·검토');
     expect(html).toContain('마일스톤 단위로 교직원이 검토');
     expect(html).toContain('공개 프로젝트');
-    expect(html).toContain('공개 프로젝트로 남음');
+    expect(html).toContain('승인되면 누구나 볼 수 있음');
     expect(html).toContain('참여 기록이 모두 남습니다');
     expect(html).toContain(
       '참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다. 진행 중인 저장소는 팀과 교직원만 볼 수 있고, 공개는 검토 후 명시적 승인을 거칩니다.',
@@ -180,7 +183,7 @@ describe('landing page sections', () => {
       ...html.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g),
     ];
 
-    expect(landmarks).toHaveLength(5);
+    expect(landmarks).toHaveLength(4);
     for (const [, headingId] of landmarks) {
       expect(html).toContain(`id="${headingId}"`);
     }
