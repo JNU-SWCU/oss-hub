@@ -81,10 +81,7 @@ export function setupRankingService(): {
     Promise<readonly RankingSnapshotRow[]>,
     [number]
   >;
-  readonly findViewerGithubLogin: jest.Mock<
-    Promise<string | null>,
-    [bigint]
-  >;
+  readonly findViewerGithubLogin: jest.Mock<Promise<string | null>, [bigint]>;
   readonly nextScheduledCollectionAt: jest.MockedFunction<
     typeof nextScheduledCollectionAt
   >;

@@ -95,10 +95,7 @@ describe('buildRankingTimeline', () => {
     const timeline = buildRankingTimeline({
       year: 2026,
       metrics: [metric(2n, 'bravo', 50)],
-      snapshots: [
-        snapshot(2n, '2026-01-20', 1),
-        snapshot(2n, '2026-01-31', 9),
-      ],
+      snapshots: [snapshot(2n, '2026-01-20', 1), snapshot(2n, '2026-01-31', 9)],
       dataAsOf: DATA_AS_OF,
       now: NOW,
     });

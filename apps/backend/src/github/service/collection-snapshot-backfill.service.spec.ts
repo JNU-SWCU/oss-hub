@@ -563,16 +563,12 @@ describe('CollectionSnapshotBackfillService', () => {
     }[] = [];
     const firstStarted = deferred<void>();
     const secondStarted = deferred<void>();
-    fetchUserMonthlyContributionCounts.mockImplementation(
-      (_login, windows) => {
-        const gate = deferred<CollectionMonthlyContributionResult>();
-        pending.push({ windows, resolve: gate.resolve });
-        (pending.length === 1 ? firstStarted : secondStarted).resolve(
-          undefined,
-        );
-        return gate.promise;
-      },
-    );
+    fetchUserMonthlyContributionCounts.mockImplementation((_login, windows) => {
+      const gate = deferred<CollectionMonthlyContributionResult>();
+      pending.push({ windows, resolve: gate.resolve });
+      (pending.length === 1 ? firstStarted : secondStarted).resolve(undefined);
+      return gate.promise;
+    });
     const service = buildService(() => new Date('2028-02-01T03:00:00.000Z'));
 
     const run2026 = service.run(2026);

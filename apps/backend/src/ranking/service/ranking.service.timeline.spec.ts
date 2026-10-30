@@ -79,7 +79,11 @@ describe('RankingService.findTimeline', () => {
     ]);
     expect(timeline.series).toEqual([
       { githubLogin: 'alpha', ranks: [1, 2, 1], totals: [5, 5, 100] },
-      { githubLogin: 'march-joiner', ranks: [null, 1, 2], totals: [null, 20, 40] },
+      {
+        githubLogin: 'march-joiner',
+        ranks: [null, 1, 2],
+        totals: [null, 20, 40],
+      },
     ]);
   });
 
@@ -108,16 +112,22 @@ describe('RankingService.findTimeline', () => {
 
     harness.findViewerClass.mockResolvedValue('staff');
     harness.findViewerGithubLogin.mockResolvedValue('staff-login');
-    await expect(harness.service.findTimeline(2026, 99n)).resolves.toMatchObject(
-      { viewerClass: 'staff', viewerGithubLogin: 'staff-login' },
-    );
+    await expect(
+      harness.service.findTimeline(2026, 99n),
+    ).resolves.toMatchObject({
+      viewerClass: 'staff',
+      viewerGithubLogin: 'staff-login',
+    });
     expect(harness.findViewerGithubLogin).toHaveBeenCalledWith(99n);
 
     harness.findViewerGithubLogin.mockClear();
     harness.findViewerClass.mockResolvedValue('public');
-    await expect(harness.service.findTimeline(2026, 88n)).resolves.toMatchObject(
-      { viewerClass: 'public', viewerGithubLogin: null },
-    );
+    await expect(
+      harness.service.findTimeline(2026, 88n),
+    ).resolves.toMatchObject({
+      viewerClass: 'public',
+      viewerGithubLogin: null,
+    });
     expect(harness.findViewerGithubLogin).not.toHaveBeenCalled();
   });
 

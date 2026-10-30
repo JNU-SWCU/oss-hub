@@ -71,10 +71,7 @@ describe('RankingTimelineQueryRequestDto year', () => {
 describe('resolveRankingTimelineQueryYear', () => {
   it('year 가 없으면 Asia/Seoul 올해를 쓴다', () => {
     expect(
-      resolveRankingTimelineQueryYear(
-        {},
-        new Date('2026-12-31T15:30:00.000Z'),
-      ),
+      resolveRankingTimelineQueryYear({}, new Date('2026-12-31T15:30:00.000Z')),
     ).toBe(2027);
   });
 

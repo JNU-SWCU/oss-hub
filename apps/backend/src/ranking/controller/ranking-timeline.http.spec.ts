@@ -51,20 +51,19 @@ const METRICS: readonly RankingMetricRow[] = [
   metric(7_742_000_000_003n, 'synthetic-carol', 100),
 ];
 
-const SNAPSHOTS: readonly RankingSnapshotRow[] = METRICS.flatMap(
-  (row, index) =>
-    Array.from({ length: CURRENT_MONTH - 1 }, (_unused, monthIndex) => ({
-      githubId: row.githubId,
-      snapshotDate: new Date(
-        `${YEAR}-${String(monthIndex + 1).padStart(2, '0')}-15T00:00:00.000Z`,
-      ),
-      commitCount: (monthIndex + 1) * (index + 1),
-      pullRequestCount: 0,
-      issueCount: 0,
-      repositoryCount: 0,
-      starCount: 0,
-      starEstimated: monthIndex === 0,
-    })),
+const SNAPSHOTS: readonly RankingSnapshotRow[] = METRICS.flatMap((row, index) =>
+  Array.from({ length: CURRENT_MONTH - 1 }, (_unused, monthIndex) => ({
+    githubId: row.githubId,
+    snapshotDate: new Date(
+      `${YEAR}-${String(monthIndex + 1).padStart(2, '0')}-15T00:00:00.000Z`,
+    ),
+    commitCount: (monthIndex + 1) * (index + 1),
+    pullRequestCount: 0,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    starEstimated: monthIndex === 0,
+  })),
 );
 
 const repository = {
@@ -201,7 +200,9 @@ describe('GET /api/v1/ranking/timeline (HTTP)', () => {
   );
 
   it('2026 이전 연도는 200 과 빈 배열이다', async () => {
-    const response = await fetch(`${baseUrl}/api/v1/ranking/timeline?year=2025`);
+    const response = await fetch(
+      `${baseUrl}/api/v1/ranking/timeline?year=2025`,
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
