@@ -221,5 +221,6 @@ DB 통합 테스트는 전용 격리 실행기를 사용하고, 브라우저 테
 | PR 작성과 검토             | [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)        |
 | 공개 저장소와 데이터 보호  | [공개 안전 검사](scripts/check-public-safe.sh)                |
 | 배포 전 확인               | [CI workflow](.github/workflows/ci.yml) |
+| 배포 후 운영 작업          | [랭킹 스냅샷 백필 절차](docs/operations/ranking-snapshot-backfill.md) |
 
 기능 개선과 알려진 문제의 최신 상태는 [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues)에서 확인할 수 있습니다.
