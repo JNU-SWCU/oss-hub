@@ -120,6 +120,11 @@ describe('sidebarGroupsFor (context)', () => {
     ]);
   });
 
+  it('개별 상태 집계 없이도 전체에서 종료 수를 빼서 현재 수를 표시한다', () => {
+    const group = programSidebarGroup({ all: 9, ended: 3 });
+    expect(group.items.find(({ href }) => href === '/programs')?.count).toBe(6);
+  });
+
   it('dashboard section is role menus only including activity', () => {
     const groups = sidebarGroupsFor('dashboard', STUDENT);
     expect(groups).toHaveLength(1);

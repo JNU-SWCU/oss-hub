@@ -26,3 +26,10 @@
 - RED: not applicable to behavior-preserving wrapper removal.
 - Restored the client page directly and pointed the existing capability tests at it.
 - GREEN: page capability tests passed 2/2 after removal; LSP found no errors.
+
+## SHOULD #10 — current sidebar count
+
+- RED: sidebar-menu tests exited 1: 1 failed, 66 passed. With only all=9 and
+  ended=3, the current count was 0 instead of 6.
+- Changed the count to all minus ended.
+- GREEN: the same sidebar suite exited 0, all 67 tests passed.

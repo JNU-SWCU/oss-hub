@@ -88,9 +88,7 @@ export function programSidebarGroup(
     depth: 0 as const,
     count:
       status === 'all' && counts
-        ? (counts.recruiting ?? 0) +
-          (counts.in_progress ?? 0) +
-          (counts.upcoming ?? 0)
+        ? (counts.all ?? 0) - (counts.ended ?? 0)
         : counts?.[status],
   }));
   return { label: '프로그램 메뉴', items };
