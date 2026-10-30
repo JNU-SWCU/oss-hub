@@ -9,9 +9,7 @@ test('게시판의 작성·수정·삭제와 목록 갱신은 화면 분리 뒤�
   const programId = await fixtureProgramId(control);
   const page = await programAuthoringActorPage('staff');
   const title = '합성 소유 경계 게시글';
-  await page.goto(
-    `/programs/${encodeURIComponent(programId)}/board?view=operations`,
-  );
+  await page.goto(`/programs/${encodeURIComponent(programId)}/board`);
   await page.getByRole('button', { name: '공지 쓰기', exact: true }).click();
   await page.getByRole('button', { name: '올리기', exact: true }).click();
   await expect(page.getByLabel('제목', { exact: true })).toBeFocused();

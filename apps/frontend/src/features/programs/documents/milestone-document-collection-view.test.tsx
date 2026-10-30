@@ -158,9 +158,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
 
     expect(html).toContain('아직 승인된 신청이 없습니다');
     expect(html).toContain('대기 중인 신청을 먼저 확인해 주세요');
-    expect(html).toContain(
-      'href="/programs/program-capstone/teams?view=operations"',
-    );
+    expect(html).toContain('href="/programs/program-capstone/teams"');
     expect(html).toContain('신청 확인하기');
     expect(html).not.toContain('등록된 제출 항목이 없습니다');
   });
@@ -197,7 +195,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
     expect(html).not.toContain('전체 47');
 
     expect(html).not.toContain('남의 마일스톤');
-    expect(html).toContain('href="/programs/program-capstone?view=operations"');
+    expect(html).toContain('href="/programs/program-capstone"');
   });
 
   it('경로와 같은 프로그램의 마일스톤은 그대로 그린다', () => {

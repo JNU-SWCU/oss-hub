@@ -38,6 +38,8 @@ const handlers = {
 function render(data: SubmissionFormData, file: File | null = null): string {
   return renderToStaticMarkup(
     <SubmissionFormView
+      programId="program-1"
+      milestoneId="milestone-text"
       data={data}
       input={{ file, text: '' }}
       comment=""
@@ -138,8 +140,6 @@ describe('SubmissionFormView', () => {
       existingSubmission: {
         id: 'submission-1',
         status: 'SUBMITTED',
-        checklistUrl:
-          '/programs/program-1/submissions?milestoneId=milestone-text',
       },
     };
 
@@ -148,7 +148,7 @@ describe('SubmissionFormView', () => {
     expect(html).not.toContain('type="file"');
     expect(html).toContain('제출 내용 확인');
     expect(html).toContain(
-      '/programs/program-1/submissions?milestoneId=milestone-text',
+      '/programs/program-1/documents?milestoneId=milestone-text',
     );
   });
 

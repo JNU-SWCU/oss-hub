@@ -8,8 +8,9 @@ import {
   takeLoginDestination,
 } from '../login-destination';
 import { githubAccountChoicePath, githubLoginPath } from '../login-paths';
+import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 
-const LOGGED_OUT_HOME = '/?loggedOut=1';
+const LOGGED_OUT_HOME = '/';
 
 const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
@@ -105,7 +106,11 @@ describe('LoginButton 로그아웃 착지', () => {
   async function logoutFrom(pathname: string): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
-      root.render(<LoginButton />);
+      root.render(
+        <NavigationNoticeProvider>
+          <LoginButton />
+        </NavigationNoticeProvider>,
+      );
     });
     clickLogout();
     await act(async () => {
@@ -121,6 +126,7 @@ describe('LoginButton 로그아웃 착지', () => {
       await logoutFrom(pathname);
       expect(mocks.assign).toHaveBeenCalledExactlyOnceWith(LOGGED_OUT_HOME);
       expect(takeLoginDestination(sessionStorage)).toBeNull();
+      expect(sessionStorage.getItem('oss-hub-logged-out')).toBe('/');
     },
   );
 
@@ -175,6 +181,7 @@ describe('로그아웃 직후 랜딩의 상단 로그인', () => {
   let root: Root;
 
   beforeEach(() => {
+    sessionStorage.clear();
     mocks.useSession.mockReset().mockReturnValue(anonymousState);
     mocks.usePathname.mockReset();
     container = document.createElement('div');
@@ -195,7 +202,11 @@ describe('로그아웃 직후 랜딩의 상단 로그인', () => {
       value: { assign: mocks.assign, search, pathname },
     });
     await act(async () => {
-      root.render(<LoginButton />);
+      root.render(
+        <NavigationNoticeProvider>
+          <LoginButton />
+        </NavigationNoticeProvider>,
+      );
     });
     const href = container.querySelector('a')?.getAttribute('href');
     if (!href) throw new Error('로그인 링크를 찾지 못했다');
@@ -203,11 +214,22 @@ describe('로그아웃 직후 랜딩의 상단 로그인', () => {
   }
 
   it('로그아웃 표시가 있는 랜딩에서는 계정 선택 로그인으로 보낸다', async () => {
-    expect(await renderAt('/', '?loggedOut=1')).toBe(githubAccountChoicePath);
+    sessionStorage.setItem('oss-hub-logged-out', '/');
+    expect(await renderAt('/', '')).toBe(githubAccountChoicePath);
+  });
+
+  it('주소의 returnTo 쿼리는 로그인 복귀 목적지를 기록하지 않는다', async () => {
+    await renderAt('/', '?returnTo=%2Fprograms');
+    const link = container.querySelector<HTMLAnchorElement>('a');
+    if (!link) throw new Error('로그인 링크를 찾지 못했다');
+    link.addEventListener('click', (event) => event.preventDefault());
+    act(() => link.click());
+    expect(takeLoginDestination(sessionStorage)).toBeNull();
   });
 
   it.each([
     ['/', ''],
+    ['/', '?loggedOut=1'],
     ['/', '?returnTo=%2Fprograms'],
     ['/programs', '?loggedOut=1'],
   ])('%s%s 에서는 일반 로그인 경로를 쓴다', async (pathname, search) => {
