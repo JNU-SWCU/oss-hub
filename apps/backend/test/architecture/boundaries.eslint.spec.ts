@@ -88,6 +88,198 @@ const permitted: Record<Layer, readonly Layer[]> = {
   domain: ['domain'],
 };
 
+edge(
+  'flat controller may import its own DTO',
+  'src/programs/x.controller.ts',
+  'src/programs/dto/y-request.dto.ts',
+  true,
+);
+edge(
+  'flat controller cannot import a foreign DTO',
+  'src/staff/a.controller.ts',
+  'src/programs/dto/b.dto.ts',
+  false,
+);
+edge(
+  'flat staff service cannot import programs repository',
+  'src/staff/a.service.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'flat repository may import its own repository',
+  'src/programs/d.repository.ts',
+  'src/programs/e.repository.ts',
+  true,
+);
+
+for (const module of [
+  'auth',
+  'users',
+  'programs',
+  'ranking',
+  'student',
+  'staff',
+  'admin',
+  'notifications',
+  'github',
+  'platform',
+]) {
+  for (const layout of ['flat', 'legacy']) {
+    const service = `src/${module}/${layout === 'legacy' ? 'service/' : ''}${layout}.service.ts`;
+    edge(
+      `${module} ${layout} service may import its own repository`,
+      service,
+      `src/${module}/${layout === 'legacy' ? 'repository/' : ''}own.repository.ts`,
+      true,
+    );
+    edge(
+      `${module} ${layout} service cannot import a foreign repository`,
+      `src/${module}/${layout === 'legacy' ? 'service/' : ''}foreign-${layout}.service.ts`,
+      'src/other/repository/foreign.repository.ts',
+      false,
+    );
+  }
+}
+
+for (const [suffix, layer] of [
+  ['controller', 'controller'],
+  ['guard', 'controller'],
+  ['interceptor', 'controller'],
+  ['filter', 'controller'],
+  ['service', 'service'],
+  ['repository', 'repository'],
+  ['client', 'gateway'],
+  ['job', 'job'],
+  ['scheduler', 'job'],
+  ['dto', 'dto'],
+  ['policy', 'domain'],
+  ['error', 'domain'],
+  ['types', 'domain'],
+  ['config', 'domain'],
+] as const) {
+  for (const target of layers) {
+    edge(
+      `flat ${suffix} follows ${layer} policy for ${target}`,
+      `src/programs/${layer === 'dto' ? 'dto/' : ''}${suffix}-${target}.${suffix}.ts`,
+      `src/programs/${target}/flat-target.ts`,
+      permitted[layer].includes(target),
+    );
+    edge(
+      `flat ${suffix} follows ${layer} policy for flat ${target}`,
+      `src/programs/${layer === 'dto' ? 'dto/' : ''}${suffix}-flat-${target}.${suffix}.ts`,
+      `src/programs/${
+        {
+          controller: 'flat-target.controller.ts',
+          service: 'flat-target.service.ts',
+          repository: 'flat-target.repository.ts',
+          gateway: 'flat-target.client.ts',
+          job: 'flat-target.job.ts',
+          dto: 'dto/flat-target.dto.ts',
+          domain: 'flat-target.policy.ts',
+        }[target]
+      }`,
+      permitted[layer].includes(target),
+    );
+  }
+}
+
+edge(
+  'flat composition may wire its own controller',
+  'src/staff/staff.module.ts',
+  'src/staff/wired.controller.ts',
+  true,
+);
+edge(
+  'flat composition cannot wire a foreign repository',
+  'src/staff/foreign.module.ts',
+  'src/programs/wired.repository.ts',
+  false,
+);
+edge(
+  'legacy public service retains its own module capture',
+  'src/programs/public/public-projects/service/own.service.ts',
+  'src/programs/public/public-projects/repository/own.repository.ts',
+  true,
+);
+edge(
+  'legacy public service cannot import flat programs repository',
+  'src/programs/public/public-projects/service/foreign.service.ts',
+  'src/programs/foreign.repository.ts',
+  false,
+);
+edge(
+  'flat service may import a foreign flat service',
+  'src/staff/foreign-service.service.ts',
+  'src/programs/foreign-service.service.ts',
+  true,
+);
+edge(
+  'flat service cannot import a foreign flat client',
+  'src/staff/foreign-client.service.ts',
+  'src/programs/foreign.client.ts',
+  false,
+);
+edge(
+  'flat controller may import an auth guard',
+  'src/staff/guard.controller.ts',
+  'src/auth/session.guard.ts',
+  true,
+);
+edge(
+  'flat common helper cannot import business domain',
+  'src/platform/activity-counts.policy.ts',
+  'src/programs/business.policy.ts',
+  false,
+);
+edge(
+  'flat runtime config helper cannot import business service',
+  'src/platform/private-key-file.config.ts',
+  'src/programs/business.service.ts',
+  false,
+);
+
+for (const [target, allowed] of [
+  ['prisma.service.ts', false],
+  ['runtime-config.config.ts', true],
+  ['object-storage.types.ts', true],
+  ['object-storage.client.ts', false],
+  ['configure-http-app.config.ts', true],
+  ['download-response.types.ts', true],
+  ['lock-program-tree.repository.ts', false],
+] as const) {
+  edge(
+    `flat service platform ${target} access`,
+    `src/staff/${target}.service.ts`,
+    `src/platform/${target}`,
+    allowed,
+  );
+}
+for (const target of [
+  'prisma.service.ts',
+  'user-profile-read.repository.ts',
+  'lock-program-tree.repository.ts',
+]) {
+  edge(
+    `flat repository may access platform ${target}`,
+    `src/programs/${target}.repository.ts`,
+    `src/platform/${target}`,
+    true,
+  );
+}
+add(
+  'flat repository may import Prisma client',
+  'src/programs/prisma-client.repository.ts',
+  "import { PrismaClient } from '@prisma/client'; export const value = PrismaClient;",
+  null,
+);
+add(
+  'flat runtime config manifest may read process.env',
+  'src/platform/runtime-config.config.ts',
+  'export const value = process.env.KEY; export interface Shape { id: string }',
+  null,
+);
+
 for (const from of layers) {
   for (const to of layers) {
     for (const foreign of [false, true]) {
