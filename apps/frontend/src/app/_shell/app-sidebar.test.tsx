@@ -183,6 +183,21 @@ describe('AppSidebar', () => {
     expect(html).toContain('gap-4');
   });
 
+  it('marks the current item with attributes only, never a marker element', () => {
+    for (const collapsed of [false, true]) {
+      const html = render('/programs', collapsed);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const current = doc.querySelector('a[aria-current="page"]');
+      expect(current?.getAttribute('data-current'), String(collapsed)).toBe(
+        'true',
+      );
+      expect(
+        doc.querySelectorAll('[data-slot$="current-marker"]'),
+        String(collapsed),
+      ).toHaveLength(0);
+    }
+  });
+
   it('formatSidebarCount caps above 99', () => {
     expect(formatSidebarCount(0)).toBe('0');
     expect(formatSidebarCount(99)).toBe('99');
