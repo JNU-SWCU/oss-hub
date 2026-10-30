@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditableProgram } from './dto';
 import { toProgramEditForm } from './program-edit-flow';
@@ -70,56 +70,51 @@ function accessibleName(control: HTMLElement): string {
 
 describe('프로그램 편집 화면의 두 삭제 컨트롤', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let rendered: Awaited<ReturnType<typeof renderWithQuery>>;
   let onRequestDeleteMilestone: ReturnType<typeof vi.fn>;
 
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+  beforeEach(async () => {
     onRequestDeleteMilestone = vi.fn();
-    act(() => {
-      root.render(
-        <ProgramEditView
-          onCoverChange={() => undefined}
-          program={program}
-          form={toProgramEditForm(program)}
-          errors={{}}
-          toastMessage={null}
-          generalAlert={null}
-          isSaving={false}
-          milestoneEditor={{ mode: 'closed' }}
-          deleteTarget={null}
-          isMilestoneBusy={false}
+    rendered = await renderWithQuery(
+      <ProgramEditView
+        onCoverChange={() => undefined}
+        program={program}
+        form={toProgramEditForm(program)}
+        errors={{}}
+        toastMessage={null}
+        generalAlert={null}
+        isSaving={false}
+        milestoneEditor={{ mode: 'closed' }}
+        deleteTarget={null}
+        isMilestoneBusy={false}
 
-          canonicalDocumentsByMilestoneId={
-            new Map([['milestone-canonical-id', []]])
-          }
+        canonicalDocumentsByMilestoneId={
+          new Map([['milestone-canonical-id', []]])
+        }
 
-          canDeleteProgram
-          onFieldChange={noOp}
-          onSubmit={noOp}
-          onProgramDeleted={noOp}
-          onAddMilestone={noOp}
-          onEditMilestone={noOp}
-          onCancelMilestone={noOp}
-          onMilestoneFieldChange={noOp}
-          onSaveMilestone={noOp}
-          onRequestDeleteMilestone={onRequestDeleteMilestone}
-          onCancelDelete={noOp}
-          onConfirmDelete={noOp}
-        />,
-      );
-    });
+        canDeleteProgram
+        onFieldChange={noOp}
+        onSubmit={noOp}
+        onProgramDeleted={noOp}
+        onAddMilestone={noOp}
+        onEditMilestone={noOp}
+        onCancelMilestone={noOp}
+        onMilestoneFieldChange={noOp}
+        onSaveMilestone={noOp}
+        onRequestDeleteMilestone={onRequestDeleteMilestone}
+        onCancelDelete={noOp}
+        onConfirmDelete={noOp}
+      />,
+    );
+    container = rendered.container;
   });
 
-  afterEach(() => {
-    act(() => root.unmount());
-    container.remove();
+  afterEach(async () => {
+    await rendered.unmount();
   });
 
   function milestoneDeleteControl(): HTMLElement {
-    const card = document.querySelector(
+    const card = container.querySelector(
       `[data-canonical-id="${'milestone-canonical-id'}"]`,
     );
     if (card === null) throw new TypeError('마일스톤 카드를 찾지 못했습니다.');
@@ -132,7 +127,7 @@ describe('프로그램 편집 화면의 두 삭제 컨트롤', () => {
   }
 
   function programDeleteControl(): HTMLElement {
-    const heading = Array.from(document.querySelectorAll('h2')).find(
+    const heading = Array.from(container.querySelectorAll('h2')).find(
       (candidate) => candidate.textContent?.trim() === DANGER_ZONE_HEADING,
     );
     const section = heading?.closest('section') ?? null;
