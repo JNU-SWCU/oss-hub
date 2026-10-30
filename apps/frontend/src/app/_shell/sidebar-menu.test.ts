@@ -17,6 +17,8 @@ import {
   sidebarGroupsFor,
 } from './sidebar-menu';
 
+afterEach(() => vi.useRealTimers());
+
 const STUDENT: MemberAccess = {
   memberKind: 'STUDENT',
   hasStaffAccess: false,
@@ -265,6 +267,8 @@ describe('sidebarGroupsFor (context)', () => {
   });
 
   it('ranking section: 전체 + years as flat peers', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
     const groups = sidebarGroupsFor('ranking', null, {
       rankingYears: [2026, 2025],
     });
@@ -278,7 +282,7 @@ describe('sidebarGroupsFor (context)', () => {
       })),
     ).toEqual([
       { label: '전체', href: '/ranking?year=all', depth: 0 },
-      { label: '2026', href: '/ranking?year=2026', depth: 0 },
+      { label: '2026', href: '/ranking', depth: 0 },
       { label: '2025', href: '/ranking?year=2025', depth: 0 },
     ]);
   });
@@ -340,6 +344,10 @@ describe('isCurrentSidebarItem', () => {
     expect(
       isCurrentSidebarItem('/ranking', `/ranking?year=${thisYear}`, ''),
     ).toBe(true);
+    expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
+    expect(
+      isCurrentSidebarItem('/ranking', '/ranking', `year=${thisYear}`),
+    ).toBe(true);
 
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
@@ -361,6 +369,26 @@ describe('isCurrentSidebarItem', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date(isoUtc));
     }
+
+    it('새해가 되면 전년도 링크는 명시적인 연도를 유지하고 올해만 canonical 주소를 쓴다', () => {
+      freezeAt('UTC', '2026-12-31T15:00:00.000Z');
+      const items = rankingSidebarGroup([2027, 2026]).items;
+      expect(items.map(({ href }) => href)).toEqual([
+        '/ranking?year=all',
+        '/ranking',
+        '/ranking?year=2026',
+      ]);
+      expect(isCurrentSidebarItem('/ranking', '/ranking', '')).toBe(true);
+      expect(isCurrentSidebarItem('/ranking', '/ranking', 'year=2027')).toBe(
+        true,
+      );
+      expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
+        false,
+      );
+      expect(
+        isCurrentSidebarItem('/ranking', '/ranking?year=2026', 'year=2026'),
+      ).toBe(true);
+    });
 
     it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도가 강조된다', () => {
       freezeAt('UTC', '2025-12-31T15:30:00.000Z');

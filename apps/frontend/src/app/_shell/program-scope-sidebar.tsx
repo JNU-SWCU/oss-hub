@@ -136,6 +136,7 @@ function stageHrefWithCurrentQuery(
   if (targetPath !== pathname) return item.href;
 
   const nextSearch = new URLSearchParams(search);
+  nextSearch.delete('view');
   const milestoneId = new URLSearchParams(targetSearch).get('milestoneId');
   if (milestoneId === null) nextSearch.delete('milestoneId');
   else nextSearch.set('milestoneId', milestoneId);
@@ -155,8 +156,6 @@ export function ProgramScopeSidebarNav({
   const milestoneId = currentSearch.get('milestoneId');
   const requestedQuery = new URLSearchParams();
   if (milestoneId !== null) requestedQuery.set('milestoneId', milestoneId);
-  const operationsView = currentSearch.get('view') === 'operations';
-  if (operationsView) requestedQuery.set('view', 'operations');
   const requestedHref = `${pathname}${requestedQuery.size > 0 ? `?${requestedQuery.toString()}` : ''}`;
   const hasRequestedStage = groups.some((group) =>
     group.items.some(
@@ -164,9 +163,7 @@ export function ProgramScopeSidebarNav({
     ),
   );
 
-  const focusedHref = hasRequestedStage
-    ? requestedHref
-    : `${pathname}${operationsView ? '?view=operations' : ''}`;
+  const focusedHref = hasRequestedStage ? requestedHref : pathname;
 
   return (
     <TooltipProvider delayDuration={200}>

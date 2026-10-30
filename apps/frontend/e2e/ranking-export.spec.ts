@@ -188,3 +188,30 @@ test('public viewer has no export action', async ({ page }) => {
     page.locator('[data-slot="page-header-actions"] time'),
   ).toHaveCount(0);
 });
+
+test('올해 사이드바 링크는 canonical 주소를 열고 명시적인 올해 query도 강조한다', async ({
+  page,
+}, testInfo) => {
+  await page.clock.setFixedTime(new Date('2026-06-01T00:00:00.000Z'));
+  await page.route('**/api/v1/auth/session', (route) =>
+    route.fulfill({ json: { isAuthenticated: false } }),
+  );
+  await installRankingApi(page, { viewerClass: 'public' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/ranking?year=2026');
+  const currentYear = page
+    .locator('[data-slot="app-sidebar"]')
+    .getByRole('link', {
+      name: '2026',
+      exact: true,
+    });
+  await expect(currentYear).toHaveAttribute('href', '/ranking');
+  await expect(currentYear).toHaveAttribute('aria-current', 'page');
+  await currentYear.click();
+  await expect(page).toHaveURL(/\/ranking$/);
+  await expect(currentYear).toHaveAttribute('aria-current', 'page');
+  await page.screenshot({
+    path: testInfo.outputPath('ranking-current-year.png'),
+    fullPage: true,
+  });
+});

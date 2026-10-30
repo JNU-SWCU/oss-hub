@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
+import { programDocumentsHref } from '@/lib/program-route';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -30,6 +31,8 @@ const BLOCKED_MESSAGES = {
 } as const satisfies Readonly<Record<SubmissionBlockedReason, string>>;
 
 export interface SubmissionFormViewProps {
+  readonly programId: string;
+  readonly milestoneId: string;
   readonly data: SubmissionFormData;
   readonly input: SubmissionFormInput;
   readonly comment: string;
@@ -73,7 +76,12 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
           <div className="flex flex-wrap gap-3">
             {data.existingSubmission ? (
               <Button asChild>
-                <Link href={data.existingSubmission.checklistUrl}>
+                <Link
+                  href={programDocumentsHref(
+                    props.programId,
+                    props.milestoneId,
+                  )}
+                >
                   제출 내용 확인
                 </Link>
               </Button>

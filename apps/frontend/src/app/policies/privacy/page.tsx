@@ -1,15 +1,11 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>개인정보 수집·이용</title>
-    <link rel="stylesheet" href="/policies/policy-document.css" />
-  </head>
-  <body>
-    <main>
-      <h1>개인정보 수집·이용</h1>
-      <p>정책 버전: 2026-10-19</p>
+import type { Metadata } from 'next';
+import { PolicyDocument } from '../policy-document';
+
+export const metadata: Metadata = { title: '개인정보 수집·이용' };
+
+export default function Page() {
+  return (
+    <PolicyDocument title="개인정보 수집·이용">
       <h2>수집 항목과 목적</h2>
       <p>
         GitHub 계정 식별자·로그인명·이름·프로필 이미지, 사용자가 입력한
@@ -22,10 +18,10 @@
         표시됩니다. 기여가 없으면 0으로 표시합니다. 비로그인 방문자와 학생 등
         일반 회원에게 실명과 학과는 표시하지 않으며, 활성 상태의 교직원(STAFF)과
         운영자(ADMIN)는 운영을 위해 실명과 학과도 볼 수 있습니다. 학번과
-        연락처는 랭킹에 표시하지 않습니다. 집계 숫자의 범위와 노출 항목은
-        <a href="/policies/github-activity/2026-10-19.html">
+        연락처는 랭킹에 표시하지 않습니다. 집계 숫자의 범위와 노출 항목은{' '}
+        <a href="/policies/github-activity">
           GitHub 활동 수집·공개 범위(정책 버전 2026-10-19)
-        </a>
+        </a>{' '}
         문서를 따릅니다.
       </p>
       <h2>보유와 삭제</h2>
@@ -40,6 +36,6 @@
         지표를 자동으로 삭제하지 않습니다. 예외적인 정정·삭제는 플랫폼 운영
         절차로 처리합니다.
       </p>
-    </main>
-  </body>
-</html>
+    </PolicyDocument>
+  );
+}

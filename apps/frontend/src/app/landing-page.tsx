@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AUTH_ERROR_MESSAGE, hasAuthError } from '@/features/auth/auth-error';
-import { readReturnTo } from '@/features/auth/login-destination';
-import { hasLogoutNotice } from '@/features/auth/logout-notice';
+import { useNavigationNotices } from '@/lib/navigation-notices';
 import { CurrentProgramSection } from '@/features/landing/components/current-program-section';
 import { LandingJourney } from '@/features/landing/components/landing-journey';
 import { LandingFooter } from '@/features/landing/components/landing-footer';
@@ -19,8 +18,8 @@ export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
   const authErrorMessage = hasAuthError(serializedSearchParams)
     ? AUTH_ERROR_MESSAGE
     : undefined;
-  const justLoggedOut = hasLogoutNotice(serializedSearchParams);
-  const returnTo = readReturnTo(serializedSearchParams);
+  const notices = useNavigationNotices();
+  const justLoggedOut = notices.status === 'ready' && notices.loggedOut;
 
   useEffect(() => {
     setSerializedSearchParams(window.location.search);
@@ -33,7 +32,6 @@ export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
       isProfileComplete={isProfileComplete}
       access={session}
       status={status}
-      returnTo={returnTo}
     />
   );
 

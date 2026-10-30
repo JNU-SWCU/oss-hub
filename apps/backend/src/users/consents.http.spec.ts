@@ -182,17 +182,17 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
       {
         key: 'PRIVACY_COLLECTION',
         label: '개인정보 수집·이용',
-        documentUrl: '/policies/privacy/2026-10-19.html',
+        documentUrl: '/policies/privacy',
       },
       {
         key: 'GITHUB_ACTIVITY',
         label: 'GitHub 활동 수집·공개 범위',
-        documentUrl: '/policies/github-activity/2026-10-19.html',
+        documentUrl: '/policies/github-activity',
       },
       {
         key: 'ORG_REPOSITORY_TERMS',
         label: 'Org 저장소 운영 약관',
-        documentUrl: '/policies/org-repository-terms/2026-10-19.html',
+        documentUrl: '/policies/org-repository-terms',
       },
     ],
     consented: false,

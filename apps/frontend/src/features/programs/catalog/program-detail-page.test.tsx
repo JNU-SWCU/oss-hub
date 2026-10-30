@@ -126,6 +126,21 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     return fetchMock.mock.calls.map((call) => String(call[0]));
   }
 
+  it('운영 상태가 결정되기 전에는 조회하거나 본문을 렌더하지 않는다', async () => {
+    await act(async () =>
+      root.render(
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+          operationsView={null}
+        />,
+      ),
+    );
+    expect(requestedPaths()).toEqual([]);
+    expect(container.innerHTML).toBe('');
+  });
+
   it('학생 상세의 늦은 응답이 이미 전환한 운영 화면을 덮어쓰지 않는다', async () => {
     let resolveStudent: (response: Response) => void = () => {
       throw new Error('student request not started');
@@ -153,13 +168,13 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
         />,
       ),
     );
-    navigation.search = new URLSearchParams('view=operations');
     await act(async () =>
       root.render(
         <ProgramDetailPage
           renderSignInApply={stubSignInApply}
           programId={PROGRAM_ID}
           session="present"
+          operationsView
         />,
       ),
     );

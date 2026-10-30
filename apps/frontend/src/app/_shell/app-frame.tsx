@@ -14,25 +14,42 @@ import { ShellNav } from './shell-nav';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
+import { SkipLink } from './skip-link';
 
 const DASHBOARD_NAV_ITEM: NavItem = {
   label: '대시보드',
   href: '/dashboard',
 };
 
-export function AppFrame({
-  brand,
-  items = PUBLIC_MENU,
-  actions,
-  children,
-  initialSidebarCollapsed = false,
-}: {
+type AppFrameProps = {
   readonly brand?: ReactNode;
   readonly items?: readonly NavItem[];
   readonly actions?: ReactNode;
   readonly children: ReactNode;
   readonly initialSidebarCollapsed?: boolean;
-}) {
+};
+
+export function AppFrame(props: AppFrameProps) {
+  const pathname = usePathname();
+  if (pathname.startsWith('/policies/')) {
+    return props.children;
+  }
+
+  return (
+    <>
+      <SkipLink />
+      <SessionAppFrame {...props} />
+    </>
+  );
+}
+
+function SessionAppFrame({
+  brand,
+  items = PUBLIC_MENU,
+  actions,
+  children,
+  initialSidebarCollapsed = false,
+}: AppFrameProps) {
   const pathname = usePathname();
   const session = useSessionRole();
   const { status, isProfileComplete } = session;

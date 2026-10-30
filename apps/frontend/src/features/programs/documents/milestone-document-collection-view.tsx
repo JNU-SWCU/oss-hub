@@ -69,7 +69,7 @@ import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from '../catalog/program-detail-format';
-import { staffProgramHref } from '../program-paths';
+import { programHref } from '../program-paths';
 import { MilestoneDocumentCollectionSummary } from './milestone-document-collection-summary';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
@@ -287,8 +287,10 @@ function CollectionFilterButtons({
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
   return (
-    <FilterChipGroup aria-label="필수 서류 제출 상태">
-      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
+    <FilterChipGroup aria-label="팀별 필수 서류 제출 상태">
+      <p className="w-full text-small font-semibold">
+        팀별 필수 서류 제출 상태
+      </p>
       {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
         <FilterChip
           key={option}
@@ -296,7 +298,7 @@ function CollectionFilterButtons({
           onClick={() => onFilterChange(option)}
         >
           {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}팀
+          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}
         </FilterChip>
       ))}
     </FilterChipGroup>
@@ -643,7 +645,7 @@ function CollectionBody(
         description="주소의 프로그램과 마일스톤이 서로 다릅니다. 프로그램 상세에서 마일스톤을 다시 골라 주세요."
         action={
           <Button asChild variant="link">
-            <Link href={staffProgramHref(props.programId)}>프로그램 개요</Link>
+            <Link href={programHref(props.programId)}>프로그램 개요</Link>
           </Button>
         }
       />
@@ -679,7 +681,7 @@ function CollectionBody(
           description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
           action={
             <Button asChild variant="outline">
-              <Link href={staffProgramHref(props.programId, '/teams')}>
+              <Link href={programHref(props.programId, '/teams')}>
                 신청 확인하기
               </Link>
             </Button>

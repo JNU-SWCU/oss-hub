@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProgramEndedYears, listPrograms } from './api';
 import { ProgramListPage } from './program-list-page';
 import { ApiError, apiPath } from '@/lib/api-client';
+import {
+  NavigationNoticeProvider,
+  rememberProgramPurged,
+} from '@/lib/navigation-notices';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -21,6 +25,7 @@ let currentSearch = '';
 const routerPushMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
+  usePathname: () => '/programs',
   useRouter: () => ({ push: routerPushMock }),
   useSearchParams: () => new URLSearchParams(currentSearch),
 }));
@@ -339,6 +344,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   let root: Root;
 
   beforeEach(() => {
+    sessionStorage.clear();
     currentSearch = '';
     container = document.createElement('div');
     document.body.append(container);
@@ -372,7 +378,9 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   async function renderPage(): Promise<void> {
     await act(async () => {
       root.render(
-        <ProgramListPage canCreateProgram={false} viewerRole="STUDENT" />,
+        <NavigationNoticeProvider>
+          <ProgramListPage canCreateProgram={false} viewerRole="STUDENT" />
+        </NavigationNoticeProvider>,
       );
       await Promise.resolve();
     });
@@ -521,15 +529,25 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     );
   });
 
-  it('전체 삭제 후 도착한 확인 문구를 목록 상단에 보여준다', async () => {
-    currentSearch = `purged=${encodeURIComponent('지원서 2건 · 알림 3건')}`;
+  it('조작된 URL의 삭제 안내는 표시하지 않는다', async () => {
+    currentSearch = 'purged=forged-text';
 
     await renderPage();
 
-    expect(container.textContent).toContain(
-      '프로그램 전체 삭제를 완료했습니다',
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain('forged-text');
+  });
+
+  it('전체 삭제 후 저장한 안내는 한 번만 표시한다', async () => {
+    rememberProgramPurged('지원서 2건 · 알림 3건');
+    await renderPage();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '지원서 2건 · 알림 3건',
     );
-    expect(container.textContent).toContain('지원서 2건 · 알림 3건');
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await renderPage();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('종료된 프로그램 카드에도 상세 href를 그대로 넘긴다', async () => {

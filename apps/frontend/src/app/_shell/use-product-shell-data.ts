@@ -32,7 +32,7 @@ export function useProductShellData({
   readonly member: boolean;
 
   readonly authority: MemberAccess;
-  readonly operationsView?: boolean;
+  readonly operationsView?: boolean | null;
 }): {
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
@@ -51,7 +51,7 @@ export function useProductShellData({
     member,
     authority,
     scopeParticipant,
-    operationsView,
+    operationsView ?? false,
   );
   const overviewOperationsView =
     scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN';
@@ -77,7 +77,10 @@ export function useProductShellData({
   }, [section, programDetailId]);
 
   useEffect(() => {
-    if (!shouldLoadProgramOverview(programDetailId, member)) {
+    if (
+      operationsView === null ||
+      !shouldLoadProgramOverview(programDetailId, member)
+    ) {
       setScopeOverview(undefined);
       return;
     }
@@ -133,7 +136,7 @@ export function useProductShellData({
       unsubscribeBoard();
       window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
     };
-  }, [programDetailId, member, overviewOperationsView]);
+  }, [programDetailId, member, overviewOperationsView, operationsView]);
 
   useEffect(() => {
     if (!shouldLoadProgramOverview(programDetailId, member)) {
