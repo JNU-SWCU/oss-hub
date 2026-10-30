@@ -7,10 +7,15 @@ describe('fetchMyStaffAccessRequest', () => {
     vi.unstubAllGlobals();
   });
 
-  it('본문 없는 200을 역할 요청 없음(null)으로 읽는다', async () => {
+  it('NONE 상태를 역할 요청 없음(null)으로 읽는다', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: 'NONE', request: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
     );
 
     await expect(fetchMyStaffAccessRequest()).resolves.toBeNull();
@@ -22,19 +27,26 @@ describe('fetchMyStaffAccessRequest', () => {
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
-            requestedRole: 'STAFF',
             status: 'PENDING',
-            requestedAt: '2026-08-03T00:00:00.000Z',
-            decidedAt: null,
-            rejectionReason: null,
+            request: {
+              requestedRole: 'STAFF',
+              status: 'PENDING',
+              requestedAt: '2026-08-03T00:00:00.000Z',
+              decidedAt: null,
+              rejectionReason: null,
+            },
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
       ),
     );
 
-    await expect(fetchMyStaffAccessRequest()).resolves.toMatchObject({
+    await expect(fetchMyStaffAccessRequest()).resolves.toEqual({
+      requestedRole: 'STAFF',
       status: 'PENDING',
+      requestedAt: '2026-08-03T00:00:00.000Z',
+      decidedAt: null,
+      rejectionReason: null,
     });
   });
 });

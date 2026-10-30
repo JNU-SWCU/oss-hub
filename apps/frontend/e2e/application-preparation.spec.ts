@@ -10,8 +10,8 @@ async function officialTeam(page: Page, programId: string): Promise<unknown> {
     `/api/v1/programs/${programId}/teams/me`,
   );
   expect(response.status()).toBe(200);
-  const body = await response.text();
-  return body.length === 0 ? null : JSON.parse(body);
+  const body = (await response.json()) as { readonly team: unknown };
+  return body.team;
 }
 
 for (const width of [390, 1440]) {

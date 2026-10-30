@@ -35,8 +35,15 @@ export async function fetchMyRoleSelection(
   };
 }
 
-export function fetchMyStaffAccessRequest(): Promise<StaffAccessRequest | null> {
-  return apiClient<StaffAccessRequest | null>('role-requests/me');
+interface MyStaffAccessRequestResponse {
+  readonly status: 'NONE' | StaffAccessRequest['status'];
+  readonly request: StaffAccessRequest | null;
+}
+
+export async function fetchMyStaffAccessRequest(): Promise<StaffAccessRequest | null> {
+  const body =
+    await apiClient<MyStaffAccessRequestResponse>('role-requests/me');
+  return body.request;
 }
 
 export function requestStaffRole(): Promise<StaffAccessRequest> {

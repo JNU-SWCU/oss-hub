@@ -34,7 +34,10 @@ async function installPreselectedStudent(page: Page): Promise<void> {
     },
     {
       'GET /api/v1/onboarding/role': jsonHandler({ selectedRole: 'STUDENT' }),
-      'GET /api/v1/role-requests/me': jsonHandler(null),
+      'GET /api/v1/role-requests/me': jsonHandler({
+        status: 'NONE',
+        request: null,
+      }),
       'GET /api/v1/users/me/profile': jsonHandler(INCOMPLETE_PROFILE),
     },
   );

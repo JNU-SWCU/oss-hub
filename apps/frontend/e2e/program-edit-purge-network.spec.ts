@@ -157,7 +157,7 @@ async function openEdit(
       return;
     }
     if (path.endsWith('/role-requests/me')) {
-      await json(route, null);
+      await json(route, { status: 'NONE', request: null });
       return;
     }
     if (path.endsWith(`/programs/${PROGRAM_ID}/edit`)) {

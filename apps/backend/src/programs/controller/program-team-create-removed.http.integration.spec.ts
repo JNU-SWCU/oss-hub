@@ -171,9 +171,12 @@ it('기존 공식 팀은 학생의 팀 조회 경로에서 계속 반환한다',
 
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
-    id: team.id,
-    name: team.name,
-    memberCount: 1,
-    isLeader: true,
+    membership: 'LEADER',
+    team: {
+      id: team.id,
+      name: team.name,
+      memberCount: 1,
+      isLeader: true,
+    },
   });
 });
