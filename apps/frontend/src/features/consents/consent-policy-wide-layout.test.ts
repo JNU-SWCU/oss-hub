@@ -12,7 +12,7 @@ const view = readFileSync(
   'utf-8',
 );
 const documentStyle = readFileSync(
-  path.resolve(__dirname, '../../../public/policies/policy-document.css'),
+  path.resolve(__dirname, '../../app/policies/policy-document.css'),
   'utf-8',
 );
 
@@ -55,7 +55,7 @@ describe('넓은 화면 두 기둥의 세로 독립', () => {
 describe('넓은 화면 폭 산술', () => {
   const documentTextPx =
     Number(
-      /@media \(min-width: \d+px\) \{\s*main \{\s*max-width: ([\d.]+)rem/.exec(
+      /@media \(min-width: \d+px\) \{\s*\.policy-document \{\s*max-width: ([\d.]+)rem/.exec(
         documentStyle,
       )?.[1],
     ) * REM_PX;

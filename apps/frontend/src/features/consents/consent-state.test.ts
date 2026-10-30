@@ -38,7 +38,7 @@ test('서버가 세 번째 필수 약관을 추가하면 세 항목 모두 선�
       {
         key: 'ORG_REPOSITORY_TERMS',
         label: 'Org 저장소 운영 약관',
-        documentUrl: '/policies/org-repository-terms/2026-07-21.html',
+        documentUrl: '/policies/org-repository-terms',
       },
     ],
   };

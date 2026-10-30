@@ -73,6 +73,15 @@
   --step-badge: 0.75rem;
   --step-table: 0.875rem;
 
+  /* 랜딩 전용 타입 스케일: 1440px까지는 종전 값과 같고, 그 위에서 2560px까지 이어서 커진다.
+     display 60→74, heading 40→48, body 17→20, label 13→14, step/link 15→16 (1440→2560) */
+  --step-landing-display: clamp(32px, min(4.4vw, 42px + 1.25vw), 76px);
+  --step-landing-heading: clamp(26px, min(3vw, 29.7px + 0.714vw), 48px);
+  --step-landing-body: clamp(15px, min(1.2vw, 13.8px + 0.24vw), 20px);
+  --step-landing-label: clamp(13px, 11.7px + 0.09vw, 14px);
+  --step-landing-step: clamp(15px, 13.7px + 0.09vw, 16px);
+  --step-landing-link: clamp(15px, 13.7px + 0.09vw, 16px);
+
   --measure-26: 26px;
   --measure-44: 44px;
   --measure-64: 64px;
@@ -80,6 +89,7 @@
   --measure-76: 76px;
   --measure-148: 148px;
   --measure-248: 248px;
+  --measure-1600: 1600px;
 }
 
 @theme inline {
@@ -174,6 +184,13 @@
   --text-badge--line-height: calc(16 / 12);
   --text-table: var(--step-table);
   --text-table--line-height: calc(20 / 14);
+  --text-landing-display: var(--step-landing-display);
+  --text-landing-heading: var(--step-landing-heading);
+  --text-landing-body: var(--step-landing-body);
+  --text-landing-label: var(--step-landing-label);
+  --text-landing-step: var(--step-landing-step);
+  --text-landing-link: var(--step-landing-link);
+  --container-landing: var(--landing-content-width);
   --radius-card: var(--card-radius);
   --radius-control: var(--control-radius);
   --color-sidebar-current: var(--sidebar-current);
@@ -237,6 +254,7 @@
   --topbar-height: var(--measure-64);
   --sidebar-open-width: var(--measure-248);
   --sidebar-collapsed-width: var(--measure-72);
+  --landing-content-width: var(--measure-1600);
   --sidebar-expand-duration: 200ms;
   --sidebar-collapse-duration: 140ms;
 

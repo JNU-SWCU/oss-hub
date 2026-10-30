@@ -13,7 +13,6 @@ import {
 } from './_shell/sidebar-collapsed';
 import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
-import { SkipLink } from './_shell/skip-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 import { QueryProvider } from './_shell/query-provider';
 
@@ -48,8 +47,6 @@ export default async function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', pretendard.variable)}>
       <body className="relative">
-        <SkipLink />
-
         <QueryProvider>
           <NavigationNoticeProvider>
             <AppFrame
