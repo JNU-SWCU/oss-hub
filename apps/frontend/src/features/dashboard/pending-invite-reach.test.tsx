@@ -1,8 +1,18 @@
 import { act } from 'react';
+import {
+  listNavigation,
+  useTestSearchParams,
+} from '../../../test-support/list-screen-root';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/dashboard',
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,

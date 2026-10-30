@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useStudentDashboardUrlState } from '../student-dashboard-url-state';
 
 import { ApiError } from '@/lib/api-client';
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
@@ -24,6 +25,10 @@ import {
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
+  const {
+    state: { status: filter },
+    navigate,
+  } = useStudentDashboardUrlState();
   const [data, setData] = useState<StudentDashboard | null>(null);
   const [status, setStatus] = useState<StudentDashboardStatus>('loading');
   const [requestKey, setRequestKey] = useState(0);
@@ -153,6 +158,8 @@ export function StudentDashboardScreen() {
 
   return (
     <StudentDashboardView
+      filter={filter}
+      onFilterChange={(next) => navigate({ status: next })}
       data={data}
       status={status}
       showSignupCompleteNotice={signupCompleted}

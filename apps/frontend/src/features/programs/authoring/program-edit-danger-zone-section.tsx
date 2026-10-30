@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgramLists } from '../catalog/list-queries';
 import { SectionHeading } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
@@ -53,6 +55,7 @@ export function ProgramEditDangerZoneSection({
   canDeleteProgram,
   onDeleted,
 }: ProgramEditDangerZoneSectionProps) {
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [purgeCounts, setPurgeCounts] =
@@ -124,6 +127,7 @@ export function ProgramEditDangerZoneSection({
     setPurgeScopeError(null);
     try {
       const result = await purgeProgram(programId, purgeCounts);
+      void invalidateProgramLists(queryClient);
       if (mountedRef.current) {
         onDeleted(formatDeletedCounts(result.deletedCounts));
       }

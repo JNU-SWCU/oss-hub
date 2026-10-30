@@ -102,6 +102,7 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly onArchiveGroupingChange: (
     grouping: MilestoneDocumentCollectionArchiveGrouping,
   ) => void;
+  readonly onResetFilters: () => void;
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -721,11 +722,7 @@ function CollectionBody(
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                props.onFilterChange('ALL');
-                if (props.documentSelection !== null)
-                  props.onDocumentSelectionChange(null);
-              }}
+              onClick={props.onResetFilters}
             >
               전체 보기
             </Button>

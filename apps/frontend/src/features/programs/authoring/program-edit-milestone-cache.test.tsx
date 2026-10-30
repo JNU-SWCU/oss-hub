@@ -1,5 +1,6 @@
 import { act, StrictMode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditableMilestone, EditableProgram } from './dto';
 import { ProgramEditPage } from './program-edit-page';

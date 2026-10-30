@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { useStaffInsightsUrlState } from './staff-insights-url-state';
 import { ApiError } from '@/lib/api-client';
 import { getStaffInsights } from './api';
-import { parseInsightsYearSearchParam } from './insights-year';
 import { StaffInsightsView } from './staff-insights-view';
 import {
   INSIGHTS_CUTS,
@@ -18,11 +17,7 @@ type LoadState =
   | { readonly kind: 'error'; readonly message: string };
 
 export function StaffInsightsScreen() {
-  const searchParams = useSearchParams();
-  const scope = useMemo(
-    () => parseInsightsYearSearchParam(searchParams.get('year')),
-    [searchParams],
-  );
+  const { state: scope } = useStaffInsightsUrlState();
   const [cut, setCut] = useState<InsightsCut>(INSIGHTS_CUTS.COHORT);
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [retry, setRetry] = useState(0);

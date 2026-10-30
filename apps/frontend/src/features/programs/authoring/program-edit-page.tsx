@@ -1,4 +1,6 @@
 'use client';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgramLists } from '../catalog/list-queries';
 import { rememberProgramPurged } from '@/lib/navigation-notices';
 
 import { useProgramCoverEdit } from './use-program-cover-edit';
@@ -71,6 +73,7 @@ export function ProgramEditPage({
 
   readonly canDeleteProgram: boolean;
 }) {
+  const queryClient = useQueryClient();
   const cover = useProgramCoverEdit();
   const [state, setState] = useState<ProgramEditLoadState>({ kind: 'loading' });
   const [form, setForm] = useState<ProgramEditForm | null>(null);
@@ -216,6 +219,7 @@ export function ProgramEditPage({
           : {}),
       });
       cover.saved();
+      void invalidateProgramLists(queryClient);
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
       setDirtyFields([]);

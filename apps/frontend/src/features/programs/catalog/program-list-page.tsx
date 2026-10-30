@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useDebouncedUrlSearch } from '@/lib/list-url-state';
+import { useProgramListQuery, useProgramEndedYearsQuery } from './list-queries';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { ProgramCard, ProgramCardSkeleton } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,7 +13,6 @@ import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
 import { useNavigationNotices } from '@/lib/navigation-notices';
-import { getProgramEndedYears, listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
 import {
@@ -21,11 +21,9 @@ import {
   getProgramListSubtitle,
 } from './program-list';
 import {
-  buildProgramListHref,
-  parseProgramListDirection,
-  parseProgramListSort,
   parseProgramListYear,
-} from './program-list-sort';
+  useProgramListUrlState,
+} from './program-list-url-state';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
 import { PROGRAM_TRACK_TYPE_LABELS } from '../program-contract';
@@ -39,10 +37,7 @@ import type {
 } from './program-list-options';
 import type { ViewerRole } from '../program-contract';
 import { PROGRAM_LIST_SORT_LABELS } from './program-list-labels';
-import {
-  PROGRAM_LIST_SORTS,
-  PROGRAM_LIST_STATUSES,
-} from './program-list-options';
+import { PROGRAM_LIST_SORTS } from './program-list-options';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
@@ -70,113 +65,60 @@ function formatApplicationPeriod(program: ProgramListItem): string {
   return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
 }
 
-function parseStatus(value: string | null): ProgramListStatus {
-  if (
-    value !== null &&
-    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
-  ) {
-    return value as ProgramListStatus;
-  }
-  return 'all';
-}
-
 function ProgramListPage({
   canCreateProgram,
   viewerRole,
 }: ProgramListPageProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const status = parseStatus(searchParams.get('status'));
-  const sort = parseProgramListSort(searchParams.get('sort'));
-  const direction = parseProgramListDirection(searchParams.get('direction'));
+  const { state: urlState, navigate } = useProgramListUrlState();
+  const { status, sort, direction, year, search, page } = urlState;
+  const replaceSearch = useCallback(
+    (value: string) => navigate({ search: value, page: 1 }, 'replace'),
+    [navigate],
+  );
+  const [searchInput, setSearchInput] = useDebouncedUrlSearch(
+    search,
+    replaceSearch,
+  );
   const notices = useNavigationNotices();
   const purgeNotice = notices.status === 'ready' ? notices.purgeSummary : null;
-  const year =
-    status === 'ended'
-      ? parseProgramListYear(searchParams.get('year'))
-      : undefined;
-
-  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [years, setYears] = useState<readonly number[]>([]);
   const ended = status === 'ended';
-  useEffect(() => {
-    if (!ended) return;
-    const controller = new AbortController();
-    getProgramEndedYears(controller.signal).then(
-      (nextYears) => {
-        if (!controller.signal.aborted) setYears(nextYears);
-      },
-      () => {
-        if (!controller.signal.aborted) setYears([]);
-      },
-    );
-    return () => controller.abort();
-  }, [ended]);
+  const yearsQuery = useProgramEndedYearsQuery(ended);
+  const years = yearsQuery.data ?? [];
   const yearOptions =
     year !== undefined && !years.includes(year) ? [year, ...years] : years;
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const latestRequestId = useRef(0);
+  const listQuery = useProgramListQuery({
+    page,
+    pageSize: PAGE_SIZE,
+    search,
+    status: status === 'all' ? 'current' : status,
+    sort,
+    direction,
+    year,
+  });
+  const loadState: LoadState = listQuery.isPending
+    ? { kind: 'loading' }
+    : listQuery.isError
+      ? {
+          kind: 'error',
+          message:
+            listQuery.error instanceof ApiError
+              ? listQuery.error.message
+              : '프로그램 목록을 불러오지 못했습니다.',
+        }
+      : { kind: 'ready', programPage: listQuery.data };
   const hasFilters =
-    search.trim() !== '' ||
+    search !== '' ||
     year !== undefined ||
     (status !== 'all' && status !== 'ended');
-
-  const load = useCallback(async (): Promise<void> => {
-    const requestId = latestRequestId.current + 1;
-    latestRequestId.current = requestId;
-    setLoadState({ kind: 'loading' });
-    try {
-      const programPage = await listPrograms({
-        page,
-        pageSize: PAGE_SIZE,
-        search,
-        status: status === 'all' ? 'current' : status,
-        sort,
-        direction,
-        year,
-      });
-      if (requestId !== latestRequestId.current) return;
-      setLoadState({ kind: 'ready', programPage });
-    } catch (error: unknown) {
-      if (requestId !== latestRequestId.current) return;
-      setLoadState({
-        kind: 'error',
-        message:
-          error instanceof ApiError
-            ? error.message
-            : '프로그램 목록을 불러오지 못했습니다.',
-      });
-    }
-  }, [page, search, status, sort, direction, year]);
-
-  useEffect(() => {
-    void load();
-    return () => {
-      latestRequestId.current += 1;
-    };
-  }, [load]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [status, sort, direction, year]);
-
   const now = useMemo(() => new Date(), []);
 
-  const goStatus = (next: ProgramListStatus) => {
-    router.push(buildProgramListHref({ status: next, sort, direction }));
-  };
-
-  const goSort = (nextSort: ProgramListSort | undefined) => {
-    router.push(
-      buildProgramListHref({
-        status,
-        year,
-        sort: nextSort,
-        direction: nextSort ? direction : undefined,
-      }),
+  const goStatus = (next: ProgramListStatus) =>
+    navigate({ status: next, year: undefined, page: 1 });
+  const goSort = (nextSort: ProgramListSort | undefined) =>
+    navigate(
+      { sort: nextSort, direction: nextSort ? direction : undefined, page: 1 },
+      'replace',
     );
-  };
 
   const content = (() => {
     if (loadState.kind === 'loading') {
@@ -195,7 +137,7 @@ function ProgramListPage({
         <FailureState
           title="프로그램 목록을 불러오지 못했습니다"
           description={loadState.message}
-          onRetry={() => void load()}
+          onRetry={() => void listQuery.refetch()}
         />
       );
     }
@@ -220,9 +162,7 @@ function ProgramListPage({
             year !== undefined ? (
               <Button
                 variant="outline"
-                onClick={() =>
-                  router.push(buildProgramListHref({ status, sort, direction }))
-                }
+                onClick={() => navigate({ year: undefined, page: 1 })}
               >
                 필터 초기화
               </Button>
@@ -295,14 +235,10 @@ function ProgramListPage({
               aria-label="종료 연도"
               value={year ?? ''}
               onChange={(event) =>
-                router.push(
-                  buildProgramListHref({
-                    status,
-                    sort,
-                    direction,
-                    year: parseProgramListYear(event.target.value),
-                  }),
-                )
+                navigate({
+                  year: parseProgramListYear(event.target.value),
+                  page: 1,
+                })
               }
             >
               <option value="">전체 연도</option>
@@ -317,12 +253,9 @@ function ProgramListPage({
         <Input
           aria-label="프로그램명 검색"
           className="sm:flex-1 sm:min-w-48"
-          onChange={(event) => {
-            setPage(1);
-            setSearch(event.target.value);
-          }}
+          onChange={(event) => setSearchInput(event.target.value)}
           placeholder="프로그램명 검색"
-          value={search}
+          value={searchInput}
         />
         <label className="grid gap-1 text-sm">
           <span className="text-muted-foreground">정렬 기준</span>
@@ -345,7 +278,7 @@ function ProgramListPage({
       </div>
       {content}
       <ProgramListPagination
-        onPageChange={setPage}
+        onPageChange={(nextPage) => navigate({ page: nextPage })}
         page={page}
         totalPages={
           loadState.kind === 'ready' ? loadState.programPage.totalPages : 0
