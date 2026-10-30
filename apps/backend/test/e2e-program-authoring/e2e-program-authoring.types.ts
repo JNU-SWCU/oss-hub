@@ -1,7 +1,7 @@
 import type {
   DeadlineDigestPreview,
   DeadlineDigestSendRequest,
-} from '../../src/notifications/domain/deadline-digest';
+} from '../../src/notifications/deadline-digest.types';
 
 export const E2E_FAILURE_KINDS = [
   'upload',

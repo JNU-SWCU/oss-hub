@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEmail } from 'class-validator';
-import type { UpdateNotificationEmailInput } from '../domain/notification-settings';
+import type { UpdateNotificationEmailInput } from '../notification-settings.types';
 
 function trimString({ value }: { value: unknown }): unknown {
   return typeof value === 'string' ? value.trim() : value;

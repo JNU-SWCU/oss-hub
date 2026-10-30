@@ -2,7 +2,7 @@ import {
   ValidatorConstraint,
   type ValidatorConstraintInterface,
 } from 'class-validator';
-import { parseGithubRepositoryUrl } from '../github/domain/github-repository-url';
+import { parseGithubRepositoryUrl } from '../github/github-repository-url.policy';
 
 @ValidatorConstraint({ name: 'githubRepositoryUrl', async: false })
 export class GithubRepositoryUrlConstraint implements ValidatorConstraintInterface {

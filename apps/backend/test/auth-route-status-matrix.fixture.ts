@@ -26,8 +26,8 @@ import { ProgramCreationService } from '../src/programs/program-creation.service
 import { ProgramLifecycleService } from '../src/programs/program-lifecycle.service';
 import { ProgramsService } from '../src/programs/programs.service';
 import { ProgramViewerService } from '../src/programs/program-viewer.service';
-import { RankingController } from '../src/ranking/controller/ranking.controller';
-import { RankingService } from '../src/ranking/service/ranking.service';
+import { RankingController } from '../src/ranking/ranking.controller';
+import { RankingService } from '../src/ranking/ranking.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const syntheticGithubId = 424242n;

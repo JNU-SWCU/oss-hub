@@ -9,7 +9,7 @@ import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/applicat
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../github/domain/repository-provision-event';
+} from '../github/repository-provision-event.policy';
 import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-sync.repository';
 import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
 import {

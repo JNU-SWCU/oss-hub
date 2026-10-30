@@ -1,0 +1,63 @@
+import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { OptionalSession, Public } from '../auth/auth-route-metadata.policy';
+import {
+  assertNeverHttpAuth,
+  HTTP_AUTH_KINDS,
+  type OptionalSessionRequest,
+} from '../auth/http-auth.types';
+import { RANKING_VIEWER_CLASSES } from './ranking.policy';
+import {
+  RankingQueryRequestDto,
+  resolveRankingQueryYear,
+} from './dto/ranking-query.dto';
+import {
+  RankingPageResponseDto,
+  RankingYearsResponseDto,
+} from './dto/ranking-response.dto';
+import { RankingService } from './ranking.service';
+
+@Controller('ranking')
+export class RankingController {
+  constructor(private readonly rankingService: RankingService) {}
+
+  @Get()
+  @OptionalSession()
+  async findPage(
+    @Query() query: RankingQueryRequestDto,
+    @Req() request: OptionalSessionRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<RankingPageResponseDto> {
+    const page = await this.rankingService.findPage(
+      resolveRankingQueryYear(query),
+      query.page,
+      query.pageSize,
+      githubIdFrom(request),
+    );
+    if (page.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
+      response.setHeader('Cache-Control', 'no-store');
+    } else {
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('Vary', 'Cookie');
+    }
+    return RankingPageResponseDto.from(page);
+  }
+
+  @Get('years')
+  @Public()
+  @Header('Cache-Control', 'no-store')
+  async listYears(): Promise<RankingYearsResponseDto> {
+    return RankingYearsResponseDto.from(await this.rankingService.listYears());
+  }
+}
+
+function githubIdFrom(request: OptionalSessionRequest): bigint | null {
+  switch (request.auth.kind) {
+    case HTTP_AUTH_KINDS.ANONYMOUS:
+      return null;
+    case HTTP_AUTH_KINDS.AUTHENTICATED:
+      return request.auth.principal.githubId;
+    default:
+      return assertNeverHttpAuth(request.auth);
+  }
+}

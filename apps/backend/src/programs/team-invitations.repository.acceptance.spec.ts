@@ -5,7 +5,7 @@ import {
   Prisma,
   RepositoryConnectionMode,
 } from '@prisma/client';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/domain/repository-provision-event';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.policy';
 import { PrismaService } from '../platform/prisma.service';
 import type { AcceptInvitationOnOk } from './team-invitations.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';

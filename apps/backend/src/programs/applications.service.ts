@@ -19,7 +19,7 @@ import { UsersAuthorityService } from '../users/authority.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 import { DomainException } from '../platform/error-code.error';
 import type { ProblemDetailExtensions } from '../platform/error-code.error';
-import { parseGithubRepositoryUrl } from '../github/domain/github-repository-url';
+import { parseGithubRepositoryUrl } from '../github/github-repository-url.policy';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,

@@ -19,7 +19,7 @@ import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { StudentRepositoryUrlRepository } from './student-repository-url.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
-import { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
+import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { ConsentsRepository } from '../users/consents.repository';
@@ -27,19 +27,19 @@ import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityRepository } from '../users/authority.repository';
 import { UsersAuthorityService } from '../users/authority.service';
-import type { GithubAppClient } from '../github/gateway/github-app.client';
+import type { GithubAppClient } from '../github/github-app.client';
 import type {
   GithubPublicRepositoryMetadata,
   GithubRepositoryMetadata,
-} from '../github/domain/github-app.response';
-import { CollectionIncrementalRepository } from '../github/repository/collection-incremental.repository';
-import { RepositoriesRepository } from '../github/repository/repositories.repository';
-import { RepositoryProvisionJobRepository } from '../github/repository/repository-provision-job.repository';
-import { RepositoryProvisionStateRepository } from '../github/repository/repository-provision-state.repository';
-import { RepositoryOutboxConsumer } from '../github/service/repository-outbox.consumer';
-import { RepositoryProvisionWorker } from '../github/service/repository-provision.worker';
-import { PROVISION_ERROR_CODES } from '../github/domain/repository-provision.failure';
-import { RepositoryOwnEnrollmentService } from '../github/service/repository-own-enrollment.service';
+} from '../github/github-app-response.policy';
+import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
+import { RepositoriesRepository } from '../github/repositories.repository';
+import { RepositoryProvisionJobRepository } from '../github/repository-provision-job.repository';
+import { RepositoryProvisionStateRepository } from '../github/repository-provision-state.repository';
+import { RepositoryOutboxConsumer } from '../github/repository-outbox-consumer.service';
+import { RepositoryProvisionWorker } from '../github/repository-provision-worker.service';
+import { PROVISION_ERROR_CODES } from '../github/repository-provision-failure.policy';
+import { RepositoryOwnEnrollmentService } from '../github/repository-own-enrollment.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 
 assertIsolatedIntegrationDatabase({

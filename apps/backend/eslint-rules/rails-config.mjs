@@ -491,12 +491,12 @@ const policies = [
     allow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
-    from: { file: { path: '**/src/github/**' } },
+    from: { file: { path: '**/src/github/*.ts' } },
     disallow: {
-      to: { file: { path: '**/src/{programs,ranking,system-status}/**' } },
+      to: { file: { path: '**/src/{programs,ranking,admin}/**' } },
     },
     message:
-      'github 구현은 소비자 모듈(programs/ranking/system-status)을 역참조하지 않는다.',
+      'github 구현은 소비자 모듈(programs/ranking/admin)을 역참조하지 않는다.',
   },
 ];
 
@@ -774,7 +774,7 @@ export async function createRailsConfig(rootDir) {
       },
     },
     {
-      files: ['src/github/**/*.ts'],
+      files: ['src/github/*.ts'],
       ignores: testFiles,
       rules: {
         'architecture/restricted-syntax': ['error', ...envRestrictedSyntax],

@@ -21,9 +21,9 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { requiredMilestonesApproved } from './milestone-completion.policy';
-import { publishBlockedReasons } from '../github/domain/repository-publication';
-import { repositoryUrlFromNameWithOwner } from '../github/domain/repository-identity';
-import { repositoryAccessSyncEventData } from '../github/domain/repository-provision-event';
+import { publishBlockedReasons } from '../github/repository-publication.policy';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
+import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
 import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-sync.repository';
 import {
   projectSubmissionCompletionTargets,

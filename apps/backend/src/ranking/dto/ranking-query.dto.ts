@@ -9,7 +9,7 @@ import {
   type LegacyRankingPeriod,
   type RankingYear,
   resolveRankingYearFromQuery,
-} from '../domain/ranking';
+} from '../ranking.policy';
 
 const RANKING_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
 

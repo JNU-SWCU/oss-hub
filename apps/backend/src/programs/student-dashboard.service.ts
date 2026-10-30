@@ -19,7 +19,7 @@ import {
   type MilestoneCompletionStatus,
 } from './milestone-completion.policy';
 import { programCoverImageUrl } from './program-cover.policy';
-import { RepositoriesReadService } from '../github/service/repositories-read.service';
+import { RepositoriesReadService } from '../github/repositories-read.service';
 import { projectSubmissionCompletionTargets } from './submission-completion-projection.policy';
 import {
   StudentDashboardReadRepository,

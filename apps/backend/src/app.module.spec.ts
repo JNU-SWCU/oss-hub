@@ -2,12 +2,11 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 
 import { discoverAppModuleControllers } from './app-controller-discovery';
 import { AppModule } from './app.module';
-import { CollectionModule } from './github/collection.module';
+import { GithubModule } from './github/github.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PlatformModule } from './platform/platform.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoriesModule } from './github/repositories.module';
-import { RepositoriesService } from './github/service/repositories.service';
+import { RepositoriesService } from './github/repositories.service';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
@@ -30,7 +29,7 @@ describe('AppModule module exposure', () => {
     for (const module of [SystemStatusModule, RankingModule]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
       expect(imports.indexOf(module)).toBeGreaterThan(
-        imports.indexOf(CollectionModule),
+        imports.indexOf(GithubModule),
       );
     }
   });
@@ -42,7 +41,7 @@ describe('AppModule module exposure', () => {
       PlatformModule,
       NotificationsModule,
       UsersModule,
-      RepositoriesModule,
+      GithubModule,
     ]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
     }
@@ -62,18 +61,18 @@ describe('AppModule module exposure', () => {
     expect(imports.filter((entry) => entry === ProgramsModule)).toHaveLength(1);
   });
 
-  it('Notifications 스케줄러보다 Collection 스케줄러를 먼저 로드한다', () => {
+  it('Notifications 스케줄러보다 Github 스케줄러를 먼저 로드한다', () => {
     const imports = getImports();
 
-    expect(imports.indexOf(CollectionModule)).toBeLessThan(
+    expect(imports.indexOf(GithubModule)).toBeLessThan(
       imports.indexOf(NotificationsModule),
     );
   });
 
-  it('RepositoriesModule이 RepositoriesService를 export 계약으로 노출한다', () => {
+  it('GithubModule이 RepositoriesService를 export 계약으로 노출한다', () => {
     const exports: unknown = Reflect.getMetadata(
       MODULE_METADATA.EXPORTS,
-      RepositoriesModule,
+      GithubModule,
     );
 
     expect(Array.isArray(exports)).toBe(true);

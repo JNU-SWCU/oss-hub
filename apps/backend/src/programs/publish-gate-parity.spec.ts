@@ -5,7 +5,7 @@ import {
   RepositoryVisibility,
   SubmissionStatus,
 } from '@prisma/client';
-import type { RepositoriesService } from '../github/service/repositories.service';
+import type { RepositoriesService } from '../github/repositories.service';
 import {
   PUBLISH_BLOCKED_REASONS,
   type PublishBlockedReason,
