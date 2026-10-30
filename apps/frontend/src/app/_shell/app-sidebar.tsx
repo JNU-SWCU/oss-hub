@@ -183,13 +183,6 @@ function SidebarLink({
         collapsed ? 'w-control justify-center px-0' : 'gap-3 px-3',
       )}
     >
-      {current ? (
-        <span
-          aria-hidden
-          data-slot="app-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-sidebar-marker -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-        />
-      ) : null}
       <ShellIcon name={item.icon} />
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}

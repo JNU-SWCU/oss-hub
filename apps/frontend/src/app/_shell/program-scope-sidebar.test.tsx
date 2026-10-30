@@ -217,9 +217,9 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('data-depth="0"');
   });
 
-  it('current marker highlights the overview item on the program detail path, not children', () => {
+  it('marks the overview item current on the program detail path without a marker bar', () => {
     const html = render({ pathname: '/programs/prog-1' });
-    expect(html).toContain('program-scope-sidebar-current-marker');
+    expect(html).not.toContain('program-scope-sidebar-current-marker');
     expect(html).toContain('aria-current="page"');
   });
 

@@ -72,6 +72,7 @@ describe('NavBar 현재 탭', () => {
     expect(
       doc.querySelectorAll('[data-slot="nav-bar-current-marker"]'),
     ).toHaveLength(1);
+    expect(collapsedPanel(html)).not.toContain('nav-bar-current-marker');
     expect(
       current[0].parentElement?.querySelector(
         '[data-slot="nav-bar-current-marker"]',

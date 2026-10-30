@@ -130,13 +130,6 @@ function NavBar({
                 >
                   {item.label}
                 </LinkComponent>
-                {current ? (
-                  <span
-                    aria-hidden
-                    data-slot="nav-bar-current-marker"
-                    className="absolute top-1/2 left-0 h-5 w-sidebar-marker -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-                  />
-                ) : null}
               </li>
             );
           })}

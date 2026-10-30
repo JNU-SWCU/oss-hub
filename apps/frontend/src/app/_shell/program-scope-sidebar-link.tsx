@@ -87,13 +87,6 @@ export function ScopeSidebarLink({
   };
   const content = (
     <>
-      {current ? (
-        <span
-          aria-hidden
-          data-slot="program-scope-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-sidebar-marker -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-        />
-      ) : null}
       {depth === 0 || collapsed ? <ShellIcon name={item.icon} /> : null}
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
