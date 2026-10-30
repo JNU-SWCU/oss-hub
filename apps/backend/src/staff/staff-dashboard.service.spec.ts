@@ -3,16 +3,16 @@ import { PlatformModule } from '../platform/platform.module';
 import { ProgramTrackType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramActivitySummaryService } from './program-activity-summary.service';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
+import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
+import { SubmissionDashboardSummaryService } from '../programs/submission-dashboard-summary.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { ProgramsModule } from './programs.module';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from './applications-error-code.error';
+} from '../programs/applications-error-code.error';
 import { StaffDashboardService } from './staff-dashboard.service';
+import { StaffModule } from './staff.module';
 
 describe('StaffDashboardService', () => {
   const syntheticSessionSecret = Buffer.from(
@@ -132,11 +132,11 @@ describe('StaffDashboardService', () => {
     expect(JSON.stringify(summary)).not.toContain('githubRepositoryId');
   });
 
-  it('resolves concrete summary providers from real ProgramsModule imports', async () => {
+  it('resolves concrete summary providers through StaffModule imports of the real ProgramsModule', async () => {
     const summarize = jest.fn().mockResolvedValue([]);
     const listByProgram = jest.fn().mockResolvedValue([]);
     const moduleRef = Test.createTestingModule({
-      imports: [PlatformModule, ProgramsModule],
+      imports: [PlatformModule, StaffModule],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(

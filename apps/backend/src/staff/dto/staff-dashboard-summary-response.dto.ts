@@ -1,5 +1,5 @@
 import type { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import { programCoverImageUrl } from '../program-cover.policy';
+import { programCoverImageUrl } from '../../programs/program-cover.policy';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedApplicationCounts,

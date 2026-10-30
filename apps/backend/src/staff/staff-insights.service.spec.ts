@@ -1,5 +1,5 @@
 import { DomainException } from '../platform/error-code.error';
-import { ApplicationsErrorCode } from './applications-error-code.error';
+import { ApplicationsErrorCode } from '../programs/applications-error-code.error';
 import { DEPARTMENT_COHORTS } from './department-cohort.policy';
 import { StaffInsightsService } from './staff-insights.service';
 import type { StaffInsightsRepository } from './staff-insights.repository';

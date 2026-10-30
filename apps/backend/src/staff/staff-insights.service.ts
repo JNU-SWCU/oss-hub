@@ -8,7 +8,7 @@ import { UsersAuthorityService } from '../users/authority.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from './applications-error-code.error';
+} from '../programs/applications-error-code.error';
 import {
   classifyDepartment,
   DEPARTMENT_COHORTS,

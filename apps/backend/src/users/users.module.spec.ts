@@ -59,6 +59,7 @@ describe('UsersModule admin access wiring', () => {
       UsersService,
       UsersAuthorityService,
       ConsentsService,
+      AdminAccessService,
     ]);
   });
 

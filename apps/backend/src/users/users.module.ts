@@ -61,6 +61,11 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     RolesRepository,
     RolesService,
   ],
-  exports: [UsersService, UsersAuthorityService, ConsentsService],
+  exports: [
+    UsersService,
+    UsersAuthorityService,
+    ConsentsService,
+    AdminAccessService,
+  ],
 })
 export class UsersModule {}

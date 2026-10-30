@@ -6,6 +6,7 @@ import { GithubModule } from './github/github.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProgramsModule } from './programs/programs.module';
 import { RankingModule } from './ranking/ranking.module';
+import { StaffModule } from './staff/staff.module';
 import { StudentModule } from './student/student.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     RankingModule,
     ProgramsModule,
     StudentModule,
+    StaffModule,
     UsersModule,
   ],
 })

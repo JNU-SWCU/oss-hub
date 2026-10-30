@@ -493,10 +493,12 @@ const policies = [
   {
     from: { file: { path: '**/src/github/*.ts' } },
     disallow: {
-      to: { file: { path: '**/src/{programs,ranking,student,admin}/**' } },
+      to: {
+        file: { path: '**/src/{programs,ranking,student,staff,admin}/**' },
+      },
     },
     message:
-      'github 구현은 소비자 모듈(programs/ranking/student/admin)을 역참조하지 않는다.',
+      'github 구현은 소비자 모듈(programs/ranking/student/staff/admin)을 역참조하지 않는다.',
   },
 ];
 

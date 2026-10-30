@@ -1,7 +1,7 @@
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
-} from './application-records.types';
+} from '../programs/application-records.types';
 
 export type StaffDashboardComposedApplicationCounts =
   StaffDashboardApplicationCounts & {

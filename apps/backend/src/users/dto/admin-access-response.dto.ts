@@ -1,6 +1,5 @@
 import type {
   AccountStatus,
-  LoginHistoryEvent,
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
@@ -10,68 +9,10 @@ import type {
   AdminAccessMutationResult,
   AdminAccessPendingRequest,
   AdminAccessUser,
-  AdminAccessUserDetail,
   AdminAccessUserPage,
-  AdminAccessUserHistory,
 } from '../admin-access.types';
 import type { AdminProfileUpdateResult } from '../admin-profile.types';
 import type { IndependentAuthorityMutationResult } from '../independent-authority.types';
-
-type StaffAccessRequestHistoryItemResponseDto = {
-  readonly id: string;
-  readonly status: StaffAccessRequestStatus;
-  readonly rejectionReason: string | null;
-  readonly decidedAt: string | null;
-  readonly decidedBy: string | null;
-  readonly createdAt: string;
-};
-
-type LoginHistoryItemResponseDto = {
-  readonly id: string;
-  readonly event: LoginHistoryEvent;
-  readonly provider: 'github';
-  readonly success: boolean;
-  readonly loginAt: string;
-};
-
-export class AdminAccessUserHistoryResponseDto {
-  readonly staffAccessRequests: {
-    readonly items: readonly StaffAccessRequestHistoryItemResponseDto[];
-    readonly page: number;
-    readonly limit: number;
-    readonly total: number;
-  };
-  readonly loginHistory: {
-    readonly items: readonly LoginHistoryItemResponseDto[];
-    readonly page: number;
-    readonly limit: number;
-    readonly total: number;
-  };
-
-  private constructor(history: AdminAccessUserHistory) {
-    this.staffAccessRequests = {
-      ...history.staffAccessRequests,
-      items: history.staffAccessRequests.items.map((item) => ({
-        ...item,
-        decidedAt: item.decidedAt?.toISOString() ?? null,
-        createdAt: item.createdAt.toISOString(),
-      })),
-    };
-    this.loginHistory = {
-      ...history.loginHistory,
-      items: history.loginHistory.items.map((item) => ({
-        ...item,
-        loginAt: item.loginAt.toISOString(),
-      })),
-    };
-  }
-
-  static from(
-    history: AdminAccessUserHistory,
-  ): AdminAccessUserHistoryResponseDto {
-    return new AdminAccessUserHistoryResponseDto(history);
-  }
-}
 
 type PendingRequestResponseDto = {
   readonly id: string;
@@ -144,44 +85,6 @@ export class AdminAccessUserPageResponseDto {
 
   static from(page: AdminAccessUserPage): AdminAccessUserPageResponseDto {
     return new AdminAccessUserPageResponseDto(page);
-  }
-}
-
-export class AdminAccessUserDetailResponseDto {
-  readonly id: string;
-  readonly githubLogin: string;
-  readonly name: string | null;
-  readonly role: AuthorityLabel | null;
-  readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly accountStatus: AccountStatus;
-  readonly isSelf: boolean;
-  readonly isProfileComplete: boolean;
-  readonly createdAt: string;
-  readonly pendingRequest: PendingRequestResponseDto | null;
-  readonly lastLoginAt: string | null;
-  readonly profile: AdminAccessUserDetail['profile'];
-
-  private constructor(user: AdminAccessUserDetail) {
-    this.id = user.id;
-    this.githubLogin = user.githubLogin;
-    this.name = user.name;
-    this.role = user.role;
-    this.memberKind = user.memberKind;
-    this.hasStaffAccess = user.hasStaffAccess;
-    this.hasAdminAccess = user.hasAdminAccess;
-    this.accountStatus = user.accountStatus;
-    this.isSelf = user.isSelf;
-    this.isProfileComplete = user.isProfileComplete;
-    this.createdAt = user.createdAt.toISOString();
-    this.pendingRequest = toPendingRequest(user.pendingRequest);
-    this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
-    this.profile = user.profile;
-  }
-
-  static from(user: AdminAccessUserDetail): AdminAccessUserDetailResponseDto {
-    return new AdminAccessUserDetailResponseDto(user);
   }
 }
 

@@ -4,13 +4,13 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogController } from '../../src/audit-log/controller/audit-log.controller';
 import { AuditLogRepository } from '../../src/platform/audit-log.repository';
 import { AuditLogService } from '../../src/platform/audit-log.service';
-import { StaffDashboardController } from '../../src/programs/staff-dashboard.controller';
+import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/applications.repository';
-import { StaffInsightsRepository } from '../../src/programs/staff-insights.repository';
+import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
 import { ApplicationJoinCodeService } from '../../src/programs/application-join-code.service';
 import { ApplicationsService } from '../../src/programs/applications.service';
-import { StaffDashboardService } from '../../src/programs/staff-dashboard.service';
-import { StaffInsightsService } from '../../src/programs/staff-insights.service';
+import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
+import { StaffInsightsService } from '../../src/staff/staff-insights.service';
 import { AuthConfig } from '../../src/auth/auth.config';
 import { OriginGuard } from '../../src/auth/origin.guard';
 import { SessionGuard } from '../../src/auth/session.guard';
@@ -48,6 +48,7 @@ import {
   SystemStatusService,
 } from '../../src/system-status/service/system-status.service';
 import { AdminAccessController } from '../../src/users/admin-access.controller';
+import { AccessRequestsController } from '../../src/staff/access-requests.controller';
 import { IndependentAuthorityController } from '../../src/users/independent-authority.controller';
 import { MemberKindController } from '../../src/users/member-kind.controller';
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
@@ -252,6 +253,7 @@ describe('Audience authorization HTTP characterization', () => {
         StudentDashboardController,
         MyRepositoriesController,
         StaffDashboardController,
+        AccessRequestsController,
         AdminAccessController,
         IndependentAuthorityController,
         MemberKindController,

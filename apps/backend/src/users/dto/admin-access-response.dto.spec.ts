@@ -1,13 +1,7 @@
-import {
-  AccountStatus,
-  LoginHistoryEvent,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
-  AdminAccessUserDetailResponseDto,
-  AdminAccessUserHistoryResponseDto,
   AdminAccessUserPageResponseDto,
 } from './admin-access-response.dto';
 
@@ -64,60 +58,7 @@ describe('admin access response DTO allowlists', () => {
     expect(JSON.stringify(dto)).not.toContain('phone');
   });
 
-  it('maps detail, separate histories, facets, and mutation through explicit DTOs', () => {
-    const detail = AdminAccessUserDetailResponseDto.from({
-      id: 'target',
-      githubLogin: 'synthetic-target',
-      name: '합성 사용자',
-      role: 'ADMIN',
-      memberKind: 'STAFF',
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-      accountStatus: AccountStatus.ACTIVE,
-      isSelf: false,
-      isProfileComplete: true,
-      createdAt: ACCOUNT_CREATED_AT,
-      pendingRequest: null,
-      lastLoginAt: null,
-      profile: {
-        name: '합성 사용자',
-        studentId: '123456',
-        staffNumber: 'synthetic-staff-number',
-        department: '소프트웨어공학과',
-        isComplete: true,
-      },
-    });
-    const history = AdminAccessUserHistoryResponseDto.from({
-      staffAccessRequests: {
-        items: [
-          {
-            id: 'request-1',
-            status: StaffAccessRequestStatus.REJECTED,
-            rejectionReason: '합성 반려 사유',
-            decidedAt: PENDING_AT,
-            decidedBy: 'synthetic-admin',
-            createdAt: PENDING_AT,
-          },
-        ],
-        page: 2,
-        limit: 5,
-        total: 1,
-      },
-      loginHistory: {
-        items: [
-          {
-            id: 'login-1',
-            event: LoginHistoryEvent.LOGIN,
-            provider: 'github',
-            success: true,
-            loginAt: LOGIN_AT,
-          },
-        ],
-        page: 3,
-        limit: 10,
-        total: 1,
-      },
-    });
+  it('maps facets and mutation through explicit DTOs', () => {
     const mutation = AdminAccessMutationResponseDto.from({
       id: 'target',
       role: 'STAFF',
@@ -129,18 +70,6 @@ describe('admin access response DTO allowlists', () => {
       },
     });
 
-    expect(detail).toMatchObject({
-      role: 'ADMIN',
-      memberKind: 'STAFF',
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-      createdAt: ACCOUNT_CREATED_AT.toISOString(),
-    });
-    expect(detail.profile.studentId).toBe('123456');
-    expect(history.staffAccessRequests.items[0]?.createdAt).toBe(
-      PENDING_AT.toISOString(),
-    );
-    expect(history.loginHistory.items[0]?.loginAt).toBe(LOGIN_AT.toISOString());
     expect(AdminAccessFacetsResponseDto.from(facets())).toEqual(facets());
     expect(mutation.decidedRequest?.status).toBe(
       StaffAccessRequestStatus.APPROVED,

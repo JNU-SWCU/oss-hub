@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   ProgramActivitySummaryService,
   type ProgramActivitySummary,
-} from './program-activity-summary.service';
+} from '../programs/program-activity-summary.service';
 import {
   SubmissionDashboardSummaryService,
   type SubmissionDashboardProgramSummary,
-} from './submission-dashboard-summary.service';
-import { ApplicationsService } from './applications.service';
+} from '../programs/submission-dashboard-summary.service';
+import { ApplicationsService } from '../programs/applications.service';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedSummary,

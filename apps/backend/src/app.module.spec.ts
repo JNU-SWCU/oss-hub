@@ -10,6 +10,7 @@ import { RepositoriesService } from './github/repositories.service';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
+import { StaffModule } from './staff/staff.module';
 import { StudentModule } from './student/student.module';
 import { SubmissionReviewsController } from './programs/submission-reviews.controller';
 
@@ -68,6 +69,15 @@ describe('AppModule module exposure', () => {
     expect(imports.filter((entry) => entry === StudentModule)).toHaveLength(1);
     expect(imports.indexOf(StudentModule)).toBeGreaterThan(
       imports.indexOf(ProgramsModule),
+    );
+  });
+
+  it('StaffModule을 StudentModule 뒤에 정확히 한 번 노출한다', () => {
+    const imports = getImports();
+
+    expect(imports.filter((entry) => entry === StaffModule)).toHaveLength(1);
+    expect(imports.indexOf(StaffModule)).toBeGreaterThan(
+      imports.indexOf(StudentModule),
     );
   });
 

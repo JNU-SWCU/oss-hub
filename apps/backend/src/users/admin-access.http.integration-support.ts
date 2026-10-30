@@ -13,6 +13,7 @@ import { issueSessionToken } from '../auth/session-token.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
+import { AccessRequestsController } from '../staff/access-requests.controller';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -36,7 +37,7 @@ export class AdminAccessHttpHarness {
   async start(): Promise<void> {
     await this.prisma.$connect();
     const moduleRef = await Test.createTestingModule({
-      controllers: [AdminAccessController],
+      controllers: [AdminAccessController, AccessRequestsController],
       providers: [
         AdminAccessService,
         AdminAccessRepository,

@@ -17,7 +17,6 @@ import {
   ADMIN_ACCESS_SORT_DIRECTIONS,
   ADMIN_ACCESS_SORT_FIELDS,
   type AdminAccessListQuery,
-  type AdminAccessHistoryQuery,
   type AdminAccessPendingFilter,
   type AdminAccessRoleFilter,
   type AdminAccessSortDirection,
@@ -80,62 +79,6 @@ export class AdminAccessListRequestDto {
       direction: this.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION,
       page: this.page ?? 1,
       limit: this.limit ?? 20,
-    };
-  }
-
-  toRequestQuery(): AdminAccessListQuery {
-    return {
-      query: this.query ?? '',
-      ...(this.role === undefined ? {} : { role: this.role }),
-      ...(this.accountStatus === undefined
-        ? {}
-        : { accountStatus: this.accountStatus }),
-      pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
-      sort: this.sort ?? ADMIN_ACCESS_SORT_FIELDS.CREATED_AT,
-      direction: this.direction ?? ADMIN_ACCESS_SORT_DIRECTIONS.DESC,
-      page: this.page ?? 1,
-      limit: this.limit ?? 20,
-    };
-  }
-}
-
-export class AdminAccessHistoryRequestDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  declare readonly staffAccessRequestPage?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  declare readonly staffAccessRequestLimit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  declare readonly loginPage?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  declare readonly loginLimit?: number;
-
-  toQuery(): AdminAccessHistoryQuery {
-    return {
-      staffAccessRequests: {
-        page: this.staffAccessRequestPage ?? 1,
-        limit: this.staffAccessRequestLimit ?? 20,
-      },
-      loginHistory: {
-        page: this.loginPage ?? 1,
-        limit: this.loginLimit ?? 20,
-      },
     };
   }
 }

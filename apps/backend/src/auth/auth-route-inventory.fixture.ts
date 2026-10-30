@@ -1,4 +1,5 @@
 export const EXPECTED_APP_CONTROLLER_NAMES = [
+  'AccessRequestsController',
   'AccountDeactivationController',
   'AdminAccessController',
   'ApplicationDecisionNotificationsController',

@@ -7,6 +7,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { issueSessionToken } from '../auth/session-token.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { AccessRequestsController } from '../staff/access-requests.controller';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
@@ -51,7 +52,11 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [UsersController, AdminAccessController],
+      controllers: [
+        UsersController,
+        AdminAccessController,
+        AccessRequestsController,
+      ],
       providers: [
         SessionGuard,
         OriginGuard,

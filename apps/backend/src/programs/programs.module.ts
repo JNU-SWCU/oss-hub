@@ -67,10 +67,6 @@ import { ApplicationsRepository } from './applications.repository';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
-import { StaffDashboardController } from './staff-dashboard.controller';
-import { StaffDashboardService } from './staff-dashboard.service';
-import { StaffInsightsRepository } from './staff-insights.repository';
-import { StaffInsightsService } from './staff-insights.service';
 import {
   StudentApplicationManagementRepository,
   STUDENT_APPLICATION_MANAGEMENT_CLOCK,
@@ -126,7 +122,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,
-    StaffDashboardController,
     StudentApplicationsController,
     ProgramApplicationsController,
     ApplicationsController,
@@ -221,9 +216,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,
-    StaffDashboardService,
-    StaffInsightsRepository,
-    StaffInsightsService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
       useValue: () => new Date(),

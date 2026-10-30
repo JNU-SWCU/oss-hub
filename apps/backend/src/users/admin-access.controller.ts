@@ -16,17 +16,12 @@ import { SessionGuard } from '../auth/session.guard';
 import { requireValidUserId } from './user-id.policy';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
-import {
-  AdminAccessHistoryRequestDto,
-  AdminAccessListRequestDto,
-} from './dto/admin-access-query.dto';
+import { AdminAccessListRequestDto } from './dto/admin-access-query.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access.dto';
 import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile.dto';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
-  AdminAccessUserDetailResponseDto,
-  AdminAccessUserHistoryResponseDto,
   AdminAccessUserPageResponseDto,
   AdminProfileUpdateResponseDto,
 } from './dto/admin-access-response.dto';
@@ -39,7 +34,7 @@ export class AdminAccessController {
     @Inject(AdminAccessService)
     private readonly service: Pick<
       AdminAccessService,
-      'list' | 'listRequests' | 'facets' | 'get' | 'getHistory' | 'patchAccess'
+      'list' | 'facets' | 'patchAccess'
     >,
     @Inject(AdminProfileService)
     private readonly profileService: Pick<AdminProfileService, 'patchProfile'>,
@@ -57,21 +52,6 @@ export class AdminAccessController {
     );
   }
 
-  @Get('access/requests')
-  @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
-  async listRequests(
-    @Req() request: SessionIdentity,
-    @Query() query: AdminAccessListRequestDto,
-  ): Promise<AdminAccessUserPageResponseDto> {
-    return AdminAccessUserPageResponseDto.from(
-      await this.service.listRequests(
-        request.sessionGithubId,
-        query.toRequestQuery(),
-      ),
-    );
-  }
-
   @Get('access/facets')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
@@ -81,37 +61,6 @@ export class AdminAccessController {
   ): Promise<AdminAccessFacetsResponseDto> {
     return AdminAccessFacetsResponseDto.from(
       await this.service.facets(request.sessionGithubId, query.toQuery()),
-    );
-  }
-
-  @Get(':id/access')
-  @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
-  async get(
-    @Req() request: SessionIdentity,
-    @Param('id') id: string,
-  ): Promise<AdminAccessUserDetailResponseDto> {
-    requireValidUserId(id);
-    return AdminAccessUserDetailResponseDto.from(
-      await this.service.get(request.sessionGithubId, id),
-    );
-  }
-
-  @Get(':id/access/history')
-  @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
-  async getHistory(
-    @Req() request: SessionIdentity,
-    @Param('id') id: string,
-    @Query() query: AdminAccessHistoryRequestDto,
-  ): Promise<AdminAccessUserHistoryResponseDto> {
-    requireValidUserId(id);
-    return AdminAccessUserHistoryResponseDto.from(
-      await this.service.getHistory(
-        request.sessionGithubId,
-        id,
-        query.toQuery(),
-      ),
     );
   }
 
