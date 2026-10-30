@@ -1,4 +1,4 @@
-import { ConsentStatus } from '../consent.types';
+import { ConsentStatus } from '../users.types';
 
 export interface ConsentRequiredItemResponseDto {
   key: string;

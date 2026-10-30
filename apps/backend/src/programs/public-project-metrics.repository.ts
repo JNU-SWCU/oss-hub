@@ -1,4 +1,4 @@
-import { linkedRepositoryFilter } from '../platform/linked-program-repository.repository';
+import { linkedRepositoryFilter } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';

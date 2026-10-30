@@ -10,7 +10,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {

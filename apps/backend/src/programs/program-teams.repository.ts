@@ -8,7 +8,10 @@ import type {
   TeamRepositoryEvidenceView,
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
-} from './program-team-repository-evidence.types';
+  TeamApplicationView,
+  TeamRepositoryProvisioningJobStatus,
+  TeamRepositoryProvisioningSafeErrorClass,
+} from './program-teams.types';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -21,10 +24,10 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { requiredMilestonesApproved } from './milestone-completion.policy';
-import { publishBlockedReasons } from '../github/repository-publication.policy';
+import { publishBlockedReasons } from '../github/github.policy';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
 import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
-import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-sync.repository';
+import { repositoryAccessSyncTargetWhere } from '../platform/platform.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
@@ -34,11 +37,6 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../platform/user-profile-read.repository';
-import type {
-  TeamApplicationView,
-  TeamRepositoryProvisioningJobStatus,
-  TeamRepositoryProvisioningSafeErrorClass,
-} from './program-teams.types';
 
 export interface TeamStudentActor {
   readonly id: string;

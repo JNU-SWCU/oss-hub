@@ -34,14 +34,14 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 
 | Prefix                              | 컨트롤러 분산 위치 (`apps/backend/src/` 기준)                                                                                                                                                                 |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `submissions`                       | `programs/submissions.controller.ts:31`, `programs/submission-reviews.controller.ts:35`                                                                                    |
-| `programs/:programId/submissions`   | `programs/submission-matrix.controller.ts:25`, `submission-checklist.controller.ts:16`                                                                                                          |
-| `users`                             | `admin/admin-access.controller.ts:43`, `admin/member-kind.controller.ts:27`, `staff/access-requests.controller.ts:37`, `admin/independent-authority.controller.ts:33`, `programs/public-profile.controller.ts:11` |
-| `repositories`                      | `student/my-repositories.controller.ts:26`, `programs/submission-reviews.controller.ts:68`                                                                                        |
+| `submissions`                       | `programs/submissions.controller.ts:31`, `programs/submissions.controller.ts:35`                                                                                    |
+| `programs/:programId/submissions`   | `programs/program-submissions.controller.ts:25`, `program-submissions.controller.ts:16`                                                                                                          |
+| `users`                             | `admin/user-access.controller.ts:43`, `admin/user-access.controller.ts:27`, `staff/access-requests.controller.ts:37`, `admin/user-access.controller.ts:33`, `programs/public-profile.controller.ts:11` |
+| `repositories`                      | `student/my-repositories.controller.ts:26`, `programs/submissions.controller.ts:68`                                                                                        |
 | `dashboard/student`                 | `student/student-dashboard.controller.ts:42,67`                                                                       |
-| `programs`                          | `programs/programs.controller.ts:60`, `program-lifecycle.controller.ts:23`, `program-cover.controller.ts:9`, `program-editor.controller.ts:28`                                                     |
-| `program-authoring`                 | `programs/program-authoring.controller.ts:59`, `program-notice-preview.controller.ts:22`                                                                                                           |
-| `milestones/:milestoneId/documents` | `programs/milestone-documents.controller.ts:105`, `milestone-document-current-file.controller.ts:23`                                                                                    |
+| `programs`                          | `programs/programs.controller.ts:60`, `programs.controller.ts:23`, `programs.controller.ts:9`, `programs.controller.ts:28`                                                     |
+| `program-authoring`                 | `programs/program-authoring.controller.ts:59`, `program-authoring.controller.ts:22`                                                                                                           |
+| `milestones/:milestoneId/documents` | `programs/milestone-documents.controller.ts:105`, `milestone-documents.controller.ts:23`                                                                                    |
 
 ## Pagination shapes
 
@@ -82,7 +82,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 
 | 위치                                                                             | 분류                                                                                                                         | 후속 작업                                             |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `apps/backend/src/users/consents.service.ts:31`                       | 고정2개 버전 순차 조회. `users/consent.policy.ts:2`의 호환 버전1개+현행1개이므로 데이터 건수에 비례하는 N+1은 아님 | policyVersion IN 단일 조회는 query count 측정 후 판단 |
+| `apps/backend/src/users/consents.service.ts:31`                       | 고정2개 버전 순차 조회. `users/user-profile.policy.ts:2`의 호환 버전1개+현행1개이므로 데이터 건수에 비례하는 N+1은 아님 | policyVersion IN 단일 조회는 query count 측정 후 판단 |
 | `apps/backend/src/notifications/deadline-digest.service.ts:142`          | 일일 배치. program 목록 뒤 program마다 source 조회와 발송. program 수에 비례                                                 | DB source를 batch-load하되 발송 중복 방지와 예산 유지 |
 | `apps/backend/src/programs/milestone-documents.service.ts:85` | false positive. Promise.all로 집계한 다음 Map을 채우는 루프. 루프 안에 await/DB 호출 없음                                    | 수정하지 않음                                         |
 | `apps/backend/src/programs/program-authoring.service.ts:133`             | authoring의 순차 create. 읽기 N+1은 아님                                                                                     | 트랜잭션 순서를 유지하고 측정 후 판단                 |
@@ -112,7 +112,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | `apps/backend/src/github/collection-incremental.repository.ts:713`                          | B    | take 적용한 lease page의 appId/scope 조합별 cursor                               |
 | `apps/backend/src/github/collection-incremental.repository.ts:892`                          | U    | 조직의 PRESENT 저장소 전체 inventory                                             |
 | `apps/backend/src/github/collection-incremental.repository.ts:902`                          | U    | 연결된 EXTERNAL_PUBLIC 저장소 전체 inventory                                     |
-| `apps/backend/src/github/collection-user-activity.repository.ts:27`                         | U    | 활성 사용자 전체 수집 대상                                                       |
+| `apps/backend/src/github/repository-provision-job.repository.ts:27`                         | U    | 활성 사용자 전체 수집 대상                                                       |
 | `apps/backend/src/github/repositories.repository.ts:402`                                    | U    | 내가 참여한 승인 신청들의 provision job 전체                                     |
 | `apps/backend/src/github/repository-provision-state.repository.ts:287`                      | U    | 저장소 초대 이력 전체; repositoryId는 개수 상한 아님                             |
 | `apps/backend/src/github/repository-provision-state.repository.ts:352`                      | U    | 저장소별 재시도/회수 대상 전체; retryCount가 행수 상한은 아님                    |
@@ -150,7 +150,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | `apps/backend/src/programs/public-project-metrics.repository.ts:63`  | B    | 명시 repositoryIds IN; githubRepositoryId unique; nested contribution 별도       |
 | `apps/backend/src/programs/public-project-metrics.repository.ts:118` | U    | repositoryIds만 제한; 기여자×날짜 축의 전체 contribution                         |
 | `apps/backend/src/programs/public-projects.repository.ts:142`        | U    | 사용자 공개 project 전체; 가입/참여 프로그램 증가에 비례                         |
-| `apps/backend/src/programs/program-activity-summary.repository.ts:37`                       | U    | programIds IN이어도 program별 repository 수에는 상한 없음                        |
+| `apps/backend/src/programs/program-activity.repository.ts:37`                       | U    | programIds IN이어도 program별 repository 수에는 상한 없음                        |
 | `apps/backend/src/programs/program-activity.repository.ts:28`                               | U    | program의 application 전체와 관련 repository/구성원                              |
 | `apps/backend/src/programs/program-activity.repository.ts:100`                              | B    | 명시 repositoryIds IN; githubRepositoryId unique; nested 활동은 별도             |
 | `apps/backend/src/programs/program-editor.repository.ts:294`                                | U    | milestone 내 편집 대상 문서 전체                                                 |
@@ -185,7 +185,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | `apps/backend/src/programs/submission-dashboard-summary.repository.ts:169`               | U    | 선택 programFilter 내 필수 문서 전체                                             |
 | `apps/backend/src/programs/submission-dashboard-summary.repository.ts:177`               | U    | 선택 programFilter 내 제출 전체; nested 제한과 무관                              |
 | `apps/backend/src/programs/submission-files.repository.ts:137`                           | U    | 최대 재시도 초과 DELETE_PENDING 파일 전체; 실패 누적 가능                        |
-| `apps/backend/src/programs/submission-matrix-delivery.repository.ts:19`                  | B    | scope.applicationIds × scope.documentIds의 unique 제출 조합                      |
+| `apps/backend/src/programs/submission-matrix.repository.ts:19`                  | B    | scope.applicationIds × scope.documentIds의 unique 제출 조합                      |
 | `apps/backend/src/programs/submission-matrix.repository.ts:181`                          | U    | 행은 page여도 program의 milestone 열은 전체                                      |
 | `apps/backend/src/programs/submission-matrix.repository.ts:234`                          | U    | applicationIds만 제한; 문서/마일스톤 축 상한 없음                                |
 | `apps/backend/src/programs/submission-matrix.repository.ts:255`                          | U    | applicationIds만 제한; legacy milestone 축 상한 없음                             |
@@ -215,7 +215,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | Year filter         | EXTRACT(YEAR FROM endAt)와 날짜 범위 조건 비교                                                                | `apps/backend/src/programs/programs.repository.ts:91-102`                                                                                                                                                                                                                                                                                  |
 | History vs AuditLog | 이벤트 의미, 불변성, retention, actor 참조, PII, 도메인 재구성 이력과 횡단 감사의 중복 정리                   | `apps/backend/prisma/schema.prisma:90,395,670,693,831,877,976,1092,1170`. 이 버전은 LoginHistory, ApplicationReviewHistory, MilestoneDocumentSubmissionHistory, MilestoneDocumentReviewHistory, RepositoryIssuanceHistory, GithubUserActivityHistory, GithubIssueHistory, CollectionSweepHistory의 8개 *History + AuditLog. 초안의 7개를 정정         |
 | Collection*Lease    | 획득/갱신/expiry, fencing, 소유자, 재시작 안전성을 구별. 단순 History에 합치지 않음                           | `apps/backend/prisma/schema.prisma:1141,1153`의 CollectionSyncLease, CollectionCutoverLease. 이 버전은 2개 테이블로 초안의 3개를 정정. cursor는 lease와 다른 개념                                                                                                                                                                                     |
-| UserProfile         | 계정/인증 상태와 PII/소속 분리 유지 여부, join 비용, 누락 profile, studentId 유일성, 마이그레이션 호환성 비교 | `apps/backend/prisma/schema.prisma:25-82`, `apps/backend/src/platform/user-profile-read.repository.ts:1`, `apps/backend/src/platform/user-profile-write.repository.ts:1`. 분리 근거: `978014b24c3235d183a4443799f6fc75d8cabed6` (feat: 사용자 프로필을 호환 가능한 구조로 분리, 2026-07-31). 1:0..1 호환 추출과 backfill이었으므로 불필요한 join이라는 이유만으로 되돌리지 않음 |
+| UserProfile         | 계정/인증 상태와 PII/소속 분리 유지 여부, join 비용, 누락 profile, studentId 유일성, 마이그레이션 호환성 비교 | `apps/backend/prisma/schema.prisma:25-82`, `apps/backend/src/platform/user-profile-read.repository.ts:1`, `apps/backend/src/platform/platform.repository.ts:1`. 분리 근거: `978014b24c3235d183a4443799f6fc75d8cabed6` (feat: 사용자 프로필을 호환 가능한 구조로 분리, 2026-07-31). 1:0..1 호환 추출과 backfill이었으므로 불필요한 join이라는 이유만으로 되돌리지 않음 |
 
 ### Todo 19 삭제 후 테이블 소유권
 
@@ -227,7 +227,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 
 | 우선순위           | 런타임 검증과 합격 조건                                                                                                                    | 정적 근거 (apps/backend/src/ 기준)                                                                                                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| High-conditional   | role x route x 객체 소유자 행렬. ADMIN/STAFF/STUDENT/비활성/익명과 타인 ID로 실제 HTTP 호출. 읽기/쓰기를 나누어 401/403/404/성공을 고정    | `admin/admin-access.controller.ts:31-99`, `staff/access-requests.controller.ts:27-81`, `programs/student-applications.controller.ts:56-96`                                                                                 |
+| High-conditional   | role x route x 객체 소유자 행렬. ADMIN/STAFF/STUDENT/비활성/익명과 타인 ID로 실제 HTTP 호출. 읽기/쓰기를 나누어 401/403/404/성공을 고정    | `admin/user-access.controller.ts:31-99`, `staff/access-requests.controller.ts:27-81`, `programs/student-applications.controller.ts:56-96`                                                                                 |
 | Medium             | login/API/upload rate limit이 proxy까지 포함해 동작하며 429와 회복을 검증                                                                  | `main.ts:1-13`에 app-level limiter 없음. proxy의 제한은 미검증                                                                                                                                           |
 | Medium             | 허용/거부 Origin, credentials CORS, OriginGuard, SameSite=Lax, Secure/Domain/Path를 실제 배포에서 검증                                     | `auth/controller/origin.guard.ts:14-31`, `auth/domain/cookies.ts:27-42`, `auth/auth.config.ts:66-75`. Secure는 FRONTEND_URL https 의존                                                                   |
 | High-conditional   | OAuth verifier/challenge와 token exchange 대응, state 재사용/뒤바뀜/만료/동시 login 거부 검증                                              | `auth/domain/oauth-flow.ts:10-18`과 callback. 함수 이름만으로 PKCE 성립을 판단하지 않음                                                                                                                  |

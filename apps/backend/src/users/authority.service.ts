@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { UsersAuthorityRepository } from './authority.repository';
+import { UsersAuthorityRepository } from './independent-authority.repository';
 
 @Injectable()
 export class UsersAuthorityService {

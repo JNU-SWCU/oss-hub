@@ -11,12 +11,12 @@ import {
   sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,
   type ProgramDeletionScopeCounts,
-} from './program-deletion-scope.policy';
+} from './programs.policy';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import type { ProgramPurgeResult } from './program-purge.types';
+import type { ProgramPurgeResult } from './programs.types';
 import {
   isForeignKeyConflict,
   ProgramLifecycleRepository,

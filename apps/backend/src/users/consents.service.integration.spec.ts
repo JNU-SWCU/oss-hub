@@ -3,9 +3,9 @@ import { runProfile } from '../../prisma/seed';
 import { AUTH_SCENARIOS } from '../../prisma/seeds/auth';
 import { prisma, seedGithubId, SeedStats } from '../../prisma/seeds/helpers';
 import { PrismaService } from '../platform/prisma.service';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsRepository } from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import { CURRENT_CONSENT_POLICY } from './consent.policy';
+import { CURRENT_CONSENT_POLICY } from './user-profile.policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

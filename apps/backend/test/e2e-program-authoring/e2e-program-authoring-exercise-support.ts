@@ -2,13 +2,13 @@ import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   E2eExternalPortRegistry,
   type E2eExternalFailureOperation,
+  E2eExternalPortFault,
 } from './e2e-external-port-registry';
 import type { E2eFailureKind } from './e2e-program-authoring.types';
 import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import type { ProgramAuthoringRequest } from '../../src/programs/program-authoring.policy';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
-import { E2eExternalPortFault } from './e2e-external-port-registry';
 import {
   E2E_NOW,
   E2E_PROGRAM_ID,

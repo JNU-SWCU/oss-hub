@@ -13,10 +13,12 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { PublicEligibilityService } from './public-eligibility.service';
+import {
+  PublicEligibilityService,
+  PublicProjectsService,
+} from './public-projects.service';
 import { PublicUserProfileResponseDto } from './dto/public-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService } from './public-projects.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

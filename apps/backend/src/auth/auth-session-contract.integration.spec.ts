@@ -5,17 +5,13 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthService, LoginHistoryService } from './auth.service';
 import { sessionCookieName } from './cookies.policy';
-import type { AuthUser } from './auth-user.types';
+import type { AuthUser } from './http-auth.types';
 import { OriginGuard } from './origin.guard';
-import {
-  issueSessionToken,
-  SESSION_MAX_AGE_SECONDS,
-} from './session-token.policy';
+import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import { LoginHistoryService } from './login-history.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;

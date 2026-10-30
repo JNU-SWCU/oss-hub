@@ -8,7 +8,7 @@ import type { AuditLogTransactionWriter } from '../platform/audit-log-transactio
 import { resolveUserProfileName } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
-import { lockActiveAdminRows } from './admin-actor-locks.repository';
+import { lockActiveAdminRows } from './admin-access.repository';
 
 interface AccountDeactivationTarget {
   readonly id: string;

@@ -2,10 +2,12 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ProgramsModule } from './programs.module';
-import { PublicEligibilityService } from './public-eligibility.service';
+import {
+  PublicEligibilityService,
+  PublicProjectsService,
+} from './public-projects.service';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService } from './public-projects.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, ProgramsModule) as unknown;

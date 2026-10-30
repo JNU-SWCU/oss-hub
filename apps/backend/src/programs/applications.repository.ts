@@ -11,10 +11,8 @@ import {
   type RepositoryVisibility,
   ProgramLifecycle,
   type ProgramCategory,
-} from '@prisma/client';
-import type {
-  OutboxEvent as PrismaOutboxEvent,
-  Prisma as PrismaTypes,
+  type OutboxEvent as PrismaOutboxEvent,
+  type Prisma as PrismaTypes,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -30,16 +28,8 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../platform/user-profile-read.repository';
-import type { ApplicationListQuery } from './application-list-query.types';
 import type {
-  ApplicationDecisionTarget,
-  ApplicationDecisionNotificationInput,
-  ApplicationTransition,
-  RepositoryProvisionEvent,
-  RepositoryProvisionEventInput,
-  RepositoryProvisionJobSnapshot,
-} from './application-decision.policy';
-import type {
+  ApplicationListQuery,
   CreatedApplication,
   ApplicationListAnswers,
   ApplicationListItem,
@@ -53,10 +43,18 @@ import type {
   TeamManagementListItem,
   TeamManagementListPage,
 } from './application-records.types';
-import { appendReviewHistory } from './review-history-writer.repository';
 import type {
-  AppendReviewHistoryInput,
-  AppendedReviewHistory,
+  ApplicationDecisionTarget,
+  ApplicationDecisionNotificationInput,
+  ApplicationTransition,
+  RepositoryProvisionEvent,
+  RepositoryProvisionEventInput,
+  RepositoryProvisionJobSnapshot,
+} from './application-decision.policy';
+import {
+  appendReviewHistory,
+  type AppendReviewHistoryInput,
+  type AppendedReviewHistory,
 } from './review-history-writer.repository';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{

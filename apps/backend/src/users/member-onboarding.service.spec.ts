@@ -11,15 +11,12 @@ import {
 } from './consent-error-code.error';
 import type { ConsentsService } from './consents.service';
 import type { UserProfileView } from '../platform/user-profile-read.repository';
-import type {
-  StaffAccessRequestRecord,
-  MemberUser,
-} from './member-onboarding.types';
-import { requestStaffAccess } from '../platform/staff-access-request.repository';
-import type {
-  StaffAccessRequestOutcome,
-  StaffAccessRequestTarget,
-} from '../platform/staff-access-request.repository';
+import type { StaffAccessRequestRecord, MemberUser } from './users.types';
+import {
+  requestStaffAccess,
+  type StaffAccessRequestOutcome,
+  type StaffAccessRequestTarget,
+} from '../platform/platform.repository';
 import type {
   OnboardingTransactionStore,
   RolesRepository,

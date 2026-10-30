@@ -11,12 +11,10 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { ConsentsService } from './consents.service';
-import type {
-  PatchUserProfileInput,
-  UserProfile,
-  UserProfileRecord,
-} from './user-profile-record.policy';
 import {
+  type PatchUserProfileInput,
+  type UserProfile,
+  type UserProfileRecord,
   effectiveProfileMemberKind,
   isCompleteUserProfile,
   isValidStudentId,
@@ -29,11 +27,11 @@ import {
   buildProfileUpdate,
 } from './member-profile-completion.policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { UsersRepository } from './users.repository';
-import type {
-  RecordPhoneAudit,
-  RecordStaffNumberAudit,
-  UsersRepositoryPort,
+import {
+  UsersRepository,
+  type RecordPhoneAudit,
+  type RecordStaffNumberAudit,
+  type UsersRepositoryPort,
 } from './users.repository';
 
 @Injectable()

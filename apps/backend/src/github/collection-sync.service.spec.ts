@@ -9,24 +9,24 @@ import {
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../platform/prisma.service';
-import { CollectionAppClientError } from './collection-app.client';
-import type {
-  CollectionAppClient,
-  CollectionCommit,
-  CollectionIssue,
-  CollectionPullRequest,
-  CollectionRelease,
-  CollectionRepository as ProviderRepository,
-  CommitHeadProbeResult,
-  CommitTraversalResult,
-  IssueIncrementalResult,
-  PullRequestIncrementalResult,
-  ReleaseListingResult,
-  ReleaseProbeResult,
+import {
+  CollectionAppClientError,
+  type CollectionAppClient,
+  type CollectionCommit,
+  type CollectionIssue,
+  type CollectionPullRequest,
+  type CollectionRelease,
+  type CollectionRepository as ProviderRepository,
+  type CommitHeadProbeResult,
+  type CommitTraversalResult,
+  type IssueIncrementalResult,
+  type PullRequestIncrementalResult,
+  type ReleaseListingResult,
+  type ReleaseProbeResult,
 } from './collection-app.client';
 import type { CollectionAppTokenProvider } from './collection-app-token.client';
-import type { RequestFingerprint } from './collection-app-frontier.policy';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
+import type { RequestFingerprint } from './github.policy';
+import { ProviderRequestQueue } from './collection-discovery.client';
 
 type Row = Record<string, unknown>;
 

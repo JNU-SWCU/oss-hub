@@ -14,9 +14,11 @@ import type {
   MemberUser,
   SelectableMemberKind,
   StaffAccessRequestRecord,
-} from './member-onboarding.types';
-import { RolesRepository } from './member-onboarding.repository';
-import type { OnboardingTransactionStore } from './member-onboarding.repository';
+} from './users.types';
+import {
+  RolesRepository,
+  type OnboardingTransactionStore,
+} from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
 
 @Injectable()

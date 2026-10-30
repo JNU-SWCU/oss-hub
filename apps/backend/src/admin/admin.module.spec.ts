@@ -2,12 +2,10 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AuthModule } from '../auth/auth.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
-import { AdminAccessController } from './admin-access.controller';
+import { UserAccessController } from './user-access.controller';
 import { AdminModule } from './admin.module';
 import { AuditLogController } from './audit-log.controller';
 import { CollectionAdminController } from './collection-admin.controller';
-import { IndependentAuthorityController } from './independent-authority.controller';
-import { MemberKindController } from './member-kind.controller';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusRepository } from './system-status.repository';
 import {
@@ -32,9 +30,7 @@ describe('AdminModule', () => {
 
   it('관리자 화면 컨트롤러를 등록한다', () => {
     expect(getMetadataArray(MODULE_METADATA.CONTROLLERS)).toEqual([
-      AdminAccessController,
-      IndependentAuthorityController,
-      MemberKindController,
+      UserAccessController,
       AuditLogController,
       SystemStatusController,
       CollectionAdminController,

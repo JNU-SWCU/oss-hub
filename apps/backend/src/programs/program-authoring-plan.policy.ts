@@ -1,17 +1,17 @@
 import { ProgramCategory } from '@prisma/client';
 import { getProgramTemplate } from './program-template-registry.policy';
-import { validateProgramCoverChoice } from './program-external-cover.policy';
-import { isProgramEndAtUndecided } from './program-end-at.policy';
 import {
-  ProgramAuthoringValidationError,
-  type ProgramAuthoringValidationIssue,
-} from './program-authoring-validation.error';
-import {
+  validateProgramCoverChoice,
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringMilestonePlan,
   type ProgramAuthoringPlan,
   type ProgramAuthoringRequest,
 } from './program-authoring.policy';
+import { isProgramEndAtUndecided } from './programs.policy';
+import {
+  ProgramAuthoringValidationError,
+  type ProgramAuthoringValidationIssue,
+} from './program-authoring-validation.error';
 
 const MAX_MILESTONES = 50;
 const MAX_DOCUMENTS_PER_MILESTONE = 20;

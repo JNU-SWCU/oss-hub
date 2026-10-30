@@ -1,5 +1,5 @@
 import type { StorageOrphanReconciliationMode } from './storage-orphan-reconciliation.policy';
-import { runStorageOrphanReconciliation } from './storage-orphan-reconciliation-runner.service';
+import { runStorageOrphanReconciliation } from './storage-orphan-reconciliation.service';
 
 export function parseStorageOrphanReconciliationMode(
   args: readonly string[],

@@ -5,7 +5,7 @@ import {
 import type {
   GithubAppFetcher,
   GithubInstallationTokenProvider,
-} from './github-app.types';
+} from './repository-provision-contract.types';
 import {
   invalidGithubResponseError,
   parseGithubPublicRepository,
@@ -13,11 +13,9 @@ import {
   parseRepositoryInvitations,
   readGithubJson,
   throwForGithubErrorResponse,
-} from './github-app-response.policy';
-import type {
-  GithubPublicRepositoryMetadata,
-  GithubRepositoryInvitation,
-  GithubRepositoryMetadata,
+  type GithubPublicRepositoryMetadata,
+  type GithubRepositoryInvitation,
+  type GithubRepositoryMetadata,
 } from './github-app-response.policy';
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';

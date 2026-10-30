@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
-import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-sync.repository';
+import { repositoryAccessSyncTargetWhere } from '../platform/platform.repository';
 import type {
   SentTeamInvitationRecord,
   ReceivedTeamInvitationRecord,

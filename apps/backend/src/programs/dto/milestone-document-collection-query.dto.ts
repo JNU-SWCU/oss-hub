@@ -12,8 +12,8 @@ import {
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   type MilestoneDocumentCollectionFilter,
-} from '../milestone-document-collection-query.types';
-import type { DocumentDeliveryStatus } from '../document-delivery-status.policy';
+} from '../programs.types';
+import type { DocumentDeliveryStatus } from '../milestone-document.policy';
 import type { MilestoneDocumentDeliveryQuery } from '../milestone-document-delivery-page.policy';
 
 const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;

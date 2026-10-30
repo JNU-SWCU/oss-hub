@@ -7,10 +7,7 @@ import { AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
 import { sessionCookieName } from './cookies.policy';
-import {
-  SESSION_MAX_AGE_SECONDS,
-  issueSessionToken,
-} from './session-token.policy';
+import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './auth.policy';
 import type { AuthenticatedRequest } from './http-auth.types';
 import { SessionGuard } from './session.guard';
 

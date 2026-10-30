@@ -39,10 +39,10 @@ import {
   PROVISION_ERROR_CODES,
 } from './repository-provision-failure.policy';
 
-import { ConsentsRepository } from '../users/consents.repository';
+import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import { RepositoryOwnEnrollmentService } from './repositories.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

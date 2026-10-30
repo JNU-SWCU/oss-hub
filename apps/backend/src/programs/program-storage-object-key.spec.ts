@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { createProgramAuthoringObjectKey } from './program-authoring-object-key.policy';
-import { createProgramCoverObjectKey } from './program-cover-object-key.policy';
+import { createProgramAuthoringObjectKey } from './program-authoring.policy';
+import { createProgramCoverObjectKey } from './program-cover.policy';
 
 jest.mock('node:crypto', () => ({
   randomUUID: jest.fn(),

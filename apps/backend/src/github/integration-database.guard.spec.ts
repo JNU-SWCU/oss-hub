@@ -2,8 +2,8 @@ import {
   assertIsolatedIntegrationDatabase,
   IntegrationDatabaseGuardError,
   INTEGRATION_RUNNER_SENTINEL,
+  type IntegrationDatabaseEnvironment,
 } from '../../test/integration-database.guard';
-import type { IntegrationDatabaseEnvironment } from '../../test/integration-database.guard';
 
 const isolatedEnvironment = {
   databaseUrl:

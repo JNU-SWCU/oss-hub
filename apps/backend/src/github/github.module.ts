@@ -6,23 +6,31 @@ import { PlatformModule } from '../platform/platform.module';
 import { ConsentsService } from '../users/consents.service';
 import { UsersModule } from '../users/users.module';
 import { CollectionAdminService } from './collection-admin.service';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+  RepositoryProvisionJobRepository,
+} from './repository-provision-job.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { collectionProviders } from './collection-providers.service';
-import { CollectionScheduler } from './collection.scheduler';
-import { CollectionTriggerService } from './collection-trigger.service';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import {
+  CollectionScheduler,
+  CollectionTriggerService,
+} from './collection-trigger.service';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoriesRepository } from './repositories.repository';
-import { RepositoriesService } from './repositories.service';
-import { RepositoryOutboxConsumer } from './repository-outbox-consumer.service';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
-import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
+import {
+  RepositoriesService,
+  RepositoryOwnEnrollmentService,
+} from './repositories.service';
+import {
+  RepositoryOutboxConsumer,
+  RepositoryProvisionScheduler,
+} from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision-worker.service';
 

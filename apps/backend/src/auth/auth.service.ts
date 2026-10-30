@@ -1,24 +1,47 @@
 import { Injectable } from '@nestjs/common';
+import {
+  LOGIN_HISTORY_EVENTS,
+  type LoginHistoryPage,
+  type ActiveAccountPrincipal,
+  type AuthLoginResult,
+  type AuthUser,
+  type GithubProfile,
+} from './http-auth.types';
+import { LoginHistoryRepository, AuthRepository } from './auth.repository';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
-import { AuthRepository } from './auth.repository';
-import type {
-  ActiveAccountPrincipal,
-  AuthLoginResult,
-  AuthUser,
-  GithubProfile,
-} from './auth-user.types';
-import { selectGithubPrimaryEmail } from './github-primary-email.policy';
 import {
+  selectGithubPrimaryEmail,
   createFlowState,
   decodeFlowCookie,
   encodeFlowCookie,
   isSameState,
   toCodeChallenge,
-} from './oauth-flow.policy';
-import { issueSessionToken } from './session-token.policy';
+  issueSessionToken,
+} from './auth.policy';
+
+@Injectable()
+export class LoginHistoryService {
+  constructor(private readonly repository: LoginHistoryRepository) {}
+
+  async recordLogin(userId: string): Promise<void> {
+    await this.repository.create(userId, LOGIN_HISTORY_EVENTS.LOGIN);
+  }
+
+  async recordLogout(userId: string): Promise<void> {
+    await this.repository.create(userId, LOGIN_HISTORY_EVENTS.LOGOUT);
+  }
+
+  async findMine(
+    userId: string,
+    page: number,
+    size: number,
+  ): Promise<LoginHistoryPage> {
+    return this.repository.findPage(userId, page, size);
+  }
+}
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';

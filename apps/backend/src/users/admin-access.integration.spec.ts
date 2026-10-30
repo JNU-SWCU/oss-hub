@@ -6,7 +6,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import { AdminAccessController } from '../admin/admin-access.controller';
+import { UserAccessController } from '../admin/user-access.controller';
 import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -133,7 +133,12 @@ describe('Admin access real PostgreSQL transactions', () => {
         throw new Error('patchProfile should not be called in this spec');
       },
     };
-    const controller = new AdminAccessController(service, profileService);
+    const controller = new UserAccessController(
+      service,
+      profileService,
+      { patchAdminAccess: jest.fn() },
+      { patchMemberKind: jest.fn() },
+    );
     const request = {
       sessionGithubId: actor.githubId,
     } as Pick<AuthenticatedRequest, 'sessionGithubId'>;

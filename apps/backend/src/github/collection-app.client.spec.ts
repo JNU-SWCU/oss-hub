@@ -15,7 +15,7 @@ import {
   CollectionAppTokenError,
   CollectionAppTokenProvider,
 } from './collection-app-token.client';
-import { requestFingerprintKey } from './collection-app-frontier.policy';
+import { requestFingerprintKey } from './github.policy';
 
 const config: CollectionAppConfigValues = {
   appId: '1',

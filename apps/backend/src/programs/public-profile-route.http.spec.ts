@@ -4,7 +4,7 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersController } from '../users/users.controller';

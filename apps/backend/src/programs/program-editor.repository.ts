@@ -3,13 +3,12 @@ import {
   MilestoneDocumentKind,
   StaffAccessRequestStatus,
   SubmissionFileLifecycle,
+  type Prisma as PrismaTypes,
 } from '@prisma/client';
-import type { Prisma as PrismaTypes } from '@prisma/client';
-
 import { lockProgramTree } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope.repository';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope.policy';
+import type { ProgramDeletionScopeCounts } from './programs.policy';
 import type {
   EditableProgramView,
   ProgramEditorTransactionStore,

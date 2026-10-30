@@ -6,7 +6,7 @@ import {
 import type {
   UpdateProgramCommand,
   UpsertMilestoneCommand,
-} from '../src/programs/program-write.types';
+} from '../src/programs/programs.types';
 import { ProgramEditorService } from '../src/programs/program-editor.service';
 import type { ProgramEditorRepository } from '../src/programs/program-editor.repository';
 import type { ProgramEditorTransactionStore } from '../src/programs/program-editor.types';

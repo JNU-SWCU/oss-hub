@@ -7,7 +7,7 @@ import {
   normalizeAndValidateApplicationAnswers,
   type ApplicationAnswers,
 } from './application-answers-validator.policy';
-import { isProgramApplicationManager } from './program-participant.policy';
+import { isProgramApplicationManager } from './programs.policy';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
@@ -16,7 +16,7 @@ import {
   ApplicationsRepository,
   type ApplyProgramRecord,
 } from './applications.repository';
-import type { UpdateStudentApplicationInput } from './update-student-application.types';
+import type { UpdateStudentApplicationInput } from './application-records.types';
 import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,

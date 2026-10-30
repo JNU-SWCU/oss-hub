@@ -1,10 +1,13 @@
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentErrorCode } from './consent-error-code.error';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsRepository } from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import { ConsentRecord } from './consent.types';
-import { CONSENT_ITEM_KEYS, CURRENT_CONSENT_POLICY } from './consent.policy';
+import { ConsentRecord } from './users.types';
+import {
+  CONSENT_ITEM_KEYS,
+  CURRENT_CONSENT_POLICY,
+} from './user-profile.policy';
 
 const syntheticGithubId = 424242n;
 const syntheticUserId = 'cuid-synthetic-consent-user';

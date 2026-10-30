@@ -1,7 +1,7 @@
 import {
   appendSubmissionReview,
   appendSubmissionReviewEvent,
-} from '../platform/submission-review-writer.repository';
+} from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -13,7 +13,6 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-
 import {
   lockProgramTree,
   type MilestoneLock,
@@ -24,10 +23,11 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../platform/user-profile-read.repository';
-
 import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
-import type { MilestoneDocumentReviewRecord } from './milestone-document-review.policy';
-import type { ProgramDocumentChangeRequestCandidate } from './program-document-change-request.policy';
+import type {
+  MilestoneDocumentReviewRecord,
+  ProgramDocumentChangeRequestCandidate,
+} from './milestone-document.policy';
 import type {
   MilestoneDocumentRecord,
   MilestoneContext,
@@ -35,11 +35,11 @@ import type {
   MilestoneDocumentCollectionSubmission,
   CreatedMilestoneDocumentReview,
   MilestoneDocumentSubmissionDetail,
-} from './milestone-document-record.types';
+} from './milestone-document-result.types';
 import {
   boundedReviewHistoryQuery,
   milestoneDocumentHistoryDescendingOrderBy,
-} from './milestone-document-history-query.repository';
+} from './milestone-document-collection-read.repository';
 import {
   upsertMilestoneDocumentSubmission,
   type UpsertMilestoneDocumentSubmissionInput,

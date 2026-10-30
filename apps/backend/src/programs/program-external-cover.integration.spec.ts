@@ -1,8 +1,8 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { Test } from '@nestjs/testing';
-import { ProgramCoverController } from './program-cover.controller';
-import { ProgramCoverService } from './program-cover.service';
-import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramsController } from './programs.controller';
+import { ProgramCoverService } from './program-creation.service';
+import { ProgramCoverRepository } from './program-cover-write.repository';
 import { OBJECT_STORAGE } from '../platform/object-storage.types';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';
@@ -38,13 +38,15 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
   });
   const get = jest.fn();
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramCoverController],
+    controllers: [ProgramsController],
     providers: [
       ProgramCoverService,
       { provide: ProgramCoverRepository, useValue: publicCovers },
       { provide: OBJECT_STORAGE, useValue: { get } },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
   const application = moduleRef.createNestApplication();
   await application.listen(0, '127.0.0.1');
   try {

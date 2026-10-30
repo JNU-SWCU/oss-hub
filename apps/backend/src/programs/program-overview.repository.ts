@@ -11,10 +11,7 @@ import {
 } from '@prisma/client';
 import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  ProgramOverviewRecord,
-  PublicTeamRow,
-} from './program-overview.types';
+import type { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
 
 export interface CurrentSubmissionMilestone {
   milestoneId: string;

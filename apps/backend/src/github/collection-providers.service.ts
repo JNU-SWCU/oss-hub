@@ -1,20 +1,47 @@
+import type { RuntimeConfig } from '../platform/runtime-config.config';
+import {
+  CollectionPublicReadConfig,
+  CollectionAppConfig,
+} from './collection-app.config';
 import type { Provider } from '@nestjs/common';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAppClient } from './collection-app.client';
-import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app-token.client';
-import { CollectionDiscoveryClient } from './collection-discovery.client';
+import {
+  CollectionDiscoveryClient,
+  ProviderRequestQueue,
+} from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionPublicTokenProvider } from './collection-public-token.service';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
 import {
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
   CollectionSyncService,
 } from './collection-sync.service';
+
+export class CollectionPublicTokenProvider {
+  private token: string | undefined;
+
+  constructor(private readonly runtimeConfig: RuntimeConfig) {}
+
+  getToken(): Promise<string> {
+    if (this.token !== undefined) return Promise.resolve(this.token);
+    try {
+      const config = CollectionPublicReadConfig.fromRuntimeConfig(
+        this.runtimeConfig,
+      );
+      this.token = config.token;
+      return Promise.resolve(this.token);
+    } catch (error) {
+      return Promise.reject(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
+  }
+
+  clear(): void {}
+}
 
 export const collectionProviders: Provider[] = [
   {

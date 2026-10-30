@@ -557,7 +557,7 @@ export async function createRailsConfig(rootDir) {
             type: 'prisma',
             pattern: [
               'src/platform/prisma.service.ts',
-              'src/platform/{user-profile-read,user-profile-write,lock-program-tree,staff-access-request,audit-log-transaction-writer,repository-access-sync,submission-review-writer,repository-provision-generation,linked-program-repository,submission-membership-lock,program-application-participant}.repository.ts',
+              'src/platform/{platform,user-profile-read,lock-program-tree,audit-log-transaction-writer,repository-provision-generation,program-application-participant}.repository.ts',
             ],
             mode: 'full',
           },
@@ -571,8 +571,8 @@ export async function createRailsConfig(rootDir) {
             type: 'common',
             pattern: [
               'src/platform/configure-http-app.config.ts',
-              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,download-response.types,prisma-serialization-retry.repository}.ts',
-              'src/platform/{system-error-code,error-code,activity-counts,deterministic-string-order,add-one-calendar-year,multipart-file-name}.{policy,error,types}.ts',
+              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,prisma-serialization-retry.repository}.ts',
+              'src/platform/{system-error-code,error-code,platform}.{policy,error,types}.ts',
             ],
             mode: 'full',
           },

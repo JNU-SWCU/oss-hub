@@ -2,14 +2,12 @@ import {
   PublicProjectRow,
   PublicProjectCursor,
   PublicUserIdentity,
-} from './public-project-record.policy';
-import { Injectable } from '@nestjs/common';
-import { type ProgramTrackType } from '@prisma/client';
-import { PrismaService } from '../platform/prisma.service';
-import {
   PUBLIC_PROJECT_YEAR_MAX,
   PUBLIC_PROJECT_YEAR_MIN,
-} from './public-project-query.policy';
+} from './public-projects.policy';
+import { Injectable } from '@nestjs/common';
+import type { ProgramTrackType } from '@prisma/client';
+import { PrismaService } from '../platform/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,

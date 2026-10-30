@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -8,6 +9,13 @@ import type {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
+
+export function computeJoinCodeDigest(
+  joinCode: string,
+  secret: string,
+): string {
+  return createHmac('sha256', secret).update(joinCode).digest('hex');
+}
 
 export const APPLICATION_DECISION_ACTIONS = {
   APPROVE: 'APPROVE',

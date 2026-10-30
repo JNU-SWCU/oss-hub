@@ -7,8 +7,8 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
-} from '../platform/user-profile-write.repository';
-import { requestStaffAccess } from '../platform/staff-access-request.repository';
+  requestStaffAccess,
+} from '../platform/platform.repository';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,

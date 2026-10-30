@@ -1,14 +1,11 @@
 import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-
-type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -18,9 +15,11 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+
+type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -94,7 +93,9 @@ describe('authenticated milestone document list filename contract', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
     application = module.createNestApplication();
     application.setGlobalPrefix('api/v1');
     application.useGlobalPipes(

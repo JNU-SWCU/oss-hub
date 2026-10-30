@@ -1,4 +1,4 @@
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 
 export interface MilestoneDocumentCollectionDocumentRule {
   readonly id: string;

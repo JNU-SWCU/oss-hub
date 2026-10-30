@@ -7,14 +7,14 @@ import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
 } from '../platform/user-profile-read.repository';
-import { upsertUserProfile } from '../platform/user-profile-write.repository';
+import { upsertUserProfile } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import type { AdminAccessActor } from './admin-access-repository.types';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
-} from './admin-actor-locks.repository';
+} from './admin-access.repository';
 import type {
   AdminProfileApplyOutcome,
   AdminProfileLegacyFields,
@@ -22,12 +22,12 @@ import type {
   AdminProfileTargetRecord,
   AdminProfileTransactionStore,
   AdminProfileWriteFields,
-} from './admin-profile-repository.types';
+} from './users.types';
 
 export type {
   AdminProfileRepositoryPort,
   AdminProfileTransactionStore,
-} from './admin-profile-repository.types';
+} from './users.types';
 
 const ADMIN_PROFILE_TARGET_SELECT = {
   id: true,

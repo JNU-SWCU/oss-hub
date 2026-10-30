@@ -5,10 +5,12 @@ import type {
   ProgramTrackType,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope.policy';
-import type { ProgramAuthoringUploadToken } from './program-authoring.policy';
-import type { ProgramCoverChange } from './program-cover-change.types';
-import type { ProgramExternalCover } from './program-external-cover.policy';
+import type { ProgramDeletionScopeCounts } from './programs.policy';
+import type {
+  ProgramAuthoringUploadToken,
+  ProgramExternalCover,
+} from './program-authoring.policy';
+import type { ProgramCoverChange } from './programs.types';
 
 export type ProgramAuthority = {
   readonly id: string;

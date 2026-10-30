@@ -1,7 +1,7 @@
 import {
   PUBLIC_PROJECT_YEAR_MIN,
   PUBLIC_PROJECT_YEAR_MAX,
-} from '../public-project-query.policy';
+} from '../public-projects.policy';
 import { Type } from 'class-transformer';
 import {
   IsInt,

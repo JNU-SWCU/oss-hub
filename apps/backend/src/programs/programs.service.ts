@@ -2,7 +2,10 @@ import {
   ProgramListItemNote,
   PersonalizedProgramListItem,
   ProgramListPage,
-} from './program-list.types';
+  type ApplicationSubmissionSummaryResult,
+  type ProgramDetailResult,
+  type ProgramListRecord,
+} from './programs.types';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -14,13 +17,12 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
 } from './milestone-completion.policy';
-import type {
-  ApplicationSubmissionSummaryResult,
-  ProgramDetailResult,
-} from './program-read.types';
-import { programDeadline } from './program-deadline.policy';
+import {
+  programDeadline,
+  type ProgramListQuery,
+  type ProgramStatusCounts,
+} from './programs.policy';
 import { programCoverImageUrl } from './program-cover.policy';
-import type { ProgramListQuery } from './program-list-query.policy';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import {
   getTemplateByKey,
@@ -28,8 +30,6 @@ import {
 } from './program-template-registry.policy';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
-import { type ProgramStatusCounts } from './program-list-status.policy';
-import { type ProgramListRecord } from './program-list.types';
 
 type SubmissionRecord = {
   readonly milestoneId: string;

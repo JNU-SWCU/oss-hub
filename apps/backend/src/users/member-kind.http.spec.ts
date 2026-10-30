@@ -7,18 +7,18 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import type { AdminAccessActor } from './admin-access-repository.types';
-import type {
-  MemberKindProfileUpdate,
-  MemberKindRepositoryPort,
-  MemberKindTargetRecord,
-  MemberKindTransactionStore,
+import {
+  type MemberKindProfileUpdate,
+  type MemberKindRepositoryPort,
+  type MemberKindTargetRecord,
+  type MemberKindTransactionStore,
+  MemberKindRepository,
 } from './member-kind.repository';
-import { MemberKindRepository } from './member-kind.repository';
-import { MemberKindController } from '../admin/member-kind.controller';
+import { UserAccessController } from '../admin/user-access.controller';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
 
@@ -98,8 +98,8 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
       imports: [PlatformModule, AuthModule, UsersModule],
-      controllers: [MemberKindController],
-    });
+      controllers: [UserAccessController],
+    }).useMocker((token) => (token === Function ? undefined : {}));
 
     moduleBuilder.overrideProvider(PrismaService).useValue({});
     moduleBuilder.overrideProvider(MemberKindRepository).useValue(repository);

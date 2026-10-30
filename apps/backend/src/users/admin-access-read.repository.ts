@@ -2,8 +2,8 @@ import {
   AccountStatus,
   MemberKind,
   StaffAccessRequestStatus,
+  type Prisma,
 } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
 import { userProfileNameWhere } from '../platform/user-profile-read.repository';
 import type { PrismaService } from '../platform/prisma.service';
 import {

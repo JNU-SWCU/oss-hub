@@ -1,7 +1,7 @@
 import { PrismaService } from '../platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { LOGIN_HISTORY_EVENTS } from './login-history.types';
-import { LoginHistoryRepository } from './login-history.repository';
+import { LOGIN_HISTORY_EVENTS } from './http-auth.types';
+import { LoginHistoryRepository } from './auth.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -1,5 +1,5 @@
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import { hasProgramDeadlinePassed } from './program-deadline.policy';
+import { hasProgramDeadlinePassed } from './programs.policy';
 
 export type MilestoneDocumentSubmissionBlock =
   | 'MILESTONE_CLOSED'

@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionSyncService } from './collection-sync.service';
 import {

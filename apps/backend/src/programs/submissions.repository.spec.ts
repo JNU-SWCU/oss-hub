@@ -4,9 +4,9 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import type { CreateSubmissionInput } from './submission-content.policy';
-import { submissionParticipantWhere } from './submission-application-record.repository';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
+import type { CreateSubmissionInput } from './submission.policy';
+import { submissionParticipantWhere } from './submission-checklist-record.repository';
+import { lockSubmissionMembership } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   type CreateSubmissionRevisionInput,
@@ -14,10 +14,10 @@ import {
   SubmissionsRepository,
 } from './submissions.repository';
 
-jest.mock('../platform/submission-membership-lock.repository', () => {
+jest.mock('../platform/platform.repository', () => {
   const actual = jest.requireActual<
-    typeof import('../platform/submission-membership-lock.repository')
-  >('../platform/submission-membership-lock.repository');
+    typeof import('../platform/platform.repository')
+  >('../platform/platform.repository');
   return { ...actual, lockSubmissionMembership: jest.fn() };
 });
 

@@ -3,7 +3,7 @@ import type {
   GithubAppFetcher,
   GithubAppJwtFactory,
   GithubInstallationTokenProvider,
-} from './github-app.types';
+} from './repository-provision-contract.types';
 import { createPrivateKey } from 'node:crypto';
 import { SignJWT } from 'jose';
 import {

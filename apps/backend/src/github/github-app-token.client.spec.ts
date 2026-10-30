@@ -8,7 +8,10 @@ import {
   createGithubAppJwt,
   GithubAppTokenProvider,
 } from './github-app-token.client';
-import { GithubAppCredentials, GithubAppFetcher } from './github-app.types';
+import {
+  GithubAppCredentials,
+  GithubAppFetcher,
+} from './repository-provision-contract.types';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const credentials: GithubAppCredentials = {

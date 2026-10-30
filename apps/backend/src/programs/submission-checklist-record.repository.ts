@@ -1,15 +1,65 @@
 import {
   MilestoneDocumentKind,
-  MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
+  MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
 import type {
+  SubmissionApplication,
   ChecklistMilestone,
   SubmissionFileMetadata,
-} from './submission-record.types';
-import { safeSubmissionFileContentType } from './submission-file-content-type.policy';
-import { publicSubmissionId } from './submission-public-id.policy';
+} from './submission.types';
+import { publicSubmissionId } from './submission.policy';
+import { safeSubmissionFileContentType } from './submission-file.policy';
+
+export function submissionParticipantWhere(
+  userId: string,
+): Prisma.ApplicationWhereInput {
+  return programApplicationParticipantWhere(userId);
+}
+
+export const submissionApplicationSelect = (milestoneId: string) =>
+  ({
+    id: true,
+    programId: true,
+    teamId: true,
+
+    team: { select: { _count: { select: { members: true } } } },
+    status: true,
+    milestoneDocumentSubmissions: {
+      where: {
+        milestoneDocument: {
+          milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      take: 1,
+      select: { id: true, legacySubmissionId: true, status: true },
+    },
+  }) as const;
+
+type ApplicationRecord = Prisma.ApplicationGetPayload<{
+  select: ReturnType<typeof submissionApplicationSelect>;
+}>;
+
+export function toSubmissionApplication(
+  application: ApplicationRecord,
+): SubmissionApplication {
+  return {
+    id: application.id,
+    programId: application.programId,
+    teamId: application.teamId,
+    teamMemberCount: application.team._count.members,
+    status: application.status,
+    existingSubmission: application.milestoneDocumentSubmissions[0]
+      ? {
+          id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
+          status: application.milestoneDocumentSubmissions[0].status,
+        }
+      : null,
+  };
+}
 
 const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
   MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,

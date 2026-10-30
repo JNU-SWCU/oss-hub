@@ -43,7 +43,7 @@ QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실
 | W5 | 교 → 신청 판정 | 승인 → 프로비저닝 트리거 | 거절 + 사유 노출 / 거절 후 재신청 / 판정 전 본인 수정·취소 | `applications.controller.ts` |
 | W6 | 프로비저닝 → 학 | repo 생성 → 초대 → `my-repos` 노출 | **최종 실패가 학생 화면에 드러나는가** / 초대 수락이 상태로 수렴하는가 | `repository-provision-worker.service.ts` |
 | W7 | 학 → 제출 | **파일 업로드 성공** | 마감 후 차단 / 미제출 / `TEXT`·`RELEASE` 타입 / **마감 전 교체** | `submissions.controller.ts` |
-| W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submission-reviews.controller.ts` |
+| W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submissions.controller.ts` |
 | W9 | 반려 → 재제출 | **학생이 반려를 보고** → 재제출 → 새 revision | 이전 이력 보존 / 교직원 재심사 / 재제출 폼 fail-closed | `submissions.service.ts` |
 | W10 | 최종 반려 | `REJECTED` 확인 | **재제출 불가가 실제로 막히는가** | `submissions.service.ts` |
 | W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/programs` |

@@ -1,4 +1,4 @@
-import { createFlowState, encodeFlowCookie } from './oauth-flow.policy';
+import { createFlowState, encodeFlowCookie } from './auth.policy';
 import { flowCookieName, sessionCookieName } from './cookies.policy';
 import {
   createController,

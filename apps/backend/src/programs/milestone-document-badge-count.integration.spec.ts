@@ -2,8 +2,8 @@ import { AccountStatus, ApplicationStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 

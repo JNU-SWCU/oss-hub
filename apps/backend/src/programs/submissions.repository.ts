@@ -12,31 +12,27 @@ import {
   type MilestoneSubmissionType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  CreateSubmissionInput,
-  SubmissionContentInput,
-} from './submission-content.policy';
+import {
+  type CreateSubmissionInput,
+  type SubmissionContentInput,
+  exactSubmissionByPublicId,
+  publicSubmissionId,
+  submissionPublicIdWhere,
+} from './submission.policy';
 import type {
   ChecklistMilestone,
   SubmissionApplication,
-} from './submission-record.types';
+} from './submission.types';
 import {
   submissionApplicationSelect,
   submissionParticipantWhere,
   toSubmissionApplication,
-} from './submission-application-record.repository';
-import {
   checklistMilestoneOrderBy,
   checklistMilestoneSelect,
   toChecklistMilestone,
 } from './submission-checklist-record.repository';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
+import { lockSubmissionMembership } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  exactSubmissionByPublicId,
-  publicSubmissionId,
-  submissionPublicIdWhere,
-} from './submission-public-id.policy';
 
 type SubmissionsDatabase = Prisma.TransactionClient;
 

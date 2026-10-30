@@ -5,7 +5,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import type { DeadlineDigestSendRequest } from '../deadline-digest.types';
+import type { DeadlineDigestSendRequest } from '../notifications.types';
 
 export class DeadlineDigestSendRequestDto implements DeadlineDigestSendRequest {
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)

@@ -3,15 +3,35 @@ import {
   type CollectionAppClient,
   type CollectionAppClientTokenProvider,
 } from './collection-app.client';
-import type { ProviderRequestQueue } from './collection-provider-queue.client';
-import type { CollectionRepositoryRow } from './collection-incremental.types';
-import type { SyncLeaseToken } from './collection-sync.types';
+import type { ProviderRequestQueue } from './collection-discovery.client';
+import type {
+  CollectionRepositoryRow,
+  SyncLeaseToken,
+} from './collection-incremental.types';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { splitNameWithOwner } from './collection-repository-identity.policy';
-import {
-  CollectionSyncDeadline,
-  RunDeadlineError,
-} from './collection-sync-deadline.service';
+import { splitNameWithOwner } from './github.policy';
+
+export class RunDeadlineError extends Error {}
+
+export class CollectionSyncDeadline {
+  constructor(private readonly now: () => Date) {}
+
+  async run<T>(operation: Promise<T>, deadline: number): Promise<T> {
+    const remaining = deadline - this.now().getTime();
+    if (remaining <= 0) throw new RunDeadlineError();
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        operation,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new RunDeadlineError()), remaining);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+}
 
 export interface CollectionSyncRuntime {
   appId: string;

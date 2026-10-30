@@ -4,15 +4,13 @@ import type { Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { SignJWT } from 'jose';
-import type { LoginHistoryService } from './login-history.service';
+import type { LoginHistoryService, AuthService } from './auth.service';
 import { AuthenticationGuard } from './authentication.guard';
 import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata.policy';
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import type { AuthService } from './auth.service';
 import { sessionCookieName } from './cookies.policy';
-import type { AuthUser } from './auth-user.types';
-import type { OptionalSessionRequest } from './http-auth.types';
+import type { AuthUser, OptionalSessionRequest } from './http-auth.types';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const tokenIssuedAt = 4_000_000_000;

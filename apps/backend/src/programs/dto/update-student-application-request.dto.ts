@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsDefined, IsInt, IsObject } from 'class-validator';
-import type { UpdateStudentApplicationInput } from '../update-student-application.types';
+import type { UpdateStudentApplicationInput } from '../application-records.types';
 
 export class UpdateStudentApplicationRequestDto {
   @IsDefined()

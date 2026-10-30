@@ -1,17 +1,45 @@
-import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../platform/user-profile-read.repository';
-import { boundedReviewHistoryQuery } from './milestone-document-history-query.repository';
 import type {
   MilestoneContext,
   MilestoneDocumentRecord,
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionSubmission,
-} from './milestone-document-record.types';
+} from './milestone-document-result.types';
+
+export const milestoneDocumentHistoryDescendingOrderBy = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
+] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+
+export function nextMilestoneDocumentHistoryCreatedAt(
+  requested: Date,
+  latest: Date | null,
+): Date {
+  return latest === null || requested.getTime() > latest.getTime()
+    ? requested
+    : new Date(latest.getTime() + 1);
+}
+
+export const boundedReviewHistoryQuery = {
+  orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+  take: 50,
+  select: {
+    id: true,
+    decision: true,
+    comment: true,
+    reviewedAt: true,
+
+    resubmissionDueAt: true,
+    reviewer: { select: { nickname: true } },
+    submissionHistory: { select: { revision: true } },
+  },
+} satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
 
 export interface DocumentDeliveryCoordinate {
   readonly applicationId: string;

@@ -13,6 +13,8 @@ import {
   InvalidRepositoryProvisionEventError,
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
+  canonicalGithubLogin,
+  canonicalGithubLogins,
 } from './repository-provision-event.policy';
 import type {
   CompleteRepositoryInvitationInput,
@@ -27,8 +29,8 @@ import type {
 import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
+  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
 } from './repository-provision-failure.policy';
-import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision-failure.policy';
 import {
   assertCurrentRequest,
   assertProvisionLease,
@@ -49,10 +51,6 @@ import {
   teamMemberLoginSelection,
   toProvisionedRepository,
 } from './repository-provision-state-helpers.repository';
-import {
-  canonicalGithubLogin,
-  canonicalGithubLogins,
-} from './repository-provision-event.policy';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,

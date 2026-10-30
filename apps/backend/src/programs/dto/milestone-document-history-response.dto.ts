@@ -1,6 +1,6 @@
 import type { MilestoneDocumentHistoryResult } from '../milestone-document-result.types';
 import type { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
-import type { MilestoneDocumentSubmittedContent } from '../milestone-document-content.policy';
+import type { MilestoneDocumentSubmittedContent } from '../milestone-document.policy';
 
 interface MilestoneDocumentHistoryItemResponseDto {
   readonly event: MilestoneDocumentSubmissionHistoryEvent;

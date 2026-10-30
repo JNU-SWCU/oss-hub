@@ -3,7 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionSyncService } from './collection-sync.service';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
+import { ProviderRequestQueue } from './collection-discovery.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
@@ -13,7 +13,7 @@ import type {
   CollectionRepository as ProviderRepository,
 } from './collection-app.client';
 import type { CollectionAppTokenProvider } from './collection-app-token.client';
-import type { RequestFingerprint } from './collection-app-frontier.policy';
+import type { RequestFingerprint } from './github.policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

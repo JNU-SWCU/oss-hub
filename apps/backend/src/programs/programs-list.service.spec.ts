@@ -6,7 +6,7 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { PROGRAM_LIST_QUERY_STATUSES } from './program-list-query.policy';
+import { PROGRAM_LIST_QUERY_STATUSES } from './programs.policy';
 import {
   deriveProgramListStatus,
   programListPrismaWhere,
@@ -16,7 +16,7 @@ import {
   type ProgramListStatusInput,
 } from './program-list-status-filter.repository';
 import { ProgramsRepository } from './programs.repository';
-import type { ProgramListRecord } from './program-list.types';
+import type { ProgramListRecord } from './programs.types';
 import { ProgramsService } from './programs.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import type { ProgramActivityResult } from './program-read.types';
+import type { ProgramActivityResult } from './programs.types';
 import type {
   ActivityPointResult,
   ActivityTimelineResult,

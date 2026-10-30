@@ -16,9 +16,11 @@ import {
 } from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { UsersAuthorityService } from '../users/authority.service';
-import { ApplicationJoinCodeService } from './application-join-code.service';
-import { DomainException } from '../platform/error-code.error';
-import type { ProblemDetailExtensions } from '../platform/error-code.error';
+import { ApplicationJoinCodeService } from './application-preparations.service';
+import {
+  DomainException,
+  type ProblemDetailExtensions,
+} from '../platform/error-code.error';
 import { parseGithubRepositoryUrl } from '../github/github-repository-url.policy';
 import {
   checkApplicationTemplateVersion,
@@ -29,7 +31,15 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import type { ApplicationListQuery } from './application-list-query.types';
+import type {
+  ApplicationListQuery,
+  ApplicationListPage,
+  CreatedApplication,
+  StaffApplicationDetail,
+  StaffDashboardSummary,
+  TeamManagementListPage,
+  CreateApplicationInput,
+} from './application-records.types';
 import {
   ApplicationDuplicateError,
   ApplicationPreparationConflictError,
@@ -38,23 +48,13 @@ import {
   ApplicationsRepository,
   RepositoryEventAlreadyExistsError,
 } from './applications.repository';
-import type {
-  ApplicationListPage,
-  CreatedApplication,
-  StaffApplicationDetail,
-  StaffDashboardSummary,
-  TeamManagementListPage,
-} from './application-records.types';
-import type {
-  ApplicationDecisionAction,
-  ApplicationDecisionResult,
-  ApplicationDecisionTarget,
-  ApplicationTransition,
-  RepositoryProvisionJobSnapshot,
-} from './application-decision.policy';
-import { APPLICATION_DECISION_ACTIONS } from './application-decision.policy';
-import type { CreateApplicationInput } from './create-application.types';
 import {
+  type ApplicationDecisionAction,
+  type ApplicationDecisionResult,
+  type ApplicationDecisionTarget,
+  type ApplicationTransition,
+  type RepositoryProvisionJobSnapshot,
+  APPLICATION_DECISION_ACTIONS,
   applicationDecisionAction,
   type ApplicationDecisionCommand,
 } from './application-decision.policy';

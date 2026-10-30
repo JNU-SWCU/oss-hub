@@ -9,7 +9,7 @@ import {
   ConsentErrorCode,
 } from './consent-error-code.error';
 import type { ConsentsService } from './consents.service';
-import type { MemberUser } from './member-onboarding.types';
+import type { MemberUser } from './users.types';
 import type {
   OnboardingTransactionStore,
   RolesRepository,

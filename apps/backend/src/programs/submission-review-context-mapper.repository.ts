@@ -10,8 +10,8 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../platform/user-profile-read.repository';
-import { safeSubmissionFileContentType } from './submission-file-content-type.policy';
-import { publicSubmissionId } from './submission-public-id.policy';
+import { safeSubmissionFileContentType } from './submission-file.policy';
+import { publicSubmissionId } from './submission.policy';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,

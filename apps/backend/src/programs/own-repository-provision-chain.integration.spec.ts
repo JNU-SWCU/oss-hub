@@ -17,15 +17,15 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import { StudentRepositoryUrlRepository } from './student-repository-url.repository';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { ConsentsRepository } from '../users/consents.repository';
+import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/authority.service';
 import type { GithubAppClient } from '../github/github-app.client';
 import type {
@@ -39,8 +39,8 @@ import { RepositoryProvisionStateRepository } from '../github/repository-provisi
 import { RepositoryOutboxConsumer } from '../github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorker } from '../github/repository-provision-worker.service';
 import { PROVISION_ERROR_CODES } from '../github/repository-provision-failure.policy';
-import { RepositoryOwnEnrollmentService } from '../github/repository-own-enrollment.service';
-import { ApplicationJoinCodeService } from './application-join-code.service';
+import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

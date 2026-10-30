@@ -1,10 +1,9 @@
-import type { SubmissionMatrixResult } from '../submission-matrix-result.types';
-
 import type {
+  SubmissionMatrixResult,
   MatrixApplicationMode,
   MatrixCellStatus,
-} from '../submission-matrix.types';
-import type { DocumentDeliveryStatus } from '../document-delivery-status.policy';
+} from '../submission.types';
+import type { DocumentDeliveryStatus } from '../milestone-document.policy';
 
 interface MatrixMilestoneResponseDto {
   readonly id: string;

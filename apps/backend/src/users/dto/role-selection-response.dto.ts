@@ -2,7 +2,7 @@ import type {
   MemberKindSelectionResult,
   MemberKindSelectionState,
   SelectableMemberKind,
-} from '../member-onboarding.types';
+} from '../users.types';
 
 export class RoleSelectionResponseDto {
   readonly selectedRole: SelectableMemberKind;

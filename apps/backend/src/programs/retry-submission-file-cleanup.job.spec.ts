@@ -2,7 +2,7 @@ import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionFileCleanupRetryService } from './submission-file-cleanup-retry.service';
+import { SubmissionFileCleanupRetryService } from './submission-file-cleanup.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { main } from './retry-submission-file-cleanup.job';
 

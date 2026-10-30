@@ -6,10 +6,10 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
+import { lockSubmissionMembership } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import type { MilestoneDocumentSubmissionDetail } from './milestone-document-record.types';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history-query.repository';
+import type { MilestoneDocumentSubmissionDetail } from './milestone-document-result.types';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
 
 export function milestoneDocumentSubmissionContent(
   text: string | null,

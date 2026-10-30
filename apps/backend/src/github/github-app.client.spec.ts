@@ -6,7 +6,7 @@ import { COLLABORATOR_OUTCOMES, GithubAppClient } from './github-app.client';
 import type {
   GithubAppFetcher,
   GithubInstallationTokenProvider,
-} from './github-app.types';
+} from './repository-provision-contract.types';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const OWNERSHIP_MARKER = `oss-hub:${'a'.repeat(64)}`;

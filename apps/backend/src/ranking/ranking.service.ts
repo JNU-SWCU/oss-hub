@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { activityTotal } from '../platform/activity-counts.policy';
+import { activityTotal } from '../platform/platform.policy';
 import { nextScheduledCollectionAt } from '../github/collection-schedule.service';
 import {
   RANKING_VIEWER_CLASSES,

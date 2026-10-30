@@ -3,11 +3,11 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { SubmissionMatrixController } from './submission-matrix.controller';
+import { ProgramSubmissionsController } from './program-submissions.controller';
 
 const sessionSecret = new Uint8Array(32).fill(48);
 
@@ -15,7 +15,7 @@ export async function createMatrixDeliveryHttp(
   service: SubmissionMatrixService,
 ): Promise<INestApplication> {
   const module = await Test.createTestingModule({
-    controllers: [SubmissionMatrixController],
+    controllers: [ProgramSubmissionsController],
     providers: [
       SessionGuard,
       { provide: SubmissionMatrixService, useValue: service },
@@ -27,7 +27,9 @@ export async function createMatrixDeliveryHttp(
         },
       },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
   const application = module.createNestApplication();
   application.setGlobalPrefix('api/v1');
   application.useGlobalPipes(

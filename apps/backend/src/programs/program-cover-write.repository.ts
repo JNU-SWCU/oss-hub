@@ -1,5 +1,16 @@
-import { ProgramCoverChange } from './program-cover-change.types';
-import { ProgramAuthoringUploadLifecycle, type Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import {
+  ProgramLifecycle,
+  ProgramAuthoringUploadLifecycle,
+  type Prisma,
+} from '@prisma/client';
+import { PrismaService } from '../platform/prisma.service';
+import {
+  PROGRAM_COVER_MAX_BYTES,
+  PROGRAM_COVER_STORAGE_PREFIX,
+  assertProgramCoverUpload,
+} from './program-cover.policy';
+import { ProgramCoverChange } from './programs.types';
 import {
   assertAttachableProgramAuthoringUploads,
   lockProgramAuthoringUploads,
@@ -7,9 +18,43 @@ import {
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   type ProgramAuthoringUploadToken,
+  type ProgramExternalCover,
 } from './program-authoring.policy';
-import { assertProgramCoverUpload } from './program-cover.policy';
-import type { ProgramExternalCover } from './program-external-cover.policy';
+
+@Injectable()
+export class ProgramCoverRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findPublicCover(programId: string, coverId: string) {
+    const cover = await this.prisma.programCover.findFirst({
+      where: {
+        id: coverId,
+        programId,
+        source: 'OWNED',
+        program: {
+          lifecycle: {
+            in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
+          },
+        },
+        storageKey: { startsWith: PROGRAM_COVER_STORAGE_PREFIX },
+        mimeType: { in: ['image/jpeg', 'image/png'] },
+        sizeBytes: { gte: 1, lte: PROGRAM_COVER_MAX_BYTES },
+      },
+      select: { storageKey: true, mimeType: true, sizeBytes: true },
+    });
+    if (
+      cover?.storageKey == null ||
+      cover.mimeType === null ||
+      cover.sizeBytes === null
+    )
+      return null;
+    return {
+      storageKey: cover.storageKey,
+      mimeType: cover.mimeType,
+      sizeBytes: cover.sizeBytes,
+    };
+  }
+}
 
 export async function replaceProgramCover(
   transaction: Prisma.TransactionClient,

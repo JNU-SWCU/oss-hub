@@ -5,17 +5,17 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from './consent-error-code.error';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsRepository } from './member-onboarding.repository';
 import {
   ConsentGrant,
   ConsentRecord,
   ConsentStatus,
   ConsentUser,
-} from './consent.types';
+} from './users.types';
 import {
   COMPATIBLE_CONSENT_POLICY_VERSIONS,
   CURRENT_CONSENT_POLICY,
-} from './consent.policy';
+} from './user-profile.policy';
 
 export interface AcceptConsentInput {
   policyVersion: string;

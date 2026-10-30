@@ -2,8 +2,16 @@ import type {
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
   TeamActivityView,
-} from './program-team-repository-evidence.types';
-import { canEditStudentRepositoryUrl } from './program-participant.policy';
+  DeletedTeamView,
+  ProgramTeamView,
+  RenamedTeamView,
+  StaffTeamDetailView,
+  StaffTeamView,
+} from './program-teams.types';
+import {
+  canEditStudentRepositoryUrl,
+  type TeamDeletionScopeCounts,
+} from './programs.policy';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamDeletedAuditMetadata,
@@ -32,15 +40,7 @@ import {
   type TeamDeletionNotificationEvent,
   type TeamDeletionNotificationStore,
 } from './program-team-deletion.repository';
-import type { TeamDeletionScopeCounts } from './team-deletion-scope.policy';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
-import type {
-  DeletedTeamView,
-  ProgramTeamView,
-  RenamedTeamView,
-  StaffTeamDetailView,
-  StaffTeamView,
-} from './program-teams.types';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 

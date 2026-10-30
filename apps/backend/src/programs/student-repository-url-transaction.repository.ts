@@ -13,8 +13,12 @@ import {
   readTeamRepositoryUrlContext,
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
+  STUDENT_REPOSITORY_URL_SELECT,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
+import { Injectable } from '@nestjs/common';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { PrismaService } from '../platform/prisma.service';
 
 export class StudentRepositoryUrlTransaction {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -124,5 +128,48 @@ export class StudentRepositoryUrlTransaction {
       parseRepositoryProvisionEvent,
     );
     return repositoryId;
+  }
+}
+
+export function isStudentRepositoryUrlConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
+}
+
+@Injectable()
+export class StudentRepositoryUrlRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  findContext(
+    programId: string,
+    studentId: string,
+  ): Promise<StudentRepositoryUrlContext | null> {
+    return this.prisma.application.findFirst({
+      where: { programId, ...programApplicationParticipantWhere(studentId) },
+      select: STUDENT_REPOSITORY_URL_SELECT,
+    });
+  }
+
+  findTeamContext(
+    programId: string,
+    teamId: string,
+    actorGithubId: bigint,
+  ): Promise<TeamRepositoryUrlContext | null> {
+    return readTeamRepositoryUrlContext(
+      this.prisma,
+      programId,
+      teamId,
+      actorGithubId,
+    );
+  }
+
+  withTransaction<T>(
+    operation: (store: StudentRepositoryUrlTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(new StudentRepositoryUrlTransaction(transaction)),
+    );
   }
 }

@@ -12,7 +12,7 @@ import type {
   IndependentAuthorityUserRecord,
 } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import type { IndependentAuthorityTransition } from './independent-authority-transition.policy';
+import type { IndependentAuthorityTransition } from './independent-authority.policy';
 
 const actorGithubId = 9_700_600_001n;
 

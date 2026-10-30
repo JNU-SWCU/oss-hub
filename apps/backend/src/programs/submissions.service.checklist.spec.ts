@@ -5,7 +5,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import type { ChecklistMilestone } from './submission-record.types';
+import type { ChecklistMilestone } from './submission.types';
 import type {
   ChecklistApplication,
   SubmissionsRepository,

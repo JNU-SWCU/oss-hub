@@ -1,15 +1,70 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import {
+  type LoginHistory as PrismaLoginHistory,
+  AccountStatus,
+  StaffAccessRequestStatus,
+  type Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  LOGIN_HISTORY_PROVIDER,
+  type LoginHistory,
+  type LoginHistoryEvent,
+  type LoginHistoryPage,
+  type AuthLoginResult,
+  type AuthUser,
+  type GithubProfile,
+} from './http-auth.types';
 import { isCompleteProfileFields } from '../users/user-profile.policy';
-import { AuthConfig } from './auth.config';
-import type { InitialAccountSeed } from './initial-roles.policy';
-import type {
-  AuthLoginResult,
-  AuthUser,
-  GithubProfile,
-} from './auth-user.types';
+import { AuthConfig, type InitialAccountSeed } from './auth.config';
+
+@Injectable()
+export class LoginHistoryRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(userId: string, event: LoginHistoryEvent): Promise<void> {
+    await this.prisma.loginHistory.create({
+      data: {
+        userId,
+        event,
+        provider: LOGIN_HISTORY_PROVIDER,
+        success: true,
+      },
+    });
+  }
+
+  async findPage(
+    userId: string,
+    page: number,
+    size: number,
+  ): Promise<LoginHistoryPage> {
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.loginHistory.findMany({
+        where: { userId },
+        orderBy: { loginAt: 'desc' },
+        skip: (page - 1) * size,
+        take: size,
+      }),
+      this.prisma.loginHistory.count({ where: { userId } }),
+    ]);
+    return {
+      items: rows.map((row) => this.toDomain(row)),
+      page,
+      size,
+      total,
+    };
+  }
+
+  private toDomain(row: PrismaLoginHistory): LoginHistory {
+    return {
+      id: row.id,
+      event: row.event,
+      provider: LOGIN_HISTORY_PROVIDER,
+      success: row.success,
+      loginAt: row.loginAt,
+    };
+  }
+}
 
 const AUTH_USER_SELECT = {
   id: true,

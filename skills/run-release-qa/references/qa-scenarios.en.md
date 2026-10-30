@@ -50,7 +50,7 @@ This is the full path: a contest created by faculty/staff becomes visible to a s
 | W5 | 교 → application decision | Approve → trigger provisioning | Reject with a visible reason / reapply after rejection / applicant edits or cancels before a decision | `applications.controller.ts` |
 | W6 | Provisioning → 학 | Repository created → invitation → visible in `my-repos` | **Is final failure visible on the student screen?** / does invitation acceptance converge to the corresponding state? | `repository-provision-worker.service.ts` |
 | W7 | 학 → submission | **Successful file upload** | Block after deadline / not submitted / `TEXT` and `RELEASE` types / **replacement before the deadline** | `submissions.controller.ts` |
-| W8 | 교 → review | **Download file** → decision | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / concurrent-review race | `submission-reviews.controller.ts` |
+| W8 | 교 → review | **Download file** → decision | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / concurrent-review race | `submissions.controller.ts` |
 | W9 | Rejection → resubmission | **Student sees the rejection** → resubmits → new revision | Preserve earlier history / faculty/staff review again / resubmission form fails closed | `submissions.service.ts` |
 | W10 | Final rejection | Confirm `REJECTED` | **Is resubmission actually blocked?** | `submissions.service.ts` |
 | W11 | 교 → publication confirmation | Pass all five gates → publish | Visible in `archive` while signed out / blocked when a gate is unmet | `apps/backend/src/programs` |

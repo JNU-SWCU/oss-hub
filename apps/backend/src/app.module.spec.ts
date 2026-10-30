@@ -12,7 +12,7 @@ import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
 import { StaffModule } from './staff/staff.module';
 import { StudentModule } from './student/student.module';
-import { SubmissionReviewsController } from './programs/submission-reviews.controller';
+import { SubmissionsController } from './programs/submissions.controller';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
@@ -49,11 +49,11 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  it('Issue #255 SubmissionReviewsController를 정확히 한 번 등록한다', () => {
+  it('Issue #255 SubmissionsController를 정확히 한 번 등록한다', () => {
     const controllers = discoverAppModuleControllers();
 
     expect(
-      controllers.filter((entry) => entry === SubmissionReviewsController),
+      controllers.filter((entry) => entry === SubmissionsController),
     ).toHaveLength(1);
   });
 

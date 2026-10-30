@@ -14,7 +14,7 @@ import {
   type CreateSubmissionInput,
   parseSubmissionContent,
   type ResubmitSubmissionInput,
-} from '../submission-content.policy';
+} from '../submission.policy';
 
 class SubmissionContentRequestDto {
   @IsString()

@@ -16,7 +16,7 @@ import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 
 export type { AccountDeactivationRepositoryPort } from './account-deactivation.repository';
 
-import type { AccountDeactivationResult } from './account-deactivation.types';
+import type { AccountDeactivationResult } from './users.types';
 
 @Injectable()
 export class AccountDeactivationService {

@@ -3,12 +3,12 @@ import {
   applicationMode,
   displayNameOf,
   type PublicProjectApplicationMode,
-} from '../public-project-record.policy';
+} from '../public-projects.policy';
 import type {
   PublicProjectMetrics,
   PublicUserProfileProjectResult,
   PublicUserProfileResult,
-} from '../public-project-result.types';
+} from '../programs.types';
 
 class PublicUserProfileMetricsResponseDto {
   readonly commitCount: number;

@@ -8,7 +8,7 @@ import {
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,
   type TeamDeletionScopeCounts,
-} from './team-deletion-scope.policy';
+} from './programs.policy';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 

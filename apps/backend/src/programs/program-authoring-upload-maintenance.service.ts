@@ -7,6 +7,7 @@ import {
   type ClaimedProgramAuthoringUpload,
   ProgramAuthoringUploadRepository,
 } from './program-authoring-upload.repository';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
@@ -100,4 +101,40 @@ export class ProgramAuthoringUploadMaintenanceService {
 function boundedBatchSize(requested: number): number {
   if (!Number.isFinite(requested)) return 0;
   return Math.min(Math.max(Math.trunc(requested), 0), MAX_BATCH_SIZE);
+}
+
+type ProgramAuthoringUploadMaintenance = Pick<
+  ProgramAuthoringUploadMaintenanceService,
+  'runDue'
+>;
+
+@Injectable()
+export class ProgramAuthoringUploadMaintenanceScheduler {
+  private readonly logger = new Logger(
+    ProgramAuthoringUploadMaintenanceScheduler.name,
+  );
+  private running = false;
+
+  constructor(
+    @Inject(ProgramAuthoringUploadMaintenanceService)
+    private readonly maintenance: ProgramAuthoringUploadMaintenance,
+  ) {}
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'program-authoring-upload-cleanup',
+  })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.maintenance.runDue();
+    } catch {
+      this.logger.error({
+        event: 'program-authoring-upload.cleanup.run.failed',
+        errorCode: 'MAINTENANCE_RUN_FAILED',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
 }

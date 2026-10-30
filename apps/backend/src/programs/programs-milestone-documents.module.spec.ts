@@ -7,16 +7,15 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { SubmissionFilesService } from './submission-files.service';
 import { UsersModule } from '../users/users.module';
-import {
-  MilestoneDocumentFilesController,
-  MilestoneDocumentsController,
-} from './milestone-documents.controller';
+import { MilestoneDocumentsController } from './milestone-documents.controller';
+import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import {
+  MilestoneDocumentCollectionService,
+  MilestoneDocumentCurrentFileService,
+} from './milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { ProgramsModule } from './programs.module';
@@ -41,7 +40,7 @@ describe('ProgramsModule milestone documents', () => {
       expect.arrayContaining([
         MilestoneDocumentsController,
         MilestoneDocumentFilesController,
-        MilestoneDocumentCurrentFileController,
+        MilestoneDocumentsController,
       ]),
     );
   });

@@ -3,7 +3,7 @@ import { StaffAccessRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import type { StaffAccessRequestRecord } from './member-onboarding.types';
+import type { StaffAccessRequestRecord } from './users.types';
 import { StaffAccessRequestsController } from './role-requests.controller';
 import type { RolesService } from './member-onboarding.service';
 

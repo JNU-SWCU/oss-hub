@@ -6,8 +6,8 @@ import {
 } from '@prisma/client';
 import type { ProgramDeletionAuditBlockingCounts } from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope.policy';
-import type { ProgramPurgeDeletedCounts } from './program-purge.types';
+import type { ProgramDeletionScopeCounts } from './programs.policy';
+import type { ProgramPurgeDeletedCounts } from './programs.types';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope.repository';
 
 type ProgramLifecycleTransaction = Prisma.TransactionClient;

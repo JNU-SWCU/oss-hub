@@ -8,7 +8,7 @@ import {
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/authority.service';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,

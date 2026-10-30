@@ -1,6 +1,5 @@
-import { ProgramDeletionScopeCounts } from './program-deletion-scope.policy';
-import { Prisma } from '@prisma/client';
-import type { Prisma as PrismaTypes } from '@prisma/client';
+import { ProgramDeletionScopeCounts } from './programs.policy';
+import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
 
 type DeletionScopeCountsRow = Readonly<{
   applications: bigint;

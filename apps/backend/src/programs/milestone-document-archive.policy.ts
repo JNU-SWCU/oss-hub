@@ -4,7 +4,7 @@ import {
   milestoneDocumentDownloadFileName,
   milestoneDocumentTextEntryFileName,
 } from './milestone-document-download-file-name.policy';
-import { readMilestoneDocumentSubmittedContent } from './milestone-document-content.policy';
+import { readMilestoneDocumentSubmittedContent } from './milestone-document.policy';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
@@ -297,4 +297,28 @@ function uniquePath(path: string, taken: Set<string>): string {
 
 function collisionKey(path: string): string {
   return path.normalize('NFC').toLowerCase();
+}
+
+export function archiveDocumentsWithStageNames(
+  milestones: ArchiveProgram['milestones'],
+  isSingleMilestone: boolean,
+): readonly MilestoneDocumentArchiveDocument[] {
+  return milestones.flatMap((milestone) =>
+    milestone.documents.map((document) => ({
+      ...document,
+      name: isSingleMilestone
+        ? document.name
+        : `${milestone.name} - ${document.name}`,
+    })),
+  );
+}
+
+export function archiveFileName(name: string, dueAt: Date): string {
+  const due = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(dueAt);
+  return `${milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
 }

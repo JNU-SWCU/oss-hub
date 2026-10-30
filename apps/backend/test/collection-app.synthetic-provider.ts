@@ -1,7 +1,7 @@
 import { CollectionAppClient } from '../src/github/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
 import { CollectionAppTokenProvider } from '../src/github/collection-app-token.client';
-import { ProviderRequestQueue } from '../src/github/collection-provider-queue.client';
+import { ProviderRequestQueue } from '../src/github/collection-discovery.client';
 import type { CollectionSyncRuntime } from '../src/github/collection-sync.service';
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;

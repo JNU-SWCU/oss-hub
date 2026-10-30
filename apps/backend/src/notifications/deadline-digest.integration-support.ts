@@ -14,8 +14,8 @@ import {
 } from './deadline-digest.integration-fixtures';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
-import type { DeadlineDigestMail, MailSender } from './mail-sender.types';
-import { NotificationSettingsRepository } from './notification-settings.repository';
+import type { DeadlineDigestMail, MailSender } from './notifications.types';
+import { NotificationSettingsRepository } from './application-decision-notifications.repository';
 
 export { DIGEST_FIXTURE };
 

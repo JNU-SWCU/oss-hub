@@ -28,6 +28,7 @@ describe('program authoring conflict HTTP contract', () => {
         { provide: ProgramAuthoringUploadService, useValue: {} },
       ],
     })
+      .useMocker((token) => (token === Function ? undefined : {}))
       .overrideGuard(SessionGuard)
       .useValue({
         canActivate: (context: ExecutionContext) => {

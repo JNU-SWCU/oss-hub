@@ -5,27 +5,33 @@ import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConsentsService } from '../users/consents.service';
 import { ScheduleModule } from '@nestjs/schedule';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';
-import { CollectionDiscoveryClient } from './collection-discovery.client';
+import {
+  CollectionDiscoveryClient,
+  ProviderRequestQueue,
+} from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
-import { CollectionPublicTokenProvider } from './collection-public-token.service';
-import { CollectionScheduler } from './collection.scheduler';
-import { CollectionTriggerService } from './collection-trigger.service';
+import { CollectionPublicTokenProvider } from './collection-providers.service';
+import {
+  CollectionScheduler,
+  CollectionTriggerService,
+} from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
 } from './collection-sync.service';
-
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';
-import { RepositoriesService } from './repositories.service';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import {
+  RepositoriesService,
+  RepositoryOwnEnrollmentService,
+} from './repositories.service';
+
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
   expect(Array.isArray(metadata)).toBe(true);

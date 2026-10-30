@@ -7,11 +7,11 @@ import {
   buildStudentDeadlineMail,
   parseFrontendOrigin,
 } from './deadline-digest-mail-template.policy';
-import { DeadlineDigestService } from './deadline-digest.service';
 import {
+  DeadlineDigestService,
   isDryRunMailSender,
   resolveMailSender,
-} from './mail-sender-provider.service';
+} from './deadline-digest.service';
 
 const INVALID_FORCE_TO_MESSAGE =
   'DIGEST_FORCE_TO must be exactly one valid email address.';

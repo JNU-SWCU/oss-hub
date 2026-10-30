@@ -3,7 +3,7 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import type { GithubAppCredentials } from './github-app.types';
+import type { GithubAppCredentials } from './repository-provision-contract.types';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,

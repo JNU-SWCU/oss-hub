@@ -6,15 +6,15 @@ import {
 import type {
   CreateSubmissionInput,
   ResubmitSubmissionInput,
-} from './submission-content.policy';
+} from './submission.policy';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import type { SubmissionApplication } from './submission-record.types';
-import type {
-  ResubmissionTarget,
-  SubmissionMilestone,
+import type { SubmissionApplication } from './submission.types';
+import {
+  type ResubmissionTarget,
+  type SubmissionMilestone,
+  StaleSubmissionRevisionError,
 } from './submissions.repository';
-import { StaleSubmissionRevisionError } from './submissions.repository';
 import { createSubmissionsServiceHarness } from './submissions.service-fixture';
 
 const githubId = 4242n;

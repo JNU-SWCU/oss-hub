@@ -1,14 +1,13 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { LoginHistoryService } from './login-history.service';
+import { LoginHistoryService, AuthService } from './auth.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
-import { AuthService } from './auth.service';
 import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
-import { decodeFlowCookie, toCodeChallenge } from './oauth-flow.policy';
+import { decodeFlowCookie, toCodeChallenge } from './auth.policy';
 
 describe('GitHub login account choice', () => {
   const validation = new ValidationPipe({

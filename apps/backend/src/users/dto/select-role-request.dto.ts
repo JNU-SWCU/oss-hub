@@ -1,7 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { IsString } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
-import type { SelectableMemberKind } from '../member-onboarding.types';
+import type { SelectableMemberKind } from '../users.types';
 import { ROLES_ERROR_CODES, RolesErrorCode } from '../roles-error-code.error';
 
 export class SelectStaffAccessRequestDto {

@@ -12,12 +12,12 @@ import {
   type ProgramDocumentChangeRequestInput,
   type ProgramDocumentChangeRequestPreview,
   type ProgramDocumentChangeRequestScope,
-} from './program-document-change-request.policy';
+} from './milestone-document.policy';
 import {
   MilestoneDocumentArchiveRepository,
   type ProgramArchiveReader,
 } from './milestone-document-archive.repository';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history-query.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
 @Injectable()

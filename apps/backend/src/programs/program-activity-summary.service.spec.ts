@@ -1,8 +1,8 @@
-import type { ProgramActivityRepository } from './program-activity.repository';
 import type {
+  ProgramActivityRepository,
   ProgramActivitySummaryRepository,
   ProgramRepositoryLink,
-} from './program-activity-summary.repository';
+} from './program-activity.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 
 describe('ProgramActivitySummaryService', () => {

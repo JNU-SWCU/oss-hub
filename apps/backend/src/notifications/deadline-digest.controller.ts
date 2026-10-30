@@ -14,7 +14,7 @@ import { DeadlineDigestService } from './deadline-digest.service';
 import type {
   DeadlineDigestPreview,
   DeadlineDigestSendResult,
-} from './deadline-digest.types';
+} from './notifications.types';
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
 

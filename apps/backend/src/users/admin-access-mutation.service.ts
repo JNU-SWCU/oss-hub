@@ -17,8 +17,8 @@ import {
   toAdminAccessDecisionKind,
   toAdminAccessRequestWrite,
   type AdminAccessRequestWrite,
+  authorityAfterLegacyTransition,
 } from './admin-access-mutation.policy';
-import { authorityAfterLegacyTransition } from './admin-access-authority-write.policy';
 import type {
   AdminAccessActor,
   AdminAccessRepositoryPort,

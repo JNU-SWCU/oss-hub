@@ -17,7 +17,7 @@ import type {
   ProgramDocumentChangeRequestInput,
   ProgramDocumentChangeRequestScope,
   ProgramDocumentChangeRequestPreview,
-} from '../program-document-change-request.policy';
+} from '../milestone-document.policy';
 
 function toScope(
   scope: ProgramDocumentChangeRequestScope['kind'],

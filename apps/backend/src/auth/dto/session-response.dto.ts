@@ -1,5 +1,5 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuthUser } from '../auth-user.types';
+import { AuthUser } from '../http-auth.types';
 
 export class MeResponseDto {
   nickname: string;

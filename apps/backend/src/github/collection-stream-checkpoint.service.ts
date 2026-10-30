@@ -4,8 +4,10 @@ import type {
   CollectionRelease,
   CollectionIssue,
 } from './collection-app.client';
-import type { RegisteredGithubIdSet } from './collection-incremental.types';
-import type { SyncLeaseToken } from './collection-sync.types';
+import type {
+  RegisteredGithubIdSet,
+  SyncLeaseToken,
+} from './collection-incremental.types';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 
 function bigIntOrNull(value: string | null): bigint | null {

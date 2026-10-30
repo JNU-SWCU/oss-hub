@@ -6,7 +6,11 @@ import { requireActiveAdmin } from './admin-access-authorization.policy';
 import {
   createIndependentAuthorityAudit,
   type IndependentAuthorityCommand,
-} from './independent-authority-audit.policy';
+  AUTHORITY_TARGETS,
+  resolveIndependentAuthorityTransition,
+  type AuthorityTarget,
+  type IndependentAuthorityTransition,
+} from './independent-authority.policy';
 import { roleError, staleAccessError } from './admin-access-mutation.policy';
 import {
   ADMIN_ACCESS_COMMANDS,
@@ -21,12 +25,6 @@ import {
   type IndependentAuthorityTransactionStore,
   type IndependentAuthorityUserRecord,
 } from './independent-authority.repository';
-import {
-  AUTHORITY_TARGETS,
-  resolveIndependentAuthorityTransition,
-  type AuthorityTarget,
-  type IndependentAuthorityTransition,
-} from './independent-authority-transition.policy';
 
 @Injectable()
 export class IndependentAuthorityService {

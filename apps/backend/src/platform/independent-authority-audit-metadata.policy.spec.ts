@@ -8,7 +8,7 @@ import {
 import {
   createIndependentAuthorityAudit,
   type IndependentAuthorityCommand,
-} from '../users/independent-authority-audit.policy';
+} from '../users/independent-authority.policy';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
 
 const actorGithubId = 9_700_700_001n;

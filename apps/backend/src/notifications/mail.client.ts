@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
-import type { DeadlineDigestMail, MailSender } from './mail-sender.types';
+import type { DeadlineDigestMail, MailSender } from './notifications.types';
 
 export interface GmailSenderConfig {
   readonly sender: string;

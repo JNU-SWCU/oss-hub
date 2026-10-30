@@ -1,5 +1,8 @@
-import { LoginHistoryEvent, StaffAccessRequestStatus } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import {
+  LoginHistoryEvent,
+  StaffAccessRequestStatus,
+  type Prisma,
+} from '@prisma/client';
 import { authorityLabel } from './authority-label.policy';
 import {
   USER_PROFILE_SELECT,

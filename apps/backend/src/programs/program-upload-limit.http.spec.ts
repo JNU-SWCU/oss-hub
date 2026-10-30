@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
-import { SubmissionChecklistController } from './submission-checklist.controller';
+import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
@@ -12,8 +12,8 @@ import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 
-jest.mock('./submission-upload.policy', () => ({
-  ...jest.requireActual<Record<string, unknown>>('./submission-upload.policy'),
+jest.mock('./submission-file.policy', () => ({
+  ...jest.requireActual<Record<string, unknown>>('./submission-file.policy'),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,
   SUBMISSION_UPLOAD_MAX_LABEL: '2 MB',
 }));
@@ -28,7 +28,7 @@ beforeAll(async () => {
     controllers: [
       ProgramAuthoringController,
       SubmissionFormsController,
-      SubmissionChecklistController,
+      ProgramSubmissionsController,
     ],
     providers: [
       SubmissionsService,
@@ -81,6 +81,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate(context: ExecutionContext): boolean {

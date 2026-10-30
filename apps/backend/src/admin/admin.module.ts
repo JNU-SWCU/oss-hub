@@ -2,11 +2,9 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
-import { AdminAccessController } from './admin-access.controller';
+import { UserAccessController } from './user-access.controller';
 import { AuditLogController } from './audit-log.controller';
 import { CollectionAdminController } from './collection-admin.controller';
-import { IndependentAuthorityController } from './independent-authority.controller';
-import { MemberKindController } from './member-kind.controller';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusRepository } from './system-status.repository';
 import {
@@ -17,9 +15,7 @@ import {
 @Module({
   imports: [AuthModule, GithubModule, UsersModule],
   controllers: [
-    AdminAccessController,
-    IndependentAuthorityController,
-    MemberKindController,
+    UserAccessController,
     AuditLogController,
     SystemStatusController,
     CollectionAdminController,

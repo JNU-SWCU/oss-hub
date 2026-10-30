@@ -1,5 +1,7 @@
-import { presentMilestoneDocumentCollection } from './dto/milestone-document-collection-response.dto';
-import { presentMilestoneDocumentDeliveryCollection } from './dto/milestone-document-collection-response.dto';
+import {
+  presentMilestoneDocumentCollection,
+  presentMilestoneDocumentDeliveryCollection,
+} from './dto/milestone-document-collection-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   createDeadlineDigestIntegrationHarness,
@@ -11,7 +13,7 @@ import { buildMilestoneDocumentDeliveryPage } from './milestone-document-deliver
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -5,24 +5,27 @@ import { AccountStatus } from '@prisma/client';
 import { AuthenticationGuard } from '../src/auth/authentication.guard';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthController } from '../src/auth/auth.controller';
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService, LoginHistoryService } from '../src/auth/auth.service';
 import { sessionCookieName } from '../src/auth/cookies.policy';
-import type { AuthUser } from '../src/auth/auth-user.types';
+import type { AuthUser } from '../src/auth/http-auth.types';
 import { OriginGuard } from '../src/auth/origin.guard';
 import { SessionGuard } from '../src/auth/session.guard';
 import {
   issueSessionToken,
   SESSION_MAX_AGE_SECONDS,
-} from '../src/auth/session-token.policy';
+} from '../src/auth/auth.policy';
 import { ProblemDetailFilter } from '../src/platform/problem-detail.filter';
 import { HealthController } from '../src/platform/health.controller';
 import { HealthService } from '../src/platform/health.service';
-import { LoginHistoryService } from '../src/auth/login-history.service';
 import { ProgramOverviewController } from '../src/programs/program-overview.controller';
 import { ProgramOverviewService } from '../src/programs/program-overview.service';
 import { ProgramsController } from '../src/programs/programs.controller';
 import { ProgramActivityService } from '../src/programs/program-activity.service';
-import { ProgramCreationService } from '../src/programs/program-creation.service';
+import {
+  ProgramCoverService,
+  ProgramCreationService,
+} from '../src/programs/program-creation.service';
+import { ProgramEditorService } from '../src/programs/program-editor.service';
 import { ProgramLifecycleService } from '../src/programs/program-lifecycle.service';
 import { ProgramsService } from '../src/programs/programs.service';
 import { ProgramViewerService } from '../src/programs/program-viewer.service';
@@ -184,6 +187,15 @@ export class AuthRouteStatusHarness {
           },
         },
         { provide: ProgramCreationService, useValue: { create: jest.fn() } },
+        { provide: ProgramCoverService, useValue: { read: jest.fn() } },
+        {
+          provide: ProgramEditorService,
+          useValue: {
+            getProgram: jest.fn(),
+            updateProgram: jest.fn(),
+            createMilestone: jest.fn(),
+          },
+        },
         { provide: ProgramsService, useValue: programsService },
         { provide: ProgramActivityService, useValue: { activity: jest.fn() } },
         {
@@ -208,7 +220,9 @@ export class AuthRouteStatusHarness {
           },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
 
     this.application = moduleRef.createNestApplication();
     this.application.useGlobalGuards(moduleRef.get(AuthenticationGuard));

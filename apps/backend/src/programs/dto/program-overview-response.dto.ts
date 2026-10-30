@@ -4,7 +4,7 @@ import {
   ProgramOverviewMilestoneDocument,
   ProgramOverviewRemainingMilestone,
   ProgramOverviewView,
-} from '../program-overview.types';
+} from '../programs.types';
 
 export class RemainingMilestoneResponseDto {
   readonly label: string;

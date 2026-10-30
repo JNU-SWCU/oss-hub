@@ -1,7 +1,7 @@
-import { ProgramListRecord } from './program-list.types';
+import { ProgramListRecord } from './programs.types';
 import { Injectable } from '@nestjs/common';
-import type { Program } from '@prisma/client';
 import {
+  type Program,
   ApplicationStatus,
   MilestoneDocumentKind,
   Prisma,
@@ -18,11 +18,11 @@ import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from './submission-completion-projection.policy';
-import type { ProgramListQuery } from './program-list-query.policy';
 import {
+  type ProgramListQuery,
   emptyProgramStatusCounts,
   type ProgramStatusCounts,
-} from './program-list-status.policy';
+} from './programs.policy';
 import {
   programListOrderBySql,
   programEndYearRange,

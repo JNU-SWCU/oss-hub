@@ -5,8 +5,8 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
+  type Prisma,
 } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state-helpers.repository';

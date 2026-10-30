@@ -1,8 +1,10 @@
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { addOneCalendarYear } from '../platform/add-one-calendar-year.policy';
-import type { ProblemDetailExtensions } from '../platform/error-code.error';
-import { DomainException } from '../platform/error-code.error';
+import { addOneCalendarYear } from '../platform/platform.policy';
+import {
+  type ProblemDetailExtensions,
+  DomainException,
+} from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -11,7 +13,7 @@ import type {
   UpdateProgramCommand,
   UpsertMilestoneCommand,
   EditMilestoneCommand,
-} from './program-write.types';
+} from './programs.types';
 import { ProgramEditorRepository } from './program-editor.repository';
 import {
   fingerprintProgramMilestoneEdit,
@@ -21,10 +23,10 @@ import {
 import {
   ProgramAuthoringUploadTokenError,
   type ProgramAuthoringUploadToken,
+  validateProgramCoverChoice,
 } from './program-authoring.policy';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import { validateProgramCoverChoice } from './program-external-cover.policy';
-import { isProgramEndAtUndecided } from './program-end-at.policy';
+import { isProgramEndAtUndecided } from './programs.policy';
 import type {
   ProgramAuthority,
   ProgramEditorTransactionStore,

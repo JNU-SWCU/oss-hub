@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   ProgramActivityRepository,
   type ProgramRepositoryActivity,
+  ProgramActivitySummaryRepository,
 } from './program-activity.repository';
-import { ProgramActivitySummaryRepository } from './program-activity-summary.repository';
 
 export interface ProgramActivitySummary {
   readonly programId: string;

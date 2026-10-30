@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
-import type { DeadlineEligibility } from './deadline-digest-eligibility.policy';
+import type {
+  DeadlineEligibility,
+  NotifiableStaffRecipient,
+} from './deadline-digest-eligibility.policy';
 import {
   buildStaffDeadlineMail,
   buildStudentDeadlineMail,
   type BuiltDeadlineMail,
 } from './deadline-digest-mail-template.policy';
-import type { NotifiableStaffRecipient } from './deadline-digest-eligibility.policy';
 
 export interface DeadlineDigestGuidance {
   readonly studentGuidance?: string;

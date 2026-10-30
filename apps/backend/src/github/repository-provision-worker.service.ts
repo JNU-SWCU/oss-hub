@@ -8,7 +8,7 @@ import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
 } from './github-app.client';
-import type { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import type { RepositoryOwnEnrollmentService } from './repositories.service';
 import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import type {
   ProvisionedRepository,

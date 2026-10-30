@@ -216,7 +216,7 @@ edge(
 );
 edge(
   'flat common helper cannot import business domain',
-  'src/platform/activity-counts.policy.ts',
+  'src/platform/platform.policy.ts',
   'src/programs/business.policy.ts',
   false,
 );
@@ -303,13 +303,13 @@ for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
 
 edge(
   'common cannot import domain',
-  'src/platform/multipart-file-name.policy.ts',
+  'src/platform/system-error-code.error.ts',
   'src/alpha/domain/target.ts',
   false,
 );
 edge(
   'common may import common',
-  'src/platform/deterministic-string-order.policy.ts',
+  'src/platform/multipart-file-upload.interceptor.ts',
   'src/platform/error-code.error.ts',
   true,
 );

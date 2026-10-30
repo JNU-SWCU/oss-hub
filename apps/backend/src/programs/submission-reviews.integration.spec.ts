@@ -37,7 +37,7 @@ import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.erro
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

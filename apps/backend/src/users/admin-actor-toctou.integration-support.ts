@@ -17,7 +17,7 @@ import type {
   AdminProfileTargetRecord,
   AdminProfileTransactionStore,
   AdminProfileWriteFields,
-} from './admin-profile-repository.types';
+} from './users.types';
 import type {
   AdminAccessFacets,
   AdminAccessListQuery,

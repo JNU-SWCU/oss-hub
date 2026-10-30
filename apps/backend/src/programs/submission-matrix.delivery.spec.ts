@@ -1,6 +1,6 @@
 import { presentSubmissionMatrix } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
-import type { SubmissionMatrixQuery } from './submission-matrix.types';
+import type { SubmissionMatrixQuery } from './submission.types';
 import { SubmissionMatrixService } from './submission-matrix.service';
 
 const dueAt = new Date('2026-09-10T12:00:00Z');

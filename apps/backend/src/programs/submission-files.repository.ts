@@ -9,11 +9,11 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { addOneCalendarYear } from '../platform/add-one-calendar-year.policy';
+import { addOneCalendarYear } from '../platform/platform.policy';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { submissionParticipantWhere } from './submission-application-record.repository';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
+import { submissionParticipantWhere } from './submission-checklist-record.repository';
+import { lockSubmissionMembership } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
@@ -22,7 +22,7 @@ import {
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
-} from './submission-public-id.policy';
+} from './submission.policy';
 
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;

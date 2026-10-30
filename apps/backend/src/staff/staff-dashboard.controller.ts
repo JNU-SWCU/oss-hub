@@ -13,7 +13,7 @@ import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-
 import { StaffInsightsQueryRequestDto } from './dto/staff-insights-query.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
-import { parseInsightsYearQuery } from './staff-insights-year.policy';
+import { parseInsightsYearQuery } from './staff.policy';
 import { StaffInsightsService } from './staff-insights.service';
 
 @Controller('dashboard/staff')

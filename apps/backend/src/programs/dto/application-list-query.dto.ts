@@ -15,7 +15,7 @@ import {
   type ApplicationListQuery,
   type ApplicationListStatus,
   type ApplicationListView,
-} from '../application-list-query.types';
+} from '../application-records.types';
 
 export class ApplicationListQueryRequestDto {
   @Type(() => Number)

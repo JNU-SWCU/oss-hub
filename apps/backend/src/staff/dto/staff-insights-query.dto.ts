@@ -1,8 +1,5 @@
 import { IsOptional, Matches } from 'class-validator';
-import {
-  INSIGHTS_YEAR_MAX,
-  INSIGHTS_YEAR_MIN,
-} from '../staff-insights-year.policy';
+import { INSIGHTS_YEAR_MAX, INSIGHTS_YEAR_MIN } from '../staff.policy';
 
 const INSIGHTS_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
 

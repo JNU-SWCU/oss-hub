@@ -12,7 +12,7 @@ import type {
   AdminProfileUpdateCommand,
   AdminProfileUpdateResult,
 } from './admin-profile.types';
-import type { AdminProfileRepositoryPort } from './admin-profile-repository.types';
+import type { AdminProfileRepositoryPort } from './users.types';
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;

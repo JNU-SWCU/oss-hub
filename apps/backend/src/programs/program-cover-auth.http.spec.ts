@@ -7,11 +7,11 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramCoverController } from './program-cover.controller';
+import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramCoverService } from './program-cover.service';
+import { ProgramCoverService } from './program-creation.service';
 
 let application: INestApplication;
 let baseUrl = '';
@@ -27,7 +27,7 @@ const uploadCover = jest.fn();
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramAuthoringController, ProgramCoverController],
+    controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
       { provide: APP_GUARD, useClass: AuthenticationGuard },
       { provide: AuthConfig, useValue: { useSecureCookies: false } },
@@ -37,7 +37,9 @@ beforeAll(async () => {
       { provide: ProgramAuthoringUploadService, useValue: { uploadCover } },
       { provide: ProgramCoverService, useValue: { read } },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
   application = moduleRef.createNestApplication();
   application.setGlobalPrefix('api/v1');
   application.useGlobalFilters(new ProblemDetailFilter());

@@ -14,10 +14,10 @@ import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
-} from './admin-actor-locks.repository';
+  insertRevokedStaffAccessRequest,
+} from './admin-access.repository';
 import type { AdminAccessActor } from './admin-access-repository.types';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write.repository';
 
 type MemberKindTargetProfile = {
   readonly name: string;

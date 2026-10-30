@@ -3,7 +3,7 @@ import type {
   ProgramListQueryDirection,
   ProgramListQuerySort,
   ProgramListQueryStatus,
-} from './program-list-query.policy';
+} from './programs.policy';
 
 export type ProgramListDerivedStatus = Exclude<
   ProgramListQueryStatus,

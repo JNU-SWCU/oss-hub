@@ -4,13 +4,13 @@ import type {
   PublicProjectDetailResult,
   PublicProjectMetrics,
   PublicProjectPageResult,
-} from '../public-project-result.types';
+} from '../programs.types';
 import {
   applicationMode,
   displayNameOf,
   type PublicProjectApplicationMode,
   type PublicProjectRow,
-} from '../public-project-record.policy';
+} from '../public-projects.policy';
 
 class PublicProjectListItemResponseDto {
   readonly projectId: string;

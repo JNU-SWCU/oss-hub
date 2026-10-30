@@ -13,7 +13,7 @@ import {
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

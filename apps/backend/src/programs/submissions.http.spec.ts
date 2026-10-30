@@ -1,5 +1,8 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import {
+  ValidationPipe,
+  type ExecutionContext,
+  type INestApplication,
+} from '@nestjs/common';
 import {
   GUARDS_METADATA,
   INTERCEPTORS_METADATA,
@@ -11,7 +14,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
-import { SubmissionChecklistController } from './submission-checklist.controller';
+import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFilesController } from './submission-files.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionFilesService } from './submission-files.service';
@@ -88,7 +91,7 @@ beforeEach(() => {
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [
-      SubmissionChecklistController,
+      ProgramSubmissionsController,
       SubmissionFilesController,
       SubmissionFormsController,
       SubmissionsController,
@@ -104,6 +107,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate: (context: ExecutionContext): boolean => {
@@ -401,7 +405,7 @@ function readGuards(
 
 it('체크리스트는 세션 가드를, 재제출은 세션+Origin 가드를 요구한다', () => {
   expect(
-    readGuards(SubmissionChecklistController.prototype, 'checklist'),
+    readGuards(ProgramSubmissionsController.prototype, 'checklist'),
   ).toEqual([SessionGuard]);
   expect(readGuards(SubmissionFilesController.prototype, 'download')).toEqual([
     SessionGuard,

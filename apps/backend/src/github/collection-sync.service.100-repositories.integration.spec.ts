@@ -20,7 +20,7 @@ import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
+import { ProviderRequestQueue } from './collection-discovery.client';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

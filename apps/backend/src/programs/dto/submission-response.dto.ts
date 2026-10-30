@@ -8,7 +8,7 @@ import type {
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../submission-upload.policy';
+} from '../submission-file.policy';
 
 import type {
   MilestoneSubmissionType,

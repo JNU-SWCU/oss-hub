@@ -5,8 +5,8 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositorySource,
+  type RepositoryVisibility,
 } from '@prisma/client';
-import type { RepositoryVisibility } from '@prisma/client';
 import {
   createRepositoryConnectionAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,

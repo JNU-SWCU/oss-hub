@@ -8,7 +8,7 @@ import type {
   AdminProfileTargetRecord,
   AdminProfileTransactionStore,
   AdminProfileWriteFields,
-} from './admin-profile-repository.types';
+} from './users.types';
 
 export function profileTarget(
   overrides: Partial<AdminProfileTargetRecord> = {},

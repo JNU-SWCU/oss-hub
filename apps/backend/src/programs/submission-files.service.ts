@@ -2,17 +2,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import { normalizeMultipartFileName } from '../platform/multipart-file-name.policy';
-import { hasProgramDeadlinePassed } from './program-deadline.policy';
+import { normalizeMultipartFileName } from '../platform/platform.policy';
+import { hasProgramDeadlinePassed } from './programs.policy';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
-} from './submission-file-object-key.policy';
-import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
-} from './submission-file-content-type.policy';
-import { hasValidSubmissionFileSignature } from './submission-file-signature.policy';
+  hasValidSubmissionFileSignature,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-file.policy';
 import {
   OBJECT_STORAGE,
   OBJECT_STORAGE_ERROR_CODES,
@@ -39,8 +38,7 @@ import type {
   DownloadedSubmissionFile,
   SubmissionFileUpload,
   UploadedSubmissionFileResponse,
-} from './submission-files.types';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
+} from './submission.types';
 
 export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;

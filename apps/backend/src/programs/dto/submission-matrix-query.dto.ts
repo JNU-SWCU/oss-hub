@@ -4,7 +4,7 @@ import {
   MATRIX_APPLICATION_MODES,
   type MatrixApplicationMode,
   type SubmissionMatrixQuery,
-} from '../submission-matrix.types';
+} from '../submission.types';
 
 const MATRIX_DEFAULT_PAGE_SIZE = 20;
 const MATRIX_MAX_PAGE_SIZE = 100;

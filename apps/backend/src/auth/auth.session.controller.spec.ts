@@ -3,18 +3,14 @@ import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthService, LoginHistoryService } from './auth.service';
 import { serializeCookie, sessionCookieName } from './cookies.policy';
-import { AuthUser } from './auth-user.types';
 import {
+  AuthUser,
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from './http-auth.types';
-import {
-  SESSION_MAX_AGE_SECONDS,
-  issueSessionToken,
-} from './session-token.policy';
-import { LoginHistoryService } from './login-history.service';
+import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './auth.policy';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',

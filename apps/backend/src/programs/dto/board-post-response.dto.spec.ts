@@ -1,6 +1,8 @@
 import { BoardPostCategory } from '@prisma/client';
-import { BoardPostDetailResponseDto } from './board-post-response.dto';
-import { BoardPostResponseDto } from './board-post-response.dto';
+import {
+  BoardPostDetailResponseDto,
+  BoardPostResponseDto,
+} from './board-post-response.dto';
 
 const createdAt = new Date('2026-07-01T00:00:00.000Z');
 const post = {

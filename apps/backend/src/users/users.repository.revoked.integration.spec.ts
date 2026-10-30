@@ -6,8 +6,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
-import { UsersRepository } from './users.repository';
-import type { UsersRepositoryPort } from './users.repository';
+import { UsersRepository, type UsersRepositoryPort } from './users.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

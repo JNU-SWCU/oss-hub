@@ -1,15 +1,15 @@
-import { addOneCalendarYear } from '../platform/add-one-calendar-year.policy';
+import { addOneCalendarYear } from '../platform/platform.policy';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { buildMilestoneDocumentCollectionPage } from './milestone-document-collection-page.policy';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 import {
   type MilestoneDocumentContentInput,
   readMilestoneDocumentSubmittedContent,
-} from './milestone-document-content.policy';
+} from './milestone-document.policy';
 import {
   isPostDeadlineResubmissionOpen,
   milestoneDocumentSubmissionBlock,
@@ -18,6 +18,9 @@ import type {
   MilestoneDocumentViewerResult,
   MilestoneDocumentCollectionResult,
   MilestoneDocumentHistoryResult,
+  MilestoneDocumentRecord,
+  MilestoneDocumentSubmissionDetail,
+  UpsertMilestoneDocumentInput,
 } from './milestone-document-result.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -37,11 +40,6 @@ import {
   milestoneDocumentSubmissionContent,
   type UpsertMilestoneDocumentSubmissionInput,
 } from './milestone-document-submission.repository';
-import type {
-  MilestoneDocumentRecord,
-  MilestoneDocumentSubmissionDetail,
-  UpsertMilestoneDocumentInput,
-} from './milestone-document-record.types';
 
 @Injectable()
 export class MilestoneDocumentsService {

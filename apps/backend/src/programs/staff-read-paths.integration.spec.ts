@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import type { ApplicationListQuery } from './application-list-query.types';
+import type { ApplicationListQuery } from './application-records.types';
 import { ApplicationsRepository } from './applications.repository';
 
 assertIsolatedIntegrationDatabase({

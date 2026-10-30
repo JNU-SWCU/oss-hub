@@ -1,5 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
@@ -86,6 +85,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({ canActivate: () => true })
     .overrideGuard(OriginGuard)

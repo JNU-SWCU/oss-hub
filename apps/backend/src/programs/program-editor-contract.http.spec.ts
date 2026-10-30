@@ -1,11 +1,14 @@
-import { ExecutionContext, ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ValidationPipe,
+  type INestApplication,
+} from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ProgramEditorController } from './program-editor.controller';
+import { ProgramsController } from './programs.controller';
 import { MilestonesController } from './milestones.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
@@ -88,12 +91,13 @@ async function patchLifecycle(body: object): Promise<Response> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramEditorController, MilestonesController],
+    controllers: [ProgramsController, MilestonesController],
     providers: [
       ProgramEditorService,
       { provide: ProgramEditorRepository, useValue: repository },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({ canActivate: sessionGuard })
     .overrideGuard(OriginGuard)

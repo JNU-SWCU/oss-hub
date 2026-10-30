@@ -1,5 +1,5 @@
 import { ApplicationStatus } from '@prisma/client';
-import { isJsonObject } from './audit-metadata-validation.policy';
+import { isJsonObject } from './platform.policy';
 
 export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
 export const APPLICATION_DECISION_AUDIT_SCHEMA_VERSION = 2 as const;

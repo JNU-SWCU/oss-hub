@@ -6,7 +6,7 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorage } from '../platform/object-storage.client';

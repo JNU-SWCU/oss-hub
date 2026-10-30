@@ -1,5 +1,5 @@
 import type { ReviewDecision } from '@prisma/client';
-import type { CreatedMilestoneDocumentReview } from '../milestone-document-record.types';
+import type { CreatedMilestoneDocumentReview } from '../milestone-document-result.types';
 
 export class MilestoneDocumentReviewResponseDto {
   id: string;

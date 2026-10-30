@@ -16,10 +16,12 @@ import {
 import {
   validateProgramAuthoringUpload,
   type ValidatedProgramAuthoringUpload,
-} from './program-authoring-upload-validation.policy';
-import { validateProgramCoverUpload } from './program-cover.policy';
-import { createProgramAuthoringObjectKey } from './program-authoring-object-key.policy';
-import { createProgramCoverObjectKey } from './program-cover-object-key.policy';
+  createProgramAuthoringObjectKey,
+} from './program-authoring.policy';
+import {
+  validateProgramCoverUpload,
+  createProgramCoverObjectKey,
+} from './program-cover.policy';
 
 const PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 

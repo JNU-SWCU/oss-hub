@@ -1,4 +1,4 @@
-import { isJsonObject } from './audit-metadata-validation.policy';
+import { isJsonObject } from './platform.policy';
 
 export const APPLICATION_REPOSITORY_URL_CHANGED =
   'APPLICATION_REPOSITORY_URL_CHANGED';
