@@ -15,6 +15,7 @@ import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { SkipLink } from './_shell/skip-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
+import { QueryProvider } from './_shell/query-provider';
 
 const pretendard = localFont({
   src: '../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2',
@@ -49,21 +50,23 @@ export default async function RootLayout({
       <body className="relative">
         <SkipLink />
 
-        <NavigationNoticeProvider>
-          <AppFrame
-            brand={<Link href="/">OSS Hub</Link>}
-            items={PUBLIC_MENU}
-            actions={
-              <>
-                <SessionEntryNavLink />
-                <AccountSlot />
-              </>
-            }
-            initialSidebarCollapsed={initialSidebarCollapsed}
-          >
-            {children}
-          </AppFrame>
-        </NavigationNoticeProvider>
+        <QueryProvider>
+          <NavigationNoticeProvider>
+            <AppFrame
+              brand={<Link href="/">OSS Hub</Link>}
+              items={PUBLIC_MENU}
+              actions={
+                <>
+                  <SessionEntryNavLink />
+                  <AccountSlot />
+                </>
+              }
+              initialSidebarCollapsed={initialSidebarCollapsed}
+            >
+              {children}
+            </AppFrame>
+          </NavigationNoticeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
