@@ -32,11 +32,11 @@ export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
 }
 
 export async function getProgramEndedYears(
-  signal?: AbortSignal,
+  signal: AbortSignal,
 ): Promise<readonly number[]> {
   const { years } = await apiClient<{ readonly years: readonly number[] }>(
     'programs/ended-years',
-    signal ? { signal } : undefined,
+    { signal },
   );
   return years;
 }

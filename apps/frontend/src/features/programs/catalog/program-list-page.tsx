@@ -54,7 +54,6 @@ type LoadState =
   | {
       readonly kind: 'ready';
       readonly programPage: ProgramListPageData;
-      readonly years: readonly number[];
     }
   | { readonly kind: 'error'; readonly message: string };
 
@@ -96,6 +95,23 @@ function ProgramListPage({
       : undefined;
 
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const [years, setYears] = useState<readonly number[]>([]);
+  const ended = status === 'ended';
+  useEffect(() => {
+    if (!ended) return;
+    const controller = new AbortController();
+    getProgramEndedYears(controller.signal).then(
+      (nextYears) => {
+        if (!controller.signal.aborted) setYears(nextYears);
+      },
+      () => {
+        if (!controller.signal.aborted) setYears([]);
+      },
+    );
+    return () => controller.abort();
+  }, [ended]);
+  const yearOptions =
+    year !== undefined && !years.includes(year) ? [year, ...years] : years;
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const latestRequestId = useRef(0);
@@ -109,20 +125,17 @@ function ProgramListPage({
     latestRequestId.current = requestId;
     setLoadState({ kind: 'loading' });
     try {
-      const [programPage, years] = await Promise.all([
-        listPrograms({
-          page,
-          pageSize: PAGE_SIZE,
-          search,
-          status: status === 'all' ? 'current' : status,
-          sort,
-          direction,
-          year,
-        }),
-        status === 'ended' ? getProgramEndedYears() : Promise.resolve([]),
-      ]);
+      const programPage = await listPrograms({
+        page,
+        pageSize: PAGE_SIZE,
+        search,
+        status: status === 'all' ? 'current' : status,
+        sort,
+        direction,
+        year,
+      });
       if (requestId !== latestRequestId.current) return;
-      setLoadState({ kind: 'ready', programPage, years });
+      setLoadState({ kind: 'ready', programPage });
     } catch (error: unknown) {
       if (requestId !== latestRequestId.current) return;
       setLoadState({
@@ -273,7 +286,7 @@ function ProgramListPage({
         onChange={goStatus}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        {status === 'ended' ? (
+        {ended && yearOptions.length > 0 ? (
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">종료 연도</span>
             <Select
@@ -291,15 +304,11 @@ function ProgramListPage({
               }
             >
               <option value="">전체 연도</option>
-              {loadState.kind === 'ready' ? (
-                loadState.years.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))
-              ) : year !== undefined ? (
-                <option value={year}>{year}</option>
-              ) : null}
+              {yearOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </Select>
           </label>
         ) : null}

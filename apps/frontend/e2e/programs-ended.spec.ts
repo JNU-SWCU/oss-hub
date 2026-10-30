@@ -260,6 +260,20 @@ test('교직원도 같은 종료 프로그램 탭을 본다', async ({ page }) =
   await expect(page.locator('a[href="/programs/new"]')).toHaveCount(1);
 });
 
+test('종료 연도 API가 404여도 카드는 표시하고 연도 선택은 숨긴다', async ({
+  page,
+}) => {
+  await mockPrograms(page);
+  await page.route('**/api/v1/programs/ended-years', (route) =>
+    route.fulfill({ status: 404, json: { message: 'Not Found' } }),
+  );
+  await page.goto('/programs?status=ended');
+  await expect(page.locator('[data-slot="program-card"]')).toHaveCount(2);
+  await expect(page.getByRole('combobox', { name: '종료 연도' })).toHaveCount(
+    0,
+  );
+});
+
 test('공개 프로젝트 상세 URL에서 프로젝트를 조회한다', async ({
   page,
 }, testInfo) => {

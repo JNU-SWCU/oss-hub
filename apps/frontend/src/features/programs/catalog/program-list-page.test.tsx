@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProgramEndedYears, listPrograms } from './api';
 import { ProgramListPage } from './program-list-page';
+import { ApiError, apiPath } from '@/lib/api-client';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -116,6 +117,87 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
         year: undefined,
       }),
     );
+  });
+
+  it('연도 조회가 404여도 카드는 표시하고 연도 선택은 숨긴다', async () => {
+    vi.mocked(getProgramEndedYears).mockRejectedValueOnce(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not Found',
+        status: 404,
+        detail: 'Not Found',
+        instance: apiPath('programs/ended-years'),
+        code: 'NOT_FOUND',
+      }),
+    );
+    await renderEndedPrograms();
+    expect(
+      container.querySelector('[data-slot="program-card"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('select[aria-label="종료 연도"]'),
+    ).toBeNull();
+  });
+
+  it.each(['search', 'page', 'sort'])(
+    '%s 변경에는 연도를 재조회하지 않고 종료 탭 재진입 때만 조회한다',
+    async (change) => {
+      listProgramsMock.mockResolvedValue({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        totalItems: 21,
+        totalPages: 2,
+      });
+      await renderEndedPrograms();
+      await act(async () => {
+        if (change === 'search') {
+          const input = container.querySelector('input');
+          if (!input) throw new Error('검색 입력이 없습니다');
+          Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype,
+            'value',
+          )?.set?.call(input, 'query');
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (change === 'page') {
+          const next = Array.from(container.querySelectorAll('button')).find(
+            (button) => button.textContent === '다음',
+          );
+          if (!next) throw new Error('다음 페이지 버튼이 없습니다');
+          next.click();
+        } else {
+          currentSearch = 'status=ended&sort=name';
+          root.render(
+            <ProgramListPage canCreateProgram={false} viewerRole={null} />,
+          );
+        }
+      });
+      expect(listProgramsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining(
+          change === 'search'
+            ? { search: 'query' }
+            : change === 'page'
+              ? { page: 2 }
+              : { sort: 'name' },
+        ),
+      );
+      expect(getProgramEndedYears).toHaveBeenCalledTimes(1);
+      currentSearch = '';
+      await renderEndedPrograms();
+      currentSearch = 'status=ended';
+      await renderEndedPrograms();
+      expect(getProgramEndedYears).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('조회된 연도에 없어도 유효한 URL 연도를 선택된 값으로 표시한다', async () => {
+    currentSearch = 'status=ended&year=2030';
+    await renderEndedPrograms();
+    expect(
+      container.querySelector<HTMLSelectElement>(
+        'select[aria-label="종료 연도"]',
+      )?.value,
+    ).toBe('2030');
   });
 
   it('연도 변경은 URL로 이동한다', async () => {
