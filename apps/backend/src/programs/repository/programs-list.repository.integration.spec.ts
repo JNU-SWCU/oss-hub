@@ -219,12 +219,12 @@ describe('ProgramsRepository list ordering integration', () => {
 
   it('sort=name — 전체 데이터셋을 이름 오름차순으로, 페이지 경계에서도 중복·누락 없이 정렬한다', async () => {
     const count = 25;
-    const shuffledIndexes = Array.from(
+    const reversedIndexes = Array.from(
       { length: count },
       (_, index) => index,
     ).reverse();
     await prisma.program.createMany({
-      data: shuffledIndexes.map((nameIndex, insertOrder) => ({
+      data: reversedIndexes.map((nameIndex, insertOrder) => ({
         id: `${TEST_PREFIX}name-${insertOrder.toString().padStart(2, '0')}`,
         name: `Sort by name ${nameIndex.toString().padStart(2, '0')}`,
         organizer: 'OSS Hub',

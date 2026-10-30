@@ -81,7 +81,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   `submission-approved`, `submission-changes-requested`, `submission-rejected`.
 - `repositories` (5) — `seeds/repositories.ts`: `repo-job-pending`, `repo-job-succeeded`,
   `repo-job-failed-retryable`, `repository-ready`, `repository-public`.
-  `repository-public`은 `visibility: PUBLIC`이지만 `publishedAt: null`이라 공개 아카이브
+  `repository-public`은 `visibility: PUBLIC`이지만 `publishedAt: null`이라 공개 프로젝트 목록
   (`GET /api/v1/projects`)의 `publishedAt: { not: null }` 필터에 걸려 노출되지 않는다 — 합성
   fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
 - `program-overview` — `seeds/program-overview.ts`: 마일스톤별 서류 항목(`MilestoneDocument`/
@@ -137,7 +137,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     마이그레이션 SQL에만 있어 정적으로는 드러나지 않는다. 그래서 같은 네 명의 ADMIN 계정을
     팀원으로 하는 새 Program(`오픈소스 실습 배포 퀘스트`)·Team(`oss-hub-practice`)을 만들고
     그 아래 Application·GithubRepository·RepositoryProvisionJob을 매단다. `githubRepositoryId`는
-    GitHub API로 확인한 실제 numeric id(`1296567792`, public 정보)를 그대로 쓴다. 아카이브
+    GitHub API로 확인한 실제 numeric id(`1296567792`, public 정보)를 그대로 쓴다. 공개 프로젝트
     상세 화면의 지표·기여자는 별도 시드 데이터 없이 `githubRepositoryId` 기준 collection
     파이프라인 조인으로 자동 채워진다(`program-activity.service.ts`/
     `public-projects.repository.ts`의 `canonicalByRepository` 패턴 — Program 정체성과

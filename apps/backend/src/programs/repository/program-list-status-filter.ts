@@ -113,7 +113,7 @@ export function programListSqlStatusPredicate(
     return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')`;
   }
   if (status === 'current') {
-    return Prisma.sql`(${programListStatusCaseSql(now)}) != 'ended'`;
+    return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
   }
   return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
 }

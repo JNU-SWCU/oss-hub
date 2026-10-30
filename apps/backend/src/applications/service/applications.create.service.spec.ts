@@ -344,7 +344,7 @@ describe('ApplicationsService.create', () => {
     );
   });
 
-  it('실명이 있어도 팀 이름에는 쓰지 않는다 — 공개 아카이브 표시명으로 흘러간다', async () => {
+  it('실명이 있어도 팀 이름에는 쓰지 않는다 — 공개 프로젝트 표시명으로 흘러간다', async () => {
     const { service, createApplication, createTeamWithLeader } = buildService({
       student: { ...STUDENT, name: null },
     });
