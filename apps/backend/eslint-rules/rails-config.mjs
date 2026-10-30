@@ -19,8 +19,8 @@ const layers = [
   'dto',
   'domain',
 ];
-const modulePatterns = ['src/(programs/archive/*)', 'src/(*)'];
-const moduleGlobs = ['src/programs/archive/*', 'src/*'];
+const modulePatterns = ['src/(programs/public/*)', 'src/(*)'];
+const moduleGlobs = ['src/programs/public/*', 'src/*'];
 const testFiles = [
   'test/**/*.ts',
   'src/**/*.spec.ts',

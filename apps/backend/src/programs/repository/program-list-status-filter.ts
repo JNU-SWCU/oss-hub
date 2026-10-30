@@ -5,7 +5,10 @@ import type {
   ProgramListQueryStatus,
 } from '../domain/program-list-query';
 
-export type ProgramListDerivedStatus = Exclude<ProgramListQueryStatus, 'all'>;
+export type ProgramListDerivedStatus = Exclude<
+  ProgramListQueryStatus,
+  'all' | 'current'
+>;
 
 export type ProgramListStatusInput = {
   readonly lifecycle: ProgramLifecycle;
@@ -49,6 +52,10 @@ export function programListPrismaWhere(
   now: Date,
 ): Prisma.ProgramWhereInput {
   const whereByStatus = {
+    current: {
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      ...notDateEnded(now),
+    },
     all: {
       lifecycle: {
         in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
@@ -105,7 +112,17 @@ export function programListSqlStatusPredicate(
   if (status === 'all') {
     return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')`;
   }
+  if (status === 'current') {
+    return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
+  }
   return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
+}
+
+export function programEndYearRange(year: number) {
+  return {
+    gte: new Date(Date.UTC(year, 0, 1, -9)),
+    lt: new Date(Date.UTC(year + 1, 0, 1, -9)),
+  };
 }
 
 export function programListSortRankSql(now: Date): Prisma.Sql {
@@ -177,8 +194,13 @@ export function programListSqlWhere(
   status: ProgramListQueryStatus,
   search: string,
   now: Date,
+  year?: number,
 ): Prisma.Sql {
   const conditions: Prisma.Sql[] = [programListSqlStatusPredicate(status, now)];
+  if (year !== undefined) {
+    const { gte, lt } = programEndYearRange(year);
+    conditions.push(Prisma.sql`p."endAt" >= ${gte} AND p."endAt" < ${lt}`);
+  }
   if (search) {
     conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
   }
