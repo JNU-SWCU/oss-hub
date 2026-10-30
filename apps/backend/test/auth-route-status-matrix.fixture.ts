@@ -54,11 +54,6 @@ export const AUTH_ROUTE_STATUS_CASES = {
   },
   '/api/v1/health': { anonymous: 200, authenticated: 200, expired: 200 },
   '/api/v1/programs': { anonymous: 200, authenticated: 200, expired: 200 },
-  '/api/v1/programs?status=current&year=2027': {
-    anonymous: 200,
-    authenticated: 200,
-    expired: 200,
-  },
   '/api/v1/programs/ended-years': {
     anonymous: 200,
     authenticated: 200,

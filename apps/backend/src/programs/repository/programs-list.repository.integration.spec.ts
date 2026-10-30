@@ -1,6 +1,7 @@
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ProgramsService } from '../service/programs.service';
 import { ProgramsRepository } from './programs.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -13,6 +14,7 @@ const TEST_PREFIX = 'program-list-order:';
 const NOW = new Date('2026-08-01T00:00:00.000Z');
 const prisma = new PrismaService();
 const repository = new ProgramsRepository(prisma);
+const service = new ProgramsService(repository);
 
 async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({
@@ -574,7 +576,7 @@ describe('ProgramsRepository list ordering integration', () => {
   });
 
   it('returns no ended years when the public catalog is empty', async () => {
-    await expect(repository.findEndedYears(NOW)).resolves.toEqual([]);
+    await expect(service.endedYears(NOW)).resolves.toEqual([]);
   });
 
   describe('ended program years and current status', () => {
@@ -682,7 +684,7 @@ describe('ProgramsRepository list ordering integration', () => {
     );
 
     it('returns distinct descending Seoul years including archived programs only from the ended catalog', async () => {
-      await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
+      await expect(service.endedYears(endedNow)).resolves.toEqual([
         2029, 2027, 2026,
       ]);
     });
@@ -693,9 +695,7 @@ describe('ProgramsRepository list ordering integration', () => {
         data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
       });
 
-      await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
-        2027, 2026,
-      ]);
+      await expect(service.endedYears(endedNow)).resolves.toEqual([2027, 2026]);
     });
 
     it('keeps recruiting, upcoming, in-progress and the exact end boundary in current', async () => {

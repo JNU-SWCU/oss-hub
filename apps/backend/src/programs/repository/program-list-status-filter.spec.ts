@@ -2,46 +2,11 @@ import {
   programListOrderBySql,
   programListSortRankSql,
   programListStatusSortRank,
-  programListPrismaWhere,
-  programListSqlWhere,
 } from './program-list-status-filter';
 
 function normalize(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim();
 }
-
-describe('programListSqlWhere ended filters', () => {
-  const now = new Date('2028-01-01T00:00:00.000Z');
-
-  it('composes Seoul end year with status and search as bound parameters', () => {
-    const where = programListSqlWhere('ended', 'Program', now, 2027);
-
-    expect(normalize(where.sql)).toContain('p."endAt" >= ? AND p."endAt" < ?');
-    expect(where.values).toEqual([
-      now,
-      now,
-      now,
-      'ended',
-      new Date('2026-12-31T15:00:00.000Z'),
-      new Date('2027-12-31T15:00:00.000Z'),
-      '%Program%',
-    ]);
-  });
-
-  it('excludes lifecycle and date ended programs from current', () => {
-    const where = programListSqlWhere('current', '', now);
-
-    expect(normalize(where.sql)).toContain(
-      `WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'`,
-    );
-    expect(normalize(where.sql)).toContain(`WHEN p."endAt" < ? THEN 'ended'`);
-    expect(normalize(where.sql)).toContain(`!= 'ended'`);
-    expect(programListPrismaWhere('current', now)).toEqual({
-      lifecycle: 'PUBLISHED',
-      endAt: { gte: now },
-    });
-  });
-});
 
 describe('programListStatusSortRank', () => {
   it('orders 모집중 → 진행중 → 예정 → 종료 (?sort=status 전용 순서)', () => {
