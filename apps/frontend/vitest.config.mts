@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
 const happyDomTests = [
@@ -48,6 +49,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'server-only': createRequire(import.meta.url).resolve(
+        'next/dist/compiled/server-only/empty',
+      ),
     },
   },
   esbuild: {

@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FOCUS_ROOT_MARGIN } from './components/landing-focus';
-import { LANDING_GRAPH_EXAMPLE } from './landing-graph';
+import * as cosmos from './cosmos';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -11,14 +11,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
-}));
-
-vi.mock('./components/use-landing-graph', () => ({
-  useLandingGraph: () => ({
-    graph: LANDING_GRAPH_EXAMPLE,
-    completeness: 'complete',
-    programs: [],
-  }),
 }));
 
 import { LandingJourney } from './components/landing-journey';
@@ -55,6 +47,8 @@ describe('LandingJourney chapter focus', () => {
     act(() =>
       root.render(
         <LandingJourney
+          starPrograms={[]}
+          stats={{ items: [], note: null }}
           primaryAction={<a href="/login">GitHub으로 로그인</a>}
         />,
       ),
@@ -64,6 +58,7 @@ describe('LandingJourney chapter focus', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -132,5 +127,46 @@ describe('LandingJourney chapter focus', () => {
     act(() => root.render(<p>본문</p>));
 
     expect(instance.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates the canvas without an entrance when visibility arrives late', () => {
+    vi.spyOn(performance, 'now').mockReturnValue(1300);
+    const createRenderer = vi
+      .spyOn(cosmos, 'createCosmosRenderer')
+      .mockReturnValue({
+        render: vi.fn(),
+        pick: () => null,
+        dispose: vi.fn(),
+      });
+    const visibility = FakeIntersectionObserver.instances.find(
+      (observer) => observer.options === undefined,
+    );
+    const sky = container.querySelector('[aria-hidden="true"][data-focus]');
+    if (!visibility || !sky)
+      throw new Error('Sky visibility observer is required');
+    expect(createRenderer).not.toHaveBeenCalled();
+
+    act(() => {
+      visibility.callback(
+        [
+          {
+            target: sky,
+            isIntersecting: true,
+            intersectionRatio: 1,
+            boundingClientRect: new DOMRect(),
+            intersectionRect: new DOMRect(),
+            rootBounds: null,
+            time: 1300,
+          },
+        ],
+        new IntersectionObserver(() => undefined),
+      );
+      const callback = vi.mocked(requestAnimationFrame).mock.calls.at(-1)?.[0];
+      callback?.(1300);
+    });
+
+    expect(createRenderer).toHaveBeenCalledWith(
+      expect.objectContaining({ entranceMs: 0 }),
+    );
   });
 });

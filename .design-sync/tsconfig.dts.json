@@ -18,5 +18,9 @@
     "../apps/frontend/src/components/**/*.tsx",
     "../apps/frontend/src/lib/**/*.ts"
   ],
-  "exclude": ["../apps/frontend/**/*.test.ts", "../apps/frontend/**/*.test.tsx"]
+  "exclude": [
+    "../apps/frontend/**/*.test.ts",
+    "../apps/frontend/**/*.test.tsx",
+    "../apps/frontend/src/lib/server-api-client.ts"
+  ]
 }

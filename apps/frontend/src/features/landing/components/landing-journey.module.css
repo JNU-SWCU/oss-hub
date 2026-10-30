@@ -125,6 +125,13 @@
   --legend-program: var(--cosmos-day-program);
 }
 
+.skyStage {
+  position: relative;
+  container-type: size;
+  width: 100%;
+  height: 100%;
+}
+
 .sky {
   position: relative;
   display: block;
@@ -132,6 +139,16 @@
   height: 100%;
   touch-action: pan-y;
   cursor: grab;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.skyColumn[data-canvas-ready='true'] .sky {
+  opacity: 1;
+}
+
+.skyColumn[data-canvas-ready='true'] [data-cosmos-poster] {
+  opacity: 0;
 }
 
 .copy {

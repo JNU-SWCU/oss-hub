@@ -1,59 +1,6 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { NextConfig } from 'next';
-
-function approvedBackendOriginDigests(): Set<string> {
-  const source = readFileSync(
-    join(__dirname, 'backend-origin.allowlist'),
-    'utf8',
-  );
-  const digests = source
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '' && !line.startsWith('#'));
-  if (
-    digests.length === 0 ||
-    digests.some((digest) => !/^[0-9a-f]{64}$/.test(digest))
-  ) {
-    throw new Error('backend-origin.allowlist가 손상됐습니다.');
-  }
-  return new Set(digests);
-}
-
-function requireProductionBackendOrigin(): string {
-  const raw = process.env.BACKEND_ORIGIN?.trim();
-  if (!raw) {
-    throw new Error('production build에는 BACKEND_ORIGIN이 필요합니다.');
-  }
-
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
-  }
-
-  const authority = raw.slice(raw.indexOf('://') + 3).split('/', 1)[0] ?? '';
-  if (
-    url.protocol !== 'https:' ||
-    url.username !== '' ||
-    url.password !== '' ||
-    authority.includes('@') ||
-    raw.includes('?') ||
-    raw.includes('#') ||
-    url.pathname !== '/'
-  ) {
-    throw new Error('BACKEND_ORIGIN은 HTTPS origin이어야 합니다.');
-  }
-
-  const digest = createHash('sha256').update(url.origin).digest('hex');
-  if (!approvedBackendOriginDigests().has(digest)) {
-    throw new Error('BACKEND_ORIGIN이 승인된 rewrite 대상이 아닙니다.');
-  }
-
-  return url.origin;
-}
+import { join } from 'node:path';
+import { backendOrigin } from './backend-origin';
 
 function requireProductionVercelOriginBasicAuth(): void {
   if (process.env.VERCEL_ENV !== 'production') {
@@ -83,6 +30,7 @@ function requireProductionVercelOriginBasicAuth(): void {
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  outputFileTracingIncludes: { '/': ['./backend-origin.allowlist'] },
   poweredByHeader: false,
 
   eslint: { ignoreDuringBuilds: true },
@@ -91,18 +39,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     requireProductionVercelOriginBasicAuth();
 
-    const backendOrigin =
-      process.env.NODE_ENV === 'development'
-        ? (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
-            /\/$/,
-            '',
-          )
-        : requireProductionBackendOrigin();
-
     return await Promise.resolve([
       {
         source: '/api/v1/:path*',
-        destination: `${backendOrigin}/api/v1/:path*`,
+        destination: `${backendOrigin(join(__dirname, 'backend-origin.allowlist'))}/api/v1/:path*`,
       },
     ]);
   },

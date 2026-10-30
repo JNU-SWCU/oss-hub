@@ -18,12 +18,9 @@ export interface LandingGraphEdge {
 }
 
 export interface LandingGraph {
-  readonly source: 'public' | 'example';
   readonly nodes: readonly LandingGraphNode[];
   readonly edges: readonly LandingGraphEdge[];
 }
-
-export type LandingGraphCompleteness = 'complete' | 'partial';
 
 export interface LandingProgram {
   readonly coverImageUrl?: string | null;
@@ -55,7 +52,7 @@ export interface LandingArchiveDetail {
 
 const INVALID_RESPONSE_MESSAGE = '랜딩 공개 응답 형식이 올바르지 않습니다';
 
-export class LandingOverviewResponseError extends Error {
+class LandingOverviewResponseError extends Error {
   constructor() {
     super(INVALID_RESPONSE_MESSAGE);
     this.name = 'LandingOverviewResponseError';
