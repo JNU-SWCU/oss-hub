@@ -16,14 +16,13 @@ import {
   getLoginDestinationStorage,
   readReturnTo,
 } from '../login-destination';
-import { hasLogoutNotice, LOGOUT_NOTICE_PARAM } from '../logout-notice';
+import { rememberLoggedOut, useNavigationNotices } from '@/lib/navigation-notices';
 
 interface LandingEntry {
   readonly returnTo: string | null;
-  readonly selectAccount: boolean;
 }
 
-const OUTSIDE_LANDING: LandingEntry = { returnTo: null, selectAccount: false };
+const OUTSIDE_LANDING: LandingEntry = { returnTo: null };
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
@@ -201,6 +200,7 @@ export function LoginButton({
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
+  const notices = useNavigationNotices();
   const [landingEntry, setLandingEntry] =
     useState<LandingEntry>(OUTSIDE_LANDING);
 
@@ -210,7 +210,6 @@ export function LoginButton({
       pathname === '/'
         ? {
             returnTo: readReturnTo(search),
-            selectAccount: hasLogoutNotice(search),
           }
         : OUTSIDE_LANDING,
     );
@@ -218,9 +217,9 @@ export function LoginButton({
 
   return (
     <LoginButtonView
-      session={session}
+      session={session?.isAuthenticated === false && notices.status === 'pending' ? null : session}
       returnTo={pathname === '/' ? landingEntry.returnTo : pathname}
-      selectAccount={landingEntry.selectAccount}
+      selectAccount={notices.status === 'ready' && notices.loggedOut}
       accountRoles={accountRoles}
       logoutError={logoutError}
       menuOpen={menuOpen}
@@ -235,7 +234,8 @@ export function LoginButton({
             if (next.me === null) {
               clearLoginDestination(getLoginDestinationStorage());
 
-              window.location.assign(`/?${LOGOUT_NOTICE_PARAM}=1`);
+              rememberLoggedOut();
+              window.location.assign('/');
               return;
             }
 

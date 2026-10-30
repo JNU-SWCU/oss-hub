@@ -57,7 +57,9 @@ test('logged-out landing keeps the hero copy but drops the action row and the no
 }) => {
   const audit = installBrowserAudit(page);
 
-  await page.goto('/?loggedOut=1');
+  await page.goto('/');
+  await page.evaluate(() => sessionStorage.setItem('oss-hub-logged-out', '/'));
+  await page.reload();
 
   await expect(page.getByRole('heading', { name: HERO_HEADING })).toBeVisible();
   await expect(hero(page).getByRole('link')).toHaveCount(0);
@@ -72,4 +74,14 @@ test('logged-out landing keeps the hero copy but drops the action row and the no
     '/api/v1/auth/github?prompt=select_account',
   );
   audit.assertClean();
+});
+
+test('forged logout and purge query flags have no effect', async ({ page }) => {
+  await page.goto('/?loggedOut=1');
+  await expect(hero(page).getByRole('link')).toHaveCount(2);
+  await expect(page.getByRole('link', { name: 'GitHub으로 로그인', exact: true }))
+    .toHaveAttribute('href', '/api/v1/auth/github');
+  await page.goto('/programs?purged=forged-text');
+  await expect(page.getByText('forged-text')).toHaveCount(0);
+  await expect(page.getByRole('alert').filter({ hasText: '프로그램 전체 삭제' })).toHaveCount(0);
 });

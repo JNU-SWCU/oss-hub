@@ -113,7 +113,7 @@ describe('주소의 returnTo 읽기', () => {
   });
   it.each([
     '',
-    '?loggedOut=1',
+    '?authError=1',
     '?returnTo=%2F%2Fevil.example',
     '?returnTo=%2Fsignup',
     '?returnTo=%2Fprograms%3Ftoken%3Dx',
