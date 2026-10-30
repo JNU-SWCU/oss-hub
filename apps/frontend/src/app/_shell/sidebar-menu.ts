@@ -453,13 +453,10 @@ export function isCurrentSidebarItem(
       return false;
     }
 
-    const want =
-      hrefQuery === ''
-        ? 'all'
-        : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
-
     const missingYearFallback =
       facetSection === 'ranking' ? String(currentRankingYear()) : 'all';
+    const want =
+      new URLSearchParams(hrefQuery).get(spec.param) ?? missingYearFallback;
     const have =
       new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
 
