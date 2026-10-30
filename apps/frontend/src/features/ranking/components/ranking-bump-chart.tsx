@@ -61,6 +61,7 @@ import {
   seriesKey,
   stackLabels,
   PLAY_INTERVAL_MS,
+  type HoverBubble,
   type NotePlacement,
   type Pointer,
   type SeriesPick,
@@ -81,7 +82,7 @@ const HIGHLIGHTER = 'color-mix(in oklch, var(--chart-3) 30%, transparent)';
 const BOLD_FILTER = 'url(#rank-sketch-bold)';
 const FINE_FILTER = 'url(#rank-sketch-fine)';
 
-const CHART_MARGIN = { top: 28, right: 104, bottom: 8, left: 8 };
+const CHART_MARGIN = { top: 28, bottom: 8, left: 8 };
 const Y_AXIS_WIDTH = 48;
 const X_AXIS_HEIGHT = 38;
 const X_TICK_DROP = 12;
@@ -277,8 +278,8 @@ function MarkerLayer({
   viewerOrder,
   pinnedOrder,
   colored,
-  pointer,
-}: LayerProps & { readonly pointer: Pointer | null }) {
+  bubble,
+}: LayerProps & { readonly bubble: HoverBubble | null }) {
   const geometry = useGeometry();
   if (geometry === null || revealed < 1) return null;
   const { plot, xScale, yScale } = geometry;
@@ -345,16 +346,6 @@ function MarkerLayer({
           bounds,
           swipe: true,
         });
-  const bubble = hoverBubble({
-    points,
-    series,
-    labels,
-    revealed,
-    pointer,
-    plot,
-    xScale: (value: string) => xScale(value),
-    yScale: (rank: number) => yScale(rank),
-  });
   const coveredByBubble = (placement: NotePlacement): boolean =>
     bubble !== null && rectsOverlap(noteBox(placement), bubble.rect);
 
@@ -492,13 +483,17 @@ function PencilNote({
 }
 
 function EndLabels({
-  series,
+  chips,
   viewerOrder,
   pinnedOrder,
   colored,
   gutter,
   playing,
-}: Omit<LayerProps, 'points' | 'labels' | 'revealed'> & {
+}: {
+  readonly chips: readonly SeriesPick[];
+  readonly viewerOrder: number | null;
+  readonly pinnedOrder: number | null;
+  readonly colored: boolean;
   readonly gutter: number;
   readonly playing: boolean;
 }) {
@@ -506,7 +501,7 @@ function EndLabels({
   if (geometry === null) return null;
   const { plot, yScale } = geometry;
   const placements = stackLabels(
-    labelCandidates(series, viewerOrder),
+    chips,
     viewerOrder,
     (rank) => yScale(rank) ?? plot.y,
     plot.y + plot.height,
@@ -540,28 +535,7 @@ function EndLabels({
   );
 }
 
-function SpeechBubble({
-  points,
-  series,
-  labels,
-  revealed,
-  pointer,
-}: Omit<LayerProps, 'viewerOrder' | 'pinnedOrder' | 'colored'> & {
-  readonly pointer: Pointer | null;
-}) {
-  const geometry = useGeometry();
-  if (geometry === null) return null;
-  const { plot, xScale, yScale } = geometry;
-  const bubble = hoverBubble({
-    points,
-    series,
-    labels,
-    revealed,
-    pointer,
-    plot,
-    xScale: (value: string) => xScale(value),
-    yScale: (rank: number) => yScale(rank),
-  });
+function SpeechBubble({ bubble }: { readonly bubble: HoverBubble | null }) {
   if (bubble === null) return null;
   const { rect, below, headline, total, starEstimated } = bubble;
   return (
@@ -581,6 +555,35 @@ function SpeechBubble({
         )}
       </div>
     </foreignObject>
+  );
+}
+
+function HoverLayers({
+  pointer,
+  ...layer
+}: LayerProps & { readonly pointer: Pointer | null }) {
+  const geometry = useGeometry();
+  if (geometry === null) return null;
+  const { plot, xScale, yScale } = geometry;
+  const bubble = hoverBubble({
+    points: layer.points,
+    series: layer.series,
+    labels: layer.labels,
+    revealed: layer.revealed,
+    pointer,
+    plot,
+    xScale: (value: string) => xScale(value),
+    yScale: (rank: number) => yScale(rank),
+  });
+  return (
+    <>
+      <ZIndexLayer zIndex={MARKER_Z}>
+        <MarkerLayer {...layer} bubble={bubble} />
+      </ZIndexLayer>
+      <ZIndexLayer zIndex={BUBBLE_Z}>
+        <SpeechBubble bubble={bubble} />
+      </ZIndexLayer>
+    </>
   );
 }
 
@@ -652,7 +655,6 @@ export function RankingBumpChart({
   const { points, series, year, viewerClass, viewerGithubLogin } = timeline;
   const pointCount = points.length;
   const seriesCount = series.length;
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [revealed, setRevealed] = useState(pointCount);
   const [playing, setPlaying] = useState(false);
@@ -707,15 +709,6 @@ export function RankingBumpChart({
   }, []);
 
   const revealedPoints = reducedMotion ? pointCount : revealed;
-
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (root === null || viewerOrder === null) return;
-    if (root.querySelector('[data-viewer-line]') !== null) return;
-    root
-      .querySelector('.rank-line--viewer')
-      ?.setAttribute('data-viewer-line', '');
-  }, [viewerOrder, revealedPoints, pointCount]);
 
   const rows = useMemo(
     () => buildRows(points, series, revealedPoints),
@@ -840,14 +833,15 @@ export function RankingBumpChart({
   const lastPoint = points[pointCount - 1];
   const showPlay = pointCount > 1 && !reducedMotion;
   const estimated = points.some((point) => point.starEstimated);
+  const pinnedRank =
+    pinnedSeries === null ? null : rankAt(pinnedSeries, revealedPoints - 1);
   const readout =
     pinnedSeries === null
       ? `${monthLabel(currentPoint)}까지 공개`
-      : `@${pinnedSeries.githubLogin} ${monthLabel(currentPoint)} ${String(rankAt(pinnedSeries, revealedPoints - 1) ?? 0)}위`;
+      : `@${pinnedSeries.githubLogin} ${monthLabel(currentPoint)} ${pinnedRank === null ? '순위 없음' : `${String(pinnedRank)}위`}`;
 
   return (
     <div
-      ref={rootRef}
       role="group"
       aria-label={`${String(year)}년 월별 순위 변화 그래프`}
       className={cn(styles.root, comicNeue.variable)}
@@ -971,26 +965,15 @@ export function RankingBumpChart({
                 <ZIndexLayer zIndex={AXIS_INK_Z}>
                   <SketchAxes />
                 </ZIndexLayer>
-                <ZIndexLayer zIndex={MARKER_Z}>
-                  <MarkerLayer {...layerProps} pointer={pointer} />
-                </ZIndexLayer>
+                <HoverLayers {...layerProps} pointer={pointer} />
                 <ZIndexLayer zIndex={END_LABEL_Z}>
                   <EndLabels
-                    series={series}
+                    chips={chips}
                     viewerOrder={viewerOrder}
                     pinnedOrder={pinnedOrder}
                     colored={colored}
                     gutter={gutter}
                     playing={playing}
-                  />
-                </ZIndexLayer>
-                <ZIndexLayer zIndex={BUBBLE_Z}>
-                  <SpeechBubble
-                    points={points}
-                    series={series}
-                    labels={labels}
-                    revealed={revealedPoints}
-                    pointer={pointer}
                   />
                 </ZIndexLayer>
               </LineChart>

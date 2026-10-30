@@ -396,7 +396,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('님이 데이터 수집을 수동 실행했습니다');
   });
 
-  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED 행은 폴백 라벨 대신 백필 라벨과 연도를 보여주다', () => {
+  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED 행은 폴백 라벨 대신 백필 라벨과 연도를 보여준다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}

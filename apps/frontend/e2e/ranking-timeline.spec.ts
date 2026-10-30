@@ -161,10 +161,7 @@ async function saveEvidence(page: Page, testInfo: TestInfo, suffix: string) {
   );
   await mkdir(directory, { recursive: true });
   await page.screenshot({
-    path: path.join(
-      directory,
-      `task-8-ranking-timeseries-and-star-scope-${suffix}.png`,
-    ),
+    path: path.join(directory, `ranking-timeline-${suffix}.png`),
     fullPage: true,
   });
 }

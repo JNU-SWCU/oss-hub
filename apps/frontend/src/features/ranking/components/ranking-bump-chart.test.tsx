@@ -437,6 +437,25 @@ describe('RankingBumpChart', () => {
       ['3월', '1위', '2위', '3위'],
     ]);
   });
+
+  it('늦게 합류한 사람을 집은 채 첫 달로 되감으면 0위 대신 순위 없음을 읽어준다', async () => {
+    vi.useFakeTimers();
+    await render(timelineFixture());
+    const readout = () =>
+      container.querySelector('[aria-live="polite"]')?.textContent ?? '';
+
+    await act(async () => button('@synthetic-three').click());
+    expect(readout()).toBe('@synthetic-three 3월 3위');
+
+    await act(async () => button('재생').click());
+    expect(revealed()).toBe('1');
+    expect(readout()).toBe('@synthetic-three 1월 순위 없음');
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(readout()).toBe('@synthetic-three 2월 3위');
+  });
 });
 
 describe('ranking bump chart model', () => {

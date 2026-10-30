@@ -331,7 +331,7 @@ describe('describeAuditLog', () => {
     occurredAt: '2026-10-31T03:00:00.000Z',
   };
 
-  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED은 metadata에서 오은 연도를 문장에 넣고 target 조각은 만들지 않는다', () => {
+  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED은 metadata에서 나온 연도를 문장에 넣고 target 조각은 만들지 않는다', () => {
     const record: AuditLogRecord = {
       ...SNAPSHOT_BACKFILL_RECORD,
       snapshotBackfillYear: 2026,
