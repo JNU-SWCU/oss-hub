@@ -117,7 +117,8 @@ function rawUserBody(parts: {
           totalPullRequestContributions: 1,
           totalIssueContributions: 1,
           totalRepositoryContributions: 1,
-          commitContributionsByRepository: parts.commitContributionsByRepository,
+          commitContributionsByRepository:
+            parts.commitContributionsByRepository,
           pullRequestContributionsByRepository:
             parts.pullRequestContributionsByRepository,
         },
@@ -953,6 +954,119 @@ describe('CollectionDiscoveryClient', () => {
         expect(error).toMatchObject({ kind: 'RESPONSE' });
       },
     );
+  });
+
+  describe('fetchUserMonthlyContributionCounts', () => {
+    const windows = [
+      {
+        alias: 'm01',
+        from: '2025-12-31T15:00:00.000Z',
+        to: '2026-01-31T15:00:00.000Z',
+      },
+      {
+        alias: 'm02',
+        from: '2025-12-31T15:00:00.000Z',
+        to: '2026-02-28T15:00:00.000Z',
+      },
+    ];
+    const monthlyBody = (months: Record<string, unknown>, remaining = 4_321) =>
+      json({
+        data: {
+          rateLimit: { cost: 2, remaining },
+          user: months,
+        },
+      });
+    const monthCounts = (commits: number) => ({
+      totalCommitContributions: commits,
+      totalPullRequestContributions: 2,
+      totalIssueContributions: 3,
+      totalRepositoryContributions: 4,
+    });
+
+    it('aliases one cumulative contributionsCollection per month in a single request', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        monthlyBody({ m01: monthCounts(11), m02: monthCounts(22) }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      const result = await client.fetchUserMonthlyContributionCounts(
+        'octostudent',
+        windows,
+      );
+
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      const sent = JSON.parse(fetcher.mock.calls[0]?.[1]?.body as string) as {
+        query: string;
+      };
+      expect(sent.query).toContain(
+        'm01: contributionsCollection(from: $m01From, to: $m01To)',
+      );
+      expect(sent.query).toContain(
+        'm02: contributionsCollection(from: $m02From, to: $m02To)',
+      );
+      expect(sentVariables(fetcher, 0)).toEqual({
+        login: 'octostudent',
+        m01From: '2025-12-31T15:00:00.000Z',
+        m01To: '2026-01-31T15:00:00.000Z',
+        m02From: '2025-12-31T15:00:00.000Z',
+        m02To: '2026-02-28T15:00:00.000Z',
+      });
+      expect(result).toEqual({
+        months: [
+          {
+            alias: 'm01',
+            commitCount: 11,
+            pullRequestCount: 2,
+            issueCount: 3,
+            repositoryCount: 4,
+          },
+          {
+            alias: 'm02',
+            commitCount: 22,
+            pullRequestCount: 2,
+            issueCount: 3,
+            repositoryCount: 4,
+          },
+        ],
+        remaining: 4_321,
+      });
+    });
+
+    it('throws USER_NOT_FOUND for a missing user instead of zero counts', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        json({
+          data: { rateLimit: { cost: 1, remaining: 4_999 }, user: null },
+        }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      await expect(
+        client.fetchUserMonthlyContributionCounts('octostudent', windows),
+      ).rejects.toMatchObject({ kind: 'USER_NOT_FOUND' });
+    });
+
+    it('throws RESPONSE when an aliased month is absent from the body', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        monthlyBody({ m01: monthCounts(11) }),
+      );
+      const client = new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      );
+
+      await expect(
+        client.fetchUserMonthlyContributionCounts('octostudent', windows),
+      ).rejects.toMatchObject({ kind: 'RESPONSE' });
+    });
   });
 
   it('throws RESPONSE on a malformed body shape instead of silently defaulting', async () => {

@@ -1,4 +1,8 @@
-import { Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
@@ -13,6 +17,10 @@ import { UsersAuthorityService } from '../../users/service/authority.service';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CollectionSyncRunRow } from '../collection-incremental.types';
+import {
+  CollectionSnapshotBackfillService,
+  type CollectionSnapshotBackfillResult,
+} from '../service/collection-snapshot-backfill.service';
 import { CollectionSyncService } from '../service/collection-sync.service';
 import {
   CollectionUserActivityService,
@@ -24,6 +32,18 @@ const authority = {
   assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
 } as unknown as UsersAuthorityService;
 
+const runSnapshotBackfill = jest.fn<
+  Promise<CollectionSnapshotBackfillResult>,
+  [number]
+>();
+const assertSupportedYear = jest.fn<void, [number]>();
+const assertBackfillReady = jest.fn<Promise<void>, [number]>();
+const snapshotBackfill = {
+  run: runSnapshotBackfill,
+  assertSupportedYear,
+  assertReady: assertBackfillReady,
+} as unknown as CollectionSnapshotBackfillService;
+
 function createController(
   sync: CollectionSyncService,
   cutover: CollectionCutoverRepository,
@@ -31,6 +51,7 @@ function createController(
   audit: AuditLogService,
   invariants: ContributionInvariants,
   activity: CollectionUserActivityService,
+  backfill: CollectionSnapshotBackfillService = snapshotBackfill,
 ): CollectionAdminController {
   return new CollectionAdminController(
     new CollectionAdminService(
@@ -41,6 +62,7 @@ function createController(
       invariants,
       activity,
       authority,
+      backfill,
     ),
   );
 }
@@ -86,6 +108,19 @@ describe('CollectionAdminController', () => {
       skippedPastYearCount: 0,
       failedUserCount: 0,
     });
+    runSnapshotBackfill.mockReset();
+    runSnapshotBackfill.mockResolvedValue({
+      observedUserCount: 1,
+      requestCount: 1,
+      writtenRowCount: 9,
+      skippedExistingCount: 0,
+      skippedStaleCount: 0,
+      failedUserCount: 0,
+      stoppedForBudget: false,
+    });
+    assertSupportedYear.mockReset();
+    assertBackfillReady.mockReset();
+    assertBackfillReady.mockResolvedValue(undefined);
   });
 
   it('실행을 시작하고 202 응답 DTO를 반환한다', async () => {
@@ -105,6 +140,10 @@ describe('CollectionAdminController', () => {
         {
           provide: CollectionUserActivityService,
           useValue: { run: runUserActivity },
+        },
+        {
+          provide: CollectionSnapshotBackfillService,
+          useValue: snapshotBackfill,
         },
       ],
     })
@@ -330,6 +369,158 @@ describe('CollectionAdminController', () => {
     await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
 
     expect(record).not.toHaveBeenCalled();
+  });
+
+  it('스냅샷 백필을 202로 수락하고 연도를 그대로 돌려주며 감사 기록을 남긴다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    const response = await controller.backfillSnapshots(sessionRequest, {
+      year: 2026,
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect({ ...response }).toEqual({ accepted: true, year: 2026 });
+    expect(assertSupportedYear).toHaveBeenCalledWith(2026);
+    expect(assertBackfillReady).toHaveBeenCalledWith(2026);
+    expect(runSnapshotBackfill).toHaveBeenCalledTimes(1);
+    expect(runSnapshotBackfill).toHaveBeenCalledWith(2026);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith({
+      actorGithubId: 4242n,
+      action: 'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED',
+      targetType: 'COLLECTION_SNAPSHOT_BACKFILL',
+      targetId: '2026',
+      metadata: { schemaVersion: 1, year: 2026 },
+    });
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.snapshot_backfill.completed',
+        year: 2026,
+        writtenRowCount: 9,
+      }),
+    );
+    logger.mockRestore();
+  });
+
+  it('백필 실행 실패는 별도 이벤트로만 기록된다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    runSnapshotBackfill.mockRejectedValue(new Error('backfill unavailable'));
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(
+      controller.backfillSnapshots(sessionRequest, { year: 2026 }),
+    ).resolves.toEqual(expect.objectContaining({ accepted: true }));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.snapshot_backfill.failed',
+        year: 2026,
+      }),
+    );
+    logger.mockRestore();
+  });
+
+  it('quiesce lease가 걸려 있으면 백필을 시작하지 않고 감사도 남기지 않는다', async () => {
+    isQuiesced.mockResolvedValue(true);
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(
+      controller.backfillSnapshots(sessionRequest, { year: 2026 }),
+    ).rejects.toMatchObject({ errorCode: { code: 'COL_008', status: 409 } });
+
+    expect(runSnapshotBackfill).not.toHaveBeenCalled();
+    expect(assertBackfillReady).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('SWEEP 스냅샷이 없으면 409로 돌리고 감사도 실행도 남기지 않는다', async () => {
+    assertBackfillReady.mockRejectedValue(
+      new ConflictException('snapshot backfill for 2026 needs a sweep first'),
+    );
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(
+      controller.backfillSnapshots(sessionRequest, { year: 2026 }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    expect(assertBackfillReady).toHaveBeenCalledWith(2026);
+    expect(record).not.toHaveBeenCalled();
+    expect(runSnapshotBackfill).not.toHaveBeenCalled();
+  });
+
+  it('지원하지 않는 연도는 감사 기록 없이 거부한다', async () => {
+    assertSupportedYear.mockImplementation(() => {
+      throw new BadRequestException('year must be an integer');
+    });
+    const controller = createController(
+      { run, runExternal } as unknown as CollectionSyncService,
+      { isQuiesced } as unknown as CollectionCutoverRepository,
+      { listSyncRuns } as unknown as CollectionIncrementalRepository,
+      { record } as unknown as AuditLogService,
+      { check } as unknown as ContributionInvariants,
+      { run: runUserActivity } as unknown as CollectionUserActivityService,
+    );
+
+    await expect(
+      controller.backfillSnapshots(sessionRequest, { year: 2025 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(record).not.toHaveBeenCalled();
+    expect(assertBackfillReady).not.toHaveBeenCalled();
+    expect(runSnapshotBackfill).not.toHaveBeenCalled();
+  });
+
+  it('백필도 세션과 origin guard를 유지하고 HTTP 202를 선언한다', () => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      CollectionAdminController.prototype,
+      'backfillSnapshots',
+    )?.value;
+    expect(typeof handler).toBe('function');
+    if (typeof handler !== 'function') {
+      return;
+    }
+    const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
+    const statusCode: unknown = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      handler,
+    );
+
+    expect(guards).toEqual([SessionGuard, OriginGuard]);
+    expect(statusCode).toBe(202);
   });
 
   it('runs는 sync 실행 이력 프로젝션을 ISO 문자열 응답으로 변환한다', async () => {
