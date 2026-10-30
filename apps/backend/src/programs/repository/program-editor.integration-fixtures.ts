@@ -1,7 +1,7 @@
 import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from '../service/program-editor.service';
 

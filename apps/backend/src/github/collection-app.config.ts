@@ -2,8 +2,8 @@ import {
   loadRuntimeConfig,
   type RuntimeConfig,
   type RuntimeEnvKey,
-} from '../runtime-config/runtime-config';
-import { readPrivateKeyFile } from '../runtime-config/private-key-file';
+} from '../platform/runtime-config.config';
+import { readPrivateKeyFile } from '../platform/private-key-file.config';
 
 const DEFAULT_API_BASE = 'https://api.github.com';
 const DEFAULT_MAX_PAGES = 100;

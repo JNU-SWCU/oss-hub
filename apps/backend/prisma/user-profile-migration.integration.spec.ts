@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaService } from '../src/platform/prisma.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

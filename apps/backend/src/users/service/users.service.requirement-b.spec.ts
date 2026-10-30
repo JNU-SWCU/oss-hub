@@ -1,6 +1,6 @@
 import { MemberKind } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import { UsersErrorCode } from '../domain/users-error-code.enum';
 import type {

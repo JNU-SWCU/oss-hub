@@ -44,7 +44,6 @@ const enumExemptFiles = [
   ...testFiles,
   ...moduleFiles,
   ...repositoryFiles,
-  'src/prisma/**/*.ts',
   'src/platform/prisma.service.ts',
   'prisma/**/*.ts',
 ];
@@ -70,12 +69,8 @@ const unsupportedCycleSyntax = [
       '순환 검사에서 지원하지 않는 import equals 대신 정적 import 선언을 사용한다.',
   },
 ];
-const runtimeConfigFiles = [
-  'src/runtime-config/runtime-config.ts',
-  'src/platform/runtime-config.config.ts',
-];
-const lockProgramTreeFiles =
-  '**/src/{prisma/lock-program-tree,platform/lock-program-tree.repository}.ts';
+const runtimeConfigFiles = ['src/platform/runtime-config.config.ts'];
+const lockProgramTreeFiles = '**/src/platform/lock-program-tree.repository.ts';
 const nestTestingImport = {
   name: '@nestjs/testing',
   message:
@@ -472,6 +467,7 @@ const policies = [
     allow: {
       to: [
         element('service'),
+        element('prisma'),
         category('composition'),
         { element: { captured: { module: '{{from.file.captured.module}}' } } },
         { file: { captured: { module: '{{from.file.captured.module}}' } } },
@@ -628,8 +624,7 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'storage-public',
             pattern: [
-              'src/storage/storage.module.ts',
-              'src/storage/*.{key,token}.ts',
+              'src/platform/platform.module.ts',
               'src/platform/object-storage.{types,token}.ts',
             ],
           },

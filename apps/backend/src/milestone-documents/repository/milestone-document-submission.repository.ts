@@ -5,8 +5,8 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { PrismaService } from '../../platform/prisma.service';
+import { lockSubmissionMembership } from '../../platform/submission-membership-lock.repository';
 import { SubmissionMembershipChangedError } from '../../submissions/domain/submission-membership-changed.error';
 import type { MilestoneDocumentSubmissionDetail } from '../domain/milestone-document-record';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';

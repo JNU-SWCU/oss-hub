@@ -1,4 +1,4 @@
-import type { PrismaService } from '../../../../prisma/prisma.service';
+import type { PrismaService } from '../../../../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 
 describe('PublicProjectMetricsRepository.getContributorCumulativeMetrics', () => {

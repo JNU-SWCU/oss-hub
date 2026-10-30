@@ -1,8 +1,8 @@
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
-import type { ProblemDetailExtensions } from '../../common/error-code';
-import { DomainException } from '../../common/error-code';
+import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
+import type { ProblemDetailExtensions } from '../../platform/error-code.error';
+import { DomainException } from '../../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,

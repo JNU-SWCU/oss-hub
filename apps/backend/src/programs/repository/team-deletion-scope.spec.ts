@@ -1,4 +1,4 @@
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { TEAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix';
 import { readTeamDeletionScopeCounts } from './team-deletion-scope';
 import {

@@ -1,6 +1,6 @@
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import type { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import { createAdminProfileAudit } from './admin-profile-audit';
 import { requireActiveAdmin } from './admin-access-authorization';

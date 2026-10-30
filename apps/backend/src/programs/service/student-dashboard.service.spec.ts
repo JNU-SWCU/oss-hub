@@ -8,7 +8,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { RepositoriesReadService } from '../../github/service/repositories-read.service';
 import { submissionCompletionTargetSelect } from '../../submissions/domain/submission-completion-projection';
 import {

@@ -10,8 +10,8 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
-import type { ObjectStoragePort } from '../../src/storage/domain/object-storage';
+import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
+import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
 import {
   offsetDays,
   prisma,

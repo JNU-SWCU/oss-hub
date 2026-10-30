@@ -19,11 +19,11 @@ import {
 } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import { SubmissionFilesRepository } from '../repository/submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from '../domain/submission-zip-test-builder';

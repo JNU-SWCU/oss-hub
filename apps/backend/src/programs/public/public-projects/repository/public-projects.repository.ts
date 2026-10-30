@@ -5,7 +5,7 @@ import {
 } from '../domain/public-project-record';
 import { Injectable } from '@nestjs/common';
 import { type ProgramTrackType } from '@prisma/client';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaService } from '../../../../platform/prisma.service';
 import {
   PUBLIC_PROJECT_YEAR_MAX,
   PUBLIC_PROJECT_YEAR_MIN,

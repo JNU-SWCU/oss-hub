@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from './authority.service';
 
 const policyCases = [

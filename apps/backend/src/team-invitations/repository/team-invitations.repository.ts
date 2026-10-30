@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
 import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
-import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
+import { repositoryAccessSyncTargetWhere } from '../../platform/repository-access-sync.repository';
 import type {
   SentTeamInvitationRecord,
   ReceivedTeamInvitationRecord,
@@ -21,13 +21,13 @@ import {
   Prisma,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 
 const TEAM_INVITEE_SELECT = {
   id: true,

@@ -8,7 +8,7 @@ import {
   OBJECT_STORAGE,
   ObjectStorageError,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import { ProgramCoverRepository } from '../repository/program-cover.repository';
 
 @Injectable()

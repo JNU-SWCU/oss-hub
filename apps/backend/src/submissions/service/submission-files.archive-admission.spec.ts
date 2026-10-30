@@ -1,5 +1,5 @@
 import { MilestoneSubmissionType } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import type { SubmissionFilesRepository } from '../repository/submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from '../domain/submission-zip-test-builder';

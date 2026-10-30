@@ -9,7 +9,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import type { CreateMilestoneDocumentReviewInput } from '../domain/milestone-document-review';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,

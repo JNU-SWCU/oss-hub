@@ -1,7 +1,7 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { LoginHistoryService } from '../../login-history/service/login-history.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { AuthConfig } from '../auth.config';
 import { AuthController } from '../controller/auth.controller';
 import { createResponse } from '../controller/auth.controller.spec.helpers';

@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import type {
   TeamActivityCounts,
@@ -13,11 +13,11 @@ import type {
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   parseApplicationRepositoryUrlAuditMetadata,
-} from '../../audit-log/domain/application-repository-url-audit-metadata';
+} from '../../platform/application-repository-url-audit-metadata.policy';
 import {
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
   parseRepositoryConnectionAuditMetadata,
-} from '../../audit-log/domain/repository-program-audit-metadata';
+} from '../../platform/repository-program-audit-metadata.policy';
 
 const REPOSITORY_CONNECTION_CHANGED =
   REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;

@@ -4,7 +4,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
 
 const REVIEWED_AT = new Date('2026-09-20T01:00:00.000Z');

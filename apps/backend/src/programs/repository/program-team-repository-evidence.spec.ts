@@ -7,7 +7,7 @@ import {
   provisionFindUnique,
   givenRepository,
 } from './program-team-repository-evidence.fixture';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 
 afterEach(() => jest.clearAllMocks());

@@ -1,17 +1,16 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
+import { PlatformModule } from '../../platform/platform.module';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../../auth/auth.config';
 import { AuthService } from '../../auth/service/auth.service';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { PrismaModule } from '../../prisma/prisma.module';
-import { PrismaService } from '../../prisma/prisma.service';
-import { RuntimeConfigModule } from '../../runtime-config/runtime-config.module';
-import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../../storage/object-storage.config';
-import { OBJECT_STORAGE } from '../../storage/domain/object-storage';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { PrismaService } from '../../platform/prisma.service';
+import { S3ObjectStorage } from '../../platform/object-storage.client';
+import { ObjectStorageConfig } from '../../platform/object-storage.config';
+import { OBJECT_STORAGE } from '../../platform/object-storage.types';
 import { MilestoneDocumentsModule } from '../milestone-documents.module';
 
 import {
@@ -49,7 +48,7 @@ export class MilestoneDocumentFlowFixture {
         }),
     };
     const module = await Test.createTestingModule({
-      imports: [PrismaModule, RuntimeConfigModule, MilestoneDocumentsModule],
+      imports: [PlatformModule, MilestoneDocumentsModule],
     })
       .overrideProvider(PrismaService)
       .useValue(this.prisma)

@@ -1,12 +1,12 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { PlatformModule } from '../../platform/platform.module';
 import { NestFactory } from '@nestjs/core';
 import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
   type ObjectInventoryPort,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
-import { StorageModule } from '../../storage/storage.module';
+} from '../../platform/object-storage.types';
 import {
   KNOWN_STORAGE_PREFIXES,
   type StorageObjectInventory,
@@ -22,7 +22,7 @@ export async function runStorageOrphanReconciliation(
   let context: INestApplicationContext | undefined;
 
   try {
-    context = await NestFactory.createApplicationContext(StorageModule, {
+    context = await NestFactory.createApplicationContext(PlatformModule, {
       logger: false,
       abortOnError: false,
     });

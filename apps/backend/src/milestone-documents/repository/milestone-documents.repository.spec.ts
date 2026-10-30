@@ -8,7 +8,7 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { SubmissionMembershipChangedError } from '../../submissions/domain/submission-membership-changed.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {

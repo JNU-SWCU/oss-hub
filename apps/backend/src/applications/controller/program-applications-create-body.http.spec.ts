@@ -8,8 +8,8 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { PrismaService } from '../../prisma/prisma.service';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { ApplicationsService } from '../service/applications.service';
 

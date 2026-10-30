@@ -14,7 +14,7 @@ const DEFAULT_COMPOSE = 'compose.yml';
 const DEFAULT_ENV_EXAMPLE = '.env.example';
 const COMMAND_TIMEOUT_MS = 60_000;
 const RUNTIME_CONFIG_RELATIVE_PATH =
-  'apps/backend/src/runtime-config/runtime-config.ts';
+  'apps/backend/src/platform/runtime-config.config.ts';
 
 export function parseArguments(argv) {
   let requireDocker = false;

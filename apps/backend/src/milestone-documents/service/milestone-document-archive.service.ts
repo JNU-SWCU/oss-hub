@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import {
   buildMilestoneDocumentArchivePlan,
   MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,

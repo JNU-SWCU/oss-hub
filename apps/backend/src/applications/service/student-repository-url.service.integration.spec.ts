@@ -5,13 +5,13 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { parseApplicationRepositoryUrlAuditMetadata } from '../../audit-log/domain/application-repository-url-audit-metadata';
+import { parseApplicationRepositoryUrlAuditMetadata } from '../../platform/application-repository-url-audit-metadata.policy';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from '../../github/domain/repository-provision-event';
-import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
-import { transferProvisionGeneration } from '../../prisma/repository-provision-generation';
+import { repositoryAccessSyncTargetWhere } from '../../platform/repository-access-sync.repository';
+import { transferProvisionGeneration } from '../../platform/repository-provision-generation.repository';
 import {
   prisma,
   service,

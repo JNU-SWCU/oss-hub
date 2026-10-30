@@ -14,7 +14,7 @@ import { Readable } from 'node:stream';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,

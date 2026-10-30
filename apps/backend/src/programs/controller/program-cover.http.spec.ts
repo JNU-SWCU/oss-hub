@@ -1,13 +1,13 @@
 import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import {
   OBJECT_STORAGE,
   ObjectStorageError,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramCoverController } from './program-cover.controller';
 import { ProgramAuthoringRepository } from '../repository/program-authoring.repository';

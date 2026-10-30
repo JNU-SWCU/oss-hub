@@ -7,12 +7,12 @@ import {
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import {
   programApplicationManagerWhere,
   programApplicationParticipantWhere,
-} from '../../prisma/program-application-participant';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '../../platform/program-application-participant.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { appendReviewHistory } from './review-history.writer';
 import type {
   AppendReviewHistoryInput,

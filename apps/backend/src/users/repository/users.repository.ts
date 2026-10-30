@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
-} from '../../prisma/user-profile-write';
-import { requestStaffAccess } from '../../prisma/staff-access-request';
+} from '../../platform/user-profile-write.repository';
+import { requestStaffAccess } from '../../platform/staff-access-request.repository';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,

@@ -1,6 +1,6 @@
 import { ApplicationStatus, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ApplicationDecisionNotificationsService } from '../service/application-decision-notifications.service';
 import { ApplicationDecisionNotificationsRepository } from './application-decision-notifications.repository';
 

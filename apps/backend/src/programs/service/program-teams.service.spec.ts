@@ -1,12 +1,12 @@
 import { ProgramCategory } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import { AccountStatus } from '@prisma/client';
 import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { DomainException } from '../../common/error-code';
+} from '../../platform/audit-log-metadata.policy';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   type ProgramTeamsRepository,

@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind, type Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileDepartment,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 
 export type RankingViewerClass = 'public' | 'member' | 'staff';
 

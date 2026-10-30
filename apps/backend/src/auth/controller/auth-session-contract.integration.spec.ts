@@ -13,8 +13,8 @@ import {
   issueSessionToken,
   SESSION_MAX_AGE_SECONDS,
 } from '../domain/session-token';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { LoginHistoryService } from '../../login-history/service/login-history.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));

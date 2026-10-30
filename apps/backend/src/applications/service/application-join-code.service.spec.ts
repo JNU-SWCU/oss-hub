@@ -1,5 +1,5 @@
 import { computeJoinCodeDigest } from '../../programs/domain/join-code-digest';
-import { JoinCodeSecretError } from '../../runtime-config/join-code-secret';
+import { JoinCodeSecretError } from '../../platform/join-code-secret.config';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 
 describe('ApplicationJoinCodeService', () => {

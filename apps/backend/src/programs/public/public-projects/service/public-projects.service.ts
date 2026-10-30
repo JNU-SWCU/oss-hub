@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DomainException } from '../../../../common/error-code';
+import { DomainException } from '../../../../platform/error-code.error';
 import { PublicEligibilityService } from '../../public-eligibility/service/public-eligibility.service';
 import type {
   PublicProjectDetailResult,
@@ -20,8 +20,8 @@ import {
 } from '../domain/public-projects-error-code.enum';
 import { PublicProjectMetricsRepository } from '../repository/public-project-metrics.repository';
 import { PublicProjectsRepository } from '../repository/public-projects.repository';
-import type { RuntimeConfig } from '../../../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../../../runtime-config/runtime-config.module';
+import type { RuntimeConfig } from '../../../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../../../platform/runtime-config-instance.config';
 
 @Injectable()
 export class PublicProjectsService {

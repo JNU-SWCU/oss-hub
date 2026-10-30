@@ -1,8 +1,8 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
 import { UsersService } from '../service/users.service';
 import { UsersRepository } from './users.repository';

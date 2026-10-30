@@ -4,7 +4,7 @@ import { runProfile } from '../../../prisma/seed';
 import { seedId, SeedStats } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   type CreatePendingSubmissionFileInput,
   SubmissionFilesRepository,

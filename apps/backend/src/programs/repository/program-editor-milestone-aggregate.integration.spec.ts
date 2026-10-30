@@ -12,7 +12,7 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from '../service/program-editor.service';
 import { MilestoneDocumentFilesService } from '../../milestone-documents/service/milestone-document-files.service';
 import { MilestoneDocumentsRepository } from '../../milestone-documents/repository/milestone-documents.repository';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import { SubmissionFilesRepository } from '../../submissions/repository/submission-files.repository';
 import { SubmissionFilesService } from '../../submissions/service/submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
@@ -20,7 +20,7 @@ import {
   MilestoneDocumentMissingError,
   upsertMilestoneDocumentSubmission,
 } from '../../milestone-documents/repository/milestone-document-submission.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import type { ProgramEditorTransactionStore } from '../domain/program-editor.types';

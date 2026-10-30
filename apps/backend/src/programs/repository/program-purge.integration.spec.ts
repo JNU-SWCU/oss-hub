@@ -26,13 +26,13 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
-import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
+import { S3ObjectStorage } from '../../platform/object-storage.client';
 import { SubmissionFileCleanupService } from '../../submissions/service/submission-file-cleanup.service';
-import { ObjectStorageConfig } from '../../storage/object-storage.config';
+import { ObjectStorageConfig } from '../../platform/object-storage.config';
 import { SubmissionFilesRepository } from '../../submissions/repository/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PublicProjectsRepository } from '../public/public-projects/repository/public-projects.repository';

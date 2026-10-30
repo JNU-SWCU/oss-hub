@@ -3,7 +3,7 @@ import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,

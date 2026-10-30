@@ -2,8 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogController } from '../../src/audit-log/controller/audit-log.controller';
-import { AuditLogRepository } from '../../src/audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../src/audit-log/service/audit-log.service';
+import { AuditLogRepository } from '../../src/platform/audit-log.repository';
+import { AuditLogService } from '../../src/platform/audit-log.service';
 import { StaffDashboardController } from '../../src/applications/controller/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/applications/repository/applications.repository';
 import { StaffInsightsRepository } from '../../src/applications/repository/staff-insights.repository';
@@ -17,7 +17,7 @@ import { SessionGuard } from '../../src/auth/controller/session.guard';
 import { sessionCookieName } from '../../src/auth/domain/cookies';
 import { issueSessionToken } from '../../src/auth/domain/session-token';
 import { AuthService } from '../../src/auth/service/auth.service';
-import { configureHttpApp } from '../../src/common/controller/configure-http-app';
+import { configureHttpApp } from '../../src/platform/configure-http-app.config';
 import { RepositoriesController } from '../../src/github/controller/repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { RepositoriesRepository } from '../../src/github/repository/repositories.repository';
@@ -28,7 +28,7 @@ import {
   MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
   MilestoneDocumentFeedbackService,
 } from '../../src/milestone-documents/service/milestone-document-feedback.service';
-import { PrismaService } from '../../src/prisma/prisma.service';
+import { PrismaService } from '../../src/platform/prisma.service';
 import { StudentDashboardController } from '../../src/programs/controller/student-dashboard.controller';
 import { ProgramActivityRepository } from '../../src/programs/repository/program-activity.repository';
 import { ProgramActivitySummaryRepository } from '../../src/programs/repository/program-activity-summary.repository';
@@ -38,8 +38,8 @@ import { ProgramActivityService } from '../../src/programs/service/program-activ
 import { ProgramActivitySummaryService } from '../../src/programs/service/program-activity-summary.service';
 import { ProgramViewerService } from '../../src/programs/service/program-viewer.service';
 import { StudentDashboardService } from '../../src/programs/service/student-dashboard.service';
-import { loadRuntimeConfig } from '../../src/runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../src/runtime-config/runtime-config.module';
+import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { SubmissionDashboardSummaryRepository } from '../../src/submissions/repository/submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from '../../src/submissions/service/submission-dashboard-summary.service';
 import { SystemStatusController } from '../../src/system-status/controller/system-status.controller';

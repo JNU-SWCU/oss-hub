@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { ConsentErrorCode } from '../consent-error-code.enum';
 import { ConsentsRepository } from '../repository/consents.repository';
 import { ConsentsService } from './consents.service';

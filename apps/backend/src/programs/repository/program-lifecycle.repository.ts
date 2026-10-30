@@ -4,8 +4,8 @@ import {
   ProgramAuthoringUploadLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import type { ProgramDeletionAuditBlockingCounts } from '../../audit-log/domain/audit-log-metadata';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { ProgramDeletionAuditBlockingCounts } from '../../platform/audit-log-metadata.policy';
+import { PrismaService } from '../../platform/prisma.service';
 import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scope';
 import type { ProgramPurgeDeletedCounts } from '../domain/program-purge';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';

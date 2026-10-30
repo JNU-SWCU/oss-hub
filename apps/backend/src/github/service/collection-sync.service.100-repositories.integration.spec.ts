@@ -11,7 +11,7 @@ import {
   type SyntheticReleaseSeed,
   type SyntheticRepositorySeed,
 } from '../../../test/collection-app.synthetic-provider';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   CollectionIncrementalRepository,
   CollectionIncrementalStore,

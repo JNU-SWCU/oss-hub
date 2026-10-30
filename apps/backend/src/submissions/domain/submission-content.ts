@@ -1,5 +1,5 @@
 import { MilestoneSubmissionType } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,

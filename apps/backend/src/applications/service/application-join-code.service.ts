@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { computeJoinCodeDigest } from '../../programs/domain/join-code-digest';
-import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
+import { resolveJoinCodeSecretFromConfig } from '../../platform/join-code-secret.config';
+import type { RuntimeConfig } from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 
 @Injectable()
 export class ApplicationJoinCodeService {

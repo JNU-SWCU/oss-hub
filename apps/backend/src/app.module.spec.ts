@@ -1,9 +1,9 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 
 import { AppModule } from './app.module';
-import { AuditLogModule } from './audit-log/audit-log.module';
 import { CollectionModule } from './github/collection.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PlatformModule } from './platform/platform.module';
 import { RankingModule } from './ranking/ranking.module';
 import { RepositoriesModule } from './github/repositories.module';
 import { RepositoriesService } from './github/service/repositories.service';
@@ -39,7 +39,7 @@ describe('AppModule module exposure', () => {
     const imports = getImports();
 
     for (const module of [
-      AuditLogModule,
+      PlatformModule,
       NotificationsModule,
       SubmissionsModule,
       UsersModule,

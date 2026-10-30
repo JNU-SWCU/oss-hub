@@ -4,8 +4,8 @@ import {
   Prisma,
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import type {
   ProgramAuthoringCreateRequestInput,
   ProgramAuthoringDocumentPlan,

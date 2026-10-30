@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { runProfile } from '../../../prisma/seed';
 import { AUTH_SCENARIOS } from '../../../prisma/seeds/auth';
 import { prisma, seedGithubId, SeedStats } from '../../../prisma/seeds/helpers';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ConsentsRepository } from '../repository/consents.repository';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from '../domain/consent-policy';

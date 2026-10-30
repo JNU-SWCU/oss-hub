@@ -4,7 +4,7 @@ import { SessionGuard } from '../../auth/controller/session.guard';
 import {
   AuditLogService,
   type AuditLogPage,
-} from '../service/audit-log.service';
+} from '../../platform/audit-log.service';
 import { AuditLogListRequestDto } from '../dto/audit-log-query.dto';
 
 @Controller('audit-logs')

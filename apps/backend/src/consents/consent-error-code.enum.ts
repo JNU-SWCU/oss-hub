@@ -1,4 +1,4 @@
-import { ErrorCode } from '../common/error-code';
+import { ErrorCode } from '../platform/error-code.error';
 
 export enum ConsentErrorCode {
   UNAUTHENTICATED = 'CON_001',

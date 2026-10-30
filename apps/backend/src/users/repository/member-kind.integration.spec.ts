@@ -9,10 +9,10 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from '../service/member-kind.service';
 import { UsersErrorCode } from '../domain/users-error-code.enum';

@@ -4,7 +4,7 @@ import {
   ProgramLifecycle,
   RepositoryConnectionMode,
 } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   ApplicationDuplicateError,
   ApplicationJoinCodeDigestConflictError,
@@ -20,8 +20,8 @@ import { ApplicationsService } from './applications.service';
 import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+} from '../../platform/audit-log-metadata.policy';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 

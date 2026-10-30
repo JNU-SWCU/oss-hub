@@ -5,7 +5,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import type { ConsentsService } from '../../consents/service/consents.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { RolesRepository } from './roles.repository';
 import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
 import { RolesService } from '../service/roles.service';

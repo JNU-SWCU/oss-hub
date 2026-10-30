@@ -4,8 +4,8 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { userProfileNameWhere } from '../../prisma/user-profile-read';
-import type { PrismaService } from '../../prisma/prisma.service';
+import { userProfileNameWhere } from '../../platform/user-profile-read.repository';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,

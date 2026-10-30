@@ -1,5 +1,5 @@
 import { IsBoolean } from 'class-validator';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,

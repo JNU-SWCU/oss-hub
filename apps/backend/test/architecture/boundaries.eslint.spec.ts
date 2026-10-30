@@ -298,7 +298,7 @@ for (const from of layers) {
   edge(
     `${from}-common`,
     `src/alpha/${from}/common.ts`,
-    'src/common/contract.ts',
+    'src/platform/error-code.error.ts',
     true,
   );
 }
@@ -315,14 +315,14 @@ for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
 
 edge(
   'common cannot import domain',
-  'src/common/reverse.ts',
+  'src/platform/multipart-file-name.policy.ts',
   'src/alpha/domain/target.ts',
   false,
 );
 edge(
   'common may import common',
-  'src/common/helper.ts',
-  'src/common/contract.ts',
+  'src/platform/deterministic-string-order.policy.ts',
+  'src/platform/error-code.error.ts',
   true,
 );
 edge(
@@ -334,7 +334,7 @@ edge(
 edge(
   'service may read runtime config',
   'src/alpha/service/config.ts',
-  'src/runtime-config/runtime-config.ts',
+  'src/platform/runtime-config.config.ts',
   true,
 );
 edge(
@@ -358,7 +358,7 @@ edge(
 edge(
   'job may read runtime config',
   'src/alpha/job/config.ts',
-  'src/runtime-config/runtime-config.ts',
+  'src/platform/runtime-config.config.ts',
   true,
 );
 edge(
@@ -382,19 +382,19 @@ edge(
 edge(
   'domain cannot read runtime config',
   'src/alpha/domain/config.ts',
-  'src/runtime-config/runtime-config.ts',
+  'src/platform/runtime-config.config.ts',
   false,
 );
 edge(
   'service may use storage key',
   'src/alpha/service/storage.ts',
-  'src/storage/object-storage.key.ts',
+  'src/platform/object-storage.types.ts',
   true,
 );
 edge(
   'service cannot import storage gateway',
   'src/alpha/service/storage-private.ts',
-  'src/storage/gateway/object.storage.ts',
+  'src/platform/object-storage.client.ts',
   false,
 );
 edge(
@@ -424,55 +424,55 @@ edge(
 edge(
   'controller cannot access PrismaService',
   'src/alpha/controller/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'guard cannot access PrismaService',
   'src/alpha/alpha.guard.ts',
-  'src/prisma/prisma.service.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'repository may access PrismaService',
   'src/alpha/repository/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/platform/prisma.service.ts',
   true,
 );
 edge(
   'service cannot access PrismaService',
   'src/alpha/service/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'repository may acquire tree lock',
   'src/alpha/repository/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   true,
 );
 edge(
   'service cannot acquire tree lock',
   'src/alpha/service/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'controller cannot acquire tree lock',
   'src/alpha/controller/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'bootstrap cannot acquire tree lock',
   'src/main.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'tests may acquire tree lock',
   'test/tree-lock.spec.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   true,
 );
 edge(
@@ -508,7 +508,7 @@ edge(
 edge(
   'root types may reference a prisma transaction type',
   'src/alpha/alpha-store.types.ts',
-  'src/prisma/transaction-writer.ts',
+  'src/platform/audit-log-transaction-writer.repository.ts',
   true,
   'type',
 );
@@ -827,7 +827,7 @@ add(
 
 for (const file of [
   'src/enums/repository/client.ts',
-  'src/prisma/client.ts',
+  'src/platform/client.repository.ts',
   'src/enums/enums.module.ts',
   'src/enums/service/client.spec.ts',
   'test/client.ts',
@@ -966,7 +966,7 @@ add(
 );
 add(
   'runtime config manifest may read process.env',
-  'src/runtime-config/runtime-config.ts',
+  'src/platform/runtime-config.config.ts',
   'export const value = process.env.KEY; export interface Shape { id: string }',
   null,
 );

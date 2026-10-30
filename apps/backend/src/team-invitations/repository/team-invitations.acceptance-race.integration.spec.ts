@@ -7,7 +7,7 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramTeamsRepository } from '../../programs/repository/program-teams.repository';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import {

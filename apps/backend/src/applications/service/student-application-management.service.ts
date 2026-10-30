@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ApplicationStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,

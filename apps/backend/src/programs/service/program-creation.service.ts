@@ -3,9 +3,9 @@ import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
 import type { CreateProgramCommand } from '../domain/program-write.commands';
 import { ProgramsRepository } from '../repository/programs.repository';
 import {

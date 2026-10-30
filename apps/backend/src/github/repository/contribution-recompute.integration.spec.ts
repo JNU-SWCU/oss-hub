@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

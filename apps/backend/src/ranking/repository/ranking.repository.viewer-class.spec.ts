@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 
 type Actor = {

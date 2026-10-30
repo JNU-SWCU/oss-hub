@@ -11,7 +11,7 @@ import {
   type ProgramAuthoringDocumentRequest,
 } from '../domain/program-authoring.types';
 import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import { ProgramAuthoringRepository } from '../repository/program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import {

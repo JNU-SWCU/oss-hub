@@ -1,4 +1,4 @@
-import { ErrorCode } from '../../common/error-code';
+import { ErrorCode } from '../../platform/error-code.error';
 
 export enum AuthErrorCode {
   OAUTH_FLOW_INVALID = 'AUT_001',

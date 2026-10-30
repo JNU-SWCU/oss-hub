@@ -1,6 +1,6 @@
 import { ReviewDecision } from '@prisma/client';
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import type { CreateSubmissionReviewInput } from '../domain/submission-review';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,

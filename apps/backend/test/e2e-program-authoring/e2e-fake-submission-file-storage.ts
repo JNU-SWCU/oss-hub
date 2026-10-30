@@ -5,7 +5,7 @@ import {
   type StoredObject,
   ObjectStorageError,
   type ObjectStoragePort,
-} from '../../src/storage/domain/object-storage';
+} from '../../src/platform/object-storage.types';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalPortRegistry,

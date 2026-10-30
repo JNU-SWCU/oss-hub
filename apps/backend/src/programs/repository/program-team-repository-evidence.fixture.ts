@@ -1,4 +1,4 @@
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
 
 export const teamFindFirst = jest.fn();
@@ -7,7 +7,7 @@ export const contributionGroupBy = jest.fn();
 export const auditFindMany = jest.fn<Promise<unknown[]>, [unknown]>();
 export const provisionFindUnique = jest.fn();
 export const outsiderFindUnique = jest.fn();
-jest.mock('../../prisma/prisma.service', () => ({
+jest.mock('../../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     team: { findFirst: teamFindFirst },
     application: { findFirst: applicationFindFirst },

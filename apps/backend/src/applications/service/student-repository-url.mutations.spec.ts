@@ -1,5 +1,5 @@
 import { ApplicationStatus, Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { repositoryUrlError } from '../domain/student-repository-url.errors';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { StudentRepositoryUrlTransaction } from '../repository/student-repository-url.transaction.repository';

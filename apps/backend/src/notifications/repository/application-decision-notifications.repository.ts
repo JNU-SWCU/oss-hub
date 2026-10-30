@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 
 export interface StoredApplicationDecisionNotification {
   readonly id: string;

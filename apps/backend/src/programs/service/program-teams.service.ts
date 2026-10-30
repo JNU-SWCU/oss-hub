@@ -12,9 +12,9 @@ import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   ProgramTeamsRepository,

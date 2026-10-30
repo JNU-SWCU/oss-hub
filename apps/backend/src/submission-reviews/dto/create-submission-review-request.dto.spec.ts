@@ -1,5 +1,5 @@
 import { ReviewDecision } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { CreateSubmissionReviewRequestDto } from './create-submission-review-request.dto';
 import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 

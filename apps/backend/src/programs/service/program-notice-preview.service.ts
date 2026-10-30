@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { ProgramAuthoringRepository } from '../repository/program-authoring.repository';
 import { PROGRAM_NOTICE_ERRORS } from '../domain/program-notice-error-code';
 import {

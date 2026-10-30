@@ -1,6 +1,6 @@
 import type { Provider } from '@nestjs/common';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
+import type { RuntimeConfig } from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { GmailMailSender } from '../gateway/gmail-mail-sender';
 import type { GmailSenderConfig } from '../gateway/gmail-mail-sender';
 import { LogMailSender } from '../gateway/log-mail-sender';

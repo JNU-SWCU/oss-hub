@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthConfig } from './auth.config';
 
 const BASE_ENV = { ...process.env };

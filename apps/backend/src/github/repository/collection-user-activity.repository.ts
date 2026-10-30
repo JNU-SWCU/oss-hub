@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 
 export interface CollectionActivityUserRow {
   readonly githubId: bigint;

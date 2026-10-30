@@ -6,7 +6,7 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { sessionCookieName } from '../../auth/domain/cookies';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
 import { StudentRepositoryUrlService } from '../service/student-repository-url.service';
 

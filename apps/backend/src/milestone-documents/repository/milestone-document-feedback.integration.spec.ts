@@ -7,7 +7,7 @@ import {
   ReviewDecision,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from '../service/milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
 

@@ -3,7 +3,7 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,

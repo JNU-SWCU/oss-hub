@@ -7,10 +7,10 @@ import {
   createIndependentAuthorityAuditMetadata,
   createUserProfileAuditMetadata,
   type UserProfileAuditFieldChange,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError, staleAccessError } from './admin-access-mutation-policy';

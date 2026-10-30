@@ -1,4 +1,4 @@
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { CollectionAppConfigError } from '../collection-app.config';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 

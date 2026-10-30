@@ -7,9 +7,9 @@ import type { GithubAppCredentials } from './domain/github-app.types';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
-} from '../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
-import { readPrivateKeyFile } from '../runtime-config/private-key-file';
+} from '../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
+import { readPrivateKeyFile } from '../platform/private-key-file.config';
 
 const PRIVATE_KEY_FILE_ENV_KEY = 'GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE';
 

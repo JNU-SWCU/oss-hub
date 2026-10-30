@@ -9,9 +9,9 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../platform/audit-log-metadata.policy';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
@@ -27,7 +27,7 @@ import {
 import { seedMilestones } from '../../../prisma/seeds/milestones';
 import { seedRepositories } from '../../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import type { GithubAppClient } from '../../github/gateway/github-app.client';
 import { BarrierRepositoriesRepository } from '../../github/repository/repositories.integration-support';
 import { RepositoriesRepository } from '../../github/repository/repositories.repository';

@@ -5,11 +5,11 @@ import {
   USER_PROFILE_AUDIT_FIELDS,
   USER_PROFILE_AUDIT_SCHEMA_VERSION,
   type UserPhoneAuditTransition,
-} from '../../audit-log/domain/audit-log-metadata';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+} from '../../platform/audit-log-metadata.policy';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import type { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import { UsersErrorCode } from '../domain/users-error-code.enum';
 import type {

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
+import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { AdminAccessController } from './controller/admin-access.controller';
@@ -23,7 +23,7 @@ import { UsersAuthorityRepository } from './repository/authority.repository';
 import { UsersAuthorityService } from './service/authority.service';
 
 @Module({
-  imports: [AuditLogModule, AuthModule, ConsentsModule],
+  imports: [PlatformModule, AuthModule, ConsentsModule],
 
   controllers: [
     AccountDeactivationController,

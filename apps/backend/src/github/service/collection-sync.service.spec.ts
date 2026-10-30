@@ -8,7 +8,7 @@ import {
   CollectionSyncService,
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { CollectionAppClientError } from '../gateway/collection-app.client';
 import type {
   CollectionAppClient,

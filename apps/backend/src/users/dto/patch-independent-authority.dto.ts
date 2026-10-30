@@ -1,5 +1,5 @@
 import { IsDefined, IsString } from 'class-validator';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,

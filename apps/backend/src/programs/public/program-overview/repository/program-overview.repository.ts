@@ -9,8 +9,8 @@ import {
   MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../../../../prisma/program-application-participant';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { programApplicationParticipantWhere } from '../../../../platform/program-application-participant.repository';
+import { PrismaService } from '../../../../platform/prisma.service';
 import type {
   ProgramOverviewRecord,
   PublicTeamRow,

@@ -1,7 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import { AuthConfig } from '../../auth/auth.config';
 import { AuthService } from '../../auth/service/auth.service';
 import { AuthErrorCode } from '../../auth/domain/auth-error-code.enum';
@@ -9,8 +9,8 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {

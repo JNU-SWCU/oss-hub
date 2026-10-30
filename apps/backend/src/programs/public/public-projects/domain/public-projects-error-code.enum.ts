@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../../../../common/error-code';
+import type { ErrorCode } from '../../../../platform/error-code.error';
 
 export enum PublicProjectsErrorCode {
   PROJECT_NOT_FOUND = 'PPJ_001',

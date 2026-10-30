@@ -4,7 +4,7 @@ import {
   ProgramCategory,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ApplicationsRepository } from './applications.repository';
 import { appendReviewHistory } from './review-history.writer';
 

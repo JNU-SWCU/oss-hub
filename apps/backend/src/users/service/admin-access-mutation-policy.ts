@@ -1,5 +1,5 @@
 import { StaffAccessRequestStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,

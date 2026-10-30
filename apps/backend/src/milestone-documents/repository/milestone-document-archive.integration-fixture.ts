@@ -1,9 +1,9 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../../storage/object-storage.config';
+import { S3ObjectStorage } from '../../platform/object-storage.client';
+import { ObjectStorageConfig } from '../../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';

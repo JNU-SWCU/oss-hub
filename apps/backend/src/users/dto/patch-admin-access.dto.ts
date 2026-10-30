@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuthorityLabel } from '../domain/authority-label';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessExpectedPendingRequest,

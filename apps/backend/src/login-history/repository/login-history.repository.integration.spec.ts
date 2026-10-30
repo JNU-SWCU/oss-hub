@@ -1,4 +1,4 @@
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { LOGIN_HISTORY_EVENTS } from '../domain/login-history';
 import { LoginHistoryRepository } from './login-history.repository';

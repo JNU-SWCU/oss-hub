@@ -1,4 +1,4 @@
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
+import type { RuntimeConfig } from '../../platform/runtime-config.config';
 import { CollectionPublicReadConfig } from '../collection-app.config';
 
 export class CollectionPublicTokenProvider {

@@ -11,16 +11,16 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../../../audit-log/service/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../../audit-log/domain/audit-log-metadata';
+import { AuditLogRepository } from '../../../../platform/audit-log.repository';
+import { AuditLogService } from '../../../../platform/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../../platform/audit-log-metadata.policy';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from '../../../../github/domain/repository-identity';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaService } from '../../../../platform/prisma.service';
 import { PublicProjectMetricsRepository } from '../../public-projects/repository/public-project-metrics.repository';
-import { loadRuntimeConfig } from '../../../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
 import type { GithubAppClient } from '../../../../github/gateway/github-app.client';
 import { RepositoriesRepository } from '../../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../../github/service/repositories.service';

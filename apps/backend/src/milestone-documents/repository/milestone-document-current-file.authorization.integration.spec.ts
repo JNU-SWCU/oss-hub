@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import { PlatformModule } from '../../platform/platform.module';
 import { buffer } from 'node:stream/consumers';
 import { Test } from '@nestjs/testing';
 import {
@@ -11,14 +12,13 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaModule } from '../../prisma/prisma.module';
-import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
+import { PrismaService } from '../../platform/prisma.service';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import { SubmissionFilesService } from '../../submissions/service/submission-files.service';
 import { SubmissionsModule } from '../../submissions/submissions.module';
 import { UsersAuthorityService } from '../../users/service/authority.service';
@@ -356,7 +356,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await prisma.$connect();
 
     const submissionsModule = await Test.createTestingModule({
-      imports: [PrismaModule, SubmissionsModule],
+      imports: [PlatformModule, SubmissionsModule],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(

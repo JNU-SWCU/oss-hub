@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 
 it('restricts the public selector to current image metadata and the explicit public lifecycle allowlist', async () => {

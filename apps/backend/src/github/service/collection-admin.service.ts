@@ -4,9 +4,9 @@ import { CollectionSweepRunner } from './collection-sweep-runner';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {

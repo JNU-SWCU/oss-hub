@@ -1,7 +1,7 @@
-import { linkedRepositoryFilter } from '../../../../prisma/linked-program-repository';
+import { linkedRepositoryFilter } from '../../../../platform/linked-program-repository.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaService } from '../../../../platform/prisma.service';
 
 export interface ProgramRepositoryCumulativeMetricsQuery {
   readonly repositoryIds: readonly bigint[];

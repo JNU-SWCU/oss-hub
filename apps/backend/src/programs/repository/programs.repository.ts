@@ -8,11 +8,11 @@ import {
   ProgramCategory,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
@@ -30,7 +30,7 @@ import {
   programListSqlWhere,
   programStatusCountsSql,
 } from './program-list-status-filter';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 
 export interface ProgramApplicationCounts {
   readonly total: number;

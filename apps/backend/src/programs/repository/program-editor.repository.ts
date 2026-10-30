@@ -6,8 +6,8 @@ import {
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 
-import { lockProgramTree } from '../../prisma/lock-program-tree';
-import { PrismaService } from '../../prisma/prisma.service';
+import { lockProgramTree } from '../../platform/lock-program-tree.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';
 import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scope';
 import type {

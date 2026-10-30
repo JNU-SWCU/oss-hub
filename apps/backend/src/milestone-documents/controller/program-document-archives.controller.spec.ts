@@ -7,10 +7,10 @@ import { AuthService } from '../../auth/service/auth.service';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,

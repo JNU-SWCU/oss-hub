@@ -1,10 +1,10 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { PlatformModule } from '../../platform/platform.module';
 import { NestFactory } from '@nestjs/core';
 import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
-} from '../../storage/domain/object-storage';
-import { StorageModule } from '../../storage/storage.module';
+} from '../../platform/object-storage.types';
 import { KNOWN_STORAGE_PREFIXES } from '../domain/storage-orphan-reconciliation';
 import { createStorageReferenceRepository } from '../repository/storage-orphan-reconciliation.repository';
 import { runStorageOrphanReconciliation } from './storage-orphan-reconciliation.runner';
@@ -70,7 +70,7 @@ describe('storage orphan reconciliation runner', () => {
   it('reports without deleting and preserves the exact JSON event contract', async () => {
     await runStorageOrphanReconciliation('report');
 
-    expect(bootstrap).toHaveBeenCalledWith(StorageModule, {
+    expect(bootstrap).toHaveBeenCalledWith(PlatformModule, {
       logger: false,
       abortOnError: false,
     });

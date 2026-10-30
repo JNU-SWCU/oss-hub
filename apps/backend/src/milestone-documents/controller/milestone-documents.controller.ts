@@ -19,7 +19,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { multipartFileUploadInterceptor } from '../../common/controller/multipart-file-upload.interceptor';
+import { multipartFileUploadInterceptor } from '../../platform/multipart-file-upload.interceptor';
 import type { Response } from 'express';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
@@ -48,7 +48,7 @@ import type { MilestoneDocumentArchiveScope } from '../milestone-document-archiv
 import {
   setDownloadHeaders,
   respondWithDownloadFailure,
-} from '../../common/controller/download-response';
+} from '../../platform/download-response.types';
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,

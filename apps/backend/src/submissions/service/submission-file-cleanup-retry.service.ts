@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
   createSubmissionFileCleanupAuditMetadata,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { SubmissionFilesRepository } from '../repository/submission-files.repository';
 
 @Injectable()

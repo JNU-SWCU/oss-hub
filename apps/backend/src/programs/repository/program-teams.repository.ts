@@ -18,13 +18,13 @@ import {
   RepositoryProvisionJobStatus,
   type ProgramCategory,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import { publishBlockedReasons } from '../../github/domain/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
-import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
+import { repositoryAccessSyncTargetWhere } from '../../platform/repository-access-sync.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
@@ -33,7 +33,7 @@ import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,

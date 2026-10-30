@@ -4,7 +4,7 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { resolveIndependentAuthorityTransition } from '../domain/independent-authority-transition';
 

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { normalizeMultipartFileName } from '../../common/domain/multipart-file-name';
+import { normalizeMultipartFileName } from '../../platform/multipart-file-name.policy';
 import { sanitizeSubmissionFileOriginalName } from '../../submissions/domain/submission-file-object-key';
 import { hasValidSubmissionTemplateSignature } from '../../submissions/domain/submission-template-file-policy';
 import { inspectSubmissionZipMetadata } from '../../submissions/domain/submission-zip-admission';

@@ -1,8 +1,8 @@
 import { Transform } from 'class-transformer';
 import { AffiliationKind } from '@prisma/client';
 import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { isValidStaffNumber } from '../domain/member-kind';
 import {
   isValidDepartment,

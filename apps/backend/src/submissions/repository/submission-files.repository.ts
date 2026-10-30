@@ -9,11 +9,11 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
-import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
-import { PrismaService } from '../../prisma/prisma.service';
+import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
+import { STUDENT_MEMBER_WHERE } from '../../platform/user-profile-read.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
-import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { lockSubmissionMembership } from '../../platform/submission-membership-lock.repository';
 import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,

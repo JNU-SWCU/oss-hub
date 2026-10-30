@@ -15,7 +15,7 @@ import {
   User,
 } from '@prisma/client';
 import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
+import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
 import { AUTH_SCENARIOS } from './auth';
 import {
   offsetDays,

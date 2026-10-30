@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   activityTotal,
   type ActivityCounts,
-} from '../../common/domain/activity-counts';
-import { DomainException } from '../../common/error-code';
+} from '../../platform/activity-counts.policy';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   APPLICATIONS_ERROR_CODES,

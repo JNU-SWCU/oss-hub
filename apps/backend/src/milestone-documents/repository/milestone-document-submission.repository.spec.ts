@@ -3,16 +3,16 @@ import {
   Prisma,
   SubmissionStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
-import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import type { PrismaService } from '../../platform/prisma.service';
+import { lockSubmissionMembership } from '../../platform/submission-membership-lock.repository';
 import { SubmissionMembershipChangedError } from '../../submissions/domain/submission-membership-changed.error';
 import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
 import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-document-submission.repository';
 
-jest.mock('../../prisma/submission-membership-lock', () => {
+jest.mock('../../platform/submission-membership-lock.repository', () => {
   const actual = jest.requireActual<
-    typeof import('../../prisma/submission-membership-lock')
-  >('../../prisma/submission-membership-lock');
+    typeof import('../../platform/submission-membership-lock.repository')
+  >('../../platform/submission-membership-lock.repository');
   return { ...actual, lockSubmissionMembership: jest.fn() };
 });
 

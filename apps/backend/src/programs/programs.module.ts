@@ -1,10 +1,9 @@
 import { ProgramLifecycleController } from './controller/program-lifecycle.controller';
+import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
-import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
 import { ProgramAuthoringRepository } from './repository/program-authoring.repository';
@@ -49,10 +48,9 @@ import { ProgramNoticeFetchClient } from './gateway/program-notice-fetch.client'
 @Module({
   imports: [
     AuthModule,
-    AuditLogModule,
+    PlatformModule,
     RepositoriesModule,
     SubmissionsModule,
-    StorageModule,
     UsersModule,
   ],
   controllers: [

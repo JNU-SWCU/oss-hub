@@ -10,8 +10,8 @@ import type { RepositoryVisibility } from '@prisma/client';
 import {
   createRepositoryConnectionAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '../../platform/audit-log-metadata.policy';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,

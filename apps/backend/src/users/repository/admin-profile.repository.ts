@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { DomainException } from '../../common/error-code';
-import { withSerializationRetry } from '../../common/repository/prisma-serialization-retry';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { DomainException } from '../../platform/error-code.error';
+import { withSerializationRetry } from '../../platform/prisma-serialization-retry.repository';
 import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
-} from '../../prisma/user-profile-read';
-import { upsertUserProfile } from '../../prisma/user-profile-write';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '../../platform/user-profile-read.repository';
+import { upsertUserProfile } from '../../platform/user-profile-write.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   USERS_ERROR_CODES,
   UsersErrorCode,

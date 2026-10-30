@@ -13,10 +13,10 @@ import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { PrismaService } from '../../platform/prisma.service';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionSyncService } from '../service/collection-sync.service';
 import { CollectionUserActivityService } from '../service/collection-user-activity.service';

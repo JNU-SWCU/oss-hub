@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,

@@ -1,4 +1,4 @@
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code';
 
 const ORIGIN = 'https://sojoong.kr';

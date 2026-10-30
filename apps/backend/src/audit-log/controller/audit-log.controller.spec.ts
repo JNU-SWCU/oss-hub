@@ -7,7 +7,7 @@ import {
 import { RequestMethod } from '@nestjs/common';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { AuditLogController } from './audit-log.controller';
-import type { AuditLogService } from '../service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import { AuditLogListRequestDto } from '../dto/audit-log-query.dto';
 
 describe('AuditLogController', () => {
