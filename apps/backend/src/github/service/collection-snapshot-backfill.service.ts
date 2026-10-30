@@ -23,17 +23,11 @@ const MONTHS_PER_YEAR = 12;
 
 export interface CollectionSnapshotBackfillResult {
   readonly observedUserCount: number;
-
   readonly requestCount: number;
-
   readonly writtenRowCount: number;
-
   readonly skippedExistingCount: number;
-
   readonly skippedStaleCount: number;
-
   readonly failedUserCount: number;
-
   readonly stoppedForBudget: boolean;
 }
 

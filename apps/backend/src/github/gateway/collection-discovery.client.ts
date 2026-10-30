@@ -48,7 +48,7 @@ export interface CollectionMonthlyContributionWindow {
   readonly to: string;
 }
 
-export interface CollectionMonthlyContributionCounts {
+interface CollectionMonthlyContributionCounts {
   readonly alias: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
