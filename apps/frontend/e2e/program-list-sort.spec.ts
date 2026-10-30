@@ -1,5 +1,6 @@
 import { expect, test } from './admin-session.fixture';
 import { COVER_PNG } from './support/program-cover';
+import { isRecord } from '../src/lib/is-record';
 import {
   originHeaders,
   resetProgramAuthoringControl,
@@ -49,6 +50,44 @@ for (const width of [1440, 390]) {
 
     await page.route('**/api/v1/programs/*/cover/*', (route) =>
       route.fulfill({ contentType: 'image/png', body: COVER_PNG }),
+    );
+    await page.route('**/api/v1/programs?*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('status') !== 'current') {
+        await route.continue();
+        return;
+      }
+      url.searchParams.set('status', 'all');
+      const response = await route.fetch({ url: url.toString() });
+      expect(response.status()).toBe(200);
+      const result: unknown = await response.json();
+      if (!isRecord(result) || !Array.isArray(result.items)) {
+        throw new Error('프로그램 목록 응답이 아닙니다');
+      }
+      const items = result.items.filter((program: unknown) => {
+        if (
+          !isRecord(program) ||
+          (program.endAt !== null && typeof program.endAt !== 'string')
+        ) {
+          throw new Error('프로그램 종료일이 없습니다');
+        }
+        return (
+          program.lifecycle !== 'ARCHIVED' &&
+          (program.endAt === null ||
+            Date.parse(program.endAt) >= Date.parse(now))
+        );
+      });
+      await route.fulfill({
+        json: {
+          ...result,
+          items,
+          totalItems: items.length,
+          totalPages: items.length ? 1 : 0,
+        },
+      });
+    });
+    await page.route('**/api/v1/programs/ended-years', (route) =>
+      route.fulfill({ json: { years: [2026] } }),
     );
     await page.goto('/programs');
     const search = page.getByRole('textbox', { name: '프로그램명 검색' });
