@@ -6,20 +6,46 @@ import {
   RANKING_YEAR_ALL,
   type RankingEntry,
   type RankingPage,
+  type RankingViewerClass,
   type RankingYear,
 } from '../domain/ranking';
 import { compareRankingCandidates } from '../domain/ranking-order';
+import {
+  buildRankingTimeline,
+  RANKING_TIMELINE_MIN_YEAR,
+  type RankingTimeline,
+  type RankingTimelineBuild,
+} from '../domain/ranking-timeline';
 import { RankingRepository } from '../repository/ranking.repository';
 
 interface RankedPublicEntry extends RankingEntry {
   readonly githubId: bigint;
 }
 
+interface TimelineBuild extends RankingTimelineBuild {
+  readonly dataAsOf: Date | null;
+}
+
+interface TimelineViewer {
+  readonly viewerClass: RankingViewerClass;
+  readonly githubLogin: string | null;
+}
+
+const EMPTY_TIMELINE_BUILD: TimelineBuild = {
+  points: [],
+  series: [],
+  dataAsOf: null,
+};
+
 @Injectable()
 export class RankingService {
   private readonly inFlightBuilds = new Map<
     string,
     Promise<readonly RankedPublicEntry[]>
+  >();
+  private readonly inFlightTimelines = new Map<
+    string,
+    Promise<TimelineBuild>
   >();
 
   constructor(private readonly ranking: RankingRepository) {}
@@ -77,8 +103,71 @@ export class RankingService {
     }
   }
 
+  async findTimeline(
+    year: number,
+    githubId: bigint | null,
+  ): Promise<RankingTimeline> {
+    const [viewer, build] = await Promise.all([
+      this.resolveTimelineViewer(githubId),
+      this.findTimelineBuild(year),
+    ]);
+    return {
+      year,
+      viewerClass: viewer.viewerClass,
+      viewerGithubLogin: viewer.githubLogin,
+      dataAsOf: build.dataAsOf,
+      points: build.points,
+      series: build.series,
+    };
+  }
+
   async listYears(): Promise<readonly number[]> {
     return this.ranking.listYears();
+  }
+
+  private async resolveTimelineViewer(
+    githubId: bigint | null,
+  ): Promise<TimelineViewer> {
+    const viewerClass = await this.ranking.findViewerClass(githubId);
+    if (githubId === null || viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
+      return { viewerClass, githubLogin: null };
+    }
+    return {
+      viewerClass,
+      githubLogin: await this.ranking.findViewerGithubLogin(githubId),
+    };
+  }
+
+  private async findTimelineBuild(year: number): Promise<TimelineBuild> {
+    const cacheKey = `timeline:${year}`;
+    const existingBuild = this.inFlightTimelines.get(cacheKey);
+    if (existingBuild) return existingBuild;
+
+    const build = this.buildTimeline(year).finally(() =>
+      this.inFlightTimelines.delete(cacheKey),
+    );
+    this.inFlightTimelines.set(cacheKey, build);
+    return build;
+  }
+
+  private async buildTimeline(year: number): Promise<TimelineBuild> {
+    if (year < RANKING_TIMELINE_MIN_YEAR) return EMPTY_TIMELINE_BUILD;
+
+    const [metrics, snapshots, dataAsOf] = await Promise.all([
+      this.ranking.findMetrics({ currentYear: year }),
+      this.ranking.findMonthlySnapshots(year),
+      this.ranking.findDataAsOf(),
+    ]);
+    return {
+      ...buildRankingTimeline({
+        year,
+        metrics,
+        snapshots,
+        dataAsOf,
+        now: new Date(),
+      }),
+      dataAsOf,
+    };
   }
 
   private async findPublicEntries(

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MemberKind, type Prisma } from '@prisma/client';
+import { AccountStatus, MemberKind, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
@@ -23,6 +23,17 @@ export interface RankingMetricRow {
 
 export interface RankingMetricsQuery {
   readonly currentYear?: number;
+}
+
+export interface RankingSnapshotRow {
+  readonly githubId: bigint;
+  readonly snapshotDate: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+  readonly starEstimated: boolean;
 }
 
 const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
@@ -131,6 +142,37 @@ export class RankingRepository {
           starCount: totals?.starCount ?? 0,
         };
       });
+  }
+
+  async findViewerGithubLogin(githubId: bigint): Promise<string | null> {
+    const viewer = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { nickname: true },
+    });
+    const nickname = viewer?.nickname ?? '';
+    return nickname === '' ? null : nickname;
+  }
+
+  async findMonthlySnapshots(
+    year: number,
+  ): Promise<readonly RankingSnapshotRow[]> {
+    return this.prisma.$queryRaw<readonly RankingSnapshotRow[]>(Prisma.sql`
+      SELECT DISTINCT ON ("githubId", date_trunc('month', "snapshotDate"))
+        "githubId",
+        "snapshotDate",
+        "commitCount",
+        "pullRequestCount",
+        "issueCount",
+        "repositoryCount",
+        "starCount",
+        "starEstimated"
+      FROM "GithubUserActivitySnapshot"
+      WHERE "year" = ${year}
+      ORDER BY
+        "githubId" ASC,
+        date_trunc('month', "snapshotDate") ASC,
+        "snapshotDate" DESC
+    `);
   }
 
   async findNamesByGithubIds(

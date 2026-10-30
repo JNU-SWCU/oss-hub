@@ -9,15 +9,21 @@ import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from '../../auth/controller/http-auth';
-import { RANKING_VIEWER_CLASSES } from '../domain/ranking';
+import {
+  RANKING_VIEWER_CLASSES,
+  type RankingViewerClass,
+} from '../domain/ranking';
 import {
   RankingQueryRequestDto,
+  RankingTimelineQueryRequestDto,
   resolveRankingQueryYear,
+  resolveRankingTimelineQueryYear,
 } from '../dto/ranking-query.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from '../dto/ranking-response.dto';
+import { RankingTimelineResponseDto } from '../dto/ranking-timeline-response.dto';
 import { RankingService } from '../service/ranking.service';
 
 @Controller('ranking')
@@ -37,13 +43,23 @@ export class RankingController {
       query.pageSize,
       githubIdFrom(request),
     );
-    if (page.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
-      response.setHeader('Cache-Control', 'no-store');
-    } else {
-      response.setHeader('Cache-Control', 'private, no-store');
-      response.setHeader('Vary', 'Cookie');
-    }
+    applyViewerCacheHeaders(response, page.viewerClass);
     return RankingPageResponseDto.from(page);
+  }
+
+  @Get('timeline')
+  @OptionalSession()
+  async findTimeline(
+    @Query() query: RankingTimelineQueryRequestDto,
+    @Req() request: OptionalSessionRequest,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<RankingTimelineResponseDto> {
+    const timeline = await this.rankingService.findTimeline(
+      resolveRankingTimelineQueryYear(query),
+      githubIdFrom(request),
+    );
+    applyViewerCacheHeaders(response, timeline.viewerClass);
+    return RankingTimelineResponseDto.from(timeline);
   }
 
   @Get('years')
@@ -52,6 +68,18 @@ export class RankingController {
   async listYears(): Promise<RankingYearsResponseDto> {
     return RankingYearsResponseDto.from(await this.rankingService.listYears());
   }
+}
+
+function applyViewerCacheHeaders(
+  response: Response,
+  viewerClass: RankingViewerClass,
+): void {
+  if (viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
+    response.setHeader('Cache-Control', 'no-store');
+    return;
+  }
+  response.setHeader('Cache-Control', 'private, no-store');
+  response.setHeader('Vary', 'Cookie');
 }
 
 function githubIdFrom(request: OptionalSessionRequest): bigint | null {
