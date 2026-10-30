@@ -543,7 +543,7 @@ edge(
   'src/beta/dto/target.ts',
   true,
 );
-for (const consumer of ['programs', 'ranking', 'admin']) {
+for (const consumer of ['programs', 'ranking', 'student', 'admin']) {
   edge(
     `github service cannot import consumer ${consumer}`,
     `src/github/${consumer}.service.ts`,

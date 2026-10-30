@@ -17,7 +17,6 @@ import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenProvider } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
-import { RepositoriesController } from './repositories.controller';
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoriesService } from './repositories.service';
@@ -30,7 +29,7 @@ import { RepositoryProvisionWorker } from './repository-provision-worker.service
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
-  controllers: [CollectionAdminController, RepositoriesController],
+  controllers: [CollectionAdminController],
   providers: [
     CollectionAdminService,
     CollectionScheduler,

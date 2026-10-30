@@ -1,7 +1,8 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../auth/session.guard';
-import { ProgramActivityService } from './program-activity.service';
-import { ProgramViewerService } from './program-viewer.service';
+import { ProgramActivityService } from '../programs/program-activity.service';
+import { ProgramViewerService } from '../programs/program-viewer.service';
+import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentDashboardService } from './student-dashboard.service';
 
@@ -60,6 +61,7 @@ function controllerWith(items: readonly Record<string, unknown>[]) {
       dashboard,
       {} as ProgramActivityService,
       {} as ProgramViewerService,
+      {} as MilestoneDocumentFeedbackService,
     ),
     getStudentDashboard,
   };

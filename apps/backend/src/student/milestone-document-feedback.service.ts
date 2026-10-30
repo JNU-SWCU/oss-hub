@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneDocumentKind } from '@prisma/client';
-import { isChangeRequestResubmissionOpen } from './milestone-document-submission-window.policy';
+import { isChangeRequestResubmissionOpen } from '../programs/milestone-document-submission-window.policy';
 import type {
   MilestoneDocumentFeedbackItemResult,
   MilestoneDocumentFeedbackResult,
-} from './milestone-document-result.types';
+} from '../programs/milestone-document-result.types';
 import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,

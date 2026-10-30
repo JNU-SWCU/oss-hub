@@ -10,11 +10,11 @@ import {
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoriesReadService } from '../github/repositories-read.service';
-import { submissionCompletionTargetSelect } from './submission-completion-projection.policy';
+import { submissionCompletionTargetSelect } from '../programs/submission-completion-projection.policy';
 import {
-  StudentDashboardReadRepository,
+  StudentDashboardRepository,
   type StudentDashboardApplicationRow,
-} from './student-dashboard-read.repository';
+} from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -101,7 +101,7 @@ describe('StudentDashboardService', () => {
   const findParticipatingApplications = jest.fn();
   const repository = {
     findParticipatingApplications,
-  } as unknown as StudentDashboardReadRepository;
+  } as unknown as StudentDashboardRepository;
   const getMyRepositories = jest.fn();
   const repositories = {
     getMyRepositories,
@@ -214,7 +214,7 @@ describe('StudentDashboardService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         StudentDashboardService,
-        StudentDashboardReadRepository,
+        StudentDashboardRepository,
         {
           provide: PrismaService,
           useValue: {
@@ -867,14 +867,14 @@ describe('StudentDashboardService', () => {
   });
 });
 
-describe('StudentDashboardReadRepository', () => {
+describe('StudentDashboardRepository', () => {
   const findUnique = jest.fn();
   const findMany = jest.fn();
   const prisma = {
     user: { findUnique },
     application: { findMany },
   } as unknown as PrismaService;
-  const repository = new StudentDashboardReadRepository(prisma);
+  const repository = new StudentDashboardRepository(prisma);
 
   beforeEach(() => {
     jest.clearAllMocks();

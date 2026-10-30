@@ -10,6 +10,7 @@ import { RepositoriesService } from './github/repositories.service';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
+import { StudentModule } from './student/student.module';
 import { SubmissionReviewsController } from './programs/submission-reviews.controller';
 
 describe('AppModule module exposure', () => {
@@ -59,6 +60,15 @@ describe('AppModule module exposure', () => {
     const imports = getImports();
 
     expect(imports.filter((entry) => entry === ProgramsModule)).toHaveLength(1);
+  });
+
+  it('StudentModule을 ProgramsModule 뒤에 정확히 한 번 노출한다', () => {
+    const imports = getImports();
+
+    expect(imports.filter((entry) => entry === StudentModule)).toHaveLength(1);
+    expect(imports.indexOf(StudentModule)).toBeGreaterThan(
+      imports.indexOf(ProgramsModule),
+    );
   });
 
   it('Notifications 스케줄러보다 Github 스케줄러를 먼저 로드한다', () => {

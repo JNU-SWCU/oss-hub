@@ -8,7 +8,10 @@ import { issueSessionToken } from '../auth/session-token.policy';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
-import { MilestoneDocumentFeedbackController } from './milestone-document-feedback.controller';
+import { ProgramActivityService } from '../programs/program-activity.service';
+import { ProgramViewerService } from '../programs/program-viewer.service';
+import { StudentDashboardController } from './student-dashboard.controller';
+import { StudentDashboardService } from './student-dashboard.service';
 
 const SESSION_GITHUB_ID = 342_900_300n;
 const SESSION_SECRET = new Uint8Array(32).fill(41);
@@ -52,7 +55,7 @@ beforeEach(() => {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [MilestoneDocumentFeedbackController],
+    controllers: [StudentDashboardController],
     providers: [
       SessionGuard,
       {
@@ -75,6 +78,9 @@ beforeAll(async () => {
         provide: MilestoneDocumentFeedbackService,
         useValue: { recentForParticipant },
       },
+      { provide: StudentDashboardService, useValue: {} },
+      { provide: ProgramActivityService, useValue: {} },
+      { provide: ProgramViewerService, useValue: {} },
     ],
   }).compile();
 
@@ -116,7 +122,7 @@ it('미인증 요청은 판정을 읽기 전에 AUT_003 401로 거부한다', as
 
 it('학생 대시보드와 같이 SessionGuard 하나만 붙인다', () => {
   const handler: unknown = Object.getOwnPropertyDescriptor(
-    MilestoneDocumentFeedbackController.prototype,
+    StudentDashboardController.prototype,
     'recentFeedback',
   )?.value;
 

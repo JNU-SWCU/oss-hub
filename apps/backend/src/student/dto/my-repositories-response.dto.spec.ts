@@ -1,5 +1,5 @@
 import { MyRepositoriesResponseDto } from './my-repositories-response.dto';
-import type { MyRepositoryResult } from '../repositories-read.types';
+import type { MyRepositoryResult } from '../../github/repositories-read.types';
 
 describe('MyRepositoriesResponseDto', () => {
   it.each(['NEW', 'OWN'] as const)(

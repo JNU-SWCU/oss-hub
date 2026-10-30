@@ -36,10 +36,10 @@ export interface StudentDashboardItem {
   readonly progress: StudentDashboardProgress | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
-  readonly repository: StudentDashboardRepository | null;
+  readonly repository: StudentDashboardRepositoryItem | null;
 }
 
-export interface StudentDashboardRepository {
+export interface StudentDashboardRepositoryItem {
   readonly repositoryName: string | null;
   readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
   readonly invitationStatus: RepositoryInvitationStatus | null;

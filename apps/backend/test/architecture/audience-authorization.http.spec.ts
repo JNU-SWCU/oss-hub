@@ -18,26 +18,25 @@ import { sessionCookieName } from '../../src/auth/cookies.policy';
 import { issueSessionToken } from '../../src/auth/session-token.policy';
 import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
-import { RepositoriesController } from '../../src/github/repositories.controller';
+import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { RepositoriesRepository } from '../../src/github/repositories.repository';
 import { RepositoriesReadService } from '../../src/github/repositories-read.service';
-import { MilestoneDocumentFeedbackController } from '../../src/programs/milestone-document-feedback.controller';
-import { MilestoneDocumentFeedbackRepository } from '../../src/programs/milestone-document-feedback.repository';
+import { MilestoneDocumentFeedbackRepository } from '../../src/student/milestone-document-feedback.repository';
 import {
   MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
   MilestoneDocumentFeedbackService,
-} from '../../src/programs/milestone-document-feedback.service';
+} from '../../src/student/milestone-document-feedback.service';
 import { PrismaService } from '../../src/platform/prisma.service';
-import { StudentDashboardController } from '../../src/programs/student-dashboard.controller';
+import { StudentDashboardController } from '../../src/student/student-dashboard.controller';
 import { ProgramActivityRepository } from '../../src/programs/program-activity.repository';
 import { ProgramActivitySummaryRepository } from '../../src/programs/program-activity-summary.repository';
 import { ProgramsRepository } from '../../src/programs/programs.repository';
-import { StudentDashboardReadRepository } from '../../src/programs/student-dashboard-read.repository';
+import { StudentDashboardRepository } from '../../src/student/student-dashboard.repository';
 import { ProgramActivityService } from '../../src/programs/program-activity.service';
 import { ProgramActivitySummaryService } from '../../src/programs/program-activity-summary.service';
 import { ProgramViewerService } from '../../src/programs/program-viewer.service';
-import { StudentDashboardService } from '../../src/programs/student-dashboard.service';
+import { StudentDashboardService } from '../../src/student/student-dashboard.service';
 import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { SubmissionDashboardSummaryRepository } from '../../src/programs/submission-dashboard-summary.repository';
@@ -251,8 +250,7 @@ describe('Audience authorization HTTP characterization', () => {
     const module = await Test.createTestingModule({
       controllers: [
         StudentDashboardController,
-        MilestoneDocumentFeedbackController,
-        RepositoriesController,
+        MyRepositoriesController,
         StaffDashboardController,
         AdminAccessController,
         IndependentAuthorityController,
@@ -333,7 +331,7 @@ describe('Audience authorization HTTP characterization', () => {
           useValue: { requireOrganization: () => 'synthetic-org' },
         },
         {
-          provide: StudentDashboardReadRepository,
+          provide: StudentDashboardRepository,
           useValue: {
             findParticipatingApplications: () => Promise.resolve([]),
           },

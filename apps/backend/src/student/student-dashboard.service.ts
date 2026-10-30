@@ -2,7 +2,7 @@ import {
   StudentDashboardMilestone,
   StudentDashboardItem,
   StudentDashboardProgress,
-  StudentDashboardRepository,
+  StudentDashboardRepositoryItem,
 } from './student-dashboard.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -17,14 +17,14 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
-} from './milestone-completion.policy';
-import { programCoverImageUrl } from './program-cover.policy';
+} from '../programs/milestone-completion.policy';
+import { programCoverImageUrl } from '../programs/program-cover.policy';
 import { RepositoriesReadService } from '../github/repositories-read.service';
-import { projectSubmissionCompletionTargets } from './submission-completion-projection.policy';
+import { projectSubmissionCompletionTargets } from '../programs/submission-completion-projection.policy';
 import {
-  StudentDashboardReadRepository,
+  StudentDashboardRepository,
   type StudentDashboardApplicationRow,
-} from './student-dashboard-read.repository';
+} from './student-dashboard.repository';
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
@@ -125,7 +125,7 @@ function progressOf(
 @Injectable()
 export class StudentDashboardService {
   constructor(
-    private readonly repository: StudentDashboardReadRepository,
+    private readonly repository: StudentDashboardRepository,
     @Inject(RepositoriesReadService)
     private readonly repositories: Pick<
       RepositoriesReadService,
@@ -235,7 +235,7 @@ export class StudentDashboardService {
       string,
       Awaited<ReturnType<RepositoriesReadService['getMyRepositories']>>[number]
     >,
-  ): StudentDashboardRepository | null {
+  ): StudentDashboardRepositoryItem | null {
     if (application.status !== ApplicationStatus.APPROVED) return null;
 
     const projectedRepository = repositoryByApplication.get(application.id);

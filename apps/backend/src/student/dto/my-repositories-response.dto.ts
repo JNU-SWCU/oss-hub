@@ -1,4 +1,4 @@
-import type { MyRepositoryResult } from '../repositories-read.types';
+import type { MyRepositoryResult } from '../../github/repositories-read.types';
 import type {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,

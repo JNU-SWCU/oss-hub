@@ -17,12 +17,6 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
-import { MilestoneDocumentFeedbackController } from './milestone-document-feedback.controller';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
-import {
-  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-  MilestoneDocumentFeedbackService,
-} from './milestone-document-feedback.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { ProgramsModule } from './programs.module';
@@ -69,31 +63,6 @@ describe('ProgramsModule milestone documents', () => {
         MilestoneDocumentArchiveService,
       ]),
     );
-  });
-
-  it('학생 대시보드 피드백 API와 그 7일 창을 셀 현재 시각 시계를 등록한다', () => {
-    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
-    const clock = providers.find(
-      (provider): provider is { readonly useValue: () => Date } =>
-        typeof provider === 'object' &&
-        provider !== null &&
-        'provide' in provider &&
-        provider.provide === MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-    );
-
-    expect(getMetadataArray(MODULE_METADATA.CONTROLLERS)).toContain(
-      MilestoneDocumentFeedbackController,
-    );
-    expect(providers).toEqual(
-      expect.arrayContaining([
-        MilestoneDocumentFeedbackService,
-        MilestoneDocumentFeedbackRepository,
-      ]),
-    );
-    const before = Date.now();
-    const now = clock?.useValue().getTime();
-    expect(now).toBeGreaterThanOrEqual(before);
-    expect(now).toBeLessThanOrEqual(Date.now());
   });
 
   it('제출 파일 service는 같은 ProgramsModule provider로 해결한다', () => {

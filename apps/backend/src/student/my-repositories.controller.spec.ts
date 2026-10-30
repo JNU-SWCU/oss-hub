@@ -4,14 +4,14 @@ import {
   RepositoryVisibility,
 } from '@prisma/client';
 import { SessionGuard } from '../auth/session.guard';
-import { RepositoriesController } from './repositories.controller';
-import type { RepositoriesReadService } from './repositories-read.service';
+import { MyRepositoriesController } from './my-repositories.controller';
+import type { RepositoriesReadService } from '../github/repositories-read.service';
 
 const UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
 
 function handler(): (...args: unknown[]) => unknown {
   const descriptor = Object.getOwnPropertyDescriptor(
-    RepositoriesController.prototype,
+    MyRepositoriesController.prototype,
     'getMyRepositories',
   );
   const method: unknown = descriptor?.value;
@@ -19,7 +19,7 @@ function handler(): (...args: unknown[]) => unknown {
   return method as (...args: unknown[]) => unknown;
 }
 
-describe('RepositoriesController', () => {
+describe('MyRepositoriesController', () => {
   it('passes the session github id to the service and serializes timestamps', async () => {
     const repositoriesService = {
       getMyRepositories: jest.fn().mockResolvedValue([
@@ -39,7 +39,7 @@ describe('RepositoriesController', () => {
         },
       ]),
     } as jest.Mocked<Pick<RepositoriesReadService, 'getMyRepositories'>>;
-    const controller = new RepositoriesController(repositoriesService);
+    const controller = new MyRepositoriesController(repositoriesService);
 
     const response = await controller.getMyRepositories({
       sessionGithubId: 123n,

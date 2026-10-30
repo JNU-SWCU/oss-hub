@@ -14,10 +14,15 @@ import {
   activityTimelineResponse,
   type ActivityTimelineResponseDto,
 } from './dto/activity-timeline.dto';
+import {
+  presentMilestoneDocumentFeedback,
+  type MilestoneDocumentFeedbackResponseDto,
+} from './dto/milestone-document-feedback-response.dto';
 import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
-import { ProgramActivityService } from './program-activity.service';
+import { ProgramActivityService } from '../programs/program-activity.service';
+import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { StudentDashboardService } from './student-dashboard.service';
-import { ProgramViewerService } from './program-viewer.service';
+import { ProgramViewerService } from '../programs/program-viewer.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -31,6 +36,7 @@ export class StudentDashboardController {
     >,
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
+    private readonly feedback: MilestoneDocumentFeedbackService,
   ) {}
 
   @Get()
@@ -56,5 +62,16 @@ export class StudentDashboardController {
         query.granularity,
       ),
     );
+  }
+
+  @Get('feedback')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  recentFeedback(
+    @Req() request: SessionIdentity,
+  ): Promise<MilestoneDocumentFeedbackResponseDto> {
+    return this.feedback
+      .recentForParticipant(request.sessionGithubId)
+      .then(presentMilestoneDocumentFeedback);
   }
 }

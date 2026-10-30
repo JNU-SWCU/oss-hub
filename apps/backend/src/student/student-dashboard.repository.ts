@@ -9,7 +9,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
-} from './submission-completion-projection.policy';
+} from '../programs/submission-completion-projection.policy';
 import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
 
 interface StudentDashboardMilestoneRow {
@@ -70,7 +70,7 @@ const studentDashboardApplicationSelect = {
 } as const satisfies Prisma.ApplicationSelect;
 
 @Injectable()
-export class StudentDashboardReadRepository {
+export class StudentDashboardRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findParticipatingApplications(

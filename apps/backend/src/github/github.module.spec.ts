@@ -23,7 +23,6 @@ import {
 
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
-import { RepositoriesController } from './repositories.controller';
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoriesService } from './repositories.service';
 import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
@@ -169,10 +168,7 @@ describe('GithubModule', () => {
         expect.stringMatching(/Webhook|GithubApiClient|CollectionService/),
       ]),
     );
-    expect(controllers).toEqual([
-      CollectionAdminController,
-      RepositoriesController,
-    ]);
+    expect(controllers).toEqual([CollectionAdminController]);
   });
 
   it('동의 서비스는 저장소 본인 등록만 의존하고 배경 수집은 의존하지 않는다', () => {

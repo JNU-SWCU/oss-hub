@@ -8,11 +8,12 @@ import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramsController } from './programs.controller';
-import { StudentDashboardController } from './student-dashboard.controller';
+import { StudentDashboardController } from '../student/student-dashboard.controller';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { StudentDashboardService } from './student-dashboard.service';
+import { StudentDashboardService } from '../student/student-dashboard.service';
+import { MilestoneDocumentFeedbackService } from '../student/milestone-document-feedback.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -40,6 +41,7 @@ beforeAll(async () => {
     providers: [
       ProgramActivityService,
       { provide: StudentDashboardService, useValue: {} },
+      { provide: MilestoneDocumentFeedbackService, useValue: {} },
       { provide: ProgramCreationService, useValue: {} },
       { provide: ProgramsService, useValue: {} },
 

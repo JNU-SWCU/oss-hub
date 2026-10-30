@@ -9,9 +9,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import type { RepositoriesReadService } from '../github/repositories-read.service';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramsRepository } from './programs.repository';
-import { StudentDashboardReadRepository } from './student-dashboard-read.repository';
-import { ProgramsService } from './programs.service';
+import { ProgramsRepository } from '../programs/programs.repository';
+import { StudentDashboardRepository } from './student-dashboard.repository';
+import { ProgramsService } from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
 assertIsolatedIntegrationDatabase({
@@ -56,7 +56,7 @@ const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
   getMyRepositories: () => Promise.resolve([]),
 };
 const dashboard = new StudentDashboardService(
-  new StudentDashboardReadRepository(prisma),
+  new StudentDashboardRepository(prisma),
   noRepositories,
 );
 const programs = new ProgramsService(new ProgramsRepository(prisma));

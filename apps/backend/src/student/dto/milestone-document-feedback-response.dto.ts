@@ -1,4 +1,4 @@
-import type { MilestoneDocumentFeedbackResult } from '../milestone-document-result.types';
+import type { MilestoneDocumentFeedbackResult } from '../../programs/milestone-document-result.types';
 import type { ReviewDecision } from '@prisma/client';
 
 interface MilestoneDocumentFeedbackItemResponseDto {
