@@ -11,6 +11,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(() => '/programs/prog-1'),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  router: { push: vi.fn() },
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({
   usePathname: mocks.usePathname,
   useSearchParams: mocks.useSearchParams,
+  useRouter: () => mocks.router,
 }));
 vi.mock('next/link', () => ({
   default: ({
@@ -122,6 +124,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   let root: Root;
 
   beforeEach(() => {
+    sessionStorage.clear();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -221,7 +224,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     expect(sidebarText()).toContain('내 제출물');
     expect(sidebarText()).toContain('우리 팀');
     expect(sidebarText()).not.toContain('팀 관리');
-    expect(hrefs()).toContain('/programs/prog-1?view=operations');
+    expect(container.querySelector('button[data-view-switch]')).not.toBeNull();
   });
 
   it('명시적 운영 화면은 이동 중에도 운영 상태를 유지하고 학생 화면으로 돌아갈 수 있다', async () => {
@@ -231,20 +234,19 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
       hasStaffAccess: true,
     });
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
-    mocks.useSearchParams.mockReturnValue(
-      new URLSearchParams('view=operations'),
-    );
+    sessionStorage.setItem('oss-hub-program-operations-view:prog-1', 'true');
     await renderShell();
     expect(sidebarText()).toContain('서류 현황');
     expect(sidebarText()).toContain('팀 관리');
-    expect(hrefs()).toContain('/programs/prog-1/documents?view=operations');
-    expect(hrefs()).toContain(
-      '/programs/prog-1/documents?milestoneId=m1&view=operations',
+    expect(hrefs()).toContain('/programs/prog-1/documents');
+    expect(hrefs()).toContain('/programs/prog-1/documents?milestoneId=m1');
+    const studentSwitch = container.querySelector<HTMLButtonElement>(
+      'button[data-view-switch]',
     );
-    const studentLink = [...container.querySelectorAll('a')].find(
-      (a) => a.textContent === '학생 화면으로 전환',
-    );
-    expect(studentLink?.getAttribute('href')).toBe('/programs/prog-1');
+    expect(studentSwitch).not.toBeNull();
+    await act(async () => studentSwitch?.click());
+    expect(mocks.router.push).toHaveBeenCalledWith('/programs/prog-1');
+    expect(mocks.getProgramOverview).toHaveBeenLastCalledWith('prog-1', false);
   });
 
   it.each([
@@ -261,7 +263,29 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
       await renderShell();
       expect(sidebarText()).toContain('서류 현황');
       expect(sidebarText()).toContain('학생 화면으로 전환');
-      expect(hrefs()).toContain('/programs/prog-1/documents?view=operations');
+      expect(hrefs()).toContain('/programs/prog-1/documents');
+      mocks.getProgramOverview.mockClear();
+      mocks.usePathname.mockReturnValue('/programs/prog-1');
+      await renderShell();
+      expect(
+        container.querySelector('button[data-view-switch]'),
+      ).not.toBeNull();
+      expect(
+        sessionStorage.getItem('oss-hub-program-operations-view:prog-1'),
+      ).toBe('true');
+      expect(
+        mocks.getProgramOverview.mock.calls.every(
+          ([, operations]) => operations === true,
+        ),
+      ).toBe(true);
+      const studentSwitch = container.querySelector<HTMLButtonElement>(
+        'button[data-view-switch]',
+      );
+      await act(async () => studentSwitch?.click());
+      expect(mocks.getProgramOverview).toHaveBeenLastCalledWith(
+        'prog-1',
+        false,
+      );
     },
   );
 

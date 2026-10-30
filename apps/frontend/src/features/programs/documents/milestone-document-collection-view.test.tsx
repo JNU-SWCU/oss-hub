@@ -158,9 +158,7 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
 
     expect(html).toContain('아직 승인된 신청이 없습니다');
     expect(html).toContain('대기 중인 신청을 먼저 확인해 주세요');
-    expect(html).toContain(
-      'href="/programs/program-capstone/teams?view=operations"',
-    );
+    expect(html).toContain('href="/programs/program-capstone/teams"');
     expect(html).toContain('신청 확인하기');
     expect(html).not.toContain('등록된 제출 항목이 없습니다');
   });
@@ -194,10 +192,10 @@ describe('MilestoneDocumentCollectionView 빈 상태', () => {
 
     expect(html).not.toContain('남의프로그램팀');
     expect(html).not.toContain('합계');
-    expect(html).not.toContain('전체 47팀');
+    expect(html).not.toContain('전체 47');
 
     expect(html).not.toContain('남의 마일스톤');
-    expect(html).toContain('href="/programs/program-capstone?view=operations"');
+    expect(html).toContain('href="/programs/program-capstone"');
   });
 
   it('경로와 같은 프로그램의 마일스톤은 그대로 그린다', () => {
@@ -444,9 +442,9 @@ describe('MilestoneDocumentCollectionView 표', () => {
 
     const html = render({ data: reviewed });
 
-    expect(html).toContain('전체 47팀');
-    expect(html).toContain('미제출 있음 12팀');
-    expect(html).toContain('한 장도 안 낸 팀 5팀');
+    expect(html).toContain('전체 47');
+    expect(html).toContain('미제출 있음 12');
+    expect(html).toContain('제출 없음 5');
     expect(html).toContain('제출 30 / 전체 47');
     expect(html).toContain('제출 12 / 전체 47');
   });
@@ -528,9 +526,9 @@ describe('MilestoneDocumentCollectionView 표', () => {
       }),
     });
 
-    expect(html).toContain('전체 47팀');
-    expect(html).toContain('미제출 있음 12팀');
-    expect(html).toContain('한 장도 안 낸 팀 5팀');
+    expect(html).toContain('전체 47');
+    expect(html).toContain('미제출 있음 12');
+    expect(html).toContain('제출 없음 5');
   });
 
   it('필수 기준임이 드러나지 않는 옛 문구를 쓰지 않는다', () => {
@@ -579,7 +577,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
 
     expect(html).not.toContain('아직 승인된 신청이 없습니다');
 
-    expect(html).toContain('전체 47팀');
+    expect(html).toContain('전체 47');
   });
 });
 
@@ -954,7 +952,7 @@ describe('MilestoneDocumentCollectionView 페이지 이동', () => {
     expect(html).toContain('이 페이지에는 더 이상 팀이 없습니다');
     expect(html).toContain('1페이지로 이동');
 
-    expect(html).toContain('미제출 있음 5팀');
+    expect(html).toContain('미제출 있음 5');
 
     expect(html).not.toContain('이 페이지 0팀');
   });
@@ -991,6 +989,6 @@ it('필수 서류를 모두 낸 팀의 반려 결과를 제출 완료와 구분�
       ],
     ),
   });
-  expect(html).toContain('>필수 서류 제출 상태</p>');
+  expect(html).toContain('>팀별 필수 서류 제출 상태</p>');
   expect(badgeTexts(html)).toEqual(['제출 완료', '반려']);
 });

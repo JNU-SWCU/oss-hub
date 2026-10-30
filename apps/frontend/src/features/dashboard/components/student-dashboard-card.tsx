@@ -17,6 +17,7 @@ import {
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
+import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
 import {
   dashboardDeadlineDays,
   formatDashboardDeadline,
@@ -301,9 +302,9 @@ export function ActiveProgramCard({
           />
         ) : null}
         <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <TeamButton href={item.teamUrl} />
+          <TeamButton href={programMyTeamHref(item.programId)} />
           <Button asChild size="sm" variant={primary ? 'default' : 'outline'}>
-            <Link href={item.checklistUrl}>
+            <Link href={programDocumentsHref(item.programId)}>
               {submissionActionLabel(milestone, now)}
             </Link>
           </Button>
@@ -378,9 +379,9 @@ export function ProgramCompactRow({
       <div className="flex flex-wrap gap-2">
         {approved ? (
           <>
-            <TeamButton href={item.teamUrl} />
+            <TeamButton href={programMyTeamHref(item.programId)} />
             <Button asChild size="sm" variant="outline">
-              <Link href={item.checklistUrl}>제출 현황</Link>
+              <Link href={programDocumentsHref(item.programId)}>제출 현황</Link>
             </Button>
           </>
         ) : (
@@ -388,7 +389,7 @@ export function ProgramCompactRow({
             <Button asChild size="sm" variant="outline">
               <Link href={item.detailUrl}>신청 상세</Link>
             </Button>
-            <TeamButton href={item.teamUrl} />
+            <TeamButton href={programMyTeamHref(item.programId)} />
           </>
         )}
       </div>

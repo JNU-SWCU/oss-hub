@@ -23,7 +23,7 @@ import {
   type ProgramMilestoneField,
   type ProgramMilestoneDraft,
 } from './program-edit-flow';
-import { staffProgramHref } from '../program-paths';
+import { programHref } from '../program-paths';
 import { editScheduleEvents } from './program-schedule-overview-model';
 import { FormSection, PageBody, PageHeader } from '@/components';
 
@@ -164,7 +164,7 @@ export function ProgramEditView({
     <PageBody className={FORM_WIDTH}>
       <div className="flex flex-col gap-4">
         <Button asChild variant="ghost" size="sm" className="self-start">
-          <Link href={staffProgramHref(program.id)}>← 프로그램 개요</Link>
+          <Link href={programHref(program.id)}>← 프로그램 개요</Link>
         </Button>
         <div className="grid items-start gap-6">
           <div className="grid min-w-0 gap-6">

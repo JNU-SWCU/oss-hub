@@ -1,17 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
-  formatClock,
   formatCountdownDate,
   ProgramCountdown,
   remainingUntil,
 } from './program-countdown';
 
-describe('formatClock / formatCountdownDate', () => {
-  it('formats HH:MM:SS zero-padded', () => {
-    expect(formatClock(new Date('2026-08-04T09:05:03+09:00'))).toBe('09:05:03');
-  });
-
+describe('formatCountdownDate', () => {
   it('formats yyyy.mm.dd (요일)', () => {
     expect(formatCountdownDate(new Date('2026-08-04T19:35:43+09:00'))).toBe(
       '2026.08.04 (화)',
@@ -71,9 +66,8 @@ describe('ProgramCountdown', () => {
         now={new Date('2026-08-04T19:35:43+09:00')}
       />,
     );
-    expect(html).toContain('현재 시각');
-    expect(html).toContain('19:35:43');
-    expect(html).toContain('2026.08.04 (화)');
+    expect(html).not.toContain('현재 시각');
+    expect(html).not.toContain('19:35:43');
     expect(html).toContain('주제 선정 · 저장소 연결 마감까지');
     expect(html).toContain('>38<');
     expect(html).toContain('>22<');
@@ -135,9 +129,7 @@ describe('ProgramCountdown', () => {
     expect(html).toContain('>13<');
     expect(html).toContain('>24<');
     expect(html).toContain('>17<');
-    expect(html.indexOf('리허설 제출 마감')).toBeLessThan(
-      html.indexOf('현재 시각'),
-    );
+    expect(html).not.toContain('현재 시각');
     expect(html).toMatch(
       /리허설 제출 마감[\s\S]*리허설 제출 마감[\s\S]*최종 발표/,
     );
@@ -182,9 +174,7 @@ describe('ProgramCountdown', () => {
 
     for (const html of [emptyHtml, inactiveHtml]) {
       expect(html).toContain('마감 일정이 종료되었습니다.');
-      expect(html.indexOf('마감 일정이 종료되었습니다.')).toBeLessThan(
-        html.indexOf('현재 시각'),
-      );
+      expect(html).not.toContain('현재 시각');
       expect(html).not.toContain('data-countdown-cell=');
       expect(html).not.toContain('<ul');
     }

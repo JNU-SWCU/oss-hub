@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import {
   parseRankingPage,
   parseRankingYears,
@@ -10,6 +10,8 @@ import {
   parseRankingYearSearchParam,
   rankingListHref,
 } from './types';
+
+afterEach(() => vi.useRealTimers());
 
 const rankingPage = (year: number | typeof RANKING_YEAR_ALL) => ({
   year,
@@ -255,6 +257,8 @@ test('연도 목록 응답을 파싱하고 모르는 필드는 무시한다', ()
 });
 
 test('URL year 파싱과 href 생성', () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
   expect(parseRankingYearSearchParam('2025')).toBe(2025);
 
   expect(parseRankingYearSearchParam(null)).toBe(currentRankingYear());
@@ -265,7 +269,27 @@ test('URL year 파싱과 href 생성', () => {
   expect(parseRankingYearSearchParam('nope')).toBe(currentRankingYear());
   expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
   expect(rankingListHref(2025)).toBe('/ranking?year=2025');
+  expect(rankingListHref(currentRankingYear())).toBe('/ranking');
+  expect(parseRankingYearSearchParam('2026')).toBe(2026);
 });
+
+test.each([
+  ['2026-12-31T14:59:59.999Z', 2026, 2025],
+  ['2026-12-31T15:00:00.000Z', 2027, 2026],
+] as const)(
+  '%s 서울 연도 경계에서 올해 주소와 이전 연도 데이터 선택을 유지한다',
+  (now, current, previous) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+
+    expect(rankingListHref(current)).toBe('/ranking');
+    expect(parseRankingYearSearchParam(null)).toBe(current);
+    expect(parseRankingYearSearchParam(String(current))).toBe(current);
+    expect(rankingListHref(previous)).toBe(`/ranking?year=${previous}`);
+    expect(parseRankingYearSearchParam(String(previous))).toBe(previous);
+    expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
+  },
+);
 
 test('dataAsOf 가 없어도 파싱된다', () => {
   const withoutDataAsOf: Partial<ReturnType<typeof rankingPage>> =

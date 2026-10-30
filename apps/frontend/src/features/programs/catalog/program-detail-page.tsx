@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,24 +42,21 @@ export type ProgramDetailSession = 'unknown' | 'anonymous' | 'present';
 export function ProgramDetailPage({
   programId,
   session,
-  operationsView: selectedOperationsView,
+  operationsView = false,
   renderSignInApply,
 }: {
   readonly programId: string;
   readonly session: ProgramDetailSession;
-  readonly operationsView?: boolean;
+  readonly operationsView?: boolean | null;
   readonly renderSignInApply: RenderSignInApply;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const operationsView =
-    selectedOperationsView ?? searchParams.get('view') === 'operations';
   const requestId = useRef(0);
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const load = useCallback(
     async (background = false) => {
       const currentRequestId = ++requestId.current;
-      if (session === 'unknown') return;
+      if (session === 'unknown' || operationsView === null) return;
       if (!background) setState({ kind: 'loading' });
       try {
         if (session === 'anonymous') {
@@ -116,6 +113,7 @@ export function ProgramDetailPage({
     }
   }, [router, state]);
 
+  if (operationsView === null) return null;
   if (state.kind === 'loading') return <ProgramDetailSkeleton />;
   if (state.kind === 'not-found')
     return (

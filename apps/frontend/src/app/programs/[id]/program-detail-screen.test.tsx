@@ -49,6 +49,7 @@ vi.mock(
 );
 
 import { ProgramDetailScreen } from './program-detail-screen';
+import { ProgramViewContext } from '../../_shell/program-shell-policy';
 
 const program: ProgramDetail = {
   id: 'program:basic',
@@ -99,17 +100,22 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
 
   async function renderScreen() {
     await act(async () => {
-      root.render(<ProgramDetailScreen programId={program.id} />);
+      root.render(
+        <ProgramViewContext.Provider value="STUDENT">
+          <ProgramDetailScreen programId={program.id} />
+        </ProgramViewContext.Provider>,
+      );
     });
   }
 
-  it('기존 제출 딥링크를 canonical documents 화면으로 이동한다', async () => {
+  it('기존 submission 쿼리는 상세 화면을 다른 경로로 이동시키지 않는다', async () => {
     navigation.searchParams = new URLSearchParams(
       'submission=milestone-1&tab=overview',
     );
     await renderScreen();
-    expect(navigation.router.replace).toHaveBeenCalledWith(
-      '/programs/program%3Abasic/documents?milestoneId=milestone-1',
+    expect(navigation.router.replace).not.toHaveBeenCalled();
+    expect(container.querySelector('#milestones')?.textContent).toContain(
+      '합성 결과물',
     );
   });
 

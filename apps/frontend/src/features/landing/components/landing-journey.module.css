@@ -14,11 +14,7 @@
   --journey-dawn-until: 76svh;
   --journey-peach-until: 38svh;
   --journey-sky-until: 12svh;
-  position: relative;
-  isolation: isolate;
-  color: var(--journey-copy);
-  background-color: var(--cosmos-ink);
-  background-image: linear-gradient(
+  --journey-sky: linear-gradient(
     to bottom,
     var(--cosmos-ink) 0,
     var(--cosmos-ink) var(--journey-ink-hold),
@@ -30,6 +26,15 @@
     var(--cosmos-sky) calc(100% - var(--journey-sky-until)),
     var(--background) 100%
   );
+  --journey-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  --journey-sky-row: max(46svh, 320px);
+  --journey-hero-min: 100svh;
+  --journey-copy-top: 0px;
+  position: relative;
+  isolation: isolate;
+  color: var(--journey-copy);
+  background-color: var(--cosmos-ink);
+  background-image: var(--journey-sky);
 }
 
 .journey::before {
@@ -38,8 +43,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  background-image: var(--journey-grain);
   background-size: 160px 160px;
 }
 
@@ -79,21 +83,42 @@
   z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  max-width: var(--landing-content-width);
+  margin-inline: auto;
 }
 
 .copy {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   padding-inline: clamp(20px, 6vw, 96px);
 }
 
+/* 챕터 카피 뒤의 별을 가린다: 같은 하늘 그라데이션과 그레인을 journey와 같은 기하로
+   다시 칠해 톤은 그대로 두고 별만 사라지게 한다. hero 구간(--journey-hero-min 위)은 그대로다. */
+.copy::before {
+  content: '';
+  position: absolute;
+  inset: var(--journey-hero-min) 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--journey-grain), var(--journey-sky);
+  background-size:
+    160px 160px,
+    100% calc(100% + var(--journey-copy-top) + var(--journey-hero-min));
+  background-position:
+    0 0,
+    0 calc(-1 * (var(--journey-copy-top) + var(--journey-hero-min)));
+  background-repeat: repeat, no-repeat;
+  mask-image: linear-gradient(to bottom, transparent, black 48px);
+}
+
 .skyColumn {
   position: relative;
   box-sizing: border-box;
   grid-row: 1;
-  height: 46svh;
-  min-height: 320px;
+  height: var(--journey-sky-row);
   padding-top: var(--topbar-height);
 }
 
@@ -174,13 +199,21 @@
     height: 100svh;
     min-height: 0;
   }
+
+  .copy::before {
+    right: -64px;
+    mask-image:
+      linear-gradient(to right, black calc(100% - 64px), transparent),
+      linear-gradient(to bottom, transparent, black 48px);
+    mask-composite: intersect;
+  }
 }
 
 .hero {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 100svh;
+  min-height: var(--journey-hero-min);
   padding-block: calc(var(--topbar-height) + 24px) clamp(48px, 8vh, 96px);
 }
 
@@ -247,7 +280,7 @@
 
 .eyebrow {
   display: inline-block;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--journey-muted);
@@ -268,13 +301,13 @@
 
 .heroCopy h1 {
   margin-bottom: 20px;
-  font-size: clamp(32px, 4.4vw, 60px);
+  font-size: var(--step-landing-display);
 }
 
 .chapter h2 {
   margin: 28px 0 16px;
   text-wrap: balance;
-  font-size: clamp(26px, 3vw, 40px);
+  font-size: var(--step-landing-heading);
   font-weight: 700;
   line-height: 1.22;
 }
@@ -282,7 +315,7 @@
 .heroCopy p,
 .chapter p {
   margin: 0;
-  font-size: clamp(15px, 1.2vw, 18px);
+  font-size: var(--step-landing-body);
   line-height: 1.75;
   color: var(--journey-muted);
   max-width: 36em;
@@ -302,7 +335,7 @@
   align-items: center;
   min-height: 44px;
   color: color-mix(in oklch, var(--journey-copy) 85%, transparent);
-  font-size: var(--step-table);
+  font-size: var(--step-landing-link);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -317,7 +350,7 @@
 
 .flowHeading {
   margin: 0 0 10px;
-  font-size: var(--step-table);
+  font-size: var(--step-landing-link);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--journey-muted);
@@ -357,7 +390,7 @@
 }
 
 .stepNo {
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--journey-muted);
@@ -371,7 +404,7 @@
 
 .stepDesc {
   grid-column: 1 / -1;
-  font-size: var(--step-table);
+  font-size: var(--step-landing-step);
   color: var(--journey-muted);
 }
 
@@ -394,7 +427,7 @@
 
 .statKey {
   margin-top: 4px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   letter-spacing: 0.04em;
   color: var(--journey-muted);
 }
@@ -406,7 +439,7 @@
   border: 1px solid var(--journey-rule);
   border-radius: 6px;
   padding: 3px 8px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   letter-spacing: 0.04em;
   color: var(--journey-muted);
 }
@@ -434,7 +467,7 @@
   backdrop-filter: blur(8px);
   border-radius: 999px;
   padding: 9px 16px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   color: var(--journey-muted);
   transition:
     color 600ms ease,
@@ -474,7 +507,10 @@
 
 .skip {
   position: absolute;
-  left: clamp(16px, 6vw, 96px);
+  left: max(
+    clamp(16px, 6vw, 96px),
+    calc(50% - var(--landing-content-width) / 2 + clamp(16px, 6vw, 96px))
+  );
   top: calc(var(--topbar-height) + 12px);
   z-index: 8;
   display: inline-flex;
@@ -504,10 +540,11 @@
     --journey-dawn-until: 16svh;
     --journey-peach-until: 9svh;
     --journey-sky-until: 3svh;
+    --journey-hero-min: 54svh;
+    --journey-copy-top: var(--journey-sky-row);
   }
 
   .hero {
-    min-height: 54svh;
     justify-content: flex-start;
     padding-block: 8px clamp(40px, 7vh, 72px);
   }
