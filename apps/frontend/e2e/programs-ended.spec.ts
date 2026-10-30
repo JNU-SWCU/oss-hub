@@ -34,6 +34,18 @@ const project = {
   contributors: [],
 };
 
+for (const path of ['/archive', '/archive/public-project']) {
+  test(`폐기한 ${path} 경로는 리다이렉트 없이 404를 반환한다`, async ({
+    page,
+  }) => {
+    await mockPrograms(page);
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+    expect(response?.request().redirectedFrom()).toBeNull();
+    await expect(page).toHaveURL(path);
+  });
+}
+
 async function mockPrograms(page: Page, staff = false) {
   await page.clock.setFixedTime(new Date('2026-10-27T00:00:00.000Z'));
   await page.route('**/api/v1/**', async (route) => {

@@ -33,3 +33,9 @@
   ended=3, the current count was 0 instead of 6.
 - Changed the count to all minus ended.
 - GREEN: the same sidebar suite exited 0, all 67 tests passed.
+
+## Removed archive routes
+
+- Inspection: no archive route files remain; next.config.ts has no redirects.
+- Added browser assertions for `/archive` and `/archive/public-project`: HTTP 404,
+  no redirect chain, unchanged URL. Included in the single requested e2e run.
