@@ -18,6 +18,7 @@ describe('AuditLogActionValue', () => {
     ['TEAM_CREATED', '팀 생성', 'approved'],
     ['TEAM_JOINED', '팀 합류', 'approved'],
     ['COLLECTION_SYNC_TRIGGERED', '수집 실행', 'closed'],
+    ['COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED', '스냅샷 백필 실행', 'closed'],
     ['SUBMISSION_FILE_CLEANUP_RETRY_RESET', '제출 파일 정리 재시도', 'closed'],
     ['APPLICATION_SUBMITTED', '신청 제출', 'pending'],
     ['APPLICATION_APPROVED', '신청 승인', 'approved'],

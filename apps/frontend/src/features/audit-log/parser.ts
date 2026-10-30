@@ -138,6 +138,26 @@ function teamPreviousName(
     : undefined;
 }
 
+const COLLECTION_SNAPSHOT_BACKFILL_ACTION =
+  'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED';
+const COLLECTION_SNAPSHOT_BACKFILL_SCHEMA_VERSION = 1;
+
+function snapshotBackfillYear(
+  action: string,
+  metadata: unknown,
+): number | undefined {
+  if (action !== COLLECTION_SNAPSHOT_BACKFILL_ACTION || !isRecord(metadata)) {
+    return undefined;
+  }
+  const { year } = metadata;
+  return metadata.schemaVersion ===
+    COLLECTION_SNAPSHOT_BACKFILL_SCHEMA_VERSION &&
+    typeof year === 'number' &&
+    Number.isSafeInteger(year)
+    ? year
+    : undefined;
+}
+
 const RECORD_KEYS = [
   'id',
   'actor',
@@ -167,6 +187,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
   const action = nonEmptyString(value.action);
   const teamMembership = teamMembershipSummary(action, wireMetadata);
   const previousName = teamPreviousName(action, wireMetadata);
+  const backfillYear = snapshotBackfillYear(action, wireMetadata);
   const parsedPhoneTransition = isRecord(wireMetadata)
     ? phoneTransition(action, wireMetadata)
     : undefined;
@@ -183,6 +204,9 @@ function auditLogRecord(value: unknown): AuditLogRecord {
 
     ...(teamMembership === undefined ? {} : { teamMembership }),
     ...(previousName === undefined ? {} : { teamPreviousName: previousName }),
+    ...(backfillYear === undefined
+      ? {}
+      : { snapshotBackfillYear: backfillYear }),
     occurredAt: isoTimestamp(value.occurredAt),
     ...(parsedPhoneTransition
       ? { phoneTransition: parsedPhoneTransition }

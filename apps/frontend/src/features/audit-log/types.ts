@@ -14,6 +14,8 @@ export interface AuditLogRecord {
   readonly teamMembership?: TeamMembershipChangeSummary;
 
   readonly teamPreviousName?: string;
+
+  readonly snapshotBackfillYear?: number;
   readonly occurredAt: string;
   readonly phoneTransition?: UserPhoneAuditTransition;
 }
@@ -49,6 +51,7 @@ export const AUDIT_LOG_ACTION_LABELS = {
   TEAM_DELETED: '팀 삭제',
   TEAM_MEMBERSHIP_CHANGED: '팀 구성 변경',
   COLLECTION_SYNC_TRIGGERED: '수집 실행',
+  COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED: '스냅샷 백필 실행',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: '제출 파일 정리 재시도',
   APPLICATION_SUBMITTED: '신청 제출',
   APPLICATION_APPROVED: '신청 승인',

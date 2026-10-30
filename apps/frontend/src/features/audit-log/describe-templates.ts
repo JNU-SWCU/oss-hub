@@ -200,6 +200,14 @@ export const SENTENCE_TEMPLATES: Readonly<
     actorSegment(record),
     text('님이 데이터 수집을 수동 실행했습니다'),
   ],
+  COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED: (record) => [
+    actorSegment(record),
+    text(
+      record.snapshotBackfillYear === undefined
+        ? '님이 순위 스냅샷 백필을 수동 실행했습니다'
+        : `님이 ${record.snapshotBackfillYear}년 순위 스냅샷 백필을 수동 실행했습니다`,
+    ),
+  ],
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: (record) => [
     actorSegment(record),
     text('님이 제출 파일 정리 재시도를 초기화했습니다'),
