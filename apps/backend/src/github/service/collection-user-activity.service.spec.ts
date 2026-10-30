@@ -34,18 +34,24 @@ describe('CollectionUserActivityService', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
   const upsert = jest.fn();
+  const snapshotUpsert = jest.fn();
+  const transaction = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
 
   const now = () => new Date('2026-08-19T00:00:00.000Z');
 
-  const buildService = (): CollectionUserActivityService =>
+  const buildService = (
+    clock: () => Date = now,
+  ): CollectionUserActivityService =>
     new CollectionUserActivityService(
       new CollectionUserActivityRepository({
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
+        githubUserActivitySnapshot: { upsert: snapshotUpsert },
+        $transaction: transaction,
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
-      now,
+      clock,
     );
 
   const metrics = (commitCount: number) => ({
@@ -62,6 +68,10 @@ describe('CollectionUserActivityService', () => {
     findUnique.mockResolvedValue(null);
     upsert.mockReset();
     upsert.mockResolvedValue(undefined);
+    snapshotUpsert.mockReset();
+    snapshotUpsert.mockResolvedValue(undefined);
+    transaction.mockReset();
+    transaction.mockResolvedValue([]);
     fetchUserActivityMetrics.mockReset();
   });
 
@@ -113,6 +123,55 @@ describe('CollectionUserActivityService', () => {
       skippedPastYearCount: 0,
       failedUserCount: 0,
     });
+  });
+
+  it('올해 관측은 Asia/Seoul 달력 날짜 스냅샷을 같은 트랜잭션에 함께 쓴다', async () => {
+    findMany.mockResolvedValue([{ githubId: 4242n, nickname: 'octocat' }]);
+    fetchUserActivityMetrics.mockResolvedValue(metrics(10));
+
+    await buildService(() => new Date('2026-12-31T15:30:00.000Z')).run();
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(snapshotUpsert).toHaveBeenCalledWith({
+      where: {
+        githubId_snapshotDate: {
+          githubId: 4242n,
+          snapshotDate: new Date('2027-01-01T00:00:00.000Z'),
+        },
+      },
+      create: expect.objectContaining({
+        githubId: 4242n,
+        snapshotDate: new Date('2027-01-01T00:00:00.000Z'),
+        year: 2027,
+        githubLogin: 'octocat',
+        commitCount: 10,
+        pullRequestCount: 2,
+        issueCount: 3,
+        repositoryCount: 4,
+        starCount: 5,
+        source: 'SWEEP',
+        starEstimated: false,
+        observedAt: new Date('2026-12-31T15:30:00.000Z'),
+      }) as unknown,
+      update: expect.objectContaining({
+        year: 2027,
+        commitCount: 10,
+        starCount: 5,
+        source: 'SWEEP',
+        starEstimated: false,
+      }) as unknown,
+    });
+  });
+
+  it('과거 연도 관측은 스냅샷을 쓰지 않고 연도 행만 갱신한다', async () => {
+    findMany.mockResolvedValue([{ githubId: 4242n, nickname: 'octocat' }]);
+    fetchUserActivityMetrics.mockResolvedValue(metrics(7));
+
+    await buildService().run([2025]);
+
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(snapshotUpsert).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('올해 행은 이미 있어도 다시 관측한다', async () => {
@@ -278,6 +337,8 @@ describe('CollectionUserActivityService', () => {
       new CollectionUserActivityRepository({
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
+        githubUserActivitySnapshot: { upsert: snapshotUpsert },
+        $transaction: transaction,
         contribution,
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,

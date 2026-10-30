@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  GithubUserActivitySnapshotSource,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface CollectionActivityUserRow {
@@ -17,6 +20,10 @@ export interface CollectionUserActivityObservationInput {
   readonly repositoryCount: number;
   readonly starCount: number;
   readonly observedAt: Date;
+}
+
+export interface CollectionUserActivitySnapshotTarget {
+  readonly snapshotDate: Date;
 }
 
 @Injectable()
@@ -41,12 +48,42 @@ export class CollectionUserActivityRepository {
 
   async upsertObservation(
     observation: CollectionUserActivityObservationInput,
+    snapshot?: CollectionUserActivitySnapshotTarget,
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
-    await this.db.githubUserActivityHistory.upsert({
+    const history = this.db.githubUserActivityHistory.upsert({
       where: { githubId_year: { githubId, year } },
       create: { githubId, year, ...row },
       update: row,
     });
+
+    if (snapshot === undefined) {
+      await history;
+      return;
+    }
+
+    const snapshotRow = {
+      year,
+      ...row,
+      source: GithubUserActivitySnapshotSource.SWEEP,
+      starEstimated: false,
+    };
+    await this.db.$transaction([
+      history,
+      this.db.githubUserActivitySnapshot.upsert({
+        where: {
+          githubId_snapshotDate: {
+            githubId,
+            snapshotDate: snapshot.snapshotDate,
+          },
+        },
+        create: {
+          githubId,
+          snapshotDate: snapshot.snapshotDate,
+          ...snapshotRow,
+        },
+        update: snapshotRow,
+      }),
+    ]);
   }
 }

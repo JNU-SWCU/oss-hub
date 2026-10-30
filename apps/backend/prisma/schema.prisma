@@ -990,6 +990,32 @@ model GithubUserActivityHistory {
   @@index([year])
 }
 
+enum GithubUserActivitySnapshotSource {
+  SWEEP
+  BACKFILL
+}
+
+model GithubUserActivitySnapshot {
+  githubId     BigInt
+  snapshotDate DateTime @db.Date
+  year         Int
+  githubLogin  String
+
+  commitCount      Int @default(0)
+  pullRequestCount Int @default(0)
+  issueCount       Int @default(0)
+  repositoryCount  Int @default(0)
+  starCount        Int @default(0)
+
+  starEstimated Boolean                          @default(false)
+  source        GithubUserActivitySnapshotSource
+
+  observedAt DateTime
+
+  @@id([githubId, snapshotDate])
+  @@index([year, snapshotDate])
+}
+
 enum CollectionStreamType {
   COMMIT
   PULL_REQUEST

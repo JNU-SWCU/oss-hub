@@ -28,6 +28,13 @@ const seoulYearStart = (year: number): Date =>
 const seoulYearOf = (instant: Date): number =>
   new Date(instant.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
 
+const seoulDateOf = (instant: Date): Date => {
+  const seoul = new Date(instant.getTime() + ASIA_SEOUL_OFFSET_MS);
+  return new Date(
+    Date.UTC(seoul.getUTCFullYear(), seoul.getUTCMonth(), seoul.getUTCDate()),
+  );
+};
+
 @Injectable()
 export class CollectionUserActivityService {
   private readonly logger = new Logger(CollectionUserActivityService.name);
@@ -131,6 +138,11 @@ export class CollectionUserActivityService {
       starCount: metrics.starCount,
       observedAt,
     };
-    await this.repository.upsertObservation(observation);
+    await this.repository.upsertObservation(
+      observation,
+      year === currentYear
+        ? { snapshotDate: seoulDateOf(startedAt) }
+        : undefined,
+    );
   }
 }
