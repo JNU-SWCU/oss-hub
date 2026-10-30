@@ -46,6 +46,7 @@ export function ScopeBar({
             title={scope.title}
             titlePending={scope.titlePending}
             collapsed={false}
+            variant="scope-bar"
           />
         ) : (
           <p

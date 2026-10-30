@@ -240,6 +240,8 @@ export interface SidebarScopeRowProps {
 
   readonly titlePending?: boolean;
   readonly collapsed: boolean;
+
+  readonly variant?: 'rail' | 'scope-bar';
 }
 
 export function SidebarScopeRow({
@@ -248,6 +250,7 @@ export function SidebarScopeRow({
   title,
   titlePending = false,
   collapsed,
+  variant = 'rail',
 }: SidebarScopeRowProps) {
   if (collapsed) {
     return (
@@ -279,7 +282,12 @@ export function SidebarScopeRow({
       <Link
         href={backHref}
         data-slot="sidebar-shell-back"
-        className="self-start text-badge font-bold whitespace-nowrap text-primary hover:underline"
+        data-variant={variant === 'scope-bar' ? 'scope-bar' : undefined}
+        className={
+          variant === 'scope-bar'
+            ? 'inline-flex min-h-control items-center self-start text-badge font-bold whitespace-nowrap text-primary hover:underline'
+            : 'self-start text-badge font-bold whitespace-nowrap text-primary hover:underline'
+        }
       >
         {`‹ ${backLabel}`}
       </Link>

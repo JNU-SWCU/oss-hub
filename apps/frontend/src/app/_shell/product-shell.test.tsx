@@ -415,6 +415,28 @@ describe('ProductShell — 모바일 스코프 바와 메뉴 시트 배선', () 
     const mainAt = html.indexOf('id="main-content"');
     expect(scopeBarAt).toBeGreaterThan(-1);
     expect(scopeBarAt).toBeLessThan(mainAt);
-    expect(html.slice(scopeBarAt, mainAt)).not.toContain('overflow-y-auto');
+    const between = html.slice(
+      html.lastIndexOf('<div', scopeBarAt),
+      html.lastIndexOf('<', mainAt),
+    );
+    const opened = between.match(/<div[\s>]/g)?.length ?? 0;
+    const closed = between.match(/<\/div>/g)?.length ?? 0;
+    expect(closed).toBeGreaterThanOrEqual(opened);
+  });
+
+  it('스코프 바의 뒤로 가기 링크는 모바일 터치 변형이고, 데스크톱 레일은 변형이 없다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+    const scopeBarAt = html.indexOf('data-slot="scope-bar"');
+    const backLinks = [
+      ...html.matchAll(/<a[^>]*data-slot="sidebar-shell-back"[^>]*>/g),
+    ];
+    const inScopeBar = backLinks.filter((m) => (m.index ?? 0) > scopeBarAt);
+    const inRail = backLinks.filter((m) => (m.index ?? 0) < scopeBarAt);
+
+    expect(inScopeBar).toHaveLength(1);
+    expect(inScopeBar[0][0]).toContain('data-variant="scope-bar"');
+    expect(inRail.length).toBeGreaterThan(0);
+    for (const m of inRail) expect(m[0]).not.toContain('data-variant');
   });
 });
