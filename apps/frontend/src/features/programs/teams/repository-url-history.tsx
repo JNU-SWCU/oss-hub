@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { FailureState } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { formatSeoulDate } from '../catalog/program-detail-format';
-import { getRepositoryHistory } from './team-activity-api';
-import type { RepositoryHistoryPage } from './team-activity-dto';
+import { useRepositoryHistoryQuery } from './queries';
 
 export function RepositoryUrlHistory({
   programId,
@@ -16,39 +14,21 @@ export function RepositoryUrlHistory({
   readonly programId: string;
   readonly teamId: string;
 }) {
-  const [history, setHistory] = useState<RepositoryHistoryPage | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [moreFailed, setMoreFailed] = useState(false);
-
-  const loadFirst = useCallback(() => {
-    setFailed(false);
-    getRepositoryHistory(programId, teamId).then(setHistory, () =>
-      setFailed(true),
-    );
-  }, [programId, teamId]);
-  useEffect(loadFirst, [loadFirst]);
-
-  async function loadMore() {
-    if (history?.nextCursor == null) return;
-    setBusy(true);
-    setMoreFailed(false);
-    try {
-      const next = await getRepositoryHistory(
-        programId,
-        teamId,
-        history.nextCursor,
-      );
-      setHistory((current) => ({
-        items: [...(current?.items ?? []), ...next.items],
-        nextCursor: next.nextCursor,
-      }));
-    } catch {
-      setMoreFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const query = useRepositoryHistoryQuery(programId, teamId);
+  const history =
+    query.data === undefined
+      ? null
+      : {
+          items: query.data.pages.flatMap((page) => page.items),
+          nextCursor: query.hasNextPage,
+        };
+  const failed = query.isError && query.data === undefined;
+  const busy = query.isFetchingNextPage;
+  const moreFailed = query.isFetchNextPageError;
+  const loadFirst = () => {
+    void query.refetch();
+  };
+  const loadMore = () => query.fetchNextPage();
 
   if (failed) {
     return (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../catalog/queries';
 import { useUrlSearchDraft } from '@/lib/list-url-state';
 import { useStaffTeamsUrlState } from './staff-teams-url-state';
 import { useStaffTeamsQuery } from './queries';
@@ -80,10 +80,7 @@ export function ProgramStaffTeamsPage({
       ? { kind: 'error' }
       : { kind: 'ready', ...query.data };
   const load = useCallback(
-    () =>
-      queryClient.invalidateQueries({
-        queryKey: programFeatureKey(programId, 'teams', 'staff'),
-      }),
+    () => invalidateProgram(queryClient, programId),
     [programId, queryClient],
   );
   const [notices, setNotices] = useState<Readonly<Record<string, RowNotice>>>(

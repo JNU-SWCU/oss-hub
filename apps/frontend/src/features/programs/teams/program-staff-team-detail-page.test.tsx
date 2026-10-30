@@ -1,6 +1,6 @@
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
@@ -67,6 +67,11 @@ vi.mock('./team-activity-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./team-activity-api')>()),
   getTeamActivity: vi.fn(),
   getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('./team-invitation-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./team-invitation-api')>()),
+  listSentInvitations: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('./staff-team-members-api', async (importOriginal) => ({
@@ -876,7 +881,9 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
 
     it('새 이름으로 저장하면 제목과 알림이 바뀐 이름을 말한다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({ ...withApplication, name: '새팀이름' });
       renameProgramTeamMock.mockResolvedValue({
         teamId: 'team-1',
         name: '새팀이름',
@@ -895,7 +902,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain('새팀이름');
       expect(container.textContent).not.toContain('오픈소스팀');
 
-      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(1);
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
     });
 
     it('저장이 실패하면 창 안에서 말하고 제목은 그대로 둔다', async () => {

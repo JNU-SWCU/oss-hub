@@ -1,12 +1,15 @@
 import { act, type ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { getMyTeam, leaveMyTeam, removeMyTeamMember } from './api';
 import { getProgramDetail } from '../catalog/api';
 import type { ProgramTeam } from './dto';
 import { updateRepositoryUrl } from './repository-url-api';
-import { notifyTeamMembershipChanged } from './team-membership-events';
+import { invalidateProgram } from '../catalog/queries';
+import { focusManager, QueryObserver } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
 import { ProgramMyTeamPage } from './program-my-team-page';
 import { getMyApplication } from '../applications/student-application-api';
 import type { StudentApplication } from '../applications/student-application-dto';
@@ -573,6 +576,18 @@ describe('ProgramMyTeamPage 팀 구성 변경', () => {
     vi.mocked(removeMyTeamMember).mockResolvedValue(undefined);
     await renderPage();
     expect(getMyTeam).toHaveBeenCalledOnce();
+    const sent = new QueryObserver(root.queryClient, {
+      queryKey: programFeatureKey('program-1', 'teams', 'sent', 'team-1'),
+      queryFn: async () => {
+        await reloadSent();
+        return [];
+      },
+    });
+    const unsubscribe = sent.subscribe(vi.fn());
+    await act(async () => {
+      await sent.refetch();
+    });
+    vi.mocked(reloadSent).mockClear();
     await act(async () => iconButton('synthetic-member 팀에서 제외').click());
     await act(async () => button('팀에서 제외', true).click());
     expect(removeMyTeamMember).toHaveBeenCalledExactlyOnceWith(
@@ -581,6 +596,7 @@ describe('ProgramMyTeamPage 팀 구성 변경', () => {
     );
     expect(getMyTeam).toHaveBeenCalledTimes(2);
     expect(reloadSent).toHaveBeenCalledOnce();
+    unsubscribe();
     expect(mocks.push).not.toHaveBeenCalled();
   });
 
@@ -717,7 +733,10 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
     status: 'NOT_COLLECTED',
     canEditRepositoryUrl: false,
   });
-  await act(async () => window.dispatchEvent(new Event('focus')));
+  await act(async () => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
 
   expect(getTeamActivity).toHaveBeenCalledTimes(2);
   expect(edit()?.disabled).toBe(true);
@@ -767,7 +786,10 @@ it('re-reads the graph when a quiet reload changes the member list', async () =>
     members: team.members.filter((member) => member.isLeader),
   });
   vi.mocked(getTeamActivity).mockResolvedValue(collected(['synthetic-leader']));
-  await act(async () => window.dispatchEvent(new Event('focus')));
+  await act(async () => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
 
   expect(getTeamActivity).toHaveBeenCalledTimes(2);
   expect(legend()).toContain('@synthetic-leader');
@@ -818,14 +840,14 @@ describe('멤버십 변경 후 현재 팀 다시 읽기', () => {
   it('빈 팀에서 같은 프로그램 이벤트만 읽고 팀이 생기거나 사라진 결과를 표시한다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue(null);
     await renderPage();
-    await act(async () => notifyTeamMembershipChanged('other-program'));
+    await act(async () => invalidateProgram(root.queryClient, 'other-program'));
     expect(getMyTeam).toHaveBeenCalledTimes(1);
     vi.mocked(getMyTeam).mockResolvedValue(team);
-    await act(async () => notifyTeamMembershipChanged('program-1'));
+    await act(async () => invalidateProgram(root.queryClient, 'program-1'));
     expect(getMyTeam).toHaveBeenCalledTimes(2);
     expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
     vi.mocked(getMyTeam).mockResolvedValue(null);
-    await act(async () => notifyTeamMembershipChanged('program-1'));
+    await act(async () => invalidateProgram(root.queryClient, 'program-1'));
     expect(host.textContent).toContain('속한 팀이 없습니다');
   });
 
@@ -833,7 +855,10 @@ describe('멤버십 변경 후 현재 팀 다시 읽기', () => {
     vi.mocked(getMyTeam).mockResolvedValue(null);
     await renderPage();
     vi.mocked(getMyTeam).mockRejectedValueOnce(new Error('network'));
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(async () => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
     expect(getMyTeam).toHaveBeenCalledTimes(2);
     expect(host.textContent).toContain('속한 팀이 없습니다');
     expect(host.textContent).toContain('최신 팀 상태를 불러오지 못했습니다');
@@ -847,9 +872,11 @@ describe('멤버십 변경 후 현재 팀 다시 읽기', () => {
     await renderPage();
     const older = Promise.withResolvers<ProgramTeam | null>();
     vi.mocked(getMyTeam).mockReturnValueOnce(older.promise);
-    await act(async () => notifyTeamMembershipChanged('program-1'));
+    await act(async () => {
+      void invalidateProgram(root.queryClient, 'program-1');
+    });
     vi.mocked(getMyTeam).mockResolvedValue(team);
-    await act(async () => notifyTeamMembershipChanged('program-1'));
+    await act(async () => invalidateProgram(root.queryClient, 'program-1'));
     expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
     await act(async () => older.resolve(null));
     expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
