@@ -1,4 +1,4 @@
-import { HEADERS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { HEADERS_METADATA } from '@nestjs/common/constants';
 import type { PublicProjectRow } from '../domain/public-project-record';
 import { PublicProjectsController } from './public-projects.controller';
 import type { PublicProjectsService } from '../service/public-projects.service';
@@ -85,54 +85,6 @@ describe('PublicProjectsController', () => {
     });
 
     expect(findPage).toHaveBeenCalledWith('client-provided-cursor', 5, 2026);
-  });
-
-  it('GET /years — 서비스 결과를 연도 응답 DTO로 매핑한다', async () => {
-    const listYears = jest.fn().mockResolvedValue([2026, 2025]);
-    const controller = new PublicProjectsController({
-      listYears,
-    } as unknown as PublicProjectsService);
-
-    const result = await controller.listYears();
-
-    expect(listYears).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ years: [2026, 2025] });
-  });
-
-  it('GET /years 정적 경로가 :projectId 보다 먼저 등록된다', () => {
-    const listYearsHandler: unknown = Object.getOwnPropertyDescriptor(
-      PublicProjectsController.prototype,
-      'listYears',
-    )?.value;
-    const findDetailHandler: unknown = Object.getOwnPropertyDescriptor(
-      PublicProjectsController.prototype,
-      'findDetail',
-    )?.value;
-    expect(typeof listYearsHandler).toBe('function');
-    expect(typeof findDetailHandler).toBe('function');
-    if (
-      typeof listYearsHandler !== 'function' ||
-      typeof findDetailHandler !== 'function'
-    ) {
-      throw new Error('PublicProjectsController handlers are missing');
-    }
-
-    expect(Reflect.getMetadata(PATH_METADATA, listYearsHandler)).toBe('years');
-    expect(Reflect.getMetadata(PATH_METADATA, findDetailHandler)).toBe(
-      ':projectId',
-    );
-    expect(Reflect.getMetadata(PATH_METADATA, PublicProjectsController)).toBe(
-      'projects',
-    );
-
-    const methodNames = Object.getOwnPropertyNames(
-      PublicProjectsController.prototype,
-    ).filter((name) => name !== 'constructor');
-    expect(methodNames.indexOf('listYears')).toBeGreaterThanOrEqual(0);
-    expect(methodNames.indexOf('findDetail')).toBeGreaterThanOrEqual(0);
-    expect(methodNames.indexOf('listYears')).toBeLessThan(
-      methodNames.indexOf('findDetail'),
-    );
   });
 
   it('GET /:projectId — 상세 결과를 응답 DTO로 매핑하며 금지 필드(실명/studentId/이메일 등)를 포함하지 않는다', async () => {

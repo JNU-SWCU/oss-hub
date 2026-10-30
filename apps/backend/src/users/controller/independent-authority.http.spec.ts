@@ -15,10 +15,7 @@ import type {
   AdminAccessInsertedRequest,
   AdminAccessRevokedRequestInsert,
 } from '../repository/admin-access.repository.types';
-import {
-  ADMIN_ACCESS_COMMANDS,
-  STAFF_ACCESS_COMMANDS,
-} from '../domain/independent-authority';
+import { ADMIN_ACCESS_COMMANDS } from '../domain/independent-authority';
 import { IndependentAuthorityController } from './independent-authority.controller';
 import {
   IndependentAuthorityRepository,
@@ -144,7 +141,6 @@ describe('independent authority HTTP contracts', () => {
   afterAll(async () => application.close());
 
   it.each([
-    ['staff-access', STAFF_ACCESS_COMMANDS.REVOKE, false, true, 'ADMIN'],
     ['admin-access', ADMIN_ACCESS_COMMANDS.REVOKE, true, false, 'STAFF'],
   ] as const)(
     'preserves the other authority through PATCH /users/:id/%s',
@@ -193,8 +189,8 @@ describe('independent authority HTTP contracts', () => {
       hasAdminAccess: false,
     };
     const response = await request(
-      'staff-access',
-      STAFF_ACCESS_COMMANDS.GRANT,
+      'admin-access',
+      ADMIN_ACCESS_COMMANDS.GRANT,
       cookie,
       allowedOrigin,
     );
@@ -219,8 +215,8 @@ describe('independent authority HTTP contracts', () => {
 
   it('denies unauthenticated and untrusted-origin mutations', async () => {
     const unauthenticated = await request(
-      'staff-access',
-      STAFF_ACCESS_COMMANDS.GRANT,
+      'admin-access',
+      ADMIN_ACCESS_COMMANDS.GRANT,
       undefined,
       allowedOrigin,
     );
@@ -237,7 +233,7 @@ describe('independent authority HTTP contracts', () => {
 
   it('rejects an exclusive legacy role command', async () => {
     const response = await request(
-      'staff-access',
+      'admin-access',
       'SET_ROLE_STAFF',
       cookie,
       allowedOrigin,

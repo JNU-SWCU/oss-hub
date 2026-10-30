@@ -12,10 +12,7 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { requireValidUserId } from '../domain/user-id';
 import { IndependentAuthorityMutationResponseDto } from '../dto/admin-access-response.dto';
-import {
-  PatchAdminAuthorityRequestDto,
-  PatchStaffAccessRequestDto,
-} from '../dto/patch-independent-authority.dto';
+import { PatchAdminAuthorityRequestDto } from '../dto/patch-independent-authority.dto';
 import { IndependentAuthorityService } from '../service/independent-authority.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -26,26 +23,9 @@ export class IndependentAuthorityController {
     @Inject(IndependentAuthorityService)
     private readonly service: Pick<
       IndependentAuthorityService,
-      'patchStaffAccess' | 'patchAdminAccess'
+      'patchAdminAccess'
     >,
   ) {}
-
-  @Patch(':id/staff-access')
-  @UseGuards(SessionGuard, OriginGuard)
-  async patchStaffAccess(
-    @Req() request: SessionIdentity,
-    @Param('id') id: string,
-    @Body() body: PatchStaffAccessRequestDto,
-  ): Promise<IndependentAuthorityMutationResponseDto> {
-    requireValidUserId(id);
-    return IndependentAuthorityMutationResponseDto.from(
-      await this.service.patchStaffAccess(
-        request.sessionGithubId,
-        id,
-        body.toCommand(),
-      ),
-    );
-  }
 
   @Patch(':id/admin-access')
   @UseGuards(SessionGuard, OriginGuard)

@@ -335,15 +335,7 @@ describe('PublicProjectsService', () => {
     });
   });
 
-  describe('listYears', () => {
-    it('repository.listYears에 위임한다', async () => {
-      const listYears = jest.fn().mockResolvedValue([2026, 2025]);
-      const { service } = serviceWith({ listYears });
-
-      await expect(service.listYears()).resolves.toEqual([2026, 2025]);
-      expect(listYears).toHaveBeenCalledTimes(1);
-    });
-  });
+  describe('listYears', () => {});
 
   describe('findDetail', () => {
     it('존재하지 않는 프로젝트는 PROJECT_NOT_FOUND 404를 던진다', async () => {

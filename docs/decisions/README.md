@@ -1,0 +1,1 @@
+- [ADR-003: 백엔드 모듈 구조와 네이밍·DTO 컨벤션](./ADR-003-backend-architecture.md)

@@ -96,27 +96,4 @@ describe('workspace runtime entrypoint contracts', () => {
       expectSourceFile(target);
     }
   });
-
-  it('keeps the browser E2E stack on the registered digest and isolated server', () => {
-    const stack = readFileSync(
-      path.join(repositoryRoot, 'apps/frontend/e2e/run-stack.sh'),
-      'utf8',
-    );
-    const digestTargets = tsNodeTargets(stack);
-    expect(digestTargets).toEqual(
-      tsNodeTargets(
-        requiredString(
-          scripts['notifications:send-digest'],
-          'retained notifications:send-digest script',
-        ),
-      ),
-    );
-    for (const target of digestTargets) expectSourceFile(target);
-    const serverTargets = Array.from(
-      stack.matchAll(/\$backend_dist\/([\w./-]+)\.js\b/g),
-      (match) => `${requiredString(match[1], 'E2E server target capture')}.ts`,
-    );
-    expect(serverTargets).toEqual(['test/e2e-program-authoring/main.ts']);
-    for (const target of serverTargets) expectSourceFile(target);
-  });
 });

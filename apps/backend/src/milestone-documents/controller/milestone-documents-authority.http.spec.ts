@@ -29,16 +29,6 @@ const record = {
   templateFileId: null,
   templateFileName: null,
 };
-const documentBody = {
-  id: 'document',
-  milestoneId: 'milestone',
-  name: '합성 서류',
-  required: true,
-  sortOrder: 1,
-  graceDueAt: null,
-  hasTemplateFile: false,
-  templateFileName: null,
-};
 const actors = [
   ['anonymous', null, false, false, AccountStatus.ACTIVE, 401],
   ['student', 1n, false, false, AccountStatus.ACTIVE, 403],
@@ -47,28 +37,6 @@ const actors = [
   ['admin', 4n, false, true, AccountStatus.ACTIVE, 200],
 ] as const;
 const routes = [
-  [
-    'POST',
-    '',
-    { name: '합성 서류', required: true, sortOrder: 1 },
-    201,
-    documentBody,
-  ],
-  [
-    'PATCH',
-    '/document',
-    { name: '합성 서류', required: true, sortOrder: 1 },
-    200,
-    documentBody,
-  ],
-  [
-    'PATCH',
-    '/order',
-    { documentIds: ['document', 'other'] },
-    200,
-    [documentBody],
-  ],
-  ['DELETE', '/document', undefined, 204, null],
   [
     'PATCH',
     '/document/grace',
@@ -216,9 +184,6 @@ it.each([1n, 2n])(
   async (githubId) => {
     const cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`;
     for (const [method, path, body] of [
-      ['POST', '', {}],
-      ['PATCH', '/document', { name: 42 }],
-      ['PATCH', '/order', { documentIds: 'document' }],
       [
         'POST',
         '/document/applications/application/reviews',

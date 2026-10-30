@@ -5,7 +5,6 @@ import { AuthModule } from '../auth/auth.module';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { CollectionAdminController } from './controller/collection-admin.controller';
-import { ContributionInvariants } from './repository/contribution-invariants';
 import { CollectionAdminService } from './service/collection-admin.service';
 import { UsersModule } from '../users/users.module';
 import { CollectionScheduler } from './job/collection.scheduler';
@@ -18,7 +17,6 @@ import { collectionProviders } from './service/collection.providers';
   controllers: [CollectionAdminController],
   providers: [
     CollectionAdminService,
-    ContributionInvariants,
     CollectionScheduler,
     CollectionTriggerService,
     CollectionIncrementalRepository,

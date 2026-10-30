@@ -4,7 +4,6 @@ import { presentMilestoneDocumentHistory } from '../dto/milestone-document-histo
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Header,
   HttpCode,
@@ -33,14 +32,9 @@ import type { MilestoneDocumentDeliveryCollectionResponseDto } from '../dto/mile
 import { MilestoneDocumentCollectionService } from '../service/milestone-document-collection.service';
 import { MilestoneDocumentHistoryQueryRequestDto } from '../dto/milestone-document-history-query.dto';
 import type { MilestoneDocumentHistoryPageResponseDto } from '../dto/milestone-document-history-response.dto';
-import {
-  MilestoneDocumentListResponseDto,
-  MilestoneDocumentResponseDto,
-} from '../dto/milestone-document-response.dto';
+import { MilestoneDocumentListResponseDto } from '../dto/milestone-document-response.dto';
 import { MilestoneDocumentReviewResponseDto } from '../dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from '../dto/milestone-document-submission-response.dto';
-import { ReorderMilestoneDocumentsRequestDto } from '../dto/reorder-milestone-documents-request.dto';
-import { UpsertMilestoneDocumentRequestDto } from '../dto/upsert-milestone-document-request.dto';
 import { UpdateMilestoneDocumentGraceRequestDto } from '../dto/update-milestone-document-grace-request.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -59,7 +53,6 @@ import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
   type UploadedMilestoneDocumentFileResponse,
-  type UploadedMilestoneDocumentTemplateResponse,
 } from '../service/milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from '../service/milestone-document-reviews.service';
 import { MilestoneDocumentsService } from '../service/milestone-documents.service';
@@ -167,84 +160,6 @@ export class MilestoneDocumentsController {
       milestoneId,
       documentId,
       body.toDate(),
-    );
-  }
-
-  @Patch('order')
-  @UseGuards(SessionGuard, OriginGuard)
-  reorder(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Body() body: ReorderMilestoneDocumentsRequestDto,
-  ): Promise<MilestoneDocumentResponseDto[]> {
-    return this.service
-      .reorderDocuments(request.sessionGithubId, milestoneId, body.documentIds)
-      .then((records) =>
-        records.map((record) => MilestoneDocumentResponseDto.from(record)),
-      );
-  }
-
-  @Post()
-  @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
-  create(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Body() body: UpsertMilestoneDocumentRequestDto,
-  ): Promise<MilestoneDocumentResponseDto> {
-    return this.service
-      .createDocument(request.sessionGithubId, milestoneId, body.toInput())
-      .then((result) => MilestoneDocumentResponseDto.from(result));
-  }
-
-  @Patch(':documentId')
-  @UseGuards(SessionGuard, OriginGuard)
-  update(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Body() body: UpsertMilestoneDocumentRequestDto,
-  ): Promise<MilestoneDocumentResponseDto> {
-    return this.service
-      .updateDocument(
-        request.sessionGithubId,
-        milestoneId,
-        documentId,
-        body.toInput(),
-      )
-      .then((result) => MilestoneDocumentResponseDto.from(result));
-  }
-
-  @Delete(':documentId')
-  @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
-  async remove(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-  ): Promise<void> {
-    await this.service.deleteDocument(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-    );
-  }
-
-  @Post(':documentId/template')
-  @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
-  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
-  uploadTemplate(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<UploadedMilestoneDocumentTemplateResponse> {
-    return this.filesService.uploadTemplate(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      file,
     );
   }
 

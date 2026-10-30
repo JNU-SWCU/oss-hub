@@ -4,9 +4,14 @@ import { defineConfig } from 'eslint/config';
 import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
+import { builtinRules } from 'eslint/use-at-your-own-risk';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 import featureOwnership from './eslint-rules/feature-ownership.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
+import {
+  crossAppImportPatterns,
+  noCrossAppPath,
+} from './eslint-rules/no-cross-app-path.mjs';
 import noComments from '../../eslint-rules/no-comments.mjs';
 import { typeCheckedConfig } from '../../eslint.shared.mjs';
 
@@ -164,6 +169,8 @@ export default defineConfig([
           'runtime-test-boundary': runtimeTestBoundary,
           'feature-ownership': featureOwnership,
           'no-comments': noComments,
+          'no-cross-app-path': noCrossAppPath,
+          'no-cross-app-imports': builtinRules.get('no-restricted-imports'),
           ...designSystemRules,
         },
       },
@@ -173,6 +180,11 @@ export default defineConfig([
       'local/runtime-test-boundary': 'error',
       'local/feature-ownership': 'error',
       'local/no-comments': 'error',
+      'local/no-cross-app-path': 'error',
+      'local/no-cross-app-imports': [
+        'error',
+        { patterns: crossAppImportPatterns },
+      ],
     },
   },
   prettier,

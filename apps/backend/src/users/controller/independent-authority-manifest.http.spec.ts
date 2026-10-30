@@ -20,7 +20,6 @@ const sessionSecret = new Uint8Array(32).fill(31);
 const allowedOrigin = 'http://frontend.test';
 const authorityRoutes = [
   ['GET', '/api/v1/users/target/access'],
-  ['PATCH', '/api/v1/users/target/staff-access'],
   ['PATCH', '/api/v1/users/target/admin-access'],
 ] as const;
 const patchHeaders = {

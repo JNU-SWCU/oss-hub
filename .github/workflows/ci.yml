@@ -168,6 +168,9 @@ jobs:
       - name: CI path 계약 검사
         run: node --test scripts/ci-path-contract.test.mjs
 
+      - name: ADR-003 계약 검사
+        run: node --test scripts/adr-003-contract.test.mjs
+
       - name: 릴리스 배포 스코프 판정 단위테스트
         run: node --test scripts/select-release-deploy-scope.test.mjs scripts/select-frontend-release-baseline.test.mjs
 

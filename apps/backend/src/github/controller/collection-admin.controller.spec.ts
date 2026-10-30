@@ -6,20 +6,16 @@ import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { AuditLogRecord } from '../../audit-log/repository/audit-log.repository';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../service/collection-admin.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
-import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import type { CollectionSyncRunRow } from '../collection-incremental.types';
 import { CollectionSyncService } from '../service/collection-sync.service';
 import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from '../service/collection-user-activity.service';
 
-const check = jest.fn();
 const authority = {
   assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
 } as unknown as UsersAuthorityService;
@@ -27,21 +23,11 @@ const authority = {
 function createController(
   sync: CollectionSyncService,
   cutover: CollectionCutoverRepository,
-  incremental: CollectionIncrementalRepository,
   audit: AuditLogService,
-  invariants: ContributionInvariants,
   activity: CollectionUserActivityService,
 ): CollectionAdminController {
   return new CollectionAdminController(
-    new CollectionAdminService(
-      sync,
-      cutover,
-      incremental,
-      audit,
-      invariants,
-      activity,
-      authority,
-    ),
+    new CollectionAdminService(sync, cutover, audit, activity, authority),
   );
 }
 
@@ -55,10 +41,6 @@ describe('CollectionAdminController', () => {
     [string, string?]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
-  const listSyncRuns = jest.fn<
-    Promise<CollectionSyncRunRow[]>,
-    [Date, number]
-  >();
   const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
@@ -75,8 +57,6 @@ describe('CollectionAdminController', () => {
     });
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
-    listSyncRuns.mockReset();
-    listSyncRuns.mockResolvedValue([]);
     record.mockReset();
     record.mockResolvedValue({} as AuditLogRecord);
     runUserActivity.mockReset();
@@ -95,12 +75,7 @@ describe('CollectionAdminController', () => {
         CollectionAdminService,
         { provide: UsersAuthorityService, useValue: authority },
         { provide: CollectionSyncService, useValue: { run, runExternal } },
-        { provide: ContributionInvariants, useValue: { check } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
-        {
-          provide: CollectionIncrementalRepository,
-          useValue: { listSyncRuns },
-        },
         { provide: AuditLogService, useValue: { record } },
         {
           provide: CollectionUserActivityService,
@@ -130,9 +105,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -158,9 +131,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -188,9 +159,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -214,9 +183,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -236,9 +203,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -281,9 +246,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -298,9 +261,7 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
@@ -321,179 +282,12 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
     await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
 
     expect(record).not.toHaveBeenCalled();
-  });
-
-  it('runs는 sync 실행 이력 프로젝션을 ISO 문자열 응답으로 변환한다', async () => {
-    listSyncRuns.mockResolvedValue([
-      {
-        runId: 'run-1',
-        scope: 'org:jnu-swcu',
-        trigger: 'CRON',
-        status: 'COMPLETED',
-        startedAt: new Date('2026-08-04T00:00:00.000Z'),
-        lastObservedAt: new Date('2026-08-04T00:05:00.000Z'),
-        cycleCompletedAt: new Date('2026-08-04T00:04:30.000Z'),
-        streams: {
-          readyCount: 27,
-          backfillingCount: 0,
-          pendingCount: 0,
-          verifyingCount: 0,
-          failedCount: 0,
-        },
-        errorCodes: [],
-      },
-    ]);
-    const controller = createController(
-      { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
-      { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
-      { run: runUserActivity } as unknown as CollectionUserActivityService,
-    );
-
-    const result = await controller.listRuns({ sessionGithubId: 4242n });
-
-    expect(listSyncRuns).toHaveBeenCalledWith(expect.any(Date), 20);
-    expect(result.runs).toEqual([
-      {
-        runId: 'run-1',
-        scope: 'org:jnu-swcu',
-        trigger: 'CRON',
-        status: 'COMPLETED',
-        startedAt: '2026-08-04T00:00:00.000Z',
-        lastObservedAt: '2026-08-04T00:05:00.000Z',
-        cycleCompletedAt: '2026-08-04T00:04:30.000Z',
-        streams: {
-          ready: 27,
-          backfilling: 0,
-          pending: 0,
-          verifying: 0,
-          failed: 0,
-        },
-        errorCodes: [],
-      },
-    ]);
-  });
-
-  it('runs 응답에는 lease ownerId 등 자격증명 계열 값이 담기지 않는다', async () => {
-    listSyncRuns.mockResolvedValue([
-      {
-        runId: 'run-1',
-        scope: 'external',
-        trigger: 'MANUAL',
-        status: 'RUNNING',
-        startedAt: null,
-        lastObservedAt: new Date('2026-08-04T00:05:00.000Z'),
-        cycleCompletedAt: null,
-        streams: {
-          readyCount: 0,
-          backfillingCount: 0,
-          pendingCount: 3,
-          verifyingCount: 0,
-          failedCount: 0,
-        },
-        errorCodes: [],
-      },
-    ]);
-    const controller = createController(
-      { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
-      { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
-      { run: runUserActivity } as unknown as CollectionUserActivityService,
-    );
-
-    const serialized = JSON.stringify(
-      await controller.listRuns({ sessionGithubId: 4242n }),
-    );
-
-    expect(serialized).not.toContain('ownerId');
-    expect(serialized).not.toContain('admin:');
-    expect(serialized).not.toContain('token');
-  });
-
-  it('runs는 세션과 origin guard를 유지한다', () => {
-    const handler: unknown = Object.getOwnPropertyDescriptor(
-      CollectionAdminController.prototype,
-      'listRuns',
-    )?.value;
-    expect(typeof handler).toBe('function');
-    if (typeof handler !== 'function') {
-      return;
-    }
-    const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
-
-    expect(guards).toEqual([SessionGuard, OriginGuard]);
-  });
-});
-
-describe('CollectionAdminController — 기여 불변식 검사', () => {
-  it('검사 결과를 그대로 돌려준다 — 고치지 않는다', async () => {
-    const report = {
-      checkedAt: new Date('2026-08-09T00:00:00.000Z'),
-      ok: false,
-      results: [
-        {
-          name: '가입자만 적재',
-          ok: false,
-          violationCount: 2,
-          detail: '가입자 아닌 기여자 2명 — 적재 필터가 열려 있다',
-        },
-      ],
-    };
-    const checkInvariants = jest.fn().mockResolvedValue(report);
-    const controller = createController(
-      {} as unknown as CollectionSyncService,
-      {} as unknown as CollectionCutoverRepository,
-      {} as unknown as CollectionIncrementalRepository,
-      {} as unknown as AuditLogService,
-      { check: checkInvariants } as unknown as ContributionInvariants,
-      {} as unknown as CollectionUserActivityService,
-    );
-
-    await expect(
-      controller.checkInvariants({ sessionGithubId: 4242n }),
-    ).resolves.toEqual(report);
-    expect(checkInvariants).toHaveBeenCalledTimes(1);
-  });
-
-  it('응답에 학생 식별자나 저장소 이름이 없다', async () => {
-    const checkInvariants = jest.fn().mockResolvedValue({
-      checkedAt: new Date('2026-08-09T00:00:00.000Z'),
-      ok: false,
-      results: [
-        {
-          name: '가입자만 적재',
-          ok: false,
-          violationCount: 1,
-          detail: '가입자 아닌 기여자 1명 — 적재 필터가 열려 있다',
-        },
-      ],
-    });
-    const controller = createController(
-      {} as unknown as CollectionSyncService,
-      {} as unknown as CollectionCutoverRepository,
-      {} as unknown as CollectionIncrementalRepository,
-      {} as unknown as AuditLogService,
-      { check: checkInvariants } as unknown as ContributionInvariants,
-      {} as unknown as CollectionUserActivityService,
-    );
-
-    const serialized = JSON.stringify(
-      await controller.checkInvariants({ sessionGithubId: 4242n }),
-    );
-
-    expect(serialized).not.toMatch(/githubId|githubLogin|nameWithOwner/u);
   });
 });

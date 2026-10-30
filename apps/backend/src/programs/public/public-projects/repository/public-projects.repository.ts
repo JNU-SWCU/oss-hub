@@ -103,27 +103,6 @@ export class PublicProjectsRepository {
     return rows.map(toProjectRow);
   }
 
-  async listYears(): Promise<readonly number[]> {
-    const rows = await this.prisma.$queryRaw<
-      readonly { year: number | null }[]
-    >`
-      SELECT DISTINCT (
-        EXTRACT(
-          YEAR FROM (
-            r."publishedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul'
-          )
-        )
-      )::int AS year
-      FROM "GithubRepository" r
-      WHERE r.visibility = 'PUBLIC'::"RepositoryVisibility"
-        AND r."publishedAt" IS NOT NULL
-      ORDER BY year DESC
-    `;
-    return rows
-      .map((row) => row.year)
-      .filter((year): year is number => year !== null);
-  }
-
   async findById(projectId: string): Promise<PublicProjectRow | null> {
     if (!/^[0-9]+$/.test(projectId)) return null;
 
