@@ -112,12 +112,12 @@ export function LandingJourney({
               <span className={styles.statNote}>{stats.note}</span>
             ) : null}
             <div className={styles.flow} data-focus="flow">
-              <h3 id="landing-flow-heading" className={styles.flowHeading}>
+              <h3 id="landing-steps-heading" className={styles.flowHeading}>
                 신청부터 공개까지, 하나의 흐름
               </h3>
               <ol
                 className={styles.steps}
-                aria-labelledby="landing-flow-heading"
+                aria-labelledby="landing-steps-heading"
               >
                 {FLOW_STEPS.map(([no, title, description]) => (
                   <li key={no} className={styles.step}>

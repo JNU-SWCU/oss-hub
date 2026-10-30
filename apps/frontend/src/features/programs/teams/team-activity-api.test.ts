@@ -9,7 +9,10 @@ import {
 } from './team-activity-api';
 import type { RepositoryHistoryPage, TeamActivity } from './team-activity-dto';
 
-vi.mock('@/lib/api-client', () => ({ apiClient: vi.fn() }));
+vi.mock('@/lib/api-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api-client')>()),
+  apiClient: vi.fn(),
+}));
 
 const activity: TeamActivity = {
   applicationId: 'application-1',

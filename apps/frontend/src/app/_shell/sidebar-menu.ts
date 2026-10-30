@@ -96,7 +96,10 @@ export function programSidebarGroup(
 
 export interface ProgramScopeSidebarItem {
   readonly label: string;
-  readonly isViewSwitch?: boolean;
+  readonly isViewSwitch?: {
+    readonly programId: string;
+    readonly operationsView: boolean;
+  };
   readonly href: string;
   readonly icon: ShellIconName;
   readonly depth?: 0 | 1;
@@ -309,28 +312,19 @@ export function programScopeSidebarGroups(
     ...(documentsLocked ? [] : [documentsGroup]),
     ...(boardLocked ? [] : [boardGroup]),
   ];
-  const viewGroups = operationsView
-    ? groups.map((group) => ({
-        ...group,
-        items: group.items.map((item) => ({
-          ...item,
-          href: `${item.href}${item.href.includes('?') ? '&' : '?'}view=operations`,
-        })),
-      }))
-    : groups;
   return [
-    ...viewGroups,
+    ...groups,
     ...(canSwitchView
       ? [
           {
             label: '화면 전환',
             items: [
               {
-                isViewSwitch: true,
+                isViewSwitch: { programId, operationsView: !operationsView },
                 label: operationsView
                   ? '학생 화면으로 전환'
                   : '운영 도구로 전환',
-                href: `${programHref(programId)}${operationsView ? '' : '?view=operations'}`,
+                href: programHref(programId),
                 icon: 'home' as const,
                 depth: 0 as const,
               },
@@ -459,13 +453,10 @@ export function isCurrentSidebarItem(
       return false;
     }
 
-    const want =
-      hrefQuery === ''
-        ? 'all'
-        : (new URLSearchParams(hrefQuery).get(spec.param) ?? 'all');
-
     const missingYearFallback =
       facetSection === 'ranking' ? String(currentRankingYear()) : 'all';
+    const want =
+      new URLSearchParams(hrefQuery).get(spec.param) ?? missingYearFallback;
     const have =
       new URLSearchParams(search).get(spec.param) ?? missingYearFallback;
 

@@ -217,6 +217,8 @@ export function SubmissionPage({
 
   return (
     <SubmissionFormView
+      programId={programId}
+      milestoneId={milestoneId}
       data={state.data}
       input={input}
       comment={comment}

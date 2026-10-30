@@ -31,6 +31,9 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
+vi.mock('./program-operations-view', () => ({
+  useProgramOperationsView: () => false,
+}));
 
 vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
@@ -106,7 +109,7 @@ describe('shouldLoadProgramOverview — 개요 fetch 발화 조건', () => {
   });
 });
 
-describe('ProductShell — 프로그램 상세 스코프 배선', () => {
+describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프 배선', () => {
   it('/programs 목록에서는 기존대로 AppSidebar(프로그램 메뉴 필터)를 그린다', () => {
     mockSession();
     const html = render('/programs');

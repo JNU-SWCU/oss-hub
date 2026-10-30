@@ -45,7 +45,7 @@ export function publishRepository(
   repositoryId: string,
 ): Promise<PublishRepositoryResponse> {
   return apiClient<PublishRepositoryResponse>(
-    `repositories/${repositoryId}/publish`,
+    `repositories/${encodeURIComponent(repositoryId)}/publish`,
     {
       method: 'POST',
       body: JSON.stringify({ isConfirmed: true }),

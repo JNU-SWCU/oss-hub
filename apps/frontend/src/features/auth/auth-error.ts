@@ -7,10 +7,7 @@ export type SearchParamsInput =
   | Record<string, string | string[] | undefined>
   | undefined;
 
-export function hasSearchParam(
-  searchParams: SearchParamsInput,
-  key: string,
-): boolean {
+function hasSearchParam(searchParams: SearchParamsInput, key: string): boolean {
   if (!searchParams) {
     return false;
   }

@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot, hydrateRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProgramDetail } from '@/features/programs/catalog/dto';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
@@ -68,6 +69,7 @@ vi.mock('@/features/programs/catalog/components/activity-graph-panel', () => ({
 }));
 
 import { ProductShell } from '../../_shell/product-shell';
+import { setProgramOperationsView } from '../../_shell/program-operations-view';
 import { ProgramDetailScreen } from './program-detail-screen';
 
 const DETAIL = {
@@ -93,6 +95,7 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    sessionStorage.clear();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -133,6 +136,8 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    setProgramOperationsView('program-1', false);
     vi.clearAllMocks();
   });
 
@@ -147,7 +152,15 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
   }
 
   function editLink(): Element | null {
-    return container.querySelector('main a[href*="/edit?view=operations"]');
+    return container.querySelector('main a[href$="/edit"]');
+  }
+
+  async function switchView() {
+    const button = container.querySelector<HTMLButtonElement>(
+      '[data-slot="program-scope-sidebar"] button[data-view-switch]',
+    );
+    expect(button).not.toBeNull();
+    await act(async () => button?.click());
   }
 
   it.each(['STAFF', 'ADMIN'] as const)(
@@ -167,15 +180,101 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     await renderScreen();
     expect(container.textContent).toContain('우리 팀');
     expect(editLink()).toBeNull();
-    mocks.searchParams = new URLSearchParams('view=operations');
-    await renderScreen();
+    await switchView();
     expect(container.textContent).toContain('팀 관리');
     expect(editLink()).not.toBeNull();
-    mocks.searchParams = new URLSearchParams();
-    await renderScreen();
+    await switchView();
     expect(container.textContent).toContain('우리 팀');
     expect(editLink()).toBeNull();
     expect(mocks.router.replace).not.toHaveBeenCalled();
+    expect(mocks.router.push).toHaveBeenLastCalledWith('/programs/program-1');
+  });
+
+  it('저장된 운영 화면은 hydration 전후 학생 조회나 본문을 노출하지 않는다', async () => {
+    sessionStorage.setItem('oss-hub-program-operations-view:program-1', 'true');
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await act(async () => root.unmount());
+    const screen = (
+      <ProductShell>
+        <ProgramDetailScreen programId="program-1" />
+      </ProductShell>
+    );
+    container.innerHTML = renderToString(screen);
+    expect(container.textContent).toBe('');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.getProgramOverview).not.toHaveBeenCalled();
+    await act(async () => {
+      root = hydrateRoot(container, screen);
+    });
+    expect(editLink()).not.toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).endsWith('/viewer')),
+    ).toBe(false);
+    expect(
+      mocks.getProgramOverview.mock.calls.every(
+        ([, operations]) => operations === true,
+      ),
+    ).toBe(true);
+  });
+
+  it('학생의 옛 운영 query는 권한과 조회를 변경하지 않는다', async () => {
+    mocks.hasStaffAccess = false;
+    mocks.searchParams = new URLSearchParams('view=operations');
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await renderScreen();
+    expect(editLink()).toBeNull();
+    expect(
+      fetchMock.mock.calls.every(
+        ([url]) => !String(url).includes('view=operations'),
+      ),
+    ).toBe(true);
+    expect(
+      mocks.getProgramOverview.mock.calls.every(
+        ([, operations]) => operations === false,
+      ),
+    ).toBe(true);
+  });
+
+  it('잘못된 저장값은 운영 전환으로 해석하지 않는다', async () => {
+    sessionStorage.setItem(
+      'oss-hub-program-operations-view:program-1',
+      'operations',
+    );
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await renderScreen();
+    expect(editLink()).toBeNull();
+    expect(container.querySelector('button[data-view-switch]')).not.toBeNull();
+  });
+
+  it('쓰기만 차단되어도 저장된 운영 값을 메모리에서 해제한다', async () => {
+    sessionStorage.setItem('oss-hub-program-operations-view:program-1', 'true');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await renderScreen();
+    expect(editLink()).not.toBeNull();
+    await switchView();
+    expect(editLink()).toBeNull();
+    await renderScreen();
+    expect(editLink()).toBeNull();
+  });
+
+  it('storage 읽기와 쓰기가 실패해도 화면 전환을 메모리에 유지한다', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await renderScreen();
+    await switchView();
+    expect(editLink()).not.toBeNull();
+    await renderScreen();
+    expect(editLink()).not.toBeNull();
+    await switchView();
+    expect(editLink()).toBeNull();
   });
 
   it('운영 사이드바 집계에는 개인의 서류 수 대신 완료한 팀 수를 표시한다', async () => {

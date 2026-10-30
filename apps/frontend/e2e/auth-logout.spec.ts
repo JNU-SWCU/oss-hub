@@ -30,6 +30,8 @@ const SETTINGS_ORIGIN_READS: F3ApiHandlers = {
 
 const ANONYMOUS_HOME_READS: F3ApiHandlers = {
   'GET /api/v1/programs': (route) => fulfillJson(route, { items: [] }),
+  'GET /api/v1/programs/status-counts': (route) =>
+    fulfillJson(route, { published: 0, recruiting: 0, closed: 0, archived: 0 }),
   'GET /api/v1/projects': (route) => fulfillJson(route, { items: [] }),
 };
 
@@ -50,7 +52,7 @@ test('logout success returns to the anonymous home introduction', async ({
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
   await clickLogout(page);
 
-  await expect(page).toHaveURL(new URL('/?loggedOut=1', page.url()).href);
+  await expect(page).toHaveURL(new URL('/', page.url()).href);
   await expect(
     page.getByRole('heading', { name: '흩어진 정보를 하나로' }),
   ).toBeVisible();
@@ -72,6 +74,13 @@ test('logout success returns to the anonymous home introduction', async ({
   expect(fixture.logoutRequests()).toBe(1);
 
   await captureF3Evidence(page, testInfo, 'logout-success');
+  await page.reload();
+  await expect(hero.getByRole('link')).toHaveCount(2);
+  await expect(navSignIn).toHaveAttribute('href', '/api/v1/auth/github');
+  await page.goto('/programs');
+  await page.goBack();
+  await expect(hero.getByRole('link')).toHaveCount(2);
+  await expect(navSignIn).toHaveAttribute('href', '/api/v1/auth/github');
   audit.assertClean();
 });
 

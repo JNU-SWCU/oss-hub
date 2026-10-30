@@ -34,7 +34,7 @@ const consentedPolicy = {
     {
       key: 'PRIVACY',
       label: '개인정보 제공 동의',
-      documentUrl: '/policies/privacy/test.html',
+      documentUrl: '/policies/privacy',
     },
   ],
   consented: true,
