@@ -23,7 +23,7 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 1', '신청·팀 구성', '초대를 수락해 팀에 합류'],
   ['STEP 2', '저장소 연결', '승인되면 팀 저장소가 열림'],
   ['STEP 3', '제출·검토', '마일스톤 단위로 교직원이 검토'],
-  ['STEP 4', '공개 프로젝트', '공개 프로젝트로 남음'],
+  ['STEP 4', '공개 프로젝트', '승인되면 누구나 볼 수 있음'],
 ];
 
 export function LandingJourney({
