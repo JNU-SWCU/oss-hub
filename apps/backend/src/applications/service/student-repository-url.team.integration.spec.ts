@@ -5,7 +5,7 @@ import {
   RepositoryConnectionMode,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { ProgramTeamsRepository } from '../../programs/repository/program-teams.repository';
+import { ProgramTeamsRepository } from '../../programs/program-teams.repository';
 import {
   prisma,
   service,

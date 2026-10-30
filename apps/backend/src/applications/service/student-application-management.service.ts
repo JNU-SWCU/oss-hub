@@ -6,8 +6,8 @@ import {
   applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
   type ApplicationAnswers,
-} from '../../programs/domain/application-answers.validator';
-import { isProgramApplicationManager } from '../../programs/domain/program-participant';
+} from '../../programs/application-answers-validator.policy';
+import { isProgramApplicationManager } from '../../programs/program-participant.policy';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,

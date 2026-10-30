@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from '../auth/auth.module';
-import { PublicProjectsModule } from '../programs/public/public-projects/public-projects.module';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -27,11 +26,10 @@ import { ConsentsService } from './consents.service';
 import { RolesRepository } from './member-onboarding.repository';
 import { RolesService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
-import { PublicUserProfileController } from './public-profile.controller';
 import { StaffAccessRequestsController } from './role-requests.controller';
 
 @Module({
-  imports: [PlatformModule, AuthModule, PublicProjectsModule],
+  imports: [PlatformModule, AuthModule],
 
   controllers: [
     AccountDeactivationController,
@@ -42,7 +40,6 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     OnboardingController,
     StaffAccessRequestsController,
     ConsentsController,
-    PublicUserProfileController,
   ],
   providers: [
     AccountDeactivationRepository,

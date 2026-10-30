@@ -2,13 +2,13 @@ import { Prisma, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
-import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
+import { TeamInvitationsRepository } from '../../programs/team-invitations.repository';
 import {
   backendPid,
   deferred,
   pidCapturingPrisma,
   releaseAfterBlocked,
-} from '../../team-invitations/repository/team-invitations.acceptance-race.test-support';
+} from '../../programs/team-invitations.acceptance-race.test-support';
 import { ApplicationPreparationsRepository } from '../repository/application-preparations.repository';
 
 assertIsolatedIntegrationDatabase({

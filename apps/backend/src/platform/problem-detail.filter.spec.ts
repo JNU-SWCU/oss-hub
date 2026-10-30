@@ -11,7 +11,7 @@ import type { Response } from 'express';
 import { DomainException } from './error-code.error';
 import { ProblemDetailFilter } from './problem-detail.filter';
 import { SystemErrorCode } from './system-error-code.error';
-import { PROGRAM_ERROR_CODES } from '../programs/domain/program-error-code';
+import { PROGRAM_READ_ERROR_CODES } from '../programs/program-read-error-code.error';
 
 describe('ProblemDetailFilter', () => {
   const createHost = (
@@ -143,7 +143,7 @@ describe('ProblemDetailFilter', () => {
   it('프로그램 상세 조회 실패는 계약된 안전한 500 코드를 반환한다', () => {
     const { response, json, status } = createResponse();
     const exception = new DomainException(
-      PROGRAM_ERROR_CODES.DETAIL_LOAD_FAILED,
+      PROGRAM_READ_ERROR_CODES.DETAIL_LOAD_FAILED,
     );
 
     new ProblemDetailFilter().catch(

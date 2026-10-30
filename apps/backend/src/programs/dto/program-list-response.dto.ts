@@ -1,10 +1,10 @@
 import { type ApplicationStatus } from '@prisma/client';
-import { programCoverImageUrl } from '../domain/program-cover';
+import { programCoverImageUrl } from '../program-cover.policy';
 import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../domain/program-list';
+} from '../program-list.types';
 
 export class ProgramListResponseDto {
   readonly coverImageUrl: string | null;

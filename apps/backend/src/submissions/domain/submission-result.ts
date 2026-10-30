@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import type { MilestoneSubmissionType, ReviewDecision } from '@prisma/client';
-import { hasProgramDeadlinePassed } from '../../programs/domain/program-deadline';
+import { hasProgramDeadlinePassed } from '../../programs/program-deadline.policy';
 import type {
   ChecklistMilestone,
   SubmissionApplication,

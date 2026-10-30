@@ -6,10 +6,10 @@ import {
 import type {
   UpdateProgramCommand,
   UpsertMilestoneCommand,
-} from '../src/programs/domain/program-write.commands';
-import { ProgramEditorService } from '../src/programs/service/program-editor.service';
-import type { ProgramEditorRepository } from '../src/programs/repository/program-editor.repository';
-import type { ProgramEditorTransactionStore } from '../src/programs/domain/program-editor.types';
+} from '../src/programs/program-write.types';
+import { ProgramEditorService } from '../src/programs/program-editor.service';
+import type { ProgramEditorRepository } from '../src/programs/program-editor.repository';
+import type { ProgramEditorTransactionStore } from '../src/programs/program-editor.types';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',

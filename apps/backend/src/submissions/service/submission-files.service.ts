@@ -3,7 +3,7 @@ import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../../platform/error-code.error';
 import { normalizeMultipartFileName } from '../../platform/multipart-file-name.policy';
-import { hasProgramDeadlinePassed } from '../../programs/domain/program-deadline';
+import { hasProgramDeadlinePassed } from '../../programs/program-deadline.policy';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,

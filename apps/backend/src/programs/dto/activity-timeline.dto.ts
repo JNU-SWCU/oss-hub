@@ -1,5 +1,5 @@
-import type { ActivityTimelineResult } from '../domain/activity-timeline.models';
-import { type ActivityGranularity } from '../domain/program-activity-granularity';
+import type { ActivityTimelineResult } from '../activity-timeline.types';
+import { type ActivityGranularity } from '../program-activity-granularity.policy';
 
 interface ActivityProgramResponseDto {
   readonly programId: string;

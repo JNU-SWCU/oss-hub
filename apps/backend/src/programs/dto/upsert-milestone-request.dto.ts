@@ -1,4 +1,4 @@
-import type { UpsertMilestoneCommand } from '../domain/program-write.commands';
+import type { UpsertMilestoneCommand } from '../program-write.types';
 import {
   IsDateString,
   IsNotEmpty,

@@ -1,4 +1,4 @@
-import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
+import { TeamInvitationsRepository } from '../../programs/team-invitations.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../platform/prisma.service';

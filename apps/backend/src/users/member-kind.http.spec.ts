@@ -18,7 +18,6 @@ import type {
   MemberKindTransactionStore,
 } from './member-kind.repository';
 import { MemberKindRepository } from './member-kind.repository';
-import { PublicProjectsService } from '../programs/public/public-projects/service/public-projects.service';
 import { UsersModule } from './users.module';
 
 const ADMIN_GITHUB_ID = 9_700_600_001n;
@@ -102,7 +101,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     moduleBuilder.overrideProvider(PrismaService).useValue({});
     moduleBuilder.overrideProvider(MemberKindRepository).useValue(repository);
     moduleBuilder.overrideProvider(AuditLogService).useValue(audit);
-    moduleBuilder.overrideProvider(PublicProjectsService).useValue({});
     moduleBuilder.overrideProvider(AuthConfig).useValue({
       sessionSecret,
       allowedOrigin,

@@ -11,7 +11,7 @@ import { SubmissionReviewsModule } from './submission-reviews/submission-reviews
 import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
-import { PublicProjectsModule } from './programs/public/public-projects/public-projects.module';
+import { ProgramsModule } from './programs/programs.module';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
@@ -50,12 +50,10 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  it('PublicProjectsModule을 정확히 한 번 노출한다', () => {
+  it('ProgramsModule을 정확히 한 번 노출한다', () => {
     const imports = getImports();
 
-    expect(
-      imports.filter((entry) => entry === PublicProjectsModule),
-    ).toHaveLength(1);
+    expect(imports.filter((entry) => entry === ProgramsModule)).toHaveLength(1);
   });
 
   it('Notifications 스케줄러보다 Collection 스케줄러를 먼저 로드한다', () => {

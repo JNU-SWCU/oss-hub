@@ -17,7 +17,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/join-code-digest.policy';
 import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
 
 const PROGRAM_ID = seedId('repositories', 'program');

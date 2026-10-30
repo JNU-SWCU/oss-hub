@@ -14,7 +14,7 @@ import {
   SubmissionStatus,
   User,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/join-code-digest.policy';
 import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
 import { AUTH_SCENARIOS } from './auth';
 import {

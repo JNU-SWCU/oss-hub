@@ -1,4 +1,4 @@
-import { computeJoinCodeDigest } from '../../programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../../programs/join-code-digest.policy';
 import { JoinCodeSecretError } from '../../platform/join-code-secret.config';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 

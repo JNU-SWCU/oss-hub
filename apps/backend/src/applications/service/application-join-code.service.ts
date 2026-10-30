@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { computeJoinCodeDigest } from '../../programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../../programs/join-code-digest.policy';
 import { resolveJoinCodeSecretFromConfig } from '../../platform/join-code-secret.config';
 import type { RuntimeConfig } from '../../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';

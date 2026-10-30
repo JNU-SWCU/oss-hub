@@ -29,15 +29,15 @@ import {
   MilestoneDocumentFeedbackService,
 } from '../../src/milestone-documents/service/milestone-document-feedback.service';
 import { PrismaService } from '../../src/platform/prisma.service';
-import { StudentDashboardController } from '../../src/programs/controller/student-dashboard.controller';
-import { ProgramActivityRepository } from '../../src/programs/repository/program-activity.repository';
-import { ProgramActivitySummaryRepository } from '../../src/programs/repository/program-activity-summary.repository';
-import { ProgramsRepository } from '../../src/programs/repository/programs.repository';
-import { StudentDashboardReadRepository } from '../../src/programs/repository/student-dashboard-read.repository';
-import { ProgramActivityService } from '../../src/programs/service/program-activity.service';
-import { ProgramActivitySummaryService } from '../../src/programs/service/program-activity-summary.service';
-import { ProgramViewerService } from '../../src/programs/service/program-viewer.service';
-import { StudentDashboardService } from '../../src/programs/service/student-dashboard.service';
+import { StudentDashboardController } from '../../src/programs/student-dashboard.controller';
+import { ProgramActivityRepository } from '../../src/programs/program-activity.repository';
+import { ProgramActivitySummaryRepository } from '../../src/programs/program-activity-summary.repository';
+import { ProgramsRepository } from '../../src/programs/programs.repository';
+import { StudentDashboardReadRepository } from '../../src/programs/student-dashboard-read.repository';
+import { ProgramActivityService } from '../../src/programs/program-activity.service';
+import { ProgramActivitySummaryService } from '../../src/programs/program-activity-summary.service';
+import { ProgramViewerService } from '../../src/programs/program-viewer.service';
+import { StudentDashboardService } from '../../src/programs/student-dashboard.service';
 import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { SubmissionDashboardSummaryRepository } from '../../src/submissions/repository/submission-dashboard-summary.repository';

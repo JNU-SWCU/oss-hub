@@ -19,8 +19,8 @@ const layers = [
   'dto',
   'domain',
 ];
-const modulePatterns = ['src/(programs/public/*)', 'src/(*)'];
-const moduleGlobs = ['src/programs/public/*', 'src/*'];
+const modulePatterns = ['src/(*)'];
+const moduleGlobs = ['src/*'];
 const flatModules =
   'auth|users|programs|ranking|student|staff|admin|notifications|github|platform';
 const flatModulePattern = `src/(${flatModules})`;

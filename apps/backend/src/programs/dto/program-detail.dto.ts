@@ -2,7 +2,7 @@ import type {
   ProgramDetailResult,
   ProgramActivityResult,
   ProgramViewerRole,
-} from '../domain/program-read.models';
+} from '../program-read.types';
 import type {
   ApplicationStatus,
   MilestoneSubmissionType,

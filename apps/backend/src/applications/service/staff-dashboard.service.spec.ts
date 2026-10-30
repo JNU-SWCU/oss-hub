@@ -3,7 +3,7 @@ import { PlatformModule } from '../../platform/platform.module';
 import { ProgramTrackType } from '@prisma/client';
 import { DomainException } from '../../platform/error-code.error';
 import { PrismaService } from '../../platform/prisma.service';
-import { ProgramActivitySummaryService } from '../../programs/service/program-activity-summary.service';
+import { ProgramActivitySummaryService } from '../../programs/program-activity-summary.service';
 import { SubmissionDashboardSummaryService } from '../../submissions/service/submission-dashboard-summary.service';
 import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';

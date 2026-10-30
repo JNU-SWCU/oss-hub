@@ -23,7 +23,7 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { computeJoinCodeDigest } from '../src/programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../src/programs/join-code-digest.policy';
 import { resolveJoinCodeSecret } from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';

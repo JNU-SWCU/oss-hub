@@ -1,4 +1,4 @@
-import type { EditMilestoneCommand } from '../domain/program-write.commands';
+import type { EditMilestoneCommand } from '../program-write.types';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,

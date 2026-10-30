@@ -1,4 +1,4 @@
-import type { ProgramStatusCounts } from '../domain/program-list-status';
+import type { ProgramStatusCounts } from '../program-list-status.policy';
 
 export class ProgramStatusCountsResponseDto {
   readonly all: number;

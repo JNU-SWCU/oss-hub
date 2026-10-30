@@ -1,6 +1,6 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { PlatformModule } from '../../platform/platform.module';
-import { PublicProjectsService } from '../../programs/public/public-projects/service/public-projects.service';
+import { PublicProjectsService } from '../../programs/public-projects.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../../auth/auth.config';
