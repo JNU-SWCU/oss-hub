@@ -18,8 +18,14 @@ const ITEMS: NavItem[] = [
   { label: '아카이브', href: '/archive' },
 ];
 
+function navClass(html: string): string[] {
+  return (
+    html.match(/data-slot="nav-bar"[^>]*class="([^"]*)"/)?.[1].split(' ') ?? []
+  );
+}
+
 describe('ShellNav', () => {
-  it('랜딩(/)은 흰 바이고 여정용 fixed만 둔다', () => {
+  it('랜딩(/)도 흰 바이고 히어로 위에 fixed로만 둔다', () => {
     mocks.usePathname.mockReturnValue('/');
 
     const html = renderToStaticMarkup(
@@ -28,6 +34,8 @@ describe('ShellNav', () => {
 
     expect(html).not.toContain('data-surface="inverted"');
     expect(html).not.toContain('border-transparent');
+    expect(html).not.toContain('bg-transparent');
+    expect(navClass(html)).toContain('bg-background');
     expect(html).not.toContain('data-landing-surface');
     expect(html).not.toContain('shadow-sm');
 
@@ -35,8 +43,42 @@ describe('ShellNav', () => {
     expect(html).not.toContain('absolute inset-x-0 top-0');
   });
 
-  it('/signup 도 흰 바이고 fixed가 아니다', () => {
-    mocks.usePathname.mockReturnValue('/signup');
+  it('어느 경로에서도 바 색 전환 클래스가 없다', () => {
+    for (const pathname of ['/', '/consent', '/programs']) {
+      mocks.usePathname.mockReturnValue(pathname);
+      const bar = navClass(
+        renderToStaticMarkup(<ShellNav items={ITEMS} brand="OSS Hub" />),
+      );
+      expect(bar, pathname).toContain('bg-background');
+      expect(bar, pathname).not.toContain('bg-transparent');
+      expect(
+        bar.some((token) => token.startsWith('transition-[background')),
+        pathname,
+      ).toBe(false);
+    }
+  });
+
+  it('390px 폭에서 브랜드가 숨 쉰 여백을 둔다 — px-1 이 아니라 px-3', () => {
+    mocks.usePathname.mockReturnValue('/');
+    const landing = navClass(
+      renderToStaticMarkup(<ShellNav items={ITEMS} brand="OSS Hub" />),
+    );
+    expect(landing).toContain('max-[479px]:px-3');
+    expect(landing).not.toContain('max-[479px]:px-1');
+  });
+
+  it('접힌 메뉴 패널은 랜딩에서도 data-surface="default" 리셋을 유지한다', () => {
+    mocks.usePathname.mockReturnValue('/');
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" />,
+    );
+    expect(html).toMatch(
+      /data-slot="nav-bar-menu-items"[^>]*data-surface="default"/,
+    );
+  });
+
+  it('/consent 도 흰 바이고 fixed가 아니다', () => {
+    mocks.usePathname.mockReturnValue('/consent');
 
     const html = renderToStaticMarkup(
       <ShellNav items={ITEMS} brand="OSS Hub" />,

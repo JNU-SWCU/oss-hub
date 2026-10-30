@@ -58,6 +58,14 @@ vi.mock('next/navigation', () => ({
 
 import { ProgramDetailPage } from './program-detail-page';
 
+function stubSignInApply(applyHref: string) {
+  return (
+    <a href="/stub-sign-in" data-apply-href={applyHref}>
+      신청하기
+    </a>
+  );
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -138,13 +146,21 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     });
     await act(async () =>
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+        />,
       ),
     );
     navigation.search = new URLSearchParams('view=operations');
     await act(async () =>
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+        />,
       ),
     );
     expect(container.textContent).toContain('운영 화면 결과');
@@ -201,7 +217,11 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     });
     await act(async () =>
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+        />,
       ),
     );
     expect(container.textContent).toContain('0 / 1 서류');
@@ -259,7 +279,11 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('비로그인이면 공개 상세만 부르고 viewer·overview는 부르지 않는다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="anonymous" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="anonymous"
+        />,
       );
     });
     await vi.waitFor(() => {
@@ -272,7 +296,11 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('세션을 아직 모르면 아무것도 부르지 않고 뼈대만 그린다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="unknown" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="unknown"
+        />,
       );
     });
 
@@ -285,7 +313,11 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('세션이 있으면 viewer를 먼저 부르고 401이면 공개 상세로 내려간다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+        />,
       );
     });
     await vi.waitFor(() => {

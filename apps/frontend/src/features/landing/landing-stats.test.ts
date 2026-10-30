@@ -31,52 +31,58 @@ const PUBLIC_GRAPH = graphOf('public', [
 ]);
 
 describe('landing stats display derivation', () => {
-  it('hides the contributor count and badges 일부 집계 when the graph is partial', () => {
-    const stats = deriveLandingStats(PUBLIC_GRAPH, 'partial');
-
-    expect(stats.students).toBe('—');
-    expect(stats.note).toBe('일부 집계');
-
-    expect(stats.programs).toBe('1');
-    expect(stats.repositories).toBe('2');
+  it('omits the contributor item and badges 일부 집계 when the graph is partial', () => {
+    expect(deriveLandingStats(PUBLIC_GRAPH, 'partial')).toEqual({
+      items: [
+        { key: '공개 프로그램', value: '1' },
+        { key: '공개 저장소', value: '2' },
+      ],
+      note: '일부 집계',
+    });
   });
 
   it('shows exact counts under 공개 아카이브 기준 when the public graph is complete', () => {
     expect(deriveLandingStats(PUBLIC_GRAPH, 'complete')).toEqual({
-      programs: '1',
-      repositories: '2',
-      students: '2',
+      items: [
+        { key: '공개 프로그램', value: '1' },
+        { key: '공개 저장소', value: '2' },
+        { key: '공개 기여자', value: '2' },
+      ],
       note: '공개 아카이브 기준',
     });
   });
 
-  it('keeps 공개 아카이브 기준 with an em dash while the first stage has no contributors yet', () => {
+  it('drops a zero count instead of rendering a pending placeholder', () => {
     const base = graphOf('public', ['program', 'repository', 'repository']);
 
     expect(deriveLandingStats(base, 'complete')).toEqual({
-      programs: '1',
-      repositories: '2',
-      students: '—',
+      items: [
+        { key: '공개 프로그램', value: '1' },
+        { key: '공개 저장소', value: '2' },
+      ],
       note: '공개 아카이브 기준',
     });
   });
 
-  it('labels the seeded example graph as 예시 데이터 기준', () => {
+  it('shows no counts or note for the seeded example graph', () => {
     const stats = deriveLandingStats(
       graphOf('example', ['program', 'repository', 'student']),
       'complete',
     );
 
-    expect(stats.note).toBe('예시 데이터 기준');
-    expect(stats.students).toBe('1');
+    expect(stats).toEqual({ items: [], note: null });
   });
 
-  it('falls back to 공개 집계 준비 중 when nothing has been counted', () => {
-    expect(deriveLandingStats(graphOf('public', []), 'complete')).toEqual({
-      programs: '—',
-      repositories: '—',
-      students: '—',
-      note: '공개 집계 준비 중',
+  it('returns no items and no note when nothing has been counted', () => {
+    const empty = graphOf('public', []);
+
+    expect(deriveLandingStats(empty, 'complete')).toEqual({
+      items: [],
+      note: null,
+    });
+    expect(deriveLandingStats(empty, 'partial')).toEqual({
+      items: [],
+      note: null,
     });
   });
 });

@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StaffAccessRequestStatus } from '@/features/roles/onboarding/types';
+import { githubLoginPath } from '@/features/auth/login-paths';
 import type { SessionRoleState } from './use-session-role';
 
 const mocks = vi.hoisted(() => ({
@@ -147,7 +148,7 @@ describe('RoleGate 렌더', () => {
     expect(text).not.toContain(NOTICE);
     expect(text).toContain('로그인이 필요합니다');
     expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      '/signup?returnTo=%2Fprograms%2F42%2Fapply',
+      githubLoginPath,
     );
   });
 

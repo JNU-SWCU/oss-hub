@@ -34,6 +34,11 @@ export interface LandingProgram {
   readonly applicationEndAt: string;
 }
 
+export interface LandingProgramName {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface LandingArchiveItem {
   readonly projectId: string;
   readonly programId: string;
@@ -121,6 +126,17 @@ export function parseLandingProgramPage(
       trackType: parsedTrackType === null ? null : String(parsedTrackType),
       applicationEndAt: isoDate(input.applicationEndAt),
     };
+  });
+}
+
+export function parseLandingProgramNamePage(
+  value: unknown,
+): readonly LandingProgramName[] {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return page.items.map((item) => {
+    const input = record(item);
+    return { id: publicId(input.id), name: nonEmptyString(input.name) };
   });
 }
 

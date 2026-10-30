@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
-import { loadLandingPrograms, streamLandingGraph } from './api';
+import {
+  loadLandingProgramNames,
+  loadLandingPrograms,
+  streamLandingGraph,
+} from './api';
+import { COSMOS_PROGRAM_COUNT } from './cosmos';
 import { LandingOverviewResponseError } from './landing-overview';
 
 const ARCHIVE_PAGE = {
@@ -56,6 +61,36 @@ describe('landing public API adapter', () => {
       'programs?page=1&pageSize=3&search=&status=recruiting',
     );
     expect(programs).toHaveLength(1);
+  });
+
+  it('loads one real public program name per program star, whatever its recruiting status', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      items: [
+        {
+          id: 'seed:intake:program-seven-templates:BASIC',
+          name: 'seed-program-basic',
+          organizer: 'seed-organizer',
+          lifecycle: 'PUBLISHED',
+          trackType: null,
+        },
+      ],
+      page: 1,
+      pageSize: COSMOS_PROGRAM_COUNT,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    const names = await loadLandingProgramNames();
+
+    expect(apiClient).toHaveBeenCalledWith(
+      `programs?page=1&pageSize=${COSMOS_PROGRAM_COUNT}&search=&status=all`,
+    );
+    expect(names).toEqual([
+      {
+        id: 'seed:intake:program-seven-templates:BASIC',
+        name: 'seed-program-basic',
+      },
+    ]);
   });
 
   it('hydrates graph contributors from public archive detail projections', async () => {

@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { signupForDestination } from '@/features/auth/login-destination';
+import { GitHubMark } from '@/components/github-mark';
+import { GitHubSignInLink } from '@/features/auth/components/github-sign-in-link';
 
 export function LoginRequiredNotice() {
   const pathname = usePathname();
@@ -25,7 +26,10 @@ export function LoginRequiredNotice() {
       </div>
       <div className="flex gap-2">
         <Button asChild className="min-h-11" size="sm">
-          <Link href={signupForDestination(pathname)}>로그인</Link>
+          <GitHubSignInLink returnTo={pathname} aria-label="GitHub으로 로그인">
+            <GitHubMark className="size-4" />
+            <span>로그인</span>
+          </GitHubSignInLink>
         </Button>
         <Button asChild className="min-h-11" variant="outline" size="sm">
           <Link href="/">홈으로</Link>

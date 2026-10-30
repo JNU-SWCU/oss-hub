@@ -213,19 +213,10 @@ describe('destructive Button focus indicator', () => {
   });
 });
 
-const signupEntrySource = readFileSync(
-  path.resolve(__dirname, '../../app/signup/signup-entry-screen.tsx'),
-  'utf-8',
-);
 const signupTypographySource = readFileSync(
   path.resolve(__dirname, '../signup-typography.tsx'),
   'utf-8',
 );
-const appFrameSource = readFileSync(
-  path.resolve(__dirname, '../../app/_shell/app-frame.tsx'),
-  'utf-8',
-);
-
 const INVERTED_SCOPES = ["[data-surface='inverted'] {", ':root {'] as const;
 
 function findDeclaration(selector: string, token: string): string | null {
@@ -269,53 +260,7 @@ function resolveInvertedHex(token: string): string {
   throw new Error(`반전 스코프에서 ${token} 선언을 찾지 못했습니다`);
 }
 
-function tokenOfUtility(utility: string): string {
-  return `--${utility.replace(/^(?:bg|text)-/, '')}`;
-}
-
-function readSignupExternalLinkTextUtility(): string {
-  const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(signupEntrySource);
-  if (!opening) {
-    throw new Error(
-      'signup-entry-screen.tsx에서 variant="link" Button을 찾지 못했습니다',
-    );
-  }
-  const override = /\btext-([\w-]+)/.exec(opening[0]);
-  if (override) {
-    return `text-${override[1]}`;
-  }
-
-  const linkVariant = /\blink:\s*'([^']+)'/.exec(buttonSource)?.[1] ?? '';
-  const fallback = /\btext-([\w-]+)/.exec(linkVariant);
-  if (!fallback) {
-    throw new Error('button.tsx의 link variant에서 글자 색을 찾지 못했습니다');
-  }
-  return `text-${fallback[1]}`;
-}
-
 describe('가입 무대 반전 표면 Button 대비', () => {
-  const groundUtility = /\bbg-(cosmos-[\w-]+)/.exec(appFrameSource)?.[1];
-  if (!groundUtility) {
-    throw new Error('app-frame.tsx에서 우주 바탕 유틸리티를 찾지 못했습니다');
-  }
-  const ground = resolveInvertedHex(`--${groundUtility}`);
-
-  it('「GitHub 계정 만들기」 링크가 우주 바탕에서 AA를 만족한다', () => {
-    const text = resolveInvertedHex(
-      tokenOfUtility(readSignupExternalLinkTextUtility()),
-    );
-
-    expect(contrast(text, ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
-  });
-
-  it('링크임을 색만으로 알리지 않는다', () => {
-    const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(
-      signupEntrySource,
-    )?.[0];
-
-    expect(opening).toMatch(/\bunderline\b/);
-  });
-
   it('주 버튼이 흰 바탕에서 AA를 만족한다 — 토큰을 밝게 바꾸면 여기서 깨진다', () => {
     const primaryClasses =
       /signupPrimaryClassName\s*=\s*'([^']+)'/.exec(

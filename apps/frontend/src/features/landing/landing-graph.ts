@@ -1,10 +1,12 @@
 import { programOverviewHref } from '@/lib/program-route';
+import type { CosmosProgram } from './cosmos';
 import type {
   LandingArchiveDetail,
   LandingArchiveItem,
   LandingGraph,
   LandingGraphEdge,
   LandingGraphNode,
+  LandingProgramName,
 } from './landing-overview';
 
 const PROGRAM_POSITIONS = [
@@ -84,6 +86,26 @@ export function buildPublicLandingGraph(
   });
 
   return { source: 'public', nodes, edges };
+}
+
+export function selectLandingStarPrograms(
+  graph: LandingGraph,
+  listed: readonly LandingProgramName[],
+): readonly CosmosProgram[] {
+  const fromGraph =
+    graph.source === 'public'
+      ? graph.nodes
+          .filter((node) => node.kind === 'program')
+          .map((node): CosmosProgram => ({ name: node.label, href: node.href }))
+      : [];
+  const seen = new Set(fromGraph.map((program) => program.href));
+  const fromList = listed
+    .map((program): CosmosProgram => ({
+      name: program.name,
+      href: programOverviewHref(program.id),
+    }))
+    .filter((program) => !seen.has(program.href));
+  return [...fromGraph, ...fromList];
 }
 
 export const LANDING_GRAPH_EXAMPLE: LandingGraph = {

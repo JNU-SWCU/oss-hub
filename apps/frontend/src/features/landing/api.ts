@@ -1,17 +1,18 @@
-import { apiClient, apiPath } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
+import { COSMOS_PROGRAM_COUNT } from './cosmos';
 import { buildPublicLandingGraph } from './landing-graph';
 import {
   parseLandingArchiveDetail,
   parseLandingArchivePage,
+  parseLandingProgramNamePage,
   parseLandingProgramPage,
 } from './landing-overview';
 import type {
   LandingGraph,
   LandingGraphCompleteness,
   LandingProgram,
+  LandingProgramName,
 } from './landing-overview';
-
-export const githubLoginPath = apiPath('auth/github');
 
 export async function loadLandingPrograms(): Promise<
   readonly LandingProgram[]
@@ -19,6 +20,16 @@ export async function loadLandingPrograms(): Promise<
   return parseLandingProgramPage(
     await apiClient<unknown>(
       'programs?page=1&pageSize=3&search=&status=recruiting',
+    ),
+  );
+}
+
+export async function loadLandingProgramNames(): Promise<
+  readonly LandingProgramName[]
+> {
+  return parseLandingProgramNamePage(
+    await apiClient<unknown>(
+      `programs?page=1&pageSize=${COSMOS_PROGRAM_COUNT}&search=&status=all`,
     ),
   );
 }

@@ -17,13 +17,26 @@ test('anonymous visitor gets the login notice in place on a protected route', as
   await expect(
     page.locator('section[aria-labelledby="login-required-heading"]'),
   ).toBeVisible();
-  await expect(
-    page
-      .locator('section[aria-labelledby="login-required-heading"]')
-      .getByRole('link', { name: '로그인', exact: true }),
-  ).toHaveAttribute('href', '/signup?returnTo=%2Fdashboard');
+  const signIn = page
+    .locator('section[aria-labelledby="login-required-heading"]')
+    .getByRole('link', { name: 'GitHub으로 로그인', exact: true });
+  await expect(signIn).toHaveText('로그인');
+  await expect(signIn).toHaveAttribute('href', '/api/v1/auth/github');
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await captureF3Evidence(page, testInfo, 'anonymous-protected-route');
+
+  await page.route('**/api/v1/auth/github**', (route) =>
+    route.abort('aborted'),
+  );
+  const oauthStart = page.waitForRequest('**/api/v1/auth/github');
+  await signIn.click();
+  await oauthStart;
+  const stored = await page.evaluate(() =>
+    sessionStorage.getItem('oss-hub-login-destination'),
+  );
+  expect(JSON.parse(stored ?? 'null')).toMatchObject({
+    destination: '/dashboard',
+  });
   audit.assertClean();
 });
