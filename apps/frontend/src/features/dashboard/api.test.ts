@@ -7,7 +7,11 @@ import {
   fetchUnreadApplicationDecisionNotices,
   markApplicationDecisionNoticeRead,
 } from './api';
-import { dashboardFixture, feedbackItemFixture } from './fixtures';
+import {
+  dashboardFixture,
+  feedbackItemFixture,
+  legacyDashboardLinkFieldsFixture,
+} from './fixtures';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -35,6 +39,19 @@ function respondWith(body: unknown): void {
 }
 
 describe('fetchStudentDashboard', () => {
+  it.each(legacyDashboardLinkFieldsFixture)(
+    '백엔드의 사용하지 않는 링크 값 %j와 무관하게 응답을 받는다',
+    async (links) => {
+      const item = { ...approvedItem };
+      const body = { items: [{ ...item, ...links }] };
+      respondWith(body);
+
+      await expect(fetchStudentDashboard()).resolves.toMatchObject({
+        items: [{ programId: item.programId, detailUrl: item.detailUrl }],
+      });
+    },
+  );
+
   it.each(['not-a-date', 123, '2026-01-01T00:00:00Z'])(
     '잘못된 유예 기한 %s를 거부한다',
     async (lateSubmissionDueAt) => {
@@ -188,80 +205,6 @@ describe('fetchStudentDashboard', () => {
       },
     ],
     [
-      '팀 화면 주소 칸이 아예 없음',
-      {
-        items: [itemWithout('teamUrl')],
-      },
-    ],
-
-    [
-      '팀 화면 주소가 외부 주소',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: 'https://evil.example.com/my-team',
-          },
-        ],
-      },
-    ],
-    [
-      '팀 화면 주소가 프로토콜 상대 경로',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: '//evil.example.com/my-team',
-          },
-        ],
-      },
-    ],
-
-    [
-      '팀 화면 주소가 다른 프로그램의 팀을 가리킴',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: '/programs/program-oss-contest/my-team',
-          },
-        ],
-      },
-    ],
-    [
-      '팀 화면 주소에 질의 문자열이 붙음',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: `/programs/${approvedItem.programId}/my-team?tab=members`,
-          },
-        ],
-      },
-    ],
-    [
-      '팀 화면 주소 끝에 슬래시가 붙어 정규 경로가 아님',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: `/programs/${approvedItem.programId}/my-team/`,
-          },
-        ],
-      },
-    ],
-    [
-      '팀 화면 주소가 프로그램 상세를 가리킴',
-      {
-        items: [
-          {
-            ...approvedItem,
-            teamUrl: `/programs/${approvedItem.programId}`,
-          },
-        ],
-      },
-    ],
-    [
       '승인 전인데 마일스톤이 존재함',
       {
         items: [
@@ -405,8 +348,6 @@ describe('fetchStudentDashboard', () => {
             ...approvedItem,
             programId: '..',
             detailUrl: '/programs/..',
-            checklistUrl: '/programs/../submissions',
-            teamUrl: '/programs/../my-team',
           },
         ],
       },

@@ -23,7 +23,6 @@ export interface SubmissionFormData {
     readonly id: string;
     readonly status:
       'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
-    readonly checklistUrl: string;
   } | null;
   readonly canSubmit: boolean;
   readonly blockedReason: SubmissionBlockedReason | null;

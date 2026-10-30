@@ -89,19 +89,19 @@ test('프로그램별 실제 메일을 확인하고 모바일 탭을 바꿔도 �
         'seed:e2e:deadline-digest:milestone',
       );
       await recipient.goto(
-        `/programs/${programId}/submissions?milestoneId=${milestoneId}`,
+        `/programs/${programId}/documents?milestoneId=${milestoneId}`,
       );
       await expect(
         recipient.getByRole('heading', { name: 'E2E 최종 제출', exact: true }),
       ).toBeVisible();
-      await testInfo.attach('legacy-destination-modern-item-count', {
+      await testInfo.attach('documents-destination-item-count', {
         body: String(
           await recipient.getByTestId('milestone-document-row').count(),
         ),
         contentType: 'text/plain',
       });
       await recipient.screenshot({
-        path: testInfo.outputPath('student-legacy-destination.png'),
+        path: testInfo.outputPath('student-documents-destination.png'),
       });
       const landing = await recipient.goto(destination);
       expect(landing?.status()).toBe(200);
