@@ -10,8 +10,8 @@ const EDGE_ALPHA_NEAR = 0.3;
 const EDGE_ALPHA_MAX = 0.9;
 const EDGE_REVEAL_FLOOR = 0.7;
 const EDGE_REVEAL_SPAN = 0.3;
-const LABEL_SIZE_FAR = 10;
-const LABEL_SIZE_NEAR = 13;
+const LABEL_SIZE_FAR = 12;
+const LABEL_SIZE_NEAR = 14;
 const LABEL_LIT_NEAR = 0.95;
 
 export function cosmosNodeRadius(node: CosmosNode): number {

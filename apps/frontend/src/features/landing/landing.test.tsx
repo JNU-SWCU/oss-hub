@@ -33,6 +33,7 @@ describe('landing page sections', () => {
     expect(html).not.toContain(
       '<section aria-labelledby="landing-flow-heading"',
     );
+    expect(html).toContain('id="landing-steps-heading"');
     expect(html).not.toContain('landing-entry-heading');
     expect(html).not.toContain('data-panel=');
   });
