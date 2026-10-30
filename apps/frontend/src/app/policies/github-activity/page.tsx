@@ -1,15 +1,11 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GitHub 활동 수집·공개 범위</title>
-    <link rel="stylesheet" href="/policies/policy-document.css" />
-  </head>
-  <body>
-    <main>
-      <h1>GitHub 활동 수집·공개 범위</h1>
-      <p>정책 버전: 2026-10-19</p>
+import type { Metadata } from 'next';
+import { PolicyDocument } from '../policy-document';
+
+export const metadata: Metadata = { title: 'GitHub 활동 수집·공개 범위' };
+
+export default function Page() {
+  return (
+    <PolicyDocument title="GitHub 활동 수집·공개 범위">
       <h2>이번 안내에서 정리한 내용</h2>
       <p>
         활동 수집 범위, 역할별 랭킹 표시 항목과 다섯 가지 지표를 현재 운영
@@ -69,9 +65,8 @@
       <p>
         활동 수집 경로에서는 원본 응답 전체(raw payload), 소스 코드, 변경
         내용(diff), 커밋 메시지, 작성자 이메일, PR·이슈의 제목과 본문, 릴리스
-        본문을 저장하지 않습니다. 계정 식별과 프로필에 사용하는 정보는
-        <a href="/policies/privacy/2026-10-19.html">개인정보 수집·이용</a>
-        문서에서 안내합니다.
+        본문을 저장하지 않습니다. 계정 식별과 프로필에 사용하는 정보는{' '}
+        <a href="/policies/privacy">개인정보 수집·이용</a> 문서에서 안내합니다.
       </p>
       <h2>저장소의 공개와 접근</h2>
       <p>
@@ -80,6 +75,6 @@
         전환은 정해진 시점 이후 권한 있는 운영자의 명시적 동작으로만 수행하고
         자동 공개하지 않습니다.
       </p>
-    </main>
-  </body>
-</html>
+    </PolicyDocument>
+  );
+}

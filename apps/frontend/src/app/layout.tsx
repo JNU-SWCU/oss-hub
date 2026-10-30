@@ -13,7 +13,6 @@ import {
 } from './_shell/sidebar-collapsed';
 import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
-import { SkipLink } from './_shell/skip-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 
 const pretendard = localFont({
@@ -47,8 +46,6 @@ export default async function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', pretendard.variable)}>
       <body className="relative">
-        <SkipLink />
-
         <NavigationNoticeProvider>
           <AppFrame
             brand={<Link href="/">OSS Hub</Link>}
