@@ -76,7 +76,7 @@ describe('LandingJourney chapter focus', () => {
 
   function chapter(focus: string): HTMLElement {
     const element = container.querySelector<HTMLElement>(
-      `section[data-focus="${focus}"]`,
+      `section[data-focus="${focus}"], section [data-focus="${focus}"]`,
     );
     if (element === null) throw new Error(`${focus} 챕터를 찾지 못했습니다`);
     return element;
@@ -87,15 +87,15 @@ describe('LandingJourney chapter focus', () => {
     return sky?.getAttribute('data-focus') ?? null;
   }
 
-  function enter(focus: string): void {
+  function report(focus: string, isIntersecting: boolean): void {
     const instance = focusObserver();
     act(() => {
       instance.callback(
         [
           {
             target: chapter(focus),
-            isIntersecting: true,
-            intersectionRatio: 0.2,
+            isIntersecting,
+            intersectionRatio: isIntersecting ? 0.2 : 0,
           },
         ] as unknown as IntersectionObserverEntry[],
         instance as unknown as IntersectionObserver,
@@ -103,10 +103,15 @@ describe('LandingJourney chapter focus', () => {
     });
   }
 
-  it('observes the hero and the three chapters and starts on the hero focus', () => {
+  const enter = (focus: string): void => report(focus, true);
+  const leave = (focus: string): void => report(focus, false);
+
+  it('observes the hero, both chapters and the steps block nested in the programs chapter, starting on the hero focus', () => {
     expect(focusObserver().observe).toHaveBeenCalledTimes(4);
     expect(focusObserver().observe).toHaveBeenCalledWith(chapter('hero'));
+    expect(focusObserver().observe).toHaveBeenCalledWith(chapter('flow'));
     expect(focusObserver().observe).toHaveBeenCalledWith(chapter('activity'));
+    expect(chapter('programs').contains(chapter('flow'))).toBe(true);
     expect(skyFocus()).toBe('hero');
   });
 
@@ -118,6 +123,16 @@ describe('LandingJourney chapter focus', () => {
     expect(skyFocus()).toBe('activity');
 
     enter('programs');
+    expect(skyFocus()).toBe('programs');
+  });
+
+  it('returns the graph focus to the programs chapter when the steps block leaves the band', () => {
+    enter('programs');
+    enter('flow');
+    expect(skyFocus()).toBe('flow');
+
+    leave('flow');
+
     expect(skyFocus()).toBe('programs');
   });
 

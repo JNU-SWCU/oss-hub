@@ -111,31 +111,23 @@ export function LandingJourney({
             {stats.note ? (
               <span className={styles.statNote}>{stats.note}</span>
             ) : null}
-          </section>
-
-          <section
-            ref={revealRef}
-            aria-labelledby="landing-flow-heading"
-            className={styles.chapter}
-            data-focus="flow"
-          >
-            <div className={styles.chapterHead}>
-              <span className={styles.chapterNo} aria-hidden="true">
-                02
-              </span>
-              <span className={styles.eyebrow}>흐름</span>
+            <div className={styles.flow} data-focus="flow">
+              <h3 id="landing-flow-heading" className={styles.flowHeading}>
+                신청부터 공개까지, 하나의 흐름
+              </h3>
+              <ol
+                className={styles.steps}
+                aria-labelledby="landing-flow-heading"
+              >
+                {FLOW_STEPS.map(([no, title, description]) => (
+                  <li key={no} className={styles.step}>
+                    <span className={styles.stepNo}>{no}</span>
+                    <span className={styles.stepTitle}>{title}</span>
+                    <span className={styles.stepDesc}>{description}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
-            <h2 id="landing-flow-heading">신청부터 공개까지, 하나의 흐름</h2>
-            <p>익숙한 GitHub 위에서 신청, 협업, 검토가 끊김 없이 이어집니다.</p>
-            <ol className={styles.steps}>
-              {FLOW_STEPS.map(([no, title, description]) => (
-                <li key={no} className={styles.step}>
-                  <span className={styles.stepNo}>{no}</span>
-                  <span className={styles.stepTitle}>{title}</span>
-                  <span className={styles.stepDesc}>{description}</span>
-                </li>
-              ))}
-            </ol>
           </section>
 
           <section
@@ -147,7 +139,7 @@ export function LandingJourney({
           >
             <div className={styles.chapterHead}>
               <span className={styles.chapterNo} aria-hidden="true">
-                03
+                02
               </span>
               <span className={styles.eyebrow}>나의 활동</span>
             </div>
