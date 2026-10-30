@@ -79,6 +79,8 @@
   z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  max-width: var(--landing-content-width);
+  margin-inline: auto;
 }
 
 .copy {
@@ -247,7 +249,7 @@
 
 .eyebrow {
   display: inline-block;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--journey-muted);
@@ -268,13 +270,13 @@
 
 .heroCopy h1 {
   margin-bottom: 20px;
-  font-size: clamp(32px, 4.4vw, 60px);
+  font-size: var(--step-landing-display);
 }
 
 .chapter h2 {
   margin: 28px 0 16px;
   text-wrap: balance;
-  font-size: clamp(26px, 3vw, 40px);
+  font-size: var(--step-landing-heading);
   font-weight: 700;
   line-height: 1.22;
 }
@@ -282,7 +284,7 @@
 .heroCopy p,
 .chapter p {
   margin: 0;
-  font-size: clamp(15px, 1.2vw, 18px);
+  font-size: var(--step-landing-body);
   line-height: 1.75;
   color: var(--journey-muted);
   max-width: 36em;
@@ -302,7 +304,7 @@
   align-items: center;
   min-height: 44px;
   color: color-mix(in oklch, var(--journey-copy) 85%, transparent);
-  font-size: var(--step-table);
+  font-size: var(--step-landing-link);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -317,7 +319,7 @@
 
 .flowHeading {
   margin: 0 0 10px;
-  font-size: var(--step-table);
+  font-size: var(--step-landing-link);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--journey-muted);
@@ -357,7 +359,7 @@
 }
 
 .stepNo {
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--journey-muted);
@@ -371,7 +373,7 @@
 
 .stepDesc {
   grid-column: 1 / -1;
-  font-size: var(--step-table);
+  font-size: var(--step-landing-step);
   color: var(--journey-muted);
 }
 
@@ -394,7 +396,7 @@
 
 .statKey {
   margin-top: 4px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   letter-spacing: 0.04em;
   color: var(--journey-muted);
 }
@@ -406,7 +408,7 @@
   border: 1px solid var(--journey-rule);
   border-radius: 6px;
   padding: 3px 8px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   letter-spacing: 0.04em;
   color: var(--journey-muted);
 }
@@ -434,7 +436,7 @@
   backdrop-filter: blur(8px);
   border-radius: 999px;
   padding: 9px 16px;
-  font-size: var(--step-badge);
+  font-size: var(--step-landing-label);
   color: var(--journey-muted);
   transition:
     color 600ms ease,
@@ -474,7 +476,10 @@
 
 .skip {
   position: absolute;
-  left: clamp(16px, 6vw, 96px);
+  left: max(
+    clamp(16px, 6vw, 96px),
+    calc(50% - var(--landing-content-width) / 2 + clamp(16px, 6vw, 96px))
+  );
   top: calc(var(--topbar-height) + 12px);
   z-index: 8;
   display: inline-flex;
