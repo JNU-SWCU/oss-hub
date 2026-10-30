@@ -49,6 +49,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   함께 설정해 production에서도 실행할 수 있다(`assertSeedAllowed`, `seeds/helpers.ts`). 플래그가
   없거나 `1`이 아니면 다른 profile과 동일하게 거부된다. 이 예외는 `demo` 하나뿐이며, 새로운
   예외를 추가하려면 별도 소유자 승인과 플랜 문서화가 필요하다.
+
 - `oss-hub`는 `development`·`test`·`staging`·`preview` 중 하나를 `NODE_ENV`에 명시하고 `OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION`을 함께 설정해야만 실행한다.
 - `demo`는 `oss-hub`와 마찬가지로 `all`에 포함되지 않는다 — `--profile demo`를 명시적으로 고를 때만 실행된다.
 - 같은 profile을 여러 번 실행해도 안전하다 — 모든 row는 결정적 id(`seed:...`)로 upsert되어
@@ -166,11 +167,10 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     중간 데모데이 발표자료 제출(FILE)과 최종 발표(TEXT) 2개로, 팀마다 제출 상태를 제출됨
     (SUBMITTED)·보완 필요(CHANGES_REQUESTED)·승인(APPROVED)으로 섞어 '여러 팀이 참여해
     기록이 쌓이는 모습'을 화면에서 보여준다. 보완 필요·승인 건은 Review도 함께 만든다.
-  - 프로그램당 게시판 1~2건(공지 또는 질문, 댓글 1~2개 포함)로 시연 화면을 채운다.
+  - 프로그램당 게시판 1\~2건(공지 또는 질문, 댓글 1\~2개 포함)로 시연 화면을 채운다.
   - 모든 id는 결정적 `seed:demo:...`로 upsert된다(멱등). GithubRepository·Contribution 행은
     이 profile이 종료된 뒤에도 항상 0건이어야 한다(`seed.integration.spec.ts`가 검증).
-  - **ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를 동반한다(#910/#913 파인딩
-    4)**: 데모데이 마일스톤(FILE) 제출이 만드는 SubmissionFile은 storage key를
+  - **ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를 동반한다(#910/#913 파인딩 4)**: 데모데이 마일스톤(FILE) 제출이 만드는 SubmissionFile은 storage key를
     `submission-files/seed-demo/<fileId>`로 둔다 — reconciliation CLI가 소유하는 prefix
     (`submission-files/`, `program-authoring/`, `KNOWN_STORAGE_PREFIXES`) 안이면서 `seed-demo/`
     하위로 네임스페이스해 실제 업로드와 구별된다. 시드는 앱이 실제 쓰는 것과 동일한
