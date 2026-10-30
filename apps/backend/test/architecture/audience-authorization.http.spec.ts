@@ -48,19 +48,19 @@ import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
 } from '../../src/system-status/service/system-status.service';
-import { AdminAccessController } from '../../src/users/controller/admin-access.controller';
-import { IndependentAuthorityController } from '../../src/users/controller/independent-authority.controller';
-import { MemberKindController } from '../../src/users/controller/member-kind.controller';
-import { AdminAccessRepository } from '../../src/users/repository/admin-access.repository';
-import { AdminProfileRepository } from '../../src/users/repository/admin-profile.repository';
-import { IndependentAuthorityRepository } from '../../src/users/repository/independent-authority.repository';
-import { MemberKindRepository } from '../../src/users/repository/member-kind.repository';
-import { UsersAuthorityRepository } from '../../src/users/repository/authority.repository';
-import { AdminAccessService } from '../../src/users/service/admin-access.service';
-import { AdminProfileService } from '../../src/users/service/admin-profile.service';
-import { UsersAuthorityService } from '../../src/users/service/authority.service';
-import { IndependentAuthorityService } from '../../src/users/service/independent-authority.service';
-import { MemberKindService } from '../../src/users/service/member-kind.service';
+import { AdminAccessController } from '../../src/users/admin-access.controller';
+import { IndependentAuthorityController } from '../../src/users/independent-authority.controller';
+import { MemberKindController } from '../../src/users/member-kind.controller';
+import { AdminAccessRepository } from '../../src/users/admin-access.repository';
+import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
+import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';
+import { MemberKindRepository } from '../../src/users/member-kind.repository';
+import { UsersAuthorityRepository } from '../../src/users/authority.repository';
+import { AdminAccessService } from '../../src/users/admin-access.service';
+import { AdminProfileService } from '../../src/users/admin-profile.service';
+import { UsersAuthorityService } from '../../src/users/authority.service';
+import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
+import { MemberKindService } from '../../src/users/member-kind.service';
 
 type Actor = {
   readonly label: string;

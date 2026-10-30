@@ -10,18 +10,15 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuthorityLabel } from '../domain/authority-label';
+import type { AuthorityLabel } from '../authority-label.policy';
 import { DomainException } from '../../platform/error-code.error';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessExpectedPendingRequest,
   type AdminAccessMutationCommand,
   type AdminAccessRequestDecision,
-} from '../domain/admin-access';
-import {
-  ROLES_ERROR_CODES,
-  RolesErrorCode,
-} from '../domain/roles-error-code.enum';
+} from '../admin-access.types';
+import { ROLES_ERROR_CODES, RolesErrorCode } from '../roles-error-code.error';
 
 class ExpectedPendingRequestDto {
   @IsString()

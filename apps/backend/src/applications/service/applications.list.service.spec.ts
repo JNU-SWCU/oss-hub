@@ -15,7 +15,7 @@ import type { ApplicationListPage } from '../domain/application-records';
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../../platform/audit-log.service';
-import type { UsersAuthorityService } from '../../users/service/authority.service';
+import type { UsersAuthorityService } from '../../users/authority.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;

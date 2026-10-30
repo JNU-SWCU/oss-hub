@@ -1,6 +1,6 @@
 import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { DomainException } from '../../platform/error-code.error';
 import { SubmissionMembershipChangedError } from '../../submissions/domain/submission-membership-changed.error';

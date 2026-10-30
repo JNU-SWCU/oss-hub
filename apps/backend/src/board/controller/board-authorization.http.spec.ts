@@ -9,7 +9,7 @@ import { issueSessionToken } from '../../auth/session-token.policy';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { PrismaService } from '../../platform/prisma.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { BoardController } from './board.controller';
 import { BoardRepository } from '../repository/board.repository';
 import { BoardService } from '../service/board.service';

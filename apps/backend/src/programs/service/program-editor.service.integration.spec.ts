@@ -1,7 +1,7 @@
 import { MilestoneDocumentsRepository } from '../../milestone-documents/repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from '../../milestone-documents/service/milestone-documents.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { updateInput } from '../../../test/program-editor-service-fixtures';

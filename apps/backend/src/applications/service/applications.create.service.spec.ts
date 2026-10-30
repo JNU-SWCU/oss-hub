@@ -22,7 +22,7 @@ import {
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../../platform/audit-log-metadata.policy';
 import type { AuditLogService } from '../../platform/audit-log.service';
-import type { UsersAuthorityService } from '../../users/service/authority.service';
+import type { UsersAuthorityService } from '../../users/authority.service';
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');

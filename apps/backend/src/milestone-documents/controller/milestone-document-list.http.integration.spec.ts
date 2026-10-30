@@ -18,8 +18,8 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from '../service/milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from '../repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from '../service/milestone-documents.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { MilestoneDocumentCollectionService } from '../service/milestone-document-collection.service';
 
 assertIsolatedIntegrationDatabase({

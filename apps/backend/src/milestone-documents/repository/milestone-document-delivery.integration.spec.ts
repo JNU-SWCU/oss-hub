@@ -10,8 +10,8 @@ import { MilestoneDocumentCollectionService } from '../service/milestone-documen
 import { buildMilestoneDocumentDeliveryPage } from '../domain/milestone-document-delivery-page';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from '../service/milestone-documents.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

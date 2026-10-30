@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { ConsentsService } from '../users/consents.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CollectionUserActivityRepository } from './repository/collection-user-activity.repository';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
@@ -163,13 +164,16 @@ describe('CollectionModule', () => {
     expect(controllers).toHaveLength(1);
   });
 
-  it('배경 수집 모듈은 동의 모듈에 더 이상 의존하지 않는다', () => {
-    const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
-    const names = imports.map((entry) =>
-      typeof entry === 'function' ? entry.name : String(entry),
+  it('배경 수집 모듈은 동의 서비스에 더 이상 의존하지 않는다', () => {
+    const dependencies = getMetadataArray(MODULE_METADATA.PROVIDERS).flatMap(
+      (provider): unknown[] =>
+        typeof provider === 'function'
+          ? ((Reflect.getMetadata('design:paramtypes', provider) as
+              unknown[] | undefined) ?? [])
+          : ((provider as { inject?: unknown[] }).inject ?? []),
     );
 
-    expect(names).not.toContain('ConsentsModule');
+    expect(dependencies).not.toContain(ConsentsService);
   });
 
   it('CollectionDiscoveryClient가 CollectionPublicTokenProvider를 주입받도록 배선한다', () => {

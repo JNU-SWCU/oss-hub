@@ -4,7 +4,7 @@ import type {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuthorityLabel } from '../domain/authority-label';
+import type { AuthorityLabel } from '../authority-label.policy';
 import type {
   AdminAccessFacets,
   AdminAccessMutationResult,
@@ -13,9 +13,9 @@ import type {
   AdminAccessUserDetail,
   AdminAccessUserPage,
   AdminAccessUserHistory,
-} from '../domain/admin-access';
-import type { AdminProfileUpdateResult } from '../domain/admin-profile';
-import type { IndependentAuthorityMutationResult } from '../domain/independent-authority';
+} from '../admin-access.types';
+import type { AdminProfileUpdateResult } from '../admin-profile.types';
+import type { IndependentAuthorityMutationResult } from '../independent-authority.types';
 
 type StaffAccessRequestHistoryItemResponseDto = {
   readonly id: string;

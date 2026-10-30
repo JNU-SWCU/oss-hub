@@ -1,7 +1,7 @@
 import {
   authorityLabel,
   type AuthorityLabel,
-} from '../../../../users/domain/authority-label';
+} from '../../../../users/authority-label.policy';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,

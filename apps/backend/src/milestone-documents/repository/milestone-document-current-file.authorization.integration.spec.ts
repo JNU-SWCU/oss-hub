@@ -21,8 +21,8 @@ import {
 } from '../../platform/object-storage.types';
 import { SubmissionFilesService } from '../../submissions/service/submission-files.service';
 import { SubmissionsModule } from '../../submissions/submissions.module';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from '../service/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../service/milestone-document-files.service';

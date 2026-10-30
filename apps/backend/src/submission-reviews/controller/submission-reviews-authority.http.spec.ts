@@ -10,7 +10,7 @@ import { AuthConfig } from '../../auth/auth.config';
 import { SessionGuard } from '../../auth/session.guard';
 import { DomainException } from '../../platform/error-code.error';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,

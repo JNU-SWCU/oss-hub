@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { PlatformModule } from '../platform/platform.module';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
-import { ConsentsModule } from '../consents/consents.module';
-import { ConsentsService } from '../consents/service/consents.service';
+import { UsersModule } from '../users/users.module';
+import { ConsentsService } from '../users/consents.service';
 import { RepositoriesController } from './controller/repositories.controller';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { GithubAppClient } from './gateway/github-app.client';
@@ -21,7 +21,7 @@ import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollm
 import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 
 @Module({
-  imports: [AuthModule, PlatformModule, ConsentsModule],
+  imports: [AuthModule, PlatformModule, UsersModule],
   controllers: [RepositoriesController],
   providers: [
     CollectionIncrementalRepository,

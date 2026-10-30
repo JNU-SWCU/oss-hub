@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { isCompleteProfileFields } from '../users/domain/user-profile-policy';
+import { isCompleteProfileFields } from '../users/user-profile.policy';
 import { AuthConfig } from './auth.config';
 import type { InitialAccountSeed } from './initial-roles.policy';
 import type {

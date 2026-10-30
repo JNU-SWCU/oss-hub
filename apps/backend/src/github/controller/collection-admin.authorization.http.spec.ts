@@ -6,8 +6,8 @@ import { SessionGuard } from '../../auth/session.guard';
 import { AuthService } from '../../auth/auth.service';
 import { sessionCookieName } from '../../auth/cookies.policy';
 import { issueSessionToken } from '../../auth/session-token.policy';
-import { UsersAuthorityService } from '../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
 import { CollectionAdminService } from '../service/collection-admin.service';
 import {
   AUTH_ERROR_CODES,

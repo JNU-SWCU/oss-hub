@@ -34,8 +34,8 @@ const SEED_ROLE_FACTS: Record<
     hasAdminAccess: true,
   },
 };
-import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
-import { isValidUserName } from '../../src/users/domain/user-profile-policy';
+import { CONSENT_POLICY_VERSION } from '../../src/users/consent.policy';
+import { isValidUserName } from '../../src/users/user-profile.policy';
 
 export const prisma = new PrismaClient();
 

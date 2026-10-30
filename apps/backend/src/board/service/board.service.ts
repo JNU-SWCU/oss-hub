@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { DomainException } from '../../platform/error-code.error';
 import type { BoardPostListQuery } from '../domain/board-post-list-query';
 import {

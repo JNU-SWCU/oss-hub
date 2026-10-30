@@ -13,13 +13,13 @@ import {
   normalizeStaffNumber,
   type MemberKindMutationCommand,
   isValidStaffNumber,
-} from '../domain/member-kind';
-import { isValidDepartment } from '../domain/user-profile-policy';
+} from '../member-kind.policy';
+import { isValidDepartment } from '../user-profile.policy';
 import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from '../domain/profile-text-transform';
+} from '../profile-text-transform.policy';
 
 export class PatchMemberKindRequestDto {
   @IsDefined()

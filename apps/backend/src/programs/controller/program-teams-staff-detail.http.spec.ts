@@ -10,7 +10,7 @@ import { sessionCookieName } from '../../auth/cookies.policy';
 import { issueSessionToken } from '../../auth/session-token.policy';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {

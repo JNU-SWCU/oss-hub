@@ -328,7 +328,7 @@ edge(
 edge(
   'service may call users authority',
   'src/alpha/service/authority.ts',
-  'src/users/service/authority.service.ts',
+  'src/users/authority.service.ts',
   true,
 );
 edge(
@@ -608,7 +608,7 @@ for (const consumer of ['programs', 'ranking', 'system-status']) {
 edge(
   'github service may call non-consumer service',
   'src/github/service/users.ts',
-  'src/users/service/authority.service.ts',
+  'src/users/authority.service.ts',
   true,
 );
 edge(

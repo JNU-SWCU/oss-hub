@@ -17,7 +17,7 @@ import { issueSessionToken } from '../../auth/session-token.policy';
 import { sessionCookieName } from '../../auth/cookies.policy';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { ApplicationsController } from './applications.controller';
 import type { ApplicationsRepository } from '../repository/applications.repository';
 import type {

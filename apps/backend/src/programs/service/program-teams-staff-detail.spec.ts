@@ -1,6 +1,6 @@
 import type { AuditLogService } from '../../platform/audit-log.service';
 import { AccountStatus } from '@prisma/client';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { StaffTeamDetailResponseDto } from '../dto/team-detail-response.dto';
 import {
   ProgramTeamsRepository,

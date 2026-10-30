@@ -9,7 +9,7 @@ import { issueSessionToken } from '../../auth/session-token.policy';
 import { SessionGuard } from '../../auth/session.guard';
 import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { DomainException } from '../../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,

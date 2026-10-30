@@ -1,5 +1,5 @@
 import { PublicEligibilityRepository } from '../repository/public-eligibility.repository';
-import { authorityFactsFor } from '../../../../users/repository/canonical-user-fixture';
+import { authorityFactsFor } from '../../../../users/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
@@ -28,12 +28,12 @@ import { RankingService } from '../../../../ranking/service/ranking.service';
 import { PublicProjectsController } from '../../public-projects/controller/public-projects.controller';
 import { PublicProjectsRepository } from '../../public-projects/repository/public-projects.repository';
 import { PublicProjectsService } from '../../public-projects/service/public-projects.service';
-import { PublicUserProfileController } from '../../public-projects/controller/public-user-profile.controller';
+import { PublicUserProfileController } from '../../../../users/public-profile.controller';
 import { SubmissionRepositoryPublishingController } from '../../../../submission-reviews/controller/submission-reviews.controller';
 import { SubmissionReviewsRepository } from '../../../../submission-reviews/repository/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../../submission-reviews/service/submission-reviews.service';
-import { UsersAuthorityService } from '../../../../users/service/authority.service';
-import { UsersAuthorityRepository } from '../../../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../../../users/authority.service';
+import { UsersAuthorityRepository } from '../../../../users/authority.repository';
 import { PublicProjectMetricsRepository } from '../../public-projects/repository/public-project-metrics.repository';
 import { PublicEligibilityService } from '../service/public-eligibility.service';
 

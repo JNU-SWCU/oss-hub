@@ -9,7 +9,7 @@ import { PrismaService } from '../../platform/prisma.service';
 import {
   authorityLabel,
   type AuthorityLabel,
-} from '../../users/domain/authority-label';
+} from '../../users/authority-label.policy';
 import {
   type UserProfileNameSource,
   resolveUserProfileName,

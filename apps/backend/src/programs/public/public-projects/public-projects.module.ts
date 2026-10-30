@@ -5,15 +5,15 @@ import { PublicProjectsController } from './controller/public-projects.controlle
 import { PublicProjectsRepository } from './repository/public-projects.repository';
 import { PublicProjectMetricsRepository } from './repository/public-project-metrics.repository';
 import { PublicProjectsService } from './service/public-projects.service';
-import { PublicUserProfileController } from './controller/public-user-profile.controller';
 
 @Module({
   imports: [PlatformModule, PublicEligibilityModule],
-  controllers: [PublicProjectsController, PublicUserProfileController],
+  controllers: [PublicProjectsController],
   providers: [
     PublicProjectsRepository,
     PublicProjectMetricsRepository,
     PublicProjectsService,
   ],
+  exports: [PublicProjectsService],
 })
 export class PublicProjectsModule {}

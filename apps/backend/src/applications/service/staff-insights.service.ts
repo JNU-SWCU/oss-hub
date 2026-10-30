@@ -4,7 +4,7 @@ import {
   type ActivityCounts,
 } from '../../platform/activity-counts.policy';
 import { DomainException } from '../../platform/error-code.error';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,

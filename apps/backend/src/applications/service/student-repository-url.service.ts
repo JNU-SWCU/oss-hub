@@ -3,7 +3,7 @@ import { AuditLogService } from '../../platform/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../../platform/application-repository-url-audit-metadata.policy';
 import { DomainException } from '../../platform/error-code.error';
 import { canEditStudentRepositoryUrl } from '../../programs/domain/program-participant';
-import { ConsentsService } from '../../consents/service/consents.service';
+import { ConsentsService } from '../../users/consents.service';
 import { CollectionTriggerService } from '../../github/service/collection-trigger.service';
 import { GithubOperationsError } from '../../github/domain/github-app.error';
 import { OwnRepositoryUrlValidationService } from '../../github/service/own-repository-url-validation.service';

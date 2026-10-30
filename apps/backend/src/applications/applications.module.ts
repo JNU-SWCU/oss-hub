@@ -10,7 +10,7 @@ import { RepositoriesModule } from '../github/repositories.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import { UsersModule } from '../users/users.module';
-import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityService } from '../users/authority.service';
 import { ApplicationsController } from './controller/applications.controller';
 import { ApplicationsRepository } from './repository/applications.repository';
 import { ApplicationJoinCodeService } from './service/application-join-code.service';
@@ -26,14 +26,12 @@ import {
 } from './repository/student-application-management.repository';
 import { StudentApplicationManagementService } from './service/student-application-management.service';
 import { StudentApplicationsController } from './controller/student-applications.controller';
-import { ConsentsModule } from '../consents/consents.module';
 import { StudentRepositoryUrlController } from './controller/student-repository-url.controller';
 import { StudentRepositoryUrlService } from './service/student-repository-url.service';
 import { StudentRepositoryUrlRepository } from './repository/student-repository-url.repository';
 
 @Module({
   imports: [
-    ConsentsModule,
     PlatformModule,
     AuthModule,
     UsersModule,

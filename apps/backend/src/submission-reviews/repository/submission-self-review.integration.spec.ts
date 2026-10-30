@@ -11,8 +11,8 @@ import {
 import { flowGithubIds } from '../../milestone-documents/repository/milestone-document-flow.integration-data';
 import { MilestoneDocumentsRepository } from '../../milestone-documents/repository/milestone-documents.repository';
 import { MilestoneDocumentReviewsService } from '../../milestone-documents/service/milestone-document-reviews.service';
-import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../users/authority.repository';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { SubmissionReviewsService } from '../service/submission-reviews.service';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 

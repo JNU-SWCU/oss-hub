@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityService } from '../../users/authority.service';
 import { CollectionAdminService } from './collection-admin.service';
 
 const deniedActors = [
