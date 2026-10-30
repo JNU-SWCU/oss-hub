@@ -14,15 +14,8 @@ import type { AuthSession, Me } from '../types';
 import {
   clearLoginDestination,
   getLoginDestinationStorage,
-  readReturnTo,
 } from '../login-destination';
 import { rememberLoggedOut, useNavigationNotices } from '@/lib/navigation-notices';
-
-interface LandingEntry {
-  readonly returnTo: string | null;
-}
-
-const OUTSIDE_LANDING: LandingEntry = { returnTo: null };
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
@@ -201,24 +194,11 @@ export function LoginButton({
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
   const notices = useNavigationNotices();
-  const [landingEntry, setLandingEntry] =
-    useState<LandingEntry>(OUTSIDE_LANDING);
-
-  useEffect(() => {
-    const search = window.location.search;
-    setLandingEntry(
-      pathname === '/'
-        ? {
-            returnTo: readReturnTo(search),
-          }
-        : OUTSIDE_LANDING,
-    );
-  }, [pathname]);
 
   return (
     <LoginButtonView
       session={session?.isAuthenticated === false && notices.status === 'pending' ? null : session}
-      returnTo={pathname === '/' ? landingEntry.returnTo : pathname}
+      returnTo={pathname === '/' ? null : pathname}
       selectAccount={notices.status === 'ready' && notices.loggedOut}
       accountRoles={accountRoles}
       logoutError={logoutError}

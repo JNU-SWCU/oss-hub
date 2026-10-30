@@ -210,6 +210,15 @@ describe('로그아웃 직후 랜딩의 상단 로그인', () => {
     expect(await renderAt('/', '')).toBe(githubAccountChoicePath);
   });
 
+  it('주소의 returnTo 쿼리는 로그인 복귀 목적지를 기록하지 않는다', async () => {
+    await renderAt('/', '?returnTo=%2Fprograms');
+    const link = container.querySelector<HTMLAnchorElement>('a');
+    if (!link) throw new Error('로그인 링크를 찾지 못했다');
+    link.addEventListener('click', (event) => event.preventDefault());
+    act(() => link.click());
+    expect(takeLoginDestination(sessionStorage)).toBeNull();
+  });
+
   it.each([
     ['/', ''],
     ['/', '?loggedOut=1'],

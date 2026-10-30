@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { installBrowserAudit } from './support/browser-audit';
+import { authenticatedSessionBody } from './support/session-mock';
 
 const HERO_HEADING = '흩어진 정보를 하나로';
 
@@ -8,48 +9,46 @@ function hero(page: Page) {
   return page.locator('#landing-hero');
 }
 
-test('legacy signup link lands on the hero and keeps the return path', async ({
-  page,
-}) => {
-  const audit = installBrowserAudit(page);
-
-  await page.goto('/signup?returnTo=%2Fprograms%2F42%2Fapply');
-
-  await expect(page).toHaveURL(
-    new URL('/?returnTo=%2Fprograms%2F42%2Fapply', page.url()).href,
-  );
-  await expect(page.getByRole('heading', { name: HERO_HEADING })).toBeVisible();
-  const start = hero(page).getByRole('link', {
-    name: 'GitHub으로 시작하기',
-    exact: true,
+for (const path of ['/signup', '/logout', '/programs/x/milestones/y/submit']) {
+  test(`retired route ${path} returns 404`, async ({ page }) => {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+    await expect(page).toHaveURL(new URL(path, page.url()).href);
   });
-  await expect(start).toHaveText('시작하기');
-  await expect(start).toHaveAttribute('href', '/api/v1/auth/github');
-  await expect(hero(page).getByRole('link')).toHaveCount(2);
+}
 
-  await page.route('**/api/v1/auth/github**', (route) =>
-    route.abort('aborted'),
+test('signing in from a protected page returns to the stored destination', async ({ page }) => {
+  let authenticated = false;
+  let oauthRequests = 0;
+  await page.route('**/api/v1/auth/session', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(authenticated
+        ? authenticatedSessionBody('staff')
+        : { isAuthenticated: false }),
+    }),
   );
+  await page.route('**/api/v1/auth/github', async (route) => {
+    oauthRequests += 1;
+    authenticated = true;
+    await route.fulfill({ status: 302, headers: { location: '/' }, body: '' });
+  });
+
+  await page.goto('/dashboard');
+  const signIn = page
+    .locator('section[aria-labelledby="login-required-heading"]')
+    .getByRole('link', { name: 'GitHub으로 로그인', exact: true });
+  await expect(signIn).toBeVisible();
   const oauthStart = page.waitForRequest('**/api/v1/auth/github');
-  await start.click();
+  await signIn.click();
   await oauthStart;
-  const stored = await page.evaluate(() =>
+  await expect(page).toHaveURL(new URL('/dashboard', page.url()).href);
+  await expect(page.locator('#login-required-heading')).toHaveCount(0);
+  expect(oauthRequests).toBe(1);
+  expect(await page.evaluate(() =>
     sessionStorage.getItem('oss-hub-login-destination'),
-  );
-  expect(JSON.parse(stored ?? 'null')).toMatchObject({
-    destination: '/programs/42/apply',
-  });
-  audit.assertClean();
-});
-
-test('legacy signup link drops an unsafe return path', async ({ page }) => {
-  const audit = installBrowserAudit(page);
-
-  await page.goto('/signup?returnTo=%2F%2Fevil.example');
-
-  await expect(page).toHaveURL(new URL('/', page.url()).href);
-  await expect(page.getByRole('heading', { name: HERO_HEADING })).toBeVisible();
-  audit.assertClean();
+  )).toBeNull();
 });
 
 test('logged-out landing keeps the hero copy but drops the action row and the notice', async ({

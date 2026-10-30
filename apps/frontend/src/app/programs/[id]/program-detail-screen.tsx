@@ -1,13 +1,11 @@
 'use client';
 
-import { useContext, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useContext } from 'react';
 import { useSession } from '@/features/auth/use-session';
 import {
   ProgramDetailPage,
   type ProgramDetailSession,
 } from '@/features/programs/catalog/program-detail-page';
-import { programDocumentsHref } from '@/lib/program-route';
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
 import { renderSignInApplyEntry } from './sign-in-apply-entry';
 
@@ -16,10 +14,7 @@ export function ProgramDetailScreen({
 }: {
   readonly programId: string;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const programView = useContext(ProgramViewContext);
-  const legacyMilestoneId = searchParams.get('submission');
   const { status: sessionStatus } = useSession();
 
   const session: ProgramDetailSession =
@@ -28,11 +23,6 @@ export function ProgramDetailScreen({
       : sessionStatus === 'anonymous'
         ? 'anonymous'
         : 'present';
-
-  useEffect(() => {
-    if (legacyMilestoneId === null) return;
-    router.replace(programDocumentsHref(programId, legacyMilestoneId));
-  }, [legacyMilestoneId, programId, router]);
 
   return (
     <ProgramDetailPage
