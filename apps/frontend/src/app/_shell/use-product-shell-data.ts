@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { subscribeBoardListInvalidation } from '@/features/board/board-list-refetch';
 import {
-  MILESTONE_DOCUMENT_SUBMITTED_EVENT,
-  submittedMilestoneId,
-} from '@/features/programs/documents/milestone-document-events';
-import { getProgramOverview } from '@/features/programs/catalog/program-overview-api';
+  useProgramNavigationMilestonesQuery,
+  useProgramOverviewQuery,
+  useProgramParticipationQuery,
+} from '@/features/programs/catalog/queries';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
-import { getProgramNavigationMilestones } from '@/features/programs/catalog/program-navigation-api';
 import type { ProgramNavigationMilestone } from '@/features/programs/catalog/program-navigation-dto';
-import { getMyApplication } from '@/features/programs/applications/student-application-api';
+import { featureKey, programFeatureKey } from '@/lib/query-keys';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import type { ProgramScopeViewerRole, ShellSection } from './sidebar-menu';
 import type { MemberAccess } from './member-access';
@@ -30,160 +30,77 @@ export function useProductShellData({
   readonly section: ShellSection;
   readonly programDetailId: string | null;
   readonly member: boolean;
-
   readonly authority: MemberAccess;
   readonly operationsView?: boolean | null;
 }): {
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
-
   readonly scopeParticipant: boolean | undefined;
   readonly scopeViewerRole: ProgramScopeViewerRole;
+  readonly scopeViewReady: boolean;
 } {
-  const [facetData, setFacetData] = useState<SectionFacetData>();
-  const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
-  const [scopeMilestones, setScopeMilestones] =
-    useState<readonly ProgramNavigationMilestone[]>();
-  const [scopeParticipant, setScopeParticipant] = useState<boolean>();
-  const studentViewer = authority.memberKind === 'STUDENT';
+  const queryClient = useQueryClient();
+  const scopedProgramId = shouldLoadProgramOverview(programDetailId, member)
+    ? programDetailId
+    : null;
+  const participation = useProgramParticipationQuery(
+    shouldLoadProgramParticipation(
+      programDetailId,
+      member,
+      authority.memberKind === 'STUDENT',
+    )
+      ? programDetailId
+      : null,
+  );
+  const scopeParticipant = participation.data;
   const scopeViewerRole = programScopeViewerRole(
     member,
     authority,
     scopeParticipant,
     operationsView ?? false,
   );
-  const overviewOperationsView =
-    scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN';
-
-  useEffect(() => {
-    const spec =
-      !programDetailId && section ? SECTION_FACETS[section] : undefined;
-    if (!spec?.load) {
-      setFacetData(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    setFacetData(undefined);
-    void spec
-      .load(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setFacetData(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFacetData(undefined);
-      });
-    return () => controller.abort();
-  }, [section, programDetailId]);
-
-  useEffect(() => {
-    if (
-      operationsView === null ||
-      !shouldLoadProgramOverview(programDetailId, member)
-    ) {
-      setScopeOverview(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    let requestId = 0;
-    let overview: ProgramOverview | undefined;
-    const pendingMilestones = new Set<string>();
-    const load = async () => {
-      const currentRequestId = ++requestId;
-      try {
-        const data = await getProgramOverview(
-          programDetailId,
-          overviewOperationsView,
-        );
-        if (controller.signal.aborted || currentRequestId !== requestId) return;
-        overview = data;
-        const refreshPending = data.milestoneDocuments.some((milestone) =>
-          pendingMilestones.has(milestone.milestoneId),
-        );
-        pendingMilestones.clear();
-        if (refreshPending) {
-          void load();
-          return;
-        }
-        setScopeOverview(data);
-      } catch {
-        if (!controller.signal.aborted && currentRequestId === requestId)
-          setScopeOverview(undefined);
-      }
-    };
-    const refresh = (event: Event) => {
-      const milestoneId = submittedMilestoneId(event);
-      if (milestoneId === null) return;
-      if (overview === undefined) {
-        pendingMilestones.add(milestoneId);
-      } else if (
-        overview.milestoneDocuments.some(
-          (milestone) => milestone.milestoneId === milestoneId,
-        )
-      ) {
-        void load();
-      }
-    };
-    setScopeOverview(undefined);
-    const unsubscribeBoard = subscribeBoardListInvalidation(
-      programDetailId,
-      () => void load(),
+  const scopeViewReady =
+    operationsView !== null &&
+    !(
+      scopedProgramId !== null &&
+      authority.memberKind === 'STUDENT' &&
+      (authority.hasStaffAccess || authority.hasAdminAccess) &&
+      !operationsView &&
+      participation.isPending
     );
-    void load();
-    window.addEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
-    return () => {
-      controller.abort();
-      unsubscribeBoard();
-      window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
-    };
-  }, [programDetailId, member, overviewOperationsView, operationsView]);
+  const overview = useProgramOverviewQuery(
+    scopedProgramId,
+    scopeViewReady
+      ? scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN'
+      : null,
+  );
+  const milestones = useProgramNavigationMilestonesQuery(scopedProgramId);
+  const facetLoader =
+    programDetailId === null && section
+      ? SECTION_FACETS[section]?.load
+      : undefined;
+  const facets = useQuery({
+    queryKey: featureKey('shell-facets', section),
+    queryFn: facetLoader ? ({ signal }) => facetLoader(signal) : skipToken,
+  });
 
   useEffect(() => {
-    if (!shouldLoadProgramOverview(programDetailId, member)) {
-      setScopeMilestones(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    setScopeMilestones(undefined);
-
-    void getProgramNavigationMilestones(programDetailId)
-      .then((milestones) => {
-        if (!controller.signal.aborted) setScopeMilestones(milestones);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setScopeMilestones(undefined);
-      });
-    return () => controller.abort();
-  }, [programDetailId, member]);
-
-  useEffect(() => {
-    if (
-      !shouldLoadProgramParticipation(programDetailId, member, studentViewer)
-    ) {
-      setScopeParticipant(undefined);
-      return;
-    }
-    const controller = new AbortController();
-    setScopeParticipant(undefined);
-    void getMyApplication(programDetailId)
-      .then((application) => {
-        if (controller.signal.aborted) return;
-
-        setScopeParticipant(application?.status === 'APPROVED');
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-
-        setScopeParticipant(undefined);
-      });
-    return () => controller.abort();
-  }, [programDetailId, member, studentViewer]);
+    if (scopedProgramId === null) return;
+    return subscribeBoardListInvalidation(scopedProgramId, () => {
+      const queryKey = programFeatureKey(scopedProgramId, 'overview');
+      void queryClient
+        .cancelQueries({ queryKey })
+        .then(() => queryClient.invalidateQueries({ queryKey }));
+    });
+  }, [queryClient, scopedProgramId]);
 
   return {
-    facetData,
-    scopeOverview,
-    scopeMilestones,
+    facetData: facetLoader ? facets.data : undefined,
+    scopeOverview: scopeViewReady ? overview.data : undefined,
+    scopeMilestones: milestones.data,
     scopeParticipant,
     scopeViewerRole,
+    scopeViewReady,
   };
 }

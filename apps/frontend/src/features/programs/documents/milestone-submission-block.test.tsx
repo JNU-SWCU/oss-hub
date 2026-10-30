@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
 import { ProgramMilestones } from '../catalog/program-detail-view';
 import type {
@@ -141,7 +153,9 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     );
     await act(async () => {
       root.render(
-        <ProgramMilestones program={program(applicationStatus, due)} />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramMilestones program={program(applicationStatus, due)} />
+        </QueryClientProvider>,
       );
     });
 

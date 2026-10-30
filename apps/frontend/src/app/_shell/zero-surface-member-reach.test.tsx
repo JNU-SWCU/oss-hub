@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { Component, act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -165,9 +177,11 @@ describe('면이 없는 회원의 화면 도달', () => {
       );
 
       const { text } = await mount(
-        <AppFrame brand="OSS Hub" items={[]}>
-          <p>본문</p>
-        </AppFrame>,
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub" items={[]}>
+            <p>본문</p>
+          </AppFrame>
+        </QueryClientProvider>,
       );
 
       expect(text).not.toContain('대시보드');
@@ -196,9 +210,11 @@ describe('면이 없는 회원의 화면 도달', () => {
         mocks.useSession.mockReturnValue(authenticatedSession(access));
 
         const { text } = await mount(
-          <AppFrame brand="OSS Hub" items={[]}>
-            <p>본문</p>
-          </AppFrame>,
+          <QueryClientProvider client={queryClient}>
+            <AppFrame brand="OSS Hub" items={[]}>
+              <p>본문</p>
+            </AppFrame>
+          </QueryClientProvider>,
         );
 
         expect(text).toContain('대시보드');

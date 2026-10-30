@@ -1,6 +1,8 @@
 'use client';
 
 import { notifyMilestoneDocumentSubmitted } from './milestone-document-events';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgram } from '../catalog/queries';
 import { Download, Pencil, Upload } from 'lucide-react';
 import {
   useCallback,
@@ -95,6 +97,7 @@ export function MilestoneDocumentSectionBody({
   onRetry,
   onRefresh = () => Promise.resolve(true),
   onSubmitConflict,
+  onSubmitted,
 }: {
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
@@ -109,6 +112,7 @@ export function MilestoneDocumentSectionBody({
   readonly onRefresh?: () => Promise<boolean>;
 
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
+  readonly onSubmitted: () => void;
 }) {
   if (state.kind === 'loading') return null;
   if (state.kind === 'failed') {
@@ -168,6 +172,7 @@ export function MilestoneDocumentSectionBody({
               submissionAccess={submissionAccess}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
+              onSubmitted={onSubmitted}
             />
           ),
         )}
@@ -177,12 +182,14 @@ export function MilestoneDocumentSectionBody({
 }
 
 export function MilestoneDocumentSection({
+  programId,
   milestoneId,
   viewerRole,
   closed,
   dueAt,
   submissionAccess,
 }: {
+  readonly programId: string;
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
@@ -190,6 +197,7 @@ export function MilestoneDocumentSection({
 
   readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MilestoneDocumentSectionState>({
     kind: 'loading',
   });
@@ -227,6 +235,7 @@ export function MilestoneDocumentSection({
 
   return (
     <MilestoneDocumentSectionBody
+      onSubmitted={() => void invalidateProgram(queryClient, programId)}
       state={state}
       viewerRole={viewerRole}
       closed={closed}
@@ -413,6 +422,7 @@ function StudentDocumentRow({
   submissionAccess,
   onRefresh,
   onSubmitConflict,
+  onSubmitted,
 }: {
   readonly document: MilestoneDocument;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
@@ -421,6 +431,7 @@ function StudentDocumentRow({
   readonly submissionAccess: MilestoneSubmissionAccess;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
+  readonly onSubmitted: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -597,6 +608,7 @@ function StudentDocumentRow({
           content,
         );
         notifyMilestoneDocumentSubmitted(document.milestoneId);
+        onSubmitted();
         setEditing(false);
         await refreshDocument();
         return true;
@@ -611,7 +623,7 @@ function StudentDocumentRow({
         setSubmitting(false);
       }
     },
-    [document, onSubmitConflict, refreshDocument],
+    [document, onSubmitConflict, onSubmitted, refreshDocument],
   );
 
   const send = useCallback(

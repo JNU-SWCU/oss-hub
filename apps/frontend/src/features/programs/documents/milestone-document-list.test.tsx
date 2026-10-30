@@ -1,7 +1,20 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
+import { programFeatureKey } from '@/lib/query-keys';
 import {
   MilestoneDocumentSection,
   MilestoneDocumentSectionBody,
@@ -87,12 +100,15 @@ describe('MilestoneDocumentSection response recovery', () => {
 
     await act(async () => {
       root.render(
-        <MilestoneDocumentSection
-          milestoneId="milestone-1"
-          viewerRole="STAFF"
-          closed={false}
-          submissionAccess={access('STAFF')}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STAFF"
+            closed={false}
+            submissionAccess={access('STAFF')}
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -222,12 +238,15 @@ describe('제출과 판정이 부딪혔을 때', () => {
   async function resubmit() {
     await act(async () => {
       root.render(
-        <MilestoneDocumentSection
-          milestoneId="milestone-1"
-          viewerRole="STUDENT"
-          closed={false}
-          submissionAccess={access('STUDENT', 'APPROVED')}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STUDENT"
+            closed={false}
+            submissionAccess={access('STUDENT', 'APPROVED')}
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -277,12 +296,15 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await act(async () => {
       root.render(
-        <MilestoneDocumentSection
-          milestoneId="milestone-1"
-          viewerRole="STUDENT"
-          closed={false}
-          submissionAccess={{ kind: 'open' }}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STUDENT"
+            closed={false}
+            submissionAccess={{ kind: 'open' }}
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -298,6 +320,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
   });
 
   it('409(MSD_024)를 받으면 상태를 다시 불러와 금지된 조작을 걷는다', async () => {
+    const overviewKey = programFeatureKey('program-1', 'overview', false);
+    queryClient.setQueryDefaults(['program'], { gcTime: Infinity });
+    queryClient.setQueryData(overviewKey, { viewerDocumentsCompleted: 0 });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -332,6 +357,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(notice?.textContent).toContain('저장되지 않았습니다');
     expect(notice?.textContent).toContain('다시 불러왔습니다');
     expect(submittedEvents).toEqual([]);
+    expect(queryClient.getQueryState(overviewKey)?.isInvalidated).toBe(false);
   });
 
   it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
@@ -395,6 +421,11 @@ describe('제출과 판정이 부딪혔을 때', () => {
   });
 
   it('제출 성공 뒤 목록과 이력 첫 페이지를 다시 읽어 현재 제출본을 표시한다', async () => {
+    const currentKey = programFeatureKey('program-1', 'overview', false);
+    const otherKey = programFeatureKey('other-program', 'overview', false);
+    queryClient.setQueryDefaults(['program'], { gcTime: Infinity });
+    queryClient.setQueryData(currentKey, { viewerDocumentsCompleted: 0 });
+    queryClient.setQueryData(otherKey, { viewerDocumentsCompleted: 0 });
     const refreshed = documentWithViewer({
       submitted: true,
       submittedAt: '2026-08-03T00:00:00.000Z',
@@ -445,6 +476,8 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(submittedEvents).toEqual([{ milestoneId: 'milestone-1' }]);
+    expect(queryClient.getQueryState(currentKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
   });
 
   it('제출 저장 뒤 목록 재조회가 실패하면 재제출을 잠그고 최신 상태 재시도만 제공한다', async () => {
@@ -547,12 +580,15 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await act(async () => {
       root.render(
-        <MilestoneDocumentSection
-          milestoneId="milestone-1"
-          viewerRole="STUDENT"
-          closed={false}
-          submissionAccess={access('STUDENT', 'APPROVED')}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STUDENT"
+            closed={false}
+            submissionAccess={access('STUDENT', 'APPROVED')}
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() =>
@@ -663,6 +699,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
+          onSubmitted={vi.fn()}
           key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
           state={{
             kind: 'ready',
@@ -1295,6 +1332,7 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     act(() => {
       root.render(
         <MilestoneDocumentSectionBody
+          onSubmitted={vi.fn()}
           state={{
             kind: 'ready',
             documents: [
@@ -1437,12 +1475,15 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
     vi.stubGlobal('fetch', fetchMock);
     await act(async () => {
       root.render(
-        <MilestoneDocumentSection
-          milestoneId="milestone-1"
-          viewerRole="STUDENT"
-          closed={false}
-          submissionAccess={access('STUDENT', 'APPROVED')}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STUDENT"
+            closed={false}
+            submissionAccess={access('STUDENT', 'APPROVED')}
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -1519,6 +1560,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     await act(async () =>
       root.render(
         <MilestoneDocumentSectionBody
+          onSubmitted={vi.fn()}
           state={{
             kind: 'ready',
             documents: [document],

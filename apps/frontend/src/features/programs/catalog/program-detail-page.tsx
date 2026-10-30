@@ -1,15 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import {
-  MILESTONE_DOCUMENT_SUBMITTED_EVENT,
-  submittedMilestoneId,
-} from '../documents/milestone-document-events';
 import { ApiError } from '@/lib/api-client';
-import { getProgramDetail, getPublicProgramDetail } from './api';
-import { getProgramOverview } from './program-overview-api';
+import {
+  invalidateProgram,
+  useProgramDetailQuery,
+  useProgramOverviewQuery,
+  usePublicProgramDetailQuery,
+} from './queries';
 import type { ProgramOverview } from './program-overview-dto';
 import {
   ProgramDetailFailureState,
@@ -51,93 +52,58 @@ export function ProgramDetailPage({
   readonly renderSignInApply: RenderSignInApply;
 }) {
   const router = useRouter();
-  const requestId = useRef(0);
-  const [state, setState] = useState<DetailState>({ kind: 'loading' });
-  const load = useCallback(
-    async (background = false) => {
-      const currentRequestId = ++requestId.current;
-      if (session === 'unknown' || operationsView === null) return;
-      if (!background) setState({ kind: 'loading' });
-      try {
-        if (session === 'anonymous') {
-          const program = await getPublicProgramDetail(programId);
-          if (requestId.current === currentRequestId)
-            setState({ kind: 'ready', program, overview: null });
-          return;
-        }
-        const program = await getProgramDetail(programId, operationsView);
-        const overview = await getProgramOverview(
-          programId,
-          operationsView,
-        ).catch((error: unknown) => {
-          if (background) throw error;
-          return null;
-        });
-        if (requestId.current === currentRequestId)
-          setState({ kind: 'ready', program, overview });
-      } catch (error: unknown) {
-        if (requestId.current === currentRequestId)
-          setState((previous) =>
-            background && previous.kind === 'ready'
-              ? { ...previous, refreshFailed: true }
-              : detailFailure(error),
-          );
-      }
-    },
-    [programId, session, operationsView],
+  const queryClient = useQueryClient();
+  const memberProgramId = session === 'present' ? programId : null;
+  const memberDetail = useProgramDetailQuery(memberProgramId, operationsView);
+  const publicDetail = usePublicProgramDetailQuery(
+    session === 'anonymous' && operationsView !== null ? programId : null,
   );
+  const overview = useProgramOverviewQuery(memberProgramId, operationsView);
+  const detail = session === 'anonymous' ? publicDetail : memberDetail;
+  const program = detail.data;
+  const load = () => invalidateProgram(queryClient, programId);
   useEffect(() => {
-    void load();
-    return () => {
-      requestId.current += 1;
-    };
-  }, [load]);
-  useEffect(() => {
-    if (state.kind !== 'ready') return;
-    const refresh = (event: Event) => {
-      const milestoneId = submittedMilestoneId(event);
-      if (
-        state.program.milestones.some(
-          (milestone) => milestone.id === milestoneId,
-        )
-      )
-        void load(true);
-    };
-    window.addEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
-    return () =>
-      window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
-  }, [load, state]);
-  useEffect(() => {
-    if (state.kind === 'ready' && state.program.viewer.role === 'PENDING') {
+    if (program?.viewer.role === 'PENDING') {
       router.replace('/onboarding/pending');
     }
-  }, [router, state]);
+  }, [router, program]);
 
   if (operationsView === null) return null;
-  if (state.kind === 'loading') return <ProgramDetailSkeleton />;
-  if (state.kind === 'not-found')
+  if (program === undefined && detail.isError)
     return (
-      <ProgramDetailFailureState kind="not-found" onRetry={() => void load()} />
+      <ProgramDetailFailureState
+        kind={
+          detailFailure(detail.error).kind === 'not-found'
+            ? 'not-found'
+            : 'failed'
+        }
+        onRetry={() => void load()}
+      />
     );
-
-  if (state.kind === 'failed')
-    return (
-      <ProgramDetailFailureState kind="failed" onRetry={() => void load()} />
-    );
+  if (
+    session === 'unknown' ||
+    program === undefined ||
+    (session === 'present' &&
+      overview.isPending &&
+      overview.errorUpdateCount === 0)
+  )
+    return <ProgramDetailSkeleton />;
 
   return (
     <>
-      {state.refreshFailed ? (
+      {detail.isRefetchError ||
+      overview.isRefetchError ||
+      (overview.isError && overview.errorUpdateCount > 1) ? (
         <div role="alert" className="flex items-center gap-3">
           <p>제출은 저장되었지만 집계를 갱신하지 못했습니다.</p>
-          <Button variant="outline" onClick={() => void load(true)}>
+          <Button variant="outline" onClick={() => void load()}>
             집계 다시 불러오기
           </Button>
         </div>
       ) : null}
       <ProgramDetailReadyState
-        program={state.program}
-        overview={state.overview}
+        program={program}
+        overview={session === 'present' ? (overview.data ?? null) : null}
         renderSignInApply={renderSignInApply}
       />
     </>

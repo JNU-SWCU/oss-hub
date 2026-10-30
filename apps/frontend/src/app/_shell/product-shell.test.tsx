@@ -1,5 +1,17 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import type { AppRole } from './role';
 import type { SessionStatus } from './use-session-role';
 
@@ -88,9 +100,11 @@ function render(pathname: string) {
   mocks.getProgramNavigationMilestones.mockReturnValue(new Promise(() => {}));
   mocks.getMyApplication.mockReturnValue(new Promise(() => {}));
   return renderToStaticMarkup(
-    <ProductShell>
-      <p>본문</p>
-    </ProductShell>,
+    <QueryClientProvider client={queryClient}>
+      <ProductShell>
+        <p>본문</p>
+      </ProductShell>
+    </QueryClientProvider>,
   );
 }
 

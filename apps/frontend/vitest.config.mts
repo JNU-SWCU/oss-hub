@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
 const happyDomTests = [
+  'src/features/programs/catalog/queries.test.tsx',
   'src/app/_shell/query-provider.test.tsx',
   'src/lib/navigation-notices.test.tsx',
   'e2e/support/confirmation-cancel-label.test.tsx',

@@ -84,6 +84,7 @@ export function ProductShell({
     scopeMilestones,
     scopeParticipant,
     scopeViewerRole,
+    scopeViewReady,
   } = useProductShellData({
     section,
     programDetailId,
@@ -175,7 +176,9 @@ export function ProductShell({
 
   return (
     <RankingCycleProvider>
-      <ProgramViewContext.Provider value={scopeViewerRole}>
+      <ProgramViewContext.Provider
+        value={scopeViewReady ? scopeViewerRole : null}
+      >
         <div
           data-slot="product-shell"
           data-collapsed={collapsed ? 'true' : 'false'}

@@ -1,7 +1,20 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
+
+import { invalidateProgram } from './queries';
 import { apiPath } from '@/lib/api-client';
 import type { ProgramDetail } from './dto';
 
@@ -129,12 +142,14 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('운영 상태가 결정되기 전에는 조회하거나 본문을 렌더하지 않는다', async () => {
     await act(async () =>
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-          operationsView={null}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+            operationsView={null}
+          />
+        </QueryClientProvider>,
       ),
     );
     expect(requestedPaths()).toEqual([]);
@@ -161,21 +176,25 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     });
     await act(async () =>
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+          />
+        </QueryClientProvider>,
       ),
     );
     await act(async () =>
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-          operationsView
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+            operationsView
+          />
+        </QueryClientProvider>,
       ),
     );
     expect(container.textContent).toContain('운영 화면 결과');
@@ -232,48 +251,32 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     });
     await act(async () =>
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+          />
+        </QueryClientProvider>,
       ),
     );
     expect(container.textContent).toContain('0 / 1 서류');
     expect(container.textContent).toContain('미제출');
     const group = container.querySelector('[data-testid="milestone-group"]');
     submitted = true;
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'other-program' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, 'other-program'));
     expect(container.textContent).toContain('0 / 1 서류');
     expect(
       requestedPaths().filter((path) => path.endsWith('/viewer')),
     ).toHaveLength(1);
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, PROGRAM_ID));
     expect(container.textContent).toContain('1 / 1 서류');
     expect(container.textContent).not.toContain('미제출');
     expect(container.querySelector('[data-testid="milestone-group"]')).toBe(
       group,
     );
     failRefresh = true;
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, PROGRAM_ID));
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
       '집계',
     );
@@ -294,11 +297,13 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('비로그인이면 공개 상세만 부르고 viewer·overview는 부르지 않는다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="anonymous"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="anonymous"
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -311,11 +316,13 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('세션을 아직 모르면 아무것도 부르지 않고 뼈대만 그린다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="unknown"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="unknown"
+          />
+        </QueryClientProvider>,
       );
     });
 
@@ -328,11 +335,13 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   it('세션이 있으면 viewer를 먼저 부르고 401이면 공개 상세로 내려간다', async () => {
     await act(async () => {
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {
@@ -341,8 +350,8 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
 
     expect(requestedPaths()).toEqual([
       apiPath(`programs/${PROGRAM_ID}/viewer`),
-      apiPath(`programs/${PROGRAM_ID}`),
       apiPath(`programs/${PROGRAM_ID}/overview`),
+      apiPath(`programs/${PROGRAM_ID}`),
     ]);
   });
 });

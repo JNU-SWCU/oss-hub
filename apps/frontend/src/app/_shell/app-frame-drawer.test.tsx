@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import type { NavItem } from '@/components';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -40,6 +52,12 @@ vi.mock('@/features/programs/catalog/program-overview-api', () => ({
 }));
 vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
+}));
+vi.mock('@/features/programs/catalog/api', () => ({
+  getProgramStatusCounts: async () => ({}),
+}));
+vi.mock('@/features/programs/applications/student-application-api', () => ({
+  getMyApplication: async () => null,
 }));
 
 import { AppFrame } from './app-frame';
@@ -125,9 +143,11 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
     await act(async () => {
       root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
-          <p>본문</p>
-        </AppFrame>,
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub" items={ITEMS}>
+            <p>본문</p>
+          </AppFrame>
+        </QueryClientProvider>,
       );
     });
   }
@@ -320,9 +340,11 @@ describe('AppFrame 랜딩(/) 내비 — 처음부터 흰 바', () => {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
-          <section id="landing-hero">히어로</section>
-        </AppFrame>,
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub" items={ITEMS}>
+            <section id="landing-hero">히어로</section>
+          </AppFrame>
+        </QueryClientProvider>,
       );
     });
   }
