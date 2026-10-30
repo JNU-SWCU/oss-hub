@@ -1,14 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import {
-  CollectionDiscoveryClient,
-  CollectionDiscoveryClientError,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import {
   type CollectionActivityUserRow,
   type CollectionUserActivityObservationInput,
   CollectionUserActivityRepository,
 } from './repository-provision-job.repository';
+import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 const ASIA_SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 

@@ -1,9 +1,6 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import {
-  ProgramAuthoringRepository,
-  ProgramAuthoringAttachmentRaceError,
-} from './program-authoring.repository';
+import { ProgramAuthoringRepository } from './program-authoring.repository';
 import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.types';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
@@ -32,6 +29,8 @@ import {
   assertProgramCoverUpload,
   assertProgramTemplateUpload,
 } from './program-cover.policy';
+import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
+import { ProgramAuthoringForbiddenError } from './program-authoring.error';
 
 @Injectable()
 export class ProgramNoticePreviewService {
@@ -228,12 +227,4 @@ function replayOrConflict(
     );
   }
   return replay.program;
-}
-
-export class ProgramAuthoringForbiddenError extends Error {
-  override readonly name = 'ProgramAuthoringForbiddenError';
-
-  constructor() {
-    super('Program authoring requires staff or administrator access.');
-  }
 }

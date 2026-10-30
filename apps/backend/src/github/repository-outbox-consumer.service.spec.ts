@@ -3,12 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   RepositoryOutboxConsumerService,
   type RepositoryOutboxConsumeResult,
-  RepositoryProvisionScheduler,
 } from './repository-outbox-consumer.service';
 import {
   RepositoryProvisionWorkerService,
   type RepositoryProvisionResult,
 } from './repository-provision-worker.service';
+import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
 
 describe('repository-provision.scheduler', () => {
   const NOW = new Date('2026-07-22T00:00:00.000Z');

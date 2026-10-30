@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import { DomainException } from '../platform/error-code.error';
@@ -10,8 +10,6 @@ import {
 } from './collection-error-code.error';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { Cron } from '@nestjs/schedule';
-
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
 export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
 
@@ -75,22 +73,5 @@ export class CollectionTriggerService {
         return this.sync.runRepository(this.ownerId, githubRepositoryId, runId);
       }),
     );
-  }
-}
-
-@Injectable()
-export class CollectionScheduler {
-  constructor(
-    @Inject(CollectionTriggerService)
-    private readonly trigger: Pick<CollectionTriggerService, 'runScheduled'>,
-  ) {}
-
-  @Cron(COLLECTION_CRON_EXPRESSION, {
-    name: COLLECTION_CRON_JOB_NAME,
-    timeZone: 'Asia/Seoul',
-    waitForCompletion: true,
-  })
-  handleCron(): Promise<void> {
-    return this.trigger.runScheduled();
   }
 }

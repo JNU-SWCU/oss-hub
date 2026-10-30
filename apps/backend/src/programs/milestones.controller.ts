@@ -18,6 +18,7 @@ import {
   ProgramMilestoneEditResponseDto,
   ProgramMilestoneResponseDto,
 } from './dto/editable-program-response.dto';
+import { DeletedResponseDto } from './dto/deleted-response.dto';
 import type { MilestoneUpdateCommand } from './programs.types';
 import { UpdateMilestoneRequestDto } from './dto/update-milestone-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
@@ -31,10 +32,7 @@ const bodyValidationPipe = new ValidationPipe({
   forbidNonWhitelisted: true,
 });
 
-export class MilestoneUpdatePipe implements PipeTransform<
-  unknown,
-  Promise<MilestoneUpdateCommand>
-> {
+export const milestoneUpdatePipe = {
   async transform(body: unknown): Promise<MilestoneUpdateCommand> {
     if (typeof body !== 'object' || body === null) {
       throw new BadRequestException('Milestone update body must be an object.');
@@ -59,8 +57,8 @@ export class MilestoneUpdatePipe implements PipeTransform<
       throw new BadRequestException('Invalid legacy milestone update body.');
     }
     return { kind: 'legacy', input: { ...input } };
-  }
-}
+  },
+} satisfies PipeTransform<unknown, Promise<MilestoneUpdateCommand>>;
 
 @Controller('milestones')
 @UseGuards(SessionGuard, OriginGuard)
@@ -81,7 +79,7 @@ export class MilestonesController {
   async update(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
-    @Body(new MilestoneUpdatePipe()) command: MilestoneUpdateCommand,
+    @Body(milestoneUpdatePipe) command: MilestoneUpdateCommand,
   ): Promise<ProgramMilestoneEditResponseDto | ProgramMilestoneResponseDto> {
     switch (command.kind) {
       case 'aggregate':
@@ -107,8 +105,8 @@ export class MilestonesController {
   async delete(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
-  ): Promise<{ readonly deleted: true }> {
+  ): Promise<DeletedResponseDto> {
     await this.editor.deleteMilestone(request.sessionGithubId, id);
-    return { deleted: true };
+    return DeletedResponseDto.from();
   }
 }

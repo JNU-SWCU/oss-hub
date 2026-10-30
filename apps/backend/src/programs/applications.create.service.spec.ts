@@ -6,9 +6,6 @@ import {
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
-  ApplicationDuplicateError,
-  ApplicationJoinCodeDigestConflictError,
-  ApplicationTeamMembershipConflictError,
   type ApplicationCreateStore,
   type ApplicationsRepository,
   type ApplyProgramRecord,
@@ -23,6 +20,12 @@ import {
 } from '../platform/audit-log-metadata.policy';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
+import {
+  ApplicationDuplicateError,
+  ApplicationJoinCodeDigestConflictError,
+  ApplicationTeamMembershipConflictError,
+} from './applications.error';
+
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');

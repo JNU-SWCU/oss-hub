@@ -3,10 +3,8 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { UpdateStudentRepositoryUrlRequestDto } from './dto/update-student-repository-url-request.dto';
-import {
-  StudentRepositoryUrlService,
-  type StudentRepositoryUrlView,
-} from './student-repository-url.service';
+import { StudentRepositoryUrlResponseDto } from './dto/student-repository-url-response.dto';
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 
 @Controller('programs/:programId')
 @UseGuards(SessionGuard)
@@ -15,29 +13,33 @@ export class StudentRepositoryUrlController {
 
   @Patch('applications/me/repository-url')
   @UseGuards(OriginGuard)
-  updateMine(
+  async updateMine(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Param('programId') programId: string,
     @Body() body: UpdateStudentRepositoryUrlRequestDto,
-  ): Promise<StudentRepositoryUrlView> {
-    return this.service.updateMine(request.sessionGithubId, programId, {
-      repositoryUrl: body.repositoryUrl,
-    });
+  ): Promise<StudentRepositoryUrlResponseDto> {
+    return StudentRepositoryUrlResponseDto.from(
+      await this.service.updateMine(request.sessionGithubId, programId, {
+        repositoryUrl: body.repositoryUrl,
+      }),
+    );
   }
 
   @Patch('teams/:teamId/repository-url')
   @UseGuards(OriginGuard)
-  updateForTeam(
+  async updateForTeam(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
     @Body() body: UpdateStudentRepositoryUrlRequestDto,
-  ): Promise<StudentRepositoryUrlView> {
-    return this.service.updateForTeam(
-      request.sessionGithubId,
-      programId,
-      teamId,
-      { repositoryUrl: body.repositoryUrl },
+  ): Promise<StudentRepositoryUrlResponseDto> {
+    return StudentRepositoryUrlResponseDto.from(
+      await this.service.updateForTeam(
+        request.sessionGithubId,
+        programId,
+        teamId,
+        { repositoryUrl: body.repositoryUrl },
+      ),
     );
   }
 }

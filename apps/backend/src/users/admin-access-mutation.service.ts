@@ -35,6 +35,7 @@ import {
   type AdminAccessMutationCommand,
   type AdminAccessMutationResult,
 } from './admin-access.types';
+import { PendingRequestDecisionConflict } from './admin-access-mutation.error';
 
 type MutationDependencies = {
   readonly repository: AdminAccessRepositoryPort;
@@ -230,5 +231,3 @@ function assertNever(value: never): never {
     `Unsupported admin access request write: ${String(value)}`,
   );
 }
-
-class PendingRequestDecisionConflict extends Error {}

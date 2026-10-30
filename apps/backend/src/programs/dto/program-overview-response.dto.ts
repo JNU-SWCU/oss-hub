@@ -1,4 +1,3 @@
-import { IsIn, IsOptional } from 'class-validator';
 import type { AuthorityLabel } from '../../users/authority-label.policy';
 import {
   ProgramOverviewMilestoneDocument,
@@ -82,10 +81,4 @@ export class ProgramOverviewResponseDto {
       ),
     };
   }
-}
-
-export class ProgramOverviewQueryRequestDto {
-  @IsOptional()
-  @IsIn(['operations'])
-  view?: 'operations';
 }

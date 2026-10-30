@@ -35,10 +35,6 @@ export class ApplicationDecisionResponseDto {
           applicationId: result.applicationId,
           status: result.status,
         };
-      default: {
-        const exhaustiveResult: never = result;
-        return exhaustiveResult;
-      }
     }
   }
 }

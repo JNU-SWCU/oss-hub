@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { returnTypeAllowlist } from '../apps/backend/eslint-rules/controller-explicit-return.mjs';
+import {
+  dtoSuffixes,
+  rootSuffixes,
+} from '../apps/backend/eslint-rules/file-name-convention.mjs';
 
 const docPath = (name) =>
   fileURLToPath(new URL(`../docs/decisions/${name}`, import.meta.url));
@@ -43,5 +49,53 @@ test('ADR-003 contract lists the planned modules', () => {
       '-response.dto.ts',
     ]);
     assert.deepEqual(contract.crossAppExceptions, []);
+  }
+});
+
+const backendRoot = fileURLToPath(new URL('../apps/backend/', import.meta.url));
+
+test('ADR-003 modules are exactly the backend src folders', () => {
+  const folders = readdirSync(`${backendRoot}src`, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(folders, [...readContract(koPath).modules].sort());
+});
+
+test('ADR-003 prints every controller return type allowlist route', () => {
+  for (const path of [koPath, enPath]) {
+    const text = readFileSync(path, 'utf8');
+    for (const route of returnTypeAllowlist) {
+      assert.ok(text.includes(`\`${route}\``), `${path} must list ${route}`);
+    }
+  }
+});
+
+test('ADR-003 suffix lists match the file name rule', () => {
+  const contract = readContract(koPath);
+  assert.deepEqual(contract.rootSuffixes, rootSuffixes);
+  assert.deepEqual(contract.dtoSuffixes, dtoSuffixes);
+});
+
+test('every ADR-003 rule id is an error in the backend ESLint config', () => {
+  const severities = new Map();
+  for (const file of [
+    'src/programs/programs.controller.ts',
+    'src/programs/dto/x-request.dto.ts',
+    'src/programs/dto/x-response.dto.ts',
+  ]) {
+    const config = JSON.parse(
+      execFileSync(
+        `${backendRoot}node_modules/.bin/eslint`,
+        ['--print-config', file],
+        { cwd: backendRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+      ),
+    );
+    for (const [id, setting] of Object.entries(config.rules)) {
+      if ([setting].flat()[0] === 2) severities.set(id, 2);
+    }
+  }
+  for (const id of readContract(koPath).rules) {
+    assert.equal(severities.get(id), 2, `${id} must be registered as error`);
   }
 });

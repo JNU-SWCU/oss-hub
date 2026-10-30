@@ -5,20 +5,12 @@ import {
   AUDIT_LOG_ERROR_CODES,
   AuditLogErrorCode,
 } from './audit-log-error-code.error';
-import {
-  AuditLogRepository,
-  type AuditLogListResult,
-  type AuditLogRecord,
-} from './audit-log.repository';
+import { AuditLogRepository } from './audit-log.repository';
+import type { AuditLogPage, AuditLogRecord } from './audit-log.types';
 import type { AuditLogRecordInput } from './audit-log-record-input.types';
 import type { AuditLogListQuery } from './audit-log-query.types';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
-
-export type AuditLogPage = AuditLogListResult & {
-  readonly page: number;
-  readonly limit: number;
-};
 
 @Injectable()
 export class AuditLogService {

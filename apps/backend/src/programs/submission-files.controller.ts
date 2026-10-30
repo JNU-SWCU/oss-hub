@@ -16,11 +16,9 @@ import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
 import { setDownloadHeaders } from '../platform/object-storage.types';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
+import { UploadedSubmissionFileResponseDto } from './dto/uploaded-submission-file-response.dto';
 import { SubmissionFilesService } from './submission-files.service';
-import type {
-  SubmissionFileUpload,
-  UploadedSubmissionFileResponse,
-} from './submission.types';
+import type { SubmissionFileUpload } from './submission.types';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -70,21 +68,23 @@ export class SubmissionFilesController {
   @HttpCode(201)
   @UseGuards(SessionGuard, OriginGuard)
   @UseInterceptors(SubmissionFileUploadInterceptor)
-  upload(
+  async upload(
     @Req() request: SubmissionRequest,
     @Body('applicationId') applicationId: unknown,
     @Body('milestoneId') milestoneId: unknown,
     @Body('submissionId') submissionId: unknown,
     @Body('baseRevision') baseRevision: unknown,
     @UploadedFile() file: SubmissionFileUpload | undefined,
-  ): Promise<UploadedSubmissionFileResponse> {
-    return this.service.upload(
-      request.sessionGithubId,
-      applicationId,
-      milestoneId,
-      file,
-      submissionId,
-      baseRevision,
+  ): Promise<UploadedSubmissionFileResponseDto> {
+    return UploadedSubmissionFileResponseDto.from(
+      await this.service.upload(
+        request.sessionGithubId,
+        applicationId,
+        milestoneId,
+        file,
+        submissionId,
+        baseRevision,
+      ),
     );
   }
 

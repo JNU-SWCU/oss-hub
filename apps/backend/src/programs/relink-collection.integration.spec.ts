@@ -14,9 +14,9 @@ import {
   input,
 } from './student-repository-url.integration.fixture';
 import { CollectionAppClient } from '../github/collection-app.client';
-import { ProviderRequestQueue } from '../github/collection-discovery.client';
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
+import { ProviderRequestQueue } from '../github/provider-request-queue.policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

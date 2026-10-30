@@ -29,7 +29,6 @@ import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
 } from './notifications-error-code.error';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   GmailMailClient,
   type GmailSenderConfig,
@@ -252,19 +251,6 @@ export class DeadlineDigestService {
 
   private fail(code: NotificationsErrorCode): never {
     throw new DomainException(NOTIFICATIONS_ERROR_CODES[code]);
-  }
-}
-
-@Injectable()
-export class DeadlineDigestScheduler {
-  constructor(
-    @Inject(DeadlineDigestService)
-    private readonly service: DeadlineDigestService,
-  ) {}
-
-  @Cron(CronExpression.EVERY_DAY_AT_9AM, { timeZone: 'Asia/Seoul' })
-  async run(): Promise<void> {
-    await this.service.sendDeadlineDigests();
   }
 }
 

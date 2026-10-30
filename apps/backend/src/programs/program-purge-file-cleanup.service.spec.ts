@@ -1,10 +1,8 @@
 import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ProgramPurgeFileCleanupService,
-  ProgramPurgeFileCleanupScheduler,
-} from './program-purge-file-cleanup.service';
+import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
+import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
 
 describe('program-purge-file-cleanup.scheduler', () => {
   const CRON_JOB_NAME = 'program-purge-file-cleanup';

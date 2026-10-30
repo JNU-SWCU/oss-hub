@@ -23,6 +23,7 @@ import {
   createProgramCover,
   createExternalProgramCover,
 } from './program-cover.repository';
+import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
 
 type AuthoringActor = {
   readonly id: string;
@@ -218,13 +219,5 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     if (attached.count !== tokenIds.length) {
       throw new ProgramAuthoringAttachmentRaceError();
     }
-  }
-}
-
-export class ProgramAuthoringAttachmentRaceError extends Error {
-  override readonly name = 'ProgramAuthoringAttachmentRaceError';
-
-  constructor() {
-    super('Program authoring uploads changed before attachment.');
   }
 }

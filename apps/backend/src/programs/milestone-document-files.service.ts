@@ -1,3 +1,4 @@
+import type { UploadedMilestoneDocumentFileResponse } from './milestone-document-result.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
@@ -40,14 +41,6 @@ export interface MilestoneDocumentFileUpload {
   readonly originalname: string;
   readonly mimetype: string;
   readonly size: number;
-}
-
-export interface UploadedMilestoneDocumentFileResponse {
-  readonly fileId: string;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly size: number;
-  readonly expiresAt: string;
 }
 
 export interface UploadedMilestoneDocumentTemplateResponse {

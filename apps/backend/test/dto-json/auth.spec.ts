@@ -57,7 +57,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         memberKind: null,
       }),
   ],
-  ['SessionResponseDto anonymous', () => SessionResponseDto.from(null)],
+  ['SessionResponseDto anonymous', () => SessionResponseDto.from()],
   [
     'SessionResponseDto authenticated',
     () => SessionResponseDto.from(MeResponseDto.from(user)),

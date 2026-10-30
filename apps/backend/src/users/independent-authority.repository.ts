@@ -66,7 +66,7 @@ export interface IndependentAuthorityRepositoryPort {
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-class PrismaIndependentAuthorityStore implements IndependentAuthorityTransactionStore {
+class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -135,7 +135,7 @@ export class IndependentAuthorityRepository implements IndependentAuthorityRepos
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaIndependentAuthorityStore(transaction)),
+      operation(new PrismaIndependentAuthorityRepository(transaction)),
     );
   }
 }

@@ -9,11 +9,11 @@ import {
 } from './collection-user-activity.integration-support';
 import {
   CollectionDiscoveryClient,
-  CollectionDiscoveryClientError,
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

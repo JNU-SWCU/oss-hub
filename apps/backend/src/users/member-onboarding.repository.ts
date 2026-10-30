@@ -107,7 +107,7 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
   select: typeof MEMBER_USER_SELECT;
 }>;
 
-class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
+class PrismaOnboardingTransactionRepository implements OnboardingTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   requestStaffAccess(
@@ -177,7 +177,7 @@ export class MemberOnboardingRepository {
     operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaOnboardingTransactionStore(transaction)),
+      operation(new PrismaOnboardingTransactionRepository(transaction)),
     );
   }
 

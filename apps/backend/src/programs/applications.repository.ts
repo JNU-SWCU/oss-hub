@@ -52,6 +52,13 @@ import {
   type AppendedReviewHistory,
   ReviewHistoryWriterRepository,
 } from './review-history-writer.repository';
+import {
+  RepositoryEventAlreadyExistsError,
+  ApplicationDuplicateError,
+  ApplicationTeamMembershipConflictError,
+  ApplicationJoinCodeDigestConflictError,
+  ApplicationPreparationConflictError,
+} from './applications.error';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {
@@ -122,14 +129,6 @@ export interface ApplicationsTransactionStore {
   ): Promise<RepositoryProvisionEvent>;
 }
 
-export class RepositoryEventAlreadyExistsError extends Error {
-  override readonly name = 'RepositoryEventAlreadyExistsError';
-}
-
-export class ApplicationDuplicateError extends Error {
-  override readonly name = 'ApplicationDuplicateError';
-}
-
 export interface ApplicationStudentActor {
   readonly id: string;
   readonly name: string | null;
@@ -171,16 +170,6 @@ interface CreateApplicationRecordInput {
   readonly repositoryUrl: string | null;
 }
 
-export class ApplicationTeamMembershipConflictError extends Error {
-  override readonly name = 'ApplicationTeamMembershipConflictError';
-}
-
-export class ApplicationJoinCodeDigestConflictError extends Error {
-  override readonly name = 'ApplicationJoinCodeDigestConflictError';
-}
-
-export class ApplicationPreparationConflictError extends Error {}
-
 export interface ApplicationCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
 
@@ -216,7 +205,7 @@ export interface ApplicationCreateStore {
   ): Promise<CreatedApplication>;
 }
 
-class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore {
+class PrismaApplicationsTransactionRepository implements ApplicationsTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -436,7 +425,7 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
   }
 }
 
-class PrismaApplicationCreateStore implements ApplicationCreateStore {
+class PrismaApplicationCreateRepository implements ApplicationCreateStore {
   constructor(private readonly database: ApplicationDatabase) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -639,7 +628,7 @@ export class ApplicationsRepository {
     operation: (store: ApplicationsTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaApplicationsTransactionStore(transaction)),
+      operation(new PrismaApplicationsTransactionRepository(transaction)),
     );
   }
 
@@ -647,7 +636,7 @@ export class ApplicationsRepository {
     operation: (store: ApplicationCreateStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaApplicationCreateStore(transaction)),
+      operation(new PrismaApplicationCreateRepository(transaction)),
     );
   }
 

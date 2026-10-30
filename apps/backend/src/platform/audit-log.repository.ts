@@ -5,10 +5,10 @@ import { PrismaService } from './prisma.service';
 import {
   parseAuditLogMetadata,
   type AuditLogMetadataEvidence,
-  type AuditLogMetadataView,
 } from './audit-log-metadata.policy';
 import type { AuditLogRecordInput } from './audit-log-record-input.types';
 import type { AuditLogListQuery } from './audit-log-query.types';
+import type { AuditLogListResult, AuditLogRecord } from './audit-log.types';
 
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
 const REPOSITORY_TARGET_TYPE = 'REPOSITORY';
@@ -34,33 +34,6 @@ export interface AuditLogActor {
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
 }
-
-type AuditLogRecordBase = {
-  readonly id: string;
-  readonly actor: string;
-  readonly actorHandle: string | null;
-  readonly action: string;
-  readonly targetType: string;
-  readonly targetId: string;
-
-  readonly target: string;
-  readonly targetHandle: string | null;
-  readonly occurredAt: Date;
-};
-
-export type AuditLogRecord = AuditLogRecordBase &
-  (
-    | { readonly legacy: true; readonly metadata: null }
-    | {
-        readonly legacy: false;
-        readonly metadata: AuditLogMetadataView;
-      }
-  );
-
-export type AuditLogListResult = {
-  readonly items: readonly AuditLogRecord[];
-  readonly total: number;
-};
 
 @Injectable()
 export class AuditLogRepository {

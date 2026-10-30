@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import {
   CollectionIncrementalRepository,
-  CollectionIncrementalStore,
+  CollectionIncrementalStoreRepository,
 } from './collection-incremental.repository';
 import {
   CollectionSyncRuntime,
@@ -10,7 +10,6 @@ import {
 } from './collection-sync.service';
 import type { PrismaService } from '../platform/prisma.service';
 import {
-  CollectionAppClientError,
   type CollectionAppClient,
   type CollectionCommit,
   type CollectionIssue,
@@ -26,7 +25,8 @@ import {
 } from './collection-app.client';
 import type { CollectionAppTokenClient } from './collection-app-token.client';
 import type { RequestFingerprint } from './github.policy';
-import { ProviderRequestQueue } from './collection-discovery.client';
+import { CollectionAppClientError } from './collection-app.error';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
 
 type Row = Record<string, unknown>;
 
@@ -1358,7 +1358,7 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
     const originalAcquire =
       originalRepository.acquireSyncLease.bind(originalRepository);
     jest
-      .spyOn(CollectionIncrementalStore.prototype, 'acquireSyncLease')
+      .spyOn(CollectionIncrementalStoreRepository.prototype, 'acquireSyncLease')
       .mockImplementationOnce(async (input) => {
         const token = await originalAcquire(input);
         if (token) {
@@ -1559,7 +1559,10 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
     const client = createClient([repository]);
     quietStreams(client);
     jest
-      .spyOn(CollectionIncrementalStore.prototype, 'listRepositoryTeamMembers')
+      .spyOn(
+        CollectionIncrementalStoreRepository.prototype,
+        'listRepositoryTeamMembers',
+      )
       .mockRejectedValue(new Error('synthetic team member lookup failure'));
 
     const result = await createService(db, client).run('owner-1');
@@ -1871,15 +1874,24 @@ describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', (
 
   const spyWindow = (window: typeof WINDOW | null = WINDOW) =>
     jest
-      .spyOn(CollectionIncrementalStore.prototype, 'findOutsiderCountingWindow')
+      .spyOn(
+        CollectionIncrementalStoreRepository.prototype,
+        'findOutsiderCountingWindow',
+      )
       .mockResolvedValue(window);
   const spyTeamCommits = (count: number) =>
     jest
-      .spyOn(CollectionIncrementalStore.prototype, 'countTeamCommitsBetween')
+      .spyOn(
+        CollectionIncrementalStoreRepository.prototype,
+        'countTeamCommitsBetween',
+      )
       .mockResolvedValue(count);
   const spySave = () =>
     jest
-      .spyOn(CollectionIncrementalStore.prototype, 'saveOutsiderContribution')
+      .spyOn(
+        CollectionIncrementalStoreRepository.prototype,
+        'saveOutsiderContribution',
+      )
       .mockResolvedValue();
 
   it('커밋은 기간 전체 − 팀원합으로, PR·Issue는 팀원도 봇도 아닌 계정의 것만 세어 한 행으로 덮어쓴다', async () => {
@@ -3413,7 +3425,10 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     const client = createClient([]);
     const detached = { ...linkedRow(), applicationId: null };
     const read = jest
-      .spyOn(CollectionIncrementalStore.prototype, 'findRepositoryByLogicalKey')
+      .spyOn(
+        CollectionIncrementalStoreRepository.prototype,
+        'findRepositoryByLogicalKey',
+      )
 
       .mockResolvedValueOnce(linkedRow() as never)
       .mockResolvedValueOnce(detached as never);

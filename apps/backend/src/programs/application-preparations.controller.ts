@@ -15,6 +15,8 @@ import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationPreparationsService } from './application-preparations.service';
 import {
+  ApplicationPreparationAcceptResponseDto,
+  ApplicationPreparationCandidateResponseDto,
   ApplicationPreparationInvitationResponseDto,
   ApplicationPreparationResponseDto,
 } from './dto/application-preparation-response.dto';
@@ -31,7 +33,7 @@ export class ApplicationPreparationsController {
   async get(
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
-  ) {
+  ): Promise<ApplicationPreparationResponseDto | null> {
     const preparation = await this.service.get(
       request.sessionGithubId,
       programId,
@@ -46,7 +48,7 @@ export class ApplicationPreparationsController {
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
     @Body() body: CreateApplicationPreparationRequestDto,
-  ) {
+  ): Promise<ApplicationPreparationResponseDto> {
     return ApplicationPreparationResponseDto.from(
       await this.service.create(request.sessionGithubId, programId, body.name),
     );
@@ -57,7 +59,7 @@ export class ApplicationPreparationsController {
   leave(
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
-  ) {
+  ): Promise<void> {
     return this.service.leave(request.sessionGithubId, programId);
   }
   @Delete('programs/:programId/members/:userId')
@@ -67,14 +69,14 @@ export class ApplicationPreparationsController {
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
     @Param('userId') userId: string,
-  ) {
+  ): Promise<void> {
     return this.service.remove(request.sessionGithubId, programId, userId);
   }
   @Get(':preparationId/sent')
   async sent(
     @Req() request: AuthenticatedRequest,
     @Param('preparationId') preparationId: string,
-  ) {
+  ): Promise<ApplicationPreparationInvitationResponseDto[]> {
     return (
       await this.service.listSent(request.sessionGithubId, preparationId)
     ).map((invitation) =>
@@ -82,15 +84,19 @@ export class ApplicationPreparationsController {
     );
   }
   @Get(':preparationId/search')
-  search(
+  async search(
     @Req() request: AuthenticatedRequest,
     @Param('preparationId') preparationId: string,
     @Query() query: SearchApplicationPreparationRequestDto,
-  ) {
-    return this.service.search(
-      request.sessionGithubId,
-      preparationId,
-      query.query,
+  ): Promise<ApplicationPreparationCandidateResponseDto[]> {
+    return (
+      await this.service.search(
+        request.sessionGithubId,
+        preparationId,
+        query.query,
+      )
+    ).map((candidate) =>
+      ApplicationPreparationCandidateResponseDto.from(candidate),
     );
   }
   @Post(':preparationId/invitations')
@@ -99,7 +105,7 @@ export class ApplicationPreparationsController {
     @Req() request: AuthenticatedRequest,
     @Param('preparationId') preparationId: string,
     @Body() body: InviteApplicationPreparationRequestDto,
-  ) {
+  ): Promise<ApplicationPreparationInvitationResponseDto> {
     return ApplicationPreparationInvitationResponseDto.from(
       await this.service.invite(
         request.sessionGithubId,
@@ -111,14 +117,16 @@ export class ApplicationPreparationsController {
   @Post('invitations/:invitationId/accept')
   @HttpCode(200)
   @UseGuards(OriginGuard)
-  accept(
+  async accept(
     @Req() request: AuthenticatedRequest,
     @Param('invitationId') invitationId: string,
-  ) {
-    return this.service.respond(
-      request.sessionGithubId,
-      invitationId,
-      'accept',
+  ): Promise<ApplicationPreparationAcceptResponseDto> {
+    return ApplicationPreparationAcceptResponseDto.from(
+      await this.service.respond(
+        request.sessionGithubId,
+        invitationId,
+        'accept',
+      ),
     );
   }
   @Post('invitations/:invitationId/decline')
@@ -127,7 +135,7 @@ export class ApplicationPreparationsController {
   async decline(
     @Req() request: AuthenticatedRequest,
     @Param('invitationId') invitationId: string,
-  ) {
+  ): Promise<void> {
     await this.service.respond(
       request.sessionGithubId,
       invitationId,
@@ -140,7 +148,7 @@ export class ApplicationPreparationsController {
   async cancel(
     @Req() request: AuthenticatedRequest,
     @Param('invitationId') invitationId: string,
-  ) {
+  ): Promise<void> {
     await this.service.respond(request.sessionGithubId, invitationId, 'cancel');
   }
 }

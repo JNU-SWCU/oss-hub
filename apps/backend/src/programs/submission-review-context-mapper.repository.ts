@@ -20,6 +20,7 @@ import {
   type SubmissionReviewFileRecord,
   type SubmissionRevisionRecord,
 } from './submission-review.types';
+import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
 
 export const REVIEW_CONTEXT_SELECT = {
   id: true,
@@ -117,10 +118,6 @@ export const REVIEW_CONTEXT_SELECT = {
 export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
   select: typeof REVIEW_CONTEXT_SELECT;
 }>;
-
-class SubmissionRevisionInvariantError extends Error {
-  override readonly name = 'SubmissionRevisionInvariantError';
-}
 
 export class SubmissionReviewContextMapperRepository {
   static toReviewContext(

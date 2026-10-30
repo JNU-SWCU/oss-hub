@@ -27,7 +27,6 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import {
-  InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentsRepository,
   type UpdateMilestoneDocumentInput,
 } from './milestone-documents.repository';
@@ -42,6 +41,7 @@ import {
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
 } from './milestone-document-submission.error';
+import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 @Injectable()
 export class MilestoneDocumentsService {

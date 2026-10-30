@@ -9,7 +9,6 @@ import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class SubmissionFileCleanupRetryService {
@@ -118,31 +117,5 @@ export class SubmissionFileCleanupService {
 
   private redactedError(): 'STORAGE_DELETE_FAILED' {
     return 'STORAGE_DELETE_FAILED';
-  }
-}
-
-@Injectable()
-export class SubmissionFileCleanupScheduler {
-  private readonly logger = new Logger(SubmissionFileCleanupScheduler.name);
-  private running = false;
-
-  constructor(private readonly cleanup: SubmissionFileCleanupService) {}
-
-  @Cron(CronExpression.EVERY_HOUR, {
-    name: 'submission-file-cleanup',
-  })
-  async run(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
-    try {
-      await this.cleanup.runDue();
-    } catch (error) {
-      this.logger.error({
-        event: 'submission-file.cleanup.run.failed',
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    } finally {
-      this.running = false;
-    }
   }
 }

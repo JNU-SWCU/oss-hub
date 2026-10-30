@@ -4,10 +4,7 @@ import type { Provider } from '@nestjs/common';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppTokenClient } from './collection-app-token.client';
-import {
-  CollectionDiscoveryClient,
-  ProviderRequestQueue,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
@@ -17,6 +14,7 @@ import {
   CollectionSyncService,
 } from './collection-sync.service';
 import { CollectionPublicTokenService } from './collection-public-token.service';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
 
 export class CollectionProvidersService {
   static readonly providers: Provider[] = [

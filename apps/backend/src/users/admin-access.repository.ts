@@ -123,7 +123,7 @@ export type {
   AdminAccessUserUpdate,
 } from './admin-access-repository.types';
 
-class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
+class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -203,7 +203,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaAdminAccessTransactionStore(transaction)),
+      operation(new PrismaAdminAccessTransactionRepository(transaction)),
     );
   }
 

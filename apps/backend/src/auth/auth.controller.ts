@@ -144,7 +144,7 @@ export class AuthController {
         if (req.auth.hasSessionCookie) {
           this.clearSessionCookie(res);
         }
-        return SessionResponseDto.from(null);
+        return SessionResponseDto.from();
       case HTTP_AUTH_KINDS.AUTHENTICATED:
         return SessionResponseDto.from(MeResponseDto.from(req.auth.principal));
       default:

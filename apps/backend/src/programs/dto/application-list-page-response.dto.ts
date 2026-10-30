@@ -122,19 +122,40 @@ export class ReviewHistoryEntryResponseDto {
 
 export class ApplicationDetailResponseDto {
   declare readonly id: string;
+
   declare readonly programId: string;
   declare readonly status: ApplicationStatus;
   declare readonly submittedAt: string;
   declare readonly rejectionReason: string | null;
+
   declare readonly repositoryConnectionMode: RepositoryConnectionMode;
+
   declare readonly repositoryUrl: string | null;
-  declare readonly repositoryProvisioning: ApplicationListItemResponseDto['repositoryProvisioning'];
+  declare readonly repositoryProvisioning: {
+    readonly enabled: boolean;
+    readonly jobStatus: RepositoryProvisioningJobStatus;
+    readonly updatedAt: string;
+    readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
+  };
+
   declare readonly repository: ApplicationListRepository | null;
   declare readonly isRepositoryPublicationPlanned: boolean;
   declare readonly participation: 'INDIVIDUAL' | 'TEAM';
-  declare readonly applicant: ApplicationListItemResponseDto['applicant'];
-  declare readonly team: ApplicationListItemResponseDto['team'];
-  declare readonly answers: ApplicationListItemResponseDto['answers'];
+  declare readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  declare readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+  } | null;
+  declare readonly answers: {
+    readonly applicantName: string;
+    readonly title: string;
+    readonly summary: string;
+  };
   declare readonly reviewHistory: readonly ReviewHistoryEntryResponseDto[];
 
   static from(detail: StaffApplicationDetail): ApplicationDetailResponseDto {

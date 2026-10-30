@@ -14,13 +14,13 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import {
   CollectionIncrementalRepository,
-  CollectionIncrementalStore,
+  CollectionIncrementalStoreRepository,
 } from './collection-incremental.repository';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
-import { ProviderRequestQueue } from './collection-discovery.client';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -345,7 +345,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     });
 
     const commitSpy = jest.spyOn(
-      CollectionIncrementalStore.prototype,
+      CollectionIncrementalStoreRepository.prototype,
       'recordCommitFacts',
     );
     const originalCommit = originalImplementation(
@@ -353,7 +353,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'recordCommitFacts',
     );
     commitSpy.mockImplementation(async function (
-      this: CollectionIncrementalStore,
+      this: CollectionIncrementalStoreRepository,
       repositoryId,
       facts,
       registeredGithubIds,
@@ -368,7 +368,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       return result;
     });
     const pullRequestSpy = jest.spyOn(
-      CollectionIncrementalStore.prototype,
+      CollectionIncrementalStoreRepository.prototype,
       'recordPullRequestFacts',
     );
     const originalPullRequest = originalImplementation(
@@ -376,7 +376,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'recordPullRequestFacts',
     );
     pullRequestSpy.mockImplementation(async function (
-      this: CollectionIncrementalStore,
+      this: CollectionIncrementalStoreRepository,
       repositoryId,
       facts,
       registeredGithubIds,
@@ -391,7 +391,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       return result;
     });
     const releaseSpy = jest.spyOn(
-      CollectionIncrementalStore.prototype,
+      CollectionIncrementalStoreRepository.prototype,
       'recordReleaseFacts',
     );
     const originalRelease = originalImplementation(
@@ -399,7 +399,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'recordReleaseFacts',
     );
     releaseSpy.mockImplementation(async function (
-      this: CollectionIncrementalStore,
+      this: CollectionIncrementalStoreRepository,
       repositoryId,
       facts,
       registeredGithubIds,
@@ -414,12 +414,12 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       return result;
     });
     const issueSpy = jest.spyOn(
-      CollectionIncrementalStore.prototype,
+      CollectionIncrementalStoreRepository.prototype,
       'recordIssueFacts',
     );
     const originalIssue = originalImplementation(issueSpy, 'recordIssueFacts');
     issueSpy.mockImplementation(async function (
-      this: CollectionIncrementalStore,
+      this: CollectionIncrementalStoreRepository,
       repositoryId,
       facts,
       registeredGithubIds,
@@ -476,7 +476,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const cursorAdvances: bigint[] = [];
 
     const cursorSpy = jest.spyOn(
-      CollectionIncrementalStore.prototype,
+      CollectionIncrementalStoreRepository.prototype,
       'upsertSyncCursor',
     );
     const originalUpsertCursor = originalImplementation(
@@ -484,7 +484,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'upsertSyncCursor',
     );
     cursorSpy.mockImplementation(async function (
-      this: CollectionIncrementalStore,
+      this: CollectionIncrementalStoreRepository,
       input,
     ) {
       if (typeof input.lastGithubRepositoryId === 'bigint') {

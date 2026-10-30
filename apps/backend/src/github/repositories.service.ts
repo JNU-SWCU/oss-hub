@@ -14,6 +14,7 @@ import {
   type RepositoryPublishTarget,
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
+import { RepositoryNotFoundError } from './repositories.error';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;
@@ -46,10 +47,6 @@ export class RepositoryOwnEnrollmentService {
       observedAt: input.observedAt,
     });
   }
-}
-
-export class RepositoryNotFoundError extends Error {
-  override readonly name = 'RepositoryNotFoundError';
 }
 
 export interface PublishRepositoryInput {

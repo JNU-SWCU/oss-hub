@@ -9,6 +9,7 @@ import {
   sameTeamDeletionScopeCounts,
   type TeamDeletionScopeCounts,
 } from './programs.policy';
+import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 
@@ -73,13 +74,6 @@ export type TeamDeletionResult =
       readonly outcome: 'scope-changed';
       readonly currentScopeCounts: TeamDeletionScopeCounts;
     };
-
-class TeamDeletedScopeMismatchError extends Error {
-  constructor() {
-    super('Team deletion deleted counts differ from its confirmed scope.');
-    this.name = 'TeamDeletedScopeMismatchError';
-  }
-}
 
 @Injectable()
 export class ProgramTeamDeletionRepository {

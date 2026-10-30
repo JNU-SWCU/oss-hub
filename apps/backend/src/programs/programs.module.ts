@@ -10,14 +10,8 @@ import {
   ProgramAuthoringService,
   ProgramNoticePreviewService,
 } from './program-authoring.service';
-import {
-  ProgramAuthoringUploadMaintenanceScheduler,
-  ProgramAuthoringUploadMaintenanceService,
-} from './program-authoring-upload-maintenance.service';
-import {
-  ProgramPurgeFileCleanupScheduler,
-  ProgramPurgeFileCleanupService,
-} from './program-purge-file-cleanup.service';
+import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
+import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
 import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.repository';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
@@ -86,7 +80,6 @@ import { StudentRepositoryUrlController } from './student-repository-url.control
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import {
-  SubmissionFileCleanupScheduler,
   SubmissionFileCleanupService,
   SubmissionFileCleanupRetryService,
 } from './submission-file-cleanup.service';
@@ -122,6 +115,9 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
+import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
+import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
 
 @Module({
   imports: [AuthModule, PlatformModule, GithubModule, UsersModule],

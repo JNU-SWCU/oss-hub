@@ -29,6 +29,8 @@ import {
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
+import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
 import {
   EditableProgramResponseDto,
   ProgramMilestoneResponseDto,
@@ -176,25 +178,29 @@ export class ProgramsController {
 
   @Delete(':id/purge')
   @UseGuards(SessionGuard, OriginGuard)
-  purge(
+  async purge(
     @Param('id') programId: string,
     @Body() body: PurgeProgramRequestDto,
     @Req() request: SessionIdentity,
-  ) {
-    return this.lifecycle.purge(
-      request.sessionGithubId,
-      programId,
-      body.expectedScope,
+  ): Promise<PurgeProgramResponseDto> {
+    return PurgeProgramResponseDto.from(
+      await this.lifecycle.purge(
+        request.sessionGithubId,
+        programId,
+        body.expectedScope,
+      ),
     );
   }
 
   @Delete(':id')
   @UseGuards(SessionGuard, OriginGuard)
-  delete(
+  async delete(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
-  ): Promise<{ readonly id: string; readonly deleted: true }> {
-    return this.lifecycle.delete(request.sessionGithubId, programId);
+  ): Promise<DeleteProgramResponseDto> {
+    return DeleteProgramResponseDto.from(
+      await this.lifecycle.delete(request.sessionGithubId, programId),
+    );
   }
 
   @Get(':id/edit')

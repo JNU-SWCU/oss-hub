@@ -60,14 +60,16 @@ These checks enforce the rules.
 
 | Rule id | Check |
 | --- | --- |
-| `controller-explicit-return` | Controller handlers return an explicit response DTO type |
-| `response-dto-shape` | Response DTOs have only `declare readonly` fields and `static from()` |
-| `request-dto-decorated` | Every request DTO field has a class-validator decorator |
-| `file-name-convention` | File names follow kebab-case and the closed suffix list |
-| `file-class-match` | Class name matches the file stem and suffix |
-| `no-cross-app-path` | No path references between frontend and backend |
+| `conventions/controller-explicit-return` | Controller handlers return an explicit response DTO type |
+| `conventions/response-dto-shape` | Response DTOs have only `declare readonly` fields and `static from()` |
+| `conventions/request-dto-decorated` | Every request DTO field has a class-validator decorator |
+| `conventions/file-name-convention` | File names follow kebab-case and the closed suffix list |
+| `conventions/file-class-match` | Class name matches the file stem and suffix |
+| `cross-app/no-cross-app-path` | No path references between frontend and backend |
 | `boundaries/no-unknown-files` | No folders or files outside the module map |
 | `architecture/no-cycle` | No dependency cycles between modules |
+
+Return type allowlist of `conventions/controller-explicit-return` (route names): `GET programs/:programId/applications/me`, `GET application-preparations/programs/:programId/me`. They send an empty 200 body when there is no application or preparation, and a state field would change the JSON.
 
 Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapped-types, nestjs-zod, nestia.
 
@@ -106,12 +108,12 @@ Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapp
     "-response.dto.ts"
   ],
   "rules": [
-    "controller-explicit-return",
-    "response-dto-shape",
-    "request-dto-decorated",
-    "file-name-convention",
-    "file-class-match",
-    "no-cross-app-path",
+    "conventions/controller-explicit-return",
+    "conventions/response-dto-shape",
+    "conventions/request-dto-decorated",
+    "conventions/file-name-convention",
+    "conventions/file-class-match",
+    "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
     "architecture/no-cycle"
   ],

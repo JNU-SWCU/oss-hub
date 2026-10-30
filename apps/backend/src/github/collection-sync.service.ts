@@ -3,17 +3,12 @@ import {
   type CollectionSyncRuntime,
   type CollectionSyncRuntimeFactory,
   type SweepInventory,
-  CollectionSyncDeadline,
-  RunDeadlineError,
 } from './collection-inventory.service';
 import { splitNameWithOwner, requestFingerprintKey } from './github.policy';
 import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CollectionAppClientError,
-  CollectionCommit,
-} from './collection-app.client';
+import { CollectionCommit } from './collection-app.client';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
@@ -24,6 +19,9 @@ import type {
   RepositoryTeamMemberAccount,
   SyncLeaseToken,
 } from './collection-incremental.types';
+import { CollectionAppClientError } from './collection-app.error';
+import { RunDeadlineError } from './collection-inventory.error';
+import { CollectionSyncDeadline } from './collection-sync-deadline.policy';
 
 export type {
   CollectionSyncRuntime,

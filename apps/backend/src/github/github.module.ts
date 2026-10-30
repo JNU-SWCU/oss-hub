@@ -13,10 +13,7 @@ import {
 } from './repository-provision-job.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionProvidersService } from './collection-providers.service';
-import {
-  CollectionScheduler,
-  CollectionTriggerService,
-} from './collection-trigger.service';
+import { CollectionTriggerService } from './collection-trigger.service';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenClient } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
@@ -27,12 +24,11 @@ import {
   RepositoriesService,
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
-import {
-  RepositoryOutboxConsumerService,
-  RepositoryProvisionScheduler,
-} from './repository-outbox-consumer.service';
+import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
+import { CollectionScheduler } from './collection.scheduler';
+import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],

@@ -39,7 +39,7 @@ type PrismaAdminProfileTarget = Prisma.UserGetPayload<{
   select: typeof ADMIN_PROFILE_TARGET_SELECT;
 }>;
 
-class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore {
+class PrismaAdminProfileTransactionRepository implements AdminProfileTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -117,7 +117,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(new PrismaAdminProfileTransactionStore(transaction)),
+            operation(new PrismaAdminProfileTransactionRepository(transaction)),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {

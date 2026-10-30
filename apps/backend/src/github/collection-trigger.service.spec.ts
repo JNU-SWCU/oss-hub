@@ -5,7 +5,6 @@ import {
   COLLECTION_CRON_JOB_NAME,
   CollectionTriggerService,
   DEFAULT_COLLECTION_CRON_EXPRESSION,
-  CollectionScheduler,
 } from './collection-trigger.service';
 import { Logger } from '@nestjs/common';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
@@ -17,6 +16,7 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
+import { CollectionScheduler } from './collection.scheduler';
 
 describe('collection.scheduler', () => {
   describe('CollectionScheduler', () => {

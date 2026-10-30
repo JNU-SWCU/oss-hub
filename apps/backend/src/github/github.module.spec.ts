@@ -9,15 +9,9 @@ import { CollectionUserActivityRepository } from './repository-provision-job.rep
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';
-import {
-  CollectionDiscoveryClient,
-  ProviderRequestQueue,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import {
-  CollectionScheduler,
-  CollectionTriggerService,
-} from './collection-trigger.service';
+import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import {
   CollectionSyncRuntime,
@@ -31,6 +25,8 @@ import {
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
 import { CollectionPublicTokenService } from './collection-public-token.service';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { CollectionScheduler } from './collection.scheduler';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;

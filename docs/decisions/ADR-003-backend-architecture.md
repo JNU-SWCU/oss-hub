@@ -60,14 +60,16 @@ export class ProgramSummaryResponseDto {
 
 | 규칙 id | 검사 |
 | --- | --- |
-| `controller-explicit-return` | 컨트롤러 핸들러가 명시적 응답 DTO 타입을 반환 |
-| `response-dto-shape` | Response DTO가 `declare readonly` 필드와 `static from()`만 가짐 |
-| `request-dto-decorated` | Request DTO의 모든 필드에 class-validator 데코레이터 |
-| `file-name-convention` | 파일 이름이 kebab-case와 닫힌 접미사 목록을 따름 |
-| `file-class-match` | 클래스 이름이 파일 stem과 접미사에 맞음 |
-| `no-cross-app-path` | frontend와 backend 사이 경로 참조 금지 |
+| `conventions/controller-explicit-return` | 컨트롤러 핸들러가 명시적 응답 DTO 타입을 반환 |
+| `conventions/response-dto-shape` | Response DTO가 `declare readonly` 필드와 `static from()`만 가짐 |
+| `conventions/request-dto-decorated` | Request DTO의 모든 필드에 class-validator 데코레이터 |
+| `conventions/file-name-convention` | 파일 이름이 kebab-case와 닫힌 접미사 목록을 따름 |
+| `conventions/file-class-match` | 클래스 이름이 파일 stem과 접미사에 맞음 |
+| `cross-app/no-cross-app-path` | frontend와 backend 사이 경로 참조 금지 |
 | `boundaries/no-unknown-files` | 모듈 맵 밖의 폴더나 파일 금지 |
 | `architecture/no-cycle` | 모듈 사이 순환 의존 금지 |
+
+`conventions/controller-explicit-return`의 반환 타입 허용 목록(라우트 이름): `GET programs/:programId/applications/me`, `GET application-preparations/programs/:programId/me`. 지원서나 지원 준비가 없으면 빈 200 본문을 보내며, 상태 필드로 바꾸면 JSON이 달라집니다.
 
 검토 후 채택하지 않은 안: 중첩 컨텍스트, vertical slice, `@Expose` 직렬화, mapped-types, nestjs-zod, nestia.
 
@@ -106,12 +108,12 @@ export class ProgramSummaryResponseDto {
     "-response.dto.ts"
   ],
   "rules": [
-    "controller-explicit-return",
-    "response-dto-shape",
-    "request-dto-decorated",
-    "file-name-convention",
-    "file-class-match",
-    "no-cross-app-path",
+    "conventions/controller-explicit-return",
+    "conventions/response-dto-shape",
+    "conventions/request-dto-decorated",
+    "conventions/file-name-convention",
+    "conventions/file-class-match",
+    "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
     "architecture/no-cycle"
   ],

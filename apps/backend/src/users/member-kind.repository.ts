@@ -118,7 +118,7 @@ type PrismaMemberKindTarget = Prisma.UserGetPayload<{
 
 type LockedRow = Readonly<{ id: string }>;
 
-class PrismaMemberKindTransactionStore implements MemberKindTransactionStore {
+class PrismaMemberKindTransactionRepository implements MemberKindTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -200,7 +200,7 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(new PrismaMemberKindTransactionStore(transaction)),
+            operation(new PrismaMemberKindTransactionRepository(transaction)),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {

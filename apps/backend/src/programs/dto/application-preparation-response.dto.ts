@@ -72,3 +72,31 @@ export class ApplicationPreparationInvitationResponseDto {
     };
   }
 }
+
+export class ApplicationPreparationCandidateResponseDto {
+  declare readonly id: string;
+  declare readonly nickname: string;
+  declare readonly name: string | null;
+  declare readonly avatarUrl: string | null;
+
+  static from(candidate: {
+    readonly id: string;
+    readonly nickname: string;
+    readonly name: string | null;
+    readonly avatarUrl: string | null;
+  }): ApplicationPreparationCandidateResponseDto {
+    return { ...candidate };
+  }
+}
+
+export class ApplicationPreparationAcceptResponseDto {
+  declare readonly teamId: string;
+  declare readonly programId: string;
+
+  static from(result: {
+    readonly teamId: string;
+    readonly programId: string;
+  }): ApplicationPreparationAcceptResponseDto {
+    return { ...result };
+  }
+}

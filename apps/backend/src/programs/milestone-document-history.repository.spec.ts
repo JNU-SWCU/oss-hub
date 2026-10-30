@@ -4,10 +4,8 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  InvalidMilestoneDocumentHistoryCursorError,
-  MilestoneDocumentsRepository,
-} from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];

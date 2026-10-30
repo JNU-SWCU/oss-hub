@@ -9,19 +9,17 @@ import {
 } from './collection-user-activity.integration-support';
 import {
   CollectionDiscoveryClient,
-  CollectionDiscoveryClientError,
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import {
   CollectionCutoverRepository,
   CollectionUserActivityRepository,
 } from './repository-provision-job.repository';
-import {
-  CollectionScheduler,
-  CollectionTriggerService,
-} from './collection-trigger.service';
+import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
+import { CollectionDiscoveryClientError } from './collection-discovery.error';
+import { CollectionScheduler } from './collection.scheduler';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

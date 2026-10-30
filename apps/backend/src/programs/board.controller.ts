@@ -11,6 +11,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { BoardPostPinResponseDto } from './dto/board-post-pin-response.dto';
+import { DeletedResponseDto } from './dto/deleted-response.dto';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
@@ -100,9 +102,9 @@ export class BoardController {
     @Req() request: BoardActor,
     @Param('programId') programId: string,
     @Param('postId') postId: string,
-  ): Promise<{ readonly deleted: true }> {
+  ): Promise<DeletedResponseDto> {
     await this.service.deletePost(programId, postId, request.sessionGithubId);
-    return { deleted: true };
+    return DeletedResponseDto.from();
   }
 
   @Patch(':postId/pin')
@@ -112,14 +114,14 @@ export class BoardController {
     @Param('programId') programId: string,
     @Param('postId') postId: string,
     @Body() body: SetBoardPostPinnedRequestDto,
-  ): Promise<{ readonly pinned: boolean }> {
+  ): Promise<BoardPostPinResponseDto> {
     await this.service.setPinned(
       programId,
       postId,
       request.sessionGithubId,
       body.pinned,
     );
-    return { pinned: body.pinned };
+    return BoardPostPinResponseDto.from(body.pinned);
   }
 
   @Post(':postId/comments')
@@ -148,13 +150,13 @@ export class BoardController {
     @Param('programId') programId: string,
     @Param('postId') postId: string,
     @Param('commentId') commentId: string,
-  ): Promise<{ readonly deleted: true }> {
+  ): Promise<DeletedResponseDto> {
     await this.service.deleteComment(
       programId,
       postId,
       commentId,
       request.sessionGithubId,
     );
-    return { deleted: true };
+    return DeletedResponseDto.from();
   }
 }

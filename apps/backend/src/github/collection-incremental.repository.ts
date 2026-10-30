@@ -91,7 +91,7 @@ type CollectionStoreClient = Pick<
   | 'user'
 >;
 
-export class CollectionIncrementalStore {
+export class CollectionIncrementalStoreRepository {
   constructor(private readonly db: CollectionStoreClient) {}
 
   async recordRepositoryObservation(
@@ -971,22 +971,22 @@ export class CollectionIncrementalStore {
 }
 
 @Injectable()
-export class CollectionIncrementalRepository extends CollectionIncrementalStore {
+export class CollectionIncrementalRepository extends CollectionIncrementalStoreRepository {
   constructor(private readonly prisma: PrismaService) {
     super(prisma);
   }
 
   async runInTransaction<T>(
-    fn: (store: CollectionIncrementalStore) => Promise<T>,
+    fn: (store: CollectionIncrementalStoreRepository) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((tx) =>
-      fn(new CollectionIncrementalStore(tx)),
+      fn(new CollectionIncrementalStoreRepository(tx)),
     );
   }
 
   override async enrollExternalRepository(
     input: Parameters<
-      CollectionIncrementalStore['enrollExternalRepository']
+      CollectionIncrementalStoreRepository['enrollExternalRepository']
     >[0],
   ): Promise<boolean> {
     return this.runInTransaction((store) =>

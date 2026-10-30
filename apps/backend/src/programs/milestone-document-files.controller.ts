@@ -12,6 +12,7 @@ import { MultipartFileUploadInterceptor } from '../platform/multipart-file-uploa
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import { UploadedMilestoneDocumentFileResponseDto } from './dto/uploaded-milestone-document-file-response.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -19,7 +20,6 @@ import {
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
-  type UploadedMilestoneDocumentFileResponse,
 } from './milestone-document-files.service';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 
@@ -57,17 +57,19 @@ export class MilestoneDocumentFilesController {
   @HttpCode(201)
   @UseGuards(SessionGuard, OriginGuard)
   @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
-  upload(
+  async upload(
     @Req() request: ViewerRequest,
     @Body('milestoneId') milestoneId: unknown,
     @Body('documentId') documentId: unknown,
     @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<UploadedMilestoneDocumentFileResponse> {
-    return this.service.upload(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      file,
+  ): Promise<UploadedMilestoneDocumentFileResponseDto> {
+    return UploadedMilestoneDocumentFileResponseDto.from(
+      await this.service.upload(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        file,
+      ),
     );
   }
 

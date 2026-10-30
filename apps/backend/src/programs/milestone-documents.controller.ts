@@ -44,14 +44,12 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import {
-  MilestoneDocumentArchiveEntryError,
-  MilestoneDocumentArchiveService,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import type { MilestoneDocumentArchiveScope } from './milestone-document-result.types';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

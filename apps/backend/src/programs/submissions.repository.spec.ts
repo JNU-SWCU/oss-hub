@@ -10,9 +10,9 @@ import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   type CreateSubmissionRevisionInput,
-  StaleSubmissionRevisionError,
   SubmissionsRepository,
 } from './submissions.repository';
+import { StaleSubmissionRevisionError } from './submissions.error';
 
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<typeof PlatformRepository.lockSubmissionMembership>,

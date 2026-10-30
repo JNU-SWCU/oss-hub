@@ -24,12 +24,14 @@ import {
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
 import {
-  StaleSubmissionRevisionError,
-  SubmissionAlreadyExistsError,
-  SubmissionFileUnavailableError,
   SubmissionsRepository,
   type SubmissionsStore,
 } from './submissions.repository';
+import {
+  StaleSubmissionRevisionError,
+  SubmissionAlreadyExistsError,
+  SubmissionFileUnavailableError,
+} from './submissions.error';
 
 @Injectable()
 export class SubmissionsService {

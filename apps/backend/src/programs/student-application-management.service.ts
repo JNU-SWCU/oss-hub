@@ -5,7 +5,6 @@ import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
-  type ApplicationAnswers,
 } from './application-answers-validator.policy';
 import { isProgramApplicationManager } from './programs.policy';
 import {
@@ -17,6 +16,7 @@ import {
   type ApplyProgramRecord,
 } from './applications.repository';
 import type { UpdateStudentApplicationInput } from './application-records.types';
+import type { StudentApplicationView } from './programs.types';
 import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,
@@ -24,22 +24,6 @@ import {
   type OwnedStudentApplication,
   type StudentApplicationMutationFailure,
 } from './student-application-management.repository';
-
-export interface StudentApplicationView {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: ApplicationStatus;
-  readonly teamId: string | null;
-  readonly answers: ApplicationAnswers;
-  readonly submittedAt: Date;
-  readonly updatedAt: Date;
-  readonly isRepositoryPublicationPlanned: boolean;
-
-  readonly rejectionReason: string | null;
-
-  readonly isManager: boolean;
-  readonly canManage: boolean;
-}
 
 interface StudentApplicationContext {
   readonly studentId: string;

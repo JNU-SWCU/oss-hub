@@ -15,43 +15,12 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import {
-  StudentApplicationManagementService,
-  type StudentApplicationView,
-} from './student-application-management.service';
+  StudentApplicationCancellationResponseDto,
+  StudentApplicationResponseDto,
+} from './dto/student-application-response.dto';
+import { StudentApplicationManagementService } from './student-application-management.service';
 
 type StudentApplicationRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
-
-interface StudentApplicationResponse {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: StudentApplicationView['status'];
-  readonly teamId: string | null;
-  readonly answers: StudentApplicationView['answers'];
-  readonly submittedAt: string;
-  readonly updatedAt: string;
-  readonly isRepositoryPublicationPlanned: boolean;
-
-  readonly rejectionReason: string | null;
-
-  readonly isManager: boolean;
-  readonly canManage: boolean;
-
-  readonly canEdit: boolean;
-
-  readonly canCancel: boolean;
-}
-
-function toResponse(
-  application: StudentApplicationView,
-): StudentApplicationResponse {
-  return {
-    ...application,
-    canEdit: application.canManage,
-    canCancel: application.canManage,
-    submittedAt: application.submittedAt.toISOString(),
-    updatedAt: application.updatedAt.toISOString(),
-  };
-}
 
 @Controller('programs/:programId/applications/me')
 @UseGuards(SessionGuard)
@@ -69,12 +38,12 @@ export class StudentApplicationsController {
   async getMine(
     @Req() request: StudentApplicationRequest,
     @Param('programId') programId: string,
-  ): Promise<StudentApplicationResponse | null> {
+  ): Promise<StudentApplicationResponseDto | null> {
     const application = await this.service.getMine(
       request.sessionGithubId,
       programId,
     );
-    return application ? toResponse(application) : null;
+    return application ? StudentApplicationResponseDto.from(application) : null;
   }
 
   @Patch()
@@ -83,8 +52,8 @@ export class StudentApplicationsController {
     @Req() request: StudentApplicationRequest,
     @Param('programId') programId: string,
     @Body() body: UpdateStudentApplicationRequestDto,
-  ): Promise<StudentApplicationResponse> {
-    return toResponse(
+  ): Promise<StudentApplicationResponseDto> {
+    return StudentApplicationResponseDto.from(
       await this.service.updateMine(
         request.sessionGithubId,
         programId,
@@ -95,10 +64,12 @@ export class StudentApplicationsController {
 
   @Delete()
   @UseGuards(OriginGuard)
-  cancelMine(
+  async cancelMine(
     @Req() request: StudentApplicationRequest,
     @Param('programId') programId: string,
-  ): Promise<{ readonly cancelled: true }> {
-    return this.service.cancelMine(request.sessionGithubId, programId);
+  ): Promise<StudentApplicationCancellationResponseDto> {
+    return StudentApplicationCancellationResponseDto.from(
+      await this.service.cancelMine(request.sessionGithubId, programId),
+    );
   }
 }

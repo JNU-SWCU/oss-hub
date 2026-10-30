@@ -8,6 +8,7 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 import type { AuthorityLabel } from '../users/authority-label.policy';
+import type { ApplicationAnswers } from './application-answers-validator.policy';
 import type { ProgramExternalCover } from './program-authoring.policy';
 import type {
   PublicProjectRow,
@@ -374,4 +375,25 @@ export interface PublicUserProfileResult {
   readonly projects: readonly PublicUserProfileProjectResult[];
 
   readonly observedTotals: PublicProjectMetrics;
+}
+
+export type StudentRepositoryUrlView = {
+  readonly repositoryUrl: string | null;
+  readonly canEditRepositoryUrl: boolean;
+};
+
+export interface StudentApplicationView {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly answers: ApplicationAnswers;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+
+  readonly rejectionReason: string | null;
+
+  readonly isManager: boolean;
+  readonly canManage: boolean;
 }

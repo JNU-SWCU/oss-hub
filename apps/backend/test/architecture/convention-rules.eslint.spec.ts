@@ -1,0 +1,380 @@
+import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+const backendRoot = path.resolve(__dirname, '../..');
+
+type RuleCase = {
+  rule: string;
+  name: string;
+  filename: string;
+  code: string;
+  errors?: string[];
+};
+
+const runner = `
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+const [backendRoot, casesJson] = process.argv.slice(1);
+const require = createRequire(path.join(backendRoot, 'package.json'));
+const { RuleTester } = require('eslint');
+const tseslint = require('typescript-eslint');
+const load = async (file, name) => (await import(pathToFileURL(path.join(backendRoot, 'eslint-rules', file)).href))[name];
+const rules = {
+  'controller-explicit-return': await load('controller-explicit-return.mjs', 'controllerExplicitReturn'),
+  'response-dto-shape': await load('response-dto-shape.mjs', 'responseDtoShape'),
+  'request-dto-decorated': await load('request-dto-decorated.mjs', 'requestDtoDecorated'),
+  'file-name-convention': await load('file-name-convention.mjs', 'fileNameConvention'),
+  'file-class-match': await load('file-class-match.mjs', 'fileClassMatch'),
+};
+let current;
+RuleTester.describe = (_name, fn) => fn();
+RuleTester.it = (_name, fn) => {
+  try {
+    fn();
+    current = { ok: true };
+  } catch (error) {
+    current = { ok: false, message: error.message };
+  }
+};
+RuleTester.itOnly = RuleTester.it;
+const tester = new RuleTester({ languageOptions: { parser: tseslint.parser } });
+const output = [];
+for (const item of JSON.parse(casesJson)) {
+  const test = { code: item.code, filename: path.join(backendRoot, item.filename) };
+  current = undefined;
+  tester.run(item.rule, rules[item.rule], item.errors
+    ? { valid: [], invalid: [{ ...test, errors: item.errors.map((messageId) => ({ messageId })) }] }
+    : { valid: [test], invalid: [] });
+  output.push(current ?? { ok: false, message: 'case did not run' });
+}
+process.stdout.write(JSON.stringify(output));
+`;
+
+const controllerFile = 'src/programs/things.controller.ts';
+const handler = (
+  returnType: string | null,
+  route = "@Controller('things')",
+  verb = '@Get()',
+) => `import { Controller, Get, StreamableFile } from '@nestjs/common';
+${route}
+export class ThingsController {
+  ${verb}
+  list()${returnType === null ? '' : `: ${returnType}`} {
+    return undefined as never;
+  }
+}`;
+
+const cases: RuleCase[] = [];
+const valid = (rule: string, name: string, filename: string, code: string) =>
+  cases.push({ rule, name, filename, code });
+const invalid = (
+  rule: string,
+  name: string,
+  filename: string,
+  code: string,
+  errors: string[],
+) => cases.push({ rule, name, filename, code, errors });
+
+for (const type of [
+  'Promise<ThingResponseDto[]>',
+  'Promise<ThingResponseDto>',
+  'Promise<readonly ThingResponseDto[]>',
+  'Promise<ThingResponseDto | OtherResponseDto>',
+  'Promise<PageResponseDto<ThingResponseDto>>',
+  'Promise<void>',
+  'void',
+  'StreamableFile',
+  'Promise<StreamableFile>',
+  'ThingResponseDto',
+]) {
+  valid(
+    'controller-explicit-return',
+    `accepts ${type}`,
+    controllerFile,
+    handler(type),
+  );
+}
+valid(
+  'controller-explicit-return',
+  'ignores methods without an HTTP decorator',
+  controllerFile,
+  handler(null, "@Controller('things')", ''),
+);
+valid(
+  'controller-explicit-return',
+  'skips an allowlisted route',
+  controllerFile,
+  handler(
+    'Promise<ThingResponseDto | null>',
+    "@Controller('programs/:programId/applications/me')",
+  ),
+);
+invalid(
+  'controller-explicit-return',
+  'rejects a missing return type',
+  controllerFile,
+  handler(null),
+  ['missing'],
+);
+for (const type of [
+  'Promise<string>',
+  'Promise<Promise<ThingResponseDto>>',
+  'Promise<Thing>',
+  'Promise<{ readonly id: string }>',
+  'Promise<Array<ThingResponseDto>>',
+]) {
+  invalid(
+    'controller-explicit-return',
+    `rejects ${type}`,
+    controllerFile,
+    handler(type),
+    ['invalid'],
+  );
+}
+for (const type of [
+  'Promise<ThingResponseDto | null>',
+  'Promise<ThingResponseDto | undefined>',
+  'Promise<any>',
+  'Promise<unknown>',
+  'Promise<PageResponseDto<any>>',
+]) {
+  invalid(
+    'controller-explicit-return',
+    `rejects ${type}`,
+    controllerFile,
+    handler(type),
+    ['forbidden'],
+  );
+}
+invalid(
+  'controller-explicit-return',
+  'rejects null on a route outside the allowlist',
+  controllerFile,
+  handler(
+    'Promise<ThingResponseDto | null>',
+    "@Controller('programs/:programId/applications')",
+  ),
+  ['forbidden'],
+);
+invalid(
+  'controller-explicit-return',
+  'checks every HTTP verb',
+  controllerFile,
+  handler(null, "@Controller('things')", "@Delete(':id')"),
+  ['missing'],
+);
+
+valid(
+  'file-class-match',
+  'accepts foo.service.ts exporting FooService',
+  'src/programs/foo.service.ts',
+  'export class FooService {}',
+);
+valid(
+  'file-class-match',
+  'accepts a kebab-case stem',
+  'src/programs/foo-bar.repository.ts',
+  'export class FooBarRepository {} class Helper {}',
+);
+valid(
+  'file-class-match',
+  'accepts a request DTO class',
+  'src/programs/dto/create-post-request.dto.ts',
+  'export class CreatePostRequestDto {} export class CreatePostItemRequestDto {}',
+);
+valid(
+  'file-class-match',
+  'ignores suffixes without a class contract',
+  'src/programs/foo.policy.ts',
+  'export const value = 1;',
+);
+invalid(
+  'file-class-match',
+  'rejects foo.service.ts exporting BarService',
+  'src/programs/foo.service.ts',
+  'export class BarService {}',
+  ['missing'],
+);
+invalid(
+  'file-class-match',
+  'rejects a role file without a class',
+  'src/programs/foo.scheduler.ts',
+  'export const value = 1;',
+  ['missing'],
+);
+invalid(
+  'file-class-match',
+  'rejects an extra exported class without the role suffix',
+  'src/programs/foo.service.ts',
+  'export class FooService {} export class FooError extends Error {}',
+  ['extra'],
+);
+invalid(
+  'file-class-match',
+  'rejects a response DTO class with a request suffix',
+  'src/programs/dto/post-response.dto.ts',
+  'export class PostResponseDto {} export class PostQueryRequestDto {}',
+  ['extra'],
+);
+
+for (const file of [
+  'src/programs/foo-bar.service.ts',
+  'src/programs/s3-object-storage.client.ts',
+  'src/programs/programs.module.ts',
+  'src/programs/dto/create-post-request.dto.ts',
+  'src/programs/dto/post-list-response.dto.ts',
+]) {
+  valid('file-name-convention', `accepts ${file}`, file, 'export {};');
+}
+for (const file of [
+  'src/programs/fooBar.service.ts',
+  'src/programs/foo.helpers.ts',
+  'src/programs/foo_bar.service.ts',
+  'src/programs/foo.bar.service.ts',
+  'src/programs/foo-request.dto.ts',
+  'src/programs/dto/post.dto.ts',
+  'src/programs/dto/Post-response.dto.ts',
+]) {
+  invalid('file-name-convention', `rejects ${file}`, file, 'export {};', [
+    'invalid',
+  ]);
+}
+
+const responseFile = 'src/programs/dto/thing-response.dto.ts';
+valid(
+  'response-dto-shape',
+  'accepts declare readonly fields and one static from',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  static from(thing: { id: string }): ThingResponseDto {
+    if (thing.id === '') return { id: 'none' };
+    return { id: thing.id };
+  }
+}`,
+);
+invalid(
+  'response-dto-shape',
+  'rejects a constructor',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  constructor() {}
+  static from(): ThingResponseDto { return { id: '' }; }
+}`,
+  ['constructor'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects a field that is not declare readonly',
+  responseFile,
+  `export class ThingResponseDto {
+  readonly id = '';
+  static from(): ThingResponseDto { return { id: '' }; }
+}`,
+  ['field'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects an instance method',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  toJSON() { return {}; }
+  static from(): ThingResponseDto { return { id: '' }; }
+}`,
+  ['method'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects a class without static from',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  static anonymous(): ThingResponseDto { return { id: '' }; }
+}`,
+  ['from'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects a static from without the class return type',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  static from() { return { id: '' }; }
+}`,
+  ['fromType'],
+);
+invalid(
+  'response-dto-shape',
+  'rejects a static from that returns something other than an object literal',
+  responseFile,
+  `export class ThingResponseDto {
+  declare readonly id: string;
+  static from(thing: ThingResponseDto): ThingResponseDto { return thing; }
+}`,
+  ['fromBody'],
+);
+
+const requestFile = 'src/programs/dto/thing-request.dto.ts';
+valid(
+  'request-dto-decorated',
+  'accepts class-validator decorators',
+  requestFile,
+  `import { IsOptional, IsString } from 'class-validator';
+export class ThingRequestDto {
+  @IsString() declare readonly name: string;
+  @IsOptional() @IsString() declare readonly note?: string;
+}`,
+);
+invalid(
+  'request-dto-decorated',
+  'rejects an undecorated field',
+  requestFile,
+  'export class ThingRequestDto { declare readonly name: string; }',
+  ['undecorated'],
+);
+invalid(
+  'request-dto-decorated',
+  'rejects @IsOptional alone',
+  requestFile,
+  `import { IsOptional } from 'class-validator';
+export class ThingRequestDto { @IsOptional() declare readonly name?: string; }`,
+  ['undecorated'],
+);
+invalid(
+  'request-dto-decorated',
+  'rejects a decorator that is not from class-validator',
+  requestFile,
+  `import { Type } from 'class-transformer';
+export class ThingRequestDto { @Type(() => Number) declare readonly page: number; }`,
+  ['undecorated'],
+);
+
+describe('backend convention lint rules', () => {
+  let results: { ok: boolean; message?: string }[];
+
+  beforeAll(() => {
+    results = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          runner,
+          backendRoot,
+          JSON.stringify(cases),
+        ],
+        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+      ),
+    ) as typeof results;
+  }, 30000);
+
+  it.each(cases.map((item, index) => ({ ...item, index })))(
+    '$rule $name',
+    ({ index }) => {
+      expect(results[index]).toEqual({ ok: true });
+    },
+  );
+});

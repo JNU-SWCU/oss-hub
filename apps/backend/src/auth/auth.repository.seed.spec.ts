@@ -1,11 +1,11 @@
 import { initialAccountSeed } from './auth.config';
-import { StaffAccessRequestSeedConflictError } from './auth.repository';
 import {
   buildProfile,
   buildRepository,
   buildRow,
   upsertUser,
 } from './auth.repository.spec-support';
+import { StaffAccessRequestSeedConflictError } from './auth.error';
 
 describe('AuthRepository.upsertUser seed requests', () => {
   it('CAS 경쟁에서 갱신하지 못하면 역할 요청 부수효과도 만들지 않는다', async () => {
