@@ -160,7 +160,7 @@ describe('DocumentsRoute role boundary', () => {
     expect(state.matrixProps).toBeNull();
   });
 
-  it('운영 화면으로 전환해도 자기 팀 검토 제한을 안내한다', async () => {
+  it('운영 화면으로 전환하면 안내 문구 없이 운영 매트릭스를 연다', async () => {
     state.session = { ...STUDENT, hasStaffAccess: true };
     state.searchParams = new URLSearchParams('view=operations');
     await act(async () =>
@@ -171,7 +171,7 @@ describe('DocumentsRoute role boundary', () => {
       ),
     );
     expect(container.textContent).toContain('staff matrix');
-    expect(container.textContent).toContain(
+    expect(container.textContent).not.toContain(
       '우리 팀 서류는 다른 운영자가 검토합니다.',
     );
     expect(state.checklistProps).toBeNull();
