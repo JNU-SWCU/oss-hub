@@ -1,13 +1,5 @@
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
-const SEOUL_CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Asia/Seoul',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
-
 const SEOUL_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Seoul',
   year: 'numeric',
@@ -23,10 +15,6 @@ const SEOUL_HOUR_MINUTE_FORMAT = new Intl.DateTimeFormat('en-GB', {
 });
 
 const pad2 = (value: number): string => String(value).padStart(2, '0');
-
-export function formatClock(date: Date): string {
-  return SEOUL_CLOCK_FORMAT.format(date).replace(/^24:/, '00:');
-}
 
 export function formatCountdownDate(date: Date): string {
   const [year, month, day] = SEOUL_DATE_FORMAT.format(date)

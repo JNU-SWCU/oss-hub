@@ -1,6 +1,4 @@
 import {
-  formatClock,
-  formatCountdownDate,
   formatCountdownDateTime,
   formatCountdownListDate,
   remainingUntil,
@@ -58,7 +56,7 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
     active = activeMilestones(milestones, clock);
   } catch (error) {
     if (error instanceof InvalidCountdownMilestoneDateError) {
-      return <InvalidProgramSchedule clock={clock} />;
+      return <InvalidProgramSchedule />;
     }
     throw error;
   }
@@ -80,12 +78,11 @@ export function ProgramSchedule({ milestones, clock }: ProgramScheduleProps) {
           clock={clock}
         />
       )}
-      <CurrentClock clock={clock} />
     </div>
   );
 }
 
-function InvalidProgramSchedule({ clock }: { readonly clock: Date }) {
+function InvalidProgramSchedule() {
   return (
     <div
       data-slot="program-countdown"
@@ -93,21 +90,6 @@ function InvalidProgramSchedule({ clock }: { readonly clock: Date }) {
     >
       <p role="alert" className="text-sm text-muted-foreground">
         마감 일정을 표시할 수 없습니다.
-      </p>
-      <CurrentClock clock={clock} />
-    </div>
-  );
-}
-
-function CurrentClock({ clock }: { readonly clock: Date }) {
-  return (
-    <div className="mt-3 border-t border-sidebar-border pt-3">
-      <p className="text-xs text-muted-foreground">현재 시각</p>
-      <p className="text-sm font-semibold text-sidebar-foreground tabular-nums">
-        {formatClock(clock)}
-      </p>
-      <p className="text-xs text-muted-foreground tabular-nums">
-        {formatCountdownDate(clock)}
       </p>
     </div>
   );

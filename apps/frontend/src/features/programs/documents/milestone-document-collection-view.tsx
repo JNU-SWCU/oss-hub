@@ -287,8 +287,10 @@ function CollectionFilterButtons({
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
   return (
-    <FilterChipGroup aria-label="필수 서류 제출 상태">
-      <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
+    <FilterChipGroup aria-label="팀별 필수 서류 제출 상태">
+      <p className="w-full text-small font-semibold">
+        팀별 필수 서류 제출 상태
+      </p>
       {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
         <FilterChip
           key={option}
@@ -296,7 +298,7 @@ function CollectionFilterButtons({
           onClick={() => onFilterChange(option)}
         >
           {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
-          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}팀
+          {collectionFilterCountFor(filterCounts, option, deliveryCounts)}
         </FilterChip>
       ))}
     </FilterChipGroup>

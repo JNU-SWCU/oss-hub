@@ -193,8 +193,8 @@ describe('SubmissionMatrixView', () => {
     const html = render({ selectedMilestoneId: 'milestone-mid' });
 
     expect(html).toContain('필수 서류 없는 단계');
-    expect(html).toContain('필수 서류 없는 팀 0');
-    expect(html).toContain('미제출 있는 팀 1');
+    expect(html).toContain('필수 서류 없음 0');
+    expect(html).toContain('미제출 있음 1');
   });
 
   it('NOT_SUBMITTED 셀은 dueAt 파생 보조 표시(마감 초과/D-n)를 붙인다', () => {
@@ -280,7 +280,7 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('미제출');
     expect(html).toMatch(/미제출 단계<\/dt><dd[^>]*>2<\/dd>/);
     expect(html).toContain('필수 서류 없는 단계');
-    expect(html).toContain('필수 서류 없는 팀 0');
+    expect(html).toContain('필수 서류 없음 0');
     expect(html).toMatch(/지각 제출 단계<\/dt><dd[^>]*>0<\/dd>/);
     expect(html).toContain('빠른 필터는 현재 페이지에 적용됩니다.');
     expect(html).not.toContain('이 페이지 2건(전체 2건) 중 2건 표시');
@@ -303,31 +303,31 @@ describe('SubmissionMatrixView', () => {
 
     const html = render();
 
-    expect(html).toContain('전체 팀 2');
-    expect(html).toContain('미제출 있는 팀 2');
-    expect(html).toContain('필수 서류 없는 팀 0');
-    expect(html).toContain('제출 완료 팀 0');
-    expect(html).toContain('지각 제출 팀 0');
+    expect(html).toContain('전체 2');
+    expect(html).toContain('미제출 있음 2');
+    expect(html).toContain('필수 서류 없음 0');
+    expect(html).toContain('제출 완료 0');
+    expect(html).toContain('지각 제출 0');
     expect(html).not.toContain('선택됨');
 
     for (const label of [
-      '전체 팀 2',
-      '미제출 있는 팀 2',
-      '지각 제출 팀 0',
-      '제출 완료 팀 0',
-      '필수 서류 없는 팀 0',
+      '전체 2',
+      '미제출 있음 2',
+      '지각 제출 0',
+      '제출 완료 0',
+      '필수 서류 없음 0',
     ]) {
       expect(chipFor(html, label)).toContain('data-variant="toggle"');
     }
 
-    expect(ariaPressedFor(html, '전체 팀 2')).toBe('true');
-    expect(ariaPressedFor(html, '미제출 있는 팀 2')).toBe('false');
-    expect(ariaPressedFor(html, '필수 서류 없는 팀 0')).toBe('false');
+    expect(ariaPressedFor(html, '전체 2')).toBe('true');
+    expect(ariaPressedFor(html, '미제출 있음 2')).toBe('false');
+    expect(ariaPressedFor(html, '필수 서류 없음 0')).toBe('false');
 
     const hasEmptyHtml = render({ quickFilter: 'MISSING' });
 
-    expect(ariaPressedFor(hasEmptyHtml, '전체 팀 2')).toBe('false');
-    expect(ariaPressedFor(hasEmptyHtml, '미제출 있는 팀 2')).toBe('true');
+    expect(ariaPressedFor(hasEmptyHtml, '전체 2')).toBe('false');
+    expect(ariaPressedFor(hasEmptyHtml, '미제출 있음 2')).toBe('true');
   });
 
   it('빈 칸 있는 팀 필터를 고르면 해당 행만 표를 채운다', () => {
@@ -443,6 +443,6 @@ describe('SubmissionMatrixView', () => {
 
 it('필수 서류 필터와 제출 칸의 완료·승인 상태를 구분한다', () => {
   const html = render();
-  expect(html).toContain('>필수 서류 제출 상태</p>');
+  expect(html).toContain('>팀별 필수 서류 제출 상태</p>');
   expect(html).toMatch(/제출 완료<\/span><span[^>]*>승인<\/span>/);
 });
