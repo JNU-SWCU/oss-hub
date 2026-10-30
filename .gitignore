@@ -5,6 +5,7 @@ node_modules
 dist/
 build/
 coverage/
+apps/backend/.e2e-dist-*/
 
 .env
 .env.*
