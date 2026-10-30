@@ -1,17 +1,15 @@
 import { ConsentGrant } from '../users.types';
 
 export class ConsentResponseDto {
-  policyVersion: string;
-  consentedAt: string;
-  nextUrl: string;
-
-  private constructor(grant: ConsentGrant) {
-    this.policyVersion = grant.policyVersion;
-    this.consentedAt = grant.consentedAt.toISOString();
-    this.nextUrl = grant.nextUrl;
-  }
+  declare readonly policyVersion: string;
+  declare readonly consentedAt: string;
+  declare readonly nextUrl: string;
 
   static from(grant: ConsentGrant): ConsentResponseDto {
-    return new ConsentResponseDto(grant);
+    return {
+      policyVersion: grant.policyVersion,
+      consentedAt: grant.consentedAt.toISOString(),
+      nextUrl: grant.nextUrl,
+    };
   }
 }

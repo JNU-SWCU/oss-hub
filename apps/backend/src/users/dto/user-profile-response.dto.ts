@@ -1,23 +1,21 @@
 import type { UserProfile } from '../user-profile-record.policy';
 
 export class UserProfileResponseDto {
-  readonly name: string;
-  readonly studentId: string | null;
-  readonly staffNumber: string | null;
-  readonly department: string | null;
-  readonly phone: string | null;
-  readonly isComplete: boolean;
-
-  private constructor(profile: UserProfile) {
-    this.name = profile.name;
-    this.studentId = profile.studentId;
-    this.staffNumber = profile.staffNumber;
-    this.department = profile.department;
-    this.phone = profile.phone;
-    this.isComplete = profile.isComplete;
-  }
+  declare readonly name: string;
+  declare readonly studentId: string | null;
+  declare readonly staffNumber: string | null;
+  declare readonly department: string | null;
+  declare readonly phone: string | null;
+  declare readonly isComplete: boolean;
 
   static from(profile: UserProfile): UserProfileResponseDto {
-    return new UserProfileResponseDto(profile);
+    return {
+      name: profile.name,
+      studentId: profile.studentId,
+      staffNumber: profile.staffNumber,
+      department: profile.department,
+      phone: profile.phone,
+      isComplete: profile.isComplete,
+    };
   }
 }

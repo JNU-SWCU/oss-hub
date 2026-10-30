@@ -9,143 +9,131 @@ import type {
 } from '../staff.types';
 
 export class StaffDashboardApplicationCountsResponseDto {
-  readonly total: number;
-  readonly submitted: number;
-  readonly pendingApproval: number;
-  readonly approved: number;
-  readonly rejected: number;
-
-  private constructor(counts: StaffDashboardComposedApplicationCounts) {
-    this.total = counts.total;
-    this.submitted = counts.submitted;
-    this.pendingApproval = counts.pendingApproval;
-    this.approved = counts.approved;
-    this.rejected = counts.rejected;
-  }
+  declare readonly total: number;
+  declare readonly submitted: number;
+  declare readonly pendingApproval: number;
+  declare readonly approved: number;
+  declare readonly rejected: number;
 
   static from(
     counts: StaffDashboardComposedApplicationCounts,
   ): StaffDashboardApplicationCountsResponseDto {
-    return new StaffDashboardApplicationCountsResponseDto(counts);
+    return {
+      total: counts.total,
+      submitted: counts.submitted,
+      pendingApproval: counts.pendingApproval,
+      approved: counts.approved,
+      rejected: counts.rejected,
+    };
   }
 }
 
 export class StaffDashboardActivitySummaryResponseDto {
-  readonly repositories: number;
-  readonly commits: number;
-  readonly pullRequests: number;
-  readonly releases: number;
-  readonly lastActivityAt: string | null;
-  readonly dataAsOf: string | null;
-
-  private constructor(activity: StaffDashboardActivitySummary) {
-    this.repositories = activity.repositories;
-    this.commits = activity.commits;
-    this.pullRequests = activity.pullRequests;
-    this.releases = activity.releases;
-    this.lastActivityAt = activity.lastActivityAt;
-    this.dataAsOf = activity.dataAsOf;
-  }
+  declare readonly repositories: number;
+  declare readonly commits: number;
+  declare readonly pullRequests: number;
+  declare readonly releases: number;
+  declare readonly lastActivityAt: string | null;
+  declare readonly dataAsOf: string | null;
 
   static from(
     activity: StaffDashboardActivitySummary,
   ): StaffDashboardActivitySummaryResponseDto {
-    return new StaffDashboardActivitySummaryResponseDto(activity);
+    return {
+      repositories: activity.repositories,
+      commits: activity.commits,
+      pullRequests: activity.pullRequests,
+      releases: activity.releases,
+      lastActivityAt: activity.lastActivityAt,
+      dataAsOf: activity.dataAsOf,
+    };
   }
 }
 
 export class StaffDashboardSubmissionSummaryResponseDto {
-  readonly approvedApplications: number;
-  readonly milestones: number;
-  readonly total: number;
-  readonly notSubmitted: number;
-  readonly submitted: number;
-  readonly approved: number;
-  readonly changesRequested: number;
-  readonly rejected: number;
-
-  private constructor(submissions: StaffDashboardSubmissionSummary) {
-    this.approvedApplications = submissions.approvedApplications;
-    this.milestones = submissions.milestones;
-    this.total = submissions.total;
-    this.notSubmitted = submissions.notSubmitted;
-    this.submitted = submissions.submitted;
-    this.approved = submissions.approved;
-    this.changesRequested = submissions.changesRequested;
-    this.rejected = submissions.rejected;
-  }
+  declare readonly approvedApplications: number;
+  declare readonly milestones: number;
+  declare readonly total: number;
+  declare readonly notSubmitted: number;
+  declare readonly submitted: number;
+  declare readonly approved: number;
+  declare readonly changesRequested: number;
+  declare readonly rejected: number;
 
   static from(
     submissions: StaffDashboardSubmissionSummary,
   ): StaffDashboardSubmissionSummaryResponseDto {
-    return new StaffDashboardSubmissionSummaryResponseDto(submissions);
+    return {
+      approvedApplications: submissions.approvedApplications,
+      milestones: submissions.milestones,
+      total: submissions.total,
+      notSubmitted: submissions.notSubmitted,
+      submitted: submissions.submitted,
+      approved: submissions.approved,
+      changesRequested: submissions.changesRequested,
+      rejected: submissions.rejected,
+    };
   }
 }
 
 export class StaffDashboardProgramSummaryResponseDto {
-  readonly coverImageUrl: string | null;
-  readonly id: string;
-  readonly name: string;
-  readonly trackType: ProgramTrackType | null;
-  readonly applicationPeriod: {
+  declare readonly coverImageUrl: string | null;
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly trackType: ProgramTrackType | null;
+  declare readonly applicationPeriod: {
     readonly startsAt: string;
     readonly endsAt: string;
   };
 
-  readonly endAt: string;
+  declare readonly endAt: string;
 
-  readonly lifecycle: ProgramLifecycle;
-  readonly applications: StaffDashboardApplicationCountsResponseDto;
-  readonly teamManagementPath: string;
-  readonly activity: StaffDashboardActivitySummaryResponseDto;
-  readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
-
-  private constructor(program: StaffDashboardComposedProgramSummary) {
-    this.coverImageUrl = programCoverImageUrl(
-      program.id,
-      program.coverId,
-      program.coverExternalImageUrl,
-    );
-    this.id = program.id;
-    this.name = program.name;
-    this.trackType = program.trackType;
-    this.applicationPeriod = {
-      startsAt: program.applicationPeriod.startsAt.toISOString(),
-      endsAt: program.applicationPeriod.endsAt.toISOString(),
-    };
-    this.endAt = program.endAt.toISOString();
-    this.lifecycle = program.lifecycle;
-    this.applications = StaffDashboardApplicationCountsResponseDto.from(
-      program.applications,
-    );
-    this.teamManagementPath = program.teamManagementPath;
-    this.activity = StaffDashboardActivitySummaryResponseDto.from(
-      program.activity,
-    );
-    this.submissions = StaffDashboardSubmissionSummaryResponseDto.from(
-      program.submissions,
-    );
-  }
+  declare readonly lifecycle: ProgramLifecycle;
+  declare readonly applications: StaffDashboardApplicationCountsResponseDto;
+  declare readonly teamManagementPath: string;
+  declare readonly activity: StaffDashboardActivitySummaryResponseDto;
+  declare readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
 
   static from(
     program: StaffDashboardComposedProgramSummary,
   ): StaffDashboardProgramSummaryResponseDto {
-    return new StaffDashboardProgramSummaryResponseDto(program);
+    return {
+      coverImageUrl: programCoverImageUrl(
+        program.id,
+        program.coverId,
+        program.coverExternalImageUrl,
+      ),
+      id: program.id,
+      name: program.name,
+      trackType: program.trackType,
+      applicationPeriod: {
+        startsAt: program.applicationPeriod.startsAt.toISOString(),
+        endsAt: program.applicationPeriod.endsAt.toISOString(),
+      },
+      endAt: program.endAt.toISOString(),
+      lifecycle: program.lifecycle,
+      applications: StaffDashboardApplicationCountsResponseDto.from(
+        program.applications,
+      ),
+      teamManagementPath: program.teamManagementPath,
+      activity: StaffDashboardActivitySummaryResponseDto.from(program.activity),
+      submissions: StaffDashboardSubmissionSummaryResponseDto.from(
+        program.submissions,
+      ),
+    };
   }
 }
 
 export class StaffDashboardSummaryResponseDto {
-  readonly programs: readonly StaffDashboardProgramSummaryResponseDto[];
-
-  private constructor(summary: StaffDashboardComposedSummary) {
-    this.programs = summary.programs.map((program) =>
-      StaffDashboardProgramSummaryResponseDto.from(program),
-    );
-  }
+  declare readonly programs: readonly StaffDashboardProgramSummaryResponseDto[];
 
   static from(
     summary: StaffDashboardComposedSummary,
   ): StaffDashboardSummaryResponseDto {
-    return new StaffDashboardSummaryResponseDto(summary);
+    return {
+      programs: summary.programs.map((program) =>
+        StaffDashboardProgramSummaryResponseDto.from(program),
+      ),
+    };
   }
 }

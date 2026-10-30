@@ -1,7 +1,7 @@
 import type { MilestoneDocumentViewerResult } from '../milestone-document-result.types';
-import { presentMilestoneDocumentFeedback } from '../../student/dto/milestone-document-feedback-response.dto';
-import { presentMilestoneDocumentHistory } from './milestone-document-history-page-response.dto';
-import { presentMilestoneDocumentViewer } from './milestone-document-response.dto';
+import { MilestoneDocumentFeedbackResponseDto } from '../../student/dto/milestone-document-feedback-response.dto';
+import { MilestoneDocumentHistoryPageResponseDto } from './milestone-document-history-page-response.dto';
+import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
 
 const when = new Date('2026-10-20T01:02:03.123Z');
 
@@ -28,7 +28,7 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
       history: { hasHistory: true, isComplete: false },
     },
   };
-  expect(presentMilestoneDocumentViewer(result)).toEqual({
+  expect(MilestoneDocumentResponseDto.from(result)).toEqual({
     id: 'document',
     milestoneId: 'milestone',
     name: '보고서',
@@ -55,7 +55,7 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
     },
   });
   expect(result.viewerSubmission?.submittedAt).toBe(when);
-  const absent = presentMilestoneDocumentViewer({
+  const absent = MilestoneDocumentResponseDto.from({
     ...result,
     viewerSubmission: undefined,
     teamSubmissionCount: undefined,
@@ -77,7 +77,7 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
     content: null,
   };
   expect(
-    presentMilestoneDocumentHistory({
+    MilestoneDocumentHistoryPageResponseDto.from({
       items: [item, { ...item, downloadableFileId: null }],
       nextCursor: 'opaque-cursor',
       isComplete: false,
@@ -111,7 +111,7 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
 });
 
 it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
-  const result = presentMilestoneDocumentFeedback({
+  const result = MilestoneDocumentFeedbackResponseDto.from({
     items: [
       {
         id: 'review',

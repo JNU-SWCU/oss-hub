@@ -1,21 +1,25 @@
 import type { TeamDeletionNotification } from '../notifications.types';
 
 export class TeamDeletionNotificationResponseDto {
-  readonly id: string;
-  readonly teamId: string;
-  readonly teamName: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly message: string | null;
-  readonly deletedAt: string;
+  declare readonly id: string;
+  declare readonly teamId: string;
+  declare readonly teamName: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly message: string | null;
+  declare readonly deletedAt: string;
 
-  constructor(notification: TeamDeletionNotification) {
-    this.id = notification.id;
-    this.teamId = notification.teamId;
-    this.teamName = notification.teamName;
-    this.programId = notification.programId;
-    this.programName = notification.programName;
-    this.message = notification.message;
-    this.deletedAt = notification.deletedAt.toISOString();
+  static from(
+    notification: TeamDeletionNotification,
+  ): TeamDeletionNotificationResponseDto {
+    return {
+      id: notification.id,
+      teamId: notification.teamId,
+      teamName: notification.teamName,
+      programId: notification.programId,
+      programName: notification.programName,
+      message: notification.message,
+      deletedAt: notification.deletedAt.toISOString(),
+    };
   }
 }

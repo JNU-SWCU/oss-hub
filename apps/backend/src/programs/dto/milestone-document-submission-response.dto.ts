@@ -2,22 +2,10 @@ import type { SubmissionStatus } from '@prisma/client';
 import type { MilestoneDocumentSubmissionDetail } from '../milestone-document-result.types';
 
 export class MilestoneDocumentSubmissionFileResponseDto {
-  id: string;
-  fileName: string;
-  contentType: string;
-  size: number;
-
-  private constructor(
-    id: string,
-    fileName: string,
-    contentType: string,
-    size: number,
-  ) {
-    this.id = id;
-    this.fileName = fileName;
-    this.contentType = contentType;
-    this.size = size;
-  }
+  declare readonly id: string;
+  declare readonly fileName: string;
+  declare readonly contentType: string;
+  declare readonly size: number;
 
   static from(file: {
     readonly id: string;
@@ -25,35 +13,33 @@ export class MilestoneDocumentSubmissionFileResponseDto {
     readonly mimeType: string;
     readonly sizeBytes: number;
   }): MilestoneDocumentSubmissionFileResponseDto {
-    return new MilestoneDocumentSubmissionFileResponseDto(
-      file.id,
-      file.originalFileName,
-      file.mimeType,
-      file.sizeBytes,
-    );
+    return {
+      id: file.id,
+      fileName: file.originalFileName,
+      contentType: file.mimeType,
+      size: file.sizeBytes,
+    };
   }
 }
 
 export class MilestoneDocumentSubmissionResponseDto {
-  id: string;
-  status: SubmissionStatus;
-  content: MilestoneDocumentSubmissionDetail['content'];
-  submittedAt: string;
-  files: MilestoneDocumentSubmissionFileResponseDto[];
-
-  private constructor(detail: MilestoneDocumentSubmissionDetail) {
-    this.id = detail.id;
-    this.status = detail.status;
-    this.content = detail.content;
-    this.submittedAt = detail.submittedAt.toISOString();
-    this.files = detail.files.map((file) =>
-      MilestoneDocumentSubmissionFileResponseDto.from(file),
-    );
-  }
+  declare readonly id: string;
+  declare readonly status: SubmissionStatus;
+  declare readonly content: MilestoneDocumentSubmissionDetail['content'];
+  declare readonly submittedAt: string;
+  declare readonly files: MilestoneDocumentSubmissionFileResponseDto[];
 
   static from(
     detail: MilestoneDocumentSubmissionDetail,
   ): MilestoneDocumentSubmissionResponseDto {
-    return new MilestoneDocumentSubmissionResponseDto(detail);
+    return {
+      id: detail.id,
+      status: detail.status,
+      content: detail.content,
+      submittedAt: detail.submittedAt.toISOString(),
+      files: detail.files.map((file) =>
+        MilestoneDocumentSubmissionFileResponseDto.from(file),
+      ),
+    };
   }
 }

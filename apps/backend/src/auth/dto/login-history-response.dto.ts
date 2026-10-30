@@ -5,41 +5,37 @@ import type {
 } from '../http-auth.types';
 
 export class LoginHistoryResponseDto {
-  readonly id: string;
-  readonly event: LoginHistoryEvent;
-  readonly provider: 'github';
-  readonly success: boolean;
-  readonly loginAt: string;
-
-  private constructor(history: LoginHistory) {
-    this.id = history.id;
-    this.event = history.event;
-    this.provider = history.provider;
-    this.success = history.success;
-    this.loginAt = history.loginAt.toISOString();
-  }
+  declare readonly id: string;
+  declare readonly event: LoginHistoryEvent;
+  declare readonly provider: 'github';
+  declare readonly success: boolean;
+  declare readonly loginAt: string;
 
   static from(history: LoginHistory): LoginHistoryResponseDto {
-    return new LoginHistoryResponseDto(history);
+    return {
+      id: history.id,
+      event: history.event,
+      provider: history.provider,
+      success: history.success,
+      loginAt: history.loginAt.toISOString(),
+    };
   }
 }
 
 export class LoginHistoryPageResponseDto {
-  readonly items: readonly LoginHistoryResponseDto[];
-  readonly page: number;
-  readonly size: number;
-  readonly total: number;
-
-  private constructor(historyPage: LoginHistoryPage) {
-    this.items = historyPage.items.map((history) =>
-      LoginHistoryResponseDto.from(history),
-    );
-    this.page = historyPage.page;
-    this.size = historyPage.size;
-    this.total = historyPage.total;
-  }
+  declare readonly items: readonly LoginHistoryResponseDto[];
+  declare readonly page: number;
+  declare readonly size: number;
+  declare readonly total: number;
 
   static from(historyPage: LoginHistoryPage): LoginHistoryPageResponseDto {
-    return new LoginHistoryPageResponseDto(historyPage);
+    return {
+      items: historyPage.items.map((history) =>
+        LoginHistoryResponseDto.from(history),
+      ),
+      page: historyPage.page,
+      size: historyPage.size,
+      total: historyPage.total,
+    };
   }
 }

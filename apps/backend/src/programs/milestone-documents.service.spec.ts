@@ -1,6 +1,6 @@
-import { presentMilestoneDocumentCollection } from './dto/milestone-document-collection-response.dto';
-import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-page-response.dto';
-import { presentMilestoneDocumentViewer } from './dto/milestone-document-response.dto';
+import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
+import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
+import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
@@ -290,7 +290,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -339,7 +341,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -434,7 +438,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
 
     expect(result[0]?.viewerSubmission).toEqual({
       submitted: true,
@@ -467,7 +473,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
 
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
@@ -484,7 +492,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
 
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
@@ -1719,7 +1729,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.milestone).toEqual({
       id: syntheticMilestoneId,
@@ -1751,7 +1761,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledWith(
       syntheticProgramId,
@@ -1773,7 +1783,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     for (const row of result.rows) {
       expect(row.cells).toEqual([
@@ -1832,7 +1842,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells).toEqual([
       {
@@ -1884,7 +1894,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
       [syntheticDocumentId, secondDocumentId],
@@ -1921,7 +1931,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
       type: MilestoneSubmissionType.TEXT,
@@ -1947,7 +1957,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
     expect(result.rows[0]?.cells[1]?.content).toBeNull();
@@ -1978,7 +1988,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
@@ -2035,7 +2045,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
       SubmissionStatus.APPROVED,
@@ -2049,7 +2059,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
@@ -2108,7 +2118,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.total).toBe(1);
     expect(result.documentTotals).toEqual([
@@ -2175,7 +2185,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result.nextCursor).toBe('history-cursor');
     expect(result.isComplete).toBe(false);
@@ -2229,7 +2239,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result.items.map((item) => item.revision)).toEqual([1]);
     expect(result.isComplete).toBe(true);
@@ -2286,7 +2296,9 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
 
     const list = await service
       .listForViewer(8_100_002n, syntheticMilestoneId)
-      .then((records) => records.map(presentMilestoneDocumentViewer));
+      .then((records) =>
+        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+      );
     const history = await service
       .historyForParticipant(
         8_100_002n,
@@ -2294,7 +2306,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(list[0]?.viewerSubmission?.history).toEqual({
       hasHistory: true,
@@ -2436,7 +2448,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
@@ -2455,7 +2467,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ pageSize: 2 }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
     const second = await service
       .collectForStaff(
         1n,
@@ -2463,7 +2475,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ page: 2, pageSize: 2 }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(first.rows.map((row) => row.teamName)).toEqual([
       '가나다팀',
@@ -2493,7 +2505,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ page: 9, pageSize: 2 }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(4);
@@ -2510,7 +2522,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
@@ -2530,7 +2542,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows.map((row) => row.teamName)).toEqual(['차카타팀']);
     expect(result.total).toBe(1);
@@ -2551,7 +2563,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
@@ -2576,7 +2588,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.filterCounts.hasMissing).toBe(0);
@@ -2594,7 +2606,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -2626,7 +2638,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
     const result = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -2645,7 +2657,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
     expect(hasMissing.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
       '차카타팀',
@@ -2658,7 +2670,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
     expect(zeroSubmission.rows.map((row) => row.teamName)).toEqual([
       '차카타팀',
     ]);
@@ -2675,10 +2687,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
         now,
       )
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
     const all = await service
       .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
-      .then(presentMilestoneDocumentCollection);
+      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(filtered.documentTotals).toEqual([
       { documentId: requiredDocumentId, submitted: 2, total: 4 },

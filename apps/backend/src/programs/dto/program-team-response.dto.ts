@@ -7,50 +7,41 @@ import type {
 } from '../program-teams.types';
 
 export class RenameTeamResponseDto {
-  readonly teamId: string;
-  readonly name: string;
-
-  private constructor(view: RenamedTeamView) {
-    this.teamId = view.teamId;
-    this.name = view.name;
-  }
+  declare readonly teamId: string;
+  declare readonly name: string;
 
   static from(view: RenamedTeamView): RenameTeamResponseDto {
-    return new RenameTeamResponseDto(view);
+    return { teamId: view.teamId, name: view.name };
   }
 }
 
 export class DeleteTeamResponseDto {
-  readonly teamId: string;
-  readonly deleted: true;
-  readonly deletedCounts: DeletedTeamView['deletedCounts'];
-
-  private constructor(view: DeletedTeamView) {
-    this.teamId = view.teamId;
-    this.deleted = view.deleted;
-    this.deletedCounts = view.deletedCounts;
-  }
+  declare readonly teamId: string;
+  declare readonly deleted: true;
+  declare readonly deletedCounts: DeletedTeamView['deletedCounts'];
 
   static from(view: DeletedTeamView): DeleteTeamResponseDto {
-    return new DeleteTeamResponseDto(view);
+    return {
+      teamId: view.teamId,
+      deleted: view.deleted,
+      deletedCounts: view.deletedCounts,
+    };
   }
 }
 
 export class StaffProgramTeamResponseDto {
-  readonly teamId: string;
-  readonly name: string;
-  readonly memberCount: number;
-  readonly members: readonly TeamMemberView[];
-
-  private constructor(view: StaffTeamView) {
-    this.teamId = view.teamId;
-    this.name = view.name;
-    this.memberCount = view.memberCount;
-    this.members = view.members;
-  }
+  declare readonly teamId: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+  declare readonly members: readonly TeamMemberView[];
 
   static from(view: StaffTeamView): StaffProgramTeamResponseDto {
-    return new StaffProgramTeamResponseDto(view);
+    return {
+      teamId: view.teamId,
+      name: view.name,
+      memberCount: view.memberCount,
+      members: view.members,
+    };
   }
 
   static fromAll(
@@ -61,33 +52,31 @@ export class StaffProgramTeamResponseDto {
 }
 
 export class ProgramTeamResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly memberCount: number;
-  readonly minMembers: number;
-  readonly maxMembers: number;
-  readonly hasApplication: boolean;
-  readonly canInvite: boolean;
-  readonly canRemoveMembers: boolean;
-  readonly canLeave: boolean;
-  readonly isLeader: boolean;
-  readonly members: readonly TeamMemberView[];
-
-  private constructor(view: ProgramTeamView) {
-    this.id = view.id;
-    this.name = view.name;
-    this.memberCount = view.memberCount;
-    this.minMembers = view.minMembers;
-    this.maxMembers = view.maxMembers;
-    this.hasApplication = view.hasApplication;
-    this.canInvite = view.canInvite;
-    this.canRemoveMembers = view.canRemoveMembers;
-    this.canLeave = view.canLeave;
-    this.isLeader = view.isLeader;
-    this.members = view.members;
-  }
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+  declare readonly minMembers: number;
+  declare readonly maxMembers: number;
+  declare readonly hasApplication: boolean;
+  declare readonly canInvite: boolean;
+  declare readonly canRemoveMembers: boolean;
+  declare readonly canLeave: boolean;
+  declare readonly isLeader: boolean;
+  declare readonly members: readonly TeamMemberView[];
 
   static from(view: ProgramTeamView): ProgramTeamResponseDto {
-    return new ProgramTeamResponseDto(view);
+    return {
+      id: view.id,
+      name: view.name,
+      memberCount: view.memberCount,
+      minMembers: view.minMembers,
+      maxMembers: view.maxMembers,
+      hasApplication: view.hasApplication,
+      canInvite: view.canInvite,
+      canRemoveMembers: view.canRemoveMembers,
+      canLeave: view.canLeave,
+      isLeader: view.isLeader,
+      members: view.members,
+    };
   }
 }

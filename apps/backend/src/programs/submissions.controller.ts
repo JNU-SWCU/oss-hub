@@ -13,10 +13,8 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
 import {
-  type CreateSubmissionReviewResponseDto,
-  type SubmissionReviewContextResponseDto,
-  toCreateReviewResponse,
-  toReviewContextResponse,
+  CreateSubmissionReviewResponseDto,
+  SubmissionReviewContextResponseDto,
 } from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import {
@@ -24,10 +22,8 @@ import {
   CreateSubmissionRequestDto,
 } from './dto/create-submission-request.dto';
 import {
-  presentCreatedSubmission,
-  presentResubmittedSubmission,
-  type CreatedSubmissionResponseDto,
-  type ResubmittedSubmissionResponseDto,
+  CreatedSubmissionResponseDto,
+  ResubmittedSubmissionResponseDto,
 } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 
@@ -51,7 +47,7 @@ export class SubmissionsController {
   ): Promise<CreatedSubmissionResponseDto> {
     return this.service
       .create(request.sessionGithubId, body.toInput())
-      .then(presentCreatedSubmission);
+      .then((result) => CreatedSubmissionResponseDto.from(result));
   }
 
   @Post(':submissionId/resubmissions')
@@ -64,7 +60,7 @@ export class SubmissionsController {
   ): Promise<ResubmittedSubmissionResponseDto> {
     return this.service
       .resubmit(request.sessionGithubId, submissionId, body.toInput())
-      .then(presentResubmittedSubmission);
+      .then((result) => ResubmittedSubmissionResponseDto.from(result));
   }
 
   @Get(':submissionId/review-context')
@@ -73,7 +69,7 @@ export class SubmissionsController {
     @Req() request: ReviewActorRequest,
     @Param('submissionId') submissionId: string,
   ): Promise<SubmissionReviewContextResponseDto> {
-    return toReviewContextResponse(
+    return SubmissionReviewContextResponseDto.from(
       await this.reviewsService.context(submissionId, request.sessionGithubId),
     );
   }
@@ -86,7 +82,7 @@ export class SubmissionsController {
     @Param('submissionId') submissionId: string,
     @Body() body: CreateSubmissionReviewRequestDto,
   ): Promise<CreateSubmissionReviewResponseDto> {
-    return toCreateReviewResponse(
+    return CreateSubmissionReviewResponseDto.from(
       await this.reviewsService.review(
         request.sessionGithubId,
         submissionId,

@@ -38,6 +38,6 @@ export class AccountDeactivationController {
       'Set-Cookie',
       serializeClearedSessionCookie(this.authConfig.useSecureCookies),
     );
-    return new AccountDeactivationResponseDto(result);
+    return AccountDeactivationResponseDto.from(result);
   }
 }

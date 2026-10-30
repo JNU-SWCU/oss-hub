@@ -203,7 +203,7 @@ export class ProgramAuthoringController {
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Body() input: ProgramNoticePreviewRequestDto,
   ): Promise<ProgramNoticePreviewResponseDto> {
-    return new ProgramNoticePreviewResponseDto(
+    return ProgramNoticePreviewResponseDto.from(
       await this.previews.preview(request.sessionGithubId, input.url),
     );
   }

@@ -14,26 +14,54 @@ export type SystemStatusSafeReasonResponseDto =
   | 'STALE_DATA';
 
 export class CollectionSystemStatusResponseDto {
-  constructor(
-    readonly health: CollectionHealthResponseDto,
-    readonly dataAsOf: string | null,
-    readonly trackedRepositoryCount: number,
-    readonly readyStreamCount: number,
-    readonly backfillingStreamCount: number,
-    readonly partialStreamCount: number,
-    readonly retryPendingStreamCount: number,
-    readonly oldestReadyCheckpointAt: string | null,
-    readonly oldestRetryPendingAt: string | null,
-    readonly lastCycleStartedAt: string | null,
-    readonly lastCycleCompletedAt: string | null,
-    readonly nextCycleAt: string | null,
-    readonly currentRunStatus: CurrentRunStatusResponseDto,
-    readonly safeReason: SystemStatusSafeReasonResponseDto | null,
-  ) {}
+  declare readonly health: CollectionHealthResponseDto;
+  declare readonly dataAsOf: string | null;
+  declare readonly trackedRepositoryCount: number;
+  declare readonly readyStreamCount: number;
+  declare readonly backfillingStreamCount: number;
+  declare readonly partialStreamCount: number;
+  declare readonly retryPendingStreamCount: number;
+  declare readonly oldestReadyCheckpointAt: string | null;
+  declare readonly oldestRetryPendingAt: string | null;
+  declare readonly lastCycleStartedAt: string | null;
+  declare readonly lastCycleCompletedAt: string | null;
+  declare readonly nextCycleAt: string | null;
+  declare readonly currentRunStatus: CurrentRunStatusResponseDto;
+  declare readonly safeReason: SystemStatusSafeReasonResponseDto | null;
+
+  static from(
+    collection: SystemStatusResult['collection'],
+  ): CollectionSystemStatusResponseDto {
+    return {
+      health: collection.health,
+      dataAsOf: collection.dataAsOf?.toISOString() ?? null,
+      trackedRepositoryCount: collection.trackedRepositoryCount,
+      readyStreamCount: collection.readyStreamCount,
+      backfillingStreamCount: collection.backfillingStreamCount,
+      partialStreamCount: collection.partialStreamCount,
+      retryPendingStreamCount: collection.retryPendingStreamCount,
+      oldestReadyCheckpointAt:
+        collection.oldestReadyCheckpointAt?.toISOString() ?? null,
+      oldestRetryPendingAt:
+        collection.oldestRetryPendingAt?.toISOString() ?? null,
+      lastCycleStartedAt: collection.lastCycleStartedAt?.toISOString() ?? null,
+      lastCycleCompletedAt:
+        collection.lastCycleCompletedAt?.toISOString() ?? null,
+      nextCycleAt: collection.nextCycleAt?.toISOString() ?? null,
+      currentRunStatus: collection.currentRunStatus,
+      safeReason: collection.safeReason,
+    };
+  }
 }
 
 export class RepositoryProvisioningSystemStatusResponseDto {
-  constructor(readonly finalFailureCount: number) {}
+  declare readonly finalFailureCount: number;
+
+  static from(
+    provisioning: SystemStatusResult['repositoryProvisioning'],
+  ): RepositoryProvisioningSystemStatusResponseDto {
+    return { finalFailureCount: provisioning.finalFailureCount };
+  }
 }
 
 export type CollectionStreamBucketResponseDto =
@@ -43,134 +71,126 @@ export type CollectionStreamTypeResponseDto =
   'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
 export class CollectionRepositoryStreamResponseDto {
-  constructor(
-    readonly streamType: CollectionStreamTypeResponseDto,
-    readonly bucket: CollectionStreamBucketResponseDto,
-    readonly lastSuccessAt: string | null,
-    readonly lastErrorCode: string | null,
-    readonly lastErrorAt: string | null,
-  ) {}
+  declare readonly streamType: CollectionStreamTypeResponseDto;
+  declare readonly bucket: CollectionStreamBucketResponseDto;
+  declare readonly lastSuccessAt: string | null;
+  declare readonly lastErrorCode: string | null;
+  declare readonly lastErrorAt: string | null;
+
+  static from(
+    stream: SystemStatusResult['collectionStreams'][number]['streams'][number],
+  ): CollectionRepositoryStreamResponseDto {
+    return {
+      streamType: stream.streamType,
+      bucket: stream.bucket,
+      lastSuccessAt: stream.lastSuccessAt?.toISOString() ?? null,
+      lastErrorCode: stream.lastErrorCode,
+      lastErrorAt: stream.lastErrorAt?.toISOString() ?? null,
+    };
+  }
 }
 
 export class SystemStatusCollectionStreamsResponseDto {
-  constructor(
-    readonly repositoryName: string,
-    readonly programName: string | null,
-    readonly streams: readonly CollectionRepositoryStreamResponseDto[],
-  ) {}
+  declare readonly repositoryName: string;
+  declare readonly programName: string | null;
+  declare readonly streams: readonly CollectionRepositoryStreamResponseDto[];
+
+  static from(
+    repository: SystemStatusResult['collectionStreams'][number],
+  ): SystemStatusCollectionStreamsResponseDto {
+    return {
+      repositoryName: repository.repositoryName,
+      programName: repository.programName,
+      streams: repository.streams.map((stream) =>
+        CollectionRepositoryStreamResponseDto.from(stream),
+      ),
+    };
+  }
 }
 
 export class SystemStatusCollectionActivityResponseDto {
-  constructor(
-    readonly sweepFinishedAt: string,
-    readonly cycleStartedAt: string | null,
-    readonly scope: string,
-    readonly kind: 'SWEEP' | 'REPOSITORY_LINK',
-    readonly insertedCommitCount: number,
-    readonly insertedPullRequestCount: number,
-    readonly insertedReleaseCount: number,
-    readonly insertedIssueCount: number,
-    readonly attemptedRepositoryCount: number,
-    readonly processedRepositoryCount: number,
-    readonly failedRepositoryCount: number,
-    readonly cycleCompleted: boolean,
-    readonly stoppedForBudget: boolean,
-  ) {}
+  declare readonly sweepFinishedAt: string;
+  declare readonly cycleStartedAt: string | null;
+  declare readonly scope: string;
+  declare readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
+  declare readonly insertedCommitCount: number;
+  declare readonly insertedPullRequestCount: number;
+  declare readonly insertedReleaseCount: number;
+  declare readonly insertedIssueCount: number;
+  declare readonly attemptedRepositoryCount: number;
+  declare readonly processedRepositoryCount: number;
+  declare readonly failedRepositoryCount: number;
+  declare readonly cycleCompleted: boolean;
+  declare readonly stoppedForBudget: boolean;
+
+  static from(
+    sweep: SystemStatusCollectionActivityResult,
+  ): SystemStatusCollectionActivityResponseDto {
+    return {
+      sweepFinishedAt: sweep.sweepFinishedAt.toISOString(),
+      cycleStartedAt: sweep.cycleStartedAt?.toISOString() ?? null,
+      scope: sweep.scope,
+      kind: sweep.kind,
+      insertedCommitCount: sweep.insertedCommitCount,
+      insertedPullRequestCount: sweep.insertedPullRequestCount,
+      insertedReleaseCount: sweep.insertedReleaseCount,
+      insertedIssueCount: sweep.insertedIssueCount,
+      attemptedRepositoryCount: sweep.attemptedRepositoryCount,
+      processedRepositoryCount: sweep.processedRepositoryCount,
+      failedRepositoryCount: sweep.failedRepositoryCount,
+      cycleCompleted: sweep.cycleCompleted,
+      stoppedForBudget: sweep.stoppedForBudget,
+    };
+  }
 }
 
 export class SystemStatusExternalCollectionResponseDto {
-  constructor(
-    readonly trackedRepositoryCount: number,
-    readonly lastSweep: SystemStatusCollectionActivityResponseDto | null,
-    readonly cumulativeCommitCount: number,
-    readonly cumulativePullRequestCount: number,
-    readonly cumulativeReleaseCount: number,
-    readonly cumulativeIssueCount: number,
-  ) {}
+  declare readonly trackedRepositoryCount: number;
+  declare readonly lastSweep: SystemStatusCollectionActivityResponseDto | null;
+  declare readonly cumulativeCommitCount: number;
+  declare readonly cumulativePullRequestCount: number;
+  declare readonly cumulativeReleaseCount: number;
+  declare readonly cumulativeIssueCount: number;
+
+  static from(
+    external: SystemStatusResult['externalCollection'],
+  ): SystemStatusExternalCollectionResponseDto {
+    return {
+      trackedRepositoryCount: external.trackedRepositoryCount,
+      lastSweep: external.lastSweep
+        ? SystemStatusCollectionActivityResponseDto.from(external.lastSweep)
+        : null,
+      cumulativeCommitCount: external.cumulativeCommitCount,
+      cumulativePullRequestCount: external.cumulativePullRequestCount,
+      cumulativeReleaseCount: external.cumulativeReleaseCount,
+      cumulativeIssueCount: external.cumulativeIssueCount,
+    };
+  }
 }
 
 export class SystemStatusResponseDto {
-  constructor(
-    readonly collection: CollectionSystemStatusResponseDto,
-    readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto,
-    readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[],
-    readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[],
-    readonly externalCollection: SystemStatusExternalCollectionResponseDto,
-  ) {}
-}
+  declare readonly collection: CollectionSystemStatusResponseDto;
+  declare readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto;
+  declare readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[];
+  declare readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[];
+  declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
-export function systemStatusResponse(
-  result: SystemStatusResult,
-): SystemStatusResponseDto {
-  const collection = result.collection;
-  const external = result.externalCollection;
-  return new SystemStatusResponseDto(
-    new CollectionSystemStatusResponseDto(
-      collection.health,
-      collection.dataAsOf?.toISOString() ?? null,
-      collection.trackedRepositoryCount,
-      collection.readyStreamCount,
-      collection.backfillingStreamCount,
-      collection.partialStreamCount,
-      collection.retryPendingStreamCount,
-      collection.oldestReadyCheckpointAt?.toISOString() ?? null,
-      collection.oldestRetryPendingAt?.toISOString() ?? null,
-      collection.lastCycleStartedAt?.toISOString() ?? null,
-      collection.lastCycleCompletedAt?.toISOString() ?? null,
-      collection.nextCycleAt?.toISOString() ?? null,
-      collection.currentRunStatus,
-      collection.safeReason,
-    ),
-    new RepositoryProvisioningSystemStatusResponseDto(
-      result.repositoryProvisioning.finalFailureCount,
-    ),
-    result.collectionStreams.map(
-      (repository) =>
-        new SystemStatusCollectionStreamsResponseDto(
-          repository.repositoryName,
-          repository.programName,
-          repository.streams.map(
-            (stream) =>
-              new CollectionRepositoryStreamResponseDto(
-                stream.streamType,
-                stream.bucket,
-                stream.lastSuccessAt?.toISOString() ?? null,
-                stream.lastErrorCode,
-                stream.lastErrorAt?.toISOString() ?? null,
-              ),
-          ),
+  static from(result: SystemStatusResult): SystemStatusResponseDto {
+    return {
+      collection: CollectionSystemStatusResponseDto.from(result.collection),
+      repositoryProvisioning:
+        RepositoryProvisioningSystemStatusResponseDto.from(
+          result.repositoryProvisioning,
         ),
-    ),
-    result.collectionActivity.map(collectionActivityResponse),
-    new SystemStatusExternalCollectionResponseDto(
-      external.trackedRepositoryCount,
-      external.lastSweep
-        ? collectionActivityResponse(external.lastSweep)
-        : null,
-      external.cumulativeCommitCount,
-      external.cumulativePullRequestCount,
-      external.cumulativeReleaseCount,
-      external.cumulativeIssueCount,
-    ),
-  );
-}
-
-function collectionActivityResponse(
-  sweep: SystemStatusCollectionActivityResult,
-): SystemStatusCollectionActivityResponseDto {
-  return new SystemStatusCollectionActivityResponseDto(
-    sweep.sweepFinishedAt.toISOString(),
-    sweep.cycleStartedAt?.toISOString() ?? null,
-    sweep.scope,
-    sweep.kind,
-    sweep.insertedCommitCount,
-    sweep.insertedPullRequestCount,
-    sweep.insertedReleaseCount,
-    sweep.insertedIssueCount,
-    sweep.attemptedRepositoryCount,
-    sweep.processedRepositoryCount,
-    sweep.failedRepositoryCount,
-    sweep.cycleCompleted,
-    sweep.stoppedForBudget,
-  );
+      collectionStreams: result.collectionStreams.map((repository) =>
+        SystemStatusCollectionStreamsResponseDto.from(repository),
+      ),
+      collectionActivity: result.collectionActivity.map((sweep) =>
+        SystemStatusCollectionActivityResponseDto.from(sweep),
+      ),
+      externalCollection: SystemStatusExternalCollectionResponseDto.from(
+        result.externalCollection,
+      ),
+    };
+  }
 }

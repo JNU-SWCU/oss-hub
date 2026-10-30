@@ -1,39 +1,35 @@
 import type { PublicTeamRow } from '../programs.types';
 
 export class ProgramOverviewTeamMemberResponseDto {
-  readonly userId: string;
-  readonly displayName: string;
-  readonly isLeader: boolean;
-
-  private constructor(row: PublicTeamRow['members'][number]) {
-    this.userId = row.userId;
-    this.displayName = row.displayName;
-    this.isLeader = row.isLeader;
-  }
+  declare readonly userId: string;
+  declare readonly displayName: string;
+  declare readonly isLeader: boolean;
 
   static from(
     row: PublicTeamRow['members'][number],
   ): ProgramOverviewTeamMemberResponseDto {
-    return new ProgramOverviewTeamMemberResponseDto(row);
+    return {
+      userId: row.userId,
+      displayName: row.displayName,
+      isLeader: row.isLeader,
+    };
   }
 }
 
 export class ProgramOverviewTeamResponseDto {
-  readonly teamId: string;
-  readonly name: string;
-  readonly memberCount: number;
-  readonly members: readonly ProgramOverviewTeamMemberResponseDto[];
-
-  private constructor(row: PublicTeamRow) {
-    this.teamId = row.teamId;
-    this.name = row.name;
-    this.memberCount = row.members.length;
-    this.members = row.members.map((member) =>
-      ProgramOverviewTeamMemberResponseDto.from(member),
-    );
-  }
+  declare readonly teamId: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+  declare readonly members: readonly ProgramOverviewTeamMemberResponseDto[];
 
   static from(row: PublicTeamRow): ProgramOverviewTeamResponseDto {
-    return new ProgramOverviewTeamResponseDto(row);
+    return {
+      teamId: row.teamId,
+      name: row.name,
+      memberCount: row.members.length,
+      members: row.members.map((member) =>
+        ProgramOverviewTeamMemberResponseDto.from(member),
+      ),
+    };
   }
 }

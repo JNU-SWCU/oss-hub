@@ -1,6 +1,6 @@
 import {
-  presentMilestoneDocumentCollection,
-  presentMilestoneDocumentDeliveryCollection,
+  MilestoneDocumentCollectionResponseDto,
+  MilestoneDocumentDeliveryCollectionResponseDto,
 } from './dto/milestone-document-collection-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -71,7 +71,9 @@ it('preserves the existing collection response, approved population and paging c
       { ...query, pageSize: 2 },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
   const old = await legacyService
     .collectForStaff(
       fixture.staffOnGithub,
@@ -79,7 +81,7 @@ it('preserves the existing collection response, approved population and paging c
       { ...query, pageSize: 2 },
       fixture.now,
     )
-    .then(presentMilestoneDocumentCollection);
+    .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
   const { deliveryCounts, rows, ...unchanged } = result;
 
   expect({
@@ -135,7 +137,9 @@ it('keeps an on-time first submission complete after a late resubmission and rej
       { ...query, deliveryStatus: 'COMPLETE' },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
 
   expect(result.total).toBe(1);
   expect(result.rows[0]).toMatchObject({
@@ -170,7 +174,9 @@ it.each([
         { ...query, deliveryStatus },
         fixture.now,
       )
-      .then(presentMilestoneDocumentDeliveryCollection);
+      .then((result) =>
+        MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+      );
 
     expect(result.total).toBe(1);
     expect(result.rows[0]?.deliveryStatus).toBe(deliveryStatus);
@@ -185,7 +191,9 @@ it('filters missing rows before pagination and keeps whole-population counts', a
       { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
 
   expect(result.rows).toHaveLength(1);
   expect(result.rows[0]?.deliveryStatus).toBe('MISSING');
@@ -214,7 +222,9 @@ it('does not call optional-only milestones complete or missing', async () => {
       { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
 
   expect(result.total).toBe(4);
   expect(result.deliveryCounts).toEqual({
@@ -267,7 +277,9 @@ it('holds counts and visible details at one snapshot while another connection su
       query,
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
 
   expect(before.page.deliveryCounts.complete).toBe(1);
   expect(before.details).toHaveLength(1);
@@ -292,7 +304,9 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
       },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
   expect(result.total).toBe(1);
   expect(result.rows[0]?.cells[0]).toMatchObject({
     documentId: fixture.notifyDocument,
@@ -313,7 +327,9 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
       },
       fixture.now,
     )
-    .then(presentMilestoneDocumentDeliveryCollection);
+    .then((result) =>
+      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+    );
   expect(missing.total).toBe(3);
   expect(missing.rows).toHaveLength(1);
   expect(missing.rows[0]?.cells[0]).toMatchObject({

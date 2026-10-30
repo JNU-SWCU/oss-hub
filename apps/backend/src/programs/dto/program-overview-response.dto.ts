@@ -7,89 +7,80 @@ import {
 } from '../programs.types';
 
 export class RemainingMilestoneResponseDto {
-  readonly label: string;
-  readonly dueAt: string;
-
-  private constructor(milestone: ProgramOverviewRemainingMilestone) {
-    this.label = milestone.label;
-    this.dueAt = milestone.dueAt.toISOString();
-  }
+  declare readonly label: string;
+  declare readonly dueAt: string;
 
   static from(
     milestone: ProgramOverviewRemainingMilestone,
   ): RemainingMilestoneResponseDto {
-    return new RemainingMilestoneResponseDto(milestone);
+    return { label: milestone.label, dueAt: milestone.dueAt.toISOString() };
   }
 }
 
 export class MilestoneDocumentSummaryResponseDto {
-  readonly milestoneId: string;
-  readonly title: string;
-  readonly completed: number;
-  readonly total: number;
-
-  private constructor(entry: ProgramOverviewMilestoneDocument) {
-    this.milestoneId = entry.milestoneId;
-    this.title = entry.title;
-    this.completed = entry.completed;
-    this.total = entry.total;
-  }
+  declare readonly milestoneId: string;
+  declare readonly title: string;
+  declare readonly completed: number;
+  declare readonly total: number;
 
   static from(
     entry: ProgramOverviewMilestoneDocument,
   ): MilestoneDocumentSummaryResponseDto {
-    return new MilestoneDocumentSummaryResponseDto(entry);
+    return {
+      milestoneId: entry.milestoneId,
+      title: entry.title,
+      completed: entry.completed,
+      total: entry.total,
+    };
   }
 }
 
 export class ProgramOverviewResponseDto {
-  programId: string;
-  name: string;
-  trackType: string | null;
-  lifecycle: string;
-  milestoneCount: number;
-  boardPostCount: number;
+  declare readonly programId: string;
+  declare readonly name: string;
+  declare readonly trackType: string | null;
+  declare readonly lifecycle: string;
+  declare readonly milestoneCount: number;
+  declare readonly boardPostCount: number;
 
-  participantCount: number;
-  teamCount: number;
-  connectedRepositoryCount: number;
-  remainingMilestones: RemainingMilestoneResponseDto[];
+  declare readonly participantCount: number;
+  declare readonly teamCount: number;
+  declare readonly connectedRepositoryCount: number;
+  declare readonly remainingMilestones: RemainingMilestoneResponseDto[];
 
-  viewerRole: AuthorityLabel | null;
+  declare readonly viewerRole: AuthorityLabel | null;
 
-  viewerDocumentsCompleted: number | null;
+  declare readonly viewerDocumentsCompleted: number | null;
 
-  viewerDocumentsTotal: number | null;
+  declare readonly viewerDocumentsTotal: number | null;
 
-  fullySubmittedParticipantCount: number | null;
+  declare readonly fullySubmittedParticipantCount: number | null;
 
-  milestoneDocuments: MilestoneDocumentSummaryResponseDto[];
-
-  private constructor(view: ProgramOverviewView) {
-    this.programId = view.programId;
-    this.name = view.name;
-    this.trackType = view.trackType;
-    this.lifecycle = view.lifecycle;
-    this.milestoneCount = view.milestoneCount;
-    this.boardPostCount = view.boardPostCount;
-    this.participantCount = view.participantCount;
-    this.teamCount = view.teamCount;
-    this.connectedRepositoryCount = view.connectedRepositoryCount;
-    this.remainingMilestones = view.remainingMilestones.map((milestone) =>
-      RemainingMilestoneResponseDto.from(milestone),
-    );
-    this.viewerRole = view.viewer.role;
-    this.viewerDocumentsCompleted = view.viewer.myDocumentsCompleted;
-    this.viewerDocumentsTotal = view.viewer.myDocumentsTotal;
-    this.fullySubmittedParticipantCount =
-      view.viewer.fullySubmittedParticipantCount;
-    this.milestoneDocuments = view.viewer.milestoneDocuments.map((entry) =>
-      MilestoneDocumentSummaryResponseDto.from(entry),
-    );
-  }
+  declare readonly milestoneDocuments: MilestoneDocumentSummaryResponseDto[];
 
   static from(view: ProgramOverviewView): ProgramOverviewResponseDto {
-    return new ProgramOverviewResponseDto(view);
+    return {
+      programId: view.programId,
+      name: view.name,
+      trackType: view.trackType,
+      lifecycle: view.lifecycle,
+      milestoneCount: view.milestoneCount,
+      boardPostCount: view.boardPostCount,
+      participantCount: view.participantCount,
+      teamCount: view.teamCount,
+      connectedRepositoryCount: view.connectedRepositoryCount,
+      remainingMilestones: view.remainingMilestones.map((milestone) =>
+        RemainingMilestoneResponseDto.from(milestone),
+      ),
+      viewerRole: view.viewer.role,
+      viewerDocumentsCompleted: view.viewer.myDocumentsCompleted,
+      viewerDocumentsTotal: view.viewer.myDocumentsTotal,
+      fullySubmittedParticipantCount:
+        view.viewer.fullySubmittedParticipantCount,
+      milestoneDocuments: view.viewer.milestoneDocuments.map((entry) =>
+        MilestoneDocumentSummaryResponseDto.from(entry),
+      ),
+    };
   }
 }
 

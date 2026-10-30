@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ranking response DTO JSON RankingPageResponseDto all-year nulls 1`] = `"{"year":"all","items":[{"rank":1,"githubLogin":"octo","commitCount":10,"pullRequestCount":5},{"rank":2,"githubLogin":"octo","commitCount":10,"pullRequestCount":5}],"page":1,"pageSize":20,"total":2,"dataAsOf":null,"viewerClass":"public","nextCycleAt":"2026-05-02T00:00:00.000Z"}"`;
+
+exports[`ranking response DTO JSON RankingPageResponseDto member 1`] = `"{"year":2026,"items":[{"rank":1,"githubLogin":"octo","commitCount":10,"pullRequestCount":5,"issueCount":3,"repositoryCount":2,"starCount":7,"total":27},{"rank":2,"githubLogin":"octo","commitCount":10,"pullRequestCount":5,"issueCount":3,"repositoryCount":2,"starCount":7,"total":27}],"page":1,"pageSize":20,"total":2,"dataAsOf":"2026-05-01T00:00:00.000Z","viewerClass":"member","nextCycleAt":null}"`;
+
+exports[`ranking response DTO JSON RankingPageResponseDto public 1`] = `"{"year":2026,"items":[{"rank":1,"githubLogin":"octo","commitCount":10,"pullRequestCount":5},{"rank":2,"githubLogin":"octo","commitCount":10,"pullRequestCount":5}],"page":1,"pageSize":20,"total":2,"dataAsOf":"2026-05-01T00:00:00.000Z","viewerClass":"public","nextCycleAt":null}"`;
+
+exports[`ranking response DTO JSON RankingPageResponseDto staff 1`] = `"{"year":2026,"items":[{"rank":1,"displayName":"Octo Cat","githubLogin":"octo","department":"Computer Science","name":"Octo","commitCount":10,"pullRequestCount":5,"issueCount":3,"repositoryCount":2,"starCount":7,"total":27},{"rank":2,"displayName":"Octo Cat","githubLogin":"octo","department":null,"name":null,"commitCount":10,"pullRequestCount":5,"issueCount":3,"repositoryCount":2,"starCount":7,"total":27}],"page":1,"pageSize":20,"total":2,"dataAsOf":"2026-05-01T00:00:00.000Z","viewerClass":"staff","nextCycleAt":null}"`;
+
+exports[`ranking response DTO JSON RankingYearsResponseDto 1`] = `"{"years":[2026,2025]}"`;

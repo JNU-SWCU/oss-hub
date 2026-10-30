@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`notifications response DTO JSON ApplicationDecisionNotificationResponseDto 1`] = `"{"id":"notification-1","applicationId":"application-1","programId":"program-1","programName":"Program A","decision":"APPROVED","decidedAt":"2026-01-02T03:04:05.000Z"}"`;
+
+exports[`notifications response DTO JSON NotificationSettingsResponseDto 1`] = `"{"notificationEmail":"octo@example.com","notifyEnabled":true}"`;
+
+exports[`notifications response DTO JSON NotificationSettingsResponseDto null email 1`] = `"{"notificationEmail":null,"notifyEnabled":false}"`;
+
+exports[`notifications response DTO JSON TeamDeletionNotificationResponseDto 1`] = `"{"id":"notification-2","teamId":"team-1","teamName":"Team A","programId":"program-1","programName":"Program A","message":null,"deletedAt":"2026-02-03T04:05:06.000Z"}"`;

@@ -3,10 +3,10 @@ import type {
   SubmissionFormResult,
 } from '../submission-result.policy';
 import {
-  presentCreatedSubmission,
-  presentResubmittedSubmission,
-  presentSubmissionChecklist,
-  presentSubmissionForm,
+  CreatedSubmissionResponseDto,
+  ResubmittedSubmissionResponseDto,
+  SubmissionChecklistResponseDto,
+  SubmissionFormResponseDto,
 } from './submission-form-response.dto';
 
 const dueAt = new Date('2026-09-01T14:59:59.123Z');
@@ -29,7 +29,9 @@ const form: SubmissionFormResult = {
 
 it('폼의 공개 필드, 업로드 한도와 기존 체크리스트 경로를 유지한다', () => {
   const result = { ...form, privateContext: 'not-on-wire' };
-  expect(presentSubmissionForm(result, 'program', 'milestone')).toEqual({
+  expect(
+    SubmissionFormResponseDto.from(result, 'program', 'milestone'),
+  ).toEqual({
     applicationId: 'application',
     fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
     applicationMode: 'TEAM',
@@ -51,7 +53,7 @@ it('폼의 공개 필드, 업로드 한도와 기존 체크리스트 경로를 �
     blockedReason: 'SUBMISSION_ALREADY_EXISTS',
   });
   expect(
-    presentSubmissionForm(
+    SubmissionFormResponseDto.from(
       {
         ...form,
         existingSubmission: null,
@@ -67,7 +69,7 @@ it('폼의 공개 필드, 업로드 한도와 기존 체크리스트 경로를 �
 
 it('생성 시각을 ISO로 반환하고 재제출 결과는 지정 필드만 반환한다', () => {
   expect(
-    presentCreatedSubmission({
+    CreatedSubmissionResponseDto.from({
       submissionId: 'submission',
       status: 'SUBMITTED',
       submittedAt: dueAt,
@@ -83,7 +85,7 @@ it('생성 시각을 ISO로 반환하고 재제출 결과는 지정 필드만 �
     status: 'SUBMITTED' as const,
     privateContext: 'not-on-wire',
   };
-  expect(presentResubmittedSubmission(result)).toEqual({
+  expect(ResubmittedSubmissionResponseDto.from(result)).toEqual({
     submissionId: 'submission',
     revision: 2,
     status: 'SUBMITTED',
@@ -142,7 +144,7 @@ it('체크리스트 순서와 검토·파일 null 및 ISO 시각·다운로드 �
       },
     ],
   };
-  expect(presentSubmissionChecklist(result)).toEqual({
+  expect(SubmissionChecklistResponseDto.from(result)).toEqual({
     applicationId: 'application',
     fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
     applicationMode: 'PERSONAL',

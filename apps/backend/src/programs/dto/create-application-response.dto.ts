@@ -5,28 +5,26 @@ import type {
 import type { CreatedApplication } from '../application-records.types';
 
 export class CreateApplicationResponseDto {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: ApplicationStatus;
-  readonly teamId: string;
-  readonly submittedAt: string;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
-
-  private constructor(application: CreatedApplication) {
-    this.id = application.id;
-    this.programId = application.programId;
-    this.status = application.status;
-    this.teamId = application.teamId;
-    this.submittedAt = application.submittedAt.toISOString();
-    this.isRepositoryPublicationPlanned =
-      application.isRepositoryPublicationPlanned;
-    this.repositoryConnectionMode = application.repositoryConnectionMode;
-    this.repositoryUrl = application.repositoryUrl;
-  }
+  declare readonly id: string;
+  declare readonly programId: string;
+  declare readonly status: ApplicationStatus;
+  declare readonly teamId: string;
+  declare readonly submittedAt: string;
+  declare readonly isRepositoryPublicationPlanned: boolean;
+  declare readonly repositoryConnectionMode: RepositoryConnectionMode;
+  declare readonly repositoryUrl: string | null;
 
   static from(application: CreatedApplication): CreateApplicationResponseDto {
-    return new CreateApplicationResponseDto(application);
+    return {
+      id: application.id,
+      programId: application.programId,
+      status: application.status,
+      teamId: application.teamId,
+      submittedAt: application.submittedAt.toISOString(),
+      isRepositoryPublicationPlanned:
+        application.isRepositoryPublicationPlanned,
+      repositoryConnectionMode: application.repositoryConnectionMode,
+      repositoryUrl: application.repositoryUrl,
+    };
   }
 }

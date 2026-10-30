@@ -7,78 +7,72 @@ import {
 } from '../ranking.policy';
 
 class PublicRankingEntryResponseDto {
-  readonly rank: number;
-  readonly githubLogin: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-
-  private constructor(entry: RankingEntry) {
-    this.rank = entry.rank;
-    this.githubLogin = entry.githubLogin;
-    this.commitCount = entry.commitCount;
-    this.pullRequestCount = entry.pullRequestCount;
-  }
+  declare readonly rank: number;
+  declare readonly githubLogin: string;
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
 
   static from(entry: RankingEntry): PublicRankingEntryResponseDto {
-    return new PublicRankingEntryResponseDto(entry);
+    return {
+      rank: entry.rank,
+      githubLogin: entry.githubLogin,
+      commitCount: entry.commitCount,
+      pullRequestCount: entry.pullRequestCount,
+    };
   }
 }
 
 class MemberRankingEntryResponseDto {
-  readonly rank: number;
-  readonly githubLogin: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-  readonly total: number;
-
-  private constructor(entry: RankingEntry) {
-    this.rank = entry.rank;
-    this.githubLogin = entry.githubLogin;
-    this.commitCount = entry.commitCount;
-    this.pullRequestCount = entry.pullRequestCount;
-    this.issueCount = entry.issueCount;
-    this.repositoryCount = entry.repositoryCount;
-    this.starCount = entry.starCount;
-    this.total = entry.total;
-  }
+  declare readonly rank: number;
+  declare readonly githubLogin: string;
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly issueCount: number;
+  declare readonly repositoryCount: number;
+  declare readonly starCount: number;
+  declare readonly total: number;
 
   static from(entry: RankingEntry): MemberRankingEntryResponseDto {
-    return new MemberRankingEntryResponseDto(entry);
+    return {
+      rank: entry.rank,
+      githubLogin: entry.githubLogin,
+      commitCount: entry.commitCount,
+      pullRequestCount: entry.pullRequestCount,
+      issueCount: entry.issueCount,
+      repositoryCount: entry.repositoryCount,
+      starCount: entry.starCount,
+      total: entry.total,
+    };
   }
 }
 
 class StaffRankingEntryResponseDto {
-  readonly rank: number;
-  readonly displayName: string;
-  readonly githubLogin: string;
-  readonly department: string | null;
-  readonly name: string | null;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-  readonly total: number;
-
-  private constructor(entry: RankingEntry) {
-    this.rank = entry.rank;
-    this.displayName = entry.displayName;
-    this.githubLogin = entry.githubLogin;
-    this.department = entry.department;
-    this.commitCount = entry.commitCount;
-    this.pullRequestCount = entry.pullRequestCount;
-    this.issueCount = entry.issueCount;
-    this.repositoryCount = entry.repositoryCount;
-    this.starCount = entry.starCount;
-    this.total = entry.total;
-    this.name = entry.name ?? null;
-  }
+  declare readonly rank: number;
+  declare readonly displayName: string;
+  declare readonly githubLogin: string;
+  declare readonly department: string | null;
+  declare readonly name: string | null;
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly issueCount: number;
+  declare readonly repositoryCount: number;
+  declare readonly starCount: number;
+  declare readonly total: number;
 
   static from(entry: RankingEntry): StaffRankingEntryResponseDto {
-    return new StaffRankingEntryResponseDto(entry);
+    return {
+      rank: entry.rank,
+      displayName: entry.displayName,
+      githubLogin: entry.githubLogin,
+      department: entry.department,
+      name: entry.name ?? null,
+      commitCount: entry.commitCount,
+      pullRequestCount: entry.pullRequestCount,
+      issueCount: entry.issueCount,
+      repositoryCount: entry.repositoryCount,
+      starCount: entry.starCount,
+      total: entry.total,
+    };
   }
 }
 
@@ -111,41 +105,35 @@ function assertNeverViewerClass(value: never): never {
 }
 
 export class RankingPageResponseDto {
-  readonly year: RankingYear;
-  readonly items: readonly RankingEntryResponseDto[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly total: number;
+  declare readonly year: RankingYear;
+  declare readonly items: readonly RankingEntryResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+  declare readonly total: number;
 
-  readonly dataAsOf: string | null;
-  readonly viewerClass: RankingViewerClass;
-  readonly nextCycleAt: string | null;
-
-  private constructor(page: RankingPage) {
-    this.year = page.year;
-    this.items = projectItems(page);
-    this.page = page.page;
-    this.pageSize = page.pageSize;
-    this.total = page.total;
-    this.dataAsOf = page.dataAsOf === null ? null : page.dataAsOf.toISOString();
-    this.viewerClass = page.viewerClass;
-    this.nextCycleAt =
-      page.nextCycleAt === null ? null : page.nextCycleAt.toISOString();
-  }
+  declare readonly dataAsOf: string | null;
+  declare readonly viewerClass: RankingViewerClass;
+  declare readonly nextCycleAt: string | null;
 
   static from(page: RankingPage): RankingPageResponseDto {
-    return new RankingPageResponseDto(page);
+    return {
+      year: page.year,
+      items: projectItems(page),
+      page: page.page,
+      pageSize: page.pageSize,
+      total: page.total,
+      dataAsOf: page.dataAsOf === null ? null : page.dataAsOf.toISOString(),
+      viewerClass: page.viewerClass,
+      nextCycleAt:
+        page.nextCycleAt === null ? null : page.nextCycleAt.toISOString(),
+    };
   }
 }
 
 export class RankingYearsResponseDto {
-  readonly years: readonly number[];
-
-  private constructor(years: readonly number[]) {
-    this.years = years;
-  }
+  declare readonly years: readonly number[];
 
   static from(years: readonly number[]): RankingYearsResponseDto {
-    return new RankingYearsResponseDto(years);
+    return { years };
   }
 }

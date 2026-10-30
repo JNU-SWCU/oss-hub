@@ -4,17 +4,19 @@ import type {
 } from '../program-notice.policy';
 
 export class ProgramNoticePreviewResponseDto implements ProgramNoticePreview {
-  readonly sourceUrl: string;
-  readonly name: string;
-  readonly description: string;
-  readonly coverImages: string[];
-  readonly warnings: ProgramNoticeWarning[];
+  declare readonly sourceUrl: string;
+  declare readonly name: string;
+  declare readonly description: string;
+  declare readonly coverImages: string[];
+  declare readonly warnings: ProgramNoticeWarning[];
 
-  constructor(preview: ProgramNoticePreview) {
-    this.sourceUrl = preview.sourceUrl;
-    this.name = preview.name;
-    this.description = preview.description;
-    this.coverImages = preview.coverImages;
-    this.warnings = preview.warnings;
+  static from(preview: ProgramNoticePreview): ProgramNoticePreviewResponseDto {
+    return {
+      sourceUrl: preview.sourceUrl,
+      name: preview.name,
+      description: preview.description,
+      coverImages: preview.coverImages,
+      warnings: preview.warnings,
+    };
   }
 }

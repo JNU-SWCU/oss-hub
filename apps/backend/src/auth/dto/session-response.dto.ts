@@ -2,47 +2,38 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthUser } from '../http-auth.types';
 
 export class MeResponseDto {
-  nickname: string;
-  name: string | null;
-  avatarUrl: string | null;
-  readonly accountStatus: AccountStatus;
-  readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly isProfileComplete: boolean;
-
-  private constructor(user: AuthUser) {
-    this.nickname = user.nickname;
-    this.name = user.name;
-    this.avatarUrl = user.avatarUrl;
-    this.accountStatus = user.accountStatus;
-    this.memberKind = user.memberKind;
-    this.hasStaffAccess = user.hasStaffAccess;
-    this.hasAdminAccess = user.hasAdminAccess;
-    this.isProfileComplete = user.isProfileComplete;
-  }
+  declare readonly nickname: string;
+  declare readonly name: string | null;
+  declare readonly avatarUrl: string | null;
+  declare readonly accountStatus: AccountStatus;
+  declare readonly memberKind: MemberKind | null;
+  declare readonly hasStaffAccess: boolean;
+  declare readonly hasAdminAccess: boolean;
+  declare readonly isProfileComplete: boolean;
 
   static from(user: AuthUser): MeResponseDto {
-    return new MeResponseDto(user);
+    return {
+      nickname: user.nickname,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      accountStatus: user.accountStatus,
+      memberKind: user.memberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+      isProfileComplete: user.isProfileComplete,
+    };
   }
 }
 
 export class SessionResponseDto {
-  readonly isAuthenticated: boolean;
-  readonly user?: MeResponseDto;
-
-  private constructor(isAuthenticated: boolean, user?: MeResponseDto) {
-    this.isAuthenticated = isAuthenticated;
-    if (user) {
-      this.user = user;
-    }
-  }
+  declare readonly isAuthenticated: boolean;
+  declare readonly user?: MeResponseDto;
 
   static anonymous(): SessionResponseDto {
-    return new SessionResponseDto(false);
+    return { isAuthenticated: false };
   }
 
   static authenticated(user: MeResponseDto): SessionResponseDto {
-    return new SessionResponseDto(true, user);
+    return { isAuthenticated: true, user };
   }
 }

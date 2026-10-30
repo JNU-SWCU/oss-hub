@@ -1,29 +1,23 @@
 import type { MilestoneDocumentFeedbackResult } from '../../programs/milestone-document-result.types';
 import type { ReviewDecision } from '@prisma/client';
 
-interface MilestoneDocumentFeedbackItemResponseDto {
-  readonly id: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: string;
-  readonly resubmissionDueAt: string | null;
-  readonly applicationId: string;
-  readonly programId: string;
-  readonly milestoneId: string;
-  readonly milestoneName: string;
-  readonly itemName: string;
-  readonly href: string;
-}
+export class MilestoneDocumentFeedbackItemResponseDto {
+  declare readonly id: string;
+  declare readonly decision: ReviewDecision;
+  declare readonly comment: string | null;
+  declare readonly reviewedAt: string;
+  declare readonly resubmissionDueAt: string | null;
+  declare readonly applicationId: string;
+  declare readonly programId: string;
+  declare readonly milestoneId: string;
+  declare readonly milestoneName: string;
+  declare readonly itemName: string;
+  declare readonly href: string;
 
-export interface MilestoneDocumentFeedbackResponseDto {
-  readonly items: readonly MilestoneDocumentFeedbackItemResponseDto[];
-}
-
-export function presentMilestoneDocumentFeedback(
-  result: MilestoneDocumentFeedbackResult,
-): MilestoneDocumentFeedbackResponseDto {
-  return {
-    items: result.items.map((item) => ({
+  static from(
+    item: MilestoneDocumentFeedbackResult['items'][number],
+  ): MilestoneDocumentFeedbackItemResponseDto {
+    return {
       id: item.id,
       decision: item.decision,
       comment: item.comment,
@@ -35,6 +29,20 @@ export function presentMilestoneDocumentFeedback(
       milestoneName: item.milestoneName,
       itemName: item.itemName,
       href: `/programs/${encodeURIComponent(item.programId)}/documents?milestoneId=${encodeURIComponent(item.milestoneId)}`,
-    })),
-  };
+    };
+  }
+}
+
+export class MilestoneDocumentFeedbackResponseDto {
+  declare readonly items: readonly MilestoneDocumentFeedbackItemResponseDto[];
+
+  static from(
+    result: MilestoneDocumentFeedbackResult,
+  ): MilestoneDocumentFeedbackResponseDto {
+    return {
+      items: result.items.map((item) =>
+        MilestoneDocumentFeedbackItemResponseDto.from(item),
+      ),
+    };
+  }
 }

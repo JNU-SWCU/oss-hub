@@ -1,11 +1,7 @@
 export class ProgramEndedYearsResponseDto {
-  readonly years: readonly number[];
-
-  private constructor(years: readonly number[]) {
-    this.years = years;
-  }
+  declare readonly years: readonly number[];
 
   static from(years: readonly number[]): ProgramEndedYearsResponseDto {
-    return new ProgramEndedYearsResponseDto(years);
+    return { years };
   }
 }

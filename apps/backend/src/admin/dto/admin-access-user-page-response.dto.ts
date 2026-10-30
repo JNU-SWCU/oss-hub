@@ -21,132 +21,118 @@ type PendingRequestResponseDto = {
 };
 
 export class AdminAccessUserResponseDto {
-  readonly id: string;
-  readonly githubLogin: string;
-  readonly name: string | null;
-  readonly role: AuthorityLabel | null;
-  readonly accountStatus: AccountStatus;
-  readonly isSelf: boolean;
-  readonly isProfileComplete: boolean;
-  readonly createdAt: string;
-  readonly pendingRequest: PendingRequestResponseDto | null;
-  readonly lastLoginAt: string | null;
-
-  private constructor(user: AdminAccessUser) {
-    this.id = user.id;
-    this.githubLogin = user.githubLogin;
-    this.name = user.name;
-    this.role = user.role;
-    this.accountStatus = user.accountStatus;
-    this.isSelf = user.isSelf;
-    this.isProfileComplete = user.isProfileComplete;
-    this.createdAt = user.createdAt.toISOString();
-    this.pendingRequest = toPendingRequest(user.pendingRequest);
-    this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
-  }
+  declare readonly id: string;
+  declare readonly githubLogin: string;
+  declare readonly name: string | null;
+  declare readonly role: AuthorityLabel | null;
+  declare readonly accountStatus: AccountStatus;
+  declare readonly isSelf: boolean;
+  declare readonly isProfileComplete: boolean;
+  declare readonly createdAt: string;
+  declare readonly pendingRequest: PendingRequestResponseDto | null;
+  declare readonly lastLoginAt: string | null;
 
   static from(user: AdminAccessUser): AdminAccessUserResponseDto {
-    return new AdminAccessUserResponseDto(user);
+    return {
+      id: user.id,
+      githubLogin: user.githubLogin,
+      name: user.name,
+      role: user.role,
+      accountStatus: user.accountStatus,
+      isSelf: user.isSelf,
+      isProfileComplete: user.isProfileComplete,
+      createdAt: user.createdAt.toISOString(),
+      pendingRequest: toPendingRequest(user.pendingRequest),
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    };
   }
 }
 
 export class AdminAccessFacetsResponseDto {
-  readonly roles: AdminAccessFacets['roles'];
-  readonly accountStatuses: AdminAccessFacets['accountStatuses'];
-  readonly pendingRequests: AdminAccessFacets['pendingRequests'];
-
-  private constructor(facets: AdminAccessFacets) {
-    this.roles = facets.roles;
-    this.accountStatuses = facets.accountStatuses;
-    this.pendingRequests = facets.pendingRequests;
-  }
+  declare readonly roles: AdminAccessFacets['roles'];
+  declare readonly accountStatuses: AdminAccessFacets['accountStatuses'];
+  declare readonly pendingRequests: AdminAccessFacets['pendingRequests'];
 
   static from(facets: AdminAccessFacets): AdminAccessFacetsResponseDto {
-    return new AdminAccessFacetsResponseDto(facets);
+    return {
+      roles: facets.roles,
+      accountStatuses: facets.accountStatuses,
+      pendingRequests: facets.pendingRequests,
+    };
   }
 }
 
 export class AdminAccessUserPageResponseDto {
-  readonly items: readonly AdminAccessUserResponseDto[];
-  readonly page: number;
-  readonly limit: number;
-  readonly total: number;
-  readonly facets: AdminAccessFacetsResponseDto;
-
-  private constructor(page: AdminAccessUserPage) {
-    this.items = page.items.map((user) =>
-      AdminAccessUserResponseDto.from(user),
-    );
-    this.page = page.page;
-    this.limit = page.limit;
-    this.total = page.total;
-    this.facets = AdminAccessFacetsResponseDto.from(page.facets);
-  }
+  declare readonly items: readonly AdminAccessUserResponseDto[];
+  declare readonly page: number;
+  declare readonly limit: number;
+  declare readonly total: number;
+  declare readonly facets: AdminAccessFacetsResponseDto;
 
   static from(page: AdminAccessUserPage): AdminAccessUserPageResponseDto {
-    return new AdminAccessUserPageResponseDto(page);
+    return {
+      items: page.items.map((user) => AdminAccessUserResponseDto.from(user)),
+      page: page.page,
+      limit: page.limit,
+      total: page.total,
+      facets: AdminAccessFacetsResponseDto.from(page.facets),
+    };
   }
 }
 
 export class AdminAccessMutationResponseDto {
-  readonly id: string;
-  readonly role: AuthorityLabel | null;
-  readonly accountStatus: AccountStatus;
-  readonly pendingRequest: PendingRequestResponseDto | null;
-  readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
-
-  private constructor(result: AdminAccessMutationResult) {
-    this.id = result.id;
-    this.role = result.role;
-    this.accountStatus = result.accountStatus;
-    this.pendingRequest = toPendingRequest(result.pendingRequest);
-    this.decidedRequest = result.decidedRequest;
-  }
+  declare readonly id: string;
+  declare readonly role: AuthorityLabel | null;
+  declare readonly accountStatus: AccountStatus;
+  declare readonly pendingRequest: PendingRequestResponseDto | null;
+  declare readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
 
   static from(
     result: AdminAccessMutationResult,
   ): AdminAccessMutationResponseDto {
-    return new AdminAccessMutationResponseDto(result);
+    return {
+      id: result.id,
+      role: result.role,
+      accountStatus: result.accountStatus,
+      pendingRequest: toPendingRequest(result.pendingRequest),
+      decidedRequest: result.decidedRequest,
+    };
   }
 }
 
 export class IndependentAuthorityMutationResponseDto {
-  readonly id: string;
-  readonly role: AuthorityLabel | null;
-  readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-
-  private constructor(result: IndependentAuthorityMutationResult) {
-    this.id = result.id;
-    this.role = result.role;
-    this.memberKind = result.memberKind;
-    this.hasStaffAccess = result.hasStaffAccess;
-    this.hasAdminAccess = result.hasAdminAccess;
-  }
+  declare readonly id: string;
+  declare readonly role: AuthorityLabel | null;
+  declare readonly memberKind: MemberKind | null;
+  declare readonly hasStaffAccess: boolean;
+  declare readonly hasAdminAccess: boolean;
 
   static from(
     result: IndependentAuthorityMutationResult,
   ): IndependentAuthorityMutationResponseDto {
-    return new IndependentAuthorityMutationResponseDto(result);
+    return {
+      id: result.id,
+      role: result.role,
+      memberKind: result.memberKind,
+      hasStaffAccess: result.hasStaffAccess,
+      hasAdminAccess: result.hasAdminAccess,
+    };
   }
 }
 
 export class AdminProfileUpdateResponseDto {
-  readonly id: string;
-  readonly name: string | null;
-  readonly studentId: string | null;
-  readonly department: string | null;
-
-  private constructor(result: AdminProfileUpdateResult) {
-    this.id = result.id;
-    this.name = result.name;
-    this.studentId = result.studentId;
-    this.department = result.department;
-  }
+  declare readonly id: string;
+  declare readonly name: string | null;
+  declare readonly studentId: string | null;
+  declare readonly department: string | null;
 
   static from(result: AdminProfileUpdateResult): AdminProfileUpdateResponseDto {
-    return new AdminProfileUpdateResponseDto(result);
+    return {
+      id: result.id,
+      name: result.name,
+      studentId: result.studentId,
+      department: result.department,
+    };
   }
 }
 

@@ -2,26 +2,24 @@ import type { ReviewDecision } from '@prisma/client';
 import type { CreatedMilestoneDocumentReview } from '../milestone-document-result.types';
 
 export class MilestoneDocumentReviewResponseDto {
-  id: string;
-  decision: ReviewDecision;
-  comment: string | null;
-  reviewedAt: string;
+  declare readonly id: string;
+  declare readonly decision: ReviewDecision;
+  declare readonly comment: string | null;
+  declare readonly reviewedAt: string;
 
-  resubmissionDueAt: string | null;
-  reviewerNickname: string;
-
-  private constructor(review: CreatedMilestoneDocumentReview) {
-    this.id = review.id;
-    this.decision = review.decision;
-    this.comment = review.comment;
-    this.reviewedAt = review.reviewedAt.toISOString();
-    this.resubmissionDueAt = review.resubmissionDueAt?.toISOString() ?? null;
-    this.reviewerNickname = review.reviewerNickname;
-  }
+  declare readonly resubmissionDueAt: string | null;
+  declare readonly reviewerNickname: string;
 
   static from(
     review: CreatedMilestoneDocumentReview,
   ): MilestoneDocumentReviewResponseDto {
-    return new MilestoneDocumentReviewResponseDto(review);
+    return {
+      id: review.id,
+      decision: review.decision,
+      comment: review.comment,
+      reviewedAt: review.reviewedAt.toISOString(),
+      resubmissionDueAt: review.resubmissionDueAt?.toISOString() ?? null,
+      reviewerNickname: review.reviewerNickname,
+    };
   }
 }

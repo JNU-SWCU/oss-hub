@@ -1,4 +1,4 @@
-import { presentSubmissionMatrix } from './dto/submission-matrix-response.dto';
+import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
 import type { SubmissionMatrixQuery } from './submission.types';
 import { SubmissionMatrixService } from './submission-matrix.service';
@@ -100,7 +100,7 @@ it.each([
   async (_, times, status) => {
     const { service } = setup(times);
 
-    const result = presentSubmissionMatrix(
+    const result = SubmissionMatrixResponseDto.from(
       await service.matrix(1136n, 'program', query),
       'program',
     );
@@ -132,7 +132,7 @@ it('does not treat another application or unrelated document as a required submi
       },
     ]);
 
-  const result = presentSubmissionMatrix(
+  const result = SubmissionMatrixResponseDto.from(
     await service.matrix(1136n, 'program', query),
     'program',
   );

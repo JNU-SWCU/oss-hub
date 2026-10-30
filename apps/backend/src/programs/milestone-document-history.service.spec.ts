@@ -1,4 +1,4 @@
-import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-page-response.dto';
+import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
@@ -45,7 +45,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         cursor: null,
         limit: 20,
       })
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result).toEqual({
       items: [
@@ -145,7 +145,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -171,7 +171,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -196,7 +196,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({

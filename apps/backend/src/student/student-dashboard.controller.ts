@@ -10,14 +10,8 @@ import {
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { ActivityTimelineRequestDto } from './dto/activity-timeline-request.dto';
-import {
-  activityTimelineResponse,
-  type ActivityTimelineResponseDto,
-} from './dto/activity-timeline-response.dto';
-import {
-  presentMilestoneDocumentFeedback,
-  type MilestoneDocumentFeedbackResponseDto,
-} from './dto/milestone-document-feedback-response.dto';
+import { ActivityTimelineResponseDto } from './dto/activity-timeline-response.dto';
+import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
 import { ProgramActivityService } from '../programs/program-activity.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
@@ -56,7 +50,7 @@ export class StudentDashboardController {
     @Req() request: SessionIdentity,
     @Query() query: ActivityTimelineRequestDto,
   ): Promise<ActivityTimelineResponseDto> {
-    return activityTimelineResponse(
+    return ActivityTimelineResponseDto.from(
       await this.activity.activityTimeline(
         await this.viewers.studentFromGithubId(request.sessionGithubId),
         query.granularity,
@@ -72,6 +66,6 @@ export class StudentDashboardController {
   ): Promise<MilestoneDocumentFeedbackResponseDto> {
     return this.feedback
       .recentForParticipant(request.sessionGithubId)
-      .then(presentMilestoneDocumentFeedback);
+      .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
   }
 }
