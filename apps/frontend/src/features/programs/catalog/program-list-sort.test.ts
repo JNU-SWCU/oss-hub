@@ -4,7 +4,7 @@ import {
   parseProgramListDirection,
   parseProgramListSort,
   parseProgramListYear,
-} from './program-list-sort';
+} from './program-list-url-state';
 
 describe('parseProgramListSort', () => {
   it('accepts known sort keys', () => {

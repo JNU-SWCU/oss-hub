@@ -1,22 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMilestoneDocumentCollectionUrlState } from './milestone-document-collection-url-state';
+import { useMilestoneDocumentCollectionQuery } from './queries';
 import { ApiError } from '@/lib/api-client';
 import {
-  milestoneDocumentCollectionDataFor,
   milestoneDocumentCollectionLoadPhase,
   selectCollectionDocument,
-  type LoadedMilestoneDocumentCollection,
 } from './milestone-document-collection';
-import {
-  getMilestoneDocumentHistory,
-  getMilestoneDocumentCollection,
-  MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
-} from './milestone-document-collection-api';
+import { getMilestoneDocumentHistory } from './milestone-document-collection-api';
 import type {
   MilestoneDocumentCollectionArchiveGrouping,
   MilestoneDocumentCollectionFilter,
-  MilestoneDocumentCollectionQueryInput,
 } from './milestone-document-collection-dto';
 import { MilestoneDocumentCollectionView } from './milestone-document-collection-view';
 import {
@@ -40,12 +35,6 @@ import {
 import { createMilestoneDocumentReview } from './milestone-document-review-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-dto';
 
-const INITIAL_QUERY: MilestoneDocumentCollectionQueryInput = {
-  page: 1,
-  pageSize: MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE,
-  filter: 'ALL',
-};
-
 export function MilestoneDocumentCollectionScreen({
   programId,
   milestoneId,
@@ -53,12 +42,19 @@ export function MilestoneDocumentCollectionScreen({
   readonly programId: string;
   readonly milestoneId: string;
 }) {
-  const [loaded, setLoaded] =
-    useState<LoadedMilestoneDocumentCollection | null>(null);
-  const [query, setQuery] =
-    useState<MilestoneDocumentCollectionQueryInput>(INITIAL_QUERY);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { state: query, navigate } = useMilestoneDocumentCollectionUrlState();
+  const result = useMilestoneDocumentCollectionQuery(
+    programId,
+    milestoneId,
+    query,
+  );
+  const [conflictFailed, setConflictFailed] = useState(false);
+  const isLoading = result.isFetching;
+  const errorMessage = result.isError
+    ? result.error instanceof ApiError
+      ? result.error.problem.detail
+      : '서류 수합 표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    : null;
   const [review, setReview] = useState<MilestoneDocumentReviewFormState | null>(
     null,
   );
@@ -67,13 +63,20 @@ export function MilestoneDocumentCollectionScreen({
 
   const [archiveGrouping, setArchiveGrouping] =
     useState<MilestoneDocumentCollectionArchiveGrouping>('TEAM');
-  const requestIdRef = useRef(0);
-
-  const queryRef = useRef(query);
-  queryRef.current = query;
+  const currentQuery = JSON.stringify([milestoneId, query]);
+  const queryRef = useRef(currentQuery);
+  queryRef.current = currentQuery;
 
   const reviewRequestIdRef = useRef(0);
   const historyRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    reviewRequestIdRef.current += 1;
+    historyRequestIdRef.current += 1;
+    setReview(null);
+    setReviewNotice(null);
+    setConflictFailed(false);
+  }, [currentQuery]);
 
   const loadReviewHistory = useCallback(
     async (target: MilestoneDocumentReviewTarget, cursor: string | null) => {
@@ -131,50 +134,18 @@ export function MilestoneDocumentCollectionScreen({
     reviewRequestIdRef.current += 1;
   }, []);
 
-  const load = useCallback(
-    async (
-      input: MilestoneDocumentCollectionQueryInput,
-      requestId: number,
-    ): Promise<MilestoneDocumentCollectionReloadResult> => {
-      setIsLoading(true);
-      setErrorMessage(null);
-      try {
-        const next = await getMilestoneDocumentCollection(milestoneId, input);
-
-        if (requestId !== requestIdRef.current) return 'superseded';
-        setLoaded({ query: input, data: next });
-        return 'reloaded';
-      } catch (error) {
-        if (requestId !== requestIdRef.current) return 'superseded';
-        setErrorMessage(
-          error instanceof ApiError
-            ? error.problem.detail
-            : '서류 수합 표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        );
-        return 'failed';
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [milestoneId],
-  );
-
   const reloadCollection =
-    useCallback((): Promise<MilestoneDocumentCollectionReloadResult> => {
-      requestIdRef.current += 1;
-      return load(queryRef.current, requestIdRef.current);
-    }, [load]);
+    useCallback(async (): Promise<MilestoneDocumentCollectionReloadResult> => {
+      const next = await result.refetch();
+      if (queryRef.current !== currentQuery) return 'superseded';
+      if (next.isError) return 'failed';
+      setConflictFailed(false);
+      return 'reloaded';
+    }, [result.refetch, currentQuery]);
 
   const reload = useCallback(() => {
     void reloadCollection();
   }, [reloadCollection]);
-
-  useEffect(() => {
-    requestIdRef.current += 1;
-    void load(query, requestIdRef.current);
-  }, [query, load]);
 
   const reloadAfterReviewConflict = useCallback(
     async (conflict: MilestoneDocumentReviewConflict, requestId: number) => {
@@ -183,7 +154,7 @@ export function MilestoneDocumentCollectionScreen({
 
       if (result === 'superseded') return;
 
-      if (result === 'failed') setLoaded(null);
+      if (result === 'failed') setConflictFailed(true);
 
       if (requestId !== reviewRequestIdRef.current) return;
       const notice = milestoneDocumentReviewConflictNotice(conflict, result);
@@ -277,7 +248,7 @@ export function MilestoneDocumentCollectionScreen({
     }
   }, [milestoneId, reload, reloadAfterReviewConflict, review]);
 
-  const data = milestoneDocumentCollectionDataFor(loaded, query);
+  const data = conflictFailed ? null : (result.data ?? null);
 
   return (
     <MilestoneDocumentCollectionView
@@ -290,7 +261,11 @@ export function MilestoneDocumentCollectionScreen({
         historyRequestIdRef.current += 1;
         setReview(null);
         setReviewNotice(null);
-        setQuery((previous) => selectCollectionDocument(previous, document));
+        setConflictFailed(false);
+        navigate({
+          ...selectCollectionDocument(query, document),
+          document: document ?? undefined,
+        });
       }}
       loadPhase={milestoneDocumentCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}
@@ -298,6 +273,14 @@ export function MilestoneDocumentCollectionScreen({
       reviewNotice={reviewNotice}
       archiveGrouping={archiveGrouping}
 
+      onResetFilters={() => {
+        discardPendingReview();
+        historyRequestIdRef.current += 1;
+        setReview(null);
+        setReviewNotice(null);
+        setConflictFailed(false);
+        navigate({ document: undefined, filter: 'ALL', page: 1 });
+      }}
       onArchiveGroupingChange={setArchiveGrouping}
       onFilterChange={(filter: MilestoneDocumentCollectionFilter) => {
         discardPendingReview();
@@ -305,13 +288,15 @@ export function MilestoneDocumentCollectionScreen({
 
         setReviewNotice(null);
 
-        setQuery((previous) => ({ ...previous, filter, page: 1 }));
+        setConflictFailed(false);
+        navigate({ filter, page: 1 });
       }}
       onPageChange={(page: number) => {
         discardPendingReview();
         setReview(null);
         setReviewNotice(null);
-        setQuery((previous) => ({ ...previous, page }));
+        setConflictFailed(false);
+        navigate({ page });
       }}
       onRetry={reload}
       onReviewOpen={(

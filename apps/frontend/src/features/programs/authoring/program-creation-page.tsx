@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgramLists } from '../catalog/list-queries';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
@@ -45,6 +47,7 @@ export function ProgramCreationPage({
 }: {
   readonly initialState?: ProgramAuthoringState;
 }) {
+  const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(
     programAuthoringReducer,
     undefined,
@@ -205,6 +208,7 @@ export function ProgramCreationPage({
       case 'ignored':
         return;
       case 'success':
+        void invalidateProgramLists(queryClient);
         clearProgramAuthoringRecoveryKey(window.sessionStorage);
         filesRef.current.clear();
         runtimeRef.current.uploads.clear();

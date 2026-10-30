@@ -1,5 +1,10 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import {
+  createListScreenRoot as createRoot,
+  listNavigation,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RankingPage } from '../types';
 import type { RankingViewState } from './ranking-view';
@@ -21,7 +26,9 @@ vi.mock('../csv', async (importOriginal) => {
 });
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams('year=2026'),
+  useSearchParams: useTestSearchParams,
+  usePathname: () => '/ranking',
+  useRouter: () => listNavigation,
 }));
 
 const captured = vi.hoisted(() => ({
@@ -73,6 +80,7 @@ describe('RankingScreen', () => {
   let root: Root;
 
   beforeEach(() => {
+    listNavigation.search = 'year=2026';
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);

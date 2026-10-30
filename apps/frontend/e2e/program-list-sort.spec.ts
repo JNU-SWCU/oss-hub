@@ -139,7 +139,11 @@ for (const width of [1440, 390]) {
     await expect(cards).toHaveCount(3);
     await expect(cards).toContainText([names[0], names[2], names[1]]);
     await select.selectOption('name');
-    await expect(page).toHaveURL(/\?sort=name$/);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.searchParams.get('sort') === 'name' &&
+        url.searchParams.get('search') === prefix,
+    );
     await expect(cards).toContainText(currentNames);
     await select.selectOption('applicationPeriod');
     await expect(cards).toContainText([names[1], names[0], names[2]]);

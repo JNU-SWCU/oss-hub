@@ -30,6 +30,7 @@ export const programEntries = {
     'seoul-date-time',
   ],
   catalog: [
+    'list-queries',
     'queries',
     'api',
     'dto',

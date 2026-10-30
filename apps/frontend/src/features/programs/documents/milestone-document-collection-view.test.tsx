@@ -118,6 +118,7 @@ function render(
       reviewNotice={null}
       archiveGrouping="TEAM"
       onArchiveGroupingChange={() => {}}
+      onResetFilters={() => {}}
       onFilterChange={() => {}}
       onPageChange={() => {}}
       onRetry={() => {}}

@@ -1,4 +1,9 @@
-import { act } from 'react';
+import { act, type ComponentProps } from 'react';
+import {
+  listNavigation,
+  useTestSearchParams,
+} from '../../../test-support/list-screen-root';
+import { useStudentDashboardUrlState } from './student-dashboard-url-state';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +31,28 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/dashboard',
+}));
+
+function FilteredSections(
+  props: ComponentProps<typeof DashboardProgramSections>,
+) {
+  const {
+    state: { status },
+    navigate,
+  } = useStudentDashboardUrlState();
+  return (
+    <DashboardProgramSections
+      {...props}
+      filter={status}
+      onFilterChange={(next) => navigate({ status: next })}
+    />
+  );
+}
 
 const active = (key: string, dueAt: string) =>
   dashboardItem(key, 'APPROVED', dashboardMilestone(dueAt));
@@ -62,7 +89,7 @@ describe('DashboardProgramSections', () => {
   ) {
     await act(() => {
       root.render(
-        <DashboardProgramSections
+        <FilteredSections
           items={items}
           now={new Date('2026-07-23T10:00:00+09:00')}
           feedback={feedback}

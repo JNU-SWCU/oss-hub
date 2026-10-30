@@ -1,5 +1,9 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import {
+  createListScreenRoot as createRoot,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardPostDetail, BoardPostsPage } from '../types';
 
@@ -18,6 +22,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('next/navigation', () => ({
   useRouter: () => mocks.router,
+  useSearchParams: useTestSearchParams,
+  usePathname: () => '/programs/program-1/board',
 }));
 
 vi.mock('next/link', () => ({
