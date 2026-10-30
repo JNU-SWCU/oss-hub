@@ -33,7 +33,6 @@ import { readStoredCollapsed, SIDEBAR_STORAGE_KEY } from './product-shell';
 
 const ITEMS: NavItem[] = [
   { label: '프로그램', href: '/programs' },
-  { label: '공개 아카이브', href: '/archive' },
   { label: '랭킹', href: '/ranking' },
 ];
 

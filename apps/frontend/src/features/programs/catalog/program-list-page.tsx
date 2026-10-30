@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
-import { listPrograms } from './api';
+import { getProgramEndedYears, listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
 import { programHref } from '../program-paths';
 import {
@@ -23,6 +23,7 @@ import {
   buildProgramListHref,
   parseProgramListDirection,
   parseProgramListSort,
+  parseProgramListYear,
 } from './program-list-sort';
 import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
@@ -50,7 +51,10 @@ interface ProgramListPageProps {
 
 type LoadState =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly programPage: ProgramListPageData }
+  | {
+      readonly kind: 'ready';
+      readonly programPage: ProgramListPageData;
+    }
   | { readonly kind: 'error'; readonly message: string };
 
 const PAGE_SIZE = 20;
@@ -85,12 +89,36 @@ function ProgramListPage({
   const sort = parseProgramListSort(searchParams.get('sort'));
   const direction = parseProgramListDirection(searchParams.get('direction'));
   const purgeNotice = searchParams.get('purged');
+  const year =
+    status === 'ended'
+      ? parseProgramListYear(searchParams.get('year'))
+      : undefined;
 
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const [years, setYears] = useState<readonly number[]>([]);
+  const ended = status === 'ended';
+  useEffect(() => {
+    if (!ended) return;
+    const controller = new AbortController();
+    getProgramEndedYears(controller.signal).then(
+      (nextYears) => {
+        if (!controller.signal.aborted) setYears(nextYears);
+      },
+      () => {
+        if (!controller.signal.aborted) setYears([]);
+      },
+    );
+    return () => controller.abort();
+  }, [ended]);
+  const yearOptions =
+    year !== undefined && !years.includes(year) ? [year, ...years] : years;
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const latestRequestId = useRef(0);
-  const hasFilters = search.trim() !== '' || status !== 'all';
+  const hasFilters =
+    search.trim() !== '' ||
+    year !== undefined ||
+    (status !== 'all' && status !== 'ended');
 
   const load = useCallback(async (): Promise<void> => {
     const requestId = latestRequestId.current + 1;
@@ -101,9 +129,10 @@ function ProgramListPage({
         page,
         pageSize: PAGE_SIZE,
         search,
-        status,
+        status: status === 'all' ? 'current' : status,
         sort,
         direction,
+        year,
       });
       if (requestId !== latestRequestId.current) return;
       setLoadState({ kind: 'ready', programPage });
@@ -117,7 +146,7 @@ function ProgramListPage({
             : '프로그램 목록을 불러오지 못했습니다.',
       });
     }
-  }, [page, search, status, sort, direction]);
+  }, [page, search, status, sort, direction, year]);
 
   useEffect(() => {
     void load();
@@ -128,7 +157,7 @@ function ProgramListPage({
 
   useEffect(() => {
     setPage(1);
-  }, [status, sort, direction]);
+  }, [status, sort, direction, year]);
 
   const now = useMemo(() => new Date(), []);
 
@@ -140,6 +169,7 @@ function ProgramListPage({
     router.push(
       buildProgramListHref({
         status,
+        year,
         sort: nextSort,
         direction: nextSort ? direction : undefined,
       }),
@@ -173,12 +203,28 @@ function ProgramListPage({
           title={
             hasFilters
               ? '조건에 맞는 프로그램이 없습니다'
-              : '등록된 프로그램이 없습니다'
+              : status === 'ended'
+                ? '종료된 프로그램이 없습니다'
+                : '등록된 프로그램이 없습니다'
           }
           description={
             hasFilters
-              ? '검색어나 프로그램 상태를 바꿔 다시 찾아보세요.'
-              : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
+              ? '검색어나 프로그램 상태, 연도를 바꿔 다시 찾아보세요.'
+              : status === 'ended'
+                ? '프로그램이 종료되면 이곳에서 확인할 수 있습니다.'
+                : '새 프로그램이 등록되면 이곳에서 확인할 수 있습니다.'
+          }
+          action={
+            year !== undefined ? (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  router.push(buildProgramListHref({ status, sort, direction }))
+                }
+              >
+                필터 초기화
+              </Button>
+            ) : undefined
           }
         />
       );
@@ -215,7 +261,9 @@ function ProgramListPage({
     <section className="mx-auto w-full max-w-[1200px] grid gap-6 p-4 sm:p-6">
       <PageHeader
         title={getProgramListHeading(status)}
-        description={getProgramListSubtitle(viewerRole)}
+        description={
+          status === 'ended' ? undefined : getProgramListSubtitle(viewerRole)
+        }
         descriptionClassName="break-keep"
         actions={
           canCreateProgram ? (
@@ -238,6 +286,32 @@ function ProgramListPage({
         onChange={goStatus}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        {ended && yearOptions.length > 0 ? (
+          <label className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">종료 연도</span>
+            <Select
+              aria-label="종료 연도"
+              value={year ?? ''}
+              onChange={(event) =>
+                router.push(
+                  buildProgramListHref({
+                    status,
+                    sort,
+                    direction,
+                    year: parseProgramListYear(event.target.value),
+                  }),
+                )
+              }
+            >
+              <option value="">전체 연도</option>
+              {yearOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : null}
         <Input
           aria-label="프로그램명 검색"
           className="sm:flex-1 sm:min-w-48"

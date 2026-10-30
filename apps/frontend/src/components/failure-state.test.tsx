@@ -6,10 +6,10 @@ import { FailureState } from './failure-state';
 describe('FailureState', () => {
   it('실패를 알리고 기본으로 다음 행동을 말한다', () => {
     const html = renderToStaticMarkup(
-      <FailureState title="공개 아카이브를 불러오지 못했습니다" />,
+      <FailureState title="공개 프로젝트를 불러오지 못했습니다" />,
     );
 
-    expect(html).toContain('공개 아카이브를 불러오지 못했습니다');
+    expect(html).toContain('공개 프로젝트를 불러오지 못했습니다');
 
     expect(html).toContain('잠시 후 다시 시도해 주세요.');
     expect(html).toContain('data-slot="failure-state"');

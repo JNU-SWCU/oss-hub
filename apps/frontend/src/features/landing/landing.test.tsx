@@ -116,8 +116,8 @@ describe('landing page sections', () => {
     expect(html).toContain('승인되면 팀 저장소가 열림');
     expect(html).toContain('제출·검토');
     expect(html).toContain('마일스톤 단위로 교직원이 검토');
-    expect(html).toContain('공개 아카이브');
-    expect(html).toContain('연도별 아카이브에 남음');
+    expect(html).toContain('공개 프로젝트');
+    expect(html).toContain('공개 프로젝트로 남음');
     expect(html).toContain('참여 기록이 모두 남습니다');
     expect(html).toContain(
       '참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다. 진행 중인 저장소는 팀과 교직원만 볼 수 있고, 공개는 검토 후 명시적 승인을 거칩니다.',

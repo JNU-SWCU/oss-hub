@@ -27,6 +27,6 @@ export function deriveLandingStats(graph: LandingGraph): LandingStatsDisplay {
 
   return {
     items,
-    note: '공개 아카이브 기준',
+    note: '공개 프로젝트 기준',
   };
 }

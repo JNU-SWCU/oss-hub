@@ -5,8 +5,8 @@ import { programOverviewHref } from '@/lib/program-route';
 import { COSMOS_PROGRAM_COUNT } from '../cosmos/cosmos-graph';
 import { buildPublicLandingGraph } from '../landing-graph';
 import {
-  parseLandingArchiveDetail,
-  parseLandingArchivePage,
+  parseLandingProjectDetail,
+  parseLandingProjectPage,
   parseLandingProgramNamePage,
   parseLandingProgramPage,
 } from '../landing-overview';
@@ -25,17 +25,17 @@ const landingJson = (path: string): Promise<unknown> =>
   serverApiClient(path, { revalidate: 300, tags: ['landing'] });
 
 async function loadStats(): Promise<LandingStatsDisplay> {
-  const archive = parseLandingArchivePage(
+  const projects = parseLandingProjectPage(
     await landingJson('projects?pageSize=3'),
   );
   const details = await Promise.all(
-    archive.map(async ({ projectId }) =>
-      parseLandingArchiveDetail(
+    projects.map(async ({ projectId }) =>
+      parseLandingProjectDetail(
         await landingJson(`projects/${encodeURIComponent(projectId)}`),
       ),
     ),
   );
-  return deriveLandingStats(buildPublicLandingGraph(archive, details));
+  return deriveLandingStats(buildPublicLandingGraph(projects, details));
 }
 
 function arrived<T>(

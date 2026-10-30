@@ -1,5 +1,6 @@
 import { expect, test } from './admin-session.fixture';
 import { COVER_PNG } from './support/program-cover';
+import { isRecord } from '../src/lib/is-record';
 import {
   originHeaders,
   resetProgramAuthoringControl,
@@ -50,6 +51,44 @@ for (const width of [1440, 390]) {
     await page.route('**/api/v1/programs/*/cover/*', (route) =>
       route.fulfill({ contentType: 'image/png', body: COVER_PNG }),
     );
+    await page.route('**/api/v1/programs?*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('status') !== 'current') {
+        await route.continue();
+        return;
+      }
+      url.searchParams.set('status', 'all');
+      const response = await route.fetch({ url: url.toString() });
+      expect(response.status()).toBe(200);
+      const result: unknown = await response.json();
+      if (!isRecord(result) || !Array.isArray(result.items)) {
+        throw new Error('프로그램 목록 응답이 아닙니다');
+      }
+      const items = result.items.filter((program: unknown) => {
+        if (
+          !isRecord(program) ||
+          (program.endAt !== null && typeof program.endAt !== 'string')
+        ) {
+          throw new Error('프로그램 종료일이 없습니다');
+        }
+        return (
+          program.lifecycle !== 'ARCHIVED' &&
+          (program.endAt === null ||
+            Date.parse(program.endAt) >= Date.parse(now))
+        );
+      });
+      await route.fulfill({
+        json: {
+          ...result,
+          items,
+          totalItems: items.length,
+          totalPages: items.length ? 1 : 0,
+        },
+      });
+    });
+    await page.route('**/api/v1/programs/ended-years', (route) =>
+      route.fulfill({ json: { years: [2026] } }),
+    );
     await page.goto('/programs');
     const search = page.getByRole('textbox', { name: '프로그램명 검색' });
     const select = page.getByRole('combobox', { name: '프로그램 정렬 기준' });
@@ -96,19 +135,26 @@ for (const width of [1440, 390]) {
 
     await search.fill(prefix);
     const cards = page.locator('[data-slot="program-card"]');
-    await expect(cards).toHaveCount(4);
-    await expect(cards).toContainText([names[0], names[2], names[1], names[3]]);
+    const currentNames = names.slice(0, 3);
+    await expect(cards).toHaveCount(3);
+    await expect(cards).toContainText([names[0], names[2], names[1]]);
     await select.selectOption('name');
     await expect(page).toHaveURL(/\?sort=name$/);
-    await expect(cards).toContainText(names);
+    await expect(cards).toContainText(currentNames);
     await select.selectOption('applicationPeriod');
-    await expect(cards).toContainText([names[3], names[1], names[0], names[2]]);
+    await expect(cards).toContainText([names[1], names[0], names[2]]);
     await select.selectOption('status');
-    await expect(cards).toContainText([names[0], names[1], names[2], names[3]]);
+    await expect(cards).toContainText(currentNames);
     await page.goto('/programs?sort=name&direction=desc');
     await expect(select).toHaveValue('name');
     await search.fill(prefix);
-    await expect(cards).toContainText([...names].reverse());
+    await expect(cards).toContainText([...currentNames].reverse());
     await expect(toolbar.getByRole('button')).toHaveCount(0);
+
+    await page.goto('/programs?status=ended&sort=name');
+    await expect(select).toHaveValue('name');
+    await search.fill(prefix);
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText([names[3]]);
   });
 }

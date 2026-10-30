@@ -4,23 +4,25 @@ import { deriveLandingStats } from './landing-stats';
 
 describe('landing statistics', () => {
   it('counts unique contributors when projects share a contributor', () => {
-    const archive = ['a', 'b'].map((projectId) => ({
+    const projects = ['a', 'b'].map((projectId) => ({
       projectId,
       programId: 'p',
       programName: 'Program',
       displayName: projectId,
-      detailUrl: '/archive/' + projectId,
+      detailUrl: '/projects/' + projectId,
     }));
-    const details = archive.map(({ projectId }) => ({
+    const details = projects.map(({ projectId }) => ({
       projectId,
       contributors: [{ githubLogin: 'student' }],
     }));
 
-    const stats = deriveLandingStats(buildPublicLandingGraph(archive, details));
+    const stats = deriveLandingStats(
+      buildPublicLandingGraph(projects, details),
+    );
 
     expect(stats.items.map((item) => item.value)).toEqual(['1', '2', '1']);
   });
-  it('omits counts and note when the archive is empty', () => {
+  it('omits counts and note when projects are empty', () => {
     const graph = buildPublicLandingGraph([], []);
 
     const stats = deriveLandingStats(graph);

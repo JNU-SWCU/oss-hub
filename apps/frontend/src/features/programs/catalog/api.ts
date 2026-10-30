@@ -19,6 +19,7 @@ export async function listPrograms(
   });
   if (params.sort) search.set('sort', params.sort);
   if (params.direction) search.set('direction', params.direction);
+  if (params.year !== undefined) search.set('year', String(params.year));
   const page = await apiClient<ProgramListPage>(
     'programs?' + search.toString(),
   );
@@ -28,6 +29,16 @@ export async function listPrograms(
 
 export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
   return apiClient<ProgramStatusCounts>('programs/status-counts');
+}
+
+export async function getProgramEndedYears(
+  signal: AbortSignal,
+): Promise<readonly number[]> {
+  const { years } = await apiClient<{ readonly years: readonly number[] }>(
+    'programs/ended-years',
+    { signal },
+  );
+  return years;
 }
 
 export async function getPublicProgramDetail(

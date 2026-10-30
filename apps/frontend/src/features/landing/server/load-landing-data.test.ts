@@ -13,7 +13,7 @@ const program = {
   trackType: null,
   applicationEndAt: '2026-11-01T00:00:00.000Z',
 };
-const archive = {
+const project = {
   projectId: 'project-1',
   programId: program.id,
   programName: program.name,
@@ -30,7 +30,7 @@ function respond(input: string | URL | Request): Promise<Response> {
   const url = requestUrl(input);
   const body = url.includes('projects/project-1')
     ? { projectId: 'project-1', contributors: [{ githubLogin: 'student' }] }
-    : { items: url.includes('/projects?') ? [archive] : [program] };
+    : { items: url.includes('/projects?') ? [project] : [program] };
   return Promise.resolve(Response.json(body));
 }
 
@@ -81,7 +81,7 @@ describe('server landing data', () => {
           { key: '공개 저장소', value: '1' },
           { key: '공개 기여자', value: '1' },
         ],
-        note: '공개 아카이브 기준',
+        note: '공개 프로젝트 기준',
       },
     });
   });
