@@ -18,7 +18,7 @@ import {
   ProgramMilestoneEditResponseDto,
   ProgramMilestoneResponseDto,
 } from './dto/editable-program-response.dto';
-import type { MilestoneUpdateCommand } from './program-write.types';
+import type { MilestoneUpdateCommand } from './programs.types';
 import { UpdateMilestoneRequestDto } from './dto/update-milestone-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';

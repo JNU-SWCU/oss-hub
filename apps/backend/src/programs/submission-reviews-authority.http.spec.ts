@@ -1,5 +1,8 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import {
+  ValidationPipe,
+  type ExecutionContext,
+  type INestApplication,
+} from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
@@ -7,11 +10,9 @@ import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/authority.service';
-import {
-  SubmissionRepositoryPublishingController,
-  SubmissionReviewsController,
-} from './submission-reviews.controller';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { SubmissionsController } from './submissions.controller';
+import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import type {
   SubmissionReviewTransactionStore,
@@ -103,7 +104,7 @@ let baseUrl: string;
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [
-      SubmissionReviewsController,
+      SubmissionsController,
       SubmissionRepositoryPublishingController,
     ],
     providers: [
@@ -126,6 +127,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate(context: ExecutionContext) {

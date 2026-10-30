@@ -6,10 +6,10 @@ import {
   OBJECT_STORAGE,
 } from '../platform/object-storage.types';
 import { KNOWN_STORAGE_PREFIXES } from './storage-orphan-reconciliation.policy';
-import { createStorageReferenceRepository } from './storage-orphan-reconciliation.repository';
-import { runStorageOrphanReconciliation } from './storage-orphan-reconciliation-runner.service';
+import { createStorageReferenceRepository } from './prisma-storage-reference.repository';
+import { runStorageOrphanReconciliation } from './storage-orphan-reconciliation.service';
 
-jest.mock('./storage-orphan-reconciliation.repository', () => ({
+jest.mock('./prisma-storage-reference.repository', () => ({
   createStorageReferenceRepository: jest.fn(),
 }));
 

@@ -8,7 +8,7 @@ import {
   type AuditPersonSnapshot,
   type AuditTargetSnapshot,
 } from './access-audit-metadata.policy';
-import { hasExactKeys, isJsonObject } from './audit-metadata-validation.policy';
+import { hasExactKeys, isJsonObject } from './platform.policy';
 
 export const INDEPENDENT_AUTHORITY_AUDIT_ACTIONS = {
   GRANT_STAFF_ACCESS: 'GRANT_STAFF_ACCESS',

@@ -1,20 +1,76 @@
+import type {
+  AdminAccessUserRecord,
+  AdminAccessActor,
+} from './admin-access-repository.types';
+import {
+  ADMIN_ACCESS_REQUEST_EFFECTS,
+  type AdminAccessRequestEffect,
+  ADMIN_ACCESS_DECISION_KINDS,
+} from './admin-access-transition-table.policy';
+import {
+  type AdminAccessMutationCommand,
+  ADMIN_ACCESS_REQUEST_DECISIONS,
+} from './admin-access.types';
 import { StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import type {
-  AdminAccessActor,
-  AdminAccessUserRecord,
-} from './admin-access-repository.types';
-import {
-  ADMIN_ACCESS_DECISION_KINDS,
-  ADMIN_ACCESS_REQUEST_EFFECTS,
-  type AdminAccessRequestEffect,
-} from './admin-access-transition-table.policy';
-import {
-  ADMIN_ACCESS_REQUEST_DECISIONS,
-  type AdminAccessMutationCommand,
-} from './admin-access.types';
+
+export type AuthorityWrite = {
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export function authorityAfterLegacyTransition(
+  before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
+  requestEffect: AdminAccessRequestEffect,
+): AuthorityWrite {
+  return {
+    hasStaffAccess: staffAccessAfterLegacyTransition(
+      before,
+      command,
+      requestEffect,
+    ),
+    hasAdminAccess: adminAccessAfterLegacyTransition(before, command),
+  };
+}
+
+function adminAccessAfterLegacyTransition(
+  before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
+): boolean {
+  if (command.desiredRole === 'ADMIN') {
+    return true;
+  }
+  return before.hasAdminAccess;
+}
+
+function staffAccessAfterLegacyTransition(
+  before: AdminAccessUserRecord,
+  command: AdminAccessMutationCommand,
+  requestEffect: AdminAccessRequestEffect,
+): boolean {
+  switch (requestEffect) {
+    case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
+      return true;
+    case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED:
+      return before.hasStaffAccess;
+    case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
+      return false;
+    case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
+      if (command.desiredRole === 'STAFF') {
+        return true;
+      }
+      return before.hasStaffAccess;
+    default:
+      return assertNeverForAdminAccessAuthorityWrite(requestEffect);
+  }
+}
+
+function assertNeverForAdminAccessAuthorityWrite(value: never): never {
+  throw new TypeError(`Unsupported authority request effect: ${String(value)}`);
+}
 
 export function matchesExpectedAccessState(
   current: AdminAccessUserRecord,
@@ -62,7 +118,7 @@ export function toAdminAccessDecisionKind(
     case ADMIN_ACCESS_REQUEST_DECISIONS.REJECT:
       return ADMIN_ACCESS_DECISION_KINDS.REJECT;
     default:
-      return assertNever(decision);
+      return assertNeverForAdminAccessMutation(decision);
   }
 }
 
@@ -147,7 +203,7 @@ export function toAdminAccessRequestWrite(
       };
     }
     default:
-      return assertNever(effect);
+      return assertNeverForAdminAccessMutation(effect);
   }
 }
 
@@ -180,6 +236,6 @@ export function staleAccessError(
   );
 }
 
-function assertNever(value: never): never {
+function assertNeverForAdminAccessMutation(value: never): never {
   throw new TypeError(`Unsupported admin access variant: ${String(value)}`);
 }

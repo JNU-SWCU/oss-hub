@@ -16,11 +16,11 @@ import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
-import { ApplicationJoinCodeService } from './application-join-code.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

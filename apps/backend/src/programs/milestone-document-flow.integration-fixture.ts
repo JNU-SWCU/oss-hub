@@ -6,10 +6,10 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import { S3ObjectStorage } from '../platform/object-storage.client';
+import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { OBJECT_STORAGE } from '../platform/object-storage.types';
 import { ProgramsModule } from './programs.module';
@@ -26,7 +26,7 @@ const origin = 'https://synthetic.example';
 
 export class MilestoneDocumentFlowFixture {
   readonly prisma = new PrismaService();
-  readonly storage = new S3ObjectStorage(new ObjectStorageConfig());
+  readonly storage = new S3ObjectStorageClient(new ObjectStorageConfig());
   private app: INestApplication | undefined;
 
   async start(): Promise<void> {
@@ -59,7 +59,7 @@ export class MilestoneDocumentFlowFixture {
       .useValue(auth)
       .overrideProvider(PublicProjectsService)
       .useValue({})
-      .overrideProvider(S3ObjectStorage)
+      .overrideProvider(S3ObjectStorageClient)
       .useValue(this.storage)
       .overrideProvider(OBJECT_STORAGE)
       .useValue(this.storage)

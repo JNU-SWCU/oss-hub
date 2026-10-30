@@ -1,0 +1,12 @@
+import { IsOptional, Matches } from 'class-validator';
+import { INSIGHTS_YEAR_MAX, INSIGHTS_YEAR_MIN } from '../staff.policy';
+
+const INSIGHTS_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
+
+export class StaffInsightsRequestDto {
+  @IsOptional()
+  @Matches(INSIGHTS_YEAR_PARAM_PATTERN, {
+    message: `year must be omitted, "all", or a calendar year between ${INSIGHTS_YEAR_MIN} and ${INSIGHTS_YEAR_MAX}`,
+  })
+  readonly year?: string;
+}

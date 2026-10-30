@@ -6,17 +6,17 @@ import {
 } from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import { isSerializationFailure } from '../platform/prisma-serialization-retry.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
   sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,
   type ProgramDeletionScopeCounts,
-} from './program-deletion-scope.policy';
+} from './programs.policy';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import type { ProgramPurgeResult } from './program-purge.types';
+import type { ProgramPurgeResult } from './programs.types';
 import {
   isForeignKeyConflict,
   ProgramLifecycleRepository,
@@ -186,7 +186,8 @@ export class ProgramLifecycleService {
         return { id: programId, deleted: true as const, deletedCounts };
       });
     } catch (error) {
-      const serializationFailure = isSerializationFailure(error);
+      const serializationFailure =
+        PrismaSerializationRetryRepository.isSerializationFailure(error);
       const foreignKeyConflict = isForeignKeyConflict(error);
       const deletedScopeMismatch =
         error instanceof ProgramPurgeDeletedScopeMismatchError;

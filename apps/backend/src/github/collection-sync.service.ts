@@ -1,26 +1,19 @@
 import {
-  CollectionInventory,
+  CollectionInventoryService,
   type CollectionSyncRuntime,
   type CollectionSyncRuntimeFactory,
   type SweepInventory,
-} from './collection-inventory.service';
-export type {
-  CollectionSyncRuntime,
-  CollectionSyncRuntimeFactory,
-} from './collection-inventory.service';
-import {
   CollectionSyncDeadline,
   RunDeadlineError,
-} from './collection-sync-deadline.service';
-import { splitNameWithOwner } from './collection-repository-identity.policy';
-import { CollectionStreamCheckpoint } from './collection-stream-checkpoint.service';
+} from './collection-inventory.service';
+import { splitNameWithOwner, requestFingerprintKey } from './github.policy';
+import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   CollectionAppClientError,
   CollectionCommit,
 } from './collection-app.client';
-import { requestFingerprintKey } from './collection-app-frontier.policy';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
@@ -29,8 +22,13 @@ import type {
   RegisteredGithubIdSet,
   RepositorySource,
   RepositoryTeamMemberAccount,
+  SyncLeaseToken,
 } from './collection-incremental.types';
-import type { SyncLeaseToken } from './collection-sync.types';
+
+export type {
+  CollectionSyncRuntime,
+  CollectionSyncRuntimeFactory,
+} from './collection-inventory.service';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
@@ -188,8 +186,8 @@ const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
 @Injectable()
 export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
-  private readonly checkpoints: CollectionStreamCheckpoint;
-  private readonly inventory: CollectionInventory;
+  private readonly checkpoints: CollectionStreamCheckpointService;
+  private readonly inventory: CollectionInventoryService;
   private readonly deadline: CollectionSyncDeadline;
 
   constructor(
@@ -202,12 +200,12 @@ export class CollectionSyncService {
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {
     this.deadline = new CollectionSyncDeadline(now);
-    this.inventory = new CollectionInventory(
+    this.inventory = new CollectionInventoryService(
       incrementalRepository,
       this.deadline,
       now,
     );
-    this.checkpoints = new CollectionStreamCheckpoint(
+    this.checkpoints = new CollectionStreamCheckpointService(
       incrementalRepository,
       now,
     );

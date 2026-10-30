@@ -14,11 +14,11 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { ApplicationsService } from './applications.service';
-import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto';
-import { ApplicationListPageResponseDto } from './dto/application-list-response.dto';
+import { ApplicationListRequestDto } from './dto/application-list-request.dto';
+import { ApplicationListPageResponseDto } from './dto/application-list-page-response.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
-import { TeamManagementListPageResponseDto } from './dto/team-management-list-response.dto';
+import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -37,7 +37,7 @@ export class ProgramApplicationsController {
   async list(
     @Req() request: ApplicationSessionRequest,
     @Param('programId') programId: string,
-    @Query() query: ApplicationListQueryRequestDto,
+    @Query() query: ApplicationListRequestDto,
   ): Promise<
     ApplicationListPageResponseDto | TeamManagementListPageResponseDto
   > {

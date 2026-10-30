@@ -2,7 +2,7 @@ import type {
   AuditActorSnapshot,
   AuditTargetSnapshot,
 } from './access-audit-metadata.policy';
-import { hasExactKeys, isJsonObject } from './audit-metadata-validation.policy';
+import { hasExactKeys, isJsonObject } from './platform.policy';
 
 export const USER_PROFILE_AUDIT_SCHEMA_VERSION = 1 as const;
 export const USER_PROFILE_AUDIT_ACTIONS = {

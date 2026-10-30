@@ -2,9 +2,9 @@ import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionFileCleanupRetryService } from './submission-file-cleanup-retry.service';
+import { SubmissionFileCleanupRetryService } from './submission-file-cleanup.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import { main } from './retry-submission-file-cleanup.job';
+import { RetrySubmissionFileCleanupJob } from './retry-submission-file-cleanup.job';
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: { createApplicationContext: jest.fn() },
@@ -74,7 +74,7 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
   it('reset이 성공하면 typed audit action을 남긴다', async () => {
     const harness = installContext();
 
-    await main();
+    await new RetrySubmissionFileCleanupJob().run();
 
     expect(harness.findUnique).toHaveBeenCalledWith({
       where: { id: OPERATOR_ID },
@@ -106,7 +106,9 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
     const harness = installContext();
     harness.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(main()).rejects.toThrow('Cleanup retry target is unavailable');
+    await expect(new RetrySubmissionFileCleanupJob().run()).rejects.toThrow(
+      'Cleanup retry target is unavailable',
+    );
 
     expect(harness.resetDeleteAttempts).toHaveBeenCalledWith(
       FILE_ID,
@@ -125,7 +127,7 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
       accountStatus: 'ACTIVE',
     });
 
-    await expect(main()).rejects.toThrow(
+    await expect(new RetrySubmissionFileCleanupJob().run()).rejects.toThrow(
       'Operator is not authorized for cleanup maintenance',
     );
 

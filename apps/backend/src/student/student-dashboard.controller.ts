@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import { ActivityTimelineQueryRequestDto } from './dto/activity-timeline-query.dto';
+import { ActivityTimelineRequestDto } from './dto/activity-timeline-request.dto';
 import {
   activityTimelineResponse,
   type ActivityTimelineResponseDto,
-} from './dto/activity-timeline.dto';
+} from './dto/activity-timeline-response.dto';
 import {
   presentMilestoneDocumentFeedback,
   type MilestoneDocumentFeedbackResponseDto,
@@ -54,7 +54,7 @@ export class StudentDashboardController {
   @UseGuards(SessionGuard)
   async activityTimeline(
     @Req() request: SessionIdentity,
-    @Query() query: ActivityTimelineQueryRequestDto,
+    @Query() query: ActivityTimelineRequestDto,
   ): Promise<ActivityTimelineResponseDto> {
     return activityTimelineResponse(
       await this.activity.activityTimeline(

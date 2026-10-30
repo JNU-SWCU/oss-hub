@@ -1,6 +1,5 @@
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -9,12 +8,12 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { AccessRequestsController } from '../staff/access-requests.controller';
-import { AdminAccessController } from '../admin/admin-access.controller';
+import { UserAccessController } from '../admin/user-access.controller';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
@@ -37,7 +36,7 @@ export class AdminAccessHttpHarness {
   async start(): Promise<void> {
     await this.prisma.$connect();
     const moduleRef = await Test.createTestingModule({
-      controllers: [AdminAccessController, AccessRequestsController],
+      controllers: [UserAccessController, AccessRequestsController],
       providers: [
         AdminAccessService,
         AdminAccessRepository,
@@ -65,7 +64,9 @@ export class AdminAccessHttpHarness {
           },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
     this.application = moduleRef.createNestApplication();
     this.application.setGlobalPrefix('api/v1');
     this.application.useGlobalPipes(

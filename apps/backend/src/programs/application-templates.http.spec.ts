@@ -62,6 +62,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({ canActivate: () => true })
     .overrideGuard(OriginGuard)

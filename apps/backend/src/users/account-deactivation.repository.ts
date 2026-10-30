@@ -4,11 +4,11 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
-import { resolveUserProfileName } from '../platform/user-profile-read.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
-import { lockActiveAdminRows } from './admin-actor-locks.repository';
+import { lockActiveAdminRows } from './admin-access.repository';
 
 interface AccountDeactivationTarget {
   readonly id: string;
@@ -113,7 +113,7 @@ function toAccountDeactivationTarget(
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    displayName: resolveUserProfileName(user),
+    displayName: UserProfileReadRepository.resolveUserProfileName(user),
     role: authorityLabel({
       memberKind: user.profile?.memberKind ?? null,
       hasStaffAccess: user.hasStaffAccess,

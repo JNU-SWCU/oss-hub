@@ -2,12 +2,14 @@ import { ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { repositoryUrlError } from './student-repository-url.error';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
-import { StudentRepositoryUrlTransaction } from './student-repository-url-transaction.repository';
+import {
+  StudentRepositoryUrlTransactionRepository,
+  type StudentRepositoryUrlRepository,
+} from './student-repository-url-transaction.repository';
 import type {
   StudentRepositoryUrlContext,
   TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
-import type { StudentRepositoryUrlRepository } from './student-repository-url.repository';
 
 const context: StudentRepositoryUrlContext = {
   id: 'application',
@@ -40,7 +42,9 @@ function fixture(
   studentId = 'leader',
 ) {
   const teamContext: TeamRepositoryUrlContext = { ...context, editor };
-  const transaction = new StudentRepositoryUrlTransaction(new PrismaService());
+  const transaction = new StudentRepositoryUrlTransactionRepository(
+    new PrismaService(),
+  );
   const lockTeamContext = jest
     .spyOn(transaction, 'lockTeamContext')
     .mockResolvedValue(teamContext);
@@ -51,7 +55,9 @@ function fixture(
     findContext: jest.fn().mockResolvedValue(context),
     findTeamContext: jest.fn().mockResolvedValue(teamContext),
     withTransaction: async <T>(
-      operation: (store: StudentRepositoryUrlTransaction) => Promise<T>,
+      operation: (
+        store: StudentRepositoryUrlTransactionRepository,
+      ) => Promise<T>,
     ) => {
       const result = await operation(transaction);
       events.push('commit');

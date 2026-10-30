@@ -6,7 +6,7 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -16,7 +16,7 @@ import type {
   AdminAccessRevokedRequestInsert,
 } from './admin-access-repository.types';
 import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
-import { IndependentAuthorityController } from '../admin/independent-authority.controller';
+import { UserAccessController } from '../admin/user-access.controller';
 import {
   IndependentAuthorityRepository,
   type IndependentAuthorityRepositoryPort,
@@ -24,7 +24,7 @@ import {
   type IndependentAuthorityUserRecord,
 } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import type { IndependentAuthorityTransition } from './independent-authority-transition.policy';
+import type { IndependentAuthorityTransition } from './independent-authority.policy';
 
 const githubId = 9_700_400_001n;
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -94,7 +94,7 @@ describe('independent authority HTTP contracts', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [IndependentAuthorityController],
+      controllers: [UserAccessController],
       providers: [
         IndependentAuthorityService,
         SessionGuard,
@@ -117,7 +117,9 @@ describe('independent authority HTTP contracts', () => {
           useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
     application = moduleRef.createNestApplication();
     application.setGlobalPrefix('api/v1');
     application.useGlobalPipes(

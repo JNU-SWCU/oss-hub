@@ -1,8 +1,10 @@
 import { TeamInvitationStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import type { AcceptInvitationOnOk } from './team-invitations.repository';
+import {
+  type AcceptInvitationOnOk,
+  TeamInvitationsRepository,
+} from './team-invitations.repository';
 import type { SentTeamInvitationRecord } from './team-invitation.types';
-import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 
 export const syntheticGithubId = 424242n;

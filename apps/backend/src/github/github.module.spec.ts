@@ -5,27 +5,33 @@ import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConsentsService } from '../users/consents.service';
 import { ScheduleModule } from '@nestjs/schedule';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';
-import { CollectionDiscoveryClient } from './collection-discovery.client';
+import {
+  CollectionDiscoveryClient,
+  ProviderRequestQueue,
+} from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { ProviderRequestQueue } from './collection-provider-queue.client';
-import { CollectionPublicTokenProvider } from './collection-public-token.service';
-import { CollectionScheduler } from './collection.scheduler';
-import { CollectionTriggerService } from './collection-trigger.service';
+import {
+  CollectionScheduler,
+  CollectionTriggerService,
+} from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import {
   CollectionSyncRuntime,
   CollectionSyncService,
 } from './collection-sync.service';
-
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';
-import { RepositoriesService } from './repositories.service';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import {
+  RepositoriesService,
+  RepositoryOwnEnrollmentService,
+} from './repositories.service';
+import { CollectionPublicTokenService } from './collection-public-token.service';
+
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
   expect(Array.isArray(metadata)).toBe(true);
@@ -192,14 +198,14 @@ describe('GithubModule', () => {
     expect(consumers).toEqual([RepositoryOwnEnrollmentService]);
   });
 
-  it('CollectionDiscoveryClient가 CollectionPublicTokenProvider를 주입받도록 배선한다', () => {
+  it('CollectionDiscoveryClient가 CollectionPublicTokenService를 주입받도록 배선한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           provide: CollectionDiscoveryClient,
-          inject: [CollectionPublicTokenProvider],
+          inject: [CollectionPublicTokenService],
         }),
       ]),
     );
@@ -218,14 +224,14 @@ describe('GithubModule', () => {
     );
   });
 
-  it('CollectionSyncService가 CollectionPublicTokenProvider를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
+  it('CollectionSyncService가 CollectionPublicTokenService를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const provider = findCollectionSyncServiceProvider(providers);
 
     expect(provider.inject).toEqual([
       CollectionIncrementalRepository,
       RUNTIME_CONFIG,
-      CollectionPublicTokenProvider,
+      CollectionPublicTokenService,
     ]);
 
     const runtimeConfig = loadRuntimeConfig({
@@ -237,7 +243,7 @@ describe('GithubModule', () => {
     const fakePublicTokens = {
       getToken: jest.fn(),
       clear: jest.fn(),
-    } as unknown as CollectionPublicTokenProvider;
+    } as unknown as CollectionPublicTokenService;
     const service = provider.useFactory(
       fakeIncrementalRepository,
       runtimeConfig,

@@ -1,5 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationReviewEventKind,
@@ -13,11 +12,11 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsController } from './applications.controller';
 import type { ApplicationsRepository } from './applications.repository';
 import type {
@@ -34,7 +33,7 @@ import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { StaffInsightsService } from '../staff/staff-insights.service';
-import { ApplicationJoinCodeService } from './application-join-code.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
 
 const allowedOrigin = 'http://frontend.test';
 const foreignOrigin = 'http://foreign.test';

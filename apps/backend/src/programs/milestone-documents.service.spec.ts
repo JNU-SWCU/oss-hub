@@ -1,5 +1,5 @@
 import { presentMilestoneDocumentCollection } from './dto/milestone-document-collection-response.dto';
-import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-response.dto';
+import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-page-response.dto';
 import { presentMilestoneDocumentViewer } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
@@ -10,17 +10,17 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsService } from './milestone-documents.service';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-document-submission.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+} from './milestone-document-submission.error';
 
 const authority = {
   assertActiveStaff: jest

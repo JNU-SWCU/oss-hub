@@ -6,6 +6,10 @@ import {
   PrismaClient,
   User,
 } from '@prisma/client';
+import {
+  CONSENT_POLICY_VERSION,
+  isValidUserName,
+} from '../../src/users/user-profile.policy';
 
 export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
@@ -34,8 +38,6 @@ const SEED_ROLE_FACTS: Record<
     hasAdminAccess: true,
   },
 };
-import { CONSENT_POLICY_VERSION } from '../../src/users/consent.policy';
-import { isValidUserName } from '../../src/users/user-profile.policy';
 
 export const prisma = new PrismaClient();
 

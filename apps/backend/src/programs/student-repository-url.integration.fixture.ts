@@ -10,7 +10,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './applications.repository';
-import { StudentRepositoryUrlRepository } from './student-repository-url.repository';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 
 const prisma = new PrismaService();

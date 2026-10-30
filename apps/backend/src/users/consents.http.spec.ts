@@ -1,18 +1,17 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ConsentsController } from './consents.controller';
-import { ConsentsRepository } from './consents.repository';
+import { ConsentsRepository } from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import type { ConsentRecord, ConsentUser } from './consent.types';
+import type { ConsentRecord, ConsentUser } from './users.types';
 
 const expectedPolicyVersion = '2026-10-19';
 const allowedOrigin = 'http://frontend.test';

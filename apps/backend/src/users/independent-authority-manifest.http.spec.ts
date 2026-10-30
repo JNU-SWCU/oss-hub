@@ -5,15 +5,14 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { AccessRequestsController } from '../staff/access-requests.controller';
-import { AdminAccessController } from '../admin/admin-access.controller';
+import { UserAccessController } from '../admin/user-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
-import { IndependentAuthorityController } from '../admin/independent-authority.controller';
 import { IndependentAuthorityService } from './independent-authority.service';
 
 const githubId = 9_700_500_001n;
@@ -78,11 +77,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [
-        AdminAccessController,
-        AccessRequestsController,
-        IndependentAuthorityController,
-      ],
+      controllers: [UserAccessController, AccessRequestsController],
       providers: [
         SessionGuard,
         OriginGuard,
@@ -105,7 +100,9 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
           useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
     application = moduleRef.createNestApplication();
     application.setGlobalPrefix('api/v1');
     application.useGlobalPipes(

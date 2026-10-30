@@ -2,8 +2,8 @@ import { AccountStatus } from '@prisma/client';
 import {
   buildDeadlineEligibility,
   deadlineWindow,
+  type DeadlineProgramSource,
 } from './deadline-digest-eligibility.policy';
-import type { DeadlineProgramSource } from './deadline-digest-eligibility.policy';
 import { prepareDeadlineDigest } from './deadline-digest-preview.policy';
 
 const now = new Date('2026-08-14T00:00:00Z');

@@ -10,7 +10,7 @@ import type {
   ProgramOverviewView,
   ProgramOverviewViewerStats,
   PublicTeamRow,
-} from './program-overview.types';
+} from './programs.types';
 import {
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,

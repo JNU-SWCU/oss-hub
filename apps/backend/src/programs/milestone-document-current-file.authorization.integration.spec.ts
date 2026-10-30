@@ -21,10 +21,10 @@ import {
 } from '../platform/object-storage.types';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
+import { MilestoneDocumentCurrentFileService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';

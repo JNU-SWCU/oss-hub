@@ -1,8 +1,8 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import { S3ObjectStorage } from '../platform/object-storage.client';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -15,7 +15,7 @@ export const retainedImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
 export class ProgramArchiveIntegrationFixture {
   readonly prisma = new PrismaService();
-  readonly storage = new S3ObjectStorage(new ObjectStorageConfig());
+  readonly storage = new S3ObjectStorageClient(new ObjectStorageConfig());
   readonly service = new MilestoneDocumentArchiveService(
     new MilestoneDocumentsRepository(this.prisma),
     this.storage,

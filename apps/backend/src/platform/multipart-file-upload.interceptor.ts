@@ -1,14 +1,11 @@
-import { Injectable } from '@nestjs/common';
 import type {
   CallHandler,
   ExecutionContext,
   NestInterceptor,
-  Type,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { DomainException } from './error-code.error';
-import type { ErrorCode } from './error-code.error';
+import { DomainException, type ErrorCode } from './error-code.error';
 
 type MultipartUploadErrors = {
   readonly fileTooLarge: ErrorCode;
@@ -39,19 +36,21 @@ export function multipartUploadError(
   return error;
 }
 
-export function multipartFileUploadInterceptor(
-  options: MulterOptions,
-  errors: MultipartUploadErrors,
-): Type<NestInterceptor> {
-  @Injectable()
-  class MultipartUploadInterceptor extends FileInterceptor('file', options) {
-    override async intercept(context: ExecutionContext, next: CallHandler) {
-      try {
-        return await super.intercept(context, next);
-      } catch (error) {
-        throw multipartUploadError(error, errors);
-      }
+export class MultipartFileUploadInterceptor implements NestInterceptor {
+  private readonly upload: NestInterceptor;
+
+  constructor(
+    options: MulterOptions,
+    private readonly errors: MultipartUploadErrors,
+  ) {
+    this.upload = new (FileInterceptor('file', options))();
+  }
+
+  async intercept(context: ExecutionContext, next: CallHandler) {
+    try {
+      return await this.upload.intercept(context, next);
+    } catch (error) {
+      throw multipartUploadError(error, this.errors);
     }
   }
-  return MultipartUploadInterceptor;
 }

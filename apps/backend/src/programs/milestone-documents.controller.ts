@@ -1,38 +1,48 @@
-import { presentMilestoneDocumentViewer } from './dto/milestone-document-response.dto';
-import { presentMilestoneDocumentDeliveryCollection } from './dto/milestone-document-collection-response.dto';
-import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-response.dto';
 import {
-  Body,
   Controller,
   Get,
   Header,
-  HttpCode,
-  Logger,
   Param,
-  Patch,
-  Post,
-  Query,
   Req,
   Res,
   StreamableFile,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
+  Body,
+  HttpCode,
+  Logger,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
-import { multipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import type { Response } from 'express';
-import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import {
+  setDownloadHeaders,
+  respondWithDownloadFailure,
+} from '../platform/object-storage.types';
+import {
+  MilestoneDocumentCurrentFileService,
+  MilestoneDocumentCollectionService,
+} from './milestone-document-collection.service';
+import {
+  presentMilestoneDocumentViewer,
+  MilestoneDocumentListResponseDto,
+} from './dto/milestone-document-response.dto';
+import {
+  presentMilestoneDocumentDeliveryCollection,
+  type MilestoneDocumentDeliveryCollectionResponseDto,
+} from './dto/milestone-document-collection-response.dto';
+import {
+  presentMilestoneDocumentHistory,
+  type MilestoneDocumentHistoryPageResponseDto,
+} from './dto/milestone-document-history-page-response.dto';
+import { OriginGuard } from '../auth/origin.guard';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
-import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
+import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
-import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
-import type { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
-import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
-import { MilestoneDocumentListResponseDto } from './dto/milestone-document-response.dto';
+import { MilestoneDocumentCollectionRequestDto } from './dto/milestone-document-collection-request.dto';
+import { MilestoneDocumentHistoryRequestDto } from './dto/milestone-document-history-request.dto';
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-document-grace-request.dto';
@@ -44,46 +54,42 @@ import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
 } from './milestone-document-archive.service';
-import type { MilestoneDocumentArchiveScope } from './milestone-document-archive.types';
-import {
-  setDownloadHeaders,
-  respondWithDownloadFailure,
-} from '../platform/download-response.types';
-import {
-  type MilestoneDocumentFileUpload,
-  MilestoneDocumentFilesService,
-  type UploadedMilestoneDocumentFileResponse,
-} from './milestone-document-files.service';
+import type { MilestoneDocumentArchiveScope } from './milestone-document-result.types';
+import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 const archiveLogger = new Logger('MilestoneDocumentArchive');
 
-const MilestoneDocumentFileUploadInterceptor = multipartFileUploadInterceptor(
-  {
-    limits: {
-      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-      fieldNameSize: 100,
-      fieldSize: 512,
-      fields: 4,
-      files: 1,
-      parts: 4,
-    },
-  },
-  {
-    fileTooLarge:
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-      ],
-    invalidUpload:
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
-      ],
-  },
-);
+interface ArchiveFailureRequest {
+  readonly milestoneId: string;
+  readonly scope: MilestoneDocumentArchiveScope;
+}
+
+function failedStorageKey(error: Error): string {
+  return error instanceof MilestoneDocumentArchiveEntryError
+    ? error.storageKey
+    : 'unknown';
+}
+
+function respondWithArchiveFailure(
+  error: Error,
+  response: Response,
+  request: ArchiveFailureRequest,
+): void {
+  archiveLogger.error(
+    `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
+  );
+  respondWithDownloadFailure(
+    response,
+    MILESTONE_DOCUMENTS_ERROR_CODES[
+      MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+    ],
+    'END',
+  );
+}
 
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
@@ -93,6 +99,7 @@ export class MilestoneDocumentsController {
     private readonly reviewsService: MilestoneDocumentReviewsService,
     private readonly archiveService: MilestoneDocumentArchiveService,
     private readonly collectionService: MilestoneDocumentCollectionService,
+    private readonly currentFileService: MilestoneDocumentCurrentFileService,
   ) {}
 
   @Get()
@@ -115,7 +122,7 @@ export class MilestoneDocumentsController {
   collection(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentCollectionQueryRequestDto,
+    @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return this.collectionService
       .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
@@ -128,7 +135,7 @@ export class MilestoneDocumentsController {
   async archive(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentArchiveQueryRequestDto,
+    @Query() query: MilestoneDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = query.toScope();
@@ -209,7 +216,7 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
-    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+    @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
       .historyForStaff(
@@ -229,7 +236,7 @@ export class MilestoneDocumentsController {
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
-    @Query() query: MilestoneDocumentHistoryQueryRequestDto,
+    @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
       .historyForParticipant(
@@ -275,65 +282,22 @@ export class MilestoneDocumentsController {
       .submit(request.sessionGithubId, milestoneId, documentId, body.toInput())
       .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
   }
-}
 
-@Controller('milestone-document-files')
-export class MilestoneDocumentFilesController {
-  constructor(private readonly service: MilestoneDocumentFilesService) {}
-
-  @Post()
-  @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
-  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
-  upload(
+  @Get(':documentId/submissions/current/file')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  async downloadCurrentSubmissionFile(
     @Req() request: ViewerRequest,
-    @Body('milestoneId') milestoneId: unknown,
-    @Body('documentId') documentId: unknown,
-    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<UploadedMilestoneDocumentFileResponse> {
-    return this.service.upload(
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.currentFileService.download(
       request.sessionGithubId,
       milestoneId,
       documentId,
-      file,
     );
+    setDownloadHeaders(response, file);
+    return new StreamableFile(file.body);
   }
-
-  @Post('checks')
-  @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
-  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
-  check(
-    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<void> {
-    return this.service.check(file);
-  }
-}
-
-interface ArchiveFailureRequest {
-  readonly milestoneId: string;
-  readonly scope: MilestoneDocumentArchiveScope;
-}
-
-function failedStorageKey(error: Error): string {
-  return error instanceof MilestoneDocumentArchiveEntryError
-    ? error.storageKey
-    : 'unknown';
-}
-
-function respondWithArchiveFailure(
-  error: Error,
-  response: Response,
-  request: ArchiveFailureRequest,
-): void {
-  archiveLogger.error(
-    `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
-  );
-  respondWithDownloadFailure(
-    response,
-    MILESTONE_DOCUMENTS_ERROR_CODES[
-      MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-    ],
-    'END',
-  );
 }

@@ -10,9 +10,9 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoriesRepository } from './repositories.repository';
-import { RepositoryOutboxConsumer } from './repository-outbox-consumer.service';
+import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryProvisionEvent,
@@ -25,7 +25,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const consumer = new RepositoryOutboxConsumer(
+const consumer = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
 );
 const NOW = new Date('2026-07-22T00:00:00.000Z');
@@ -127,7 +127,7 @@ async function createProvisionEvent(
         lockedBy: lockedAt ? 'stale-worker' : null,
       },
     });
-    await transferProvisionGeneration(
+    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
       parseRepositoryProvisionEvent,
@@ -155,7 +155,7 @@ async function createAccessSyncEvent(
   return event.id;
 }
 
-describe('RepositoryOutboxConsumer integration', () => {
+describe('RepositoryOutboxConsumerService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({

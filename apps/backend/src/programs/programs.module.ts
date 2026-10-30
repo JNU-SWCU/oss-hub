@@ -1,4 +1,4 @@
-import { ProgramLifecycleController } from './program-lifecycle.controller';
+import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
@@ -6,22 +6,33 @@ import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
-import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
-import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
+import {
+  ProgramAuthoringService,
+  ProgramNoticePreviewService,
+} from './program-authoring.service';
+import {
+  ProgramAuthoringUploadMaintenanceScheduler,
+  ProgramAuthoringUploadMaintenanceService,
+} from './program-authoring-upload-maintenance.service';
+import {
+  ProgramPurgeFileCleanupScheduler,
+  ProgramPurgeFileCleanupService,
+} from './program-purge-file-cleanup.service';
 import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.repository';
-import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ApplicationTemplatesController } from './application-templates.controller';
 import { MilestonesController } from './milestones.controller';
-import { ProgramCreationService } from './program-creation.service';
-import { ProgramActivityRepository } from './program-activity.repository';
-import { ProgramActivitySummaryRepository } from './program-activity-summary.repository';
+import {
+  ProgramCreationService,
+  ProgramCoverService,
+} from './program-creation.service';
+import {
+  ProgramActivityRepository,
+  ProgramActivitySummaryRepository,
+} from './program-activity.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { ProgramActivityService } from './program-activity.service';
-import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramLifecycleRepository } from './program-lifecycle.repository';
@@ -31,14 +42,9 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsController } from './programs.controller';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
-import { ProgramCoverController } from './program-cover.controller';
-import { ProgramCoverService } from './program-cover.service';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramNoticePreviewController } from './program-notice-preview.controller';
-import { ProgramNoticePreviewService } from './program-notice-preview.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
@@ -47,24 +53,27 @@ import { ProgramOverviewController } from './program-overview.controller';
 import { ProgramOverviewRepository } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
-import { PublicEligibilityService } from './public-eligibility.service';
+import {
+  PublicEligibilityService,
+  PublicProjectsService,
+} from './public-projects.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService } from './public-projects.service';
-import { PublicUserProfileController } from './public-profile.controller';
+import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-
 import { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
-import { ApplicationPreparationsService } from './application-preparations.service';
+import {
+  ApplicationPreparationsService,
+  ApplicationJoinCodeService,
+} from './application-preparations.service';
 import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
-import { ApplicationJoinCodeService } from './application-join-code.service';
 import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
 import {
@@ -75,10 +84,12 @@ import { StudentApplicationManagementService } from './student-application-manag
 import { StudentApplicationsController } from './student-applications.controller';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
-import { StudentRepositoryUrlRepository } from './student-repository-url.repository';
-import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
-import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
-import { SubmissionFileCleanupRetryService } from './submission-file-cleanup-retry.service';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
+import {
+  SubmissionFileCleanupScheduler,
+  SubmissionFileCleanupService,
+  SubmissionFileCleanupRetryService,
+} from './submission-file-cleanup.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
@@ -86,32 +97,27 @@ import { SubmissionDashboardSummaryService } from './submission-dashboard-summar
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsController } from './submissions.controller';
-import { SubmissionChecklistController } from './submission-checklist.controller';
+import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFilesController } from './submission-files.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
-import { SubmissionMatrixController } from './submission-matrix.controller';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
-import {
-  SubmissionRepositoryPublishingController,
-  SubmissionReviewsController,
-} from './submission-reviews.controller';
+import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import {
-  MilestoneDocumentFilesController,
-  MilestoneDocumentsController,
-} from './milestone-documents.controller';
+import { MilestoneDocumentsController } from './milestone-documents.controller';
+import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { ProgramDocumentChangeRequestsController } from './program-document-change-requests.controller';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import {
+  MilestoneDocumentCollectionService,
+  MilestoneDocumentCurrentFileService,
+} from './milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -126,12 +132,8 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     ProgramApplicationsController,
     ApplicationsController,
     ApplicationTemplatesController,
-    ProgramNoticePreviewController,
     ProgramAuthoringController,
-    ProgramCoverController,
     ProgramsController,
-    ProgramLifecycleController,
-    ProgramEditorController,
     MilestonesController,
     ProgramTeamsController,
     BoardController,
@@ -140,17 +142,14 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
     PublicProjectsController,
     PublicUserProfileController,
     SubmissionFilesController,
-    SubmissionChecklistController,
+    ProgramSubmissionsController,
     SubmissionFormsController,
-    SubmissionMatrixController,
     SubmissionsController,
-    SubmissionReviewsController,
     SubmissionRepositoryPublishingController,
     ProgramDocumentArchivesController,
     ProgramDocumentChangeRequestsController,
     MilestoneDocumentsController,
     MilestoneDocumentFilesController,
-    MilestoneDocumentCurrentFileController,
   ],
   providers: [
     ProgramsService,

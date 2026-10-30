@@ -1,4 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import {
+  OBJECT_STORAGE,
+  ObjectStorageError,
+  type ObjectStoragePort,
+} from '../platform/object-storage.types';
+import { ProgramCoverRepository } from './program-cover.repository';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
@@ -6,14 +17,44 @@ import {
 } from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import type { CreateProgramCommand } from './program-write.types';
+import type { CreateProgramCommand } from './programs.types';
 import { ProgramsRepository } from './programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import { isProgramEndAtUndecided } from './program-end-at.policy';
+import { isProgramEndAtUndecided } from './programs.policy';
 import { getProgramTemplate } from './program-template-registry.policy';
+
+@Injectable()
+export class ProgramCoverService {
+  constructor(
+    private readonly repository: ProgramCoverRepository,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
+  ) {}
+
+  async read(programId: string, coverId: string) {
+    const cover = await this.repository.findPublicCover(programId, coverId);
+    if (cover === null)
+      throw new NotFoundException('Program cover was not found.');
+    try {
+      return {
+        body: await this.storage.get(cover.storageKey),
+        contentType: cover.mimeType,
+        size: cover.sizeBytes,
+      };
+    } catch (error) {
+      if (!(error instanceof ObjectStorageError)) throw error;
+      if (error.code === 'SUBMISSION_FILE_STORAGE_GET_NOT_FOUND') {
+        throw new NotFoundException('Program cover was not found.');
+      }
+      throw new ServiceUnavailableException(
+        'Program cover is temporarily unavailable.',
+      );
+    }
+  }
+}
 
 const INVALID_END_AT_FIELD_ERROR = {
   field: 'endAt',

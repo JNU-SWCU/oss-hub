@@ -13,7 +13,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { NotificationSettingsResponseDto } from './dto/notification-settings-response.dto';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';
-import { NotificationSettingsService } from './notification-settings.service';
+import { NotificationSettingsService } from './application-decision-notifications.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

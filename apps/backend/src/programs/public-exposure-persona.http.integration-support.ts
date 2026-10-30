@@ -1,7 +1,6 @@
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import { authorityFactsFor } from '../users/canonical-user-fixture';
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../admin/audit-log.controller';
@@ -10,11 +9,9 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthService } from '../auth/auth.service';
-
-type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -27,15 +24,19 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService } from './public-projects.service';
-import { PublicUserProfileController } from './public-profile.controller';
-import { SubmissionRepositoryPublishingController } from './submission-reviews.controller';
+import {
+  PublicProjectsService,
+  PublicEligibilityService,
+} from './public-projects.service';
+import { PublicUserProfileController } from './public-user-profile.controller';
+import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
-import { PublicEligibilityService } from './public-eligibility.service';
+
+type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 
 const sessionSecret = new Uint8Array(32).fill(23);
 

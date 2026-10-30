@@ -1,26 +1,38 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import {
+  type INestApplication,
+  Logger,
+  ValidationPipe,
+  type ExecutionContext,
+  type StreamableFile,
+} from '@nestjs/common';
 import {
   GUARDS_METADATA,
   INTERCEPTORS_METADATA,
 } from '@nestjs/common/constants';
-import type {
-  ExecutionContext,
-  INestApplication,
-  StreamableFile,
-} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { Response } from 'express';
 import { Readable } from 'node:stream';
+import { AuthConfig } from '../auth/auth.config';
+import { AuthService } from '../auth/auth.service';
+import { sessionCookieName } from '../auth/cookies.policy';
+import { issueSessionToken } from '../auth/auth.policy';
+import { SessionGuard } from '../auth/session.guard';
+import { DomainException } from '../platform/error-code.error';
+import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { MilestoneDocumentsController } from './milestone-documents.controller';
+import {
+  MilestoneDocumentCurrentFileService,
+  MilestoneDocumentCollectionService,
+} from './milestone-document-collection.service';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.error';
+import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
-import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import {
-  MilestoneDocumentFilesController,
-  MilestoneDocumentsController,
-} from './milestone-documents.controller';
-import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
-import type { MilestoneDocumentArchive } from './milestone-document-archive.types';
+import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
+import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
+import type { MilestoneDocumentArchive } from './milestone-document-result.types';
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
@@ -28,7 +40,144 @@ import {
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+
+describe('milestone-document-current-file.controller', () => {
+  const SESSION_GITHUB_ID = 342_900_002n;
+  const SESSION_SECRET = new Uint8Array(32).fill(37);
+  const download = jest.fn();
+  let application: INestApplication | undefined;
+  let baseUrl = '';
+
+  beforeEach(() => {
+    download.mockReset().mockResolvedValue({
+      body: Readable.from(Buffer.from('student-current-bytes')),
+      fileName: '현재 계획서.pdf',
+      contentType: 'application/pdf',
+      contentLength: 21,
+    });
+  });
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [MilestoneDocumentsController],
+      providers: [
+        SessionGuard,
+        {
+          provide: AuthConfig,
+          useValue: {
+            sessionSecret: SESSION_SECRET,
+            allowedOrigin: 'http://frontend.test',
+            useSecureCookies: false,
+          },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'viewer', sessionVersion: 0 }),
+          },
+        },
+        {
+          provide: MilestoneDocumentCurrentFileService,
+          useValue: { download },
+        },
+      ],
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
+
+    application = moduleRef.createNestApplication();
+    application.setGlobalPrefix('api/v1');
+    application.useGlobalFilters(new ProblemDetailFilter());
+    await application.listen(0, '127.0.0.1');
+    baseUrl = await application.getUrl();
+  });
+
+  afterAll(async () => {
+    await application?.close();
+  });
+
+  function currentFileUrl(documentId: string): string {
+    return `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/${documentId}/submissions/current/file`;
+  }
+
+  async function authenticatedHeaders(): Promise<{ readonly cookie: string }> {
+    const token = await issueSessionToken(SESSION_SECRET, SESSION_GITHUB_ID, 0);
+    return { cookie: `${sessionCookieName(false)}=${token}` };
+  }
+
+  it('같은 current bytes와 안전한 attachment 헤더 및 no-store를 반환한다', async () => {
+    const response = await fetch(currentFileUrl('synthetic-document'), {
+      headers: await authenticatedHeaders(),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+    expect(response.headers.get('content-length')).toBe('21');
+    const disposition = response.headers.get('content-disposition') ?? '';
+    expect(disposition).toContain('attachment');
+    expect(disposition).toContain(
+      `filename*=UTF-8''${encodeURIComponent('현재 계획서.pdf')}`,
+    );
+    await expect(response.text()).resolves.toBe('student-current-bytes');
+    expect(download).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      'synthetic-document',
+    );
+  });
+
+  it.each(['cross-team', 'nonexistent'])(
+    '%s 현재 파일을 같은 404 ProblemDetail로 감춘다',
+    async (documentId) => {
+      download.mockRejectedValueOnce(
+        new DomainException(
+          MILESTONE_DOCUMENTS_ERROR_CODES[
+            MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND
+          ],
+        ),
+      );
+
+      const response = await fetch(currentFileUrl(documentId), {
+        headers: await authenticatedHeaders(),
+      });
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toMatchObject({
+        status: 404,
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        detail: '제출된 파일을 찾을 수 없습니다.',
+      });
+    },
+  );
+
+  it('미인증 요청은 current-file 조회 전에 AUT_003 401로 거부한다', async () => {
+    const response = await fetch(currentFileUrl('synthetic-document'));
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    await expect(response.json()).resolves.toMatchObject({
+      status: 401,
+      code: 'AUT_003',
+    });
+    expect(download).not.toHaveBeenCalled();
+  });
+
+  it('SessionGuard만 붙여 미인증 요청을 401 경계에 둔다', () => {
+    const handler: unknown = Object.getOwnPropertyDescriptor(
+      MilestoneDocumentsController.prototype,
+      'downloadCurrentSubmissionFile',
+    )?.value;
+
+    expect(typeof handler).toBe('function');
+    if (typeof handler !== 'function') return;
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+      SessionGuard,
+    ]);
+  });
+});
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -203,6 +352,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate: (context: ExecutionContext): boolean => {
@@ -792,14 +942,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
-    const documentScopeQuery = (): MilestoneDocumentArchiveQueryRequestDto =>
-      Object.assign(new MilestoneDocumentArchiveQueryRequestDto(), {
+    const documentScopeQuery = (): MilestoneDocumentArchiveRequestDto =>
+      Object.assign(new MilestoneDocumentArchiveRequestDto(), {
         documentId: 'synthetic-document',
       });
 
     const streamArchive = (
       probe: ArchiveResponseProbe,
-      query: MilestoneDocumentArchiveQueryRequestDto = new MilestoneDocumentArchiveQueryRequestDto(),
+      query: MilestoneDocumentArchiveRequestDto = new MilestoneDocumentArchiveRequestDto(),
     ): Promise<StreamableFile> => {
       if (application === undefined) {
         throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');

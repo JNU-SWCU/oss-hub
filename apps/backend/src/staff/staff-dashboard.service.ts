@@ -12,7 +12,7 @@ import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedSummary,
   StaffDashboardSubmissionSummary,
-} from './staff-dashboard.types';
+} from './staff.types';
 
 @Injectable()
 export class StaffDashboardService {

@@ -5,7 +5,7 @@ import {
   AuditLogService,
   type AuditLogPage,
 } from '../platform/audit-log.service';
-import { AuditLogListRequestDto } from './dto/audit-log-query.dto';
+import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 
 @Controller('audit-logs')
 export class AuditLogController {

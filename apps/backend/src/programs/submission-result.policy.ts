@@ -1,11 +1,14 @@
-import { SubmissionStatus } from '@prisma/client';
-import type { MilestoneSubmissionType, ReviewDecision } from '@prisma/client';
-import { hasProgramDeadlinePassed } from './program-deadline.policy';
+import {
+  SubmissionStatus,
+  type MilestoneSubmissionType,
+  type ReviewDecision,
+} from '@prisma/client';
+import { hasProgramDeadlinePassed } from './programs.policy';
 import type {
   ChecklistMilestone,
   SubmissionApplication,
   SubmissionFileMetadata,
-} from './submission-record.types';
+} from './submission.types';
 
 export type SubmissionBlockedReason =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';

@@ -5,7 +5,7 @@ import type {
   BoardPostDetailResult,
   BoardCommentResult,
   BoardPostsPageResult,
-} from '../board-results.types';
+} from '../programs.types';
 
 export class BoardPostResponseDto {
   id: string;

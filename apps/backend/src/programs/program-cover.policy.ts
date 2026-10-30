@@ -1,20 +1,27 @@
-import { createHash } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { extname } from 'node:path';
-import { normalizeMultipartFileName } from '../platform/multipart-file-name.policy';
-import { sanitizeSubmissionFileOriginalName } from './submission-file-object-key.policy';
-import { hasValidSubmissionTemplateSignature } from './submission-template-file.policy';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
-import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover-object-key.policy';
+import { normalizeMultipartFileName } from '../platform/platform.policy';
+import {
+  sanitizeSubmissionFileOriginalName,
+  hasValidSubmissionTemplateSignature,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-file.policy';
 import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.error';
-import type { ValidatedProgramAuthoringUpload } from './program-authoring-upload-validation.policy';
 import {
+  type ValidatedProgramAuthoringUpload,
   ProgramAuthoringUploadTokenError,
   type ProgramAuthoringUploadToken,
 } from './program-authoring.policy';
+
+export const PROGRAM_COVER_STORAGE_PREFIX = 'program-covers/';
+
+export function createProgramCoverObjectKey(): string {
+  return `${PROGRAM_COVER_STORAGE_PREFIX}${randomUUID()}`;
+}
 
 export const PROGRAM_COVER_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 

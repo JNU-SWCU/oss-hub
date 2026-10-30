@@ -1,23 +1,43 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { Prisma } from '@prisma/client';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
-} from './admin-actor-locks.repository';
+  insertRevokedStaffAccessRequest,
+} from './admin-access.repository';
 import {
   ADMIN_ACCESS_USER_SELECT,
-  toAdminAccessUserRecord,
+  AdminAccessUserProjectionRepository,
 } from './admin-access-user-projection.repository';
 import type {
   AdminAccessActor,
   AdminAccessInsertedRequest,
   AdminAccessRevokedRequestInsert,
 } from './admin-access-repository.types';
-import type { IndependentAuthorityTransition } from './independent-authority-transition.policy';
+import type { IndependentAuthorityTransition } from './independent-authority.policy';
 import type { IndependentAuthorityUserRecord } from './independent-authority.types';
-import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write.repository';
+
+@Injectable()
+export class UsersAuthorityRepository {
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: Pick<PrismaService, 'user'>,
+  ) {}
+
+  async findActorByGithubId(sessionGithubId: bigint) {
+    return this.prisma.user.findUnique({
+      where: { githubId: sessionGithubId },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
+    });
+  }
+}
 
 export type { IndependentAuthorityUserRecord };
 
@@ -102,7 +122,7 @@ function toIndependentAuthorityUserRecord(
   user: Prisma.UserGetPayload<{ select: typeof ADMIN_ACCESS_USER_SELECT }>,
 ): IndependentAuthorityUserRecord {
   return {
-    ...toAdminAccessUserRecord(user),
+    ...AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user),
     selectedMemberKind: user.selectedMemberKind,
   };
 }

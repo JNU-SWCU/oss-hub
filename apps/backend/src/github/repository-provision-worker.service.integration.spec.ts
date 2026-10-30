@@ -13,7 +13,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -24,25 +24,25 @@ import {
 } from './github-app.client';
 import { type GithubRepositoryMetadata } from './github-app-response.policy';
 import { RepositoriesRepository } from './repositories.repository';
-import { RepositoryOutboxConsumer } from './repository-outbox-consumer.service';
+import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repository-provision-event.policy';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
-import { RepositoryProvisionWorker } from './repository-provision-worker.service';
-import { RepositoryProvisionLeaseLostError } from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import {
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
   PROVISION_ERROR_CODES,
 } from './repository-provision-failure.policy';
 
-import { ConsentsRepository } from '../users/consents.repository';
+import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import { RepositoryOwnEnrollmentService } from './repositories.service';
+import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -50,7 +50,9 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const outbox = new RepositoryOutboxConsumer(new RepositoriesRepository(prisma));
+const outbox = new RepositoryOutboxConsumerService(
+  new RepositoriesRepository(prisma),
+);
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);
 const NOW = new Date('2026-07-22T00:00:00.000Z');
@@ -110,7 +112,7 @@ type ProvisionGithubClient = jest.Mocked<
   >
 >;
 
-describe('RepositoryProvisionWorker integration', () => {
+describe('RepositoryProvisionWorkerService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({
@@ -240,7 +242,7 @@ describe('RepositoryProvisionWorker integration', () => {
     github.ensureCollaborator
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.SUCCEEDED);
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
 
@@ -330,9 +332,14 @@ describe('RepositoryProvisionWorker integration', () => {
       where: { id: applicationId },
       data: { status: ApplicationStatus.REJECTED },
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, githubClient(), {
-      enrollExternalRepository: jest.fn(),
-    });
+    const worker = new RepositoryProvisionWorkerService(
+      jobs,
+      state,
+      githubClient(),
+      {
+        enrollExternalRepository: jest.fn(),
+      },
+    );
 
     await expect(
       worker.runNext('provision-worker-terminal-failure', NOW),
@@ -386,7 +393,7 @@ describe('RepositoryProvisionWorker integration', () => {
           availableAt: r2At,
         },
       });
-      await transferProvisionGeneration(
+      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: r2At },
         parseRepositoryProvisionEvent,
@@ -438,9 +445,14 @@ describe('RepositoryProvisionWorker integration', () => {
       kind: 'CONSUMED',
       eventId: afterR2.currentEventId,
     });
-    const worker = new RepositoryProvisionWorker(jobs, state, githubClient(), {
-      enrollExternalRepository: jest.fn(),
-    });
+    const worker = new RepositoryProvisionWorkerService(
+      jobs,
+      state,
+      githubClient(),
+      {
+        enrollExternalRepository: jest.fn(),
+      },
+    );
     await expect(
       worker.runNext('worker-r2', new Date(r2At.getTime() + 2)),
     ).resolves.toMatchObject({ kind: 'SUCCEEDED' });
@@ -502,7 +514,7 @@ describe('RepositoryProvisionWorker integration', () => {
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
 
@@ -563,7 +575,7 @@ describe('RepositoryProvisionWorker integration', () => {
       },
     });
     const github = githubClient();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
 
@@ -611,7 +623,7 @@ describe('RepositoryProvisionWorker integration', () => {
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
 
@@ -662,7 +674,7 @@ describe('RepositoryProvisionWorker integration', () => {
     });
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
     const enrollExternalRepository = jest.fn();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository,
     });
 
@@ -720,7 +732,7 @@ describe('RepositoryProvisionWorker integration', () => {
       .mockRejectedValueOnce(
         new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
       );
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
     await worker.runNext('provision-worker-b', NOW);
@@ -756,7 +768,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-cap', NOW);
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
     await worker.runNext('provision-worker-cap-initial', NOW);
@@ -786,7 +798,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-exhaust', NOW);
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
     await worker.runNext('provision-worker-exhaust-initial', NOW);
@@ -841,7 +853,7 @@ describe('RepositoryProvisionWorker integration', () => {
       visibility: RepositoryVisibility.PUBLIC,
       description: 'synthetic-own-description',
     });
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -910,7 +922,7 @@ describe('RepositoryProvisionWorker integration', () => {
           availableAt: NOW,
         },
       });
-      await transferProvisionGeneration(
+      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: NOW },
         parseRepositoryProvisionEvent,
@@ -948,7 +960,7 @@ describe('RepositoryProvisionWorker integration', () => {
     });
     await outbox.consumeNext('outbox-own-r2', NOW);
     const github = githubClient();
-    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+    const worker = new RepositoryProvisionWorkerService(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
     });
 
@@ -1499,7 +1511,7 @@ async function createApplicationAndEvent(
         availableAt: NOW,
       },
     });
-    await transferProvisionGeneration(
+    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
       parseRepositoryProvisionEvent,

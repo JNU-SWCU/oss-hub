@@ -1,19 +1,77 @@
 import { Injectable } from '@nestjs/common';
-import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import type {
-  Prisma as PrismaTypes,
-  StaffAccessRequest as PrismaStaffAccessRequest,
+import {
+  Consent as PrismaConsent,
+  Prisma,
+  MemberKind,
+  StaffAccessRequestStatus,
+  type Prisma as PrismaTypes,
+  type StaffAccessRequest as PrismaStaffAccessRequest,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { requestStaffAccess } from '../platform/staff-access-request.repository';
-import type {
-  StaffAccessRequestOutcome,
-  StaffAccessRequestTarget,
-} from '../platform/staff-access-request.repository';
-import type {
-  MemberUser,
-  StaffAccessRequestRecord,
-} from './member-onboarding.types';
+import {
+  ConsentRecord,
+  ConsentUser,
+  type MemberUser,
+  type StaffAccessRequestRecord,
+} from './users.types';
+import {
+  type StaffAccessRequestOutcome,
+  type StaffAccessRequestTarget,
+  PlatformRepository,
+} from '../platform/platform.repository';
+
+@Injectable()
+export class ConsentsRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findUserByGithubId(githubId: bigint): Promise<ConsentUser | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: { id: true, accountStatus: true },
+    });
+    return user ? { id: user.id, accountStatus: user.accountStatus } : null;
+  }
+
+  async findConsent(
+    userId: string,
+    policyVersion: string,
+  ): Promise<ConsentRecord | null> {
+    const consent = await this.prisma.consent.findUnique({
+      where: { userId_policyVersion: { userId, policyVersion } },
+    });
+    return consent ? this.toDomain(consent) : null;
+  }
+
+  async createConsent(
+    userId: string,
+    policyVersion: string,
+  ): Promise<ConsentRecord> {
+    try {
+      const created = await this.prisma.consent.create({
+        data: { userId, policyVersion },
+      });
+      return this.toDomain(created);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.findConsent(userId, policyVersion);
+        if (existing) {
+          return existing;
+        }
+      }
+      throw error;
+    }
+  }
+
+  private toDomain(consent: PrismaConsent): ConsentRecord {
+    return {
+      policyVersion: consent.policyVersion,
+      consentedAt: consent.consentedAt,
+    };
+  }
+}
 
 export interface OnboardingTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
@@ -55,7 +113,7 @@ class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
   requestStaffAccess(
     target: StaffAccessRequestTarget,
   ): Promise<StaffAccessRequestOutcome> {
-    return requestStaffAccess(this.transaction, target);
+    return PlatformRepository.requestStaffAccess(this.transaction, target);
   }
 
   async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {
@@ -112,7 +170,7 @@ class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
 }
 
 @Injectable()
-export class RolesRepository {
+export class MemberOnboardingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(

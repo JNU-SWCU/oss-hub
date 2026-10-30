@@ -1,7 +1,7 @@
 import {
   documentDeliveryStatus,
   type DocumentDeliveryStatus,
-} from './document-delivery-status.policy';
+} from './milestone-document.policy';
 import {
   buildMilestoneDocumentCollectionPage,
   type MilestoneDocumentCollectionDocumentRule,
@@ -9,7 +9,7 @@ import {
   type MilestoneDocumentCollectionPage,
   type MilestoneDocumentCollectionSubmissionRule,
 } from './milestone-document-collection-page.policy';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query.types';
+import type { MilestoneDocumentCollectionQuery } from './programs.types';
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly deliveryStatus?: DocumentDeliveryStatus;

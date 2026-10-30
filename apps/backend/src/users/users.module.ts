@@ -8,22 +8,26 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import { IndependentAuthorityRepository } from './independent-authority.repository';
+import {
+  IndependentAuthorityRepository,
+  UsersAuthorityRepository,
+} from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
-import { UsersAuthorityRepository } from './authority.repository';
-import { UsersAuthorityService } from './authority.service';
+import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
-import { ConsentsRepository } from './consents.repository';
+import {
+  ConsentsRepository,
+  MemberOnboardingRepository,
+} from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import { RolesRepository } from './member-onboarding.repository';
-import { RolesService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
-import { StaffAccessRequestsController } from './role-requests.controller';
+import { RoleRequestsController } from './role-requests.controller';
 
 @Module({
   imports: [PlatformModule, AuthModule],
@@ -32,7 +36,7 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     AccountDeactivationController,
     UsersController,
     OnboardingController,
-    StaffAccessRequestsController,
+    RoleRequestsController,
     ConsentsController,
   ],
   providers: [
@@ -52,8 +56,8 @@ import { StaffAccessRequestsController } from './role-requests.controller';
     UsersAuthorityService,
     ConsentsService,
     ConsentsRepository,
-    RolesRepository,
-    RolesService,
+    MemberOnboardingRepository,
+    MemberOnboardingService,
   ],
   exports: [
     UsersService,

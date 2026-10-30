@@ -13,19 +13,19 @@ import {
   type ApplicationDecisionAuditMetadata,
   type ApplicationDecisionAuditMetadataView,
 } from './application-decision-audit-metadata.policy';
-import { isJsonObject } from './audit-metadata-validation.policy';
 import {
-  parseApplicationRepositoryUrlAuditMetadata,
-  type ApplicationRepositoryUrlAuditMetadata,
-  type ApplicationRepositoryUrlAuditMetadataView,
-} from './application-repository-url-audit-metadata.policy';
-import {
+  isJsonObject,
   parseCollectionTriggerAuditMetadata,
   parseSubmissionFileCleanupAuditMetadata,
   type CollectionTriggerAuditMetadata,
   type CollectionTriggerAuditMetadataView,
   type SubmissionFileCleanupAuditMetadata,
-} from './operations-audit-metadata.policy';
+} from './platform.policy';
+import {
+  parseApplicationRepositoryUrlAuditMetadata,
+  type ApplicationRepositoryUrlAuditMetadata,
+  type ApplicationRepositoryUrlAuditMetadataView,
+} from './application-repository-url-audit-metadata.policy';
 import {
   parseProgramDeletionAuditMetadata,
   parseProgramLifecycleAuditMetadata,
@@ -73,7 +73,7 @@ import {
 export * from './access-audit-metadata.policy';
 export * from './application-decision-audit-metadata.policy';
 export * from './independent-authority-audit-metadata.policy';
-export * from './operations-audit-metadata.policy';
+export * from './platform.policy';
 export * from './repository-program-audit-metadata.policy';
 export * from './user-profile-audit-metadata.policy';
 export * from './web-state-audit-metadata.policy';

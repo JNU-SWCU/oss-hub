@@ -1,18 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import { normalizeMultipartFileName } from '../platform/multipart-file-name.policy';
+import { normalizeMultipartFileName } from '../platform/platform.policy';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
-} from './submission-file-content-type.policy';
-import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
-} from './submission-file-object-key.policy';
-import { hasValidSubmissionFileSignature } from './submission-file-signature.policy';
-import { hasValidSubmissionTemplateSignature } from './submission-template-file.policy';
+  hasValidSubmissionFileSignature,
+  hasValidSubmissionTemplateSignature,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-file.policy';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
@@ -24,7 +23,6 @@ import {
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { inspectSubmissionZipMetadata } from './submission-zip-admission.policy';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
 import { milestoneDocumentSubmissionBlock } from './milestone-document-submission-window.policy';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name.policy';
 import {

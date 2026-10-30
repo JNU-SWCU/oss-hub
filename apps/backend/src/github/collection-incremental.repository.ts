@@ -20,11 +20,9 @@ import type {
   StreamFrontierRow,
   SyncCursorInput,
   SyncCursorRow,
-} from './collection-incremental.types';
-import type {
   AcquireSyncLeaseInput,
   SyncLeaseToken,
-} from './collection-sync.types';
+} from './collection-incremental.types';
 
 export const asiaSeoulYear = (at: Date): number =>
   new Date(at.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();

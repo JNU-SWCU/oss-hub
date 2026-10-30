@@ -8,10 +8,10 @@ import { requiredMilestonesApproved } from './milestone-completion.policy';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
 import {
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import { safeSubmissionFileContentType } from './submission-file-content-type.policy';
-import { publicSubmissionId } from './submission-public-id.policy';
+import { safeSubmissionFileContentType } from './submission-file.policy';
+import { publicSubmissionId } from './submission.policy';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,
@@ -122,51 +122,55 @@ class SubmissionRevisionInvariantError extends Error {
   override readonly name = 'SubmissionRevisionInvariantError';
 }
 
-export function toReviewContext(
-  row: ReviewContextRow,
-  now: Date = new Date(),
-): SubmissionReviewContext {
-  const current = row.histories.find(
-    (history) => history.revision === row.revision,
-  );
-  if (current === undefined) {
-    throw new SubmissionRevisionInvariantError();
+export class SubmissionReviewContextMapperRepository {
+  static toReviewContext(
+    row: ReviewContextRow,
+    now: Date = new Date(),
+  ): SubmissionReviewContext {
+    const current = row.histories.find(
+      (history) => history.revision === row.revision,
+    );
+    if (current === undefined) {
+      throw new SubmissionRevisionInvariantError();
+    }
+    const repository = row.application.repository;
+    const blockedReasons = repository
+      ? publishBlockedReasons(
+          toPublishEligibility(row.application, repository),
+          now,
+        )
+      : [];
+    return {
+      submissionId: publicSubmissionId(row),
+      application: {
+        id: row.application.id,
+        applicationMode:
+          row.application.teamId === null
+            ? APPLICATION_MODES.PERSONAL
+            : APPLICATION_MODES.TEAM,
+        displayName:
+          row.application.team?.name ??
+          UserProfileReadRepository.resolveUserProfileName(
+            row.application.applicant,
+          ) ??
+          row.application.applicant.nickname,
+      },
+      milestone: row.milestoneDocument.milestone,
+      currentRevision: toRevisionRecord(current, now),
+      history: row.histories
+        .filter((history) => history.id !== current.id)
+        .map((history) => toRevisionRecord(history, now)),
+      repository: repository
+        ? {
+            id: repository.id,
+            url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+            visibility: repository.visibility,
+            publishEligible: blockedReasons.length === 0,
+            blockedReasons,
+          }
+        : null,
+    };
   }
-  const repository = row.application.repository;
-  const blockedReasons = repository
-    ? publishBlockedReasons(
-        toPublishEligibility(row.application, repository),
-        now,
-      )
-    : [];
-  return {
-    submissionId: publicSubmissionId(row),
-    application: {
-      id: row.application.id,
-      applicationMode:
-        row.application.teamId === null
-          ? APPLICATION_MODES.PERSONAL
-          : APPLICATION_MODES.TEAM,
-      displayName:
-        row.application.team?.name ??
-        resolveUserProfileName(row.application.applicant) ??
-        row.application.applicant.nickname,
-    },
-    milestone: row.milestoneDocument.milestone,
-    currentRevision: toRevisionRecord(current, now),
-    history: row.histories
-      .filter((history) => history.id !== current.id)
-      .map((history) => toRevisionRecord(history, now)),
-    repository: repository
-      ? {
-          id: repository.id,
-          url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
-          visibility: repository.visibility,
-          publishEligible: blockedReasons.length === 0,
-          blockedReasons,
-        }
-      : null,
-  };
 }
 
 function toPublishEligibility(

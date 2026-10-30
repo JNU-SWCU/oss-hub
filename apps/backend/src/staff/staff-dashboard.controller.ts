@@ -10,10 +10,10 @@ import {
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
-import { StaffInsightsQueryRequestDto } from './dto/staff-insights-query.dto';
+import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
-import { parseInsightsYearQuery } from './staff-insights-year.policy';
+import { parseInsightsYearQuery } from './staff.policy';
 import { StaffInsightsService } from './staff-insights.service';
 
 @Controller('dashboard/staff')
@@ -41,7 +41,7 @@ export class StaffDashboardController {
   @UseGuards(SessionGuard)
   async insightsSummary(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
-    @Query() query: StaffInsightsQueryRequestDto,
+    @Query() query: StaffInsightsRequestDto,
   ): Promise<StaffInsightsResponseDto> {
     return StaffInsightsResponseDto.from(
       await this.insights.summarize(

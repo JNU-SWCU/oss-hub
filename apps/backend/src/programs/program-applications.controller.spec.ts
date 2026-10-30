@@ -1,10 +1,13 @@
-import { RepositoryConnectionMode, RepositoryVisibility } from '@prisma/client';
+import {
+  RepositoryConnectionMode,
+  RepositoryVisibility,
+  ApplicationStatus,
+} from '@prisma/client';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { ApplicationsService } from './applications.service';
-import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto';
+import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { ProgramApplicationsController } from './program-applications.controller';
 
@@ -248,7 +251,7 @@ describe('ProgramApplicationsController', () => {
       listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
-    const query = Object.assign(new ApplicationListQueryRequestDto(), {
+    const query = Object.assign(new ApplicationListRequestDto(), {
       page: 1,
       pageSize: 20,
       search: '합성',

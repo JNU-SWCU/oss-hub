@@ -1,4 +1,4 @@
-import { isJsonObject } from './audit-metadata-validation.policy';
+import { isJsonObject } from './platform.policy';
 
 export const PROGRAM_CREATED_AUDIT_SCHEMA_VERSION = 1 as const;
 export const PROGRAM_CREATED_AUDIT_ACTIONS = {

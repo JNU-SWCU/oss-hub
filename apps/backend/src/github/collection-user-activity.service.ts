@@ -8,7 +8,7 @@ import {
   type CollectionActivityUserRow,
   type CollectionUserActivityObservationInput,
   CollectionUserActivityRepository,
-} from './collection-user-activity.repository';
+} from './repository-provision-job.repository';
 
 const ASIA_SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 

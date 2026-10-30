@@ -1,7 +1,9 @@
-import type { AuthenticatedRequest } from './http-auth.types';
-import { LOGIN_HISTORY_EVENTS } from './login-history.types';
+import {
+  type AuthenticatedRequest,
+  LOGIN_HISTORY_EVENTS,
+} from './http-auth.types';
 import { LoginHistoryController } from './login-history.controller';
-import { LoginHistoryService } from './login-history.service';
+import { LoginHistoryService } from './auth.service';
 
 const syntheticUser = {
   id: 'synthetic-user-id',

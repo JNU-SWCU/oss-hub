@@ -1,17 +1,15 @@
-import {
-  appendSubmissionReview,
-  appendSubmissionReviewEvent,
-} from '../platform/submission-review-writer.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   SubmissionStatus,
+  type Prisma as PrismaTypes,
+  type ReviewDecision,
 } from '@prisma/client';
-import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { requiredMilestonesApproved } from './milestone-completion.policy';
 import type {
   RepositoryPublishEligibility,
@@ -21,10 +19,10 @@ import type {
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
-} from './submission-public-id.policy';
+} from './submission.policy';
 import {
   REVIEW_CONTEXT_SELECT,
-  toReviewContext,
+  SubmissionReviewContextMapperRepository,
 } from './submission-review-context-mapper.repository';
 
 interface CreateReviewRecordInput {
@@ -81,7 +79,10 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
       await this.transaction.milestoneDocumentSubmission.findFirst({
         where: {
           id: submissionId,
-          application: programApplicationParticipantWhere(userId),
+          application:
+            ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+              userId,
+            ),
         },
         select: { id: true },
       });
@@ -154,10 +155,17 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
   async createReview(
     input: CreateReviewRecordInput,
   ): Promise<{ readonly id: string }> {
-    const review = await appendSubmissionReview(this.transaction, input, {
-      id: true,
-    });
-    await appendSubmissionReviewEvent(this.transaction, input);
+    const review = await PlatformRepository.appendSubmissionReview(
+      this.transaction,
+      input,
+      {
+        id: true,
+      },
+    );
+    await PlatformRepository.appendSubmissionReviewEvent(
+      this.transaction,
+      input,
+    );
     return review;
   }
 
@@ -202,7 +210,9 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       select: REVIEW_CONTEXT_SELECT,
     });
     const submission = exactSubmissionByPublicId(submissions);
-    return submission ? toReviewContext(submission) : null;
+    return submission
+      ? SubmissionReviewContextMapperRepository.toReviewContext(submission)
+      : null;
   }
 
   async findPublishEligibility(

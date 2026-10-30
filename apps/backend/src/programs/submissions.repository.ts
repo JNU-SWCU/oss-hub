@@ -12,31 +12,25 @@ import {
   type MilestoneSubmissionType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  CreateSubmissionInput,
-  SubmissionContentInput,
-} from './submission-content.policy';
-import type {
-  ChecklistMilestone,
-  SubmissionApplication,
-} from './submission-record.types';
 import {
-  submissionApplicationSelect,
-  submissionParticipantWhere,
-  toSubmissionApplication,
-} from './submission-application-record.repository';
-import {
-  checklistMilestoneOrderBy,
-  checklistMilestoneSelect,
-  toChecklistMilestone,
-} from './submission-checklist-record.repository';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
+  type CreateSubmissionInput,
+  type SubmissionContentInput,
   exactSubmissionByPublicId,
   publicSubmissionId,
   submissionPublicIdWhere,
-} from './submission-public-id.policy';
+} from './submission.policy';
+import type {
+  ChecklistMilestone,
+  SubmissionApplication,
+} from './submission.types';
+import {
+  submissionApplicationSelect,
+  checklistMilestoneOrderBy,
+  checklistMilestoneSelect,
+  SubmissionChecklistRecordRepository,
+} from './submission-checklist-record.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 
 type SubmissionsDatabase = Prisma.TransactionClient;
 
@@ -215,10 +209,17 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     userId: string,
   ): Promise<SubmissionApplication | null> {
     const application = await this.database.application.findFirst({
-      where: { programId, ...submissionParticipantWhere(userId) },
+      where: {
+        programId,
+        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
+          userId,
+        ),
+      },
       select: submissionApplicationSelect(milestoneId),
     });
-    return application ? toSubmissionApplication(application) : null;
+    return application
+      ? SubmissionChecklistRecordRepository.toSubmissionApplication(application)
+      : null;
   }
 
   async findApplicationForParticipant(
@@ -227,10 +228,17 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     userId: string,
   ): Promise<SubmissionApplication | null> {
     const application = await this.database.application.findFirst({
-      where: { id: applicationId, ...submissionParticipantWhere(userId) },
+      where: {
+        id: applicationId,
+        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
+          userId,
+        ),
+      },
       select: submissionApplicationSelect(milestoneId),
     });
-    return application ? toSubmissionApplication(application) : null;
+    return application
+      ? SubmissionChecklistRecordRepository.toSubmissionApplication(application)
+      : null;
   }
 
   async lockProgramEndAt(programId: string): Promise<Date | null> {
@@ -295,7 +303,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     applicationId: string,
     actorUserId: string,
   ): Promise<void> {
-    const stillMember = await lockSubmissionMembership(
+    const stillMember = await PlatformRepository.lockSubmissionMembership(
       this.database,
       applicationId,
       actorUserId,
@@ -387,7 +395,12 @@ class PrismaSubmissionsStore implements SubmissionsStore {
   ): Promise<ChecklistApplication | null> {
     return this.database.application
       .findFirst({
-        where: { programId, ...submissionParticipantWhere(userId) },
+        where: {
+          programId,
+          ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
+            userId,
+          ),
+        },
         select: {
           id: true,
           teamId: true,
@@ -418,7 +431,8 @@ class PrismaSubmissionsStore implements SubmissionsStore {
       select: checklistMilestoneSelect(applicationId, now),
     });
     return milestones.flatMap((milestone) => {
-      const item = toChecklistMilestone(milestone);
+      const item =
+        SubmissionChecklistRecordRepository.toChecklistMilestone(milestone);
       return item === null ? [] : [item];
     });
   }
@@ -434,7 +448,10 @@ class PrismaSubmissionsStore implements SubmissionsStore {
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
-          application: submissionParticipantWhere(userId),
+          application:
+            SubmissionChecklistRecordRepository.submissionParticipantWhere(
+              userId,
+            ),
         },
         take: 2,
         select: {

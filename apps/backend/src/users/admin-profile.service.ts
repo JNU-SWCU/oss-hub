@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
-import { mutateAdminUserProfile } from './admin-profile-mutation.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import {
   AdminProfileRepository,
   type AdminProfileRepositoryPort,
@@ -23,7 +23,7 @@ export class AdminProfileService {
     userId: string,
     command: AdminProfileUpdateCommand,
   ): Promise<AdminProfileUpdateResult> {
-    return mutateAdminUserProfile(
+    return AdminProfileMutationService.mutateAdminUserProfile(
       { repository: this.profileRepository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );

@@ -1,11 +1,10 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { INestApplication } from '@nestjs/common';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
@@ -13,7 +12,7 @@ import {
   type SubmissionMatrixRepositoryPort,
 } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { SubmissionMatrixController } from './submission-matrix.controller';
+import { ProgramSubmissionsController } from './program-submissions.controller';
 
 const sessionSecret = new Uint8Array(32).fill(29);
 const allowedOrigin = 'http://frontend.test';
@@ -99,7 +98,7 @@ beforeEach(() => {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [SubmissionMatrixController],
+    controllers: [ProgramSubmissionsController],
     providers: [
       SubmissionMatrixService,
       SessionGuard,
@@ -117,7 +116,9 @@ beforeAll(async () => {
       },
       { provide: SubmissionMatrixRepository, useValue: repository },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
 
   application = moduleRef.createNestApplication();
   application.setGlobalPrefix('api/v1');

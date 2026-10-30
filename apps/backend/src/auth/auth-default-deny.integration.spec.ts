@@ -19,8 +19,8 @@ import { OptionalSession, Public } from './auth-route-metadata.policy';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
 import { sessionCookieName } from './cookies.policy';
-import type { AuthUser } from './auth-user.types';
-import { issueSessionToken } from './session-token.policy';
+import type { AuthUser } from './http-auth.types';
+import { issueSessionToken } from './auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 
 const sessionSecret = new Uint8Array(randomBytes(32));

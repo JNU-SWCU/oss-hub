@@ -1,10 +1,10 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionFileCleanupRetryService } from './submission-file-cleanup-retry.service';
+import { SubmissionFileCleanupRetryService } from './submission-file-cleanup.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
-import { S3ObjectStorage } from '../platform/object-storage.client';
+import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { OBJECT_STORAGE } from '../platform/object-storage.types';
 import { ProgramsModule } from './programs.module';
 
@@ -28,7 +28,7 @@ describe('ProgramsModule submission storage provider', () => {
 
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(PlatformModule);
     expect(storageProvider).toBeUndefined();
-    expect(providers).not.toContain(S3ObjectStorage);
+    expect(providers).not.toContain(S3ObjectStorageClient);
     expect(getMetadataArray(MODULE_METADATA.EXPORTS)).not.toContain(
       OBJECT_STORAGE,
     );

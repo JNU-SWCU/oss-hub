@@ -1,7 +1,4 @@
-import {
-  appendSubmissionReview,
-  appendSubmissionReviewEvent,
-} from '../platform/submission-review-writer.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -13,21 +10,21 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-
 import {
-  lockProgramTree,
   type MilestoneLock,
+  LockProgramTreeRepository,
 } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
-import type { MilestoneDocumentReviewRecord } from './milestone-document-review.policy';
-import type { ProgramDocumentChangeRequestCandidate } from './program-document-change-request.policy';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+import type {
+  MilestoneDocumentReviewRecord,
+  ProgramDocumentChangeRequestCandidate,
+} from './milestone-document.policy';
 import type {
   MilestoneDocumentRecord,
   MilestoneContext,
@@ -35,14 +32,14 @@ import type {
   MilestoneDocumentCollectionSubmission,
   CreatedMilestoneDocumentReview,
   MilestoneDocumentSubmissionDetail,
-} from './milestone-document-record.types';
+} from './milestone-document-result.types';
 import {
   boundedReviewHistoryQuery,
   milestoneDocumentHistoryDescendingOrderBy,
-} from './milestone-document-history-query.repository';
+} from './milestone-document-collection-read.repository';
 import {
-  upsertMilestoneDocumentSubmission,
   type UpsertMilestoneDocumentSubmissionInput,
+  MilestoneDocumentSubmissionRepository,
 } from './milestone-document-submission.repository';
 
 export class InvalidMilestoneDocumentHistoryCursorError extends Error {
@@ -374,7 +371,9 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     const application = await this.transaction.application.findFirst({
       where: {
         id: applicationId,
-        ...programApplicationParticipantWhere(userId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: { id: true },
     });
@@ -382,10 +381,13 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   }
 
   async lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
-    this.milestoneLock = await lockProgramTree(this.transaction, {
-      stage: 'milestone',
-      milestoneId,
-    });
+    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
+      this.transaction,
+      {
+        stage: 'milestone',
+        milestoneId,
+      },
+    );
     if (this.milestoneLock === null) return null;
     return this.transaction.milestone.findUniqueOrThrow({
       where: { id: this.milestoneLock.id },
@@ -399,16 +401,22 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       select: { programId: true },
     });
     if (initial === null) return null;
-    const program = await lockProgramTree(this.transaction, {
-      stage: 'program',
-      programId: initial.programId,
-    });
+    const program = await LockProgramTreeRepository.lockProgramTree(
+      this.transaction,
+      {
+        stage: 'program',
+        programId: initial.programId,
+      },
+    );
     if (program === null) return null;
-    this.milestoneLock = await lockProgramTree(this.transaction, {
-      stage: 'milestone',
-      milestoneId,
-      after: program,
-    });
+    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
+      this.transaction,
+      {
+        stage: 'milestone',
+        milestoneId,
+        after: program,
+      },
+    );
     if (this.milestoneLock === null) return null;
     const milestone = await this.transaction.milestone.findUniqueOrThrow({
       where: { id: milestoneId },
@@ -478,11 +486,14 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     if (this.milestoneLock === null || this.milestoneLock.id !== milestoneId) {
       throw new Error('Milestone must be locked before its documents.');
     }
-    const result = await lockProgramTree(this.transaction, {
-      stage: 'documents',
-      after: this.milestoneLock,
-      documentKind: 'DOCUMENT',
-    });
+    const result = await LockProgramTreeRepository.lockProgramTree(
+      this.transaction,
+      {
+        stage: 'documents',
+        after: this.milestoneLock,
+        documentKind: 'DOCUMENT',
+      },
+    );
     return result.documentIds;
   }
 
@@ -653,15 +664,22 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   async createReview(
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview> {
-    await appendSubmissionReviewEvent(this.transaction, input);
-    const created = await appendSubmissionReview(this.transaction, input, {
-      id: true,
-      decision: true,
-      comment: true,
-      reviewedAt: true,
-      resubmissionDueAt: true,
-      reviewer: { select: { nickname: true } },
-    });
+    await PlatformRepository.appendSubmissionReviewEvent(
+      this.transaction,
+      input,
+    );
+    const created = await PlatformRepository.appendSubmissionReview(
+      this.transaction,
+      input,
+      {
+        id: true,
+        decision: true,
+        comment: true,
+        reviewedAt: true,
+        resubmissionDueAt: true,
+        reviewer: { select: { nickname: true } },
+      },
+    );
     return {
       id: created.id,
       decision: created.decision,
@@ -783,7 +801,9 @@ class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCol
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -981,7 +1001,12 @@ export class MilestoneDocumentsRepository {
     programId: string,
   ): Promise<StudentApplicationContext | null> {
     const application = await this.prisma.application.findFirst({
-      where: { programId, ...programApplicationParticipantWhere(userId) },
+      where: {
+        programId,
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
+      },
       select: {
         id: true,
         status: true,
@@ -1220,7 +1245,9 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -1443,7 +1470,10 @@ export class MilestoneDocumentsRepository {
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
-    return upsertMilestoneDocumentSubmission(this.prisma, input);
+    return MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+      this.prisma,
+      input,
+    );
   }
 
   async findMySubmission(

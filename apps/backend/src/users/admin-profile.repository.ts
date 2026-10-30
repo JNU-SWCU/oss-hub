@@ -1,20 +1,20 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { DomainException } from '../platform/error-code.error';
-import { withSerializationRetry } from '../platform/prisma-serialization-retry.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
   USER_PROFILE_SELECT,
-  resolveUserProfile,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import { upsertUserProfile } from '../platform/user-profile-write.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import type { AdminAccessActor } from './admin-access-repository.types';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
-} from './admin-actor-locks.repository';
+} from './admin-access.repository';
 import type {
   AdminProfileApplyOutcome,
   AdminProfileLegacyFields,
@@ -22,12 +22,12 @@ import type {
   AdminProfileTargetRecord,
   AdminProfileTransactionStore,
   AdminProfileWriteFields,
-} from './admin-profile-repository.types';
+} from './users.types';
 
 export type {
   AdminProfileRepositoryPort,
   AdminProfileTransactionStore,
-} from './admin-profile-repository.types';
+} from './users.types';
 
 const ADMIN_PROFILE_TARGET_SELECT = {
   id: true,
@@ -68,7 +68,7 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
     changedFields: Partial<AdminProfileWriteFields>,
   ): Promise<AdminProfileApplyOutcome> {
     try {
-      await upsertUserProfile(
+      await PlatformRepository.upsertUserProfile(
         this.transaction,
         userId,
         {
@@ -113,7 +113,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
   withTransaction<T>(
     operation: (store: AdminProfileTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return withSerializationRetry(
+    return PrismaSerializationRetryRepository.withSerializationRetry(
       () =>
         this.prisma.$transaction(
           (transaction) =>
@@ -133,7 +133,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
 function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
-  const profile = resolveUserProfile(user);
+  const profile = UserProfileReadRepository.resolveUserProfile(user);
   return {
     id: user.id,
     githubLogin: user.nickname,

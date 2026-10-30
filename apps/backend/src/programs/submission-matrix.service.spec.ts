@@ -2,7 +2,7 @@ import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import type {
   SubmissionMatrixFilter,
   SubmissionMatrixQuery,
-} from './submission-matrix.types';
+} from './submission.types';
 import {
   submissionMatrixApplicationWhere,
   type MatrixApplicationRecord,

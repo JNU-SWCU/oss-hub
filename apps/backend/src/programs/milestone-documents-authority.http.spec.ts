@@ -5,11 +5,11 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
@@ -114,7 +114,9 @@ beforeAll(async () => {
       { provide: MilestoneDocumentFilesService, useValue: {} },
       { provide: MilestoneDocumentReviewsService, useValue: {} },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
   app = module.createNestApplication();
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(

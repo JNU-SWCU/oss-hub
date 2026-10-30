@@ -7,7 +7,7 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { S3ObjectStorage } from '../platform/object-storage.client';
+import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
@@ -43,7 +43,7 @@ export class ProgramAuthoringIntegrationHarness {
       secretAccessKey: this.settings.secretAccessKey,
     },
   });
-  readonly storage = new S3ObjectStorage(this.storageConfig, this.s3);
+  readonly storage = new S3ObjectStorageClient(this.storageConfig, this.s3);
   readonly maintenance = new ProgramAuthoringUploadMaintenanceService(
     this.uploads,
     this.storage,

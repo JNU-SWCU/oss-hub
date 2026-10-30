@@ -7,6 +7,9 @@ import {
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repository-provision-event.policy';
 import { RepositoriesRepository } from './repositories.repository';
+import { Interval } from '@nestjs/schedule';
+import { randomUUID } from 'node:crypto';
+import type { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 
@@ -20,8 +23,8 @@ export type RepositoryOutboxConsumeResult =
   | { readonly kind: 'FAILED'; readonly eventId: string };
 
 @Injectable()
-export class RepositoryOutboxConsumer {
-  private readonly logger = new Logger(RepositoryOutboxConsumer.name);
+export class RepositoryOutboxConsumerService {
+  private readonly logger = new Logger(RepositoryOutboxConsumerService.name);
 
   constructor(private readonly repository: RepositoriesRepository) {}
 
@@ -92,4 +95,55 @@ function parseEventPayload(
     return parseRepositoryAccessSyncEvent(payload);
   }
   throw new InvalidRepositoryProvisionEventError();
+}
+
+const PROVISION_POLL_INTERVAL_MS = 5_000;
+const PROVISION_BATCH_SIZE = 10;
+
+export class RepositoryProvisionScheduler {
+  private readonly logger = new Logger(RepositoryProvisionScheduler.name);
+  private readonly workerId = `repository-${randomUUID()}`;
+  private running = false;
+
+  constructor(
+    private readonly outbox: Pick<
+      RepositoryOutboxConsumerService,
+      'consumeNext'
+    >,
+    private readonly worker: Pick<RepositoryProvisionWorkerService, 'runNext'>,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  @Interval('repository-provision', PROVISION_POLL_INTERVAL_MS)
+  async poll(): Promise<void> {
+    if (this.running) {
+      return;
+    }
+    this.running = true;
+    try {
+      await this.runBatch();
+    } catch (error) {
+      this.logger.error({
+        event: 'repositories.provision.poll.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
+
+  async runBatch(): Promise<void> {
+    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
+      const result = await this.outbox.consumeNext(this.workerId, this.now());
+      if (result.kind === 'EMPTY') {
+        break;
+      }
+    }
+    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
+      const result = await this.worker.runNext(this.workerId);
+      if (result.kind === 'EMPTY') {
+        break;
+      }
+    }
+  }
 }

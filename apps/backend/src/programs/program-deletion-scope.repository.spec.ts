@@ -1,5 +1,5 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { readProgramDeletionScopeCounts } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 
 describe('readProgramDeletionScopeCounts', () => {
   it('target 제출 원장만 한 스냅샷에서 센다', async () => {
@@ -29,7 +29,10 @@ describe('readProgramDeletionScopeCounts', () => {
     } as unknown as PrismaService;
 
     await expect(
-      readProgramDeletionScopeCounts(transaction, 'synthetic-program'),
+      ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+        transaction,
+        'synthetic-program',
+      ),
     ).resolves.toEqual({
       applications: 1,
       teams: 1,

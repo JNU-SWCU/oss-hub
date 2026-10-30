@@ -1,16 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { CollectionSweepRunner } from './collection-sweep-runner.service';
-
+import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import { DomainException } from '../platform/error-code.error';
 import { PROCESS_RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
+import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from './collection-error-code.error';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
+import { Cron } from '@nestjs/schedule';
 
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
 export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
@@ -23,14 +23,14 @@ export const COLLECTION_CRON_EXPRESSION =
 export class CollectionTriggerService {
   private readonly logger = new Logger('CollectionSchedulerService');
   private readonly ownerId = `scheduler:${randomUUID()}`;
-  private readonly sweeps: CollectionSweepRunner;
+  private readonly sweeps: CollectionSweepRunnerService;
 
   constructor(
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
     userActivity: CollectionUserActivityService,
   ) {
-    this.sweeps = new CollectionSweepRunner(
+    this.sweeps = new CollectionSweepRunnerService(
       sync,
       userActivity,
       this.logger,
@@ -75,5 +75,22 @@ export class CollectionTriggerService {
         return this.sync.runRepository(this.ownerId, githubRepositoryId, runId);
       }),
     );
+  }
+}
+
+@Injectable()
+export class CollectionScheduler {
+  constructor(
+    @Inject(CollectionTriggerService)
+    private readonly trigger: Pick<CollectionTriggerService, 'runScheduled'>,
+  ) {}
+
+  @Cron(COLLECTION_CRON_EXPRESSION, {
+    name: COLLECTION_CRON_JOB_NAME,
+    timeZone: 'Asia/Seoul',
+    waitForCompletion: true,
+  })
+  handleCron(): Promise<void> {
+    return this.trigger.runScheduled();
   }
 }

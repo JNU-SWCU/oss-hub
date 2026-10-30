@@ -17,16 +17,16 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import { StudentRepositoryUrlRepository } from './student-repository-url.repository';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { ConsentsRepository } from '../users/consents.repository';
+import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { GithubAppClient } from '../github/github-app.client';
 import type {
   GithubPublicRepositoryMetadata,
@@ -36,11 +36,11 @@ import { CollectionIncrementalRepository } from '../github/collection-incrementa
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoryProvisionJobRepository } from '../github/repository-provision-job.repository';
 import { RepositoryProvisionStateRepository } from '../github/repository-provision-state.repository';
-import { RepositoryOutboxConsumer } from '../github/repository-outbox-consumer.service';
-import { RepositoryProvisionWorker } from '../github/repository-provision-worker.service';
+import { RepositoryOutboxConsumerService } from '../github/repository-outbox-consumer.service';
+import { RepositoryProvisionWorkerService } from '../github/repository-provision-worker.service';
 import { PROVISION_ERROR_CODES } from '../github/repository-provision-failure.policy';
-import { RepositoryOwnEnrollmentService } from '../github/repository-own-enrollment.service';
-import { ApplicationJoinCodeService } from './application-join-code.service';
+import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,7 +57,9 @@ const service = new ApplicationsService(
     TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
   }),
 );
-const outbox = new RepositoryOutboxConsumer(new RepositoriesRepository(prisma));
+const outbox = new RepositoryOutboxConsumerService(
+  new RepositoriesRepository(prisma),
+);
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);
 
@@ -445,7 +447,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       github.findPublicRepository.mockResolvedValue(
         ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
       );
-      const worker = new RepositoryProvisionWorker(
+      const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
         github,
@@ -519,7 +521,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           ECONOVATION_NAME_WITH_OWNER,
         ),
       );
-      const worker = new RepositoryProvisionWorker(
+      const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
         github,
@@ -584,7 +586,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         NO_CONSENT_NAME_WITH_OWNER,
       ),
     );
-    const worker = new RepositoryProvisionWorker(
+    const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -660,7 +662,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           ORG_OWN_NAME_WITH_OWNER,
         ),
       );
-      const worker = new RepositoryProvisionWorker(
+      const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
         github,
@@ -724,7 +726,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       'synthetic-late-outbox',
     );
 
-    await new RepositoryProvisionWorker(
+    await new RepositoryProvisionWorkerService(
       jobs,
       state,
       github,
@@ -768,7 +770,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
       const github = githubClient();
       github.findPublicRepository.mockResolvedValue(metadata);
-      const result = await new RepositoryProvisionWorker(
+      const result = await new RepositoryProvisionWorkerService(
         jobs,
         state,
         github,

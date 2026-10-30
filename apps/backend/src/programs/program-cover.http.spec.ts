@@ -9,7 +9,7 @@ import {
   ObjectStorageError,
 } from '../platform/object-storage.types';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramCoverController } from './program-cover.controller';
+import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import {
@@ -18,7 +18,7 @@ import {
 } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramCoverService } from './program-cover.service';
+import { ProgramCoverService } from './program-creation.service';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 
 const PNG = Buffer.from(
@@ -39,7 +39,7 @@ const put = jest.fn(() => Promise.resolve({}));
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramAuthoringController, ProgramCoverController],
+    controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
       ProgramAuthoringUploadService,
       ProgramCoverService,
@@ -79,6 +79,7 @@ beforeAll(async () => {
       },
     ],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate(context: ExecutionContext) {

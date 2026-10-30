@@ -28,13 +28,15 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsErrorCode } from './public-projects-error-code.error';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService } from './public-projects.service';
+import {
+  PublicProjectsService,
+  PublicEligibilityService,
+} from './public-projects.service';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/authority.service';
-import { UsersAuthorityRepository } from '../users/authority.repository';
-import { PublicEligibilityService } from './public-eligibility.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

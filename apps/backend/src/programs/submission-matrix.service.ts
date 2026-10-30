@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import { documentDeliveryStatus } from './document-delivery-status.policy';
-import type { SubmissionMatrixQuery } from './submission-matrix.types';
+import { documentDeliveryStatus } from './milestone-document.policy';
 import type {
+  SubmissionMatrixQuery,
   MatrixCellResult,
   MatrixRowResult,
   SubmissionMatrixResult,
-} from './submission-matrix-result.types';
+} from './submission.types';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,

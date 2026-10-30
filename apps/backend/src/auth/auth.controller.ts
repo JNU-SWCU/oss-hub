@@ -10,14 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { LoginHistoryService } from './login-history.service';
+import { LoginHistoryService, AuthService } from './auth.service';
 import { AuthConfig } from './auth.config';
 import {
   OptionalSession,
   Protected,
   Public,
 } from './auth-route-metadata.policy';
-import { AuthService } from './auth.service';
 import {
   flowCookieName,
   parseCookies,
@@ -25,18 +24,21 @@ import {
   serializeCookie,
   sessionCookieName,
 } from './cookies.policy';
-import { loginLandingUrl } from './login-landing.policy';
-import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
+import {
+  loginLandingUrl,
+  decodeFlowCookie,
+  isSameState,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth.policy';
+import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
-import { decodeFlowCookie, isSameState } from './oauth-flow.policy';
 import { OriginGuard } from './origin.guard';
 import {
   assertNeverHttpAuth,
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from './http-auth.types';
-import { SESSION_MAX_AGE_SECONDS } from './session-token.policy';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 
@@ -54,7 +56,7 @@ export class AuthController {
   @Get('github')
   @Public()
   startGithubLogin(
-    @Query() query: GithubLoginQueryRequestDto,
+    @Query() query: GithubLoginRequestDto,
     @Res() res: Response,
   ): void {
     const redirect = this.authService.buildAuthorizeRedirect(query.prompt);

@@ -6,14 +6,11 @@ import {
 } from '@prisma/client';
 import {
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import {
-  programApplicationManagerWhere,
-  programApplicationParticipantWhere,
-} from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { appendReviewHistory } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import type {
   AppendReviewHistoryInput,
   AppendedReviewHistory,
@@ -25,7 +22,10 @@ class StudentResubmissionStore {
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return appendReviewHistory(this.transaction, input);
+    return ReviewHistoryWriterRepository.appendReviewHistory(
+      this.transaction,
+      input,
+    );
   }
 }
 
@@ -122,7 +122,7 @@ function toOwnedStudentApplication(
     teamLeaderId: team.leaderId,
     applicant: {
       id: row.applicant.id,
-      name: resolveUserProfileName(row.applicant),
+      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
       nickname: row.applicant.nickname,
     },
   };
@@ -150,7 +150,9 @@ export class StudentApplicationManagementRepository {
     const row = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(studentId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          studentId,
+        ),
       },
       select: APPLICATION_SELECT,
     });
@@ -277,7 +279,9 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...programApplicationManagerWhere(studentId),
+        ...ProgramApplicationParticipantRepository.programApplicationManagerWhere(
+          studentId,
+        ),
       },
       select: { id: true },
     });
@@ -290,7 +294,9 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...programApplicationManagerWhere(studentId),
+        ...ProgramApplicationParticipantRepository.programApplicationManagerWhere(
+          studentId,
+        ),
       },
       select: APPLICATION_SELECT,
     });

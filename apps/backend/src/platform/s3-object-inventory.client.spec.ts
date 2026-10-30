@@ -8,14 +8,14 @@ import {
   ObjectStorageConfig,
   type ObjectS3Client,
 } from './object-storage.config';
-import { S3ObjectInventory } from './s3-object-inventory.client';
+import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 
 type ObjectS3Send = jest.Mock<
   ReturnType<ObjectS3Client['send']>,
   Parameters<ObjectS3Client['send']>
 >;
 
-describe('S3ObjectInventory', () => {
+describe('S3ObjectInventoryClient', () => {
   const settings = {
     bucket: 'managed-submissions',
   };
@@ -41,7 +41,7 @@ describe('S3ObjectInventory', () => {
     const config = { requireSettings } as unknown as ObjectStorageConfig;
     const client: ObjectS3Client = { send };
     return {
-      inventory: new S3ObjectInventory(config, client),
+      inventory: new S3ObjectInventoryClient(config, client),
       send,
       requireSettings,
     };

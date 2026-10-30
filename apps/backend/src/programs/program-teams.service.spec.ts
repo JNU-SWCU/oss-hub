@@ -1,24 +1,23 @@
-import { ProgramCategory } from '@prisma/client';
+import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { AccountStatus } from '@prisma/client';
 import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.policy';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
-import {
-  type ProgramTeamsRepository,
-  type RecordTeamMembershipAudit,
-  type TeamDetailRecord,
-  type TeamActorAuthority,
-  type TeamMembershipAuditEvent,
-  type TeamMembershipAuditStore,
-  type TeamProgramRecord,
-  type TeamRenameAuditEvent,
-  type TeamRenameResult,
-  type TeamStudentActor,
+import { UsersAuthorityService } from '../users/users-authority.service';
+import type {
+  ProgramTeamsRepository,
+  RecordTeamMembershipAudit,
+  TeamDetailRecord,
+  TeamActorAuthority,
+  TeamMembershipAuditEvent,
+  TeamMembershipAuditStore,
+  TeamProgramRecord,
+  TeamRenameAuditEvent,
+  TeamRenameResult,
+  TeamStudentActor,
 } from './program-teams.repository';
 import type { TeamDeletionResult } from './program-team-deletion.repository';
 import { ProgramTeamsService } from './program-teams.service';

@@ -1,20 +1,221 @@
-import type { ProgramDetailResult } from './program-read.types';
-import { ValidationPipe } from '@nestjs/common';
-import type { TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { PlatformModule } from '../platform/platform.module';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { OriginGuard } from '../auth/origin.guard';
+import { SessionGuard } from '../auth/session.guard';
+import { loadRuntimeConfig } from '../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
+import { ProgramsController } from './programs.controller';
+import { ProgramEditorService } from './program-editor.service';
+import { ProgramsModule } from './programs.module';
+import { ProgramLifecycleService } from './program-lifecycle.service';
+import type { ProgramDetailResult } from './programs.types';
+import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { Test } from '@nestjs/testing';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
+
+describe('program-editor.controller', () => {
+  const controllerMethod = (name: keyof ProgramsController): object => {
+    const method: unknown = Object.getOwnPropertyDescriptor(
+      ProgramsController.prototype,
+      name,
+    )?.value;
+    if (typeof method !== 'function') {
+      throw new Error('Controller method metadata not found.');
+    }
+    return method;
+  };
+
+  describe('ProgramsController boundaries', () => {
+    const syntheticSessionSecret = Buffer.from(
+      'synthetic-program-editor-session-secret',
+    ).toString('base64url');
+    const editor = {
+      getProgram: jest.fn(),
+      updateProgram: jest.fn(),
+      createMilestone: jest.fn(),
+    };
+    let controller: ProgramsController;
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      const module = await Test.createTestingModule({
+        controllers: [ProgramsController],
+        providers: [{ provide: ProgramEditorService, useValue: editor }],
+      })
+        .useMocker((token) => (token === Function ? undefined : {}))
+        .overrideGuard(OriginGuard)
+        .useValue({ canActivate: jest.fn() })
+        .overrideGuard(SessionGuard)
+        .useValue({ canActivate: jest.fn() })
+        .compile();
+      controller = module.get(ProgramsController);
+    });
+
+    it('keeps edit reads behind SessionGuard without replacing public detail', async () => {
+      const editable = {
+        id: 'program-1',
+        name: 'OSS',
+        organizer: 'Center',
+        trackType: 'EXTRACURRICULAR',
+        applicationTemplateKey: 'oss-contest',
+        applicationTemplateVersion: 1,
+        applicationCount: 0,
+        teamCount: 0,
+        applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-08-10T00:00:00.000Z'),
+        startAt: new Date('2026-08-16T00:00:00.000Z'),
+        endAt: '2026-08-31T00:00:00.000Z',
+        repositoryProvisioningEnabled: false,
+        description: 'overview',
+        milestones: [],
+        teamMinSize: 2,
+        teamMaxSize: 4,
+      };
+      editor.getProgram.mockResolvedValue(editable);
+      const request = { sessionGithubId: 101n };
+
+      const result = await controller.get(request, 'program-1');
+
+      expect(result.id).toBe('program-1');
+      expect(result);
+      expect(result.endAt).toBe('2026-08-31T00:00:00.000Z');
+      expect(editor.getProgram).toHaveBeenCalledWith(101n, 'program-1');
+      expect(
+        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('get')),
+      ).toContain(SessionGuard);
+      expect(
+        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('detail')),
+      ).toBeUndefined();
+    });
+
+    it('wires editor service to the repository provider at module compile time', async () => {
+      const module = await Test.createTestingModule({
+        imports: [PlatformModule, ProgramsModule],
+      })
+        .overrideProvider(RUNTIME_CONFIG)
+        .useValue(
+          loadRuntimeConfig({
+            SESSION_SECRET: syntheticSessionSecret,
+            FRONTEND_URL: 'http://localhost:3000',
+            GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+            GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+            GITHUB_OAUTH_CALLBACK_URL:
+              'http://localhost:3000/api/v1/auth/github/callback',
+            TEAM_JOIN_CODE_SECRET: 'synthetic-program-editor-secret',
+            MAIL_MODE: 'dry-run',
+          }),
+        )
+        .compile();
+
+      expect(module.get(ProgramEditorService)).toBeInstanceOf(
+        ProgramEditorService,
+      );
+      await module.close();
+    });
+    it('keeps mutations behind SessionGuard and OriginGuard', () => {
+      expect(
+        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('update')),
+      ).toEqual([SessionGuard, OriginGuard]);
+      expect(
+        Reflect.getMetadata(
+          GUARDS_METADATA,
+          controllerMethod('createMilestone'),
+        ),
+      ).toEqual([SessionGuard, OriginGuard]);
+    });
+  });
+});
+
+describe('program-lifecycle.controller', () => {
+  const controllerMethod = (name: keyof ProgramsController): object => {
+    const method: unknown = Object.getOwnPropertyDescriptor(
+      ProgramsController.prototype,
+      name,
+    )?.value;
+    if (typeof method !== 'function')
+      throw new Error('Controller method metadata not found.');
+    return method;
+  };
+
+  describe('ProgramsController boundaries', () => {
+    const lifecycle = { delete: jest.fn(), purge: jest.fn() };
+    let controller: ProgramsController;
+    let moduleRef: TestingModule;
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      moduleRef = await Test.createTestingModule({
+        controllers: [ProgramsController],
+        providers: [{ provide: ProgramLifecycleService, useValue: lifecycle }],
+      })
+        .useMocker((token) => (token === Function ? undefined : {}))
+        .overrideGuard(SessionGuard)
+        .useValue({ canActivate: () => true })
+        .overrideGuard(OriginGuard)
+        .useValue({ canActivate: () => true })
+        .compile();
+      controller = moduleRef.get(ProgramsController);
+    });
+
+    afterEach(async () => {
+      await moduleRef.close();
+    });
+
+    it('삭제는 세션·origin guard 뒤에 있고 세션 githubId·programId를 lifecycle 서비스에 그대로 넘긴다', async () => {
+      lifecycle.delete.mockResolvedValue({ id: 'program-1', deleted: true });
+      const request = { sessionGithubId: 101n };
+
+      await expect(controller.delete('program-1', request)).resolves.toEqual({
+        id: 'program-1',
+        deleted: true,
+      });
+
+      expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
+      expect(
+        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
+      ).toEqual([SessionGuard, OriginGuard]);
+    });
+
+    it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
+      const purgeResult = {
+        id: 'program-1',
+        deleted: true,
+        deletedCounts: { applications: 2, teams: 1 },
+      };
+      lifecycle.purge.mockResolvedValue(purgeResult);
+      const request = { sessionGithubId: 101n };
+      const expectedScope = {
+        applications: 2,
+        teams: 1,
+        boardPosts: 0,
+        submissions: 0,
+        submissionEvents: 0,
+        scopeFingerprint: '0123456789abcdef0123456789abcdef',
+      };
+
+      await expect(
+        controller.purge('program-1', { expectedScope }, request),
+      ).resolves.toEqual(purgeResult);
+
+      expect(lifecycle.purge).toHaveBeenCalledWith(
+        101n,
+        'program-1',
+        expectedScope,
+      );
+      expect(
+        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
+      ).toEqual([SessionGuard, OriginGuard]);
+    });
+  });
+});
 
 const authenticatedAuth = {
   kind: HTTP_AUTH_KINDS.AUTHENTICATED,
@@ -101,6 +302,7 @@ describe('ProgramsController read boundaries', () => {
         { provide: ProgramViewerService, useValue: viewers },
       ],
     })
+      .useMocker((token) => (token === Function ? undefined : {}))
       .overrideGuard(OriginGuard)
       .useValue({ canActivate: jest.fn(() => true) })
       .overrideGuard(SessionGuard)

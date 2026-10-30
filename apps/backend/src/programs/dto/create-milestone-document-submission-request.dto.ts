@@ -10,7 +10,7 @@ import {
 import {
   type MilestoneDocumentContentInput,
   parseMilestoneDocumentContent,
-} from '../milestone-document-content.policy';
+} from '../milestone-document.policy';
 
 export class MilestoneDocumentSubmissionContentRequestDto {
   @IsOptional()

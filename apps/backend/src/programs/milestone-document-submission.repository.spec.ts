@@ -4,19 +4,37 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import { lockSubmissionMembership } from '../platform/submission-membership-lock.repository';
+import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
-import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-document-submission.repository';
+import {
+  type UpsertMilestoneDocumentSubmissionInput,
+  MilestoneDocumentSubmissionRepository,
+} from './milestone-document-submission.repository';
 
-jest.mock('../platform/submission-membership-lock.repository', () => {
+const mockLockSubmissionMembership = jest.fn<
+  ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
+  Parameters<typeof PlatformRepository.lockSubmissionMembership>
+>();
+
+jest.mock('../platform/platform.repository', () => {
   const actual = jest.requireActual<
-    typeof import('../platform/submission-membership-lock.repository')
-  >('../platform/submission-membership-lock.repository');
-  return { ...actual, lockSubmissionMembership: jest.fn() };
+    typeof import('../platform/platform.repository')
+  >('../platform/platform.repository');
+  return {
+    ...actual,
+    PlatformRepository: class extends actual.PlatformRepository {
+      static override lockSubmissionMembership(
+        ...args: Parameters<
+          typeof actual.PlatformRepository.lockSubmissionMembership
+        >
+      ) {
+        return mockLockSubmissionMembership(...args);
+      }
+    },
+  };
 });
 
-const lockMembership = jest.mocked(lockSubmissionMembership);
+const lockMembership = mockLockSubmissionMembership;
 
 const DOCUMENT_ID = 'cuid-synthetic-document';
 const APPLICATION_ID = 'cuid-synthetic-application';
@@ -182,10 +200,11 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('지금 팀원이 아니면 제출·이력·첨부 어느 것도 쓰지 않고 거부한다', async () => {
     const harness = buildHarness({ member: false });
 
-    const rejection: unknown = await upsertMilestoneDocumentSubmission(
-      harness.prisma,
-      fileInput({ submittedById: DEPARTED_MEMBER_ID }),
-    ).catch((caught: unknown) => caught);
+    const rejection: unknown =
+      await MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+        harness.prisma,
+        fileInput({ submittedById: DEPARTED_MEMBER_ID }),
+      ).catch((caught: unknown) => caught);
 
     expect(rejection).toBeInstanceOf(SubmissionMembershipChangedError);
     expect(rejection).toMatchObject({
@@ -203,7 +222,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     const harness = buildHarness({ member: false });
 
     await expect(
-      upsertMilestoneDocumentSubmission(
+      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
         harness.prisma,
         textInput({ submittedById: DEPARTED_MEMBER_ID }),
       ),
@@ -215,10 +234,11 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('팀장이 아니어도 지금 팀원이면 제출과 이력이 그대로 쓰인다', async () => {
     const harness = buildHarness();
 
-    const detail = await upsertMilestoneDocumentSubmission(
-      harness.prisma,
-      textInput(),
-    );
+    const detail =
+      await MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+        harness.prisma,
+        textInput(),
+      );
 
     expect(detail).toMatchObject({
       id: SUBMISSION_ID,
@@ -240,7 +260,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('울타리는 트랜잭션 클라이언트로, 서류·판정 잠금보다 **먼저** 불린다', async () => {
     const harness = buildHarness();
 
-    await upsertMilestoneDocumentSubmission(
+    await MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
       harness.prisma,
       fileInput({
         submittedAt: AFTER_DEADLINE,
@@ -275,7 +295,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('재제출은 예전 제출자가 아니라 **지금 내는 사람**으로 판정한다', async () => {
     const harness = buildHarness({ revision: 2 });
 
-    await upsertMilestoneDocumentSubmission(
+    await MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
       harness.prisma,
       textInput({ submittedById: CURRENT_MEMBER_ID }),
     );
@@ -310,7 +330,7 @@ describe('atomic document grace admission', () => {
         graceDueAt: AFTER_DEADLINE,
         currentStatus,
       });
-      await upsertMilestoneDocumentSubmission(
+      await MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
         harness.prisma,
         textInput({
           submittedAt: AFTER_DEADLINE,
@@ -329,7 +349,7 @@ describe('atomic document grace admission', () => {
     async (graceDueAt) => {
       const harness = buildHarness({ graceDueAt, currentStatus: null });
       await expect(
-        upsertMilestoneDocumentSubmission(
+        MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
           harness.prisma,
           textInput({
             submittedAt: AFTER_DEADLINE,

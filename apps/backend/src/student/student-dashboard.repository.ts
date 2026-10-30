@@ -10,7 +10,7 @@ import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from '../programs/submission-completion-projection.policy';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 
 interface StudentDashboardMilestoneRow {
   readonly id: string;
@@ -83,7 +83,10 @@ export class StudentDashboardRepository {
     if (user === null) return [];
 
     return this.prisma.application.findMany({
-      where: programApplicationParticipantWhere(user.id),
+      where:
+        ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          user.id,
+        ),
       orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
       select: studentDashboardApplicationSelect,
     });

@@ -1,9 +1,9 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ConsentsRepository } from '../users/consents.repository';
+import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import { RepositoryOwnEnrollmentService } from './repositories.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -3,7 +3,7 @@ import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { replaceProgramCover } from './program-cover-write.repository';
+import { replaceProgramCover } from './program-cover.repository';
 import { programCoverImageUrl } from './program-cover.policy';
 import {
   ACTOR,

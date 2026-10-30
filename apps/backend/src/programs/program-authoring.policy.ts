@@ -1,3 +1,10 @@
+import { randomUUID, createHash } from 'node:crypto';
+import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
+import { DomainException } from '../platform/error-code.error';
+import {
+  parseProgramNoticeImageUrl,
+  parseProgramNoticeUrl,
+} from './program-notice.policy';
 import type {
   MilestoneSubmissionType,
   ProgramAuthoringUploadLifecycle,
@@ -5,7 +12,52 @@ import type {
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import type { ProgramExternalCover } from './program-external-cover.policy';
+import { normalizeMultipartFileName } from '../platform/platform.policy';
+import {
+  sanitizeSubmissionFileOriginalName,
+  hasValidSubmissionTemplateSignature,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-file.policy';
+import { inspectSubmissionZipMetadata } from './submission-zip-admission.policy';
+import {
+  PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
+  ProgramAuthoringUploadError,
+  type ProgramAuthoringUploadFile,
+} from './program-authoring-upload.error';
+
+export function createProgramAuthoringObjectKey(): string {
+  return `program-authoring/${randomUUID()}`;
+}
+
+export type ProgramExternalCover = {
+  readonly sourceUrl: string;
+  readonly imageUrl: string;
+};
+
+export function validateProgramCoverChoice(input: {
+  readonly coverUploadId?: string | null;
+  readonly externalCover?: ProgramExternalCover | null;
+}): ProgramExternalCover | null | undefined {
+  if (input.coverUploadId !== undefined && input.externalCover !== undefined) {
+    throw new ProgramAuthoringValidationError([
+      { path: 'externalCover', code: 'CONFLICTING_COVER_CHOICES' },
+    ]);
+  }
+  if (input.externalCover == null) return input.externalCover;
+  try {
+    const source = parseProgramNoticeUrl(input.externalCover.sourceUrl);
+    const image = parseProgramNoticeImageUrl(
+      input.externalCover.imageUrl,
+      source,
+    );
+    if (image !== null) return { sourceUrl: source.href, imageUrl: image.href };
+  } catch (error) {
+    if (!(error instanceof DomainException)) throw error;
+  }
+  throw new ProgramAuthoringValidationError([
+    { path: 'externalCover', code: 'INVALID_EXTERNAL_COVER' },
+  ]);
+}
 
 export type ProgramAuthoringDocumentRequest = {
   readonly name: string;
@@ -170,4 +222,106 @@ export class ProgramAuthoringUploadConsumptionRaceError extends Error {
   constructor(readonly uploadId: string) {
     super('Program authoring upload changed before consumption.');
   }
+}
+
+export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
+  return {
+    schemaVersion: 2,
+    ...(plan.coverUploadId ? { coverUploadId: plan.coverUploadId } : {}),
+    ...(plan.externalCover ? { externalCover: plan.externalCover } : {}),
+    program: {
+      name: plan.program.name,
+      organizer: plan.program.organizer,
+      trackType: plan.program.trackType,
+      category: plan.program.category,
+      applicationTemplateKey: plan.program.applicationTemplateKey,
+      applicationTemplateVersion: plan.program.applicationTemplateVersion,
+      applicationStartAt: plan.program.applicationStartAt.toISOString(),
+      applicationEndAt: plan.program.applicationEndAt.toISOString(),
+      startAt: plan.program.startAt.toISOString(),
+      endAt: plan.program.endAt.toISOString(),
+      teamMinSize: plan.program.teamMinSize,
+      teamMaxSize: plan.program.teamMaxSize,
+      description: plan.program.description,
+      repositoryProvisioningEnabled: plan.program.repositoryProvisioningEnabled,
+      notifyOnDeadline: plan.program.notifyOnDeadline,
+    },
+    milestones: plan.milestones.map((milestone) => ({
+      name: milestone.name,
+      startAt: milestone.startAt.toISOString(),
+      dueAt: milestone.dueAt.toISOString(),
+      submissionType: milestone.submissionType,
+      instructions: milestone.instructions,
+      documents: milestone.documents.map((document) => ({
+        name: document.name,
+        required: document.required,
+        sortOrder: document.sortOrder,
+        templateUploadId: document.templateUploadId,
+      })),
+    })),
+  } as const;
+}
+
+export function hashProgramAuthoringPayload(
+  plan: ProgramAuthoringPlan,
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalProgramAuthoringPayload(plan)), 'utf8')
+    .digest('hex');
+}
+
+export const PROGRAM_AUTHORING_UPLOAD_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
+
+export interface ValidatedProgramAuthoringUpload {
+  readonly body: Buffer;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
+
+export async function validateProgramAuthoringUpload(
+  file: ProgramAuthoringUploadFile | undefined,
+): Promise<ValidatedProgramAuthoringUpload> {
+  if (
+    file === undefined ||
+    !Buffer.isBuffer(file.buffer) ||
+    file.buffer.byteLength === 0 ||
+    file.size !== file.buffer.byteLength
+  ) {
+    throw new ProgramAuthoringUploadError(
+      PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
+    );
+  }
+  if (file.buffer.byteLength > PROGRAM_AUTHORING_UPLOAD_MAX_BYTES) {
+    throw new ProgramAuthoringUploadError(
+      PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
+    );
+  }
+
+  const originalFileName = sanitizeSubmissionFileOriginalName(
+    normalizeMultipartFileName(file.originalname),
+  );
+  if (!hasValidSubmissionTemplateSignature(file.buffer, originalFileName)) {
+    throw new ProgramAuthoringUploadError(
+      PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
+    );
+  }
+
+  if (
+    originalFileName.toLowerCase().endsWith('.zip') &&
+    (await inspectSubmissionZipMetadata(file.buffer)) !== null
+  ) {
+    throw new ProgramAuthoringUploadError(
+      PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
+    );
+  }
+
+  return {
+    body: file.buffer,
+    originalFileName,
+    mimeType: file.mimetype.toLowerCase(),
+    sizeBytes: file.buffer.byteLength,
+    sha256: createHash('sha256').update(file.buffer).digest('hex'),
+  };
 }

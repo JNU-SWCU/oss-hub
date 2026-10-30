@@ -1,8 +1,26 @@
 import {
+  rankingYearInAsiaSeoul,
+  rankingYearStartInAsiaSeoul,
   LEGACY_RANKING_PERIODS,
   RANKING_YEAR_ALL,
   resolveRankingYearFromQuery,
 } from './ranking.policy';
+
+describe('ranking-event.policy', () => {
+  describe('ranking period boundaries', () => {
+    it('uses midnight on January 1 in Asia/Seoul as the exact year boundary', () => {
+      expect(rankingYearInAsiaSeoul(new Date('2025-12-31T14:59:59.999Z'))).toBe(
+        2025,
+      );
+      expect(rankingYearInAsiaSeoul(new Date('2025-12-31T15:00:00.000Z'))).toBe(
+        2026,
+      );
+      expect(rankingYearStartInAsiaSeoul(2026)).toEqual(
+        new Date('2025-12-31T15:00:00.000Z'),
+      );
+    });
+  });
+});
 
 describe('resolveRankingYearFromQuery', () => {
   const now = new Date('2026-07-21T00:00:00.000Z');

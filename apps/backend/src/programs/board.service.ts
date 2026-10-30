@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
-import type { BoardPostListQuery } from './board-post-list-query.types';
-import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
 import type {
+  BoardPostListQuery,
   BoardPostPermissions,
   BoardCommentResult,
   BoardPostDetailResult,
   BoardPostsPageResult,
-} from './board-results.types';
+} from './programs.types';
+import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
 import {
   BoardPostDetailRecord,
   BoardPostRef,

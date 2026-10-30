@@ -1,6 +1,5 @@
-import { TeamDeletionScopeCounts } from './team-deletion-scope.policy';
-import { Prisma } from '@prisma/client';
-import type { Prisma as PrismaTypes } from '@prisma/client';
+import { TeamDeletionScopeCounts } from './programs.policy';
+import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
 
 type DeletionScopeCountsRow = Readonly<{
   applications: bigint;
@@ -12,12 +11,15 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
-export async function readTeamDeletionScopeCounts(
-  transaction: PrismaTypes.TransactionClient,
-  teamId: string,
-): Promise<TeamDeletionScopeCounts> {
-  const [row] = await transaction.$queryRaw<readonly DeletionScopeCountsRow[]>(
-    Prisma.sql`
+export class TeamDeletionScopeRepository {
+  static async readTeamDeletionScopeCounts(
+    transaction: PrismaTypes.TransactionClient,
+    teamId: string,
+  ): Promise<TeamDeletionScopeCounts> {
+    const [row] = await transaction.$queryRaw<
+      readonly DeletionScopeCountsRow[]
+    >(
+      Prisma.sql`
       WITH team_application AS (
         SELECT id FROM "Application" WHERE "teamId" = ${teamId}
       ),
@@ -125,16 +127,17 @@ export async function readTeamDeletionScopeCounts(
           ) AS scope
         ) AS "scopeFingerprint"
     `,
-  );
-  if (!row)
-    throw new Error('Team deletion scope count query returned no result.');
-  return {
-    applications: Number(row.applications),
-    members: Number(row.members),
-    invitations: Number(row.invitations),
-    submissions: Number(row.submissions),
-    submissionEvents: Number(row.submissionEvents),
-    detachedRepositories: Number(row.detachedRepositories),
-    scopeFingerprint: row.scopeFingerprint,
-  };
+    );
+    if (!row)
+      throw new Error('Team deletion scope count query returned no result.');
+    return {
+      applications: Number(row.applications),
+      members: Number(row.members),
+      invitations: Number(row.invitations),
+      submissions: Number(row.submissions),
+      submissionEvents: Number(row.submissionEvents),
+      detachedRepositories: Number(row.detachedRepositories),
+      scopeFingerprint: row.scopeFingerprint,
+    };
+  }
 }

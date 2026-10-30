@@ -6,9 +6,9 @@ import {
 } from '@prisma/client';
 import type { ProgramDeletionAuditBlockingCounts } from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope.policy';
-import type { ProgramPurgeDeletedCounts } from './program-purge.types';
-import { readProgramDeletionScopeCounts } from './program-deletion-scope.repository';
+import type { ProgramDeletionScopeCounts } from './programs.policy';
+import type { ProgramPurgeDeletedCounts } from './programs.types';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 
 type ProgramLifecycleTransaction = Prisma.TransactionClient;
 
@@ -50,7 +50,10 @@ export class ProgramLifecycleRepository {
 
   readScopeCounts(programId: string): Promise<ProgramDeletionScopeCounts> {
     return this.prisma.$transaction((transaction) =>
-      readProgramDeletionScopeCounts(transaction, programId),
+      ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+        transaction,
+        programId,
+      ),
     );
   }
 
@@ -58,7 +61,10 @@ export class ProgramLifecycleRepository {
     transaction: ProgramLifecycleTransaction,
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {
-    return readProgramDeletionScopeCounts(transaction, programId);
+    return ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+      transaction,
+      programId,
+    );
   }
 
   findProgramForDeletion(

@@ -1,28 +1,28 @@
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type {
+  ProgramExternalCover,
+  ProgramAuthoringProgramPlan,
+  ProgramAuthoringUploadToken,
+  ProgramAuthoringProgram,
+  ProgramAuthoringCreateRequestInput,
+  ProgramAuthoringMilestonePlan,
+  ProgramAuthoringDocumentPlan,
+  ProgramAuthoringTemplateInput,
+  ProgramAuthoringReplay,
+} from './program-authoring.policy';
+import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.types';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   Prisma,
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  ProgramAuthoringCreateRequestInput,
-  ProgramAuthoringDocumentPlan,
-  ProgramAuthoringMilestonePlan,
-  ProgramAuthoringProgram,
-  ProgramAuthoringProgramPlan,
-  ProgramAuthoringReplay,
-  ProgramAuthoringTemplateInput,
-  ProgramAuthoringUploadToken,
-} from './program-authoring.policy';
-import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.repository';
-import { lockProgramAuthoringUploads } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import {
   createProgramCover,
   createExternalProgramCover,
-} from './program-cover-write.repository';
-import type { ProgramExternalCover } from './program-external-cover.policy';
+} from './program-cover.repository';
 
 type AuthoringActor = {
   readonly id: string;
@@ -145,7 +145,10 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
   lockUploads(
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    return lockProgramAuthoringUploads(this.prisma, tokenIds);
+    return ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+      this.prisma,
+      tokenIds,
+    );
   }
 
   async createMilestone(

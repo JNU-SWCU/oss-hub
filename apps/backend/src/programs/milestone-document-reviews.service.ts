@@ -1,16 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import {
   type CreateMilestoneDocumentReviewInput,
   reviewDecisionToSubmissionStatus,
-} from './milestone-document-review.policy';
-import type { CreatedMilestoneDocumentReview } from './milestone-document-record.types';
+} from './milestone-document.policy';
+import type { CreatedMilestoneDocumentReview } from './milestone-document-result.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history-query.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
 @Injectable()

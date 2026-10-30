@@ -2,7 +2,7 @@ import { Controller, Get, Header, Param, Req, UseGuards } from '@nestjs/common';
 import {
   presentSubmissionForm,
   type SubmissionFormResponseDto,
-} from './dto/submission-response.dto';
+} from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';

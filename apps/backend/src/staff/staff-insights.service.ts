@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   activityTotal,
   type ActivityCounts,
-} from '../platform/activity-counts.policy';
+} from '../platform/platform.policy';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
@@ -13,18 +13,16 @@ import {
   classifyDepartment,
   DEPARTMENT_COHORTS,
   type DepartmentCohort,
-} from './department-cohort.policy';
+  rankingYearFilter,
+  type InsightsYearScope,
+} from './staff.policy';
 import type {
   StaffInsightsCohortRow,
   StaffInsightsDepartmentRow,
   StaffInsightsMetrics,
   StaffInsightsProgramRow,
   StaffInsightsSummary,
-} from './staff-insights.types';
-import {
-  rankingYearFilter,
-  type InsightsYearScope,
-} from './staff-insights-year.policy';
+} from './staff.types';
 import {
   StaffInsightsRepository,
   type StaffInsightsStudentRecord,

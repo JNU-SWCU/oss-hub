@@ -1,38 +1,114 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
-import { PrismaService } from '../platform/prisma.service';
 import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-} from './admin-actor-locks.repository';
+  AccountStatus,
+  Prisma,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import {
-  listAdminAccessLoginHistory,
-  listAdminAccessStaffAccessRequestHistory,
-} from './admin-access-history.repository';
-import {
-  ADMIN_ACCESS_USER_SELECT,
-  findAdminAccessUserById,
-  listAdminAccessFacets,
-  listAdminAccessUsers,
-  toAdminAccessUserRecord,
-} from './admin-access-read.repository';
+  USER_PROFILE_NAME_SELECT,
+  UserProfileReadRepository,
+} from '../platform/user-profile-read.repository';
+import { authorityLabel } from './authority-label.policy';
 import type {
   AdminAccessActor,
   AdminAccessInsertedRequest,
+  AdminAccessRevokedRequestInsert,
   AdminAccessPendingDecisionUpdate,
   AdminAccessRepositoryPort,
-  AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
 } from './admin-access-repository.types';
+import { Inject, Injectable } from '@nestjs/common';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import { PrismaService } from '../platform/prisma.service';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import {
+  ADMIN_ACCESS_USER_SELECT,
+  AdminAccessUserProjectionRepository,
+} from './admin-access-user-projection.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import type {
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
   AdminAccessStaffAccessRequestHistoryPage,
 } from './admin-access.types';
-import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write.repository';
+
+const ADMIN_ACTOR_SELECT = {
+  id: true,
+  githubId: true,
+  nickname: true,
+  selectedMemberKind: true,
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  accountStatus: true,
+  ...USER_PROFILE_NAME_SELECT,
+} as const satisfies Prisma.UserSelect;
+
+type PrismaAdminActor = Prisma.UserGetPayload<{
+  select: typeof ADMIN_ACTOR_SELECT;
+}>;
+
+type LockedUserRow = Readonly<{ id: string }>;
+
+export async function lockActiveAdminRows(
+  transaction: Prisma.TransactionClient,
+): Promise<number> {
+  const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
+    Prisma.sql`
+        SELECT id
+        FROM "User"
+        WHERE "hasAdminAccess" = TRUE
+          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
+        ORDER BY id
+        FOR UPDATE
+      `,
+  );
+  return rows.length;
+}
+
+export async function findAdminActorByGithubId(
+  transaction: Prisma.TransactionClient,
+  githubId: bigint,
+): Promise<AdminAccessActor | null> {
+  const actor = await transaction.user.findUnique({
+    where: { githubId },
+    select: ADMIN_ACTOR_SELECT,
+  });
+  return actor ? toAdminActor(actor) : null;
+}
+
+export function toAdminActor(user: PrismaAdminActor): AdminAccessActor {
+  return {
+    id: user.id,
+    githubId: user.githubId,
+    githubLogin: user.nickname,
+    name: UserProfileReadRepository.resolveUserProfileName(user),
+    role: authorityLabel({
+      memberKind: user.selectedMemberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+    }),
+    hasStaffAccess: user.hasStaffAccess,
+    hasAdminAccess: user.hasAdminAccess,
+    accountStatus: user.accountStatus,
+  };
+}
+
+export async function insertRevokedStaffAccessRequest(
+  transaction: Prisma.TransactionClient,
+  input: AdminAccessRevokedRequestInsert,
+): Promise<AdminAccessInsertedRequest> {
+  const created = await transaction.staffAccessRequest.create({
+    data: {
+      userId: input.userId,
+      status: StaffAccessRequestStatus.REVOKED,
+      decidedById: input.actorId,
+      decidedAt: input.decidedAt,
+    },
+    select: { id: true },
+  });
+  return { id: created.id };
+}
 
 export type {
   AdminAccessActor,
@@ -46,8 +122,6 @@ export type {
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
 } from './admin-access-repository.types';
-
-type LockedUserRow = Readonly<{ id: string }>;
 
 class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -77,7 +151,9 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
       where: { id: userId },
       select: ADMIN_ACCESS_USER_SELECT,
     });
-    return user ? toAdminAccessUserRecord(user) : null;
+    return user
+      ? AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user)
+      : null;
   }
 
   async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
@@ -139,28 +215,43 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     query: AdminAccessListQuery,
     sortContext: 'directory' | 'requestQueue' = 'directory',
   ) {
-    return listAdminAccessUsers(this.prisma, query, sortContext);
+    return AdminAccessReadRepository.listAdminAccessUsers(
+      this.prisma,
+      query,
+      sortContext,
+    );
   }
 
   facets(query: AdminAccessListQuery) {
-    return listAdminAccessFacets(this.prisma, query);
+    return AdminAccessReadRepository.listAdminAccessFacets(this.prisma, query);
   }
 
   findById(userId: string) {
-    return findAdminAccessUserById(this.prisma, userId);
+    return AdminAccessReadRepository.findAdminAccessUserById(
+      this.prisma,
+      userId,
+    );
   }
 
   listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    return listAdminAccessStaffAccessRequestHistory(this.prisma, userId, page);
+    return AdminAccessHistoryRepository.listAdminAccessStaffAccessRequestHistory(
+      this.prisma,
+      userId,
+      page,
+    );
   }
 
   listLoginHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessLoginHistoryPage> {
-    return listAdminAccessLoginHistory(this.prisma, userId, page);
+    return AdminAccessHistoryRepository.listAdminAccessLoginHistory(
+      this.prisma,
+      userId,
+      page,
+    );
   }
 }

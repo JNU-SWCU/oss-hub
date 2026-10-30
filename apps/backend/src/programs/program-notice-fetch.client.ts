@@ -5,7 +5,7 @@ import { request, type RequestOptions } from 'node:https';
 import { BlockList, isIPv4 } from 'node:net';
 import { DomainException } from '../platform/error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
-import { parseProgramNoticeUrl } from './program-notice-url.policy';
+import { parseProgramNoticeUrl } from './program-notice.policy';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const blocked = new BlockList();

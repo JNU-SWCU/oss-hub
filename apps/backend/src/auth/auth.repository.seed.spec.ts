@@ -1,4 +1,4 @@
-import { initialAccountSeed } from './initial-roles.policy';
+import { initialAccountSeed } from './auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.repository';
 import {
   buildProfile,

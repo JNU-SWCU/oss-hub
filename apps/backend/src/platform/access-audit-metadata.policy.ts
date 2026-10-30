@@ -1,6 +1,6 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuthorityLabel } from '../users/authority-label.policy';
-import { isJsonObject } from './audit-metadata-validation.policy';
+import { isJsonObject } from './platform.policy';
 
 const ACCESS_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
 export const ACCESS_AUDIT_SCHEMA_VERSION = 2 as const;

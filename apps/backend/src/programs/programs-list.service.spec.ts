@@ -6,17 +6,14 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { PROGRAM_LIST_QUERY_STATUSES } from './program-list-query.policy';
+import { PROGRAM_LIST_QUERY_STATUSES } from './programs.policy';
 import {
-  deriveProgramListStatus,
-  programListPrismaWhere,
-  programListSortRank,
-  programListSqlStatusPredicate,
   type ProgramListDerivedStatus,
   type ProgramListStatusInput,
+  ProgramListStatusFilterRepository,
 } from './program-list-status-filter.repository';
 import { ProgramsRepository } from './programs.repository';
-import type { ProgramListRecord } from './program-list.types';
+import type { ProgramListRecord } from './programs.types';
 import { ProgramsService } from './programs.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
@@ -79,13 +76,15 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ];
 
     for (const { program, expected } of cases) {
-      expect(deriveProgramListStatus(program, NOW)).toBe(expected);
+      expect(
+        ProgramListStatusFilterRepository.deriveProgramListStatus(program, NOW),
+      ).toBe(expected);
     }
   });
 
   it('resolves boundaries with a single status (U2)', () => {
     expect(
-      deriveProgramListStatus(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(
         baseProgram({
           applicationStartAt: NOW,
           applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -96,7 +95,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('recruiting');
 
     expect(
-      deriveProgramListStatus(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
           applicationEndAt: NOW,
@@ -107,7 +106,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('recruiting');
 
     expect(
-      deriveProgramListStatus(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -120,7 +119,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
 
   it('remains in progress before its required endAt (U3)', () => {
     expect(
-      deriveProgramListStatus(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -137,7 +136,9 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       applicationEndAt: new Date('2026-06-30T00:00:00.000Z'),
       endAt: new Date('2026-07-01T00:00:00.000Z'),
     });
-    expect(deriveProgramListStatus(program, NOW)).toBe('ended');
+    expect(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(program, NOW),
+    ).toBe('ended');
   });
 
   it('maps ARCHIVED to ended and sort rank stays ended (U5/U6)', () => {
@@ -147,9 +148,15 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
       endAt: new Date('2026-12-01T00:00:00.000Z'),
     });
-    expect(deriveProgramListStatus(archived, NOW)).toBe('ended');
-    expect(programListSortRank('ended')).toBe(3);
-    expect(programListSortRank('recruiting')).toBe(0);
+    expect(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(archived, NOW),
+    ).toBe('ended');
+    expect(ProgramListStatusFilterRepository.programListSortRank('ended')).toBe(
+      3,
+    );
+    expect(
+      ProgramListStatusFilterRepository.programListSortRank('recruiting'),
+    ).toBe(0);
   });
 });
 
@@ -487,8 +494,14 @@ describe('status filter single source', () => {
   it('exposes the same predicate keys as list query statuses', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');
     for (const status of PROGRAM_LIST_QUERY_STATUSES) {
-      expect(programListPrismaWhere(status, now)).toBeDefined();
-      const sql = programListSqlStatusPredicate(status, now);
+      expect(
+        ProgramListStatusFilterRepository.programListPrismaWhere(status, now),
+      ).toBeDefined();
+      const sql =
+        ProgramListStatusFilterRepository.programListSqlStatusPredicate(
+          status,
+          now,
+        );
       expect(sql.strings.join(' ')).toMatch(
         /lifecycle|ARCHIVED|PUBLISHED|ended|recruiting|upcoming|in_progress/i,
       );
@@ -803,18 +816,27 @@ describe('ProgramsService list', () => {
 describe('status-counts consistency with list totalItems filters', () => {
   it('keeps all in the published+archived universe and ends U4 only once', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');
-    expect(programListPrismaWhere('all', now)).toEqual({
+    expect(
+      ProgramListStatusFilterRepository.programListPrismaWhere('all', now),
+    ).toEqual({
       lifecycle: {
         in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
       },
     });
-    expect(programListPrismaWhere('recruiting', now)).toEqual({
+    expect(
+      ProgramListStatusFilterRepository.programListPrismaWhere(
+        'recruiting',
+        now,
+      ),
+    ).toEqual({
       lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: { lte: now },
       applicationEndAt: { gte: now },
       endAt: { gte: now },
     });
-    expect(programListPrismaWhere('ended', now)).toEqual({
+    expect(
+      ProgramListStatusFilterRepository.programListPrismaWhere('ended', now),
+    ).toEqual({
       OR: [
         { lifecycle: ProgramLifecycle.ARCHIVED },
         {
@@ -829,6 +851,8 @@ describe('status-counts consistency with list totalItems filters', () => {
       applicationEndAt: new Date('2026-09-13T00:00:00.000Z'),
       endAt: new Date('2026-07-01T00:00:00.000Z'),
     });
-    expect(deriveProgramListStatus(u4, now)).toBe('ended');
+    expect(
+      ProgramListStatusFilterRepository.deriveProgramListStatus(u4, now),
+    ).toBe('ended');
   });
 });

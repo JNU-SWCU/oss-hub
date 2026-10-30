@@ -5,7 +5,7 @@ import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   USER_DEPARTMENT_MAX_LENGTH,

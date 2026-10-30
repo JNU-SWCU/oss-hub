@@ -1,15 +1,91 @@
 import {
   MilestoneDocumentKind,
-  MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
+  MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import type {
+  SubmissionApplication,
   ChecklistMilestone,
   SubmissionFileMetadata,
-} from './submission-record.types';
-import { safeSubmissionFileContentType } from './submission-file-content-type.policy';
-import { publicSubmissionId } from './submission-public-id.policy';
+} from './submission.types';
+import { publicSubmissionId } from './submission.policy';
+import { safeSubmissionFileContentType } from './submission-file.policy';
+
+export class SubmissionChecklistRecordRepository {
+  static submissionParticipantWhere(
+    userId: string,
+  ): Prisma.ApplicationWhereInput {
+    return ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+      userId,
+    );
+  }
+
+  static toSubmissionApplication(
+    application: ApplicationRecord,
+  ): SubmissionApplication {
+    return {
+      id: application.id,
+      programId: application.programId,
+      teamId: application.teamId,
+      teamMemberCount: application.team._count.members,
+      status: application.status,
+      existingSubmission: application.milestoneDocumentSubmissions[0]
+        ? {
+            id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
+            status: application.milestoneDocumentSubmissions[0].status,
+          }
+        : null,
+    };
+  }
+
+  static toChecklistMilestone(
+    record: ChecklistMilestoneRecord,
+  ): ChecklistMilestone | null {
+    if (record.submissionType === null) return null;
+    const submission = record.documents[0]?.submissions[0] ?? null;
+    return {
+      id: record.id,
+      name: record.name,
+      dueAt: record.dueAt,
+      submissionType: record.submissionType,
+      submission: submission
+        ? {
+            id: publicSubmissionId(submission),
+            status: submission.status,
+            currentRevision: submission.revision,
+            latestReview: submission.reviewHistories[0] ?? null,
+            file: currentRevisionFile(submission),
+          }
+        : null,
+    };
+  }
+}
+
+export const submissionApplicationSelect = (milestoneId: string) =>
+  ({
+    id: true,
+    programId: true,
+    teamId: true,
+
+    team: { select: { _count: { select: { members: true } } } },
+    status: true,
+    milestoneDocumentSubmissions: {
+      where: {
+        milestoneDocument: {
+          milestoneId,
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      take: 1,
+      select: { id: true, legacySubmissionId: true, status: true },
+    },
+  }) as const;
+
+type ApplicationRecord = Prisma.ApplicationGetPayload<{
+  select: ReturnType<typeof submissionApplicationSelect>;
+}>;
 
 const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
   MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
@@ -88,28 +164,6 @@ type ChecklistMilestoneRecord = Prisma.MilestoneGetPayload<{
 type ChecklistTargetSubmission = NonNullable<
   ChecklistMilestoneRecord['documents'][number]['submissions'][number]
 >;
-
-export function toChecklistMilestone(
-  record: ChecklistMilestoneRecord,
-): ChecklistMilestone | null {
-  if (record.submissionType === null) return null;
-  const submission = record.documents[0]?.submissions[0] ?? null;
-  return {
-    id: record.id,
-    name: record.name,
-    dueAt: record.dueAt,
-    submissionType: record.submissionType,
-    submission: submission
-      ? {
-          id: publicSubmissionId(submission),
-          status: submission.status,
-          currentRevision: submission.revision,
-          latestReview: submission.reviewHistories[0] ?? null,
-          file: currentRevisionFile(submission),
-        }
-      : null,
-  };
-}
 
 function currentRevisionFile(
   submission: ChecklistTargetSubmission,

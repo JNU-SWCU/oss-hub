@@ -3,7 +3,7 @@ import type {
   GithubAppFetcher,
   GithubAppJwtFactory,
   GithubInstallationTokenProvider,
-} from './github-app.types';
+} from './repository-provision-contract.types';
 import { createPrivateKey } from 'node:crypto';
 import { SignJWT } from 'jose';
 import {
@@ -48,7 +48,7 @@ type InstallationToken = {
 
 type UnknownRecord = { readonly [key: string]: unknown };
 
-export class GithubAppTokenProvider implements GithubInstallationTokenProvider {
+export class GithubAppTokenClient implements GithubInstallationTokenProvider {
   private credentialsCache: GithubAppCredentials | null = null;
   private installationId: number | null = null;
   private installationToken: InstallationToken | null = null;

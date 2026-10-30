@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../platform/error-code.error';
@@ -12,13 +12,11 @@ import {
   MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
   type MilestoneDocumentArchiveDocument,
   type MilestoneDocumentArchivePlan,
+  archiveDocumentsWithStageNames,
+  archiveFileName,
 } from './milestone-document-archive.policy';
 import { milestoneDocumentArchiveManifestCsv } from './milestone-document-archive-manifest-csv.policy';
 import { milestoneDocumentArchiveFolderName } from './milestone-document-download-file-name.policy';
-import {
-  archiveDocumentsWithStageNames,
-  archiveFileName,
-} from './milestone-document-archive-names.policy';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -32,7 +30,7 @@ import type {
   MilestoneDocumentArchive,
   MilestoneDocumentArchiveScope,
   ProgramDocumentArchiveScope,
-} from './milestone-document-archive.types';
+} from './milestone-document-result.types';
 
 const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 

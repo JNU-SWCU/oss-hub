@@ -15,12 +15,12 @@ import { requireValidUserId } from '../users/user-id.policy';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
-} from './dto/access-requests-request.dto';
+} from './dto/access-requests-list-request.dto';
 import {
   AccessRequestsUserDetailResponseDto,
   AccessRequestsUserHistoryResponseDto,
   AccessRequestsUserPageResponseDto,
-} from './dto/access-requests-response.dto';
+} from './dto/access-requests-user-page-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

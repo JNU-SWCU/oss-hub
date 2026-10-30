@@ -1,13 +1,21 @@
-import { nextScheduledCollectionAt } from '../github/collection-schedule.service';
+import type { CollectionScheduleService } from '../github/collection-schedule.service';
 import type { RankingViewerClass } from './ranking.policy';
 import type { RankingMetricRow, RankingRepository } from './ranking.repository';
 import { RankingService } from './ranking.service';
 
+const mockNextScheduledCollectionAt = jest.fn<
+  ReturnType<typeof CollectionScheduleService.nextScheduledCollectionAt>,
+  Parameters<typeof CollectionScheduleService.nextScheduledCollectionAt>
+>();
+
 jest.mock('../github/collection-schedule.service', () => ({
-  nextScheduledCollectionAt: jest.fn(),
+  CollectionScheduleService: {
+    nextScheduledCollectionAt: (from: Date) =>
+      mockNextScheduledCollectionAt(from),
+  },
 }));
 
-const nextScheduledAt = jest.mocked(nextScheduledCollectionAt);
+const nextScheduledAt = mockNextScheduledCollectionAt;
 
 export function activity(
   githubId: bigint,
@@ -50,7 +58,7 @@ export function setupRankingService(): {
     [readonly bigint[]]
   >;
   readonly nextScheduledCollectionAt: jest.MockedFunction<
-    typeof nextScheduledCollectionAt
+    typeof CollectionScheduleService.nextScheduledCollectionAt
   >;
 } {
   const findMetrics = jest.fn<

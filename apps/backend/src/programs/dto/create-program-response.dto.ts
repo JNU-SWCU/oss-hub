@@ -1,4 +1,4 @@
-import { CreatedProgram } from '../program-creation.types';
+import { CreatedProgram } from '../programs.types';
 import type { ProgramCategory } from '@prisma/client';
 
 export class CreateProgramResponseDto {

@@ -8,7 +8,7 @@ import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
 } from './github-app.client';
-import type { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import type { RepositoryOwnEnrollmentService } from './repositories.service';
 import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import type {
   ProvisionedRepository,
@@ -25,10 +25,7 @@ import {
   provisionRetryAt,
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision-failure.policy';
-import {
-  findOrCreateGithubRepository,
-  resolveOwnGithubRepository,
-} from './repository-provision-github.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
 import {
   buildRepositoryNames,
@@ -37,7 +34,7 @@ import {
 import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
-} from './repository-provision-state-helpers.repository';
+} from './repository-provision-state.error';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }
@@ -62,8 +59,8 @@ interface PreparedRepository {
   readonly ownResolution: OwnGithubRepositoryResolution | null;
 }
 
-export class RepositoryProvisionWorker {
-  private readonly logger = new Logger(RepositoryProvisionWorker.name);
+export class RepositoryProvisionWorkerService {
+  private readonly logger = new Logger(RepositoryProvisionWorkerService.name);
 
   constructor(
     private readonly jobs: Pick<
@@ -361,7 +358,7 @@ export class RepositoryProvisionWorker {
     await this.jobs.renewLease(jobId, workerId, requestId, now());
     const ownResolution =
       connectionMode === 'OWN'
-        ? await resolveOwnGithubRepository(
+        ? await RepositoryProvisionGithubService.resolveOwnGithubRepository(
             this.github,
 
             repositoryUrl ?? '',
@@ -369,7 +366,7 @@ export class RepositoryProvisionWorker {
         : null;
     const metadata =
       ownResolution?.repository ??
-      (await findOrCreateGithubRepository(
+      (await RepositoryProvisionGithubService.findOrCreateGithubRepository(
         this.github,
         buildRepositoryNames({
           programName: context.programName,

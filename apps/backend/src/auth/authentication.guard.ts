@@ -17,7 +17,7 @@ import {
   attachAnonymousAuth,
   attachAuthenticatedPrincipal,
 } from './http-auth.types';
-import { resolveSession } from './session-resolution.policy';
+import { resolveSession } from './auth.policy';
 
 @Injectable()
 export class AuthenticationGuard implements CanActivate {

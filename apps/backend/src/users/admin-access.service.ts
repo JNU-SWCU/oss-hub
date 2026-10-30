@@ -7,7 +7,7 @@ import {
   requireActiveStaffOrAdmin,
 } from './admin-access-authorization.policy';
 import { roleError } from './admin-access-mutation.policy';
-import { mutateAdminAccess } from './admin-access-mutation.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 import {
   AdminAccessRepository,
   type AdminAccessActor,
@@ -114,7 +114,7 @@ export class AdminAccessService {
     userId: string,
     command: AdminAccessMutationCommand,
   ): Promise<AdminAccessMutationResult> {
-    return mutateAdminAccess(
+    return AdminAccessMutationService.mutateAdminAccess(
       { repository: this.repository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );

@@ -7,7 +7,7 @@ import { AuditLogService } from '../../src/platform/audit-log.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/applications.repository';
 import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
-import { ApplicationJoinCodeService } from '../../src/programs/application-join-code.service';
+import { ApplicationJoinCodeService } from '../../src/programs/application-preparations.service';
 import { ApplicationsService } from '../../src/programs/applications.service';
 import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
 import { StaffInsightsService } from '../../src/staff/staff-insights.service';
@@ -15,7 +15,7 @@ import { AuthConfig } from '../../src/auth/auth.config';
 import { OriginGuard } from '../../src/auth/origin.guard';
 import { SessionGuard } from '../../src/auth/session.guard';
 import { sessionCookieName } from '../../src/auth/cookies.policy';
-import { issueSessionToken } from '../../src/auth/session-token.policy';
+import { issueSessionToken } from '../../src/auth/auth.policy';
 import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
 import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
@@ -29,8 +29,10 @@ import {
 } from '../../src/student/milestone-document-feedback.service';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { StudentDashboardController } from '../../src/student/student-dashboard.controller';
-import { ProgramActivityRepository } from '../../src/programs/program-activity.repository';
-import { ProgramActivitySummaryRepository } from '../../src/programs/program-activity-summary.repository';
+import {
+  ProgramActivityRepository,
+  ProgramActivitySummaryRepository,
+} from '../../src/programs/program-activity.repository';
 import { ProgramsRepository } from '../../src/programs/programs.repository';
 import { StudentDashboardRepository } from '../../src/student/student-dashboard.repository';
 import { ProgramActivityService } from '../../src/programs/program-activity.service';
@@ -47,18 +49,18 @@ import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
 } from '../../src/admin/system-status.service';
-import { AdminAccessController } from '../../src/admin/admin-access.controller';
+import { UserAccessController } from '../../src/admin/user-access.controller';
 import { AccessRequestsController } from '../../src/staff/access-requests.controller';
-import { IndependentAuthorityController } from '../../src/admin/independent-authority.controller';
-import { MemberKindController } from '../../src/admin/member-kind.controller';
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
 import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
-import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';
+import {
+  IndependentAuthorityRepository,
+  UsersAuthorityRepository,
+} from '../../src/users/independent-authority.repository';
 import { MemberKindRepository } from '../../src/users/member-kind.repository';
-import { UsersAuthorityRepository } from '../../src/users/authority.repository';
 import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileService } from '../../src/users/admin-profile.service';
-import { UsersAuthorityService } from '../../src/users/authority.service';
+import { UsersAuthorityService } from '../../src/users/users-authority.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
 
@@ -254,9 +256,7 @@ describe('Audience authorization HTTP characterization', () => {
         MyRepositoriesController,
         StaffDashboardController,
         AccessRequestsController,
-        AdminAccessController,
-        IndependentAuthorityController,
-        MemberKindController,
+        UserAccessController,
         AuditLogController,
         SystemStatusController,
       ],
@@ -466,7 +466,9 @@ describe('Audience authorization HTTP characterization', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .useMocker((token) => (token === Function ? undefined : {}))
+      .compile();
     const config = module.get(AuthConfig);
     cookie = `${sessionCookieName(config.useSecureCookies)}=${await issueSessionToken(config.sessionSecret, 4242n, 0)}`;
     app = module.createNestApplication();

@@ -13,7 +13,7 @@ import { AccessRequestsController } from './access-requests.controller';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
-} from './dto/access-requests-request.dto';
+} from './dto/access-requests-list-request.dto';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 9_131_400_001n,

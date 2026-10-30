@@ -10,8 +10,8 @@ import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from '../github/repository-provision-event.policy';
-import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-sync.repository';
-import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   prisma,
   service,
@@ -141,7 +141,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
   });
   expect(
     await prisma.application.count({
-      where: repositoryAccessSyncTargetWhere(teamId),
+      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(1);
 
@@ -149,7 +149,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
 
   expect(
     await prisma.application.count({
-      where: repositoryAccessSyncTargetWhere(teamId),
+      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(0);
 });
@@ -174,7 +174,7 @@ it('links a managed organization repository without re-arming provisioning', asy
         availableAt: now,
       },
     });
-    await transferProvisionGeneration(
+    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
       parseRepositoryProvisionEvent,

@@ -1,14 +1,74 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../platform/prisma.service';
 import {
+  AccountStatus,
   Prisma,
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import { PrismaService } from '../platform/prisma.service';
-import {
-  assertCurrentRequest,
-  assertSingleProvisionUpdate,
-} from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
+
+@Injectable()
+export class CollectionCutoverRepository {
+  constructor(private readonly db: PrismaService) {}
+
+  async isQuiesced(now: Date): Promise<boolean> {
+    const rows = await this.db.$queryRawUnsafe<Array<{ quiesced: boolean }>>(
+      `SELECT EXISTS(SELECT 1 FROM "CollectionCutoverLease" WHERE "expiresAt" > $1) AS "quiesced"`,
+      now,
+    );
+    return rows[0]?.quiesced ?? false;
+  }
+}
+
+export interface CollectionActivityUserRow {
+  readonly githubId: bigint;
+  readonly nickname: string;
+}
+
+export interface CollectionUserActivityObservationInput {
+  readonly githubId: bigint;
+  readonly year: number;
+  readonly githubLogin: string;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+  readonly observedAt: Date;
+}
+
+@Injectable()
+export class CollectionUserActivityRepository {
+  constructor(private readonly db: PrismaService) {}
+
+  async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
+    return this.db.user.findMany({
+      where: { accountStatus: AccountStatus.ACTIVE },
+      select: { githubId: true, nickname: true },
+      orderBy: { githubId: 'asc' },
+    });
+  }
+
+  async hasObservation(githubId: bigint, year: number): Promise<boolean> {
+    const existing = await this.db.githubUserActivityHistory.findUnique({
+      where: { githubId_year: { githubId, year } },
+      select: { githubId: true },
+    });
+    return existing !== null;
+  }
+
+  async upsertObservation(
+    observation: CollectionUserActivityObservationInput,
+  ): Promise<void> {
+    const { githubId, year, ...row } = observation;
+    await this.db.githubUserActivityHistory.upsert({
+      where: { githubId_year: { githubId, year } },
+      create: { githubId, year, ...row },
+      update: row,
+    });
+  }
+}
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;
@@ -131,7 +191,12 @@ export class RepositoryProvisionJobRepository {
     now: Date,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: {
           id: jobId,
@@ -141,7 +206,9 @@ export class RepositoryProvisionJobRepository {
         },
         data: { lockedAt: now },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
     });
   }
 }

@@ -1,10 +1,10 @@
 import { Controller, Get, Header, Param, Query } from '@nestjs/common';
 import { Public } from '../auth/auth-route-metadata.policy';
-import { PublicProjectQueryRequestDto } from './dto/public-project-query.dto';
+import { PublicProjectRequestDto } from './dto/public-project-request.dto';
 import {
   PublicProjectDetailResponseDto,
   PublicProjectPageResponseDto,
-} from './dto/public-project-response.dto';
+} from './dto/public-project-page-response.dto';
 import { PublicProjectsService } from './public-projects.service';
 
 @Controller('projects')
@@ -15,7 +15,7 @@ export class PublicProjectsController {
   @Get()
   @Header('Cache-Control', 'no-store')
   async findPage(
-    @Query() query: PublicProjectQueryRequestDto,
+    @Query() query: PublicProjectRequestDto,
   ): Promise<PublicProjectPageResponseDto> {
     return PublicProjectPageResponseDto.from(
       await this.publicProjectsService.findPage(

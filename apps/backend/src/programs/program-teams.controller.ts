@@ -21,15 +21,15 @@ import { TransferTeamLeaderRequestDto } from './dto/transfer-team-leader-request
 import {
   StaffTeamDetailResponseDto,
   RepositoryUrlHistoryResponseDto,
-} from './dto/team-detail-response.dto';
-import { RepositoryUrlHistoryQueryRequestDto } from './dto/repository-url-history-query.dto';
+} from './dto/staff-team-detail-response.dto';
+import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { TeamActivityResponseDto } from './dto/team-activity-response.dto';
 import {
   DeleteTeamResponseDto,
   ProgramTeamResponseDto,
   RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
-} from './dto/team-response.dto';
+} from './dto/program-team-response.dto';
 import { ProgramTeamsService } from './program-teams.service';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -136,7 +136,7 @@ export class ProgramTeamsController {
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
-    @Query() query: RepositoryUrlHistoryQueryRequestDto,
+    @Query() query: RepositoryUrlHistoryRequestDto,
   ): Promise<RepositoryUrlHistoryResponseDto> {
     return RepositoryUrlHistoryResponseDto.from(
       await this.service.getRepositoryUrlHistory(

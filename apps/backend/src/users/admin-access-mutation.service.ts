@@ -17,8 +17,8 @@ import {
   toAdminAccessDecisionKind,
   toAdminAccessRequestWrite,
   type AdminAccessRequestWrite,
+  authorityAfterLegacyTransition,
 } from './admin-access-mutation.policy';
-import { authorityAfterLegacyTransition } from './admin-access-authority-write.policy';
 import type {
   AdminAccessActor,
   AdminAccessRepositoryPort,
@@ -47,116 +47,118 @@ type MutationInput = {
   readonly command: AdminAccessMutationCommand;
 };
 
-export async function mutateAdminAccess(
-  dependencies: MutationDependencies,
-  input: MutationInput,
-): Promise<AdminAccessMutationResult> {
-  try {
-    return await dependencies.repository.withTransaction(async (store) => {
-      const unlockedActor = requireActiveStaffOrAdmin(
-        await store.findActorByGithubId(input.actorGithubId),
-      );
-      assertAccessMutationAllowed(unlockedActor, input.userId, input.command);
+export class AdminAccessMutationService {
+  static async mutateAdminAccess(
+    dependencies: MutationDependencies,
+    input: MutationInput,
+  ): Promise<AdminAccessMutationResult> {
+    try {
+      return await dependencies.repository.withTransaction(async (store) => {
+        const unlockedActor = requireActiveStaffOrAdmin(
+          await store.findActorByGithubId(input.actorGithubId),
+        );
+        assertAccessMutationAllowed(unlockedActor, input.userId, input.command);
 
-      const activeAdminCount = isAdminActor(unlockedActor)
-        ? await store.lockActiveAdmins()
-        : Number.MAX_SAFE_INTEGER;
-      const actor = isAdminActor(unlockedActor)
-        ? requireActiveAdmin(
-            await store.findActorByGithubId(input.actorGithubId),
-          )
-        : requireActiveStaffOrAdmin(
-            await store.findActorByGithubId(input.actorGithubId),
-          );
-      assertAccessMutationAllowed(actor, input.userId, input.command);
-      const before = await store.findUserForUpdate(input.userId);
-      if (!before) {
+        const activeAdminCount = isAdminActor(unlockedActor)
+          ? await store.lockActiveAdmins()
+          : Number.MAX_SAFE_INTEGER;
+        const actor = isAdminActor(unlockedActor)
+          ? requireActiveAdmin(
+              await store.findActorByGithubId(input.actorGithubId),
+            )
+          : requireActiveStaffOrAdmin(
+              await store.findActorByGithubId(input.actorGithubId),
+            );
+        assertAccessMutationAllowed(actor, input.userId, input.command);
+        const before = await store.findUserForUpdate(input.userId);
+        if (!before) {
+          throw roleError(RolesErrorCode.USER_NOT_FOUND);
+        }
+        if (!matchesExpectedAccessState(before, input.command)) {
+          throw staleAccessError(before);
+        }
+
+        const transition = resolveAdminAccessTransition(
+          {
+            role: before.role,
+            accountStatus: before.accountStatus,
+            pendingState: before.pendingRequest
+              ? ADMIN_ACCESS_PENDING_STATES.PENDING
+              : ADMIN_ACCESS_PENDING_STATES.NONE,
+          },
+          {
+            role: input.command.desiredRole,
+            accountStatus: input.command.desiredAccountStatus,
+            decision: toAdminAccessDecisionKind(input.command),
+          },
+        );
+        if (!transition.outcome.allowed) {
+          throw roleError(transition.outcome.code);
+        }
+        enforceAdminAccessGuards(
+          actor,
+          before,
+          input.command,
+          transition.outcome,
+          activeAdminCount,
+        );
+
+        const authority = authorityAfterLegacyTransition(
+          before,
+          input.command,
+          transition.outcome.requestEffect,
+        );
+        const userUpdated = await store.compareAndSwapAccess({
+          userId: input.userId,
+          expectedHasStaffAccess:
+            input.command.expectedHasStaffAccess ?? before.hasStaffAccess,
+          expectedHasAdminAccess:
+            input.command.expectedHasAdminAccess ?? before.hasAdminAccess,
+          expectedAccountStatus: input.command.expectedAccountStatus,
+          desiredAccountStatus: input.command.desiredAccountStatus,
+          desiredHasStaffAccess: authority.hasStaffAccess,
+          desiredHasAdminAccess: authority.hasAdminAccess,
+        });
+        if (!userUpdated) {
+          throw staleAccessError(before);
+        }
+
+        const result = await decideRequestAndBuildResult(
+          store,
+          actor,
+          before,
+          input.command,
+          transition.outcome.requestEffect,
+        );
+        const audit = createAdminAccessAudit({
+          actor,
+          before,
+          command: input.command,
+          result,
+          requestEffect: transition.outcome.requestEffect,
+        });
+        await dependencies.auditLog.record(
+          {
+            actorGithubId: input.actorGithubId,
+            action: audit.action,
+            targetType: audit.targetType,
+            targetId: audit.targetId,
+            metadata: audit.metadata,
+          },
+          store.auditLogWriter,
+        );
+        return result;
+      });
+    } catch (error: unknown) {
+      if (!(error instanceof PendingRequestDecisionConflict)) {
+        throw error;
+      }
+      const current = await dependencies.repository.findById(input.userId);
+      if (!current) {
         throw roleError(RolesErrorCode.USER_NOT_FOUND);
       }
-      if (!matchesExpectedAccessState(before, input.command)) {
-        throw staleAccessError(before);
-      }
-
-      const transition = resolveAdminAccessTransition(
-        {
-          role: before.role,
-          accountStatus: before.accountStatus,
-          pendingState: before.pendingRequest
-            ? ADMIN_ACCESS_PENDING_STATES.PENDING
-            : ADMIN_ACCESS_PENDING_STATES.NONE,
-        },
-        {
-          role: input.command.desiredRole,
-          accountStatus: input.command.desiredAccountStatus,
-          decision: toAdminAccessDecisionKind(input.command),
-        },
-      );
-      if (!transition.outcome.allowed) {
-        throw roleError(transition.outcome.code);
-      }
-      enforceAdminAccessGuards(
-        actor,
-        before,
-        input.command,
-        transition.outcome,
-        activeAdminCount,
-      );
-
-      const authority = authorityAfterLegacyTransition(
-        before,
-        input.command,
-        transition.outcome.requestEffect,
-      );
-      const userUpdated = await store.compareAndSwapAccess({
-        userId: input.userId,
-        expectedHasStaffAccess:
-          input.command.expectedHasStaffAccess ?? before.hasStaffAccess,
-        expectedHasAdminAccess:
-          input.command.expectedHasAdminAccess ?? before.hasAdminAccess,
-        expectedAccountStatus: input.command.expectedAccountStatus,
-        desiredAccountStatus: input.command.desiredAccountStatus,
-        desiredHasStaffAccess: authority.hasStaffAccess,
-        desiredHasAdminAccess: authority.hasAdminAccess,
-      });
-      if (!userUpdated) {
-        throw staleAccessError(before);
-      }
-
-      const result = await decideRequestAndBuildResult(
-        store,
-        actor,
-        before,
-        input.command,
-        transition.outcome.requestEffect,
-      );
-      const audit = createAdminAccessAudit({
-        actor,
-        before,
-        command: input.command,
-        result,
-        requestEffect: transition.outcome.requestEffect,
-      });
-      await dependencies.auditLog.record(
-        {
-          actorGithubId: input.actorGithubId,
-          action: audit.action,
-          targetType: audit.targetType,
-          targetId: audit.targetId,
-          metadata: audit.metadata,
-        },
-        store.auditLogWriter,
-      );
-      return result;
-    });
-  } catch (error: unknown) {
-    if (!(error instanceof PendingRequestDecisionConflict)) {
-      throw error;
+      throw staleAccessError(current);
     }
-    const current = await dependencies.repository.findById(input.userId);
-    if (!current) {
-      throw roleError(RolesErrorCode.USER_NOT_FOUND);
-    }
-    throw staleAccessError(current);
   }
 }
 

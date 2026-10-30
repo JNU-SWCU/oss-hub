@@ -19,7 +19,7 @@ import {
 import type { SubmissionFilesService } from './submission-files.service';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 
 const authority = {
   assertActiveStaff: jest.fn().mockResolvedValue({ actorId: 'staff-1' }),

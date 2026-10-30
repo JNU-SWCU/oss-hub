@@ -1,7 +1,7 @@
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionPublicReadConfig } from './collection-app.config';
 
-export class CollectionPublicTokenProvider {
+export class CollectionPublicTokenService {
   private token: string | undefined;
 
   constructor(private readonly runtimeConfig: RuntimeConfig) {}

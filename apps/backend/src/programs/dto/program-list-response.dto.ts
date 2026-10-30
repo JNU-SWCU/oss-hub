@@ -4,7 +4,7 @@ import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../program-list.types';
+} from '../programs.types';
 
 export class ProgramListResponseDto {
   readonly coverImageUrl: string | null;

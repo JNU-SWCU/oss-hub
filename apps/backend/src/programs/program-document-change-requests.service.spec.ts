@@ -5,7 +5,7 @@ import {
   changeRequestTargetsVersion,
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
-} from './program-document-change-request.policy';
+} from './milestone-document.policy';
 import type { ProgramArchiveReader } from './milestone-document-archive.repository';
 import type {
   MilestoneDocumentsRepository,

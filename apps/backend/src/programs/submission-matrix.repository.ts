@@ -1,23 +1,59 @@
-import { Injectable } from '@nestjs/common';
 import {
+  Prisma,
   AccountStatus,
   ApplicationStatus,
   MilestoneDocumentKind,
-  Prisma,
   SubmissionStatus,
 } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import type { SubmissionMatrixFilter } from './submission-matrix.types';
-import { publicSubmissionId } from './submission-public-id.policy';
-import {
-  findMatrixDocumentFirstSubmissions,
-  type MatrixDocumentFirstSubmission,
-} from './submission-matrix-delivery.repository';
+import type { SubmissionMatrixFilter } from './submission.types';
+import { publicSubmissionId } from './submission.policy';
+
+export interface MatrixDocumentFirstSubmission {
+  readonly applicationId: string;
+  readonly milestoneDocumentId: string;
+  readonly firstSubmittedAt: Date;
+}
+
+async function findMatrixDocumentFirstSubmissions(
+  prisma: Prisma.TransactionClient,
+  scope: {
+    readonly applicationIds: readonly string[];
+    readonly documentIds: readonly string[];
+  },
+): Promise<readonly MatrixDocumentFirstSubmission[]> {
+  if (scope.applicationIds.length === 0 || scope.documentIds.length === 0) {
+    return [];
+  }
+  const submissions = await prisma.milestoneDocumentSubmission.findMany({
+    where: {
+      applicationId: { in: [...scope.applicationIds] },
+      milestoneDocumentId: { in: [...scope.documentIds] },
+    },
+    select: {
+      applicationId: true,
+      milestoneDocumentId: true,
+      createdAt: true,
+      histories: {
+        where: { event: 'SUBMITTED', revision: 1 },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  });
+  return submissions.map((submission) => ({
+    applicationId: submission.applicationId,
+    milestoneDocumentId: submission.milestoneDocumentId,
+    firstSubmittedAt:
+      submission.histories[0]?.createdAt ?? submission.createdAt,
+  }));
+}
 
 export interface SubmissionMatrixViewer {
   readonly id: string;
@@ -98,7 +134,7 @@ export function submissionMatrixApplicationWhere(
   if (filter.q.length > 0) {
     const contains = { contains: filter.q, mode: 'insensitive' as const };
     where.OR = [
-      { applicant: userProfileNameWhere(filter.q) },
+      { applicant: UserProfileReadRepository.userProfileNameWhere(filter.q) },
       { applicant: { nickname: contains } },
       { team: { name: contains } },
       { team: { members: { some: { user: { nickname: contains } } } } },
@@ -136,7 +172,9 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: resolveUserProfileName(application.applicant),
+      name: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       nickname: application.applicant.nickname,
     },
     team: application.team

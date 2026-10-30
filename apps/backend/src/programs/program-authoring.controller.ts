@@ -1,4 +1,30 @@
 import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  UseGuards,
+  BadRequestException,
+  ConflictException,
+  Delete,
+  Get,
+  Headers,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { OriginGuard } from '../auth/origin.guard';
+import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import { SessionGuard } from '../auth/session.guard';
+import {
+  ProgramNoticePreviewService,
+  ProgramAuthoringForbiddenError,
+  ProgramAuthoringService,
+} from './program-authoring.service';
+import {
   DomainException,
   type ProblemDetailExtensions,
 } from '../platform/error-code.error';
@@ -6,34 +32,9 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import {
-  BadRequestException,
-  Body,
-  ConflictException,
-  Controller,
-  Delete,
-  Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Post,
-  Req,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { OriginGuard } from '../auth/origin.guard';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ProgramAuthoringRequestDto } from './dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from './dto/program-authoring-upload-policy-response.dto';
-import {
-  ProgramAuthoringForbiddenError,
-  ProgramAuthoringService,
-} from './program-authoring.service';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
@@ -44,16 +45,36 @@ import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
+import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
+import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+function uploadHttpError(error: unknown): Error {
+  if (!(error instanceof ProgramAuthoringUploadError)) throw error;
+  switch (error.code) {
+    case 'PROGRAM_AUTHORING_UPLOAD_NOT_FOUND':
+      return new NotFoundException('Upload was not found.');
+    case 'PROGRAM_AUTHORING_UPLOAD_ATTACHED_CONFLICT':
+      return new ConflictException('Upload is already attached.');
+    case 'PROGRAM_AUTHORING_UPLOAD_STORAGE_UNAVAILABLE':
+      return new ConflictException('Upload storage is currently unavailable.');
+    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_ACTOR':
+    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_FILE':
+    case 'PROGRAM_AUTHORING_UPLOAD_FILE_TOO_LARGE':
+    case 'PROGRAM_AUTHORING_UPLOAD_UNSUPPORTED_FILE_TYPE':
+      return new BadRequestException('Upload is invalid.');
+  }
+}
 
 @Controller('program-authoring')
 export class ProgramAuthoringController {
   constructor(
     private readonly authoring: ProgramAuthoringService,
     private readonly uploads: ProgramAuthoringUploadService,
+    private readonly previews: ProgramNoticePreviewService,
   ) {}
 
   @Get('upload-policy')
@@ -174,21 +195,16 @@ export class ProgramAuthoringController {
       throw error;
     }
   }
-}
 
-function uploadHttpError(error: unknown): Error {
-  if (!(error instanceof ProgramAuthoringUploadError)) throw error;
-  switch (error.code) {
-    case 'PROGRAM_AUTHORING_UPLOAD_NOT_FOUND':
-      return new NotFoundException('Upload was not found.');
-    case 'PROGRAM_AUTHORING_UPLOAD_ATTACHED_CONFLICT':
-      return new ConflictException('Upload is already attached.');
-    case 'PROGRAM_AUTHORING_UPLOAD_STORAGE_UNAVAILABLE':
-      return new ConflictException('Upload storage is currently unavailable.');
-    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_ACTOR':
-    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_FILE':
-    case 'PROGRAM_AUTHORING_UPLOAD_FILE_TOO_LARGE':
-    case 'PROGRAM_AUTHORING_UPLOAD_UNSUPPORTED_FILE_TYPE':
-      return new BadRequestException('Upload is invalid.');
+  @Post('notice-preview')
+  @HttpCode(200)
+  @UseGuards(SessionGuard, OriginGuard)
+  async preview(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
+    @Body() input: ProgramNoticePreviewRequestDto,
+  ): Promise<ProgramNoticePreviewResponseDto> {
+    return new ProgramNoticePreviewResponseDto(
+      await this.previews.preview(request.sessionGithubId, input.url),
+    );
   }
 }

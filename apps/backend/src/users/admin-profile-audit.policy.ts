@@ -7,7 +7,7 @@ import {
   type UserProfileAuditMetadata,
 } from '../platform/audit-log-metadata.policy';
 import type { AdminProfileFields } from './admin-profile.types';
-import type { AdminProfileTargetRecord } from './admin-profile-repository.types';
+import type { AdminProfileTargetRecord } from './users.types';
 
 export type AdminProfileActor = {
   readonly name: string | null;

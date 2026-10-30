@@ -6,14 +6,14 @@ import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/session-token.policy';
+import { issueSessionToken } from '../auth/auth.policy';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramNoticePreviewController } from './program-notice-preview.controller';
-import { ProgramNoticePreviewService } from './program-notice-preview.service';
+import { ProgramAuthoringController } from './program-authoring.controller';
+import { ProgramNoticePreviewService } from './program-authoring.service';
 
 const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';
 const secret = new Uint8Array(32).fill(42);
@@ -35,7 +35,7 @@ let cookie = '';
 
 beforeAll(async () => {
   const module = await Test.createTestingModule({
-    controllers: [ProgramNoticePreviewController],
+    controllers: [ProgramAuthoringController],
     providers: [
       { provide: APP_GUARD, useClass: AuthenticationGuard },
       {
@@ -66,7 +66,9 @@ beforeAll(async () => {
       { provide: ProgramNoticeFetchClient, useValue: { read } },
       ProgramNoticePreviewService,
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
   application = module.createNestApplication();
   application.setGlobalPrefix('api/v1');
   application.useGlobalPipes(

@@ -1,4 +1,4 @@
-import { initialAccountSeed } from './initial-roles.policy';
+import { initialAccountSeed } from './auth.config';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import {

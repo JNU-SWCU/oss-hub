@@ -1,4 +1,4 @@
-import type { SubmissionMatrixResult } from '../submission-matrix-result.types';
+import type { SubmissionMatrixResult } from '../submission.types';
 import { presentSubmissionMatrix } from './submission-matrix-response.dto';
 
 it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로를 보존한다', () => {

@@ -6,7 +6,7 @@ import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
 } from './collection-discovery.client';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 
 function deferred<T>(): {

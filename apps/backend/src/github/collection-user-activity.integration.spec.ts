@@ -1,6 +1,5 @@
 import { AccountStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
-
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -13,12 +12,16 @@ import {
   CollectionDiscoveryClientError,
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
-import { CollectionCutoverRepository } from './collection-cutover.repository';
-import { CollectionScheduler } from './collection.scheduler';
-import { CollectionTriggerService } from './collection-trigger.service';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from './repository-provision-job.repository';
+import {
+  CollectionScheduler,
+  CollectionTriggerService,
+} from './collection-trigger.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

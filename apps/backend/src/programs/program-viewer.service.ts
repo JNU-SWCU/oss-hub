@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import type { ProgramViewerRole } from './program-read.types';
+import type { ProgramViewerRole } from './programs.types';
 import { authorityLabel } from '../users/authority-label.policy';
 import { ProgramsRepository } from './programs.repository';
 

@@ -14,24 +14,24 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
-import { setDownloadHeaders } from '../platform/download-response.types';
-import { multipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
+import { setDownloadHeaders } from '../platform/object-storage.types';
+import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { SubmissionFilesService } from './submission-files.service';
 import type {
   SubmissionFileUpload,
   UploadedSubmissionFileResponse,
-} from './submission-files.types';
+} from './submission.types';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-const SubmissionFileUploadInterceptor = multipartFileUploadInterceptor(
+const SubmissionFileUploadInterceptor = new MultipartFileUploadInterceptor(
   {
     limits: {
       fileSize: SUBMISSION_UPLOAD_MAX_BYTES,

@@ -1,5 +1,8 @@
-import { ValidationPipe } from '@nestjs/common';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import {
+  ValidationPipe,
+  type ExecutionContext,
+  type INestApplication,
+} from '@nestjs/common';
 import {
   RepositoryVisibility,
   ReviewDecision,
@@ -11,10 +14,8 @@ import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import {
-  SubmissionRepositoryPublishingController,
-  SubmissionReviewsController,
-} from './submission-reviews.controller';
+import { SubmissionsController } from './submissions.controller';
+import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 let application: INestApplication | undefined;
@@ -62,11 +63,12 @@ const service = {
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [
-      SubmissionReviewsController,
+      SubmissionsController,
       SubmissionRepositoryPublishingController,
     ],
     providers: [{ provide: SubmissionReviewsService, useValue: service }],
   })
+    .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
     .useValue({
       canActivate: (context: ExecutionContext) => {
@@ -89,7 +91,7 @@ beforeAll(async () => {
   baseUrl = await application.getUrl();
 
   const unauthenticatedModuleRef = await Test.createTestingModule({
-    controllers: [SubmissionReviewsController],
+    controllers: [SubmissionsController],
     providers: [
       SessionGuard,
       {
@@ -113,7 +115,9 @@ beforeAll(async () => {
         useValue: unauthenticatedService,
       },
     ],
-  }).compile();
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
 
   unauthenticatedApplication = unauthenticatedModuleRef.createNestApplication();
   unauthenticatedApplication.setGlobalPrefix('api/v1');

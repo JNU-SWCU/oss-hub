@@ -5,10 +5,10 @@ import { AuditLogRepository } from '../platform/audit-log.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
-import { UsersRepository } from './users.repository';
-import type {
-  ProfileCompletionOutcome,
-  UsersRepositoryPort,
+import {
+  UsersRepository,
+  type ProfileCompletionOutcome,
+  type UsersRepositoryPort,
 } from './users.repository';
 import { isCompleteUserProfile } from './user-profile.policy';
 

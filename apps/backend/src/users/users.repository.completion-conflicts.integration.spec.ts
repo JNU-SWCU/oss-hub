@@ -2,10 +2,10 @@ import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
-import { UsersRepository } from './users.repository';
-import type {
-  ProfileCompletionOutcome,
-  UsersRepositoryPort,
+import {
+  UsersRepository,
+  type ProfileCompletionOutcome,
+  type UsersRepositoryPort,
 } from './users.repository';
 
 assertIsolatedIntegrationDatabase({

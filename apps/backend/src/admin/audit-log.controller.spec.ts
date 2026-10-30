@@ -8,7 +8,7 @@ import { RequestMethod } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AuditLogController } from './audit-log.controller';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogListRequestDto } from './dto/audit-log-query.dto';
+import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 
 describe('AuditLogController', () => {
   it('GET /audit-logs를 SessionGuard로 보호한다', () => {

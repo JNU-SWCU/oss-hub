@@ -23,15 +23,15 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { computeJoinCodeDigest } from '../src/programs/join-code-digest.policy';
+import { computeJoinCodeDigest } from '../src/programs/application-decision.policy';
 import { resolveJoinCodeSecret } from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
-import { CONSENT_POLICY_VERSION } from '../src/users/consent.policy';
+import { CONSENT_POLICY_VERSION } from '../src/users/user-profile.policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity.policy';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { S3ObjectStorage } from '../src/platform/object-storage.client';
+import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.policy';
 assertIsolatedIntegrationDatabase({
@@ -42,7 +42,7 @@ assertIsolatedIntegrationDatabase({
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
 const demoStorageConfig = new ObjectStorageConfig();
-const demoStorage = new S3ObjectStorage(demoStorageConfig);
+const demoStorage = new S3ObjectStorageClient(demoStorageConfig);
 let demoStorageS3Client: S3Client | undefined;
 function demoStorageS3(): S3Client {
   if (demoStorageS3Client) return demoStorageS3Client;

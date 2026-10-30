@@ -9,12 +9,9 @@ import {
   MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  ProgramOverviewRecord,
-  PublicTeamRow,
-} from './program-overview.types';
+import type { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
 
 export interface CurrentSubmissionMilestone {
   milestoneId: string;
@@ -220,7 +217,9 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...programApplicationParticipantWhere(userId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: { id: true },
     });

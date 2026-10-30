@@ -1,7 +1,7 @@
-import { ProgramListRecord } from './program-list.types';
+import { ProgramListRecord } from './programs.types';
 import { Injectable } from '@nestjs/common';
-import type { Program } from '@prisma/client';
 import {
+  type Program,
   ApplicationStatus,
   MilestoneDocumentKind,
   Prisma,
@@ -11,26 +11,20 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from './submission-completion-projection.policy';
-import type { ProgramListQuery } from './program-list-query.policy';
 import {
+  type ProgramListQuery,
   emptyProgramStatusCounts,
   type ProgramStatusCounts,
-} from './program-list-status.policy';
-import {
-  programListOrderBySql,
-  programEndYearRange,
-  programListPrismaWhere,
-  programListSqlWhere,
-  programStatusCountsSql,
-} from './program-list-status-filter.repository';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+} from './programs.policy';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 
 export interface ProgramApplicationCounts {
   readonly total: number;
@@ -43,7 +37,10 @@ export class ProgramsRepository {
 
   listPrograms(query: ProgramListQuery, now: Date) {
     const where: Prisma.ProgramWhereInput = {
-      ...programListPrismaWhere(query.status, now),
+      ...ProgramListStatusFilterRepository.programListPrismaWhere(
+        query.status,
+        now,
+      ),
       ...(query.search
         ? { name: { contains: query.search, mode: 'insensitive' as const } }
         : {}),
@@ -51,19 +48,25 @@ export class ProgramsRepository {
         ? {
             AND: [
               {
-                endAt: programEndYearRange(query.year),
+                endAt: ProgramListStatusFilterRepository.programEndYearRange(
+                  query.year,
+                ),
               },
             ],
           }
         : {}),
     };
-    const sqlWhere = programListSqlWhere(
+    const sqlWhere = ProgramListStatusFilterRepository.programListSqlWhere(
       query.status,
       query.search,
       now,
       query.year,
     );
-    const orderBy = programListOrderBySql(query.sort, query.direction, now);
+    const orderBy = ProgramListStatusFilterRepository.programListOrderBySql(
+      query.sort,
+      query.direction,
+      now,
+    );
     const offset = (query.page - 1) * query.pageSize;
     return this.prisma.$transaction([
       this.prisma.$queryRaw<readonly ProgramListRecord[]>(Prisma.sql`
@@ -100,7 +103,7 @@ export class ProgramsRepository {
     >(Prisma.sql`
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
-      ${programListSqlWhere('ended', '', now)}
+      ${ProgramListStatusFilterRepository.programListSqlWhere('ended', '', now)}
       AND ${programEndYearSql} BETWEEN 2000 AND 2100
       ORDER BY year DESC
     `);
@@ -116,7 +119,7 @@ export class ProgramsRepository {
         readonly upcoming: number;
         readonly ended: number;
       }[]
-    >(programStatusCountsSql(now));
+    >(ProgramListStatusFilterRepository.programStatusCountsSql(now));
     const row = rows[0];
     if (!row) return emptyProgramStatusCounts();
     return {
@@ -179,7 +182,9 @@ export class ProgramsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(userId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: {
         id: true,
@@ -212,7 +217,9 @@ export class ProgramsRepository {
     const applications = await this.prisma.application.findMany({
       where: {
         programId: { in: [...programIds] },
-        ...programApplicationParticipantWhere(userId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: { programId: true, status: true },
     });
@@ -255,7 +262,9 @@ export class ProgramsRepository {
         ...(studentUserId
           ? {
               application: {
-                ...programApplicationParticipantWhere(studentUserId),
+                ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                ),
               },
             }
           : {}),
@@ -293,7 +302,9 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: resolveUserProfileName(repository.application!.applicant),
+            name: UserProfileReadRepository.resolveUserProfileName(
+              repository.application!.applicant,
+            ),
           },
           team: repository.application!.team,
         },
@@ -304,7 +315,9 @@ export class ProgramsRepository {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
-        ...programApplicationParticipantWhere(userId),
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: {
         teamId: true,

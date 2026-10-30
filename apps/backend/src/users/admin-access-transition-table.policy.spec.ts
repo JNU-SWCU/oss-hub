@@ -8,8 +8,8 @@ import {
   type AdminAccessTableCurrentState,
   type AdminAccessTableDesiredState,
   type AdminAccessTransitionOutcome,
+  ADMIN_ACCESS_TRANSITION_TABLE,
 } from './admin-access-transition-table.policy';
-import { ADMIN_ACCESS_TRANSITION_TABLE } from './admin-access-transition-table.policy';
 import { ADMIN_ACCESS_TRANSITION_FIXTURES } from './admin-access-transition-fixtures';
 
 type OracleCase = {

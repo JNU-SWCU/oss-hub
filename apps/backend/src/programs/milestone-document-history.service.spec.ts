@@ -1,4 +1,4 @@
-import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-response.dto';
+import { presentMilestoneDocumentHistory } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import {
   InvalidMilestoneDocumentHistoryCursorError,

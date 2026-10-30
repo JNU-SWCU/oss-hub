@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
-import { isSerializationFailure } from '../platform/prisma-serialization-retry.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { readTeamDeletionScopeCounts } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import {
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,
   type TeamDeletionScopeCounts,
-} from './team-deletion-scope.policy';
+} from './programs.policy';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 
@@ -87,7 +87,10 @@ export class ProgramTeamDeletionRepository {
 
   readScopeCounts(teamId: string): Promise<TeamDeletionScopeCounts> {
     return this.prisma.$transaction((transaction) =>
-      readTeamDeletionScopeCounts(transaction, teamId),
+      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+        transaction,
+        teamId,
+      ),
     );
   }
 
@@ -115,10 +118,11 @@ export class ProgramTeamDeletionRepository {
             return { outcome: 'not-found' as const };
           }
 
-          const currentScopeCounts = await readTeamDeletionScopeCounts(
-            tx,
-            teamId,
-          );
+          const currentScopeCounts =
+            await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+              tx,
+              teamId,
+            );
           if (!sameTeamDeletionScopeCounts(expectedScope, currentScopeCounts)) {
             return {
               outcome: 'scope-changed' as const,
@@ -172,7 +176,8 @@ export class ProgramTeamDeletionRepository {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
-      const serializationFailure = isSerializationFailure(error);
+      const serializationFailure =
+        PrismaSerializationRetryRepository.isSerializationFailure(error);
       const foreignKeyConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2003';

@@ -1,5 +1,6 @@
 import { ApplicationReviewEventKind } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
 export type ReviewHistoryWriterClient = Pick<
   Prisma.TransactionClient,
@@ -20,33 +21,27 @@ export interface AppendedReviewHistory {
   readonly revision: number;
 }
 
-export class ApplicationReviewHistoryTargetMissingError extends Error {
-  override readonly name = 'ApplicationReviewHistoryTargetMissingError';
-
-  constructor(readonly applicationId: string) {
-    super('append 대상 신청을 찾을 수 없다');
+export class ReviewHistoryWriterRepository {
+  static async appendReviewHistory(
+    client: ReviewHistoryWriterClient,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    const revision = await resolveRevision(client, input);
+    await client.applicationReviewHistory.create({
+      data: {
+        applicationId: input.applicationId,
+        eventKind: input.eventKind,
+        revision,
+        actorId: input.actorId,
+        occurredAt: input.occurredAt,
+        rejectionReason:
+          input.eventKind === ApplicationReviewEventKind.REJECTED
+            ? input.rejectionReason
+            : null,
+      },
+    });
+    return { revision };
   }
-}
-
-export async function appendReviewHistory(
-  client: ReviewHistoryWriterClient,
-  input: AppendReviewHistoryInput,
-): Promise<AppendedReviewHistory> {
-  const revision = await resolveRevision(client, input);
-  await client.applicationReviewHistory.create({
-    data: {
-      applicationId: input.applicationId,
-      eventKind: input.eventKind,
-      revision,
-      actorId: input.actorId,
-      occurredAt: input.occurredAt,
-      rejectionReason:
-        input.eventKind === ApplicationReviewEventKind.REJECTED
-          ? input.rejectionReason
-          : null,
-    },
-  });
-  return { revision };
 }
 
 async function resolveRevision(

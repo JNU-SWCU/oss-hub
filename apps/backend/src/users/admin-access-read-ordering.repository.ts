@@ -25,15 +25,16 @@ const ORDER_DIRECTIONS = {
   [ADMIN_ACCESS_SORT_DIRECTIONS.DESC]: Prisma.sql`DESC`,
 } as const satisfies Readonly<Record<AdminAccessSortDirection, Prisma.Sql>>;
 
-export function listOrderedAdminAccessUserIds(
-  prisma: Pick<PrismaService, '$queryRaw'>,
-  query: AdminAccessListQuery,
-  sortContext: AdminAccessListSortContext = 'directory',
-): Promise<readonly OrderedAdminAccessUserId[]> {
-  const offset = (query.page - 1) * query.limit;
-  const where = adminAccessSqlWhere(query);
-  const orderBy = adminAccessOrderBy(query, sortContext);
-  return prisma.$queryRaw<readonly OrderedAdminAccessUserId[]>(Prisma.sql`
+export class AdminAccessReadOrderingRepository {
+  static listOrderedAdminAccessUserIds(
+    prisma: Pick<PrismaService, '$queryRaw'>,
+    query: AdminAccessListQuery,
+    sortContext: AdminAccessListSortContext = 'directory',
+  ): Promise<readonly OrderedAdminAccessUserId[]> {
+    const offset = (query.page - 1) * query.limit;
+    const where = adminAccessSqlWhere(query);
+    const orderBy = adminAccessOrderBy(query, sortContext);
+    return prisma.$queryRaw<readonly OrderedAdminAccessUserId[]>(Prisma.sql`
     SELECT u."id"
     FROM "User" AS u
     LEFT JOIN "UserProfile" AS p ON p."userId" = u."id"
@@ -42,6 +43,7 @@ export function listOrderedAdminAccessUserIds(
     LIMIT ${query.limit}
     OFFSET ${offset}
   `);
+  }
 }
 
 function adminAccessOrderBy(

@@ -6,8 +6,8 @@ import {
   ProgramCategory,
   ReviewDecision,
   SubmissionStatus,
+  MemberKind,
 } from '@prisma/client';
-import { MemberKind } from '@prisma/client';
 import {
   offsetDays,
   prisma,
@@ -17,7 +17,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/programs/join-code-digest.policy';
+import { computeJoinCodeDigest } from '../../src/programs/application-decision.policy';
 import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
 
 const PROGRAM_ID = seedId('milestones', 'program');

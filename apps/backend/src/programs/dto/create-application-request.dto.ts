@@ -8,7 +8,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import type { CreateApplicationInput } from '../create-application.types';
+import type { CreateApplicationInput } from '../application-records.types';
 
 export class CreateApplicationRequestDto {
   @IsDefined()

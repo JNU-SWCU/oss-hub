@@ -1,5 +1,10 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
+
+export type AuditLogTransactionWriter = Pick<
+  Prisma.TransactionClient,
+  'auditLog'
+>;
 
 @Injectable()
 export class PrismaService

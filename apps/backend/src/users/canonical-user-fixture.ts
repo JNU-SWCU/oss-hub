@@ -1,5 +1,9 @@
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  type Prisma,
+} from '@prisma/client';
 
 export type CanonicalUserFixture = {
   readonly id: string;

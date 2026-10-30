@@ -1,9 +1,47 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
+import {
+  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
+  createSubmissionFileCleanupAuditMetadata,
+} from '../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../platform/audit-log.service';
+import { SubmissionFilesRepository } from './submission-files.repository';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { Cron, CronExpression } from '@nestjs/schedule';
+
+@Injectable()
+export class SubmissionFileCleanupRetryService {
+  constructor(
+    private readonly files: SubmissionFilesRepository,
+    private readonly auditLog: AuditLogService,
+  ) {}
+
+  async retry(operatorId: string, fileId: string): Promise<void> {
+    const operator = await this.files.findCleanupOperator(operatorId);
+    if (
+      operator?.hasAdminAccess !== true ||
+      operator.accountStatus !== 'ACTIVE'
+    ) {
+      throw new Error('Operator is not authorized for cleanup maintenance');
+    }
+
+    const reset = await this.files.resetDeleteAttempts(fileId, new Date());
+    if (!reset) {
+      throw new Error('Cleanup retry target is unavailable');
+    }
+
+    await this.auditLog.record({
+      actorGithubId: operator.githubId,
+      action:
+        SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS.SUBMISSION_FILE_CLEANUP_RETRY_RESET,
+      targetType: 'SUBMISSION_FILE',
+      targetId: fileId,
+      metadata: createSubmissionFileCleanupAuditMetadata({ fileId }),
+    });
+  }
+}
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
@@ -80,5 +118,31 @@ export class SubmissionFileCleanupService {
 
   private redactedError(): 'STORAGE_DELETE_FAILED' {
     return 'STORAGE_DELETE_FAILED';
+  }
+}
+
+@Injectable()
+export class SubmissionFileCleanupScheduler {
+  private readonly logger = new Logger(SubmissionFileCleanupScheduler.name);
+  private running = false;
+
+  constructor(private readonly cleanup: SubmissionFileCleanupService) {}
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'submission-file-cleanup',
+  })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.cleanup.runDue();
+    } catch (error) {
+      this.logger.error({
+        event: 'submission-file.cleanup.run.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    } finally {
+      this.running = false;
+    }
   }
 }

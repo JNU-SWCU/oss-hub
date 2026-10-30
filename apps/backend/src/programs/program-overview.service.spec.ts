@@ -5,7 +5,7 @@ import {
   MilestoneSchedule,
   ProgramOverviewRepository,
 } from './program-overview.repository';
-import { ProgramOverviewRecord, PublicTeamRow } from './program-overview.types';
+import { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
 import { ProgramOverviewService } from './program-overview.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';

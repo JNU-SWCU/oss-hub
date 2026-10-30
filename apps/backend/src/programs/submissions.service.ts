@@ -1,12 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import { addOneCalendarYear } from '../platform/add-one-calendar-year.policy';
+import { addOneCalendarYear } from '../platform/platform.policy';
 import { DomainException } from '../platform/error-code.error';
-import { programDeadline } from './program-deadline.policy';
-import type {
-  CreateSubmissionInput,
-  ResubmitSubmissionInput,
-} from './submission-content.policy';
+import { programDeadline } from './programs.policy';
+import {
+  type CreateSubmissionInput,
+  type ResubmitSubmissionInput,
+  assertResubmittable,
+  assertSubmittable,
+  requireApprovedApplication,
+  submissionBlockedReason,
+} from './submission.policy';
 import {
   submissionChecklistItem,
   type CreatedSubmissionResult,
@@ -14,12 +18,6 @@ import {
   type SubmissionChecklistResult,
   type SubmissionFormResult,
 } from './submission-result.policy';
-import {
-  assertResubmittable,
-  assertSubmittable,
-  requireApprovedApplication,
-  submissionBlockedReason,
-} from './submission.policy';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SUBMISSIONS_ERROR_CODES,

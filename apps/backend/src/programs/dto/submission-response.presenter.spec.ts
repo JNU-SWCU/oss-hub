@@ -7,7 +7,7 @@ import {
   presentResubmittedSubmission,
   presentSubmissionChecklist,
   presentSubmissionForm,
-} from './submission-response.dto';
+} from './submission-form-response.dto';
 
 const dueAt = new Date('2026-09-01T14:59:59.123Z');
 const form: SubmissionFormResult = {

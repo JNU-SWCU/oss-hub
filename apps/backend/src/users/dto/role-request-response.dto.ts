@@ -1,7 +1,7 @@
 import type { StaffAccessRequestStatus } from '@prisma/client';
-import type { StaffAccessRequestRecord } from '../member-onboarding.types';
+import type { StaffAccessRequestRecord } from '../users.types';
 
-export class StaffAccessRequestResponseDto {
+export class RoleRequestResponseDto {
   readonly requestedRole = 'STAFF' as const;
   readonly status: StaffAccessRequestStatus;
   readonly requestedAt: string;
@@ -15,9 +15,7 @@ export class StaffAccessRequestResponseDto {
     this.rejectionReason = request.rejectionReason;
   }
 
-  static from(
-    request: StaffAccessRequestRecord,
-  ): StaffAccessRequestResponseDto {
-    return new StaffAccessRequestResponseDto(request);
+  static from(request: StaffAccessRequestRecord): RoleRequestResponseDto {
+    return new RoleRequestResponseDto(request);
   }
 }

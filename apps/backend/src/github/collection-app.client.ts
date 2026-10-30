@@ -4,7 +4,7 @@ import {
   PullRequestFrontier,
   ReleaseFrontier,
   RequestFingerprint,
-} from './collection-app-frontier.policy';
+} from './github.policy';
 
 const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';

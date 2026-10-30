@@ -1,5 +1,5 @@
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../users/authority.service';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import { BoardErrorCode } from './board-error-code.error';
 import { BoardRepository } from './board.repository';

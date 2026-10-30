@@ -8,11 +8,13 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { writeRepositoryIssuanceHistory } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   InvalidRepositoryProvisionEventError,
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
+  canonicalGithubLogin,
+  canonicalGithubLogins,
 } from './repository-provision-event.policy';
 import type {
   CompleteRepositoryInvitationInput,
@@ -27,32 +29,18 @@ import type {
 import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
+  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
 } from './repository-provision-failure.policy';
-import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from './repository-provision-failure.policy';
 import {
-  assertCurrentRequest,
-  assertProvisionLease,
-  assertSingleProvisionUpdate,
-  claimGithubRepositoryForApplication,
-  claimedJobWhere,
-  GithubRepositoryClaimConflictError,
-  invitationIntent,
-  isPrismaUniqueConstraintError,
-  lockApplicationForRepositoryClaim,
-  lockClaimedProvisionJob,
-  loginsFromTeamMembers,
-  matchesProvisionedMetadata,
-  membershipFingerprint,
   PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
   repositorySelection,
-  RepositoryProvisionLeaseLostError,
   teamMemberLoginSelection,
-  toProvisionedRepository,
+  RepositoryProvisionStateHelpersRepository,
 } from './repository-provision-state-helpers.repository';
 import {
-  canonicalGithubLogin,
-  canonicalGithubLogins,
-} from './repository-provision-event.policy';
+  GithubRepositoryClaimConflictError,
+  RepositoryProvisionLeaseLostError,
+} from './repository-provision-state.error';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,
@@ -94,9 +82,17 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     requestId: string,
   ): Promise<RepositoryProvisionContext> {
     return this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
       const job = await transaction.repositoryProvisionJob.findFirst({
-        where: claimedJobWhere(jobId, workerId),
+        where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
+          jobId,
+          workerId,
+        ),
         select: {
           currentEventId: true,
           repositoryId: true,
@@ -187,7 +183,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       }
 
       const currentMemberGithubLogins =
-        team === null ? [] : loginsFromTeamMembers(team.members);
+        team === null
+          ? []
+          : RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(
+              team.members,
+            );
       return {
         requestId: event.id,
         requestedConnectionMode: requested.repositoryConnectionMode,
@@ -208,13 +208,18 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         teamId: application.teamId,
         subjectName: team?.name ?? application.applicant.nickname,
         currentMemberGithubLogins,
-        membershipFingerprint: membershipFingerprint(currentMemberGithubLogins),
+        membershipFingerprint:
+          RepositoryProvisionStateHelpersRepository.membershipFingerprint(
+            currentMemberGithubLogins,
+          ),
         currentRepositorySource: application.repository?.source ?? null,
         repository:
           application.repository === null ||
           job.repositoryId !== application.repository.id
             ? null
-            : toProvisionedRepository(application.repository),
+            : RepositoryProvisionStateHelpersRepository.toProvisionedRepository(
+                application.repository,
+              ),
       };
     });
   }
@@ -224,48 +229,64 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   ): Promise<ProvisionedRepository> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        await lockApplicationForRepositoryClaim(
+        await RepositoryProvisionStateHelpersRepository.lockApplicationForRepositoryClaim(
           transaction,
           input.applicationId,
         );
-        await assertCurrentRequest(
+        await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
           transaction,
           input.jobId,
           input.workerId,
           input.requestId,
         );
-        const repository = await claimGithubRepositoryForApplication(
-          transaction,
-          {
-            applicationId: input.applicationId,
-            programId: input.programId,
-            teamId: input.teamId,
-            metadata: input.metadata,
-            source: input.source,
-            currentConnectionMode: input.currentConnectionMode,
-            currentRepositoryUrl: input.currentRepositoryUrl,
-            connectionMode: input.connectionMode,
-            repositoryUrl: input.repositoryUrl,
-            auditActorGithubId: input.auditActorGithubId,
-          },
-        );
-        const provisioned = toProvisionedRepository(repository);
-        if (!matchesProvisionedMetadata(provisioned, input)) {
+        const repository =
+          await RepositoryProvisionStateHelpersRepository.claimGithubRepositoryForApplication(
+            transaction,
+            {
+              applicationId: input.applicationId,
+              programId: input.programId,
+              teamId: input.teamId,
+              metadata: input.metadata,
+              source: input.source,
+              currentConnectionMode: input.currentConnectionMode,
+              currentRepositoryUrl: input.currentRepositoryUrl,
+              connectionMode: input.connectionMode,
+              repositoryUrl: input.repositoryUrl,
+              auditActorGithubId: input.auditActorGithubId,
+            },
+          );
+        const provisioned =
+          RepositoryProvisionStateHelpersRepository.toProvisionedRepository(
+            repository,
+          );
+        if (
+          !RepositoryProvisionStateHelpersRepository.matchesProvisionedMetadata(
+            provisioned,
+            input,
+          )
+        ) {
           throw finalProvisionFailure(
             PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
           );
         }
         const attached = await transaction.repositoryProvisionJob.updateMany({
-          where: claimedJobWhere(input.jobId, input.workerId),
+          where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
+            input.jobId,
+            input.workerId,
+          ),
           data: { repositoryId: provisioned.id },
         });
-        assertSingleProvisionUpdate(attached.count);
+        RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+          attached.count,
+        );
         return provisioned;
       });
     } catch (error) {
       if (
         error instanceof GithubRepositoryClaimConflictError ||
-        isPrismaUniqueConstraintError(error)
+        RepositoryProvisionStateHelpersRepository.isPrismaUniqueConstraintError(
+          error,
+        )
       ) {
         throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
       }
@@ -282,7 +303,12 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   ): Promise<void> {
     const desired = canonicalGithubLogins(githubLogins);
     await this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
 
       const rows = await transaction.repositoryInvitation.findMany({
         where: { repositoryId },
@@ -293,7 +319,8 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         rows.map((row) => canonicalGithubLogin(row.githubLogin)),
       );
       const isRevocation = (status: RepositoryInvitationStatus): boolean =>
-        invitationIntent(status) === 'REVOKE';
+        RepositoryProvisionStateHelpersRepository.invitationIntent(status) ===
+        'REVOKE';
 
       await transaction.repositoryInvitation.createMany({
         data: desired
@@ -348,7 +375,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     _requestId: string,
     repositoryId: string,
   ): Promise<readonly RepositoryInvitationWork[]> {
-    await assertProvisionLease(this.prisma, jobId, workerId);
+    await RepositoryProvisionStateHelpersRepository.assertProvisionLease(
+      this.prisma,
+      jobId,
+      workerId,
+    );
     const rows = await this.prisma.repositoryInvitation.findMany({
       where: {
         repositoryId,
@@ -374,7 +405,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       id: row.id,
       githubLogin: row.githubLogin,
       status: row.status,
-      intent: invitationIntent(row.status),
+      intent: RepositoryProvisionStateHelpersRepository.invitationIntent(
+        row.status,
+      ),
     }));
     return [
       ...work.filter((item) => item.intent === 'REVOKE'),
@@ -386,7 +419,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     input: CompleteRepositoryInvitationInput,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
         input.jobId,
         input.workerId,
@@ -411,7 +444,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
           processedAt: input.now,
         },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
       if (input.status !== RepositoryInvitationStatus.PENDING) {
         return;
       }
@@ -436,7 +471,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
 
   async failInvitation(input: FailRepositoryInvitationInput): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
         input.jobId,
         input.workerId,
@@ -456,7 +491,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
           processedAt: input.now,
         },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
     });
   }
 
@@ -466,7 +503,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     now: Date,
   ): Promise<void> {
     await this.prisma.$transaction((transaction) =>
-      writeRepositoryIssuanceHistory(
+      RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
         transaction,
         {
           requestId,
@@ -492,12 +529,13 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     expectedMembershipFingerprint?: string,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId } = await lockClaimedProvisionJob(
-        transaction,
-        jobId,
-        workerId,
-        requestId,
-      );
+      const { applicationId } =
+        await RepositoryProvisionStateHelpersRepository.lockClaimedProvisionJob(
+          transaction,
+          jobId,
+          workerId,
+          requestId,
+        );
       const stale =
         expectedMembershipFingerprint === undefined
           ? false
@@ -506,7 +544,10 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               applicationId,
             )) !== expectedMembershipFingerprint;
       const updated = await transaction.repositoryProvisionJob.updateMany({
-        where: claimedJobWhere(jobId, workerId),
+        where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
+          jobId,
+          workerId,
+        ),
         data: stale
           ? rearmedProvisionJobData(now, repositoryId)
           : {
@@ -520,7 +561,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               finishedAt: now,
             },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
       if (!stale) {
         const repository = await transaction.githubRepository.findUniqueOrThrow(
           {
@@ -528,7 +571,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             select: { source: true },
           },
         );
-        await writeRepositoryIssuanceHistory(
+        await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
           transaction,
           {
             requestId,
@@ -553,23 +596,28 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       select: { teamId: true },
     });
     if (application?.teamId == null) {
-      return membershipFingerprint([]);
+      return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
+        [],
+      );
     }
     const members = await transaction.teamMember.findMany({
       where: { teamId: application.teamId },
       select: teamMemberLoginSelection,
     });
-    return membershipFingerprint(loginsFromTeamMembers(members));
+    return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
+      RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(members),
+    );
   }
 
   async failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId, repositoryId } = await lockClaimedProvisionJob(
-        transaction,
-        input.jobId,
-        input.workerId,
-        input.requestId,
-      );
+      const { applicationId, repositoryId } =
+        await RepositoryProvisionStateHelpersRepository.lockClaimedProvisionJob(
+          transaction,
+          input.jobId,
+          input.workerId,
+          input.requestId,
+        );
       const stale =
         input.expectedMembershipFingerprint === undefined
           ? false
@@ -578,7 +626,10 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               applicationId,
             )) !== input.expectedMembershipFingerprint;
       const updated = await transaction.repositoryProvisionJob.updateMany({
-        where: claimedJobWhere(input.jobId, input.workerId),
+        where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
+          input.jobId,
+          input.workerId,
+        ),
         data: stale
           ? rearmedProvisionJobData(input.now)
           : {
@@ -593,7 +644,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               finishedAt: input.final ? input.now : null,
             },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
       if (!stale && input.final) {
         const repository =
           repositoryId === null
@@ -602,7 +655,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
                 where: { id: repositoryId },
                 select: { source: true },
               });
-        await writeRepositoryIssuanceHistory(
+        await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
           transaction,
           {
             requestId: input.requestId,

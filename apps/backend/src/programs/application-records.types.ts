@@ -7,6 +7,50 @@ import type {
   RepositoryVisibility,
 } from '@prisma/client';
 
+const APPLICATION_LIST_STATUSES = [
+  'all',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+
+type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
+
+const APPLICATION_LIST_VIEWS = ['default', 'team-management'] as const;
+
+type ApplicationListView = (typeof APPLICATION_LIST_VIEWS)[number];
+
+interface ApplicationListQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ApplicationListStatus;
+  readonly view: ApplicationListView;
+}
+
+export {
+  APPLICATION_LIST_STATUSES,
+  APPLICATION_LIST_VIEWS,
+  type ApplicationListQuery,
+  type ApplicationListStatus,
+  type ApplicationListView,
+};
+
+type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
+
+export interface CreateApplicationInput {
+  readonly answers: CreateApplicationAnswersInput;
+
+  readonly teamName: string | null;
+  readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
+}
+
+export interface UpdateStudentApplicationInput {
+  readonly answers: Readonly<Record<string, unknown>>;
+  readonly applicationTemplateVersion: number;
+}
+
 export interface CreatedApplication {
   readonly id: string;
   readonly programId: string;

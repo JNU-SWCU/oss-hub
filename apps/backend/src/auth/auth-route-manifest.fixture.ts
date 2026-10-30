@@ -5,7 +5,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { MetadataScanner } from '@nestjs/core/metadata-scanner';
-import { compareStringsByCodeUnit } from '../platform/deterministic-string-order.policy';
+import { compareStringsByCodeUnit } from '../platform/platform.policy';
 import {
   AUTH_ROUTE_ACCESS,
   type AuthRouteAccess,

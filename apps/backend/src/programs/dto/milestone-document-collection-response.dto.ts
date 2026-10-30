@@ -1,20 +1,18 @@
 import type {
   MilestoneDocumentCollectionResult,
   MilestoneDocumentDeliveryCollectionResult,
-} from '../milestone-document-result.types';
-import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import type { DocumentDeliveryStatus } from '../document-delivery-status.policy';
-import type { MilestoneDocumentCollectionPage } from '../milestone-document-collection-page.policy';
-import {
-  type MilestoneDocumentSubmittedContent,
-  readMilestoneDocumentSubmittedContent,
-} from '../milestone-document-content.policy';
-import type {
   MilestoneContext,
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentRecord,
-} from '../milestone-document-record.types';
+} from '../milestone-document-result.types';
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import {
+  type DocumentDeliveryStatus,
+  type MilestoneDocumentSubmittedContent,
+  readMilestoneDocumentSubmittedContent,
+} from '../milestone-document.policy';
+import type { MilestoneDocumentCollectionPage } from '../milestone-document-collection-page.policy';
 
 export interface MilestoneDocumentCollectionMilestoneResponseDto {
   readonly id: string;

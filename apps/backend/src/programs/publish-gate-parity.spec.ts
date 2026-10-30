@@ -19,8 +19,8 @@ import {
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import {
-  toReviewContext,
   type ReviewContextRow,
+  SubmissionReviewContextMapperRepository,
 } from './submission-review-context-mapper.repository';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
@@ -205,7 +205,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const row = eligibleRow();
     const { service, repositories } = serviceFor(eligibleEligibility());
 
-    const context = toReviewContext(row, NOW);
+    const context = SubmissionReviewContextMapperRepository.toReviewContext(
+      row,
+      NOW,
+    );
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     expect(context.repository).toMatchObject({
@@ -223,7 +226,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: NOW,
     });
 
-    const context = toReviewContext(row, NOW);
+    const context = SubmissionReviewContextMapperRepository.toReviewContext(
+      row,
+      NOW,
+    );
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     expect(context.repository?.blockedReasons).toEqual([]);
@@ -238,7 +244,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         breakEligibility(eligibleEligibility()),
       );
 
-      const context = toReviewContext(row, NOW);
+      const context = SubmissionReviewContextMapperRepository.toReviewContext(
+        row,
+        NOW,
+      );
       const publish = service.publishRepository(
         'repository-1',
         ACTOR_GITHUB_ID,
@@ -260,7 +269,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         scenario.breakRow(repository, application);
     });
 
-    const context = toReviewContext(row, NOW);
+    const context = SubmissionReviewContextMapperRepository.toReviewContext(
+      row,
+      NOW,
+    );
 
     expect(new Set(context.repository?.blockedReasons)).toEqual(
       new Set<PublishBlockedReason>(Object.values(PUBLISH_BLOCKED_REASONS)),
@@ -281,7 +293,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: new Date('2026-12-31T00:00:00.000Z'),
     });
 
-    const context = toReviewContext(row, NOW);
+    const context = SubmissionReviewContextMapperRepository.toReviewContext(
+      row,
+      NOW,
+    );
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
@@ -388,7 +403,10 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       repository.visibility = RepositoryVisibility.PUBLIC;
     });
 
-    const context = toReviewContext(row, NOW);
+    const context = SubmissionReviewContextMapperRepository.toReviewContext(
+      row,
+      NOW,
+    );
 
     expect(context.repository).toMatchObject({
       visibility: RepositoryVisibility.PUBLIC,
