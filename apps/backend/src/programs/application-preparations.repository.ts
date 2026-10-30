@@ -9,8 +9,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   STUDENT_MEMBER_WHERE,
-  resolveUserProfileName,
-  userProfileNameWhere,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import {
   PreparationConflict,
@@ -73,7 +72,7 @@ function view(row: PreparationRow, actorId: string): PreparationView {
     members: row.participants.map(({ user }) => ({
       userId: user.id,
       nickname: user.nickname,
-      name: resolveUserProfileName(user),
+      name: UserProfileReadRepository.resolveUserProfileName(user),
       isLeader: user.id === row.leaderId,
     })),
   };
@@ -90,14 +89,15 @@ function invitation(row: InvitationRow): PreparationInvitation {
     teamName: row.preparation.name,
     programName: row.preparation.program.name,
     invitedByDisplayName:
-      resolveUserProfileName(row.preparation.leader) ??
-      row.preparation.leader.nickname,
+      UserProfileReadRepository.resolveUserProfileName(
+        row.preparation.leader,
+      ) ?? row.preparation.leader.nickname,
     memberCount: row.preparation.participants.length,
     teamMaxSize: row.preparation.program.teamMaxSize,
     invitee: {
       id: row.user.id,
       nickname: row.user.nickname,
-      name: resolveUserProfileName(row.user),
+      name: UserProfileReadRepository.resolveUserProfileName(row.user),
       avatarUrl: row.user.avatarUrl,
     },
   };
@@ -260,7 +260,7 @@ export class ApplicationPreparationsRepository {
         ...STUDENT_MEMBER_WHERE,
         OR: [
           { nickname: { contains: query.trim(), mode: 'insensitive' } },
-          userProfileNameWhere(query.trim()),
+          UserProfileReadRepository.userProfileNameWhere(query.trim()),
         ],
         teamMemberships: { none: { programId: row.programId } },
         preparationParticipants: {
@@ -274,7 +274,7 @@ export class ApplicationPreparationsRepository {
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
-      name: resolveUserProfileName(user),
+      name: UserProfileReadRepository.resolveUserProfileName(user),
       avatarUrl: user.avatarUrl,
     }));
   }

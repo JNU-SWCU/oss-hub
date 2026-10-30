@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
-import { repositoryAccessSyncTargetWhere } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import type {
   SentTeamInvitationRecord,
   ReceivedTeamInvitationRecord,
@@ -24,9 +24,8 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
-  userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 
 const TEAM_INVITEE_SELECT = {
@@ -67,7 +66,9 @@ function toSentTeamInvitationRecord(
     invitee: {
       id: invitation.invitee.id,
       nickname: invitation.invitee.nickname,
-      name: resolveUserProfileName(invitation.invitee),
+      name: UserProfileReadRepository.resolveUserProfileName(
+        invitation.invitee,
+      ),
       avatarUrl: invitation.invitee.avatarUrl,
     },
   };
@@ -131,8 +132,9 @@ export class TeamInvitationsRepository {
       programName: invitation.team.program.name,
 
       invitedByDisplayName:
-        resolveUserProfileName(invitation.invitedBy)?.trim() ||
-        invitation.invitedBy.nickname,
+        UserProfileReadRepository.resolveUserProfileName(
+          invitation.invitedBy,
+        )?.trim() || invitation.invitedBy.nickname,
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
@@ -180,8 +182,9 @@ export class TeamInvitationsRepository {
         teamName: row.preparation.name,
         programName: row.preparation.program.name,
         invitedByDisplayName:
-          resolveUserProfileName(row.preparation.leader)?.trim() ||
-          row.preparation.leader.nickname,
+          UserProfileReadRepository.resolveUserProfileName(
+            row.preparation.leader,
+          )?.trim() || row.preparation.leader.nickname,
         memberCount: row.preparation._count.participants,
         teamMaxSize: row.preparation.program.teamMaxSize,
       }),
@@ -452,7 +455,7 @@ export async function searchInvitationCandidates(
       accountStatus: AccountStatus.ACTIVE,
       OR: [
         { nickname: { contains: query, mode: 'insensitive' } },
-        userProfileNameWhere(query),
+        UserProfileReadRepository.userProfileNameWhere(query),
       ],
       teamMemberships: { none: { programId } },
     },
@@ -468,7 +471,7 @@ export async function searchInvitationCandidates(
   return users.map((user) => ({
     id: user.id,
     nickname: user.nickname,
-    name: resolveUserProfileName(user),
+    name: UserProfileReadRepository.resolveUserProfileName(user),
     avatarUrl: user.avatarUrl,
   }));
 }
@@ -484,7 +487,7 @@ async function enqueueRepositoryAccessSyncEvents(
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: repositoryAccessSyncTargetWhere(teamId),
+    where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;

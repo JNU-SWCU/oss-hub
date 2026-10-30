@@ -10,7 +10,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import {
@@ -127,7 +127,7 @@ async function createProvisionEvent(
         lockedBy: lockedAt ? 'stale-worker' : null,
       },
     });
-    await transferProvisionGeneration(
+    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
       parseRepositoryProvisionEvent,

@@ -6,10 +6,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  findAdminAccessUserById,
-  listAdminAccessUsers,
-} from './admin-access-read.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
@@ -85,7 +82,10 @@ afterAll(async () => {
 });
 
 it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다', async () => {
-  const detail = await findAdminAccessUserById(prisma, REVOKED_STAFF_ID);
+  const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+    prisma,
+    REVOKED_STAFF_ID,
+  );
 
   expect(detail?.role).toBeNull();
   expect(detail?.profile.studentId).toBeNull();
@@ -96,13 +96,16 @@ it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다'
 });
 
 it('고른 역할이 없는 미배정 사용자는 여전히 학생 기준으로 미완료다', async () => {
-  const detail = await findAdminAccessUserById(prisma, UNCHOSEN_ID);
+  const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+    prisma,
+    UNCHOSEN_ID,
+  );
 
   expect(detail?.isProfileComplete).toBe(false);
 });
 
 it('목록 조회도 상세와 같은 완료 판정을 돌려준다', async () => {
-  const page = await listAdminAccessUsers(prisma, {
+  const page = await AdminAccessReadRepository.listAdminAccessUsers(prisma, {
     page: 1,
     limit: 50,
     query: 'synthetic-184-',

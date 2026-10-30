@@ -1,19 +1,33 @@
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import { lockSubmissionMembership } from '../platform/platform.repository';
+import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 
-jest.mock('../platform/platform.repository', () => ({
-  ...jest.requireActual<Record<string, unknown>>(
-    '../platform/platform.repository',
-  ),
-  lockSubmissionMembership: jest.fn(),
-}));
+const mockLockSubmissionMembership = jest.fn<
+  ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
+  Parameters<typeof PlatformRepository.lockSubmissionMembership>
+>();
 
-const lockMembership = lockSubmissionMembership as jest.MockedFunction<
-  typeof lockSubmissionMembership
->;
+jest.mock('../platform/platform.repository', () => {
+  const actual = jest.requireActual<
+    typeof import('../platform/platform.repository')
+  >('../platform/platform.repository');
+  return {
+    ...actual,
+    PlatformRepository: class extends actual.PlatformRepository {
+      static override lockSubmissionMembership(
+        ...args: Parameters<
+          typeof actual.PlatformRepository.lockSubmissionMembership
+        >
+      ) {
+        return mockLockSubmissionMembership(...args);
+      }
+    },
+  };
+});
+
+const lockMembership = mockLockSubmissionMembership;
 
 describe('SubmissionFilesRepository exhausted cleanup query', () => {
   const findMany = jest.fn();

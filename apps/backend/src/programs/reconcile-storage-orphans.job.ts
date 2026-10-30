@@ -11,13 +11,15 @@ export function parseStorageOrphanReconciliationMode(
   throw new Error('Exactly one mode is allowed: --report or --delete');
 }
 
-export async function main(args = process.argv.slice(2)): Promise<void> {
-  const mode = parseStorageOrphanReconciliationMode(args);
-  await runStorageOrphanReconciliation(mode);
+export class ReconcileStorageOrphansJob {
+  async run(args = process.argv.slice(2)): Promise<void> {
+    const mode = parseStorageOrphanReconciliationMode(args);
+    await runStorageOrphanReconciliation(mode);
+  }
 }
 
 if (require.main === module) {
-  void main().catch(() => {
+  void new ReconcileStorageOrphansJob().run().catch(() => {
     process.stderr.write('Storage orphan reconciliation failed\n');
     process.exitCode = 1;
   });

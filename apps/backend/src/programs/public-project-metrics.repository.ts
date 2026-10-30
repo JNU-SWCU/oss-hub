@@ -1,4 +1,4 @@
-import { linkedRepositoryFilter } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
@@ -33,7 +33,7 @@ export interface ProgramContributorCumulativeMetrics {
 function programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
   return {
     AND: [
-      linkedRepositoryFilter(),
+      PlatformRepository.linkedRepositoryFilter(),
       { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
     ],
   };
@@ -65,7 +65,7 @@ export class PublicProjectMetricsRepository {
         githubRepositoryId: { in: [...query.repositoryIds] },
         visibility: 'PUBLIC',
         presence: 'PRESENT',
-        ...linkedRepositoryFilter(),
+        ...PlatformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,

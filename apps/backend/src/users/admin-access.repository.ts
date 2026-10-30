@@ -5,7 +5,7 @@ import {
 } from '@prisma/client';
 import {
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import { authorityLabel } from './authority-label.policy';
 import type {
@@ -19,19 +19,14 @@ import type {
   AdminAccessUserUpdate,
 } from './admin-access-repository.types';
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  listAdminAccessLoginHistory,
-  listAdminAccessStaffAccessRequestHistory,
-} from './admin-access-history.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
   ADMIN_ACCESS_USER_SELECT,
-  findAdminAccessUserById,
-  listAdminAccessFacets,
-  listAdminAccessUsers,
-  toAdminAccessUserRecord,
-} from './admin-access-read.repository';
+  AdminAccessUserProjectionRepository,
+} from './admin-access-user-projection.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import type {
   AdminAccessListQuery,
   AdminAccessLoginHistoryPage,
@@ -87,7 +82,7 @@ export function toAdminActor(user: PrismaAdminActor): AdminAccessActor {
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    name: resolveUserProfileName(user),
+    name: UserProfileReadRepository.resolveUserProfileName(user),
     role: authorityLabel({
       memberKind: user.selectedMemberKind,
       hasStaffAccess: user.hasStaffAccess,
@@ -156,7 +151,9 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
       where: { id: userId },
       select: ADMIN_ACCESS_USER_SELECT,
     });
-    return user ? toAdminAccessUserRecord(user) : null;
+    return user
+      ? AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user)
+      : null;
   }
 
   async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
@@ -218,28 +215,43 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     query: AdminAccessListQuery,
     sortContext: 'directory' | 'requestQueue' = 'directory',
   ) {
-    return listAdminAccessUsers(this.prisma, query, sortContext);
+    return AdminAccessReadRepository.listAdminAccessUsers(
+      this.prisma,
+      query,
+      sortContext,
+    );
   }
 
   facets(query: AdminAccessListQuery) {
-    return listAdminAccessFacets(this.prisma, query);
+    return AdminAccessReadRepository.listAdminAccessFacets(this.prisma, query);
   }
 
   findById(userId: string) {
-    return findAdminAccessUserById(this.prisma, userId);
+    return AdminAccessReadRepository.findAdminAccessUserById(
+      this.prisma,
+      userId,
+    );
   }
 
   listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    return listAdminAccessStaffAccessRequestHistory(this.prisma, userId, page);
+    return AdminAccessHistoryRepository.listAdminAccessStaffAccessRequestHistory(
+      this.prisma,
+      userId,
+      page,
+    );
   }
 
   listLoginHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessLoginHistoryPage> {
-    return listAdminAccessLoginHistory(this.prisma, userId, page);
+    return AdminAccessHistoryRepository.listAdminAccessLoginHistory(
+      this.prisma,
+      userId,
+      page,
+    );
   }
 }

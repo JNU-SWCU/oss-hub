@@ -13,7 +13,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { transferProvisionGeneration } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -393,7 +393,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
           availableAt: r2At,
         },
       });
-      await transferProvisionGeneration(
+      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: r2At },
         parseRepositoryProvisionEvent,
@@ -922,7 +922,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
           availableAt: NOW,
         },
       });
-      await transferProvisionGeneration(
+      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: NOW },
         parseRepositoryProvisionEvent,
@@ -1511,7 +1511,7 @@ async function createApplicationAndEvent(
         availableAt: NOW,
       },
     });
-    await transferProvisionGeneration(
+    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
       parseRepositoryProvisionEvent,

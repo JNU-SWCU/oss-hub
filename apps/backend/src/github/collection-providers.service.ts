@@ -18,100 +18,104 @@ import {
 } from './collection-sync.service';
 import { CollectionPublicTokenService } from './collection-public-token.service';
 
-export const collectionProviders: Provider[] = [
-  {
-    provide: CollectionPublicTokenService,
-    inject: [RUNTIME_CONFIG],
-    useFactory: (runtimeConfig: RuntimeConfig): CollectionPublicTokenService =>
-      new CollectionPublicTokenService(runtimeConfig),
-  },
-  {
-    provide: CollectionDiscoveryClient,
-    inject: [CollectionPublicTokenService],
-    useFactory: (
-      tokens: CollectionPublicTokenService,
-    ): CollectionDiscoveryClient => new CollectionDiscoveryClient({}, tokens),
-  },
-  {
-    provide: CollectionUserActivityService,
-    inject: [CollectionUserActivityRepository, CollectionDiscoveryClient],
-    useFactory: (
-      userActivityRepository: CollectionUserActivityRepository,
-      discoveryClient: CollectionDiscoveryClient,
-    ): CollectionUserActivityService =>
-      new CollectionUserActivityService(
-        userActivityRepository,
-        discoveryClient,
-      ),
-  },
-  {
-    provide: CollectionSyncService,
-    inject: [
-      CollectionIncrementalRepository,
-      RUNTIME_CONFIG,
-      CollectionPublicTokenService,
-    ],
-    useFactory: (
-      incrementalRepository: CollectionIncrementalRepository,
-      runtimeConfig: RuntimeConfig,
-      publicTokens: CollectionPublicTokenService,
-    ): CollectionSyncService => {
-      let orgTokens: CollectionAppTokenClient | undefined;
-      let runtime: CollectionSyncRuntime | undefined;
-      const runtimeFactory: CollectionSyncRuntimeFactory = () => {
-        if (runtime) return runtime;
+export class CollectionProvidersService {
+  static readonly providers: Provider[] = [
+    {
+      provide: CollectionPublicTokenService,
+      inject: [RUNTIME_CONFIG],
+      useFactory: (
+        runtimeConfig: RuntimeConfig,
+      ): CollectionPublicTokenService =>
+        new CollectionPublicTokenService(runtimeConfig),
+    },
+    {
+      provide: CollectionDiscoveryClient,
+      inject: [CollectionPublicTokenService],
+      useFactory: (
+        tokens: CollectionPublicTokenService,
+      ): CollectionDiscoveryClient => new CollectionDiscoveryClient({}, tokens),
+    },
+    {
+      provide: CollectionUserActivityService,
+      inject: [CollectionUserActivityRepository, CollectionDiscoveryClient],
+      useFactory: (
+        userActivityRepository: CollectionUserActivityRepository,
+        discoveryClient: CollectionDiscoveryClient,
+      ): CollectionUserActivityService =>
+        new CollectionUserActivityService(
+          userActivityRepository,
+          discoveryClient,
+        ),
+    },
+    {
+      provide: CollectionSyncService,
+      inject: [
+        CollectionIncrementalRepository,
+        RUNTIME_CONFIG,
+        CollectionPublicTokenService,
+      ],
+      useFactory: (
+        incrementalRepository: CollectionIncrementalRepository,
+        runtimeConfig: RuntimeConfig,
+        publicTokens: CollectionPublicTokenService,
+      ): CollectionSyncService => {
+        let orgTokens: CollectionAppTokenClient | undefined;
+        let runtime: CollectionSyncRuntime | undefined;
+        const runtimeFactory: CollectionSyncRuntimeFactory = () => {
+          if (runtime) return runtime;
 
-        const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-        orgTokens = new CollectionAppTokenClient(config);
-        const queue = new ProviderRequestQueue();
-        runtime = {
-          appId: config.appId,
-          organizationLogin: config.orgLogin.toLowerCase(),
-          tokens: orgTokens,
-          client: new CollectionAppClient(
-            config,
-            orgTokens,
-            queue.wrapFetcher(globalThis.fetch),
-          ),
-          queue,
-        };
-        return runtime;
-      };
-      const resolveGithubOrganizationId = async (): Promise<bigint> => {
-        if (!orgTokens) {
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
           orgTokens = new CollectionAppTokenClient(config);
-        }
-        const identity = await orgTokens.getInstallationIdentity();
-        return BigInt(identity.organizationId);
-      };
-
-      let externalRuntime: CollectionSyncRuntime | undefined;
-      const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
-        if (externalRuntime) return externalRuntime;
-        const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-        const queue = new ProviderRequestQueue();
-        externalRuntime = {
-          appId: config.appId,
-          organizationLogin: config.orgLogin.toLowerCase(),
-          tokens: publicTokens,
-          client: new CollectionAppClient(
-            config,
-            publicTokens,
-            queue.wrapFetcher(globalThis.fetch),
-          ),
-          queue,
+          const queue = new ProviderRequestQueue();
+          runtime = {
+            appId: config.appId,
+            organizationLogin: config.orgLogin.toLowerCase(),
+            tokens: orgTokens,
+            client: new CollectionAppClient(
+              config,
+              orgTokens,
+              queue.wrapFetcher(globalThis.fetch),
+            ),
+            queue,
+          };
+          return runtime;
         };
-        return externalRuntime;
-      };
-      return new CollectionSyncService(
-        incrementalRepository,
-        runtimeFactory,
-        resolveGithubOrganizationId,
-        undefined,
-        undefined,
-        externalRuntimeFactory,
-      );
+        const resolveGithubOrganizationId = async (): Promise<bigint> => {
+          if (!orgTokens) {
+            const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+            orgTokens = new CollectionAppTokenClient(config);
+          }
+          const identity = await orgTokens.getInstallationIdentity();
+          return BigInt(identity.organizationId);
+        };
+
+        let externalRuntime: CollectionSyncRuntime | undefined;
+        const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
+          if (externalRuntime) return externalRuntime;
+          const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
+          const queue = new ProviderRequestQueue();
+          externalRuntime = {
+            appId: config.appId,
+            organizationLogin: config.orgLogin.toLowerCase(),
+            tokens: publicTokens,
+            client: new CollectionAppClient(
+              config,
+              publicTokens,
+              queue.wrapFetcher(globalThis.fetch),
+            ),
+            queue,
+          };
+          return externalRuntime;
+        };
+        return new CollectionSyncService(
+          incrementalRepository,
+          runtimeFactory,
+          resolveGithubOrganizationId,
+          undefined,
+          undefined,
+          externalRuntimeFactory,
+        );
+      },
     },
-  },
-];
+  ];
+}

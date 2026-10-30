@@ -1,4 +1,4 @@
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import type {
   ProgramExternalCover,
   ProgramAuthoringProgramPlan,

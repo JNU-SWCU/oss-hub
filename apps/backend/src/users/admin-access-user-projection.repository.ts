@@ -6,8 +6,8 @@ import {
 import { authorityLabel } from './authority-label.policy';
 import {
   USER_PROFILE_SELECT,
-  resolveUserProfile,
   type UserProfileSource,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import type {
   AdminAccessUserDetailRecord,
@@ -63,47 +63,49 @@ type AdminAccessUserDetailSource = AdminAccessUserSource & {
     | null;
 };
 
-export function toAdminAccessUserRecord(
-  user: AdminAccessUserSource,
-): AdminAccessUserRecord {
-  const profile = resolveUserProfile(user);
-  const memberKind = user.profile?.memberKind ?? null;
-  const pendingRequest = user.staffAccessRequests[0];
-  return {
-    id: user.id,
-    githubId: user.githubId,
-    githubLogin: user.nickname,
-    name: profile.name,
-    role: authorityLabel({ ...user, memberKind }),
-    memberKind,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
-    accountStatus: user.accountStatus,
-    isProfileComplete: isCompleteAdminAccessProfile(user, profile),
-    createdAt: user.createdAt,
-    pendingRequest: pendingRequest
-      ? {
-          id: pendingRequest.id,
-          status: StaffAccessRequestStatus.PENDING,
-          createdAt: pendingRequest.createdAt,
-        }
-      : null,
-    lastLoginAt: user.loginHistories[0]?.loginAt ?? null,
-  };
-}
+export class AdminAccessUserProjectionRepository {
+  static toAdminAccessUserRecord(
+    user: AdminAccessUserSource,
+  ): AdminAccessUserRecord {
+    const profile = UserProfileReadRepository.resolveUserProfile(user);
+    const memberKind = user.profile?.memberKind ?? null;
+    const pendingRequest = user.staffAccessRequests[0];
+    return {
+      id: user.id,
+      githubId: user.githubId,
+      githubLogin: user.nickname,
+      name: profile.name,
+      role: authorityLabel({ ...user, memberKind }),
+      memberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+      accountStatus: user.accountStatus,
+      isProfileComplete: isCompleteAdminAccessProfile(user, profile),
+      createdAt: user.createdAt,
+      pendingRequest: pendingRequest
+        ? {
+            id: pendingRequest.id,
+            status: StaffAccessRequestStatus.PENDING,
+            createdAt: pendingRequest.createdAt,
+          }
+        : null,
+      lastLoginAt: user.loginHistories[0]?.loginAt ?? null,
+    };
+  }
 
-export function toAdminAccessUserDetailRecord(
-  user: AdminAccessUserDetailSource,
-): AdminAccessUserDetailRecord {
-  const profile = resolveUserProfile(user);
-  return {
-    ...toAdminAccessUserRecord(user),
-    profile: {
-      ...profile,
-      staffNumber: user.profile?.staffNumber ?? null,
-      isComplete: isCompleteAdminAccessProfile(user, profile),
-    },
-  };
+  static toAdminAccessUserDetailRecord(
+    user: AdminAccessUserDetailSource,
+  ): AdminAccessUserDetailRecord {
+    const profile = UserProfileReadRepository.resolveUserProfile(user);
+    return {
+      ...AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user),
+      profile: {
+        ...profile,
+        staffNumber: user.profile?.staffNumber ?? null,
+        isComplete: isCompleteAdminAccessProfile(user, profile),
+      },
+    };
+  }
 }
 
 function isCompleteAdminAccessProfile(

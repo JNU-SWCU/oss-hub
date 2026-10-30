@@ -8,9 +8,8 @@ import {
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import type { SubmissionMatrixFilter } from './submission.types';
 import { publicSubmissionId } from './submission.policy';
@@ -135,7 +134,7 @@ export function submissionMatrixApplicationWhere(
   if (filter.q.length > 0) {
     const contains = { contains: filter.q, mode: 'insensitive' as const };
     where.OR = [
-      { applicant: userProfileNameWhere(filter.q) },
+      { applicant: UserProfileReadRepository.userProfileNameWhere(filter.q) },
       { applicant: { nickname: contains } },
       { team: { name: contains } },
       { team: { members: { some: { user: { nickname: contains } } } } },
@@ -173,7 +172,9 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: resolveUserProfileName(application.applicant),
+      name: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       nickname: application.applicant.nickname,
     },
     team: application.team

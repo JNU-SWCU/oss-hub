@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../github/collection-schedule.service';
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import {
   SystemStatusRepository,
   type CollectionIncrementalStatusSnapshotDto,
@@ -38,7 +38,9 @@ export class SystemStatusService {
       throw new ForbiddenException('Active administrator access is required');
     }
 
-    const nextCycleAt = nextScheduledCollectionAt(this.clock());
+    const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
+      this.clock(),
+    );
     const [snapshot, finalFailureCount, streams, activity, externalStatus] =
       await Promise.all([
         this.repository.getIncrementalStatusSnapshot(),

@@ -5,7 +5,6 @@ import {
   randomBytes,
 } from 'node:crypto';
 import { DomainException } from '../platform/error-code.error';
-import type { RuntimeConfig } from '../platform/runtime-config.config';
 import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
@@ -26,9 +25,9 @@ export type PublicProjectCursorKey = Buffer;
 
 const derivedKeyCache = new Map<string, PublicProjectCursorKey>();
 
-export function resolvePublicProjectCursorKey(
-  config: Pick<RuntimeConfig, 'SESSION_SECRET'>,
-): PublicProjectCursorKey {
+export function resolvePublicProjectCursorKey(config: {
+  readonly SESSION_SECRET?: string;
+}): PublicProjectCursorKey {
   const raw = config.SESSION_SECRET;
   if (raw === undefined || raw.trim() === '') {
     throw new PublicProjectCursorSecretError('SESSION_SECRET이 비어 있습니다.');

@@ -46,31 +46,31 @@ export type UserProfileDepartmentSource = {
   readonly profile: { readonly department: string } | null;
 };
 
-export function resolveUserProfile(source: UserProfileSource): UserProfileView {
-  const profile = source.profile;
-  return {
-    name: profile?.name ?? null,
-    studentId: profile?.studentId ?? null,
-    department: profile?.department ?? null,
-  };
-}
+export class UserProfileReadRepository {
+  static resolveUserProfile(source: UserProfileSource): UserProfileView {
+    const profile = source.profile;
+    return {
+      name: profile?.name ?? null,
+      studentId: profile?.studentId ?? null,
+      department: profile?.department ?? null,
+    };
+  }
 
-export function resolveUserProfileName(
-  source: UserProfileNameSource,
-): string | null {
-  return source.profile?.name ?? null;
-}
+  static resolveUserProfileName(source: UserProfileNameSource): string | null {
+    return source.profile?.name ?? null;
+  }
 
-export function resolveUserProfileDepartment(
-  source: UserProfileDepartmentSource,
-): string | null {
-  return source.profile?.department ?? null;
-}
+  static resolveUserProfileDepartment(
+    source: UserProfileDepartmentSource,
+  ): string | null {
+    return source.profile?.department ?? null;
+  }
 
-export function userProfileNameWhere(query: string): Prisma.UserWhereInput {
-  return {
-    profile: { is: { name: { contains: query, mode: 'insensitive' } } },
-  };
+  static userProfileNameWhere(query: string): Prisma.UserWhereInput {
+    return {
+      profile: { is: { name: { contains: query, mode: 'insensitive' } } },
+    };
+  }
 }
 
 export const STUDENT_MEMBER_WHERE = {

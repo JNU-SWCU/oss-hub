@@ -6,7 +6,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsRepository } from './applications.repository';
-import { appendReviewHistory } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -147,7 +147,7 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
           where: { id: APPLICATION_A_ID },
           data: { status: 'APPROVED' },
         });
-        await appendReviewHistory(transaction, {
+        await ReviewHistoryWriterRepository.appendReviewHistory(transaction, {
           ...entry(ApplicationReviewEventKind.APPROVED, APPLICATION_A_ID),
           actorId: `${PREFIX}absent-actor`,
         });

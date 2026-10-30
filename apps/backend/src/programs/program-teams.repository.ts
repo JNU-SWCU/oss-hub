@@ -21,13 +21,13 @@ import {
   RepositoryProvisionJobStatus,
   type ProgramCategory,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { PrismaService } from '../platform/prisma.service';
 import { requiredMilestonesApproved } from './milestone-completion.policy';
 import { publishBlockedReasons } from '../github/github.policy';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
 import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
-import { repositoryAccessSyncTargetWhere } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
@@ -35,7 +35,7 @@ import {
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 
 export interface TeamStudentActor {
@@ -172,7 +172,7 @@ export class ProgramTeamsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveUserProfileName(user),
+          name: UserProfileReadRepository.resolveUserProfileName(user),
         }
       : null;
   }
@@ -296,7 +296,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: UserProfileReadRepository.resolveUserProfileName(member.user),
       })),
     };
   }
@@ -330,7 +330,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: UserProfileReadRepository.resolveUserProfileName(member.user),
       })),
     }));
   }
@@ -489,7 +489,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: UserProfileReadRepository.resolveUserProfileName(member.user),
       })),
       application: applicationView,
       repositoryContributions: application
@@ -909,7 +909,7 @@ async function enqueueRepositoryAccessSyncEvents(
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: repositoryAccessSyncTargetWhere(teamId),
+    where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;

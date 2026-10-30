@@ -15,9 +15,9 @@ import {
   type StaffAccessRequestRecord,
 } from './users.types';
 import {
-  requestStaffAccess,
   type StaffAccessRequestOutcome,
   type StaffAccessRequestTarget,
+  PlatformRepository,
 } from '../platform/platform.repository';
 
 @Injectable()
@@ -113,7 +113,7 @@ class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
   requestStaffAccess(
     target: StaffAccessRequestTarget,
   ): Promise<StaffAccessRequestOutcome> {
-    return requestStaffAccess(this.transaction, target);
+    return PlatformRepository.requestStaffAccess(this.transaction, target);
   }
 
   async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {

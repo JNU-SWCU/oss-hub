@@ -1,10 +1,5 @@
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
-import {
-  assertAttachableProgramAuthoringUploads,
-  consumePendingProgramAuthoringUploads,
-  lockAttachableProgramAuthoringUploads,
-  lockProgramAuthoringUploads,
-} from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   ProgramAuthoringUploadTokenError,
@@ -46,10 +41,11 @@ describe('program authoring upload transaction', () => {
     ]);
 
     await expect(
-      lockAttachableProgramAuthoringUploads(prisma as never, ACTOR_ID, [
-        'b',
-        'a',
-      ]),
+      ProgramAuthoringUploadTransactionRepository.lockAttachableProgramAuthoringUploads(
+        prisma as never,
+        ACTOR_ID,
+        ['b', 'a'],
+      ),
     ).resolves.toEqual([upload({ id: 'a' }), upload({ id: 'b' })]);
 
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
@@ -59,7 +55,10 @@ describe('program authoring upload transaction', () => {
     const prisma = transaction();
 
     await expect(
-      lockProgramAuthoringUploads(prisma as never, []),
+      ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+        prisma as never,
+        [],
+      ),
     ).resolves.toEqual([]);
 
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
@@ -93,7 +92,11 @@ describe('program authoring upload transaction', () => {
     'rejects %s upload tokens before consumption',
     (_case, actorId, tokenIds, uploads, reason) => {
       try {
-        assertAttachableProgramAuthoringUploads(actorId, tokenIds, uploads);
+        ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+          actorId,
+          tokenIds,
+          uploads,
+        );
         throw new Error('Expected upload validation to fail.');
       } catch (error) {
         expect(error).toBeInstanceOf(ProgramAuthoringUploadTokenError);
@@ -109,10 +112,14 @@ describe('program authoring upload transaction', () => {
     const first = upload({ id: 'a', storageKey: 'program-authoring/a' });
     const second = upload({ id: 'b', storageKey: 'program-authoring/b' });
 
-    await consumePendingProgramAuthoringUploads(prisma as never, ACTOR_ID, [
-      { milestoneDocumentId: 'document-b', upload: second },
-      { milestoneDocumentId: 'document-a', upload: first },
-    ]);
+    await ProgramAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+      prisma as never,
+      ACTOR_ID,
+      [
+        { milestoneDocumentId: 'document-b', upload: second },
+        { milestoneDocumentId: 'document-a', upload: first },
+      ],
+    );
 
     const uploadedAtMatcher: unknown = expect.any(Date);
     expect(prisma.milestoneDocumentTemplateFile.upsert).toHaveBeenNthCalledWith(
@@ -167,9 +174,11 @@ describe('program authoring upload transaction', () => {
     prisma.programAuthoringUpload.deleteMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      consumePendingProgramAuthoringUploads(prisma as never, ACTOR_ID, [
-        { milestoneDocumentId: 'document-id', upload: upload() },
-      ]),
+      ProgramAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+        prisma as never,
+        ACTOR_ID,
+        [{ milestoneDocumentId: 'document-id', upload: upload() }],
+      ),
     ).rejects.toEqual(expect.any(ProgramAuthoringUploadConsumptionRaceError));
 
     expect(prisma.programAuthoringUpload.deleteMany).toHaveBeenCalledWith({

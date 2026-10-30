@@ -5,8 +5,8 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import type { CreateSubmissionInput } from './submission.policy';
-import { submissionParticipantWhere } from './submission-checklist-record.repository';
-import { lockSubmissionMembership } from '../platform/platform.repository';
+import { SubmissionChecklistRecordRepository } from './submission-checklist-record.repository';
+import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   type CreateSubmissionRevisionInput,
@@ -14,14 +14,30 @@ import {
   SubmissionsRepository,
 } from './submissions.repository';
 
+const mockLockSubmissionMembership = jest.fn<
+  ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
+  Parameters<typeof PlatformRepository.lockSubmissionMembership>
+>();
+
 jest.mock('../platform/platform.repository', () => {
   const actual = jest.requireActual<
     typeof import('../platform/platform.repository')
   >('../platform/platform.repository');
-  return { ...actual, lockSubmissionMembership: jest.fn() };
+  return {
+    ...actual,
+    PlatformRepository: class extends actual.PlatformRepository {
+      static override lockSubmissionMembership(
+        ...args: Parameters<
+          typeof actual.PlatformRepository.lockSubmissionMembership
+        >
+      ) {
+        return mockLockSubmissionMembership(...args);
+      }
+    },
+  };
 });
 
-const lockMembership = jest.mocked(lockSubmissionMembership);
+const lockMembership = mockLockSubmissionMembership;
 
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const APPLICATION_ID = 'application-1';
@@ -175,7 +191,9 @@ describe('참여자 판정 조건', () => {
     const where = applicationFindFirst.onlyCall().where;
     expect(where).toMatchObject({
       programId: 'program-1',
-      ...submissionParticipantWhere(CURRENT_MEMBER_ID),
+      ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
+        CURRENT_MEMBER_ID,
+      ),
     });
 
     expect(JSON.stringify(where)).not.toContain('leaderId');

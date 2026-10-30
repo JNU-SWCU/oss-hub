@@ -25,10 +25,7 @@ import {
   provisionRetryAt,
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision-failure.policy';
-import {
-  findOrCreateGithubRepository,
-  resolveOwnGithubRepository,
-} from './repository-provision-github.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
 import {
   buildRepositoryNames,
@@ -361,7 +358,7 @@ export class RepositoryProvisionWorkerService {
     await this.jobs.renewLease(jobId, workerId, requestId, now());
     const ownResolution =
       connectionMode === 'OWN'
-        ? await resolveOwnGithubRepository(
+        ? await RepositoryProvisionGithubService.resolveOwnGithubRepository(
             this.github,
 
             repositoryUrl ?? '',
@@ -369,7 +366,7 @@ export class RepositoryProvisionWorkerService {
         : null;
     const metadata =
       ownResolution?.repository ??
-      (await findOrCreateGithubRepository(
+      (await RepositoryProvisionGithubService.findOrCreateGithubRepository(
         this.github,
         buildRepositoryNames({
           programName: context.programName,

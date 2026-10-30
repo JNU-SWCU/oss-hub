@@ -8,7 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { multipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
+import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
@@ -25,28 +25,29 @@ import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-const MilestoneDocumentFileUploadInterceptor = multipartFileUploadInterceptor(
-  {
-    limits: {
-      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-      fieldNameSize: 100,
-      fieldSize: 512,
-      fields: 4,
-      files: 1,
-      parts: 4,
+const MilestoneDocumentFileUploadInterceptor =
+  new MultipartFileUploadInterceptor(
+    {
+      limits: {
+        fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
+        fieldNameSize: 100,
+        fieldSize: 512,
+        fields: 4,
+        files: 1,
+        parts: 4,
+      },
     },
-  },
-  {
-    fileTooLarge:
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-      ],
-    invalidUpload:
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
-      ],
-  },
-);
+    {
+      fileTooLarge:
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.FILE_TOO_LARGE
+        ],
+      invalidUpload:
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
+        ],
+    },
+  );
 
 @Controller('milestone-document-files')
 export class MilestoneDocumentFilesController {

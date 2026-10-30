@@ -12,8 +12,8 @@ import {
 import { addOneCalendarYear } from '../platform/platform.policy';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { submissionParticipantWhere } from './submission-checklist-record.repository';
-import { lockSubmissionMembership } from '../platform/platform.repository';
+import { SubmissionChecklistRecordRepository } from './submission-checklist-record.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
@@ -173,7 +173,11 @@ export class SubmissionFilesRepository {
 
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
-      application: { is: submissionParticipantWhere(user.id) },
+      application: {
+        is: SubmissionChecklistRecordRepository.submissionParticipantWhere(
+          user.id,
+        ),
+      },
     });
   }
 
@@ -186,7 +190,9 @@ export class SubmissionFilesRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
-        ...submissionParticipantWhere(uploaderId),
+        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
+          uploaderId,
+        ),
         program: { milestones: { some: { id: milestoneId } } },
       },
       select: {
@@ -241,7 +247,7 @@ export class SubmissionFilesRepository {
 
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
-      const stillMember = await lockSubmissionMembership(
+      const stillMember = await PlatformRepository.lockSubmissionMembership(
         transaction,
         input.applicationId,
         input.uploaderId,

@@ -1,6 +1,6 @@
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
-import { programApplicationManagerWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 
 export const STUDENT_REPOSITORY_URL_SELECT = {
   id: true,
@@ -40,42 +40,46 @@ export type TeamRepositoryUrlContext = StudentRepositoryUrlContext & {
   };
 };
 
-export async function readTeamRepositoryUrlContext(
-  db: Prisma.TransactionClient,
-  programId: string,
-  teamId: string,
-  actorGithubId: bigint,
-): Promise<TeamRepositoryUrlContext | null> {
-  const actor = await db.user.findFirst({
-    where: { githubId: actorGithubId, accountStatus: AccountStatus.ACTIVE },
-    select: {
-      id: true,
-      nickname: true,
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-    },
-  });
-  if (!actor) return null;
-  const context = await db.application.findUnique({
-    where: { programId_teamId: { programId, teamId } },
-    select: STUDENT_REPOSITORY_URL_SELECT,
-  });
-  if (!context) return null;
-  const leads = await db.application.count({
-    where: {
-      id: context.id,
-      AND: [
-        programApplicationManagerWhere(actor.id),
-        { team: { leader: STUDENT_MEMBER_WHERE } },
-      ],
-    },
-  });
-  return {
-    ...context,
-    editor: {
-      nickname: actor.nickname,
-      isLeader: leads === 1,
-      isStaff: actor.hasStaffAccess || actor.hasAdminAccess,
-    },
-  };
+export class StudentRepositoryUrlContextRepository {
+  static async readTeamRepositoryUrlContext(
+    db: Prisma.TransactionClient,
+    programId: string,
+    teamId: string,
+    actorGithubId: bigint,
+  ): Promise<TeamRepositoryUrlContext | null> {
+    const actor = await db.user.findFirst({
+      where: { githubId: actorGithubId, accountStatus: AccountStatus.ACTIVE },
+      select: {
+        id: true,
+        nickname: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      },
+    });
+    if (!actor) return null;
+    const context = await db.application.findUnique({
+      where: { programId_teamId: { programId, teamId } },
+      select: STUDENT_REPOSITORY_URL_SELECT,
+    });
+    if (!context) return null;
+    const leads = await db.application.count({
+      where: {
+        id: context.id,
+        AND: [
+          ProgramApplicationParticipantRepository.programApplicationManagerWhere(
+            actor.id,
+          ),
+          { team: { leader: STUDENT_MEMBER_WHERE } },
+        ],
+      },
+    });
+    return {
+      ...context,
+      editor: {
+        nickname: actor.nickname,
+        isLeader: leads === 1,
+        isStaff: actor.hasStaffAccess || actor.hasAdminAccess,
+      },
+    };
+  }
 }

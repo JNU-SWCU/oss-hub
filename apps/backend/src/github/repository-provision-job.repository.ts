@@ -6,10 +6,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import {
-  assertCurrentRequest,
-  assertSingleProvisionUpdate,
-} from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
 
 @Injectable()
 export class CollectionCutoverRepository {
@@ -194,7 +191,12 @@ export class RepositoryProvisionJobRepository {
     now: Date,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: {
           id: jobId,
@@ -204,7 +206,9 @@ export class RepositoryProvisionJobRepository {
         },
         data: { lockedAt: now },
       });
-      assertSingleProvisionUpdate(updated.count);
+      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+        updated.count,
+      );
     });
   }
 }

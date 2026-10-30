@@ -14,19 +14,15 @@ import {
   type OutboxEvent as PrismaOutboxEvent,
   type Prisma as PrismaTypes,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { PrismaService } from '../platform/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
 import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  transferProvisionGeneration,
-  writeRepositoryIssuanceHistory,
-} from '../platform/repository-provision-generation.repository';
-import {
-  userProfileNameWhere,
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import type {
   ApplicationListQuery,
@@ -52,9 +48,9 @@ import type {
   RepositoryProvisionJobSnapshot,
 } from './application-decision.policy';
 import {
-  appendReviewHistory,
   type AppendReviewHistoryInput,
   type AppendedReviewHistory,
+  ReviewHistoryWriterRepository,
 } from './review-history-writer.repository';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
@@ -230,7 +226,10 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return appendReviewHistory(this.transaction, input);
+    return ReviewHistoryWriterRepository.appendReviewHistory(
+      this.transaction,
+      input,
+    );
   }
 
   async findApplicationById(
@@ -318,7 +317,7 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
     });
     if (event !== null) {
       const ownsJob = job?.currentEventId === event.id;
-      await writeRepositoryIssuanceHistory(
+      await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
         this.transaction,
         {
           requestId: event.id,
@@ -415,7 +414,7 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
           },
         },
       });
-      await transferProvisionGeneration(
+      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         this.transaction,
         {
           applicationId: input.applicationId,
@@ -447,7 +446,10 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return appendReviewHistory(this.database, input);
+    return ReviewHistoryWriterRepository.appendReviewHistory(
+      this.database,
+      input,
+    );
   }
 
   async lockProgramForApply(
@@ -668,7 +670,7 @@ export class ApplicationsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveUserProfileName(user),
+          name: UserProfileReadRepository.resolveUserProfileName(user),
         }
       : null;
   }
@@ -834,7 +836,7 @@ export class ApplicationsRepository {
       occurredAt: row.occurredAt,
       rejectionReason: row.rejectionReason,
       actor: {
-        name: resolveUserProfileName(row.actor),
+        name: UserProfileReadRepository.resolveUserProfileName(row.actor),
         nickname: row.actor.nickname,
       },
     }));
@@ -995,7 +997,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: userProfileNameWhere(search),
+            applicant: UserProfileReadRepository.userProfileNameWhere(search),
           },
           {
             applicant: {
@@ -1045,7 +1047,11 @@ function buildTeamManagementListWhere(
           members: {
             some: {
               OR: [
-                { user: userProfileNameWhere(query.search) },
+                {
+                  user: UserProfileReadRepository.userProfileNameWhere(
+                    query.search,
+                  ),
+                },
                 {
                   user: {
                     nickname: {
@@ -1109,7 +1115,7 @@ function toTeamManagementListItem(
     rejectionReason: row.rejectionReason,
     applicant: {
       id: row.applicant.id,
-      name: resolveUserProfileName(row.applicant),
+      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
       nickname: row.applicant.nickname,
     },
     team:
@@ -1121,7 +1127,9 @@ function toTeamManagementListItem(
             memberCount: row.team._count.members,
             members: row.team.members.map((member) => ({
               id: member.user.id,
-              name: resolveUserProfileName(member.user),
+              name: UserProfileReadRepository.resolveUserProfileName(
+                member.user,
+              ),
               nickname: member.user.nickname,
             })),
           },
@@ -1260,7 +1268,7 @@ function toApplicationListItem(
     applicant: {
       id: row.applicant.id,
       nickname: row.applicant.nickname,
-      name: resolveUserProfileName(row.applicant),
+      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
     },
     team,
     answers: parseListAnswers(row.answers),
