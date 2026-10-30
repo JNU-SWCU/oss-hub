@@ -31,7 +31,7 @@ export function ProgramDetailScreen({
       renderSignInApply={renderSignInApplyEntry}
       operationsView={
         programView === null
-          ? undefined
+          ? null
           : programView === 'STAFF' || programView === 'ADMIN'
       }
     />

@@ -77,6 +77,7 @@ export function currentRankingYear(now: Date = new Date()): number {
 }
 
 export function rankingListHref(year: RankingYear): string {
+  if (year === currentRankingYear()) return '/ranking';
   if (year === RANKING_YEAR_ALL) return '/ranking?year=all';
   return `/ranking?year=${year}`;
 }

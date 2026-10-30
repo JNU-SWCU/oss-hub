@@ -53,7 +53,7 @@ for (const width of [1440, 390]) {
             .click();
         }
       };
-      await page.goto(`${boardPath}?view=operations`);
+      await page.goto(boardPath);
       await checkCount(0, 'empty');
       await page
         .getByRole('button', { name: '공지 쓰기', exact: true })

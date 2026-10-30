@@ -49,6 +49,7 @@ vi.mock(
 );
 
 import { ProgramDetailScreen } from './program-detail-screen';
+import { ProgramViewContext } from '../../_shell/program-shell-policy';
 
 const program: ProgramDetail = {
   id: 'program:basic',
@@ -99,7 +100,11 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
 
   async function renderScreen() {
     await act(async () => {
-      root.render(<ProgramDetailScreen programId={program.id} />);
+      root.render(
+        <ProgramViewContext.Provider value="STUDENT">
+          <ProgramDetailScreen programId={program.id} />
+        </ProgramViewContext.Provider>,
+      );
     });
   }
 
