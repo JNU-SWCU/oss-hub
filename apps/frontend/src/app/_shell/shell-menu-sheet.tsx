@@ -103,7 +103,7 @@ export function ShellMenuSheet({
           <div
             ref={bodyRef}
             data-slot="shell-menu-sheet-body"
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto *:flex-none"
           >
             {children}
           </div>
