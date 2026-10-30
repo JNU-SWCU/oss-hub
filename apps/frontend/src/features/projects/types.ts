@@ -2,11 +2,7 @@ export type ProjectApplicationMode = 'PERSONAL' | 'TEAM';
 
 export type ProjectTrackType = 'CURRICULAR' | 'EXTRACURRICULAR';
 
-export type ProjectYears = {
-  readonly years: readonly number[];
-};
-
-export type ProjectListItem = {
+export type ProjectDetail = {
   readonly projectId: string;
   readonly programId: string;
   readonly programName: string;
@@ -16,15 +12,9 @@ export type ProjectListItem = {
   readonly repositoryName: string;
   readonly githubUrl: string;
   readonly publishedAt: string;
-  readonly detailUrl: string;
-  readonly modeLabel: '개인' | '팀';
   readonly publishedLabel: string;
-};
-
-export type ProjectPage = {
-  readonly items: readonly ProjectListItem[];
-  readonly pageSize: number;
-  readonly nextPageId: string | null;
+  readonly metrics: ProjectMetrics;
+  readonly contributors: readonly ProjectContributor[];
 };
 
 export type ProjectMetrics = {
@@ -39,11 +29,6 @@ export type ProjectContributor = {
   readonly pullRequestCount: number;
   readonly releaseCount: number;
   readonly githubProfileUrl: string;
-};
-
-export type ProjectDetail = Omit<ProjectListItem, 'detailUrl'> & {
-  readonly metrics: ProjectMetrics;
-  readonly contributors: readonly ProjectContributor[];
 };
 
 export type ProjectDetailState =

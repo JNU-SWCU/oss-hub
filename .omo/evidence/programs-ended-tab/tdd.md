@@ -10,3 +10,12 @@
 - GREEN: the same page test plus `program-api-contracts.test.ts` exited 0:
   2 files, 45 tests passed. LSP reported no errors on the list component.
 - E2E regression: ended-years 404 must retain two cards and hide the year selector.
+
+## SHOULD #4 — detail-only project boundary
+
+- Before removal: moved all 12 malformed-field cases to `parseProjectDetail`.
+  Targeted Vitest exited 0: projects 28 tests, list page 21 tests passed.
+- RED: not applicable to behavior-preserving removal; tests were green first.
+- Removed list/year API helpers, their test-only parsers/types, and list labels.
+- GREEN: projects 24 tests passed after removal; `pnpm lint:structure` exited 0,
+  no unused code found (5 existing configuration hints).

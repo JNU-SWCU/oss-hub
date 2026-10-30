@@ -5,10 +5,7 @@ import {
   type ProjectTrackType,
   type ProjectContributor,
   type ProjectDetail,
-  type ProjectListItem,
   type ProjectMetrics,
-  type ProjectPage,
-  type ProjectYears,
 } from './types';
 
 const INVALID_RESPONSE_MESSAGE = '공개 프로젝트 응답 형식이 올바르지 않습니다';
@@ -58,12 +55,6 @@ function nonNegativeInteger(value: unknown): number {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
     return value;
   }
-  return invalidResponse();
-}
-
-function positiveInteger(value: unknown): number {
-  const parsed = nonNegativeInteger(value);
-  if (parsed > 0) return parsed;
   return invalidResponse();
 }
 
@@ -142,50 +133,6 @@ const PROJECT_FIELD_KEYS = [
   'publishedAt',
 ] as const;
 
-type ProjectFields = Omit<
-  ProjectListItem,
-  'detailUrl' | 'modeLabel' | 'publishedLabel'
->;
-
-function projectFields(value: Record<string, unknown>): ProjectFields {
-  rejectLeftoverCategory(value);
-  const id = projectId(value.projectId);
-  const mode = applicationMode(value.applicationMode);
-  const repositoryName = nonEmptyString(value.repositoryName);
-
-  return {
-    projectId: id,
-    programId: nonEmptyString(value.programId),
-    programName: nonEmptyString(value.programName),
-    trackType: trackType(value.trackType),
-    applicationMode: mode,
-    displayName: nonEmptyString(value.displayName),
-    repositoryName,
-    githubUrl: githubUrl(value.githubUrl, repositoryName),
-    publishedAt: isoDate(value.publishedAt),
-  };
-}
-
-function withLabels(fields: ProjectFields): Omit<ProjectListItem, 'detailUrl'> {
-  return {
-    ...fields,
-    modeLabel: fields.applicationMode === 'PERSONAL' ? '개인' : '팀',
-    publishedLabel: new Intl.DateTimeFormat('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(new Date(fields.publishedAt)),
-  };
-}
-
-function listItem(value: unknown): ProjectListItem {
-  if (!isRecord(value) || !hasExactKeys(value, PROJECT_FIELD_KEYS)) {
-    return invalidResponse();
-  }
-  const fields = projectFields(value);
-  return { ...withLabels(fields), detailUrl: `/projects/${fields.projectId}` };
-}
-
 const METRICS_KEYS = [
   'commitCount',
   'pullRequestCount',
@@ -224,24 +171,6 @@ function contributor(value: unknown): ProjectContributor {
   };
 }
 
-const PAGE_KEYS = ['items', 'pageSize', 'nextPageId'] as const;
-
-export function parseProjectPage(value: unknown): ProjectPage {
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, PAGE_KEYS) ||
-    !Array.isArray(value.items)
-  ) {
-    return invalidResponse();
-  }
-  const pageSize = positiveInteger(value.pageSize);
-  if (value.items.length > pageSize) return invalidResponse();
-  const nextPageId =
-    value.nextPageId === null ? null : nonEmptyString(value.nextPageId);
-
-  return { items: value.items.map(listItem), pageSize, nextPageId };
-}
-
 const DETAIL_KEYS = [...PROJECT_FIELD_KEYS, 'metrics', 'contributors'];
 
 export function parseProjectDetail(value: unknown): ProjectDetail {
@@ -252,66 +181,28 @@ export function parseProjectDetail(value: unknown): ProjectDetail {
   ) {
     return invalidResponse();
   }
-  const fields = projectFields(value);
+  rejectLeftoverCategory(value);
+  const repositoryName = nonEmptyString(value.repositoryName);
+  const publishedAt = isoDate(value.publishedAt);
 
   return {
-    ...withLabels(fields),
+    projectId: projectId(value.projectId),
+    programId: nonEmptyString(value.programId),
+    programName: nonEmptyString(value.programName),
+    trackType: trackType(value.trackType),
+    applicationMode: applicationMode(value.applicationMode),
+    displayName: nonEmptyString(value.displayName),
+    repositoryName,
+    githubUrl: githubUrl(value.githubUrl, repositoryName),
+    publishedAt,
+    publishedLabel: new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date(publishedAt)),
     metrics: metrics(value.metrics),
     contributors: value.contributors.map(contributor),
   };
-}
-
-export async function loadProjectPage(input: {
-  readonly pageId: string | null;
-  readonly pageSize: number;
-  readonly year?: number;
-}): Promise<ProjectPage> {
-  const query = new URLSearchParams({ pageSize: String(input.pageSize) });
-  if (input.pageId !== null) query.set('pageId', input.pageId);
-  if (input.year !== undefined) query.set('year', String(input.year));
-
-  try {
-    return parseProjectPage(
-      await apiClient<unknown>(`projects?${query.toString()}`),
-    );
-  } catch {
-    throw new ProjectLoadError();
-  }
-}
-
-const YEARS_KEYS = ['years'] as const;
-
-export function parseProjectYears(value: unknown): ProjectYears {
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, YEARS_KEYS) ||
-    !Array.isArray(value.years)
-  ) {
-    return invalidResponse();
-  }
-  const years = value.years.map((entry) => {
-    if (typeof entry !== 'number' || !Number.isInteger(entry)) {
-      return invalidResponse();
-    }
-    return entry;
-  });
-  return { years };
-}
-
-export async function loadProjectYears(
-  signal?: AbortSignal,
-): Promise<readonly number[]> {
-  try {
-    const parsed = parseProjectYears(
-      await apiClient<unknown>(
-        'projects/years',
-        signal ? { signal } : undefined,
-      ),
-    );
-    return parsed.years;
-  } catch {
-    throw new ProjectLoadError();
-  }
 }
 
 export async function loadProjectDetail(

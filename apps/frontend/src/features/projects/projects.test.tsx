@@ -2,12 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
 import {
-  loadProjectYears,
   loadProjectDetail,
-  loadProjectPage,
-  parseProjectYears,
   parseProjectDetail,
-  parseProjectPage,
 } from './api';
 import { ProjectDetailContent } from './components/project-detail-view';
 
@@ -34,12 +30,6 @@ const item = {
   publishedAt: '2026-07-24T01:00:00.000Z',
 };
 
-const pageResponse = {
-  items: [item],
-  pageSize: 12,
-  nextPageId: 'cursor-2',
-};
-
 const detailResponse = {
   ...item,
   metrics: {
@@ -58,12 +48,7 @@ const detailResponse = {
 };
 
 describe('public project parsers', () => {
-  it('accepts the frozen page and detail contracts', () => {
-    expect(parseProjectPage(pageResponse)).toMatchObject({
-      pageSize: 12,
-      nextPageId: 'cursor-2',
-      items: [{ modeLabel: '팀', detailUrl: '/projects/repo_123' }],
-    });
+  it('accepts the frozen detail contract', () => {
     expect(parseProjectDetail(detailResponse)).toMatchObject({
       repositoryName: 'oss-public',
       metrics: { commitCount: 42, pullRequestCount: 7, releaseCount: 3 },
@@ -113,9 +98,13 @@ describe('public project parsers', () => {
       { ...item, githubUrl: 'https://github.com/JNU-SWCU/oss-public/' },
     ],
     ['unknown key', { ...item, ownerEmail: 'leak@example.com' }],
-  ])('%s is rejected from the list contract', (_case, malformed) => {
+  ])('%s is rejected from the detail contract', (_case, malformed) => {
     expect(() =>
-      parseProjectPage({ ...pageResponse, items: [malformed] }),
+      parseProjectDetail({
+        ...malformed,
+        metrics: detailResponse.metrics,
+        contributors: detailResponse.contributors,
+      }),
     ).toThrow('공개 프로젝트 응답 형식이 올바르지 않습니다');
   });
 
@@ -147,50 +136,6 @@ describe('public project parsers', () => {
 });
 
 describe('public project API boundary', () => {
-  it('uses apiClient with keyset cursor pagination', async () => {
-    vi.mocked(apiClient).mockResolvedValue(pageResponse);
-
-    await expect(
-      loadProjectPage({ pageId: 'cursor-1', pageSize: 12 }),
-    ).resolves.toMatchObject({ nextPageId: 'cursor-2' });
-    expect(apiClient).toHaveBeenCalledWith(
-      'projects?pageSize=12&pageId=cursor-1',
-    );
-  });
-
-  it('omits pageId on the first page', async () => {
-    vi.mocked(apiClient).mockResolvedValue({
-      ...pageResponse,
-      nextPageId: null,
-    });
-
-    await loadProjectPage({ pageId: null, pageSize: 12 });
-    expect(apiClient).toHaveBeenCalledWith('projects?pageSize=12');
-  });
-
-  it('sends year to the server list query', async () => {
-    vi.mocked(apiClient).mockResolvedValue({
-      ...pageResponse,
-      nextPageId: null,
-    });
-
-    await loadProjectPage({
-      pageId: null,
-      pageSize: 12,
-      year: 2026,
-    });
-    expect(apiClient).toHaveBeenCalledWith('projects?pageSize=12&year=2026');
-  });
-
-  it('loads years for the sidebar', async () => {
-    const years = { years: [2026, 2025] };
-    vi.mocked(apiClient).mockResolvedValue(years);
-
-    await expect(loadProjectYears()).resolves.toEqual([2026, 2025]);
-    expect(apiClient).toHaveBeenCalledWith('projects/years', undefined);
-    expect(parseProjectYears(years).years).toEqual([2026, 2025]);
-  });
-
   it('maps the canonical not-found problem code without exposing its detail', async () => {
     vi.mocked(apiClient).mockRejectedValue(
       new ApiError({
