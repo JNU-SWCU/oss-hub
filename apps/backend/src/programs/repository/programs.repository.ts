@@ -25,7 +25,7 @@ import {
 } from '../domain/program-list-status';
 import {
   programListOrderBySql,
-  programEndYearSql,
+  programEndYearRange,
   programListPrismaWhere,
   programListSqlWhere,
   programStatusCountsSql,
@@ -51,10 +51,7 @@ export class ProgramsRepository {
         ? {
             AND: [
               {
-                endAt: {
-                  gte: new Date(Date.UTC(query.year, 0, 1, -9)),
-                  lt: new Date(Date.UTC(query.year + 1, 0, 1, -9)),
-                },
+                endAt: programEndYearRange(query.year),
               },
             ],
           }
@@ -97,6 +94,7 @@ export class ProgramsRepository {
   }
 
   async findEndedYears(now: Date): Promise<readonly number[]> {
+    const programEndYearSql = Prisma.sql`EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int`;
     const rows = await this.prisma.$queryRaw<
       readonly { readonly year: number }[]
     >(Prisma.sql`

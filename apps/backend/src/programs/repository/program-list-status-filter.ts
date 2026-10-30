@@ -118,7 +118,12 @@ export function programListSqlStatusPredicate(
   return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
 }
 
-export const programEndYearSql = Prisma.sql`EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int`;
+export function programEndYearRange(year: number) {
+  return {
+    gte: new Date(Date.UTC(year, 0, 1, -9)),
+    lt: new Date(Date.UTC(year + 1, 0, 1, -9)),
+  };
+}
 
 export function programListSortRankSql(now: Date): Prisma.Sql {
   return Prisma.sql`
@@ -193,7 +198,8 @@ export function programListSqlWhere(
 ): Prisma.Sql {
   const conditions: Prisma.Sql[] = [programListSqlStatusPredicate(status, now)];
   if (year !== undefined) {
-    conditions.push(Prisma.sql`${programEndYearSql} = ${year}`);
+    const { gte, lt } = programEndYearRange(year);
+    conditions.push(Prisma.sql`p."endAt" >= ${gte} AND p."endAt" < ${lt}`);
   }
   if (search) {
     conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);

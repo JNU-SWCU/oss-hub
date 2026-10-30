@@ -16,10 +16,16 @@ describe('programListSqlWhere ended filters', () => {
   it('composes Seoul end year with status and search as bound parameters', () => {
     const where = programListSqlWhere('ended', 'Program', now, 2027);
 
-    expect(normalize(where.sql)).toContain(
-      `EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int = ?`,
-    );
-    expect(where.values).toEqual([now, now, now, 'ended', 2027, '%Program%']);
+    expect(normalize(where.sql)).toContain('p."endAt" >= ? AND p."endAt" < ?');
+    expect(where.values).toEqual([
+      now,
+      now,
+      now,
+      'ended',
+      new Date('2026-12-31T15:00:00.000Z'),
+      new Date('2027-12-31T15:00:00.000Z'),
+      '%Program%',
+    ]);
   });
 
   it('excludes lifecycle and date ended programs from current', () => {

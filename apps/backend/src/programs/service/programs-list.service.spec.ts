@@ -337,7 +337,12 @@ describe('ProgramsRepository list', () => {
       },
     });
     expect(queryRaw.mock.calls[0]?.[0].values).toEqual(
-      expect.arrayContaining([2027, '%Program%', 10]),
+      expect.arrayContaining([
+        new Date('2026-12-31T15:00:00.000Z'),
+        new Date('2027-12-31T15:00:00.000Z'),
+        '%Program%',
+        10,
+      ]),
     );
   });
 });

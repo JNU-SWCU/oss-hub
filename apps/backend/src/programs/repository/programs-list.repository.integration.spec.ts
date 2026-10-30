@@ -647,6 +647,40 @@ describe('ProgramsRepository list ordering integration', () => {
       ]);
     });
 
+    it.each([
+      {
+        status: 'ended' as const,
+        year: 2027,
+        ids: ['ended-2027-a', 'ended-2027-b'],
+      },
+      {
+        status: 'current' as const,
+        year: 2028,
+        ids: ['exact-now', 'in-progress', 'recruiting', 'upcoming'],
+      },
+      { status: 'current' as const, year: 2027, ids: [] },
+    ])(
+      'matches count and rows for $status in $year',
+      async ({ status, year, ids }) => {
+        const [items, total] = await repository.listPrograms(
+          {
+            page: 1,
+            pageSize: 20,
+            search: 'YearFixture',
+            status,
+            year,
+            sort: 'name',
+          },
+          endedNow,
+        );
+
+        expect(items.map((item) => item.id)).toEqual(
+          ids.map((id) => `${TEST_PREFIX}${id}`),
+        );
+        expect(total).toBe(items.length);
+      },
+    );
+
     it('returns distinct descending Seoul years including archived programs only from the ended catalog', async () => {
       await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
         2029, 2027, 2026,
