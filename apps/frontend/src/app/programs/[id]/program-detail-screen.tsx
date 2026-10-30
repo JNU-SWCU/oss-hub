@@ -9,6 +9,7 @@ import {
 } from '@/features/programs/catalog/program-detail-page';
 import { programDocumentsHref } from '@/lib/program-route';
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
+import { renderSignInApplyEntry } from './sign-in-apply-entry';
 
 export function ProgramDetailScreen({
   programId,
@@ -37,6 +38,7 @@ export function ProgramDetailScreen({
     <ProgramDetailPage
       programId={programId}
       session={session}
+      renderSignInApply={renderSignInApplyEntry}
       operationsView={
         programView === null
           ? undefined

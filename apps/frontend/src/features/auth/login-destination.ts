@@ -1,6 +1,8 @@
 import { isInternalPath } from '@/lib/internal-path';
+import { readSearchParam, type SearchParamsInput } from './auth-error';
 
 const KEY = 'oss-hub-login-destination';
+export const RETURN_TO_PARAM = 'returnTo';
 const MAX_AGE_MS = 10 * 60 * 1000;
 const EXCLUDED = [
   '/signup',
@@ -12,18 +14,34 @@ const EXCLUDED = [
   '/account-deactivated',
 ] as const;
 
-export function loginDestination(value: unknown): string | null {
-  if (!isInternalPath(value) || /[?#\s%]/.test(value)) return null;
-  if (
-    [...value].some(
+const PROBE_ORIGIN = 'https://internal.invalid';
+
+function decodedSegments(path: string): string[] | null {
+  try {
+    return path.split('/').map((segment) => decodeURIComponent(segment));
+  } catch {
+    return null;
+  }
+}
+
+function isUnsafeSegment(segment: string): boolean {
+  return (
+    segment === '.' ||
+    segment === '..' ||
+    /[/\\]/.test(segment) ||
+    [...segment].some(
       (character) =>
         character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
     )
-  )
-    return null;
-  if (value.split('/').some((segment) => segment === '.' || segment === '..'))
-    return null;
-  const path = value.toLowerCase();
+  );
+}
+
+export function loginDestination(value: unknown): string | null {
+  if (!isInternalPath(value) || /[?#\s]/.test(value)) return null;
+  if (new URL(value, PROBE_ORIGIN).pathname !== value) return null;
+  const segments = decodedSegments(value);
+  if (!segments || segments.some(isUnsafeSegment)) return null;
+  const path = segments.join('/').toLowerCase();
   if (
     EXCLUDED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   )
@@ -31,11 +49,8 @@ export function loginDestination(value: unknown): string | null {
   return value;
 }
 
-export function signupForDestination(value: unknown): string {
-  const destination = loginDestination(value);
-  return destination && destination !== '/'
-    ? `/signup?${new URLSearchParams({ returnTo: destination })}`
-    : '/signup';
+export function readReturnTo(searchParams: SearchParamsInput): string | null {
+  return loginDestination(readSearchParam(searchParams, RETURN_TO_PARAM));
 }
 
 export function getLoginDestinationStorage(): Storage | null {

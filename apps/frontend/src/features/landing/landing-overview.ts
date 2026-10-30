@@ -18,12 +18,9 @@ export interface LandingGraphEdge {
 }
 
 export interface LandingGraph {
-  readonly source: 'public' | 'example';
   readonly nodes: readonly LandingGraphNode[];
   readonly edges: readonly LandingGraphEdge[];
 }
-
-export type LandingGraphCompleteness = 'complete' | 'partial';
 
 export interface LandingProgram {
   readonly coverImageUrl?: string | null;
@@ -32,6 +29,11 @@ export interface LandingProgram {
   readonly organizer: string;
   readonly trackType: string | null;
   readonly applicationEndAt: string;
+}
+
+export interface LandingProgramName {
+  readonly id: string;
+  readonly name: string;
 }
 
 export interface LandingArchiveItem {
@@ -50,7 +52,7 @@ export interface LandingArchiveDetail {
 
 const INVALID_RESPONSE_MESSAGE = '랜딩 공개 응답 형식이 올바르지 않습니다';
 
-export class LandingOverviewResponseError extends Error {
+class LandingOverviewResponseError extends Error {
   constructor() {
     super(INVALID_RESPONSE_MESSAGE);
     this.name = 'LandingOverviewResponseError';
@@ -121,6 +123,17 @@ export function parseLandingProgramPage(
       trackType: parsedTrackType === null ? null : String(parsedTrackType),
       applicationEndAt: isoDate(input.applicationEndAt),
     };
+  });
+}
+
+export function parseLandingProgramNamePage(
+  value: unknown,
+): readonly LandingProgramName[] {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return page.items.map((item) => {
+    const input = record(item);
+    return { id: publicId(input.id), name: nonEmptyString(input.name) };
   });
 }
 

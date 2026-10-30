@@ -25,7 +25,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
-        pathname="/dashboard/personal"
+        returnTo="/dashboard/personal"
         accountRoles="학생 · 교직원 · 관리자"
         logoutError={null}
         menuOpen
@@ -47,7 +47,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={null}
-        pathname="/programs"
+        returnTo="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -58,13 +58,13 @@ describe('LoginButtonView', () => {
     expect(html).toBe('');
   });
 
-  it('익명 세션이면 GitHub이 아니라 가입·로그인 진입(/signup)으로 보낸다', () => {
+  it('익명 세션이면 /signup을 거치지 않고 GitHub 로그인으로 바로 보낸다', () => {
     const session = { isAuthenticated: false } satisfies AuthSession;
 
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={session}
-        pathname="/programs"
+        returnTo="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -73,17 +73,18 @@ describe('LoginButtonView', () => {
     );
 
     expect(html).toContain('로그인');
-    expect(html).toContain('href="/signup?returnTo=%2Fprograms"');
-    expect(html).not.toContain(githubLoginPath);
+    expect(html).toContain(`href="${githubLoginPath}"`);
+    expect(html).not.toContain('/signup');
   });
 
-  it('좁은 화면용 짧은 라벨을 함께 렌더하고 접근성 이름은 전체 라벨로 고정한다', () => {
+  it('계정 선택이 요청되면 같은 로그인 버튼이 계정 선택 경로로 간다', () => {
     const session = { isAuthenticated: false } satisfies AuthSession;
 
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={session}
-        pathname="/programs"
+        returnTo={null}
+        selectAccount
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -91,16 +92,37 @@ describe('LoginButtonView', () => {
       />,
     );
 
-    expect(html).toContain('aria-label="로그인"');
-    expect(html).toContain('<span class="sm:hidden">로그인</span>');
-    expect(html).toContain('<span class="hidden sm:inline">로그인');
+    expect(html).toContain(
+      `href="${apiPath('auth/github?prompt=select_account')}"`,
+    );
+    expect(html).toContain('<span>로그인</span>');
+    expect(html).not.toContain('다른 계정');
+  });
+
+  it('보이는 라벨은 "로그인"이고 GitHub 표기는 접근성 이름에만 둔다', () => {
+    const session = { isAuthenticated: false } satisfies AuthSession;
+
+    const html = renderToStaticMarkup(
+      <LoginButtonView
+        session={session}
+        returnTo="/programs"
+        logoutError={null}
+        menuOpen={false}
+        onMenuOpenChange={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="GitHub으로 로그인"');
+    expect(html).toContain('<span>로그인</span>');
+    expect(html).not.toContain('sm:hidden');
   });
 
   it('인증 세션이면 아바타·닉네임 트리거를 렌더하고 닫힌 메뉴는 숨긴다', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
-        pathname="/programs"
+        returnTo="/programs"
         logoutError={null}
         menuOpen={false}
         onMenuOpenChange={vi.fn()}
@@ -123,7 +145,7 @@ describe('LoginButtonView', () => {
     const html = renderToStaticMarkup(
       <LoginButtonView
         session={authenticatedSession}
-        pathname="/programs"
+        returnTo="/programs"
         logoutError={null}
         menuOpen={true}
         onMenuOpenChange={vi.fn()}
@@ -154,24 +176,5 @@ describe('LoginButtonView', () => {
       expect(attrs).toMatch(/class="[^"]*\bw-full\b/);
       expect(attrs).toMatch(/class="[^"]*\btext-left\b/);
     }
-  });
-});
-
-describe('현재 화면을 다시 가리키는 진입 버튼', () => {
-  it('/signup에 서 있으면 가입·로그인 버튼을 내지 않는다', () => {
-    const session = { isAuthenticated: false } satisfies AuthSession;
-
-    const html = renderToStaticMarkup(
-      <LoginButtonView
-        session={session}
-        pathname="/signup"
-        logoutError={null}
-        menuOpen={false}
-        onMenuOpenChange={vi.fn()}
-        onLogout={vi.fn()}
-      />,
-    );
-
-    expect(html).toBe('');
   });
 });

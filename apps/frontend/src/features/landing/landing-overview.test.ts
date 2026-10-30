@@ -3,6 +3,7 @@ import { buildPublicLandingGraph } from './landing-graph';
 import {
   parseLandingArchiveDetail,
   parseLandingArchivePage,
+  parseLandingProgramNamePage,
   parseLandingProgramPage,
 } from './landing-overview';
 
@@ -99,7 +100,6 @@ describe('landing public overview boundary', () => {
 
     const graph = buildPublicLandingGraph(archive, [detail]);
 
-    expect(graph.source).toBe('public');
     expect(graph.nodes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -120,6 +120,39 @@ describe('landing public overview boundary', () => {
       ]),
     );
     expect(graph.edges).toHaveLength(2);
+  });
+
+  it('parses program names for the constellation and drops every other field', () => {
+    const names = parseLandingProgramNamePage({
+      items: [
+        {
+          id: 'seed:intake:program-seven-templates:BASIC',
+          name: 'seed-program-basic',
+          organizer: 'seed-organizer',
+          lifecycle: 'PUBLISHED',
+          description: '시드 fixture 설명',
+        },
+      ],
+      page: 1,
+      pageSize: 6,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    expect(names).toEqual([
+      {
+        id: 'seed:intake:program-seven-templates:BASIC',
+        name: 'seed-program-basic',
+      },
+    ]);
+  });
+
+  it('rejects a program name page whose item has no usable name', () => {
+    expect(() =>
+      parseLandingProgramNamePage({
+        items: [{ id: 'program_public_01', name: '   ' }],
+      }),
+    ).toThrow('랜딩 공개 응답 형식이 올바르지 않습니다');
   });
 
   it('rejects archive ids that could escape the public app routes', () => {

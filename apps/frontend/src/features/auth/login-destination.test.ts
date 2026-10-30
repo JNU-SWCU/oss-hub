@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
   loginDestination,
+  readReturnTo,
   rememberLoginDestination,
-  signupForDestination,
   takeLoginDestination,
 } from './login-destination';
 
@@ -11,9 +11,6 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
   beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.restoreAllMocks());
   it('원래 업무 경로는 한 번만 복귀한다', () => {
-    expect(signupForDestination('/programs/42/apply')).toBe(
-      '/signup?returnTo=%2Fprograms%2F42%2Fapply',
-    );
     rememberLoginDestination(sessionStorage, '/programs/42/apply', 0);
     expect(takeLoginDestination(sessionStorage, 1)).toBe('/programs/42/apply');
     expect(takeLoginDestination(sessionStorage, 2)).toBeNull();
@@ -47,8 +44,25 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
     '/API/v1/auth/github',
     '/onboarding/../auth/github',
     '/programs\u0000',
+    '/programs/%2e%2e/auth/github',
+    '/programs/%2E%2E/%2e%2e/api/v1/auth/logout',
+    '/programs/a%2f..%2f..%2fauth',
+    '/programs/a%5cevil.example',
+    '/programs/a%00',
+    '/%61pi/v1/auth/logout',
+    '/programs/%E0%A4%A',
+    '/programs/ü',
   ])('인증 또는 정규화 우회 경로 %s를 거절한다', (value) => {
     expect(loginDestination(value)).toBeNull();
+  });
+  it.each([
+    '/programs/seed%3Ae2e%3Adeadline-digest%3Aprogram/apply',
+    '/programs/ex%3Ap1',
+    '/programs/cmui7576v006gqm0100o20wkf/apply',
+  ])('인코딩된 프로그램 경로 %s는 그대로 복귀 목적지가 된다', (value) => {
+    expect(loginDestination(value)).toBe(value);
+    rememberLoginDestination(sessionStorage, value, 0);
+    expect(takeLoginDestination(sessionStorage, 1)).toBe(value);
   });
   it('정확히 10분이 지나면 만료하고 조작된 먼 미래 만료값도 버린다', () => {
     rememberLoginDestination(sessionStorage, '/ranking', 0);
@@ -85,5 +99,25 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
       throw new DOMException('Full', 'QuotaExceededError');
     });
     expect(() => rememberLoginDestination(storage, '/ranking')).not.toThrow();
+  });
+});
+
+describe('주소의 returnTo 읽기', () => {
+  it.each([
+    ['문자열', '?returnTo=%2Fprograms%2F42%2Fapply'],
+    ['URLSearchParams', new URLSearchParams('returnTo=/programs/42/apply')],
+    ['객체', { returnTo: '/programs/42/apply' }],
+    ['배열 객체', { returnTo: ['/programs/42/apply', '/ranking'] }],
+  ])('%s 형태에서 유효한 업무 경로를 꺼낸다', (_label, input) => {
+    expect(readReturnTo(input)).toBe('/programs/42/apply');
+  });
+  it.each([
+    '',
+    '?loggedOut=1',
+    '?returnTo=%2F%2Fevil.example',
+    '?returnTo=%2Fsignup',
+    '?returnTo=%2Fprograms%3Ftoken%3Dx',
+  ])('returnTo가 없거나 거절된 %s 에서는 null이다', (search) => {
+    expect(readReturnTo(search)).toBeNull();
   });
 });

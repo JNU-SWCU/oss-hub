@@ -91,7 +91,7 @@ function mainContentTag(html: string): string {
 
 describe('AppFrame', () => {
   it('모든 라우트에 공통 상단 NavBar가 있다', () => {
-    for (const path of ['/', '/signup', '/dashboard', '/programs']) {
+    for (const path of ['/', '/consent', '/dashboard', '/programs']) {
       expect(render(path), path).toContain('data-slot="nav-bar"');
     }
   });
@@ -104,7 +104,7 @@ describe('AppFrame', () => {
   });
 
   it('가입 화면에는 사이드바를 달지 않는다', () => {
-    for (const path of ['/signup', '/consent', '/onboarding/role']) {
+    for (const path of ['/consent', '/onboarding/role']) {
       const html = render(path);
       expect(html, path).not.toContain('data-slot="app-sidebar"');
       expect(html, path).toContain('data-slot="nav-bar"');
@@ -204,7 +204,7 @@ describe('AppFrame', () => {
     expect(render('/dashboard')).toContain('id="main-content"');
   });
 
-  it.each(['/signup', '/consent', '/onboarding/role', '/onboarding/profile'])(
+  it.each(['/consent', '/onboarding/role', '/onboarding/profile'])(
     '%s 는 본문 전체를 반전 표면으로 둔다',
     (path) => {
       expect(mainContentTag(render(path))).toContain('data-surface="inverted"');

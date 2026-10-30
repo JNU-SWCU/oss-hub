@@ -1,97 +1,61 @@
-import {
-  FOCUS_PROGRAM,
-  type CosmosGraph,
-  type CosmosNode,
-} from './cosmos-graph';
-import { ease, lerp, segment } from './cosmos-theme';
+import { smoothstep } from './cosmos-theme';
 
-const TILT = 0.42;
-export const PERSP = 3.2;
+const PERSP = 3.2;
 
-export interface CosmosWorldPoint {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
-
-export interface CosmosCamera {
-  readonly ang: number;
-  readonly fx: number;
-  readonly fy: number;
-  readonly fz: number;
+export interface CosmosOrbit {
+  readonly yaw: number;
+  readonly pitch: number;
   readonly zoom: number;
-  readonly toNebula: number;
-  readonly inside: number;
-  readonly toHero: number;
-  readonly back: number;
-  readonly dimOthers: number;
-  readonly soloHero: number;
-  readonly reveal: number;
 }
 
-export function worldXform(node: CosmosNode, ang: number): CosmosWorldPoint {
-  const ca = Math.cos(ang);
-  const sa = Math.sin(ang);
-  const x = node.x * ca + node.z * sa;
-  const z1 = -node.x * sa + node.z * ca;
-  const ct = Math.cos(TILT);
-  const st = Math.sin(TILT);
-  return { x, y: node.y * ct - z1 * st, z: node.y * st + z1 * ct };
+export interface CosmosView {
+  readonly cx: number;
+  readonly cy: number;
+  readonly radius: number;
 }
 
-export function cameraAt(
-  graph: CosmosGraph,
-  p: number,
-  time: number,
-): CosmosCamera {
-  const ang = time * 0.000075 + p * 1.15;
-  const toNebula = ease(segment(p, 0.14, 0.42));
-  const inside = ease(segment(p, 0.42, 0.62));
-  const toHero = ease(segment(p, 0.62, 0.8));
-  const back = ease(segment(p, 0.86, 1.0));
+export interface CosmosProjected {
+  ok: boolean;
+  x: number;
+  y: number;
+  scale: number;
+  depth: number;
+}
 
-  const focusNode = graph.nodes[FOCUS_PROGRAM];
-  const heroNode = graph.nodes[graph.hero];
-  const nebula = focusNode ? worldXform(focusNode, ang) : { x: 0, y: 0, z: 0 };
-  const heroPos = heroNode ? worldXform(heroNode, ang) : { x: 0, y: 0, z: 0 };
-
-  let fx = lerp(0, nebula.x, toNebula);
-  let fy = lerp(0, nebula.y, toNebula);
-  let fz = lerp(0, nebula.z, toNebula);
-  fx = lerp(fx, heroPos.x, toHero);
-  fy = lerp(fy, heroPos.y, toHero);
-  fz = lerp(fz, heroPos.z, toHero);
-  fx = lerp(fx, 0, back);
-  fy = lerp(fy, 0, back);
-  fz = lerp(fz, 0, back);
-
-  let zoom = lerp(1.0, 2.9, toNebula);
-  zoom = lerp(zoom, 4.4, inside);
-  zoom = lerp(zoom, 6.8, toHero);
-  zoom = lerp(zoom, 1.18, back);
-
+export function viewFor(w: number, h: number, zoom: number): CosmosView {
   return {
-    ang,
-    fx,
-    fy,
-    fz,
-    zoom,
-    toNebula,
-    inside,
-    toHero,
-    back,
-    dimOthers:
-      Math.max(segment(p, 0.3, 0.52) * 0.75, ease(segment(p, 0.62, 0.78))) *
-      (1 - back),
-    soloHero: ease(segment(p, 0.66, 0.8)) * (1 - back),
-    reveal: segment(p, 0.4, 0.64),
+    cx: w * 0.5,
+    cy: h * 0.48,
+    radius: Math.min(w * 0.46, h * 0.42) * zoom,
   };
 }
 
-export const PANEL_RANGES: readonly (readonly [number, number])[] = [
-  [0.0, 0.16],
-  [0.2, 0.38],
-  [0.44, 0.6],
-  [0.66, 0.82],
-  [0.88, 1.01],
-];
+export function projectPoint(
+  px: number,
+  py: number,
+  pz: number,
+  orbit: CosmosOrbit,
+  view: CosmosView,
+  out: CosmosProjected,
+): void {
+  const cy = Math.cos(orbit.yaw);
+  const sy = Math.sin(orbit.yaw);
+  const x = px * cy + pz * sy;
+  const z1 = -px * sy + pz * cy;
+  const cp = Math.cos(orbit.pitch);
+  const sp = Math.sin(orbit.pitch);
+  const y = py * cp - z1 * sp;
+  const z = py * sp + z1 * cp;
+  if (z > PERSP - 0.4) {
+    out.ok = false;
+    out.scale = 0;
+    out.depth = 1;
+    return;
+  }
+  const scale = PERSP / (PERSP - z);
+  out.ok = true;
+  out.scale = scale;
+  out.x = view.cx + x * view.radius * scale;
+  out.y = view.cy + y * view.radius * scale;
+  out.depth = smoothstep(-0.78, 0.78, z);
+}

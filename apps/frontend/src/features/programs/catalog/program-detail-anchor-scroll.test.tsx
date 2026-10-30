@@ -82,7 +82,12 @@ afterEach(() => {
 describe('프로그램 활동 딥링크 위치 유지', () => {
   it('2초보다 늦게 레이아웃이 바뀌어도 활동 영역을 다시 맞춘다', () => {
     act(() => {
-      root.render(<ProgramDetailReadyState program={program} />);
+      root.render(
+        <ProgramDetailReadyState
+          renderSignInApply={() => null}
+          program={program}
+        />,
+      );
     });
     expect(scrollIntoView).toHaveBeenCalled();
 
@@ -110,7 +115,12 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
 
   it('사용자가 스크롤을 시작하면 레이아웃 관찰을 중단한다', async () => {
     act(() => {
-      root.render(<ProgramDetailReadyState program={program} />);
+      root.render(
+        <ProgramDetailReadyState
+          renderSignInApply={() => null}
+          program={program}
+        />,
+      );
     });
     const resizeObserver = resizeObservers.at(-1);
     if (resizeObserver === undefined) {
@@ -126,7 +136,12 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
     window.location.hash = '';
 
     act(() => {
-      root.render(<ProgramDetailReadyState program={program} />);
+      root.render(
+        <ProgramDetailReadyState
+          renderSignInApply={() => null}
+          program={program}
+        />,
+      );
     });
 
     expect(resizeObservers.at(-1)).toBeUndefined();
