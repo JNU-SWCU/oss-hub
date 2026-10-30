@@ -150,6 +150,17 @@ describe('public project API boundary', () => {
     );
     expect(apiClient).toHaveBeenCalledWith('projects/repo_123');
   });
+
+  it('rejects slash identifiers before requesting and keeps safe ids unchanged', async () => {
+    await expect(loadProjectDetail('repo/123')).rejects.toThrow(
+      '공개 프로젝트를 찾을 수 없습니다',
+    );
+    expect(apiClient).not.toHaveBeenCalled();
+
+    vi.mocked(apiClient).mockResolvedValue(detailResponse);
+    await loadProjectDetail('repo_123');
+    expect(apiClient).toHaveBeenCalledWith('projects/repo_123');
+  });
 });
 
 describe('public project views', () => {

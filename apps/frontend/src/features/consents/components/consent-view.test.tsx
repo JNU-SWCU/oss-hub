@@ -18,7 +18,7 @@ const policy: CurrentConsent = {
     {
       key: 'PRIVACY',
       label: '개인정보 제공 동의',
-      documentUrl: '/policies/privacy/test.html',
+      documentUrl: '/policies/privacy',
     },
   ],
   consented: false,
@@ -127,7 +127,7 @@ describe('ConsentPolicyInline', () => {
     expect(textOf(html)).toContain('개인정보 제공 동의 전문');
     expect(html).toContain('data-slot="consent-policy-close"');
     expect(html).toContain('sandbox=""');
-    expect(html).toContain('src="/policies/privacy/test.html"');
+    expect(html).toContain('src="/policies/privacy"');
   });
 
   it('초점을 받을 수 있는 영역이다', () => {

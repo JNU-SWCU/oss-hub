@@ -1,4 +1,4 @@
-﻿import { act } from 'react';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
@@ -387,11 +387,22 @@ describe('ProgramEditPage 컴포넌트', () => {
     container.remove();
     window.confirm = originalConfirm;
     restoreHistoryBack();
+    vi.restoreAllMocks();
   });
 
-  it.each(['PUBLISHED', 'ARCHIVED'] as const)(
-    'published/archived 프로그램은 저장하지 않은 입력이 있어도 한 번 확인한 뒤 삭제한다 (%s)',
-    async (lifecycle) => {
+  it.each([
+    { lifecycle: 'PUBLISHED', storageBlocked: false },
+    { lifecycle: 'ARCHIVED', storageBlocked: false },
+    { lifecycle: 'PUBLISHED', storageBlocked: true },
+  ] as const)(
+    '저장하지 않은 입력이 있어도 한 번 확인한 뒤 삭제한다 (%j)',
+    async ({ lifecycle, storageBlocked }) => {
+      sessionStorage.clear();
+      if (storageBlocked) {
+        vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
+          throw new DOMException('Blocked', 'SecurityError');
+        });
+      }
       const program = { ...editableProgram, lifecycle };
       getEditableProgramMock.mockResolvedValue(program);
       purgeProgramMock.mockResolvedValue({
@@ -435,8 +446,16 @@ describe('ProgramEditPage 컴포넌트', () => {
         program.deletionScopeCounts,
       );
       expect(confirmMock).not.toHaveBeenCalled();
-      expect(routerPushMock).toHaveBeenCalledWith(
-        `/programs?purged=${encodeURIComponent('지원서 1건')}`,
+      expect(routerPushMock).toHaveBeenCalledWith('/programs');
+      expect(
+        JSON.parse(sessionStorage.getItem('oss-hub-program-purged') ?? 'null'),
+      ).toEqual(
+        storageBlocked
+          ? null
+          : {
+              destination: '/programs',
+              summary: '지원서 1건',
+            },
       );
     },
   );
