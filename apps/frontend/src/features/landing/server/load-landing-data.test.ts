@@ -118,6 +118,7 @@ describe('server landing data', () => {
     expect(console.warn).toHaveBeenCalledWith('landing.data.unavailable', {
       part,
       error: 'ServerApiError',
+      status: expect.any(Number) as number,
     });
   });
 

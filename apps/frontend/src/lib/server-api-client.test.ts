@@ -20,6 +20,7 @@ async function freshClient() {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -102,4 +103,60 @@ it('rejects at the deadline even when the request ignores its abort signal', asy
   await vi.advanceTimersByTimeAsync(2000);
 
   await settled;
+});
+
+it('goes through the production site so the origin gate sees a Vercel request', async () => {
+  vi.stubEnv('VERCEL_ENV', 'production');
+  vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', 'jnu-oss-hub.com');
+  vi.stubEnv('ORIGIN_BASIC_AUTH', 'Basic secret');
+  const { backendOrigin, serverApiClient } = await freshClient();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockImplementation(() => Promise.resolve(Response.json({ items: [] })));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await serverApiClient('programs', cache);
+
+  expect(backendOrigin).not.toHaveBeenCalled();
+  expect(fetchMock.mock.calls[0]?.[0]).toBe(
+    'https://jnu-oss-hub.com/api/v1/programs',
+  );
+  expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('headers');
+});
+
+it('reads the validated backend origin with its credential outside Vercel production', async () => {
+  vi.stubEnv('VERCEL_ENV', 'preview');
+  vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', 'jnu-oss-hub.com');
+  vi.stubEnv('ORIGIN_BASIC_AUTH', 'Basic secret');
+  const { backendOrigin, serverApiClient } = await freshClient();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockImplementation(() => Promise.resolve(Response.json({ items: [] })));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await serverApiClient('programs', cache);
+
+  expect(backendOrigin).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls[0]?.[0]).toBe(
+    'https://approved.example/api/v1/programs',
+  );
+  expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+    headers: { Authorization: 'Basic secret' },
+  });
+});
+
+it('ignores a production host that is not a plain hostname', async () => {
+  vi.stubEnv('VERCEL_ENV', 'production');
+  vi.stubEnv('VERCEL_PROJECT_PRODUCTION_URL', 'evil.example/path?x=');
+  const { serverApiClient } = await freshClient();
+  const fetchMock = vi
+    .fn<typeof fetch>()
+    .mockImplementation(() => Promise.resolve(Response.json({ items: [] })));
+  vi.stubGlobal('fetch', fetchMock);
+
+  await serverApiClient('programs', cache);
+
+  expect(fetchMock.mock.calls[0]?.[0]).toBe(
+    'https://approved.example/api/v1/programs',
+  );
 });

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { serverApiClient } from '@/lib/server-api-client';
+import { ServerApiError, serverApiClient } from '@/lib/server-api-client';
 import { programOverviewHref } from '@/lib/program-route';
 import { COSMOS_PROGRAM_COUNT } from '../cosmos/cosmos-graph';
 import { buildPublicLandingGraph } from '../landing-graph';
@@ -51,6 +51,10 @@ function arrived<T>(
         part,
         error:
           result.reason instanceof Error ? result.reason.name : 'UnknownError',
+        status:
+          result.reason instanceof ServerApiError
+            ? result.reason.status
+            : undefined,
       });
       return fallback;
   }
