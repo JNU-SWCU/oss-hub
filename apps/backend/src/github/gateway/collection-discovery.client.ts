@@ -49,11 +49,38 @@ const USER_ACTIVITY_QUERY = `
       remaining
     }
     user(login: $login) {
+      organizations(first: 100) {
+        nodes {
+          login
+        }
+      }
       contributionsCollection(from: $from, to: $to) {
         totalCommitContributions
         totalPullRequestContributions
         totalIssueContributions
         totalRepositoryContributions
+        commitContributionsByRepository(maxRepositories: 100) {
+          repository {
+            nameWithOwner
+            isPrivate
+            stargazerCount
+            owner {
+              __typename
+              login
+            }
+          }
+        }
+        pullRequestContributionsByRepository(maxRepositories: 100) {
+          repository {
+            nameWithOwner
+            isPrivate
+            stargazerCount
+            owner {
+              __typename
+              login
+            }
+          }
+        }
       }
       repositories(first: 100, ownerAffiliations: OWNER, privacy: PUBLIC, after: $after) {
         totalCount
@@ -90,7 +117,8 @@ export class CollectionDiscoveryClient {
       issueCount: number;
       repositoryCount: number;
     } | null = null;
-    let starCount = 0;
+    let ownedStarCount = 0;
+    let organizationStarCount = 0;
     let after: string | null = null;
     for (let page = 0; ; page += 1) {
       if (page >= MAX_ACTIVITY_PAGES) {
@@ -115,19 +143,64 @@ export class CollectionDiscoveryClient {
           issueCount: this.count(collection.totalIssueContributions),
           repositoryCount: this.count(collection.totalRepositoryContributions),
         };
+        organizationStarCount = this.memberOrganizationStars(
+          collection,
+          this.organizationLogins(record),
+        );
       }
       const repositories = this.record(record.repositories);
       const nodes = repositories.nodes;
       if (!Array.isArray(nodes)) this.invalid();
       for (const node of nodes) {
         if (node === null || node === undefined) continue;
-        starCount += this.count(this.record(node).stargazerCount);
+        ownedStarCount += this.count(this.record(node).stargazerCount);
       }
       const pageInfo = this.record(repositories.pageInfo);
       if (!this.boolean(pageInfo.hasNextPage)) break;
       after = this.string(pageInfo.endCursor);
     }
-    return { ...counts, starCount };
+    return { ...counts, starCount: ownedStarCount + organizationStarCount };
+  }
+
+  private organizationLogins(user: Record<string, unknown>): Set<string> {
+    const nodes = this.record(user.organizations).nodes;
+    if (!Array.isArray(nodes)) this.invalid();
+    const logins = new Set<string>();
+    for (const node of nodes) {
+      if (node === null || node === undefined) continue;
+      logins.add(this.string(this.record(node).login).toLowerCase());
+    }
+    return logins;
+  }
+
+  private memberOrganizationStars(
+    collection: Record<string, unknown>,
+    organizationLogins: ReadonlySet<string>,
+  ): number {
+    const starsByRepository = new Map<string, number>();
+    for (const field of [
+      'commitContributionsByRepository',
+      'pullRequestContributionsByRepository',
+    ]) {
+      const contributions = collection[field];
+      if (!Array.isArray(contributions)) this.invalid();
+      for (const contribution of contributions) {
+        if (contribution === null || contribution === undefined) continue;
+        const repository = this.record(this.record(contribution).repository);
+        const owner = this.record(repository.owner);
+        if (this.boolean(repository.isPrivate)) continue;
+        if (this.string(owner.__typename) !== 'Organization') continue;
+        if (!organizationLogins.has(this.string(owner.login).toLowerCase()))
+          continue;
+        starsByRepository.set(
+          this.string(repository.nameWithOwner).toLowerCase(),
+          this.count(repository.stargazerCount),
+        );
+      }
+    }
+    let total = 0;
+    for (const stars of starsByRepository.values()) total += stars;
+    return total;
   }
 
   private async request(payload: {
