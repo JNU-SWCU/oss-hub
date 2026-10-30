@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
-import { subscribeBoardListInvalidation } from '@/features/board/board-list-refetch';
+import { skipToken, useQuery } from '@tanstack/react-query';
 import {
   useProgramNavigationMilestonesQuery,
   useProgramOverviewQuery,
@@ -10,7 +8,7 @@ import {
 } from '@/features/programs/catalog/queries';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 import type { ProgramNavigationMilestone } from '@/features/programs/catalog/program-navigation-dto';
-import { featureKey, programFeatureKey } from '@/lib/query-keys';
+import { featureKey } from '@/lib/query-keys';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import type { ProgramScopeViewerRole, ShellSection } from './sidebar-menu';
 import type { MemberAccess } from './member-access';
@@ -40,7 +38,6 @@ export function useProductShellData({
   readonly scopeViewerRole: ProgramScopeViewerRole;
   readonly scopeViewReady: boolean;
 } {
-  const queryClient = useQueryClient();
   const scopedProgramId = shouldLoadProgramOverview(programDetailId, member)
     ? programDetailId
     : null;
@@ -84,16 +81,6 @@ export function useProductShellData({
     queryKey: featureKey('shell-facets', section),
     queryFn: facetLoader ? ({ signal }) => facetLoader(signal) : skipToken,
   });
-
-  useEffect(() => {
-    if (scopedProgramId === null) return;
-    return subscribeBoardListInvalidation(scopedProgramId, () => {
-      const queryKey = programFeatureKey(scopedProgramId, 'overview');
-      void queryClient
-        .cancelQueries({ queryKey })
-        .then(() => queryClient.invalidateQueries({ queryKey }));
-    });
-  }, [queryClient, scopedProgramId]);
 
   return {
     facetData: facetLoader ? facets.data : undefined,

@@ -2,16 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { programFeatureKey } from '@/lib/query-keys';
 import { useBoardListUrlState } from '../board-list-url-state';
-import { useBoardListQuery } from '../queries';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { invalidateBoard, useBoardListQuery } from '../queries';
+import { useCallback, useMemo, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { createBoardPost } from '../api';
-import {
-  invalidateBoardList,
-  subscribeBoardListInvalidation,
-} from '../board-list-refetch';
 import {
   hasBoardPostInputError,
   mapBoardError,
@@ -67,16 +62,6 @@ export function BoardListScreen({
 
   const retry = () => void query.refetch();
 
-  useEffect(
-    () =>
-      subscribeBoardListInvalidation(programId, () => {
-        void queryClient.invalidateQueries({
-          queryKey: programFeatureKey(programId, 'board'),
-        });
-      }),
-    [programId, queryClient],
-  );
-
   const toggleNewPost = useCallback(() => {
     setNewPostOpen((open) => !open);
     setNewPostTitle('');
@@ -92,7 +77,7 @@ export function BoardListScreen({
     setNewPostSubmitError(null);
     createBoardPost(programId, { title: newPostTitle, body: newPostBody })
       .then((post) => {
-        invalidateBoardList(programId);
+        void invalidateBoard(queryClient, programId);
         router.push(boardPostHref(programId, post.id));
       })
       .catch((error: unknown) => {
@@ -103,7 +88,14 @@ export function BoardListScreen({
             : '잠시 후 다시 시도해 주세요.',
         );
       });
-  }, [programId, newPostTitle, newPostBody, newPostErrors, router]);
+  }, [
+    programId,
+    newPostTitle,
+    newPostBody,
+    newPostErrors,
+    router,
+    queryClient,
+  ]);
 
   return (
     <BoardListContent
