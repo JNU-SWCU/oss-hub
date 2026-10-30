@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { ProgramCoverController } from '../controller/program-cover.controller';
 import { ProgramCoverService } from '../service/program-cover.service';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { OBJECT_STORAGE } from '../../storage/domain/object-storage';
+import { OBJECT_STORAGE } from '../../platform/object-storage.types';
 import { ProgramListPageResponseDto } from '../dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from '../service/programs.service';

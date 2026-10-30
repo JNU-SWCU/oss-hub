@@ -11,7 +11,7 @@ import { GithubOperationsConfig } from './github-operations.config';
 import {
   PRIVATE_KEY_FILE_ERROR_CODES,
   PrivateKeyFileError,
-} from '../runtime-config/private-key-file';
+} from '../platform/private-key-file.config';
 
 const PEM_HEADER = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
 const PEM_FOOTER = ['-----END', 'PRIVATE KEY-----'].join(' ');

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramActivityService } from '../service/program-activity.service';

@@ -9,8 +9,8 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
-import { transferProvisionGeneration } from '../../prisma/repository-provision-generation';
+import { PrismaService } from '../../platform/prisma.service';
+import { transferProvisionGeneration } from '../../platform/repository-provision-generation.repository';
 import { RepositoriesRepository } from '../repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import {

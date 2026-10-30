@@ -1,6 +1,6 @@
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SubmissionChecklistController } from '../../submissions/controller/submission-checklist.controller';

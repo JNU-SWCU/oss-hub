@@ -1,6 +1,6 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { ApplicationsRepository } from './applications.repository';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 
 const TEAM_ID = 'synthetic-team';
 const LEADER_ID = 'synthetic-leader';

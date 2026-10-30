@@ -1,4 +1,4 @@
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { DEPARTMENT_COHORTS } from '../domain/department-cohort';
 import { StaffInsightsService } from './staff-insights.service';

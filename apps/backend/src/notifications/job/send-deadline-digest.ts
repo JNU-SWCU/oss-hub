@@ -2,7 +2,7 @@ import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { isEmail } from 'class-validator';
 import { AppModule } from '../../app.module';
-import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
+import { PROCESS_RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import {
   buildStudentDeadlineMail,
   parseFrontendOrigin,

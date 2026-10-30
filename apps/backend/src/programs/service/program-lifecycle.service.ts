@@ -3,10 +3,10 @@ import { AccountStatus } from '@prisma/client';
 import {
   createProgramDeletionAuditMetadata,
   PROGRAM_DELETION_AUDIT_ACTIONS,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { isSerializationFailure } from '../../common/repository/prisma-serialization-retry';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { isSerializationFailure } from '../../platform/prisma-serialization-retry.repository';
 import {
   sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,

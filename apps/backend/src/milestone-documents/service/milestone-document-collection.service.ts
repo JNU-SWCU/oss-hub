@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import type { MilestoneDocumentDeliveryCollectionResult } from '../domain/milestone-document-result';
 import { MilestoneDocumentCollectionReadRepository } from '../repository/milestone-document-collection-read.repository';
 import {

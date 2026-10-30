@@ -1,10 +1,10 @@
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { USER_PROFILE_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { USER_PROFILE_AUDIT_ACTIONS } from '../../platform/audit-log-metadata.policy';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { mutateAdminUserProfile } from '../service/admin-profile-mutation.service';
 import {

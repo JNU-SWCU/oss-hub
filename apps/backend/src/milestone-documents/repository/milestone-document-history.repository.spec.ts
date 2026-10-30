@@ -3,7 +3,7 @@ import {
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentsRepository,

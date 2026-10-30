@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { SubmissionFileCleanupRetryService } from '../service/submission-file-cleanup-retry.service';
 
 const ENABLED_VALUE = '1';

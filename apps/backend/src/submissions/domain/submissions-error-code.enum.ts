@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../../common/error-code';
+import type { ErrorCode } from '../../platform/error-code.error';
 import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from './submission-upload-policy';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,

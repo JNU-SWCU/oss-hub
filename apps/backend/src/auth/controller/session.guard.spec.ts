@@ -2,7 +2,7 @@ import { MemberKind } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { ExecutionContext } from '@nestjs/common';
 import { SignJWT } from 'jose';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { AuthErrorCode } from '../domain/auth-error-code.enum';
 import { AuthConfig } from '../auth.config';
 import { AuthService } from '../service/auth.service';

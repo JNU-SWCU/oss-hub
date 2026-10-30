@@ -11,7 +11,7 @@ import {
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
 } from '../domain/submission-review';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,

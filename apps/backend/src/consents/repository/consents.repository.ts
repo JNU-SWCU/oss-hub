@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Consent as PrismaConsent, Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ConsentRecord, ConsentUser } from '../domain/consent';
 
 @Injectable()

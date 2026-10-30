@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { ProgramEditorRepository } from './program-editor.repository';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 
 it.each([
   'findMilestoneForUpdate',

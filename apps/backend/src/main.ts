@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { configureHttpApp } from './common/controller/configure-http-app';
-import type { RuntimeConfig } from './runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from './runtime-config/runtime-config.module';
+import { configureHttpApp } from './platform/configure-http-app.config';
+import type { RuntimeConfig } from './platform/runtime-config.config';
+import { RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);

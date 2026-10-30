@@ -1,5 +1,5 @@
 import { ProgramAuthoringValidationError } from './program-authoring-validation';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   parseProgramNoticeImageUrl,
   parseProgramNoticeUrl,

@@ -8,7 +8,7 @@ import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { ConsentsService } from '../../consents/service/consents.service';
 import { isCompleteProfileFields } from '../../users/domain/user-profile-policy';
 import type {

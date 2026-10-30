@@ -12,7 +12,7 @@ import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/d
 import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
-import { PrismaService } from '../../src/prisma/prisma.service';
+import { PrismaService } from '../../src/platform/prisma.service';
 import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
 import { PrismaStorageReferenceRepository } from '../../src/submissions/repository/storage-orphan-reconciliation.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';

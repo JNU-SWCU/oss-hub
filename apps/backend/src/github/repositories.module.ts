@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
-import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { PlatformModule } from '../platform/platform.module';
+import { AuditLogService } from '../platform/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { ConsentsService } from '../consents/service/consents.service';
@@ -21,7 +21,7 @@ import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollm
 import { OwnRepositoryUrlValidationService } from './service/own-repository-url-validation.service';
 
 @Module({
-  imports: [AuthModule, AuditLogModule, ConsentsModule],
+  imports: [AuthModule, PlatformModule, ConsentsModule],
   controllers: [RepositoriesController],
   providers: [
     CollectionIncrementalRepository,

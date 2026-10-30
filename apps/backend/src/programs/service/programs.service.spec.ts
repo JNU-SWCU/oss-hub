@@ -5,7 +5,7 @@ import {
   SubmissionStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   hasProgramDeadlinePassed,
   programDeadline,

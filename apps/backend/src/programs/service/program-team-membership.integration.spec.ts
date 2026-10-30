@@ -9,10 +9,10 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../../platform/audit-log-metadata.policy';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';

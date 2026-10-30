@@ -3,7 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../../audit-log/domain/audit-log-metadata';
+} from '../../platform/audit-log-metadata.policy';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
 

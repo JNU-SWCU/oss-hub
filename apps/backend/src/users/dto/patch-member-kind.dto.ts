@@ -6,8 +6,8 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import {
   MEMBER_KINDS,
   normalizeStaffNumber,

@@ -1,8 +1,8 @@
 import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
-import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
-import type { AuditLogRecordInput } from '../../audit-log/domain/audit-log-record-input';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
-import type { PrismaService } from '../../prisma/prisma.service';
+import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../../platform/audit-log-metadata.policy';
+import type { AuditLogRecordInput } from '../../platform/audit-log-record-input.types';
+import type { AuditLogService } from '../../platform/audit-log.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scope';
 import {
   PROGRAM_ERROR_CODES,

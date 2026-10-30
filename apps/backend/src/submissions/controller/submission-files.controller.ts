@@ -14,8 +14,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OriginGuard } from '../../auth/controller/origin.guard';
-import { setDownloadHeaders } from '../../common/controller/download-response';
-import { multipartFileUploadInterceptor } from '../../common/controller/multipart-file-upload.interceptor';
+import { setDownloadHeaders } from '../../platform/download-response.types';
+import { multipartFileUploadInterceptor } from '../../platform/multipart-file-upload.interceptor';
 import { SubmissionFilesService } from '../service/submission-files.service';
 import type {
   SubmissionFileUpload,

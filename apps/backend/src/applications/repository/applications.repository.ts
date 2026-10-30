@@ -16,20 +16,20 @@ import type {
   OutboxEvent as PrismaOutboxEvent,
   Prisma as PrismaTypes,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import { parseRepositoryProvisionEvent } from '../../github/domain/repository-provision-event';
 import {
   transferProvisionGeneration,
   writeRepositoryIssuanceHistory,
-} from '../../prisma/repository-provision-generation';
+} from '../../platform/repository-provision-generation.repository';
 import {
   userProfileNameWhere,
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import type { ApplicationListQuery } from '../domain/application-list-query';
 import type {
   ApplicationDecisionTarget,

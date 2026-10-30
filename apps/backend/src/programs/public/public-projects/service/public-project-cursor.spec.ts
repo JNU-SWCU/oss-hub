@@ -1,6 +1,6 @@
 import { createCipheriv, randomBytes } from 'node:crypto';
-import { DomainException } from '../../../../common/error-code';
-import { loadRuntimeConfig } from '../../../../runtime-config/runtime-config';
+import { DomainException } from '../../../../platform/error-code.error';
+import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
 import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,

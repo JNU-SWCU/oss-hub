@@ -1,6 +1,6 @@
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
-import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
-import { programApplicationManagerWhere } from '../../prisma/program-application-participant';
+import { STUDENT_MEMBER_WHERE } from '../../platform/user-profile-read.repository';
+import { programApplicationManagerWhere } from '../../platform/program-application-participant.repository';
 
 export const STUDENT_REPOSITORY_URL_SELECT = {
   id: true,

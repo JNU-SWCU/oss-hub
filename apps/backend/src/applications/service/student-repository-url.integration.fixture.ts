@@ -6,9 +6,9 @@ import {
   ProgramCategory,
   RepositorySource,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { PrismaService } from '../../platform/prisma.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { ApplicationsRepository } from '../repository/applications.repository';
 import { StudentRepositoryUrlRepository } from '../repository/student-repository-url.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';

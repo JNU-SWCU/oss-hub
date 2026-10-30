@@ -1,7 +1,7 @@
 import {
   appendSubmissionReview,
   appendSubmissionReviewEvent,
-} from '../../prisma/submission-review-writer';
+} from '../../platform/submission-review-writer.repository';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -17,15 +17,15 @@ import {
 import {
   lockProgramTree,
   type MilestoneLock,
-} from '../../prisma/lock-program-tree';
-import { PrismaService } from '../../prisma/prisma.service';
+} from '../../platform/lock-program-tree.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
 import type { ProgramDocumentChangeRequestCandidate } from '../domain/program-document-change-request';
 import type {

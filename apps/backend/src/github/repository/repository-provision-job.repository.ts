@@ -4,7 +4,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   assertCurrentRequest,
   assertSingleProvisionUpdate,

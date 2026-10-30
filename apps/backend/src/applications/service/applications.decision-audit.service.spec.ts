@@ -3,8 +3,8 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
+import type { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
 import {
   APPLICATION_DECISION_ACTIONS,
   type ApplicationDecisionNotificationInput,

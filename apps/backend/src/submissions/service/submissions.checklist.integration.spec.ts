@@ -18,7 +18,7 @@ import {
 } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 import { SubmissionsRepository } from '../repository/submissions.repository';
 import { SubmissionsService } from './submissions.service';

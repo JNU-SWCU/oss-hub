@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
-import { DomainException } from '../../common/error-code';
+import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
+import { DomainException } from '../../platform/error-code.error';
 import { programDeadline } from '../../programs/domain/program-deadline';
 import type {
   CreateSubmissionInput,

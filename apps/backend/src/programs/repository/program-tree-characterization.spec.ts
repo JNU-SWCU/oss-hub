@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
 describe('program tree early returns', () => {

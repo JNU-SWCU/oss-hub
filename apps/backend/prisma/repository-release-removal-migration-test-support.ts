@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Prisma } from '@prisma/client';
-import type { PrismaService } from '../src/prisma/prisma.service';
+import type { PrismaService } from '../src/platform/prisma.service';
 import { migrationStatements } from './program-authoring-migration-test-support';
 
 export const REPOSITORY_RELEASE_REMOVAL_MIGRATION_NAME =

@@ -1,6 +1,6 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import { profileRecord } from './member-authority-test-fixtures';
 import { buildProfileCompletion } from '../domain/member-profile-completion';

@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_DEPARTMENT_SELECT,
   resolveUserProfileDepartment,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;

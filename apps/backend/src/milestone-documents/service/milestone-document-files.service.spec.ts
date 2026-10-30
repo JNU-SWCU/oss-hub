@@ -11,7 +11,7 @@ import {
   MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
 } from './milestone-document-files.service';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,

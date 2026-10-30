@@ -1,4 +1,4 @@
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,

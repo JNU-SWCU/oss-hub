@@ -1,6 +1,6 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type {

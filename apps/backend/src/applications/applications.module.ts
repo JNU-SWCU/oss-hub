@@ -1,9 +1,9 @@
 import { ApplicationPreparationsController } from './controller/application-preparations.controller';
+import { PlatformModule } from '../platform/platform.module';
 import { ApplicationPreparationsService } from './service/application-preparations.service';
 import { ApplicationPreparationsRepository } from './repository/application-preparations.repository';
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
-import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../github/collection.module';
 import { RepositoriesModule } from '../github/repositories.module';
@@ -34,7 +34,7 @@ import { StudentRepositoryUrlRepository } from './repository/student-repository-
 @Module({
   imports: [
     ConsentsModule,
-    AuditLogModule,
+    PlatformModule,
     AuthModule,
     UsersModule,
 

@@ -21,6 +21,10 @@ const layers = [
 ];
 const modulePatterns = ['src/(programs/public/*)', 'src/(*)'];
 const moduleGlobs = ['src/programs/public/*', 'src/*'];
+const flatModules =
+  'auth|users|programs|ranking|student|staff|admin|notifications|github|platform';
+const flatModulePattern = `src/(${flatModules})`;
+const flatModuleGlob = `src/{${flatModules.replaceAll('|', ',')}}`;
 const testFiles = [
   'test/**/*.ts',
   'src/**/*.spec.ts',
@@ -31,15 +35,16 @@ const testFiles = [
   'src/**/*support.ts',
 ];
 const moduleFiles = moduleGlobs.map((pattern) => `${pattern}/*.module.ts`);
-const repositoryFiles = moduleGlobs.map(
-  (pattern) => `${pattern}/repository/**/*.ts`,
-);
+const repositoryFiles = [
+  ...moduleGlobs.map((pattern) => `${pattern}/repository/**/*.ts`),
+  `${flatModuleGlob}/*.repository.ts`,
+];
 const dtoFiles = moduleGlobs.map((pattern) => `${pattern}/dto/**/*.ts`);
 const enumExemptFiles = [
   ...testFiles,
   ...moduleFiles,
   ...repositoryFiles,
-  'src/prisma/**/*.ts',
+  'src/platform/prisma.service.ts',
   'prisma/**/*.ts',
 ];
 const enumPattern = `/^(${prismaEnumNames.join('|')})$/`;
@@ -64,7 +69,8 @@ const unsupportedCycleSyntax = [
       '순환 검사에서 지원하지 않는 import equals 대신 정적 import 선언을 사용한다.',
   },
 ];
-const runtimeConfigFile = 'src/runtime-config/runtime-config.ts';
+const runtimeConfigFiles = ['src/platform/runtime-config.config.ts'];
+const lockProgramTreeFiles = '**/src/platform/lock-program-tree.repository.ts';
 const nestTestingImport = {
   name: '@nestjs/testing',
   message:
@@ -461,6 +467,7 @@ const policies = [
     allow: {
       to: [
         element('service'),
+        element('prisma'),
         category('composition'),
         { element: { captured: { module: '{{from.file.captured.module}}' } } },
         { file: { captured: { module: '{{from.file.captured.module}}' } } },
@@ -477,11 +484,11 @@ const policies = [
     allow: { to: { module: { origin: ['local', 'external', 'core'] } } },
   },
   {
-    disallow: { to: { file: { path: '**/src/prisma/lock-program-tree.ts' } } },
+    disallow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
     from: [element('repository'), category('test')],
-    allow: { to: { file: { path: '**/src/prisma/lock-program-tree.ts' } } },
+    allow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
     from: { file: { path: '**/src/github/**' } },
@@ -544,6 +551,29 @@ export async function createRailsConfig(rootDir) {
           },
         ],
         'boundaries/elements': [
+          {
+            type: 'prisma',
+            pattern: [
+              'src/platform/prisma.service.ts',
+              'src/platform/{user-profile-read,user-profile-write,lock-program-tree,staff-access-request,audit-log-transaction-writer,repository-access-sync,submission-review-writer,repository-provision-generation,linked-program-repository,submission-membership-lock,program-application-participant}.repository.ts',
+            ],
+            mode: 'full',
+          },
+          {
+            type: 'runtime-config',
+            pattern:
+              'src/platform/{runtime-config,runtime-config-instance,private-key-file,join-code-secret}.config.ts',
+            mode: 'full',
+          },
+          {
+            type: 'common',
+            pattern: [
+              'src/platform/configure-http-app.config.ts',
+              'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,download-response.types,prisma-serialization-retry.repository}.ts',
+              'src/platform/{system-error-code,error-code,activity-counts,deterministic-string-order,add-one-calendar-year,multipart-file-name}.{policy,error,types}.ts',
+            ],
+            mode: 'full',
+          },
           ...['common', 'prisma', 'runtime-config'].map((type) => ({
             type,
             pattern: `src/${type}`,
@@ -557,6 +587,20 @@ export async function createRailsConfig(rootDir) {
               partialMatch: false,
             })),
           ),
+          ...Object.entries({
+            controller: '*.{controller,guard,interceptor,filter}.ts',
+            service: '*.service.ts',
+            repository: '*.repository.ts',
+            gateway: '*.client.ts',
+            job: '*.{job,scheduler}.ts',
+            dto: 'dto/*.dto.ts',
+            domain: '*.{policy,error,types,config}.ts',
+          }).map(([type, suffix]) => ({
+            type,
+            pattern: `${flatModulePattern}/${suffix}`,
+            mode: 'full',
+            capture: ['module'],
+          })),
         ],
         'boundaries/files': [
           { category: 'test', pattern: testFiles },
@@ -580,9 +624,14 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'storage-public',
             pattern: [
-              'src/storage/storage.module.ts',
-              'src/storage/*.{key,token}.ts',
+              'src/platform/platform.module.ts',
+              'src/platform/object-storage.{types,token}.ts',
             ],
+          },
+          {
+            category: 'guard',
+            pattern: `${flatModulePattern}/*.{guard,interceptor,filter}.ts`,
+            capture: ['module'],
           },
           ...modulePatterns.flatMap((pattern) => [
             {
@@ -716,7 +765,7 @@ export async function createRailsConfig(rootDir) {
     },
     {
       files: ['src/**/*.ts'],
-      ignores: [...testFiles, runtimeConfigFile],
+      ignores: [...testFiles, ...runtimeConfigFiles],
       rules: {
         'architecture/restricted-syntax': [
           'error',

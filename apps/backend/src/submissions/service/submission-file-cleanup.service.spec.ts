@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import type { SubmissionFilesRepository } from '../repository/submission-files.repository';
 

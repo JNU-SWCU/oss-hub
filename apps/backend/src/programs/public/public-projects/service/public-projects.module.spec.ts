@@ -1,5 +1,5 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { PrismaModule } from '../../../../prisma/prisma.module';
+import { PlatformModule } from '../../../../platform/platform.module';
 import { PublicEligibilityModule } from '../../public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from '../controller/public-projects.controller';
 import { PublicProjectsModule } from '../public-projects.module';
@@ -18,7 +18,7 @@ describe('PublicProjectsModule', () => {
     const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
 
     expect(imports).toEqual(
-      expect.arrayContaining([PrismaModule, PublicEligibilityModule]),
+      expect.arrayContaining([PlatformModule, PublicEligibilityModule]),
     );
   });
 

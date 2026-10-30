@@ -5,13 +5,13 @@ import {
   Prisma,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   STUDENT_MEMBER_WHERE,
   resolveUserProfileName,
   userProfileNameWhere,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import {
   PreparationConflict,
   type PreparationInvitation,

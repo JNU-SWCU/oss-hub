@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import type { Readable } from 'node:stream';
-import { DomainException } from '../../common/error-code';
-import { normalizeMultipartFileName } from '../../common/domain/multipart-file-name';
+import { DomainException } from '../../platform/error-code.error';
+import { normalizeMultipartFileName } from '../../platform/multipart-file-name.policy';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
@@ -16,7 +16,7 @@ import { hasValidSubmissionTemplateSignature } from '../../submissions/domain/su
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,

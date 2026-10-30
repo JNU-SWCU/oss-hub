@@ -3,7 +3,7 @@ import {
   type DefaultTreeAdapterMap,
   type TreeAdapter,
 } from 'parse5';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code';
 
 type Node = DefaultTreeAdapterMap['node'];

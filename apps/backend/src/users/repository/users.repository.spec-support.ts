@@ -1,4 +1,4 @@
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   UsersRepository,
   type RecordPhoneAudit,

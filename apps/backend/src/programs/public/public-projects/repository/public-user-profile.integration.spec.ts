@@ -10,9 +10,9 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../../test/integration-database.guard';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaService } from '../../../../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
-import { loadRuntimeConfig } from '../../../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
 import { PublicEligibilityService } from '../../public-eligibility/service/public-eligibility.service';
 import { PublicUserProfileResponseDto } from '../dto/public-project-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';

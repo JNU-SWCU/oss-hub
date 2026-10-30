@@ -4,8 +4,8 @@ import {
   hkdfSync,
   randomBytes,
 } from 'node:crypto';
-import { DomainException } from '../../../../common/error-code';
-import type { RuntimeConfig } from '../../../../runtime-config/runtime-config';
+import { DomainException } from '../../../../platform/error-code.error';
+import type { RuntimeConfig } from '../../../../platform/runtime-config.config';
 import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,

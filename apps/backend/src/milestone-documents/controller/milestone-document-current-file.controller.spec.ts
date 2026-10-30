@@ -7,8 +7,8 @@ import { AuthService } from '../../auth/service/auth.service';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { DomainException } from '../../common/error-code';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { DomainException } from '../../platform/error-code.error';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileService } from '../service/milestone-document-current-file.service';
 import {

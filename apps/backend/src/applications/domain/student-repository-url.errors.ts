@@ -1,4 +1,7 @@
-import { DomainException, type ErrorCode } from '../../common/error-code';
+import {
+  DomainException,
+  type ErrorCode,
+} from '../../platform/error-code.error';
 
 export const STUDENT_REPOSITORY_URL_ERRORS = {
   closed: {

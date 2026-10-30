@@ -5,14 +5,14 @@ import {
   USER_PROFILE_AUDIT_FIELDS,
   createUserPhoneAuditMetadata,
   createUserProfileAuditMetadata,
-} from '../../audit-log/domain/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+} from '../../platform/audit-log-metadata.policy';
+import { AuditLogService } from '../../platform/audit-log.service';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
 import { ConsentsService } from '../../consents/service/consents.service';
 import type {
   PatchUserProfileInput,

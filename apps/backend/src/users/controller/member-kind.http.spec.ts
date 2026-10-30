@@ -1,15 +1,15 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { PlatformModule } from '../../platform/platform.module';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { AuthConfig } from '../../auth/auth.config';
 import { AuthService } from '../../auth/service/auth.service';
 import { AuthenticationGuard } from '../../auth/controller/authentication.guard';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { PrismaModule } from '../../prisma/prisma.module';
-import { PrismaService } from '../../prisma/prisma.service';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
+import { PrismaService } from '../../platform/prisma.service';
 import type { AdminAccessActor } from '../repository/admin-access.repository.types';
 import type {
   MemberKindProfileUpdate,
@@ -95,7 +95,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
 
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
-      imports: [PrismaModule, UsersModule],
+      imports: [PlatformModule, UsersModule],
     });
 
     moduleBuilder.overrideProvider(PrismaService).useValue({});

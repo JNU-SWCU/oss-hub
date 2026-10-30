@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { UsersAuthorityRepository } from './authority.repository';
 
 const actors = [

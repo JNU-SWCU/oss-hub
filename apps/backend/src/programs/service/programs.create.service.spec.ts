@@ -3,10 +3,10 @@ import {
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../../platform/audit-log-metadata.policy';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import {
   PROGRAM_ERROR_CODES,

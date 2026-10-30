@@ -4,7 +4,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,

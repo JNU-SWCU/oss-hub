@@ -1,9 +1,9 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from '../service/account-deactivation.service';
 

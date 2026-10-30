@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import { SubmissionFilesRepository } from '../repository/submission-files.repository';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;

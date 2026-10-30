@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
+import { PlatformModule } from '../platform/platform.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
@@ -13,7 +13,7 @@ import { CollectionUserActivityRepository } from './repository/collection-user-a
 import { collectionProviders } from './service/collection.providers';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule, UsersModule],
+  imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
   controllers: [CollectionAdminController],
   providers: [
     CollectionAdminService,

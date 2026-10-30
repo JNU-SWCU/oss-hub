@@ -5,10 +5,10 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
 import type { OwnGithubRepositoryResolution } from '../../github/domain/own-repository-resolution';
 import { parseRepositoryProvisionEvent } from '../../github/domain/repository-provision-event';
-import { settleProvisionGenerationForSynchronousConnection } from '../../prisma/repository-provision-generation';
+import { settleProvisionGenerationForSynchronousConnection } from '../../platform/repository-provision-generation.repository';
 import {
   readTeamRepositoryUrlContext,
   type StudentRepositoryUrlContext,

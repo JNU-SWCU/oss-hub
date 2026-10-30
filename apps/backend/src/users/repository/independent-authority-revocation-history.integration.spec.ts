@@ -1,9 +1,9 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
 import type { ConsentsService } from '../../consents/service/consents.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { RolesRepository } from '../../roles/repository/roles.repository';
 import { RolesService } from '../../roles/service/roles.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';

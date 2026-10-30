@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import type {
   CurrentMilestoneDocumentFile,
   MilestoneDocumentCurrentFileReader,

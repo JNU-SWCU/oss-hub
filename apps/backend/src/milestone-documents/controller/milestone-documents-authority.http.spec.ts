@@ -7,7 +7,7 @@ import { sessionCookieName } from '../../auth/domain/cookies';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';

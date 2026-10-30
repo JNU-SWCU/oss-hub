@@ -6,10 +6,10 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { DomainException } from '../../common/error-code';
-import { withSerializationRetry } from '../../common/repository/prisma-serialization-retry';
-import { PrismaService } from '../../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import { DomainException } from '../../platform/error-code.error';
+import { withSerializationRetry } from '../../platform/prisma-serialization-retry.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import { authorityLabel, type AuthorityLabel } from '../domain/authority-label';
 import {
   findAdminActorByGithubId,

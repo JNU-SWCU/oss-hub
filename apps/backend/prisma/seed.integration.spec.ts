@@ -24,15 +24,15 @@ import {
   upsertSeedUser,
 } from './seeds/helpers';
 import { computeJoinCodeDigest } from '../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../src/runtime-config/join-code-secret';
+import { resolveJoinCodeSecret } from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/repository/auth.repository';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaService } from '../src/platform/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/domain/repository-identity';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { S3ObjectStorage } from '../src/storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../src/storage/object-storage.config';
+import { S3ObjectStorage } from '../src/platform/object-storage.client';
+import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/domain/storage-orphan-reconciliation';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

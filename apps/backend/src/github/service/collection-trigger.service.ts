@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunner } from './collection-sweep-runner';
 
-import { DomainException } from '../../common/error-code';
-import { PROCESS_RUNTIME_CONFIG } from '../../runtime-config/runtime-config.instance';
+import { DomainException } from '../../platform/error-code.error';
+import { PROCESS_RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_ERROR_CODES,

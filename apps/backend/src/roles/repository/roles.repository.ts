@@ -4,12 +4,12 @@ import type {
   Prisma as PrismaTypes,
   StaffAccessRequest as PrismaStaffAccessRequest,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { requestStaffAccess } from '../../prisma/staff-access-request';
+import { PrismaService } from '../../platform/prisma.service';
+import { requestStaffAccess } from '../../platform/staff-access-request.repository';
 import type {
   StaffAccessRequestOutcome,
   StaffAccessRequestTarget,
-} from '../../prisma/staff-access-request';
+} from '../../platform/staff-access-request.repository';
 import type {
   MemberUser,
   StaffAccessRequestRecord,

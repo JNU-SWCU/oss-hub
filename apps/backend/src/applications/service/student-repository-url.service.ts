@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../../audit-log/domain/application-repository-url-audit-metadata';
-import { DomainException } from '../../common/error-code';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../../platform/application-repository-url-audit-metadata.policy';
+import { DomainException } from '../../platform/error-code.error';
 import { canEditStudentRepositoryUrl } from '../../programs/domain/program-participant';
 import { ConsentsService } from '../../consents/service/consents.service';
 import { CollectionTriggerService } from '../../github/service/collection-trigger.service';

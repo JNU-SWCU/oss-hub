@@ -1,13 +1,10 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { PlatformModule } from '../../platform/platform.module';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../../auth/controller/origin.guard';
-import { PrismaModule } from '../../prisma/prisma.module';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import {
-  RUNTIME_CONFIG,
-  RuntimeConfigModule,
-} from '../../runtime-config/runtime-config.module';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { ProgramEditorController } from './program-editor.controller';
 import { ProgramEditorService } from '../service/program-editor.service';
 import { ProgramsModule } from '../programs.module';
@@ -85,7 +82,7 @@ describe('ProgramEditorController boundaries', () => {
 
   it('wires editor service to the repository provider at module compile time', async () => {
     const module = await Test.createTestingModule({
-      imports: [RuntimeConfigModule, PrismaModule, ProgramsModule],
+      imports: [PlatformModule, ProgramsModule],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(

@@ -2,7 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import {
   ProgramAuthoringUploadRepository,
   type ProgramAuthoringUploadDeleteRequestResult,

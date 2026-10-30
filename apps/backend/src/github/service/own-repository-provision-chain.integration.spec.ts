@@ -20,11 +20,11 @@ import { ApplicationsService } from '../../applications/service/applications.ser
 import { StudentRepositoryUrlRepository } from '../../applications/repository/student-repository-url.repository';
 import { StudentRepositoryUrlService } from '../../applications/service/student-repository-url.service';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
 import { ConsentsRepository } from '../../consents/repository/consents.repository';
 import { ConsentsService } from '../../consents/service/consents.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import type { GithubAppClient } from '../gateway/github-app.client';

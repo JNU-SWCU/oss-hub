@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import {
   USERS_ERROR_CODES,

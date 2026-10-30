@@ -1,6 +1,6 @@
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramsService } from '../service/programs.service';
 import { ProgramsRepository } from './programs.repository';
 

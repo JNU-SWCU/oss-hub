@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import type { ProgramAuthoringUploadRepository } from '../repository/program-authoring-upload.repository';
 

@@ -6,7 +6,7 @@ import {
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 
 const dashboardApplicationSelect = {
   id: true,

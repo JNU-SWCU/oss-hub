@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
+import { STUDENT_MEMBER_WHERE } from '../../platform/user-profile-read.repository';
 import {
   AccountStatus,
   MilestoneDocumentKind,
@@ -11,7 +11,7 @@ import {
   type ApplicationStatus,
   type MilestoneSubmissionType,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import type {
   CreateSubmissionInput,
   SubmissionContentInput,
@@ -30,7 +30,7 @@ import {
   checklistMilestoneSelect,
   toChecklistMilestone,
 } from './submission-checklist.record';
-import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { lockSubmissionMembership } from '../../platform/submission-membership-lock.repository';
 import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
   exactSubmissionByPublicId,

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Prisma } from '@prisma/client';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaService } from '../src/platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   inProgramAuthoringFixtureSchema,

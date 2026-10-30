@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { DomainException, type ErrorCode } from '../../common/error-code';
+import {
+  DomainException,
+  type ErrorCode,
+} from '../../platform/error-code.error';
 import { ApplicationPreparationsRepository } from '../repository/application-preparations.repository';
 import {
   PreparationConflict,

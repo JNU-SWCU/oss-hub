@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
-import { PrismaService } from '../../prisma/prisma.service';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   readTeamRepositoryUrlContext,
   STUDENT_REPOSITORY_URL_SELECT,

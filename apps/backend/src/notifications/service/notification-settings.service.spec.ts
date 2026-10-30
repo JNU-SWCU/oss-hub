@@ -1,4 +1,4 @@
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { NotificationSettingsService } from './notification-settings.service';
 import type { NotificationSettingsRepositoryPort } from '../repository/notification-settings.repository';
 

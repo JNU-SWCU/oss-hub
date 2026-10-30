@@ -1,6 +1,6 @@
 import { Prisma, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import {

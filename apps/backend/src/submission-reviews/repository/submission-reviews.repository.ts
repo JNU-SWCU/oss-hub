@@ -1,7 +1,7 @@
 import {
   appendSubmissionReview,
   appendSubmissionReviewEvent,
-} from '../../prisma/submission-review-writer';
+} from '../../platform/submission-review-writer.repository';
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
@@ -10,8 +10,8 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { PrismaService } from '../../platform/prisma.service';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import type {
   RepositoryPublishEligibility,

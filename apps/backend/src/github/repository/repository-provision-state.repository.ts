@@ -7,8 +7,8 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
+import { PrismaService } from '../../platform/prisma.service';
+import { writeRepositoryIssuanceHistory } from '../../platform/repository-provision-generation.repository';
 import {
   InvalidRepositoryProvisionEventError,
   parseRepositoryProvisionEvent,

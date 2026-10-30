@@ -5,8 +5,8 @@ import {
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
-import { PrismaService } from '../../prisma/prisma.service';
+import { STUDENT_MEMBER_WHERE } from '../../platform/user-profile-read.repository';
+import { PrismaService } from '../../platform/prisma.service';
 
 const currentFileSelect = {
   revision: true,

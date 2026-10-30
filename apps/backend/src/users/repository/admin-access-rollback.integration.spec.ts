@@ -6,9 +6,9 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogRepository } from '../../platform/audit-log.repository';
+import { AuditLogService } from '../../platform/audit-log.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import { FailingDecisionAdminAccessRepository } from '../service/admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';

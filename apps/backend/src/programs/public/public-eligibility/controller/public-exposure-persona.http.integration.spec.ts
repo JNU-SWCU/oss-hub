@@ -15,7 +15,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from '../../../../audit-log/domain/audit-log-metadata';
+} from '../../../../platform/audit-log-metadata.policy';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 
 assertIsolatedIntegrationDatabase({

@@ -1,6 +1,6 @@
-import { linkedRepositoryFilter } from '../../../../prisma/linked-program-repository';
+import { linkedRepositoryFilter } from '../../../../platform/linked-program-repository.repository';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../prisma/prisma.service';
+import { PrismaService } from '../../../../platform/prisma.service';
 
 type ProgramRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 type ProgramRepositoryPresence = 'PRESENT' | 'ABSENT';

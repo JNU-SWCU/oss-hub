@@ -2,8 +2,8 @@ import { Test } from '@nestjs/testing';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
-} from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
+} from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { GmailMailSender } from '../gateway/gmail-mail-sender';
 import { LogMailSender } from '../gateway/log-mail-sender';
 import { mailSenderProvider, resolveMailSender } from './mail-sender.provider';

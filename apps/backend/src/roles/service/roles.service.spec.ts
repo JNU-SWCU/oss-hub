@@ -4,22 +4,22 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { AuthErrorCode } from '../../auth/domain/auth-error-code.enum';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from '../../consents/consent-error-code.enum';
 import type { ConsentsService } from '../../consents/service/consents.service';
-import type { UserProfileView } from '../../prisma/user-profile-read';
+import type { UserProfileView } from '../../platform/user-profile-read.repository';
 import type {
   StaffAccessRequestRecord,
   MemberUser,
 } from '../domain/member-onboarding';
-import { requestStaffAccess } from '../../prisma/staff-access-request';
+import { requestStaffAccess } from '../../platform/staff-access-request.repository';
 import type {
   StaffAccessRequestOutcome,
   StaffAccessRequestTarget,
-} from '../../prisma/staff-access-request';
+} from '../../platform/staff-access-request.repository';
 import type {
   OnboardingTransactionStore,
   RolesRepository,

@@ -1,6 +1,6 @@
 import { ApplicationStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsRepository } from '../repository/applications.repository';
 import { StudentApplicationManagementRepository } from '../repository/student-application-management.repository';

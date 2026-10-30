@@ -1,5 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 
 assertIsolatedIntegrationDatabase({

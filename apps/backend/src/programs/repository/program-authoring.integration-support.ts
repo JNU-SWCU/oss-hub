@@ -6,9 +6,9 @@ import {
   ProgramAuthoringUploadLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../../storage/object-storage.config';
+import { PrismaService } from '../../platform/prisma.service';
+import { S3ObjectStorage } from '../../platform/object-storage.client';
+import { ObjectStorageConfig } from '../../platform/object-storage.config';
 import { ProgramAuthoringUploadMaintenanceService } from '../service/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import type {

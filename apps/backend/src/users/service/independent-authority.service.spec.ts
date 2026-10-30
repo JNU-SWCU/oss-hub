@@ -1,5 +1,5 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { RolesErrorCode } from '../domain/roles-error-code.enum';
 import type {
   AdminAccessActor,

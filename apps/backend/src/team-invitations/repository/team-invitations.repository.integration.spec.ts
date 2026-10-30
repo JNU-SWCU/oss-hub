@@ -11,7 +11,7 @@ import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryAccessSyncEvent,
 } from '../../github/domain/repository-provision-event';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 

@@ -8,7 +8,7 @@ import {
 import { ApplicationsRepository } from '../repository/applications.repository';
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
 import { ApplicationJoinCodeService } from './application-join-code.service';
 

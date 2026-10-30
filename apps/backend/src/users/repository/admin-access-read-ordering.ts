@@ -4,7 +4,7 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,

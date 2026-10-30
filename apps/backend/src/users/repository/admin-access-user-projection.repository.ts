@@ -5,7 +5,7 @@ import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
   type UserProfileSource,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import type {
   AdminAccessUserDetailRecord,
   AdminAccessUserRecord,

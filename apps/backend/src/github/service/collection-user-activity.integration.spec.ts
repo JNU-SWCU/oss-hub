@@ -2,7 +2,7 @@ import { AccountStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   countForeignActiveUsers,
   restoreForeignActivityRows,

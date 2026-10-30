@@ -1,5 +1,5 @@
 import { CollectionCutoverRepository } from './collection-cutover.repository';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 
 const createDb = () => ({ $queryRawUnsafe: jest.fn() });
 const repositoryFor = (db: ReturnType<typeof createDb>) =>

@@ -1,8 +1,8 @@
-import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
+import { addOneCalendarYear } from '../../platform/add-one-calendar-year.policy';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { SubmissionMembershipChangedError } from '../../submissions/domain/submission-membership-changed.error';
 import { buildMilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from '../domain/milestone-document-collection-query';

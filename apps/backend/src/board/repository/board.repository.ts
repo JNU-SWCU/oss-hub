@@ -4,8 +4,8 @@ import {
   BoardPostCategory,
   type MemberKind,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
-import { PrismaService } from '../../prisma/prisma.service';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   authorityLabel,
   type AuthorityLabel,
@@ -13,7 +13,7 @@ import {
 import {
   type UserProfileNameSource,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 
 export interface BoardPostSummaryRecord {
   id: string;

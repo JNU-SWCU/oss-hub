@@ -3,7 +3,7 @@ import { Resolver } from 'node:dns/promises';
 import type { ClientRequest, IncomingMessage } from 'node:http';
 import { request, type RequestOptions } from 'node:https';
 import { BlockList, isIPv4 } from 'node:net';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from '../domain/program-notice-error-code';
 import { parseProgramNoticeUrl } from '../domain/program-notice-url';
 

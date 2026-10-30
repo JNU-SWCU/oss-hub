@@ -1,12 +1,11 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AuditLogModule } from '../audit-log/audit-log.module';
+import { PlatformModule } from '../platform/platform.module';
 import { SubmissionDashboardSummaryService } from './service/submission-dashboard-summary.service';
 import { SubmissionFileCleanupRetryService } from './service/submission-file-cleanup-retry.service';
 import { SubmissionFilesRepository } from './repository/submission-files.repository';
 import { SubmissionFilesService } from './service/submission-files.service';
-import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
-import { OBJECT_STORAGE } from '../storage/domain/object-storage';
-import { StorageModule } from '../storage/storage.module';
+import { S3ObjectStorage } from '../platform/object-storage.client';
+import { OBJECT_STORAGE } from '../platform/object-storage.types';
 import { SubmissionsModule } from './submissions.module';
 
 const getMetadataArray = (key: string): unknown[] => {
@@ -27,7 +26,7 @@ describe('SubmissionsModule storage provider', () => {
         provider.provide === OBJECT_STORAGE,
     );
 
-    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(StorageModule);
+    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(PlatformModule);
     expect(storageProvider).toBeUndefined();
     expect(providers).not.toContain(S3ObjectStorage);
     expect(getMetadataArray(MODULE_METADATA.EXPORTS)).not.toContain(
@@ -62,7 +61,7 @@ describe('SubmissionsModule storage provider', () => {
   });
 
   it('wires cleanup retry orchestration with the audit provider module', () => {
-    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(AuditLogModule);
+    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(PlatformModule);
     expect(getMetadataArray(MODULE_METADATA.PROVIDERS)).toContain(
       SubmissionFileCleanupRetryService,
     );

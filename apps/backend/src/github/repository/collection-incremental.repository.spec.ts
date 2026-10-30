@@ -2,7 +2,7 @@ import {
   asiaSeoulYear,
   CollectionIncrementalRepository,
 } from './collection-incremental.repository';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 
 interface MockDb {
   githubRepository: {

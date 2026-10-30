@@ -6,8 +6,8 @@ import {
   type ReviewDecision,
   type SubmissionStatus,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { PrismaService } from '../../platform/prisma.service';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 
 const RECENT_FEEDBACK_LIMIT = 50;
 

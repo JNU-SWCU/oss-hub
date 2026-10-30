@@ -1,6 +1,6 @@
 import type { Provider } from '@nestjs/common';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
+import type { RuntimeConfig } from '../../platform/runtime-config.config';
 import { CollectionAppClient } from '../gateway/collection-app.client';
 import { CollectionAppConfig } from '../collection-app.config';
 import { CollectionAppTokenProvider } from '../gateway/collection-app.token';

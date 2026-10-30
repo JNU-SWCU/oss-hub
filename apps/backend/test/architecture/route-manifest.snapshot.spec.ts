@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { discoverAppModuleControllers } from '../../src/app-controller-discovery';
 import { createAuthRouteManifest } from '../../src/auth/controller/auth-route-manifest';
-import { compareStringsByCodeUnit } from '../../src/common/domain/deterministic-string-order';
+import { compareStringsByCodeUnit } from '../../src/platform/deterministic-string-order.policy';
 
 interface RouteSnapshotEntry {
   readonly method: string;

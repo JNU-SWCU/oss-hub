@@ -5,8 +5,8 @@ import {
   MemberKind,
   User as PrismaUser,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { PrismaService } from '../../platform/prisma.service';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
 import { AuthConfig } from '../auth.config';
 import { AuthRepository } from './auth.repository';
 

@@ -1,5 +1,5 @@
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from '../domain/milestone-documents-error-code.enum';
 import {
   changeRequestTargetsVersion,

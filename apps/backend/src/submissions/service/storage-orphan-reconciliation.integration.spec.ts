@@ -1,8 +1,8 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
-import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../../storage/object-storage.config';
-import { S3ObjectInventory } from '../../storage/gateway/s3-object-inventory';
+import { S3ObjectStorage } from '../../platform/object-storage.client';
+import { ObjectStorageConfig } from '../../platform/object-storage.config';
+import { S3ObjectInventory } from '../../platform/s3-object-inventory.client';
 import { StorageOrphanReconciliationService } from './storage-orphan-reconciliation.service';
 import {
   KNOWN_STORAGE_PREFIXES,

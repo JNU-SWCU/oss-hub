@@ -1,5 +1,5 @@
 import { ProgramTrackType } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,

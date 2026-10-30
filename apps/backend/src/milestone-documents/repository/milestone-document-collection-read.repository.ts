@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import { boundedReviewHistoryQuery } from './milestone-document-history';
 import type {
   MilestoneContext,

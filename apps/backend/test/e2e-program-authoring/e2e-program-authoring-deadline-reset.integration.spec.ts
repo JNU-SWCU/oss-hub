@@ -1,6 +1,6 @@
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
-import { PrismaService } from '../../src/prisma/prisma.service';
+import { PrismaService } from '../../src/platform/prisma.service';
 import { canonicalUserCreate } from '../../src/users/repository/canonical-user-fixture';
 import { DeadlineDigestRepository } from '../../src/notifications/repository/deadline-digest.repository';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';

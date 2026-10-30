@@ -1,5 +1,5 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
 

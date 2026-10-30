@@ -5,7 +5,7 @@ import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { updateInput } from '../../../test/program-editor-service-fixtures';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { ProgramErrorCode } from '../domain/program-error-code.enum';
 import {
   cleanup,

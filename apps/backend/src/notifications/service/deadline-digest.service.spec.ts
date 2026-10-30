@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import type { DeadlineProgramSource } from '../domain/deadline-digest-eligibility';
 import { DeadlineDigestService } from './deadline-digest.service';
 import type { DeadlineDigestRepositoryPort } from '../repository/deadline-digest.repository';

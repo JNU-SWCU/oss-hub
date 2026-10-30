@@ -5,12 +5,12 @@ import {
   type MilestoneSubmissionType,
   Prisma,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from '../../submissions/domain/submission-completion-projection';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 
 interface StudentDashboardMilestoneRow {
   readonly id: string;

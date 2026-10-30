@@ -5,7 +5,7 @@ import {
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { PROGRAM_LIST_QUERY_STATUSES } from '../domain/program-list-query';
 import {
   deriveProgramListStatus,

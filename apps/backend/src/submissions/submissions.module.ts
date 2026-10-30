@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
+import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from '../auth/auth.module';
 import { SubmissionFileCleanupScheduler } from './job/submission-file-cleanup.scheduler';
 import { SubmissionFileCleanupService } from './service/submission-file-cleanup.service';
 import { SubmissionFileCleanupRetryService } from './service/submission-file-cleanup-retry.service';
-import { StorageModule } from '../storage/storage.module';
 import { SubmissionFilesRepository } from './repository/submission-files.repository';
 import { SubmissionFilesService } from './service/submission-files.service';
 import { SubmissionDashboardSummaryRepository } from './repository/submission-dashboard-summary.repository';
@@ -20,7 +19,7 @@ import { SubmissionsRepository } from './repository/submissions.repository';
 import { SubmissionsService } from './service/submissions.service';
 
 @Module({
-  imports: [AuditLogModule, AuthModule, StorageModule],
+  imports: [PlatformModule, AuthModule],
   controllers: [
     SubmissionFilesController,
     SubmissionChecklistController,

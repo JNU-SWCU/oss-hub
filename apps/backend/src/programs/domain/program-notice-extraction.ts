@@ -1,5 +1,5 @@
 import { parse } from 'parse5';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   attribute,
   cleanText,

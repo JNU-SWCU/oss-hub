@@ -1,8 +1,8 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { PrismaModule } from '../prisma/prisma.module';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../platform/prisma.service';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import { SubmissionFilesService } from '../submissions/service/submission-files.service';
 import { UsersModule } from '../users/users.module';
@@ -126,7 +126,7 @@ describe('MilestoneDocumentsModule', () => {
 
   it('외부 repository 재등록 없이 제출 파일 service 의존성을 조립한다', async () => {
     const module = await Test.createTestingModule({
-      imports: [PrismaModule, MilestoneDocumentsModule],
+      imports: [PlatformModule, MilestoneDocumentsModule],
     })
       .overrideProvider(PrismaService)
       .useValue({})

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { RepositoryVisibility } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
   deriveRepositoryFullName,
-} from '../../audit-log/domain/audit-log-metadata';
+} from '../../platform/audit-log-metadata.policy';
 import type { GithubAppClient } from '../gateway/github-app.client';
 import {
   RepositoriesRepository,

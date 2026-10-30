@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma, ProgramPurgeFileTombstoneLifecycle } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 
 const MAX_DELETE_ATTEMPTS = 6;
 

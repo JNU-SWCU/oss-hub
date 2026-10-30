@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, MilestoneDocumentKind } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import {
   resolveUserProfileName,
   USER_PROFILE_NAME_SELECT,
-} from '../../prisma/user-profile-read';
+} from '../../platform/user-profile-read.repository';
 import type {
   ArchiveProgram,
   MilestoneDocumentArchiveTeam,

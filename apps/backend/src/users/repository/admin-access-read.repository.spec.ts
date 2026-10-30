@@ -5,8 +5,8 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import type { PrismaService } from '../../prisma/prisma.service';
+import { DomainException } from '../../platform/error-code.error';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   findAdminAccessUserById,
   toAdminAccessUserRecord,

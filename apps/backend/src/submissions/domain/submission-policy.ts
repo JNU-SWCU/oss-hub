@@ -1,6 +1,6 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import type { MilestoneSubmissionType } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { hasProgramDeadlinePassed } from '../../programs/domain/program-deadline';
 import type {
   CreateSubmissionInput,

@@ -6,7 +6,7 @@ import {
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;

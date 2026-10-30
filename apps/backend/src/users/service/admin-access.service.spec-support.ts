@@ -3,8 +3,8 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogTransactionWriter } from '../../platform/audit-log-transaction-writer.repository';
+import type { AuditLogService } from '../../platform/audit-log.service';
 import type {
   AdminAccessActor,
   AdminAccessInsertedRequest,

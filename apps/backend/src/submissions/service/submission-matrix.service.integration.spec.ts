@@ -15,7 +15,7 @@ import {
 } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import type { SubmissionMatrixQuery } from '../domain/submission-matrix';
 import type { MatrixRowResult } from '../domain/submission-matrix-result';
 import { SubmissionMatrixRepository } from '../repository/submission-matrix.repository';

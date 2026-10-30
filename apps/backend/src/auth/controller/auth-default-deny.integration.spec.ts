@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { PlatformModule } from '../../platform/platform.module';
 import {
   type CanActivate,
   Controller,
@@ -20,8 +21,7 @@ import { AuthService } from '../service/auth.service';
 import { sessionCookieName } from '../domain/cookies';
 import type { AuthUser } from '../domain/auth-user';
 import { issueSessionToken } from '../domain/session-token';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { PrismaModule } from '../../prisma/prisma.module';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
@@ -116,7 +116,7 @@ describe('global default-deny authentication boundary', () => {
       getMe: jest.fn().mockImplementation(() => Promise.resolve(currentUser)),
     };
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, AuthModule],
+      imports: [PlatformModule, AuthModule],
       controllers: [AuthBoundaryFixtureController],
       providers: [PrincipalProbeService, StaffFixtureGuard],
     })

@@ -1,15 +1,12 @@
 import { Test } from '@nestjs/testing';
+import { PlatformModule } from '../../platform/platform.module';
 import { ProgramTrackType } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
-import { PrismaModule } from '../../prisma/prisma.module';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DomainException } from '../../platform/error-code.error';
+import { PrismaService } from '../../platform/prisma.service';
 import { ProgramActivitySummaryService } from '../../programs/service/program-activity-summary.service';
 import { SubmissionDashboardSummaryService } from '../../submissions/service/submission-dashboard-summary.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import {
-  RUNTIME_CONFIG,
-  RuntimeConfigModule,
-} from '../../runtime-config/runtime-config.module';
+import { loadRuntimeConfig } from '../../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../platform/runtime-config-instance.config';
 import { ApplicationsModule } from '../applications.module';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -139,7 +136,7 @@ describe('StaffDashboardService', () => {
     const summarize = jest.fn().mockResolvedValue([]);
     const listByProgram = jest.fn().mockResolvedValue([]);
     const moduleRef = Test.createTestingModule({
-      imports: [RuntimeConfigModule, PrismaModule, ApplicationsModule],
+      imports: [PlatformModule, ApplicationsModule],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(

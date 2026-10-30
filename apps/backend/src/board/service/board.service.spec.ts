@@ -1,6 +1,6 @@
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { BoardErrorCode } from '../domain/board-error-code.enum';
 import { BoardRepository } from '../repository/board.repository';
 import { BoardService } from './board.service';

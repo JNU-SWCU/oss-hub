@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../../prisma/prisma.module';
+import { PlatformModule } from '../../../platform/platform.module';
 import { PublicEligibilityModule } from '../../../programs/public/public-eligibility/public-eligibility.module';
 import { PublicProjectsController } from './controller/public-projects.controller';
 import { PublicProjectsRepository } from './repository/public-projects.repository';
@@ -8,7 +8,7 @@ import { PublicProjectsService } from './service/public-projects.service';
 import { PublicUserProfileController } from './controller/public-user-profile.controller';
 
 @Module({
-  imports: [PrismaModule, PublicEligibilityModule],
+  imports: [PlatformModule, PublicEligibilityModule],
   controllers: [PublicProjectsController, PublicUserProfileController],
   providers: [
     PublicProjectsRepository,

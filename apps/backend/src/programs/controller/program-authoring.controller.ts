@@ -1,7 +1,7 @@
 import {
   DomainException,
   type ProblemDetailExtensions,
-} from '../../common/error-code';
+} from '../../platform/error-code.error';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,

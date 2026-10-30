@@ -5,7 +5,7 @@ import { Test } from '@nestjs/testing';
 import { AuthenticationGuard } from '../../auth/controller/authentication.guard';
 import { AuthConfig } from '../../auth/auth.config';
 import { AuthService } from '../../auth/service/auth.service';
-import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { ProblemDetailFilter } from '../../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramCoverController } from './program-cover.controller';
 import { ProgramAuthoringRepository } from '../repository/program-authoring.repository';

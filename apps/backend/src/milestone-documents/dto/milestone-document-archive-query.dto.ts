@@ -5,7 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
   type MilestoneDocumentArchiveGrouping,

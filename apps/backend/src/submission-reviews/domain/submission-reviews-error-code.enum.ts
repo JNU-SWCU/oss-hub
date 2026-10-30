@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../../common/error-code';
+import type { ErrorCode } from '../../platform/error-code.error';
 
 export const SubmissionReviewsErrorCode = {
   SELF_REVIEW_FORBIDDEN: 'SUB_033',

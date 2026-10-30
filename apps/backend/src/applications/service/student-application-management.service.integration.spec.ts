@@ -1,7 +1,7 @@
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsRepository } from '../repository/applications.repository';
 import { StudentApplicationManagementRepository } from '../repository/student-application-management.repository';

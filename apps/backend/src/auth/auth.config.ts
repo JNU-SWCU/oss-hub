@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type RuntimeConfig } from '../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import { type RuntimeConfig } from '../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { parseInitialRoles } from './domain/initial-roles';
 import type {
   InitialAccountSeed,

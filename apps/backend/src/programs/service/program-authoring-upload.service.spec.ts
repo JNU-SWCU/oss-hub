@@ -1,4 +1,4 @@
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import type { ProgramAuthoringUploadRepository } from '../repository/program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import {

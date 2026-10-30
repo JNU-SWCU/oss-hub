@@ -1,5 +1,5 @@
 import { ApplicationStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../platform/prisma.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');

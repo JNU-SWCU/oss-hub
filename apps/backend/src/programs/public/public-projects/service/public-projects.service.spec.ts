@@ -1,11 +1,11 @@
-import { DomainException } from '../../../../common/error-code';
+import { DomainException } from '../../../../platform/error-code.error';
 import type {
   ProgramContributorCumulativeMetrics,
   PublicProjectMetricsRepository,
   ProgramRepositoryCumulativeMetrics,
 } from '../repository/public-project-metrics.repository';
 import type { PublicEligibilityService } from '../../public-eligibility/service/public-eligibility.service';
-import { loadRuntimeConfig } from '../../../../runtime-config/runtime-config';
+import { loadRuntimeConfig } from '../../../../platform/runtime-config.config';
 import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,

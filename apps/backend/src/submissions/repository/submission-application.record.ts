@@ -1,5 +1,5 @@
 import { MilestoneDocumentKind, Prisma } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 import type { SubmissionApplication } from '../domain/submission-record';
 import { publicSubmissionId } from '../domain/submission-public-id';
 

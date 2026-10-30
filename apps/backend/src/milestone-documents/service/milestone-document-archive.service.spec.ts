@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
-import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../platform/object-storage.types';
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,

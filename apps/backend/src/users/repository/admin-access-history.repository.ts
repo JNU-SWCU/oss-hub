@@ -1,4 +1,4 @@
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import type {
   AdminAccessLoginHistoryPage,
   AdminAccessStaffAccessRequestHistoryPage,

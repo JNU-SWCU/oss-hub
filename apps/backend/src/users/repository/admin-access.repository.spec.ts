@@ -4,7 +4,7 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../../prisma/prisma.service';
+import type { PrismaService } from '../../platform/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,

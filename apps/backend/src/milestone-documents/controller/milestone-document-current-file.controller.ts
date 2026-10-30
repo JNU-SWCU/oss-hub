@@ -11,7 +11,7 @@ import {
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { setDownloadHeaders } from '../../common/controller/download-response';
+import { setDownloadHeaders } from '../../platform/download-response.types';
 import { MilestoneDocumentCurrentFileService } from '../service/milestone-document-current-file.service';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

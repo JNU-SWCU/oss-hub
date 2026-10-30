@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { linkedRepositoryFilter } from '../../prisma/linked-program-repository';
-import { PrismaService } from '../../prisma/prisma.service';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import { linkedRepositoryFilter } from '../../platform/linked-program-repository.repository';
+import { PrismaService } from '../../platform/prisma.service';
+import { programApplicationParticipantWhere } from '../../platform/program-application-participant.repository';
 
 export interface ProgramRepositoryActivityQuery {
   readonly repositoryIds: readonly bigint[];

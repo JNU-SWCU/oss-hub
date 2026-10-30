@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
-import { DomainException } from '../../common/error-code';
-import { normalizeMultipartFileName } from '../../common/domain/multipart-file-name';
+import { DomainException } from '../../platform/error-code.error';
+import { normalizeMultipartFileName } from '../../platform/multipart-file-name.policy';
 import { hasProgramDeadlinePassed } from '../../programs/domain/program-deadline';
 import {
   createSubmissionFileObjectKey,
@@ -18,7 +18,7 @@ import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,

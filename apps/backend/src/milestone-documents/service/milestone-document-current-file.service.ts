@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import { safeSubmissionFileContentType } from '../../submissions/domain/submission-file-content-type';
 import { sanitizeSubmissionFileOriginalName } from '../../submissions/domain/submission-file-object-key';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
-} from '../../storage/domain/object-storage';
+} from '../../platform/object-storage.types';
 import {
   MilestoneDocumentCurrentFileRepository,
   type MilestoneDocumentCurrentFileReader,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DomainException } from '../../common/error-code';
+import { DomainException } from '../../platform/error-code.error';
 import {
   NOTIFICATIONS_ERROR_CODES,
   NotificationsErrorCode,
