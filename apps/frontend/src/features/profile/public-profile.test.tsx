@@ -206,6 +206,13 @@ describe('public profile API boundary', () => {
     expect(apiClient).not.toHaveBeenCalled();
   });
 
+  it('does not request an identifier containing a slash', async () => {
+    await expect(loadPublicProfile('user/123')).rejects.toThrow(
+      '공개 프로필을 찾을 수 없습니다',
+    );
+    expect(apiClient).not.toHaveBeenCalled();
+  });
+
   it('maps PPJ_002 to not-found without exposing API detail', async () => {
     vi.mocked(apiClient).mockRejectedValue(
       new ApiError({

@@ -1,5 +1,5 @@
 import { TEAM_ACTIVITY_METRICS } from './team-activity-dto';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, withQuery } from '@/lib/api-client';
 import { isHttpsGithubOwnerRepoUrl } from './repository-url-api';
 import type {
   TeamActivityCounts,
@@ -138,11 +138,11 @@ export async function getRepositoryHistory(
   teamId: string,
   cursor?: string,
 ): Promise<RepositoryHistoryPage> {
-  const query =
-    cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`;
+  const params = new URLSearchParams();
+  if (cursor !== undefined) params.set('cursor', cursor);
   return parseRepositoryHistory(
     await apiClient<unknown>(
-      `${teamPath(programId, teamId)}/repository-url-history${query}`,
+      withQuery(`${teamPath(programId, teamId)}/repository-url-history`, params),
     ),
   );
 }

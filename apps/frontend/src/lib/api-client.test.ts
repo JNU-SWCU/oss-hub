@@ -6,6 +6,7 @@ import {
   apiFileClient,
   isUnexpectedApiProblem,
 } from './api-client';
+import { withQuery } from './api-client';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -162,6 +163,12 @@ describe('apiClient', () => {
     await apiClient('members/member-1', init);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/members/member-1', init);
+  });
+});
+
+describe('withQuery', () => {
+  it('returns the bare path for empty params', () => {
+    expect(withQuery('users/access', new URLSearchParams())).toBe('users/access');
   });
 });
 
