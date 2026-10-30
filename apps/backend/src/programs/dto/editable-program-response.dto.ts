@@ -7,11 +7,11 @@ import type {
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../../submissions/domain/submission-upload-policy';
+} from '../submission-upload.policy';
 import {
   SUBMISSION_TEMPLATE_ACCEPT,
   SUBMISSION_TEMPLATE_FORMAT_LABEL,
-} from '../../submissions/domain/submission-template-file-policy';
+} from '../submission-template-file.policy';
 
 export class ProgramMilestoneResponseDto {
   readonly id: string;

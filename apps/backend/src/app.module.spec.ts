@@ -1,5 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 
+import { discoverAppModuleControllers } from './app-controller-discovery';
 import { AppModule } from './app.module';
 import { CollectionModule } from './github/collection.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -7,11 +8,10 @@ import { PlatformModule } from './platform/platform.module';
 import { RankingModule } from './ranking/ranking.module';
 import { RepositoriesModule } from './github/repositories.module';
 import { RepositoriesService } from './github/service/repositories.service';
-import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
-import { SubmissionsModule } from './submissions/submissions.module';
 import { SystemStatusModule } from './system-status/system-status.module';
 import { UsersModule } from './users/users.module';
 import { ProgramsModule } from './programs/programs.module';
+import { SubmissionReviewsController } from './programs/submission-reviews.controller';
 
 describe('AppModule module exposure', () => {
   const getImports = (): unknown[] => {
@@ -35,19 +35,25 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  it('Issue #255 보존 대상 모듈 일곱 개를 각각 한 번 유지한다', () => {
+  it('Issue #255 보존 대상 모듈을 각각 한 번 유지한다', () => {
     const imports = getImports();
 
     for (const module of [
       PlatformModule,
       NotificationsModule,
-      SubmissionsModule,
       UsersModule,
       RepositoriesModule,
-      SubmissionReviewsModule,
     ]) {
       expect(imports.filter((entry) => entry === module)).toHaveLength(1);
     }
+  });
+
+  it('Issue #255 SubmissionReviewsController를 정확히 한 번 등록한다', () => {
+    const controllers = discoverAppModuleControllers();
+
+    expect(
+      controllers.filter((entry) => entry === SubmissionReviewsController),
+    ).toHaveLength(1);
   });
 
   it('ProgramsModule을 정확히 한 번 노출한다', () => {

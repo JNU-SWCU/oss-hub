@@ -17,10 +17,10 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
-} from '../milestone-documents/domain/milestone-completion';
+} from './milestone-completion.policy';
 import { programCoverImageUrl } from './program-cover.policy';
 import { RepositoriesReadService } from '../github/service/repositories-read.service';
-import { projectSubmissionCompletionTargets } from '../submissions/domain/submission-completion-projection';
+import { projectSubmissionCompletionTargets } from './submission-completion-projection.policy';
 import {
   StudentDashboardReadRepository,
   type StudentDashboardApplicationRow,

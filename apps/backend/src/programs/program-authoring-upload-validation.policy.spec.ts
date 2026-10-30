@@ -8,7 +8,7 @@ import {
   PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
   validateProgramAuthoringUpload,
 } from './program-authoring-upload-validation.policy';
-import { signatureValidZip } from '../submissions/domain/submission-zip-test-builder';
+import { signatureValidZip } from './submission-zip-builder.fixture';
 
 function file(input: {
   readonly name: string;

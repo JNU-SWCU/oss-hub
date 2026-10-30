@@ -1,0 +1,95 @@
+import { RepositoryVisibility } from '@prisma/client';
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type { PublishBlockedReason } from '../github/domain/repository-publication';
+
+type JsonObject = { [key in string]?: JsonValue };
+type JsonArray = JsonValue[];
+type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+
+export type SubmissionRevisionContent = JsonValue;
+
+export const APPLICATION_MODES = {
+  PERSONAL: 'PERSONAL',
+  TEAM: 'TEAM',
+} as const;
+
+type ApplicationMode =
+  (typeof APPLICATION_MODES)[keyof typeof APPLICATION_MODES];
+
+export {
+  PUBLISH_BLOCKED_REASONS,
+  publishBlockedReasons,
+  type PublishBlockedReason,
+  type RepositoryPublishEligibility,
+} from '../github/domain/repository-publication';
+
+export interface SubmissionReviewRecord {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+}
+
+export interface SubmissionReviewFileRecord {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+  readonly downloadUrl: string;
+}
+
+export interface SubmissionRevisionRecord {
+  readonly number: number;
+  readonly content: SubmissionRevisionContent;
+  readonly comment: string | null;
+  readonly submittedAt: Date;
+  readonly files: readonly SubmissionReviewFileRecord[];
+  readonly review: SubmissionReviewRecord | null;
+}
+
+export interface SubmissionReviewContext {
+  readonly submissionId: string;
+  readonly application: {
+    readonly id: string;
+    readonly applicationMode: ApplicationMode;
+    readonly displayName: string;
+  };
+  readonly milestone: { readonly id: string; readonly name: string };
+  readonly currentRevision: SubmissionRevisionRecord;
+  readonly history: readonly SubmissionRevisionRecord[];
+  readonly repository: {
+    readonly id: string;
+    readonly url: string;
+    readonly visibility: RepositoryVisibility;
+    readonly publishEligible: boolean;
+    readonly blockedReasons: readonly PublishBlockedReason[];
+  } | null;
+}
+
+export interface CreateSubmissionReviewInput {
+  readonly revision: number;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+}
+
+export interface SubmissionReviewTarget {
+  readonly id: string;
+  readonly currentRevision: number;
+  readonly status: SubmissionStatus;
+  readonly revision: {
+    readonly id: string;
+    readonly reviewId: string | null;
+  };
+}
+
+export interface SubmissionReviewResult {
+  readonly reviewId: string;
+  readonly submissionStatus: SubmissionStatus;
+}
+
+export interface RepositoryPublishResult {
+  readonly repositoryId: string;
+  readonly visibility: typeof RepositoryVisibility.PUBLIC;
+  readonly publishedAt: Date;
+}

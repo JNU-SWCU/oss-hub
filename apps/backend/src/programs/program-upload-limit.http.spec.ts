@@ -3,19 +3,17 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
-import { SubmissionChecklistController } from '../submissions/controller/submission-checklist.controller';
-import { SubmissionFormsController } from '../submissions/controller/submission-forms.controller';
-import { SubmissionsRepository } from '../submissions/repository/submissions.repository';
-import { SubmissionsService } from '../submissions/service/submissions.service';
+import { SubmissionChecklistController } from './submission-checklist.controller';
+import { SubmissionFormsController } from './submission-forms.controller';
+import { SubmissionsRepository } from './submissions.repository';
+import { SubmissionsService } from './submissions.service';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 
-jest.mock('../submissions/domain/submission-upload-policy', () => ({
-  ...jest.requireActual<Record<string, unknown>>(
-    '../submissions/domain/submission-upload-policy',
-  ),
+jest.mock('./submission-upload.policy', () => ({
+  ...jest.requireActual<Record<string, unknown>>('./submission-upload.policy'),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,
   SUBMISSION_UPLOAD_MAX_LABEL: '2 MB',
 }));

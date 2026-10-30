@@ -13,7 +13,7 @@ import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
-} from '../milestone-documents/domain/milestone-completion';
+} from './milestone-completion.policy';
 import type {
   ApplicationSubmissionSummaryResult,
   ProgramDetailResult,

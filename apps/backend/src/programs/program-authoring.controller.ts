@@ -44,7 +44,7 @@ import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.policy';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;

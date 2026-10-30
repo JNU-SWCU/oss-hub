@@ -20,7 +20,7 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { requiredMilestonesApproved } from '../milestone-documents/domain/milestone-completion';
+import { requiredMilestonesApproved } from './milestone-completion.policy';
 import { publishBlockedReasons } from '../github/domain/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../github/domain/repository-identity';
 import { repositoryAccessSyncEventData } from '../github/domain/repository-provision-event';
@@ -28,7 +28,7 @@ import { repositoryAccessSyncTargetWhere } from '../platform/repository-access-s
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
-} from '../submissions/domain/submission-completion-projection';
+} from './submission-completion-projection.policy';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,

@@ -33,7 +33,7 @@ import { repositoryUrlFromNameWithOwner } from '../src/github/domain/repository-
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorage } from '../src/platform/object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';
-import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/domain/storage-orphan-reconciliation';
+import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.policy';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

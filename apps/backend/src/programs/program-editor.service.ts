@@ -6,7 +6,7 @@ import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from '../milestone-documents/domain/milestone-documents-error-code.enum';
+} from './milestone-documents-error-code.error';
 import type {
   UpdateProgramCommand,
   UpsertMilestoneCommand,

@@ -1,5 +1,5 @@
-import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
-import { MilestoneDocumentsService } from '../milestone-documents/service/milestone-documents.service';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityRepository } from '../users/authority.repository';
 import { UsersAuthorityService } from '../users/authority.service';
 import { MemberKind } from '@prisma/client';

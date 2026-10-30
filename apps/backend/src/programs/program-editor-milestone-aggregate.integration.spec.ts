@@ -10,16 +10,16 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ProgramErrorCode } from './program-error-code.error';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { MilestoneDocumentFilesService } from '../milestone-documents/service/milestone-document-files.service';
-import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
+import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
-import { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import {
   MilestoneDocumentMissingError,
   upsertMilestoneDocumentSubmission,
-} from '../milestone-documents/repository/milestone-document-submission.repository';
+} from './milestone-document-submission.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/authority.service';
 import { UsersAuthorityRepository } from '../users/authority.repository';
