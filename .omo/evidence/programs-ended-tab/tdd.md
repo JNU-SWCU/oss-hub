@@ -19,3 +19,10 @@
 - Removed list/year API helpers, their test-only parsers/types, and list labels.
 - GREEN: projects 24 tests passed after removal; `pnpm lint:structure` exited 0,
   no unused code found (5 existing configuration hints).
+
+## SHOULD #5 — programs page wrapper
+
+- Before: `src/app/programs/page.test.tsx` passed 2 tests.
+- RED: not applicable to behavior-preserving wrapper removal.
+- Restored the client page directly and pointed the existing capability tests at it.
+- GREEN: page capability tests passed 2/2 after removal; LSP found no errors.
