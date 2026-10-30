@@ -59,7 +59,11 @@
         "{src,e2e,test-support,scripts}/**/*.{js,mjs,cjs,ts,tsx}",
         "*.{js,mjs,cjs,ts,mts}"
       ],
-      "ignoreDependencies": ["pretendard", "@prisma/client"],
+      "ignoreDependencies": [
+        "pretendard",
+        "@fontsource/comic-neue",
+        "@prisma/client"
+      ],
       "paths": {
         "server-only": [
           "./node_modules/next/dist/compiled/server-only/index.js"

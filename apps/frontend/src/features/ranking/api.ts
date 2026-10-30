@@ -6,6 +6,9 @@ import {
   type MemberRankingItem,
   type PublicRankingItem,
   type RankingPage,
+  type RankingTimeline,
+  type RankingTimelinePoint,
+  type RankingTimelineSeries,
   type RankingViewerClass,
   type RankingYear,
   type RankingYears,
@@ -244,6 +247,134 @@ export function parseRankingYears(value: unknown): RankingYears {
   return { years: value.years.map((year) => year) };
 }
 
+const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const parts = CALENDAR_DATE_PATTERN.exec(value);
+  if (parts === null) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.getUTCFullYear() === Number(parts[1]) &&
+    parsed.getUTCMonth() + 1 === Number(parts[2]) &&
+    parsed.getUTCDate() === Number(parts[3])
+  );
+}
+
+function isTimelineYear(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
+}
+
+function isOptionalGithubLogin(
+  value: unknown,
+): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === 'string';
+}
+
+function parseTimelinePoint(value: unknown): RankingTimelinePoint | null {
+  if (
+    !isRecord(value) ||
+    !isCalendarDate(value.date) ||
+    typeof value.starEstimated !== 'boolean'
+  ) {
+    return null;
+  }
+  return { date: value.date, starEstimated: value.starEstimated };
+}
+
+function readAlignedValues(
+  value: unknown,
+  pointCount: number,
+  isAllowed: (candidate: unknown) => candidate is number,
+): readonly (number | null)[] | null {
+  if (!Array.isArray(value) || value.length !== pointCount) return null;
+  const values: (number | null)[] = [];
+  for (const entry of value) {
+    if (entry === null) {
+      values.push(null);
+      continue;
+    }
+    if (!isAllowed(entry)) return null;
+    values.push(entry);
+  }
+  return values;
+}
+
+function parseTimelineSeries(
+  value: unknown,
+  pointCount: number,
+  totalsAllowed: boolean,
+): RankingTimelineSeries | null {
+  if (!isRecord(value) || typeof value.githubLogin !== 'string') {
+    return null;
+  }
+
+  const ranks = readAlignedValues(value.ranks, pointCount, isPositiveInteger);
+  if (ranks === null) return null;
+
+  const series = { githubLogin: value.githubLogin, ranks };
+  if (!('totals' in value)) return series;
+  if (!totalsAllowed) return null;
+
+  const totals = readAlignedValues(
+    value.totals,
+    pointCount,
+    isNonNegativeInteger,
+  );
+  return totals === null ? null : { ...series, totals };
+}
+
+export function parseRankingTimeline(value: unknown): RankingTimeline {
+  if (
+    !isRecord(value) ||
+    !isTimelineYear(value.year) ||
+    !isOptionalGithubLogin(value.viewerGithubLogin) ||
+    !isOptionalIsoInstant(value.dataAsOf) ||
+    !Array.isArray(value.points) ||
+    !Array.isArray(value.series)
+  ) {
+    throw new RankingResponseError();
+  }
+
+  const viewerClass = value.viewerClass;
+  if (!isViewerClass(viewerClass)) {
+    throw new RankingResponseError();
+  }
+
+  const points: RankingTimelinePoint[] = [];
+  for (const rawPoint of value.points) {
+    const point = parseTimelinePoint(rawPoint);
+    if (point === null) {
+      throw new RankingResponseError();
+    }
+    points.push(point);
+  }
+
+  const totalsAllowed = viewerClass !== RANKING_VIEWER_CLASSES.PUBLIC;
+  const series: RankingTimelineSeries[] = [];
+  for (const rawSeries of value.series) {
+    const parsed = parseTimelineSeries(rawSeries, points.length, totalsAllowed);
+    if (parsed === null) {
+      throw new RankingResponseError();
+    }
+    series.push(parsed);
+  }
+
+  return {
+    year: value.year,
+    viewerClass,
+    viewerGithubLogin:
+      typeof value.viewerGithubLogin === 'string'
+        ? value.viewerGithubLogin
+        : null,
+    dataAsOf:
+      typeof value.dataAsOf === 'string' ? new Date(value.dataAsOf) : null,
+    points,
+    series,
+  };
+}
+
 export async function getRanking(
   year: RankingYear,
   page: number,
@@ -270,4 +401,16 @@ export async function getRankingYears(
     signal ? { signal } : undefined,
   );
   return parseRankingYears(response).years;
+}
+
+export async function getRankingTimeline(
+  year: number,
+  signal?: AbortSignal,
+): Promise<RankingTimeline> {
+  const params = new URLSearchParams({ year: String(year) });
+  const response = await apiClient<unknown>(
+    `ranking/timeline?${params.toString()}`,
+    signal ? { signal } : undefined,
+  );
+  return parseRankingTimeline(response);
 }

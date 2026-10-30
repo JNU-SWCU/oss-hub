@@ -72,6 +72,26 @@ export interface RankingYears {
   readonly years: readonly number[];
 }
 
+export interface RankingTimelinePoint {
+  readonly date: string;
+  readonly starEstimated: boolean;
+}
+
+export interface RankingTimelineSeries {
+  readonly githubLogin: string;
+  readonly ranks: readonly (number | null)[];
+  readonly totals?: readonly (number | null)[];
+}
+
+export interface RankingTimeline {
+  readonly year: number;
+  readonly viewerClass: RankingViewerClass;
+  readonly viewerGithubLogin: string | null;
+  readonly dataAsOf: Date | null;
+  readonly points: readonly RankingTimelinePoint[];
+  readonly series: readonly RankingTimelineSeries[];
+}
+
 export function currentRankingYear(now: Date = new Date()): number {
   return new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();
 }
