@@ -189,7 +189,6 @@ function rejectUnexpectedApi(route: Route): never {
 }
 
 async function openInsights(page: Page, insights: InsightsWire): Promise<void> {
-  await page.unroute('**/api/v1/**');
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());

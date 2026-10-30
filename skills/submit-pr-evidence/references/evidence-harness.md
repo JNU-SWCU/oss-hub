@@ -50,7 +50,7 @@ Before는 `origin/main` worktree, After는 작업 worktree에서 찍는다.
 `apps/frontend/playwright.config.ts`는 전역 `timezoneId`나 고정 시계를 두지 않는다.
 시간·마감이 걸린 화면은 그 테스트가 시계를 명시한다.
 예: `test.use({ timezoneId: 'Asia/Seoul' })` 또는 `'UTC'`, `page.clock.setFixedTime(...)`, program-authoring reset의 `now`.
-`e2e/run-stack.sh`의 `E2E_FROZEN_NOW`와 `TZ=Asia/Seoul`은 스택 프로세스 환경이지 브라우저 전역 시계가 아니다.
+e2e는 프론트엔드만 띄우고 백엔드 응답은 각 테스트가 `page.route`로 대신한다. 서버 프로세스 환경으로 브라우저 시계를 고정하지 않는다.
 고정 시계와 고정 달력 날짜는 유효하다. 상대 오프셋 빌더를 강제하지 않는다.
 
 파일명은 `<이슈번호 또는 티켓없음-슬러그>-<before|after>-<element|desktop|mobile>-<무엇>.png` 로 둔다.

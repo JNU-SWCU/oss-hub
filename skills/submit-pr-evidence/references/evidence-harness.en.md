@@ -55,7 +55,7 @@ Match the URL, synthetic role, viewport, locale, timezone, and synthetic data.
 `apps/frontend/playwright.config.ts` does not set a global `timezoneId` or fixed clock.
 For screens involving time or deadlines, the test specifies the clock explicitly.
 Examples include `test.use({ timezoneId: 'Asia/Seoul' })` or `'UTC'`, `page.clock.setFixedTime(...)`, and `now` in the program-authoring reset.
-`E2E_FROZEN_NOW` and `TZ=Asia/Seoul` in `e2e/run-stack.sh` are stack-process environment settings, not a global browser clock.
+The e2e run starts only the frontend, and each test stands in for backend responses with `page.route`. Server process environment never fixes the browser clock.
 A fixed clock and fixed calendar dates are valid; do not require a relative-offset builder.
 
 Use filenames in the form `<이슈번호 또는 티켓없음-슬러그>-<before|after>-<element|desktop|mobile>-<무엇>.png`: the Korean placeholders mean issue number or no-ticket slug, and the captured subject.

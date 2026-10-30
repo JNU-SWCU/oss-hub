@@ -2,7 +2,12 @@ import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { builtinRules } from 'eslint/use-at-your-own-risk';
 import { createRailsConfig } from './eslint-rules/rails-config.mjs';
+import {
+  crossAppImportPatterns,
+  noCrossAppPath,
+} from './eslint-rules/no-cross-app-path.mjs';
 import { sharedConfig } from '../../eslint.shared.mjs';
 
 export default tseslint.config(
@@ -22,6 +27,24 @@ export default tseslint.config(
     },
   },
   ...(await createRailsConfig(import.meta.dirname)),
+  {
+    files: ['**/*.{js,mjs,cjs,ts}'],
+    plugins: {
+      'cross-app': {
+        rules: {
+          'no-cross-app-path': noCrossAppPath,
+          'no-restricted-imports': builtinRules.get('no-restricted-imports'),
+        },
+      },
+    },
+    rules: {
+      'cross-app/no-cross-app-path': 'error',
+      'cross-app/no-restricted-imports': [
+        'error',
+        { patterns: crossAppImportPatterns },
+      ],
+    },
+  },
   {
     files: ['src/**/dto/*.ts'],
     rules: {

@@ -9,6 +9,7 @@ for (const multipleAuthorities of [false, true]) {
   test(`좁은 헤더의 메뉴와 계정이 겹치지 않는다: ${multipleAuthorities ? '복합 권한' : '학생'}`, async ({
     page,
   }, testInfo) => {
+    test.slow();
     await installSyntheticAuthority(
       page,
       {
