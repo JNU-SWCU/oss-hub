@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
-import {
-  loadProjectDetail,
-  parseProjectDetail,
-} from './api';
+import { loadProjectDetail, parseProjectDetail } from './api';
 import { ProjectDetailContent } from './components/project-detail-view';
 
 vi.mock('@/lib/api-client', () => ({
