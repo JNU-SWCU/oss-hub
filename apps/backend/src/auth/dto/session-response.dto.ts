@@ -29,11 +29,9 @@ export class SessionResponseDto {
   declare readonly isAuthenticated: boolean;
   declare readonly user?: MeResponseDto;
 
-  static anonymous(): SessionResponseDto {
-    return { isAuthenticated: false };
-  }
-
-  static authenticated(user: MeResponseDto): SessionResponseDto {
-    return { isAuthenticated: true, user };
+  static from(user: MeResponseDto | null): SessionResponseDto {
+    return user === null
+      ? { isAuthenticated: false }
+      : { isAuthenticated: true, user };
   }
 }

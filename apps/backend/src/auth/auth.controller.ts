@@ -144,11 +144,9 @@ export class AuthController {
         if (req.auth.hasSessionCookie) {
           this.clearSessionCookie(res);
         }
-        return SessionResponseDto.anonymous();
+        return SessionResponseDto.from(null);
       case HTTP_AUTH_KINDS.AUTHENTICATED:
-        return SessionResponseDto.authenticated(
-          MeResponseDto.from(req.auth.principal),
-        );
+        return SessionResponseDto.from(MeResponseDto.from(req.auth.principal));
       default:
         return assertNeverHttpAuth(req.auth);
     }

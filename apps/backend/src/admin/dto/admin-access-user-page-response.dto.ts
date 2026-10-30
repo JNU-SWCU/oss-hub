@@ -1,8 +1,4 @@
-import type {
-  AccountStatus,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import type { AccountStatus, MemberKind } from '@prisma/client';
 import type { AuthorityLabel } from '../../users/authority-label.policy';
 import type {
   AdminAccessFacets,
@@ -14,11 +10,19 @@ import type {
 import type { AdminProfileUpdateResult } from '../../users/admin-profile.types';
 import type { IndependentAuthorityMutationResult } from '../../users/independent-authority.types';
 
-type PendingRequestResponseDto = {
-  readonly id: string;
-  readonly status: typeof StaffAccessRequestStatus.PENDING;
-  readonly createdAt: string;
-};
+class PendingRequestResponseDto {
+  declare readonly id: string;
+  declare readonly status: AdminAccessPendingRequest['status'];
+  declare readonly createdAt: string;
+
+  static from(request: AdminAccessPendingRequest): PendingRequestResponseDto {
+    return {
+      id: request.id,
+      status: request.status,
+      createdAt: request.createdAt.toISOString(),
+    };
+  }
+}
 
 export class AdminAccessUserResponseDto {
   declare readonly id: string;
@@ -139,11 +143,5 @@ export class AdminProfileUpdateResponseDto {
 function toPendingRequest(
   request: AdminAccessPendingRequest | null,
 ): PendingRequestResponseDto | null {
-  return request
-    ? {
-        id: request.id,
-        status: request.status,
-        createdAt: request.createdAt.toISOString(),
-      }
-    : null;
+  return request ? PendingRequestResponseDto.from(request) : null;
 }

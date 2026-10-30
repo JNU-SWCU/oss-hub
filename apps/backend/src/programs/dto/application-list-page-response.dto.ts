@@ -60,8 +60,10 @@ export class ApplicationListItemResponseDto {
       repositoryConnectionMode: item.repositoryConnectionMode,
       repositoryUrl: item.repositoryUrl,
       repositoryProvisioning: {
-        ...item.repositoryProvisioning,
+        enabled: item.repositoryProvisioning.enabled,
+        jobStatus: item.repositoryProvisioning.jobStatus,
         updatedAt: item.repositoryProvisioning.updatedAt.toISOString(),
+        safeErrorClass: item.repositoryProvisioning.safeErrorClass,
       },
       repository: item.repository,
       isRepositoryPublicationPlanned: item.isRepositoryPublicationPlanned,
@@ -118,14 +120,40 @@ export class ReviewHistoryEntryResponseDto {
   }
 }
 
-export class ApplicationDetailResponseDto extends ApplicationListItemResponseDto {
+export class ApplicationDetailResponseDto {
+  declare readonly id: string;
+  declare readonly programId: string;
+  declare readonly status: ApplicationStatus;
+  declare readonly submittedAt: string;
+  declare readonly rejectionReason: string | null;
+  declare readonly repositoryConnectionMode: RepositoryConnectionMode;
+  declare readonly repositoryUrl: string | null;
+  declare readonly repositoryProvisioning: ApplicationListItemResponseDto['repositoryProvisioning'];
+  declare readonly repository: ApplicationListRepository | null;
+  declare readonly isRepositoryPublicationPlanned: boolean;
+  declare readonly participation: 'INDIVIDUAL' | 'TEAM';
+  declare readonly applicant: ApplicationListItemResponseDto['applicant'];
+  declare readonly team: ApplicationListItemResponseDto['team'];
+  declare readonly answers: ApplicationListItemResponseDto['answers'];
   declare readonly reviewHistory: readonly ReviewHistoryEntryResponseDto[];
 
-  static fromDetail(
-    detail: StaffApplicationDetail,
-  ): ApplicationDetailResponseDto {
+  static from(detail: StaffApplicationDetail): ApplicationDetailResponseDto {
+    const item = ApplicationListItemResponseDto.from(detail.application);
     return {
-      ...ApplicationListItemResponseDto.from(detail.application),
+      id: item.id,
+      programId: item.programId,
+      status: item.status,
+      submittedAt: item.submittedAt,
+      rejectionReason: item.rejectionReason,
+      repositoryConnectionMode: item.repositoryConnectionMode,
+      repositoryUrl: item.repositoryUrl,
+      repositoryProvisioning: item.repositoryProvisioning,
+      repository: item.repository,
+      isRepositoryPublicationPlanned: item.isRepositoryPublicationPlanned,
+      participation: item.participation,
+      applicant: item.applicant,
+      team: item.team,
+      answers: item.answers,
       reviewHistory: detail.reviewHistory.map((entry) =>
         ReviewHistoryEntryResponseDto.from(entry),
       ),

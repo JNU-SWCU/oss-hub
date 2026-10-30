@@ -68,6 +68,12 @@ export class MilestoneDocumentViewerSubmissionResponseDto {
 export class MilestoneDocumentTeamSubmissionCountResponseDto {
   declare readonly submitted: number;
   declare readonly total: number;
+
+  static from(
+    count: NonNullable<MilestoneDocumentViewerResult['teamSubmissionCount']>,
+  ): MilestoneDocumentTeamSubmissionCountResponseDto {
+    return { submitted: count.submitted, total: count.total };
+  }
 }
 
 export class MilestoneDocumentResponseDto {
@@ -102,7 +108,12 @@ export class MilestoneDocumentResponseDto {
           : MilestoneDocumentViewerSubmissionResponseDto.from(
               record.viewerSubmission,
             ),
-      teamSubmissionCount: record.teamSubmissionCount,
+      teamSubmissionCount:
+        record.teamSubmissionCount === undefined
+          ? undefined
+          : MilestoneDocumentTeamSubmissionCountResponseDto.from(
+              record.teamSubmissionCount,
+            ),
     };
   }
 }
@@ -116,7 +127,7 @@ export class MilestoneDocumentUploadPolicyResponseDto {
 
   declare readonly formatLabel: string;
 
-  static current(): MilestoneDocumentUploadPolicyResponseDto {
+  static from(): MilestoneDocumentUploadPolicyResponseDto {
     return {
       maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
       maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
@@ -135,7 +146,7 @@ export class MilestoneDocumentListResponseDto {
   ): MilestoneDocumentListResponseDto {
     return {
       documents,
-      fileUpload: MilestoneDocumentUploadPolicyResponseDto.current(),
+      fileUpload: MilestoneDocumentUploadPolicyResponseDto.from(),
     };
   }
 }

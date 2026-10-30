@@ -57,6 +57,7 @@ import {
   ProgramListPageResponseDto,
   ProgramListResponseDto,
 } from '../../src/programs/dto/program-list-response.dto';
+import { ProgramAuthoringUploadPolicyResponseDto } from '../../src/programs/dto/program-authoring-upload-policy-response.dto';
 import { ProgramNoticePreviewResponseDto } from '../../src/programs/dto/program-notice-preview-response.dto';
 import {
   MilestoneDocumentSummaryResponseDto,
@@ -785,7 +786,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'ApplicationDetailResponseDto',
     () =>
-      ApplicationDetailResponseDto.fromDetail({
+      ApplicationDetailResponseDto.from({
         application: applicationItem,
         reviewHistory: [reviewEntry],
       }),
@@ -809,14 +810,19 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'ApplicationPreparationInvitationResponseDto',
     () =>
       ApplicationPreparationInvitationResponseDto.from({
-        ...sentInvitation,
+        id: 'invitation-1',
+        teamId: 'team-1',
+        programId: 'program-1',
+        invitedById: 'user-1',
         status: 'ACCEPTED',
+        invitedAt: at('2026-01-10T00:00:00.000Z'),
         respondedAt: at('2026-01-11T00:00:00.000Z'),
         teamName: 'Team A',
         programName: 'Program A',
         invitedByDisplayName: 'Octo',
         memberCount: 2,
         teamMaxSize: 4,
+        invitee: sentInvitation.invitee,
       }),
   ],
   ...listProgramTemplates().flatMap(
@@ -1005,7 +1011,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   ],
   [
     'MilestoneDocumentUploadPolicyResponseDto',
-    () => MilestoneDocumentUploadPolicyResponseDto.current(),
+    () => MilestoneDocumentUploadPolicyResponseDto.from(),
   ],
   [
     'MilestoneDocumentListResponseDto',
@@ -1143,6 +1149,10 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         totalItems: 2,
         totalPages: 1,
       }),
+  ],
+  [
+    'ProgramAuthoringUploadPolicyResponseDto',
+    () => ProgramAuthoringUploadPolicyResponseDto.from(),
   ],
   [
     'ProgramNoticePreviewResponseDto',

@@ -83,7 +83,7 @@ export class ProgramAuthoringController {
     @Req() request: SessionIdentity,
   ): Promise<ProgramAuthoringUploadPolicyResponseDto> {
     await this.requireAuthor(request.sessionGithubId);
-    return new ProgramAuthoringUploadPolicyResponseDto();
+    return ProgramAuthoringUploadPolicyResponseDto.from();
   }
 
   @Post('uploads')

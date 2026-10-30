@@ -17,7 +17,12 @@ export class SubmissionReviewResponseDto {
   declare readonly reviewedAt: string;
 
   static from(review: SubmissionReviewRecord): SubmissionReviewResponseDto {
-    return { ...review, reviewedAt: review.reviewedAt.toISOString() };
+    return {
+      id: review.id,
+      decision: review.decision,
+      comment: review.comment,
+      reviewedAt: review.reviewedAt.toISOString(),
+    };
   }
 }
 
@@ -32,7 +37,14 @@ export class SubmissionReviewFileResponseDto {
   static from(
     file: SubmissionReviewFileRecord,
   ): SubmissionReviewFileResponseDto {
-    return { ...file, expiresAt: file.expiresAt.toISOString() };
+    return {
+      fileId: file.fileId,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+      expiresAt: file.expiresAt.toISOString(),
+      downloadUrl: file.downloadUrl,
+    };
   }
 }
 
@@ -48,7 +60,9 @@ export class SubmissionRevisionResponseDto {
     revision: SubmissionRevisionRecord,
   ): SubmissionRevisionResponseDto {
     return {
-      ...revision,
+      number: revision.number,
+      content: revision.content,
+      comment: revision.comment,
       submittedAt: revision.submittedAt.toISOString(),
       files: revision.files.map((file) =>
         SubmissionReviewFileResponseDto.from(file),
@@ -78,13 +92,16 @@ export class SubmissionReviewContextResponseDto {
     context: SubmissionReviewContext,
   ): SubmissionReviewContextResponseDto {
     return {
-      ...context,
+      submissionId: context.submissionId,
+      application: context.application,
+      milestone: context.milestone,
       currentRevision: SubmissionRevisionResponseDto.from(
         context.currentRevision,
       ),
       history: context.history.map((revision) =>
         SubmissionRevisionResponseDto.from(revision),
       ),
+      repository: context.repository,
     };
   }
 }
@@ -96,7 +113,10 @@ export class CreateSubmissionReviewResponseDto {
   static from(
     result: SubmissionReviewResult,
   ): CreateSubmissionReviewResponseDto {
-    return { ...result };
+    return {
+      reviewId: result.reviewId,
+      submissionStatus: result.submissionStatus,
+    };
   }
 }
 
@@ -106,6 +126,10 @@ export class RepositoryPublishResponseDto {
   declare readonly publishedAt: string;
 
   static from(result: RepositoryPublishResult): RepositoryPublishResponseDto {
-    return { ...result, publishedAt: result.publishedAt.toISOString() };
+    return {
+      repositoryId: result.repositoryId,
+      visibility: result.visibility,
+      publishedAt: result.publishedAt.toISOString(),
+    };
   }
 }

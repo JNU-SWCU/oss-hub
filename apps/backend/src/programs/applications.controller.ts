@@ -34,7 +34,7 @@ export class ApplicationsController {
     @Req() request: ApplicationActorRequest,
     @Param('id') applicationId: string,
   ): Promise<ApplicationDetailResponseDto> {
-    return ApplicationDetailResponseDto.fromDetail(
+    return ApplicationDetailResponseDto.from(
       await this.service.getForStaff(request.sessionGithubId, applicationId),
     );
   }

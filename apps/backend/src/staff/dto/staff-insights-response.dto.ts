@@ -51,8 +51,17 @@ export class StaffInsightsCohortResponseDto extends StaffInsightsMetricsResponse
   static override from(
     row: StaffInsightsCohortRow,
   ): StaffInsightsCohortResponseDto {
+    const metrics = StaffInsightsMetricsResponseDto.from(row);
     return {
-      ...StaffInsightsMetricsResponseDto.from(row),
+      studentCount: metrics.studentCount,
+      activeStudentCount: metrics.activeStudentCount,
+      commitCount: metrics.commitCount,
+      pullRequestCount: metrics.pullRequestCount,
+      issueCount: metrics.issueCount,
+      repositoryCount: metrics.repositoryCount,
+      starCount: metrics.starCount,
+      total: metrics.total,
+      participantCount: metrics.participantCount,
       cohort: row.cohort,
     };
   }
@@ -65,8 +74,17 @@ export class StaffInsightsDepartmentResponseDto extends StaffInsightsMetricsResp
   static override from(
     row: StaffInsightsDepartmentRow,
   ): StaffInsightsDepartmentResponseDto {
+    const metrics = StaffInsightsMetricsResponseDto.from(row);
     return {
-      ...StaffInsightsMetricsResponseDto.from(row),
+      studentCount: metrics.studentCount,
+      activeStudentCount: metrics.activeStudentCount,
+      commitCount: metrics.commitCount,
+      pullRequestCount: metrics.pullRequestCount,
+      issueCount: metrics.issueCount,
+      repositoryCount: metrics.repositoryCount,
+      starCount: metrics.starCount,
+      total: metrics.total,
+      participantCount: metrics.participantCount,
       department: row.department,
       cohort: row.cohort,
     };

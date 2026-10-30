@@ -163,12 +163,32 @@ export class MilestoneDocumentCollectionFilterCountsResponseDto {
   declare readonly all: number;
   declare readonly hasMissing: number;
   declare readonly zeroSubmission: number;
+
+  static from(
+    counts: MilestoneDocumentCollectionResult['filterCounts'],
+  ): MilestoneDocumentCollectionFilterCountsResponseDto {
+    return {
+      all: counts.all,
+      hasMissing: counts.hasMissing,
+      zeroSubmission: counts.zeroSubmission,
+    };
+  }
 }
 
 export class MilestoneDocumentCollectionDocumentTotalResponseDto {
   declare readonly documentId: string;
   declare readonly submitted: number;
   declare readonly total: number;
+
+  static from(
+    total: MilestoneDocumentCollectionResult['documentTotals'][number],
+  ): MilestoneDocumentCollectionDocumentTotalResponseDto {
+    return {
+      documentId: total.documentId,
+      submitted: total.submitted,
+      total: total.total,
+    };
+  }
 }
 
 export class MilestoneDocumentCollectionResponseDto {
@@ -198,8 +218,12 @@ export class MilestoneDocumentCollectionResponseDto {
       page: result.page,
       pageSize: result.pageSize,
       total: result.total,
-      filterCounts: result.filterCounts,
-      documentTotals: result.documentTotals,
+      filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto.from(
+        result.filterCounts,
+      ),
+      documentTotals: result.documentTotals.map((total) =>
+        MilestoneDocumentCollectionDocumentTotalResponseDto.from(total),
+      ),
     };
   }
 }
@@ -216,7 +240,14 @@ export class MilestoneDocumentDeliveryCollectionRowResponseDto {
     row: MilestoneDocumentCollectionRowResponseDto,
     deliveryStatus: DocumentDeliveryStatus,
   ): MilestoneDocumentDeliveryCollectionRowResponseDto {
-    return { ...row, deliveryStatus };
+    return {
+      applicationId: row.applicationId,
+      teamName: row.teamName,
+      applicantName: row.applicantName,
+      memberNicknames: row.memberNicknames,
+      cells: row.cells,
+      deliveryStatus,
+    };
   }
 }
 
@@ -242,8 +273,8 @@ export class MilestoneDocumentDeliveryCollectionResponseDto {
   ): MilestoneDocumentDeliveryCollectionResponseDto {
     const response = MilestoneDocumentCollectionResponseDto.from(result);
     return {
-      ...response,
-      deliveryCounts: result.deliveryCounts,
+      milestone: response.milestone,
+      documents: response.documents,
       rows: response.rows.map((row, index) => {
         const coordinateRow = result.rows[index];
         if (coordinateRow === undefined)
@@ -253,6 +284,17 @@ export class MilestoneDocumentDeliveryCollectionResponseDto {
           coordinateRow.deliveryStatus,
         );
       }),
+      page: response.page,
+      pageSize: response.pageSize,
+      total: response.total,
+      filterCounts: response.filterCounts,
+      documentTotals: response.documentTotals,
+      deliveryCounts: {
+        missing: result.deliveryCounts.missing,
+        late: result.deliveryCounts.late,
+        complete: result.deliveryCounts.complete,
+        noRequiredItems: result.deliveryCounts.noRequiredItems,
+      },
     };
   }
 }

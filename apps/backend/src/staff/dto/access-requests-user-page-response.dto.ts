@@ -14,22 +14,47 @@ import type {
   AdminAccessUserHistory,
 } from '../../users/admin-access.types';
 
-type StaffAccessRequestHistoryItemResponseDto = {
-  readonly id: string;
-  readonly status: StaffAccessRequestStatus;
-  readonly rejectionReason: string | null;
-  readonly decidedAt: string | null;
-  readonly decidedBy: string | null;
-  readonly createdAt: string;
-};
+class StaffAccessRequestHistoryItemResponseDto {
+  declare readonly id: string;
+  declare readonly status: StaffAccessRequestStatus;
+  declare readonly rejectionReason: string | null;
+  declare readonly decidedAt: string | null;
+  declare readonly decidedBy: string | null;
+  declare readonly createdAt: string;
 
-type LoginHistoryItemResponseDto = {
-  readonly id: string;
-  readonly event: LoginHistoryEvent;
-  readonly provider: 'github';
-  readonly success: boolean;
-  readonly loginAt: string;
-};
+  static from(
+    item: AdminAccessUserHistory['staffAccessRequests']['items'][number],
+  ): StaffAccessRequestHistoryItemResponseDto {
+    return {
+      id: item.id,
+      status: item.status,
+      rejectionReason: item.rejectionReason,
+      decidedAt: item.decidedAt?.toISOString() ?? null,
+      decidedBy: item.decidedBy,
+      createdAt: item.createdAt.toISOString(),
+    };
+  }
+}
+
+class LoginHistoryItemResponseDto {
+  declare readonly id: string;
+  declare readonly event: LoginHistoryEvent;
+  declare readonly provider: 'github';
+  declare readonly success: boolean;
+  declare readonly loginAt: string;
+
+  static from(
+    item: AdminAccessUserHistory['loginHistory']['items'][number],
+  ): LoginHistoryItemResponseDto {
+    return {
+      id: item.id,
+      event: item.event,
+      provider: item.provider,
+      success: item.success,
+      loginAt: item.loginAt.toISOString(),
+    };
+  }
+}
 
 export class AccessRequestsUserHistoryResponseDto {
   declare readonly staffAccessRequests: {
@@ -50,29 +75,38 @@ export class AccessRequestsUserHistoryResponseDto {
   ): AccessRequestsUserHistoryResponseDto {
     return {
       staffAccessRequests: {
-        ...history.staffAccessRequests,
-        items: history.staffAccessRequests.items.map((item) => ({
-          ...item,
-          decidedAt: item.decidedAt?.toISOString() ?? null,
-          createdAt: item.createdAt.toISOString(),
-        })),
+        items: history.staffAccessRequests.items.map((item) =>
+          StaffAccessRequestHistoryItemResponseDto.from(item),
+        ),
+        page: history.staffAccessRequests.page,
+        limit: history.staffAccessRequests.limit,
+        total: history.staffAccessRequests.total,
       },
       loginHistory: {
-        ...history.loginHistory,
-        items: history.loginHistory.items.map((item) => ({
-          ...item,
-          loginAt: item.loginAt.toISOString(),
-        })),
+        items: history.loginHistory.items.map((item) =>
+          LoginHistoryItemResponseDto.from(item),
+        ),
+        page: history.loginHistory.page,
+        limit: history.loginHistory.limit,
+        total: history.loginHistory.total,
       },
     };
   }
 }
 
-type PendingRequestResponseDto = {
-  readonly id: string;
-  readonly status: typeof StaffAccessRequestStatus.PENDING;
-  readonly createdAt: string;
-};
+class PendingRequestResponseDto {
+  declare readonly id: string;
+  declare readonly status: AdminAccessPendingRequest['status'];
+  declare readonly createdAt: string;
+
+  static from(request: AdminAccessPendingRequest): PendingRequestResponseDto {
+    return {
+      id: request.id,
+      status: request.status,
+      createdAt: request.createdAt.toISOString(),
+    };
+  }
+}
 
 export class AccessRequestsUserResponseDto {
   declare readonly id: string;
@@ -175,11 +209,5 @@ export class AccessRequestsUserDetailResponseDto {
 function toPendingRequest(
   request: AdminAccessPendingRequest | null,
 ): PendingRequestResponseDto | null {
-  return request
-    ? {
-        id: request.id,
-        status: request.status,
-        createdAt: request.createdAt.toISOString(),
-      }
-    : null;
+  return request ? PendingRequestResponseDto.from(request) : null;
 }

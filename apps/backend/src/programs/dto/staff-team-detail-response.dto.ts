@@ -33,8 +33,10 @@ export class TeamApplicationResponseDto {
       repositoryConnectionMode: view.repositoryConnectionMode,
       repository: view.repository,
       repositoryProvisioning: {
-        ...view.repositoryProvisioning,
+        enabled: view.repositoryProvisioning.enabled,
+        jobStatus: view.repositoryProvisioning.jobStatus,
         updatedAt: view.repositoryProvisioning.updatedAt.toISOString(),
+        safeErrorClass: view.repositoryProvisioning.safeErrorClass,
       },
     };
   }
