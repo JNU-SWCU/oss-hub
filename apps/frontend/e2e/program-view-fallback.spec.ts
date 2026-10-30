@@ -93,7 +93,7 @@ test('참여 조회 실패 시 혼합 권한 계정의 운영 메뉴와 상세 �
       viewer: { role: 'STAFF' },
     });
     await expect(
-      page.getByRole('link', { name: '운영 도구로 전환', exact: true }),
+      page.getByRole('button', { name: '운영 도구로 전환', exact: true }),
     ).toHaveCount(0);
     for (const viewport of [
       { name: 'desktop', width: 1440, height: 900 },

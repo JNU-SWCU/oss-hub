@@ -22,6 +22,10 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 import { ProgramScopeSidebar } from './program-scope-sidebar';
 import { programScopeSidebarGroups } from './sidebar-menu';
 
@@ -81,7 +85,7 @@ function render(
 }
 
 describe('ProgramScopeSidebar', () => {
-  it('운영 전환 query가 있어도 현재 서류와 선택 단계 표시를 유지한다', () => {
+  it('운영 화면에서 현재 서류와 선택 단계 표시를 유지한다', () => {
     const groups = programScopeSidebarGroups({
       programId: 'prog-1',
       viewerRole: 'STAFF',
@@ -96,18 +100,16 @@ describe('ProgramScopeSidebar', () => {
     const html = render({
       groups,
       pathname: '/programs/prog-1/documents',
-      search: 'view=operations&milestoneId=m3',
+      search: 'milestoneId=m3',
     });
     expect(html).toMatch(
       /href="[^"]*milestoneId=m3[^"]*"[^>]*data-selected="true"/,
     );
-    expect(html).toMatch(
-      /href="[^"]*documents\?view=operations"[^>]*aria-current="page"/,
-    );
+    expect(html).toMatch(/href="[^"]*documents"[^>]*aria-current="page"/);
     const overview = render({
       groups,
       pathname: '/programs/prog-1',
-      search: 'view=operations',
+      search: '',
     });
     expect((overview.match(/aria-current="page"/g) ?? []).length).toBe(1);
   });
