@@ -57,9 +57,13 @@ describe('navigation notices', () => {
   }
 
   it('starts pending on the server', () => {
-    expect(renderToString(
-      <NavigationNoticeProvider><Reader /></NavigationNoticeProvider>,
-    )).toContain('pending');
+    expect(
+      renderToString(
+        <NavigationNoticeProvider>
+          <Reader />
+        </NavigationNoticeProvider>,
+      ),
+    ).toContain('pending');
   });
 
   it('shares one logout snapshot across readers and StrictMode effects', async () => {
@@ -67,7 +71,9 @@ describe('navigation notices', () => {
     await render();
     for (const reader of container.querySelectorAll('output')) {
       expect(JSON.parse(reader.textContent ?? '')).toEqual({
-        status: 'ready', loggedOut: true, purgeSummary: null,
+        status: 'ready',
+        loggedOut: true,
+        purgeSummary: null,
       });
     }
     expect(sessionStorage.getItem('oss-hub-logged-out')).toBeNull();

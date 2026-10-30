@@ -106,7 +106,11 @@ describe('LoginButton 로그아웃 착지', () => {
   async function logoutFrom(pathname: string): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
-      root.render(<NavigationNoticeProvider><LoginButton /></NavigationNoticeProvider>);
+      root.render(
+        <NavigationNoticeProvider>
+          <LoginButton />
+        </NavigationNoticeProvider>,
+      );
     });
     clickLogout();
     await act(async () => {
@@ -198,7 +202,11 @@ describe('로그아웃 직후 랜딩의 상단 로그인', () => {
       value: { assign: mocks.assign, search, pathname },
     });
     await act(async () => {
-      root.render(<NavigationNoticeProvider><LoginButton /></NavigationNoticeProvider>);
+      root.render(
+        <NavigationNoticeProvider>
+          <LoginButton />
+        </NavigationNoticeProvider>,
+      );
     });
     const href = container.querySelector('a')?.getAttribute('href');
     if (!href) throw new Error('로그인 링크를 찾지 못했다');

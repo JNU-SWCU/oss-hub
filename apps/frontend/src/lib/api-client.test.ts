@@ -168,7 +168,9 @@ describe('apiClient', () => {
 
 describe('withQuery', () => {
   it('returns the bare path for empty params', () => {
-    expect(withQuery('users/access', new URLSearchParams())).toBe('users/access');
+    expect(withQuery('users/access', new URLSearchParams())).toBe(
+      'users/access',
+    );
   });
 });
 

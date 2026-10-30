@@ -14,14 +14,17 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
     expect(takeLoginDestination(sessionStorage, 1)).toBe('/programs/42/apply');
     expect(takeLoginDestination(sessionStorage, 2)).toBeNull();
   });
-  it.each(['/signup', '/logout'])('저장되어 있던 옛 경로 %s도 소비 후 거절한다', (destination) => {
-    sessionStorage.setItem(
-      'oss-hub-login-destination',
-      JSON.stringify({ destination, expiresAt: 600000 }),
-    );
-    expect(takeLoginDestination(sessionStorage, 1)).toBeNull();
-    expect(sessionStorage.getItem('oss-hub-login-destination')).toBeNull();
-  });
+  it.each(['/signup', '/logout'])(
+    '저장되어 있던 옛 경로 %s도 소비 후 거절한다',
+    (destination) => {
+      sessionStorage.setItem(
+        'oss-hub-login-destination',
+        JSON.stringify({ destination, expiresAt: 600000 }),
+      );
+      expect(takeLoginDestination(sessionStorage, 1)).toBeNull();
+      expect(sessionStorage.getItem('oss-hub-login-destination')).toBeNull();
+    },
+  );
   it.each([
     'https://evil.example',
     '//evil.example',

@@ -17,16 +17,20 @@ for (const path of ['/signup', '/logout', '/programs/x/milestones/y/submit']) {
   });
 }
 
-test('signing in from a protected page returns to the stored destination', async ({ page }) => {
+test('signing in from a protected page returns to the stored destination', async ({
+  page,
+}) => {
   let authenticated = false;
   let oauthRequests = 0;
   await page.route('**/api/v1/auth/session', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(authenticated
-        ? authenticatedSessionBody('staff')
-        : { isAuthenticated: false }),
+      body: JSON.stringify(
+        authenticated
+          ? authenticatedSessionBody('staff')
+          : { isAuthenticated: false },
+      ),
     }),
   );
   await page.route('**/api/v1/auth/github', async (route) => {
@@ -46,9 +50,11 @@ test('signing in from a protected page returns to the stored destination', async
   await expect(page).toHaveURL(new URL('/dashboard', page.url()).href);
   await expect(page.locator('#login-required-heading')).toHaveCount(0);
   expect(oauthRequests).toBe(1);
-  expect(await page.evaluate(() =>
-    sessionStorage.getItem('oss-hub-login-destination'),
-  )).toBeNull();
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('oss-hub-login-destination'),
+    ),
+  ).toBeNull();
 });
 
 test('logged-out landing keeps the hero copy but drops the action row and the notice', async ({
@@ -78,9 +84,12 @@ test('logged-out landing keeps the hero copy but drops the action row and the no
 test('forged logout and purge query flags have no effect', async ({ page }) => {
   await page.goto('/?loggedOut=1');
   await expect(hero(page).getByRole('link')).toHaveCount(2);
-  await expect(page.getByRole('link', { name: 'GitHub으로 로그인', exact: true }))
-    .toHaveAttribute('href', '/api/v1/auth/github');
+  await expect(
+    page.getByRole('link', { name: 'GitHub으로 로그인', exact: true }),
+  ).toHaveAttribute('href', '/api/v1/auth/github');
   await page.goto('/programs?purged=forged-text');
   await expect(page.getByText('forged-text')).toHaveCount(0);
-  await expect(page.getByRole('alert').filter({ hasText: '프로그램 전체 삭제' })).toHaveCount(0);
+  await expect(
+    page.getByRole('alert').filter({ hasText: '프로그램 전체 삭제' }),
+  ).toHaveCount(0);
 });

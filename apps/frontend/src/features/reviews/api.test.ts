@@ -126,10 +126,17 @@ describe('reviews api', () => {
 
   it('repository publication은 slash가 포함된 id를 인코딩한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ repositoryId: 'repo/one', visibility: 'PUBLIC', publishedAt: '2026-10-01T01:00:00.000Z' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({
+          repositoryId: 'repo/one',
+          visibility: 'PUBLIC',
+          publishedAt: '2026-10-01T01:00:00.000Z',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
     );
     vi.stubGlobal('fetch', fetchMock);
 

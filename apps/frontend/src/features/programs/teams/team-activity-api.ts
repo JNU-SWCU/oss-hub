@@ -142,7 +142,10 @@ export async function getRepositoryHistory(
   if (cursor !== undefined) params.set('cursor', cursor);
   return parseRepositoryHistory(
     await apiClient<unknown>(
-      withQuery(`${teamPath(programId, teamId)}/repository-url-history`, params),
+      withQuery(
+        `${teamPath(programId, teamId)}/repository-url-history`,
+        params,
+      ),
     ),
   );
 }

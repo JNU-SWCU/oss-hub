@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProgramEndedYears, listPrograms } from './api';
 import { ProgramListPage } from './program-list-page';
 import { ApiError, apiPath } from '@/lib/api-client';
-import { NavigationNoticeProvider, rememberProgramPurged } from '@/lib/navigation-notices';
+import {
+  NavigationNoticeProvider,
+  rememberProgramPurged,
+} from '@/lib/navigation-notices';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -538,7 +541,9 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   it('전체 삭제 후 저장한 안내는 한 번만 표시한다', async () => {
     rememberProgramPurged('지원서 2건 · 알림 3건');
     await renderPage();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('지원서 2건 · 알림 3건');
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '지원서 2건 · 알림 3건',
+    );
     await act(async () => root.unmount());
     root = createRoot(container);
     await renderPage();

@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePathname } from 'next/navigation';
 import type { NoticeStorage } from './signup-completion-notice';
 
@@ -13,7 +20,11 @@ type NavigationNotices =
     };
 
 const PENDING: NavigationNotices = { status: 'pending' };
-const EMPTY = { status: 'ready', loggedOut: false, purgeSummary: null } satisfies NavigationNotices;
+const EMPTY = {
+  status: 'ready',
+  loggedOut: false,
+  purgeSummary: null,
+} satisfies NavigationNotices;
 const LOGGED_OUT_KEY = 'oss-hub-logged-out';
 const PURGED_KEY = 'oss-hub-program-purged';
 const NavigationNoticeContext = createContext<NavigationNotices>(PENDING);
@@ -56,9 +67,12 @@ function take(pathname: string): NavigationNotices {
       storage.removeItem(PURGED_KEY);
       const value: unknown = raw === null ? null : JSON.parse(raw);
       if (
-        typeof value === 'object' && value !== null &&
-        'destination' in value && value.destination === '/programs' &&
-        'summary' in value && typeof value.summary === 'string'
+        typeof value === 'object' &&
+        value !== null &&
+        'destination' in value &&
+        value.destination === '/programs' &&
+        'summary' in value &&
+        typeof value.summary === 'string'
       ) {
         return { ...EMPTY, purgeSummary: value.summary };
       }
@@ -69,9 +83,16 @@ function take(pathname: string): NavigationNotices {
   }
 }
 
-export function NavigationNoticeProvider({ children }: { readonly children: ReactNode }) {
+export function NavigationNoticeProvider({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   const pathname = usePathname();
-  const snapshot = useRef<{ readonly pathname: string; readonly notices: NavigationNotices } | null>(null);
+  const snapshot = useRef<{
+    readonly pathname: string;
+    readonly notices: NavigationNotices;
+  } | null>(null);
   const [resolved, setResolved] = useState<typeof snapshot.current>(null);
 
   useEffect(() => {
@@ -82,7 +103,9 @@ export function NavigationNoticeProvider({ children }: { readonly children: Reac
   }, [pathname]);
 
   return (
-    <NavigationNoticeContext.Provider value={resolved?.pathname === pathname ? resolved.notices : PENDING}>
+    <NavigationNoticeContext.Provider
+      value={resolved?.pathname === pathname ? resolved.notices : PENDING}
+    >
       {children}
     </NavigationNoticeContext.Provider>
   );

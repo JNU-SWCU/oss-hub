@@ -15,7 +15,10 @@ import {
   clearLoginDestination,
   getLoginDestinationStorage,
 } from '../login-destination';
-import { rememberLoggedOut, useNavigationNotices } from '@/lib/navigation-notices';
+import {
+  rememberLoggedOut,
+  useNavigationNotices,
+} from '@/lib/navigation-notices';
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
@@ -197,7 +200,11 @@ export function LoginButton({
 
   return (
     <LoginButtonView
-      session={session?.isAuthenticated === false && notices.status === 'pending' ? null : session}
+      session={
+        session?.isAuthenticated === false && notices.status === 'pending'
+          ? null
+          : session
+      }
       returnTo={pathname === '/' ? null : pathname}
       selectAccount={notices.status === 'ready' && notices.loggedOut}
       accountRoles={accountRoles}

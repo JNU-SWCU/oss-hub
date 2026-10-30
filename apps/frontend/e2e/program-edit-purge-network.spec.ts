@@ -180,9 +180,9 @@ async function openEdit(
   await expect(
     page.getByRole('heading', { name: '프로그램 편집' }),
   ).toBeVisible();
-  await expect(page.getByRole('textbox', { name: '프로그램명 *', exact: true })).toHaveValue(
-    scenario.programName ?? PROGRAM_NAME,
-  );
+  await expect(
+    page.getByRole('textbox', { name: '프로그램명 *', exact: true }),
+  ).toHaveValue(scenario.programName ?? PROGRAM_NAME);
   initialLoadComplete = true;
   return { purgeRequests, normalDeletes, lifecyclePatches };
 }
@@ -216,12 +216,18 @@ test.describe('program edit purge network contract', () => {
     await expect(page.getByText('다시 게시하기', { exact: true })).toHaveCount(
       0,
     );
-    await page.getByRole('textbox', { name: '프로그램명 *', exact: true }).fill(`${PROGRAM_NAME} 수정`);
+    await page
+      .getByRole('textbox', { name: '프로그램명 *', exact: true })
+      .fill(`${PROGRAM_NAME} 수정`);
     await openPurge(page);
-    await expect(page.getByRole('textbox', { name: '프로그램명 *', exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('textbox', { name: '프로그램명 *', exact: true }),
+    ).toHaveCount(0);
     await page.getByRole('button', { name: '삭제', exact: true }).click();
     await expect(page).toHaveURL(new URL('/programs', page.url()).href);
-    const notice = page.getByRole('alert').filter({ hasText: '프로그램 전체 삭제' });
+    const notice = page
+      .getByRole('alert')
+      .filter({ hasText: '프로그램 전체 삭제' });
     await expect(notice).toBeVisible();
     await expect(notice).toContainText('지원서 4건');
     await page.reload();
@@ -391,8 +397,12 @@ test.describe('program edit purge network contract', () => {
   });
 
   test('scope loading blocks confirmation', async ({ page }) => {
-    let releaseScope: () => void = () => { throw new Error('Missing scope gate'); };
-    const scopeGate = new Promise<void>((resolve) => { releaseScope = resolve; });
+    let releaseScope: () => void = () => {
+      throw new Error('Missing scope gate');
+    };
+    const scopeGate = new Promise<void>((resolve) => {
+      releaseScope = resolve;
+    });
     const loading = await openEdit(page, {
       actor: 'admin',
       counts: COUNTS,
@@ -438,8 +448,12 @@ test.describe('program edit purge network contract', () => {
   test('duplicate in-flight confirmation never mutates twice', async ({
     page,
   }) => {
-    let releasePurge: () => void = () => { throw new Error('Missing purge gate'); };
-    const purgeGate = new Promise<void>((resolve) => { releasePurge = resolve; });
+    let releasePurge: () => void = () => {
+      throw new Error('Missing purge gate');
+    };
+    const purgeGate = new Promise<void>((resolve) => {
+      releasePurge = resolve;
+    });
     const pending = await openEdit(page, {
       actor: 'admin',
       counts: COUNTS,
@@ -454,8 +468,10 @@ test.describe('program edit purge network contract', () => {
         { exact: true },
       ),
     ).toBeVisible();
-    const purgeRequested = page.waitForRequest((request) =>
-      request.method() === 'DELETE' && new URL(request.url()).pathname.endsWith('/purge'),
+    const purgeRequested = page.waitForRequest(
+      (request) =>
+        request.method() === 'DELETE' &&
+        new URL(request.url()).pathname.endsWith('/purge'),
     );
     await page.getByRole('button', { name: '삭제', exact: true }).click();
     await purgeRequested;

@@ -50,19 +50,19 @@ export default async function RootLayout({
         <SkipLink />
 
         <NavigationNoticeProvider>
-        <AppFrame
-          brand={<Link href="/">OSS Hub</Link>}
-          items={PUBLIC_MENU}
-          actions={
-            <>
-              <SessionEntryNavLink />
-              <AccountSlot />
-            </>
-          }
-          initialSidebarCollapsed={initialSidebarCollapsed}
-        >
-          {children}
-        </AppFrame>
+          <AppFrame
+            brand={<Link href="/">OSS Hub</Link>}
+            items={PUBLIC_MENU}
+            actions={
+              <>
+                <SessionEntryNavLink />
+                <AccountSlot />
+              </>
+            }
+            initialSidebarCollapsed={initialSidebarCollapsed}
+          >
+            {children}
+          </AppFrame>
         </NavigationNoticeProvider>
       </body>
     </html>

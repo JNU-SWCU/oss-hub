@@ -446,14 +446,16 @@ describe('ProgramEditPage 컴포넌트', () => {
         program.deletionScopeCounts,
       );
       expect(confirmMock).not.toHaveBeenCalled();
-      expect(routerPushMock).toHaveBeenCalledWith(
-        '/programs',
-      );
-      expect(JSON.parse(sessionStorage.getItem('oss-hub-program-purged') ?? 'null')).toEqual(
-        storageBlocked ? null : {
-          destination: '/programs',
-          summary: '지원서 1건',
-        },
+      expect(routerPushMock).toHaveBeenCalledWith('/programs');
+      expect(
+        JSON.parse(sessionStorage.getItem('oss-hub-program-purged') ?? 'null'),
+      ).toEqual(
+        storageBlocked
+          ? null
+          : {
+              destination: '/programs',
+              summary: '지원서 1건',
+            },
       );
     },
   );
