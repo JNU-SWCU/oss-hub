@@ -10,12 +10,15 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
-export async function readProgramDeletionScopeCounts(
-  transaction: PrismaTypes.TransactionClient,
-  programId: string,
-): Promise<ProgramDeletionScopeCounts> {
-  const [row] = await transaction.$queryRaw<readonly DeletionScopeCountsRow[]>(
-    Prisma.sql`
+export class ProgramDeletionScopeRepository {
+  static async readProgramDeletionScopeCounts(
+    transaction: PrismaTypes.TransactionClient,
+    programId: string,
+  ): Promise<ProgramDeletionScopeCounts> {
+    const [row] = await transaction.$queryRaw<
+      readonly DeletionScopeCountsRow[]
+    >(
+      Prisma.sql`
       SELECT
         (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
@@ -195,14 +198,15 @@ export async function readProgramDeletionScopeCounts(
           ) AS scope
         ) AS "scopeFingerprint"
     `,
-  );
-  if (!row) throw new Error('Deletion scope count query returned no result.');
-  return {
-    applications: Number(row.applications),
-    teams: Number(row.teams),
-    boardPosts: Number(row.boardPosts),
-    submissions: Number(row.submissions),
-    submissionEvents: Number(row.submissionEvents),
-    scopeFingerprint: row.scopeFingerprint,
-  };
+    );
+    if (!row) throw new Error('Deletion scope count query returned no result.');
+    return {
+      applications: Number(row.applications),
+      teams: Number(row.teams),
+      boardPosts: Number(row.boardPosts),
+      submissions: Number(row.submissions),
+      submissionEvents: Number(row.submissionEvents),
+      scopeFingerprint: row.scopeFingerprint,
+    };
+  }
 }

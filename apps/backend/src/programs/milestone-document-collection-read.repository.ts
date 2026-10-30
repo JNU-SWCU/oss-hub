@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import type {
   MilestoneContext,
@@ -103,7 +103,9 @@ export class MilestoneDocumentCollectionReadStore {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

@@ -12,7 +12,7 @@ import {
   RepositoryProvisionJobRepository,
 } from './repository-provision-job.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { collectionProviders } from './collection-providers.service';
+import { CollectionProvidersService } from './collection-providers.service';
 import {
   CollectionScheduler,
   CollectionTriggerService,
@@ -43,7 +43,7 @@ import { RepositoryProvisionWorkerService } from './repository-provision-worker.
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionUserActivityRepository,
-    ...collectionProviders,
+    ...CollectionProvidersService.providers,
     {
       provide: RepositoryOwnEnrollmentService,
       inject: [ConsentsService, CollectionIncrementalRepository],

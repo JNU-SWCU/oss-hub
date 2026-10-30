@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { linkedRepositoryFilter } from '../platform/platform.repository';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 
 export interface ProgramRepositoryLink {
   readonly programId: string;
@@ -79,12 +79,18 @@ export class ProgramActivityRepository {
         AND: [
           {
             OR: [
-              { repository: { is: linkedRepositoryFilter() } },
+              {
+                repository: { is: PlatformRepository.linkedRepositoryFilter() },
+              },
               { status: 'APPROVED', repository: null },
             ],
           },
           ...(studentUserId
-            ? [programApplicationParticipantWhere(studentUserId)]
+            ? [
+                ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                ),
+              ]
             : []),
         ],
       },
@@ -148,7 +154,7 @@ export class ProgramActivityRepository {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...linkedRepositoryFilter(),
+        ...PlatformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,

@@ -5,19 +5,19 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
-import { settleProvisionGenerationForSynchronousConnection } from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  readTeamRepositoryUrlContext,
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
   STUDENT_REPOSITORY_URL_SELECT,
+  StudentRepositoryUrlContextRepository,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
 
 export class StudentRepositoryUrlTransactionRepository {
@@ -38,7 +38,7 @@ export class StudentRepositoryUrlTransactionRepository {
       .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Application" WHERE "programId" = ${programId} AND "teamId" = ${teamId} FOR UPDATE`;
-    return readTeamRepositoryUrlContext(
+    return StudentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.transaction,
       programId,
       teamId,
@@ -122,7 +122,7 @@ export class StudentRepositoryUrlTransactionRepository {
       },
     });
 
-    await settleProvisionGenerationForSynchronousConnection(
+    await RepositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },
       parseRepositoryProvisionEvent,
@@ -147,7 +147,12 @@ export class StudentRepositoryUrlRepository {
     studentId: string,
   ): Promise<StudentRepositoryUrlContext | null> {
     return this.prisma.application.findFirst({
-      where: { programId, ...programApplicationParticipantWhere(studentId) },
+      where: {
+        programId,
+        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+          studentId,
+        ),
+      },
       select: STUDENT_REPOSITORY_URL_SELECT,
     });
   }
@@ -157,7 +162,7 @@ export class StudentRepositoryUrlRepository {
     teamId: string,
     actorGithubId: bigint,
   ): Promise<TeamRepositoryUrlContext | null> {
-    return readTeamRepositoryUrlContext(
+    return StudentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.prisma,
       programId,
       teamId,

@@ -1,4 +1,4 @@
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import type {
   ProgramExternalCover,
   ProgramAuthoringProgramPlan,
@@ -18,7 +18,7 @@ import {
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { lockProgramAuthoringUploads } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import {
   createProgramCover,
   createExternalProgramCover,
@@ -145,7 +145,10 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
   lockUploads(
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    return lockProgramAuthoringUploads(this.prisma, tokenIds);
+    return ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+      this.prisma,
+      tokenIds,
+    );
   }
 
   async createMilestone(

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
@@ -9,7 +9,7 @@ import {
 } from './admin-access.repository';
 import {
   ADMIN_ACCESS_USER_SELECT,
-  toAdminAccessUserRecord,
+  AdminAccessUserProjectionRepository,
 } from './admin-access-user-projection.repository';
 import type {
   AdminAccessActor,
@@ -122,7 +122,7 @@ function toIndependentAuthorityUserRecord(
   user: Prisma.UserGetPayload<{ select: typeof ADMIN_ACCESS_USER_SELECT }>,
 ): IndependentAuthorityUserRecord {
   return {
-    ...toAdminAccessUserRecord(user),
+    ...AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user),
     selectedMemberKind: user.selectedMemberKind,
   };
 }

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import {
   PROGRAM_PURGE_DELETION_ORDER,
   TEAM_PURGE_DELETION_ORDER,
-} from './program-purge-deletion-matrix.repository';
+} from './program-purge-deletion-matrix.policy';
 
 type RelationEdge = {
   readonly parent: string;

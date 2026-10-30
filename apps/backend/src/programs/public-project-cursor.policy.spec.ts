@@ -5,7 +5,7 @@ import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,
   resolvePublicProjectCursorKey,
-} from './public-project-cursor.service';
+} from './public-project-cursor.policy';
 import { PublicProjectCursorSecretError } from './public-project-cursor.error';
 
 const SESSION_SECRET = Buffer.from(

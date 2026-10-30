@@ -11,10 +11,7 @@ import {
   assertProgramCoverUpload,
 } from './program-cover.policy';
 import { ProgramCoverChange } from './programs.types';
-import {
-  assertAttachableProgramAuthoringUploads,
-  lockProgramAuthoringUploads,
-} from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   type ProgramAuthoringUploadToken,
@@ -62,10 +59,12 @@ export async function replaceProgramCover(
 ): Promise<void> {
   let upload: ProgramAuthoringUploadToken | null = null;
   if (input.uploadId != null) {
-    const uploads = await lockProgramAuthoringUploads(transaction, [
-      input.uploadId,
-    ]);
-    assertAttachableProgramAuthoringUploads(
+    const uploads =
+      await ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+        transaction,
+        [input.uploadId],
+      );
+    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
       input.actorId,
       [input.uploadId],
       uploads,

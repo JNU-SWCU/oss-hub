@@ -4,7 +4,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.repository';
+import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import type {
   SubmissionApplication,
   ChecklistMilestone,
@@ -13,10 +13,54 @@ import type {
 import { publicSubmissionId } from './submission.policy';
 import { safeSubmissionFileContentType } from './submission-file.policy';
 
-export function submissionParticipantWhere(
-  userId: string,
-): Prisma.ApplicationWhereInput {
-  return programApplicationParticipantWhere(userId);
+export class SubmissionChecklistRecordRepository {
+  static submissionParticipantWhere(
+    userId: string,
+  ): Prisma.ApplicationWhereInput {
+    return ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
+      userId,
+    );
+  }
+
+  static toSubmissionApplication(
+    application: ApplicationRecord,
+  ): SubmissionApplication {
+    return {
+      id: application.id,
+      programId: application.programId,
+      teamId: application.teamId,
+      teamMemberCount: application.team._count.members,
+      status: application.status,
+      existingSubmission: application.milestoneDocumentSubmissions[0]
+        ? {
+            id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
+            status: application.milestoneDocumentSubmissions[0].status,
+          }
+        : null,
+    };
+  }
+
+  static toChecklistMilestone(
+    record: ChecklistMilestoneRecord,
+  ): ChecklistMilestone | null {
+    if (record.submissionType === null) return null;
+    const submission = record.documents[0]?.submissions[0] ?? null;
+    return {
+      id: record.id,
+      name: record.name,
+      dueAt: record.dueAt,
+      submissionType: record.submissionType,
+      submission: submission
+        ? {
+            id: publicSubmissionId(submission),
+            status: submission.status,
+            currentRevision: submission.revision,
+            latestReview: submission.reviewHistories[0] ?? null,
+            file: currentRevisionFile(submission),
+          }
+        : null,
+    };
+  }
 }
 
 export const submissionApplicationSelect = (milestoneId: string) =>
@@ -42,24 +86,6 @@ export const submissionApplicationSelect = (milestoneId: string) =>
 type ApplicationRecord = Prisma.ApplicationGetPayload<{
   select: ReturnType<typeof submissionApplicationSelect>;
 }>;
-
-export function toSubmissionApplication(
-  application: ApplicationRecord,
-): SubmissionApplication {
-  return {
-    id: application.id,
-    programId: application.programId,
-    teamId: application.teamId,
-    teamMemberCount: application.team._count.members,
-    status: application.status,
-    existingSubmission: application.milestoneDocumentSubmissions[0]
-      ? {
-          id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
-          status: application.milestoneDocumentSubmissions[0].status,
-        }
-      : null,
-  };
-}
 
 const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
   MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
@@ -138,28 +164,6 @@ type ChecklistMilestoneRecord = Prisma.MilestoneGetPayload<{
 type ChecklistTargetSubmission = NonNullable<
   ChecklistMilestoneRecord['documents'][number]['submissions'][number]
 >;
-
-export function toChecklistMilestone(
-  record: ChecklistMilestoneRecord,
-): ChecklistMilestone | null {
-  if (record.submissionType === null) return null;
-  const submission = record.documents[0]?.submissions[0] ?? null;
-  return {
-    id: record.id,
-    name: record.name,
-    dueAt: record.dueAt,
-    submissionType: record.submissionType,
-    submission: submission
-      ? {
-          id: publicSubmissionId(submission),
-          status: submission.status,
-          currentRevision: submission.revision,
-          latestReview: submission.reviewHistories[0] ?? null,
-          file: currentRevisionFile(submission),
-        }
-      : null,
-  };
-}
 
 function currentRevisionFile(
   submission: ChecklistTargetSubmission,

@@ -27,7 +27,7 @@ import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
 } from './program-authoring.policy';
-import { assertAttachableProgramAuthoringUploads } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import {
   assertProgramCoverUpload,
   assertProgramTemplateUpload,
@@ -143,7 +143,7 @@ export class ProgramAuthoringService {
     plan: ProgramAuthoringPlan,
   ): Promise<ProgramAuthoringProgram> {
     const uploads = await store.lockUploads(plan.uploadTokenIds);
-    assertAttachableProgramAuthoringUploads(
+    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
       actorId,
       plan.uploadTokenIds,
       uploads,

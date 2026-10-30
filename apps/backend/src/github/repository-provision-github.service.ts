@@ -17,28 +17,48 @@ type ProvisionGithubClient = Pick<
   'findRepository' | 'createRepository' | 'findPublicRepository'
 > & { readonly organization: string };
 
-export async function resolveOwnGithubRepository(
-  github: Pick<
-    GithubAppClient,
-    'organization' | 'findRepository' | 'findPublicRepository'
-  >,
-  repositoryUrl: string,
-): Promise<OwnGithubRepositoryResolution> {
-  const parsed = parseGithubRepositoryUrl(repositoryUrl);
-  if (parsed === null) {
-    throw finalProvisionFailure(
-      PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
-    );
-  }
-  if (parsed.owner.toLowerCase() === github.organization.toLowerCase()) {
-    const repository = await github.findRepository(parsed.name);
-    if (repository === null) {
+export class RepositoryProvisionGithubService {
+  static async resolveOwnGithubRepository(
+    github: Pick<
+      GithubAppClient,
+      'organization' | 'findRepository' | 'findPublicRepository'
+    >,
+    repositoryUrl: string,
+  ): Promise<OwnGithubRepositoryResolution> {
+    const parsed = parseGithubRepositoryUrl(repositoryUrl);
+    if (parsed === null) {
       throw finalProvisionFailure(
-        PROVISION_ERROR_CODES.OWN_ORGANIZATION_REPOSITORY_INACCESSIBLE,
+        PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
+      );
+    }
+    if (parsed.owner.toLowerCase() === github.organization.toLowerCase()) {
+      const repository = await github.findRepository(parsed.name);
+      if (repository === null) {
+        throw finalProvisionFailure(
+          PROVISION_ERROR_CODES.OWN_ORGANIZATION_REPOSITORY_INACCESSIBLE,
+        );
+      }
+      return {
+        kind: 'ORGANIZATION',
+        repository: {
+          ...repository,
+          name: parsed.name,
+          url: repositoryUrl,
+        },
+      };
+    }
+
+    const repository = await github.findPublicRepository(
+      parsed.owner,
+      parsed.name,
+    );
+    if (repository === null || repository.visibility !== 'PUBLIC') {
+      throw finalProvisionFailure(
+        PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       );
     }
     return {
-      kind: 'ORGANIZATION',
+      kind: 'EXTERNAL',
       repository: {
         ...repository,
         name: parsed.name,
@@ -47,53 +67,41 @@ export async function resolveOwnGithubRepository(
     };
   }
 
-  const repository = await github.findPublicRepository(
-    parsed.owner,
-    parsed.name,
-  );
-  if (repository === null || repository.visibility !== 'PUBLIC') {
-    throw finalProvisionFailure(PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND);
-  }
-  return {
-    kind: 'EXTERNAL',
-    repository: {
-      ...repository,
-      name: parsed.name,
-      url: repositoryUrl,
-    },
-  };
-}
-
-export async function findOrCreateGithubRepository(
-  github: ProvisionGithubClient,
-  names: RepositoryNameCandidates,
-  ownershipMarker: string,
-): Promise<GithubRepositoryMetadata> {
-  const existing = await github.findRepository(names.preferred);
-  if (existing !== null) {
-    return existing.description === ownershipMarker
-      ? requirePrivateRepository(existing)
-      : findOrCreateFallback(github, names.collisionFallback, ownershipMarker);
-  }
-  try {
-    return await createOwnedRepository(
-      github,
-      names.preferred,
-      ownershipMarker,
-    );
-  } catch (error) {
-    if (!isNameCollision(error)) {
-      throw error;
+  static async findOrCreateGithubRepository(
+    github: ProvisionGithubClient,
+    names: RepositoryNameCandidates,
+    ownershipMarker: string,
+  ): Promise<GithubRepositoryMetadata> {
+    const existing = await github.findRepository(names.preferred);
+    if (existing !== null) {
+      return existing.description === ownershipMarker
+        ? requirePrivateRepository(existing)
+        : findOrCreateFallback(
+            github,
+            names.collisionFallback,
+            ownershipMarker,
+          );
     }
-    const racedRepository = await github.findRepository(names.preferred);
-    if (racedRepository?.description === ownershipMarker) {
-      return requirePrivateRepository(racedRepository);
+    try {
+      return await createOwnedRepository(
+        github,
+        names.preferred,
+        ownershipMarker,
+      );
+    } catch (error) {
+      if (!isNameCollision(error)) {
+        throw error;
+      }
+      const racedRepository = await github.findRepository(names.preferred);
+      if (racedRepository?.description === ownershipMarker) {
+        return requirePrivateRepository(racedRepository);
+      }
+      return findOrCreateFallback(
+        github,
+        names.collisionFallback,
+        ownershipMarker,
+      );
     }
-    return findOrCreateFallback(
-      github,
-      names.collisionFallback,
-      ownershipMarker,
-    );
   }
 }
 

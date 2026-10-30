@@ -21,25 +21,27 @@ export interface AppendedReviewHistory {
   readonly revision: number;
 }
 
-export async function appendReviewHistory(
-  client: ReviewHistoryWriterClient,
-  input: AppendReviewHistoryInput,
-): Promise<AppendedReviewHistory> {
-  const revision = await resolveRevision(client, input);
-  await client.applicationReviewHistory.create({
-    data: {
-      applicationId: input.applicationId,
-      eventKind: input.eventKind,
-      revision,
-      actorId: input.actorId,
-      occurredAt: input.occurredAt,
-      rejectionReason:
-        input.eventKind === ApplicationReviewEventKind.REJECTED
-          ? input.rejectionReason
-          : null,
-    },
-  });
-  return { revision };
+export class ReviewHistoryWriterRepository {
+  static async appendReviewHistory(
+    client: ReviewHistoryWriterClient,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    const revision = await resolveRevision(client, input);
+    await client.applicationReviewHistory.create({
+      data: {
+        applicationId: input.applicationId,
+        eventKind: input.eventKind,
+        revision,
+        actorId: input.actorId,
+        occurredAt: input.occurredAt,
+        rejectionReason:
+          input.eventKind === ApplicationReviewEventKind.REJECTED
+            ? input.rejectionReason
+            : null,
+      },
+    });
+    return { revision };
+  }
 }
 
 async function resolveRevision(

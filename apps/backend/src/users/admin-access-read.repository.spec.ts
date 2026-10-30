@@ -7,10 +7,8 @@ import {
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import type { PrismaService } from '../platform/prisma.service';
-import {
-  findAdminAccessUserById,
-  toAdminAccessUserRecord,
-} from './admin-access-read.repository';
+import { AdminAccessUserProjectionRepository } from './admin-access-user-projection.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { enforceAdminAccessGuards } from './admin-access-mutation.policy';
 import {
   ADMIN_ACCESS_DECISION_KINDS,
@@ -37,7 +35,10 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(prisma, 'pending-staff');
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+      prisma,
+      'pending-staff',
+    );
 
     expect(detail).toMatchObject({
       id: 'pending-staff',
@@ -64,7 +65,10 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(prisma, 'student');
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+      prisma,
+      'student',
+    );
 
     expect(detail).toMatchObject({
       isProfileComplete: false,
@@ -84,7 +88,10 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(prisma, 'unassigned');
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+      prisma,
+      'unassigned',
+    );
 
     expect(detail).toMatchObject({
       isProfileComplete: false,
@@ -106,7 +113,10 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(prisma, 'revoked-staff');
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+      prisma,
+      'revoked-staff',
+    );
 
     expect(detail).toMatchObject({
       id: 'revoked-staff',
@@ -128,7 +138,10 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(prisma, 'selected-student');
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
+      prisma,
+      'selected-student',
+    );
 
     expect(detail).toMatchObject({
       isProfileComplete: false,
@@ -148,7 +161,7 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    const detail = await findAdminAccessUserById(
+    const detail = await AdminAccessReadRepository.findAdminAccessUserById(
       prisma,
       'revoked-staff-projection',
     );
@@ -160,7 +173,7 @@ describe('admin access read profile completeness', () => {
     const accountCreatedAt = new Date('2026-07-18T00:00:00.000Z');
     const requestCreatedAt = new Date('2026-07-23T00:00:00.000Z');
 
-    const record = toAdminAccessUserRecord(
+    const record = AdminAccessUserProjectionRepository.toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff-created-at',
         role: null,
@@ -177,7 +190,7 @@ describe('admin access read profile completeness', () => {
   });
 
   it('lets an admin approve a pending staff request that has no student id', () => {
-    const before = toAdminAccessUserRecord(
+    const before = AdminAccessUserProjectionRepository.toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff',
         role: null,
@@ -204,17 +217,18 @@ describe('admin access read profile completeness', () => {
   it.each<'STAFF' | 'STUDENT' | null>([null, 'STAFF', 'STUDENT'])(
     'keeps the approval gate identical when the selected role is %s',
     (selectedRole) => {
-      const before = toAdminAccessUserRecord(
-        userRow({
-          id: 'pending-staff-gate',
-          role: null,
-          selectedRole,
-          name: '가나다 교직원',
-          studentId: null,
-          department: null,
-          pendingRequest: pendingRequest(),
-        }),
-      );
+      const before =
+        AdminAccessUserProjectionRepository.toAdminAccessUserRecord(
+          userRow({
+            id: 'pending-staff-gate',
+            role: null,
+            selectedRole,
+            name: '가나다 교직원',
+            studentId: null,
+            department: null,
+            pendingRequest: pendingRequest(),
+          }),
+        );
 
       expect(before.isProfileComplete).toBe(false);
       expect(() =>
@@ -230,7 +244,7 @@ describe('admin access read profile completeness', () => {
   );
 
   it('still blocks approval when the staff profile misses a required field', () => {
-    const before = toAdminAccessUserRecord(
+    const before = AdminAccessUserProjectionRepository.toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff-no-department',
         role: null,

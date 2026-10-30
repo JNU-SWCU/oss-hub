@@ -4,7 +4,7 @@ import {
   PROVISION_ERROR_CODES,
   RepositoryProvisionFailure,
 } from './repository-provision-failure.policy';
-import { resolveOwnGithubRepository } from './repository-provision-github.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 
 export type OwnRepositoryUrlValidationResult =
   | { readonly kind: 'VALID' }
@@ -32,7 +32,10 @@ export class OwnRepositoryUrlValidationService {
     repositoryUrl: string,
   ): Promise<OwnRepositoryUrlValidationResult> {
     try {
-      await resolveOwnGithubRepository(this.github, repositoryUrl);
+      await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+        this.github,
+        repositoryUrl,
+      );
       return { kind: 'VALID' };
     } catch (error) {
       if (
@@ -53,6 +56,9 @@ export class OwnRepositoryUrlValidationService {
   }
 
   resolve(repositoryUrl: string) {
-    return resolveOwnGithubRepository(this.github, repositoryUrl);
+    return RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      this.github,
+      repositoryUrl,
+    );
   }
 }

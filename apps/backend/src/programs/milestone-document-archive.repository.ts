@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ApplicationStatus, MilestoneDocumentKind } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  resolveUserProfileName,
   USER_PROFILE_NAME_SELECT,
+  UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import type {
   ArchiveProgram,
@@ -73,7 +73,9 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: UserProfileReadRepository.resolveUserProfileName(
+        application.applicant,
+      ),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

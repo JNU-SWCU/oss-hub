@@ -557,7 +557,7 @@ export async function createRailsConfig(rootDir) {
             type: 'prisma',
             pattern: [
               'src/platform/prisma.service.ts',
-              'src/platform/{platform,user-profile-read,lock-program-tree,audit-log-transaction-writer,repository-provision-generation,program-application-participant}.repository.ts',
+              'src/platform/{platform,user-profile-read,lock-program-tree,repository-provision-generation,program-application-participant}.repository.ts',
             ],
             mode: 'full',
           },

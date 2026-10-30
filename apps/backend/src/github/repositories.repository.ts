@@ -10,8 +10,8 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
-import { writeRepositoryIssuanceHistory } from '../platform/repository-provision-generation.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
@@ -325,7 +325,7 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
     applicationId: string,
     now: Date,
   ): Promise<void> {
-    await writeRepositoryIssuanceHistory(
+    await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
       this.transaction,
       {
         requestId: eventId,

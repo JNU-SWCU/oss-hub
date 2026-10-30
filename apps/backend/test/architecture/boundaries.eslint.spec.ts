@@ -496,7 +496,7 @@ edge(
 edge(
   'root types may reference a prisma transaction type',
   'src/alpha/alpha-store.types.ts',
-  'src/platform/audit-log-transaction-writer.repository.ts',
+  'src/platform/prisma.service.ts',
   true,
   'type',
 );

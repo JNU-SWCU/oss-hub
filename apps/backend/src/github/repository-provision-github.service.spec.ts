@@ -4,10 +4,7 @@ import {
 } from './github-app.error';
 import type { GithubAppClient } from './github-app.client';
 import type { GithubRepositoryMetadata } from './github-app-response.policy';
-import {
-  findOrCreateGithubRepository,
-  resolveOwnGithubRepository,
-} from './repository-provision-github.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { PROVISION_ERROR_CODES } from './repository-provision-failure.policy';
 import { parseGithubRepositoryUrl } from './github-repository-url.policy';
 
@@ -58,11 +55,12 @@ describe('findOrCreateGithubRepository', () => {
   it('소유 marker를 가진 private 저장소를 생성한다', async () => {
     const github = githubMock();
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository).toEqual(metadata(names.preferred));
     expect(github.createRepository.mock.calls).toEqual([
@@ -74,11 +72,12 @@ describe('findOrCreateGithubRepository', () => {
     const github = githubMock();
     github.findRepository.mockResolvedValue(metadata(names.preferred));
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository).toEqual(metadata(names.preferred));
     expect(github.createRepository).not.toHaveBeenCalled();
@@ -90,11 +89,12 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(metadata(names.preferred, null))
       .mockResolvedValueOnce(null);
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository.name).toBe(names.collisionFallback);
     expect(github.createRepository.mock.calls).toEqual([
@@ -109,11 +109,12 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(metadata(names.preferred));
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository).toEqual(metadata(names.preferred));
     expect(github.createRepository.mock.calls).toEqual([
@@ -129,11 +130,12 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(null);
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository.name).toBe(names.collisionFallback);
     expect(github.createRepository.mock.calls).toEqual([
@@ -151,11 +153,12 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(fallback);
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
-    const repository = await findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     expect(repository).toEqual(fallback);
     expect(github.createRepository.mock.calls).toEqual([
@@ -169,11 +172,12 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(metadata(names.preferred, null))
       .mockResolvedValueOnce(metadata(names.collisionFallback, null));
 
-    const repository = findOrCreateGithubRepository(
-      github,
-      names,
-      OWNERSHIP_MARKER,
-    );
+    const repository =
+      RepositoryProvisionGithubService.findOrCreateGithubRepository(
+        github,
+        names,
+        OWNERSHIP_MARKER,
+      );
 
     await expect(repository).rejects.toEqual(nameCollision());
     expect(github.createRepository).not.toHaveBeenCalled();
@@ -217,7 +221,11 @@ describe('resolveOwnGithubRepository', () => {
         visibility,
       });
 
-      const result = await resolveOwnGithubRepository(github, submittedUrl);
+      const result =
+        await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+          github,
+          submittedUrl,
+        );
 
       expect(result).toEqual({
         kind: 'ORGANIZATION',
@@ -239,7 +247,7 @@ describe('resolveOwnGithubRepository', () => {
     const github = githubMock();
 
     await expect(
-      resolveOwnGithubRepository(
+      RepositoryProvisionGithubService.resolveOwnGithubRepository(
         github,
         'https://github.com/synthetic-org/inaccessible',
       ),
@@ -264,7 +272,11 @@ describe('resolveOwnGithubRepository', () => {
       description: null,
     });
 
-    const repository = await resolveOwnGithubRepository(github, studentUrl);
+    const repository =
+      await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+        github,
+        studentUrl,
+      );
 
     expect(github.findPublicRepository.mock.calls).toEqual([
       ['synthetic-student', 'synthetic-repo'],
@@ -304,7 +316,7 @@ describe('resolveOwnGithubRepository', () => {
     github.findPublicRepository.mockResolvedValue(resolved);
 
     await expect(
-      resolveOwnGithubRepository(
+      RepositoryProvisionGithubService.resolveOwnGithubRepository(
         github,
         'https://github.com/synthetic-student/private-or-missing',
       ),
@@ -318,7 +330,10 @@ describe('resolveOwnGithubRepository', () => {
     const github = githubMock();
 
     await expect(
-      resolveOwnGithubRepository(github, 'https://example.com/not-github'),
+      RepositoryProvisionGithubService.resolveOwnGithubRepository(
+        github,
+        'https://example.com/not-github',
+      ),
     ).rejects.toMatchObject({
       code: PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
       retryable: false,

@@ -6,7 +6,7 @@ import { USER_PROFILE_AUDIT_ACTIONS } from '../platform/audit-log-metadata.polic
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';
-import { mutateAdminUserProfile } from './admin-profile-mutation.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 
 assertIsolatedIntegrationDatabase({
@@ -92,7 +92,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
     const actorB = await createAdminActor('b');
 
     const outcomes = await Promise.allSettled([
-      mutateAdminUserProfile(
+      AdminProfileMutationService.mutateAdminUserProfile(
         { repository, auditLog },
         {
           actorGithubId: actorA.githubId,
@@ -100,7 +100,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
           command: { name: '이름 A' },
         },
       ),
-      mutateAdminUserProfile(
+      AdminProfileMutationService.mutateAdminUserProfile(
         { repository, auditLog },
         {
           actorGithubId: actorB.githubId,

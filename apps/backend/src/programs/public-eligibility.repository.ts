@@ -1,4 +1,4 @@
-import { linkedRepositoryFilter } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -45,7 +45,7 @@ export class PublicEligibilityRepository {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...linkedRepositoryFilter(),
+        ...PlatformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,

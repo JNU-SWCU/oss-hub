@@ -1,5 +1,5 @@
 import { ApplicationReviewEventKind } from '@prisma/client';
-import { appendReviewHistory } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import type { ReviewHistoryWriterClient } from './review-history-writer.repository';
 import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
@@ -56,7 +56,7 @@ function input(
 it('최초 제출은 Application 기본 회차 1을 그대로 쓴다', async () => {
   const { client, created, update } = fakeClient({ revision: 1 });
 
-  const result = await appendReviewHistory(
+  const result = await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.SUBMITTED),
   );
@@ -78,7 +78,7 @@ it('최초 제출은 Application 기본 회차 1을 그대로 쓴다', async () 
 it('재제출만 회차를 1 올리고 올라간 값을 기록한다', async () => {
   const { client, created, update } = fakeClient({ revision: 2 });
 
-  const result = await appendReviewHistory(
+  const result = await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.RESUBMITTED),
   );
@@ -99,7 +99,10 @@ it.each([
 ])('%s 판정은 현재 회차를 복사하고 올리지 않는다', async (eventKind) => {
   const { client, created, update } = fakeClient({ revision: 4 });
 
-  const result = await appendReviewHistory(client, input(eventKind, '사유'));
+  const result = await ReviewHistoryWriterRepository.appendReviewHistory(
+    client,
+    input(eventKind, '사유'),
+  );
 
   expect(result).toEqual({ revision: 4 });
   expect(created[0]?.revision).toBe(4);
@@ -109,12 +112,15 @@ it.each([
 it('연속 재제출은 회차가 1씩만 전진한다', async () => {
   const { client, created } = fakeClient({ revision: 1 });
 
-  await appendReviewHistory(
+  await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.RESUBMITTED),
   );
-  await appendReviewHistory(client, input(ApplicationReviewEventKind.APPROVED));
-  await appendReviewHistory(
+  await ReviewHistoryWriterRepository.appendReviewHistory(
+    client,
+    input(ApplicationReviewEventKind.APPROVED),
+  );
+  await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.RESUBMITTED),
   );
@@ -125,11 +131,11 @@ it('연속 재제출은 회차가 1씩만 전진한다', async () => {
 it('반려 사유는 반려 사건에만 저장된다', async () => {
   const { client, created } = fakeClient({ revision: 1 });
 
-  await appendReviewHistory(
+  await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.APPROVED, '잘못 실린 사유'),
   );
-  await appendReviewHistory(
+  await ReviewHistoryWriterRepository.appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.REJECTED, '서류 미비'),
   );
@@ -142,7 +148,10 @@ it('대상 신청이 없으면 던져서 트랜잭션을 롤백시킨다', async
   const { client, create } = fakeClient({ revision: null });
 
   await expect(
-    appendReviewHistory(client, input(ApplicationReviewEventKind.APPROVED)),
+    ReviewHistoryWriterRepository.appendReviewHistory(
+      client,
+      input(ApplicationReviewEventKind.APPROVED),
+    ),
   ).rejects.toBeInstanceOf(ApplicationReviewHistoryTargetMissingError);
   expect(create).not.toHaveBeenCalled();
 });

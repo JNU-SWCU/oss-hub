@@ -3,7 +3,7 @@ import type {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import type { AdminAccessActor } from './admin-access-repository.types';
 import type { ConsentPolicy } from './user-profile.policy';
 

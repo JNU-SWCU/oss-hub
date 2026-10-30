@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../github/collection-schedule.service';
+import type { CollectionScheduleService } from '../github/collection-schedule.service';
 import {
   SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
@@ -10,11 +10,19 @@ import {
 } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
+const mockNextScheduledCollectionAt = jest.fn<
+  ReturnType<typeof CollectionScheduleService.nextScheduledCollectionAt>,
+  Parameters<typeof CollectionScheduleService.nextScheduledCollectionAt>
+>();
+
 jest.mock('../github/collection-schedule.service', () => ({
-  nextScheduledCollectionAt: jest.fn(),
+  CollectionScheduleService: {
+    nextScheduledCollectionAt: (from: Date) =>
+      mockNextScheduledCollectionAt(from),
+  },
 }));
 
-const nextScheduledAt = jest.mocked(nextScheduledCollectionAt);
+const nextScheduledAt = mockNextScheduledCollectionAt;
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const ACTOR_ID = 133n;

@@ -3,7 +3,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.policy';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
   AccountDeactivationService,

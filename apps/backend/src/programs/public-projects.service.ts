@@ -14,7 +14,7 @@ import {
   encodePublicProjectCursor,
   resolvePublicProjectCursorKey,
   type PublicProjectCursorKey,
-} from './public-project-cursor.service';
+} from './public-project-cursor.policy';
 import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,

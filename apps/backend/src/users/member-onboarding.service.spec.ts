@@ -13,9 +13,9 @@ import type { ConsentsService } from './consents.service';
 import type { UserProfileView } from '../platform/user-profile-read.repository';
 import type { StaffAccessRequestRecord, MemberUser } from './users.types';
 import {
-  requestStaffAccess,
   type StaffAccessRequestOutcome,
   type StaffAccessRequestTarget,
+  PlatformRepository,
 } from '../platform/platform.repository';
 import type {
   OnboardingTransactionStore,
@@ -86,7 +86,7 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
   requestStaffAccess(
     target: StaffAccessRequestTarget,
   ): Promise<StaffAccessRequestOutcome> {
-    return requestStaffAccess(
+    return PlatformRepository.requestStaffAccess(
       {
         staffAccessRequest: {
           findFirst: (() => this.findPendingRequest()) as never,

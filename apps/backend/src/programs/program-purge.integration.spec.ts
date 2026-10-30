@@ -36,7 +36,7 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { readProgramDeletionScopeCounts } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { ProgramErrorCode } from './program-error-code.error';
 import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
@@ -889,7 +889,10 @@ async function seedStandaloneProgram(label: string): Promise<string> {
 
 async function currentDeletionScopeCounts(programId: string) {
   return prisma.$transaction((transaction) =>
-    readProgramDeletionScopeCounts(transaction, programId),
+    ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+      transaction,
+      programId,
+    ),
   );
 }
 

@@ -32,8 +32,8 @@ import {
   type UpdateMilestoneDocumentInput,
 } from './milestone-documents.repository';
 import {
-  milestoneDocumentSubmissionContent,
   type UpsertMilestoneDocumentSubmissionInput,
+  MilestoneDocumentSubmissionRepository,
 } from './milestone-document-submission.repository';
 import {
   MilestoneDocumentDeadlineClosedError,
@@ -473,7 +473,10 @@ export class MilestoneDocumentsService {
             uploaderId: viewer.id,
             milestoneId,
           };
-    const submissionContent = milestoneDocumentSubmissionContent(content.text);
+    const submissionContent =
+      MilestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
+        content.text,
+      );
 
     try {
       const detail = await this.repository.upsertSubmission({

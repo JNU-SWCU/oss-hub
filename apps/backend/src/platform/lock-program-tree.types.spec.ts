@@ -3,14 +3,14 @@ import * as ts from 'typescript';
 
 describe('program tree witness types', () => {
   it.each([
-    "lockProgramTree(tx, { stage: 'documents', after: p, documentKind: 'ALL' });",
-    "lockProgramTree(tx, { stage: 'documents', documentKind: 'ALL' });",
-    "lockProgramTree(tx, { stage: 'milestone', milestoneId: 'm', after: m });",
+    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'documents', after: p, documentKind: 'ALL' });",
+    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'documents', documentKind: 'ALL' });",
+    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'milestone', milestoneId: 'm', after: m });",
     "const forged: MilestoneLock = { id: 'm', programId: 'p' };",
   ])('rejects invalid witness construction or transitions: %s', (statement) => {
     const file = path.resolve(__dirname, 'witness-contract.ts');
     const source = `import { Prisma } from '@prisma/client';
-      import { lockProgramTree, ProgramLock, MilestoneLock } from './lock-program-tree.repository';
+      import { LockProgramTreeRepository, ProgramLock, MilestoneLock } from './lock-program-tree.repository';
       declare const tx: Prisma.TransactionClient;
       declare const p: ProgramLock;
       declare const m: MilestoneLock;

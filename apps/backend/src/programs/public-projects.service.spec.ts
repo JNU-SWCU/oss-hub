@@ -19,7 +19,7 @@ import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,
   resolvePublicProjectCursorKey,
-} from './public-project-cursor.service';
+} from './public-project-cursor.policy';
 import type {
   PublicProjectRow,
   PublicUserIdentity,

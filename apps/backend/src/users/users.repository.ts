@@ -1,13 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
-  requestStaffAccess,
+  PlatformRepository,
 } from '../platform/platform.repository';
 import type {
   CompleteUserProfileInput,
@@ -153,7 +152,7 @@ export class UsersRepository implements UsersRepositoryPort {
           expected,
           input.phone,
         );
-        await requestStaffAccess(transaction, {
+        await PlatformRepository.requestStaffAccess(transaction, {
           id: expected.id,
           memberKind: input.memberKind,
           hasStaffAccess: input.hasStaffAccess,
@@ -185,7 +184,7 @@ export class UsersRepository implements UsersRepositoryPort {
     recordPhoneAudit: RecordPhoneAudit,
   ): Promise<StudentIdFillOutcome> {
     return this.prisma.$transaction(async (transaction) => {
-      const outcome = await fillStudentIdIfEmpty(
+      const outcome = await PlatformRepository.fillStudentIdIfEmpty(
         transaction,
         input.expected.id,
         input.studentId,

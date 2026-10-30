@@ -6,9 +6,9 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.repository';
+import type { AuditLogTransactionWriter } from '../platform/prisma.service';
 import { DomainException } from '../platform/error-code.error';
-import { withSerializationRetry } from '../platform/prisma-serialization-retry.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
 import {
@@ -196,7 +196,7 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
   withTransaction<T>(
     operation: (store: MemberKindTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return withSerializationRetry(
+    return PrismaSerializationRetryRepository.withSerializationRetry(
       () =>
         this.prisma.$transaction(
           (transaction) =>

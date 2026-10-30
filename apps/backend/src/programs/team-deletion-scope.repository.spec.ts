@@ -1,6 +1,6 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { TEAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix.repository';
-import { readTeamDeletionScopeCounts } from './team-deletion-scope.repository';
+import { TEAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix.policy';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import {
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,
@@ -43,7 +43,10 @@ describe('readTeamDeletionScopeCounts', () => {
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
 
     await expect(
-      readTeamDeletionScopeCounts(transaction, 'synthetic-team'),
+      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+        transaction,
+        'synthetic-team',
+      ),
     ).resolves.toEqual(SCOPE);
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
@@ -53,14 +56,20 @@ describe('readTeamDeletionScopeCounts', () => {
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
 
     await expect(
-      readTeamDeletionScopeCounts(transaction, 'synthetic-team'),
+      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+        transaction,
+        'synthetic-team',
+      ),
     ).rejects.toThrow('Team deletion scope count query returned no result.');
   });
 
   it('TEAM_PURGE_DELETION_ORDER 가 덮는 표를 모두 조회하고 프로그램 전용 표는 건드리지 않는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await readTeamDeletionScopeCounts(transaction, 'synthetic-team');
+    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+      transaction,
+      'synthetic-team',
+    );
     const sql = capturedSql(queryRaw);
 
     for (const table of [
@@ -96,7 +105,10 @@ describe('readTeamDeletionScopeCounts', () => {
   it('DETACH 되는 저장소는 FK 상태까지 지문에 넣어 재연결·재발행을 범위 변경으로 본다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await readTeamDeletionScopeCounts(transaction, 'synthetic-team');
+    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+      transaction,
+      'synthetic-team',
+    );
     const sql = capturedSql(queryRaw);
 
     expect(sql).toContain("'GithubRepository:'");
@@ -108,7 +120,10 @@ describe('readTeamDeletionScopeCounts', () => {
   it('판정 알림은 payload.applicationId 로 이 팀의 신청에만 묶는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await readTeamDeletionScopeCounts(transaction, 'synthetic-team');
+    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+      transaction,
+      'synthetic-team',
+    );
     const sql = capturedSql(queryRaw);
 
     expect(sql).toContain("payload->>'applicationId'");

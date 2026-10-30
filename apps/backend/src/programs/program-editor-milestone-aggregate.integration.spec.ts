@@ -16,7 +16,7 @@ import type { ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
@@ -461,15 +461,19 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const locked = deferred<void>();
     const release = deferred<void>();
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
-    const submission = upsertMilestoneDocumentSubmission(submissionPrisma, {
-      milestoneDocumentId: firstDocumentId,
-      applicationId: application.id,
-      submittedById: application.studentId,
-      submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-      expectedLatestReviewId: null,
-      content: Prisma.JsonNull,
-      attachFile: null,
-    });
+    const submission =
+      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+        submissionPrisma,
+        {
+          milestoneDocumentId: firstDocumentId,
+          applicationId: application.id,
+          submittedById: application.studentId,
+          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+          expectedLatestReviewId: null,
+          content: Prisma.JsonNull,
+          attachFile: null,
+        },
+      );
     await locked.promise;
     const aggregate = editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
@@ -514,15 +518,18 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
 
     await expect(
-      upsertMilestoneDocumentSubmission(prisma, {
-        milestoneDocumentId: firstDocumentId,
-        applicationId: application.id,
-        submittedById: application.studentId,
-        submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-        expectedLatestReviewId: null,
-        content: Prisma.JsonNull,
-        attachFile: null,
-      }),
+      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+        prisma,
+        {
+          milestoneDocumentId: firstDocumentId,
+          applicationId: application.id,
+          submittedById: application.studentId,
+          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+          expectedLatestReviewId: null,
+          content: Prisma.JsonNull,
+          attachFile: null,
+        },
+      ),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(
       await prisma.milestoneDocumentSubmission.count({
