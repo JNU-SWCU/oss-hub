@@ -31,11 +31,9 @@ export function dashboardItem(
     programId: `program-${key}`,
     programName: `합성 프로그램 ${key}`,
     teamName: `합성 팀 ${key}`,
-    teamUrl: `${programPath}/my-team`,
     applicationStatus,
     nextMilestone,
     detailUrl: approved ? programPath : `${programPath}/apply`,
-    checklistUrl: `${programPath}/submissions`,
     repository: approved
       ? {
           repositoryName: null,
@@ -71,7 +69,6 @@ export const dashboardFixture: StudentDashboard = {
       programName: '캡스톤 2026',
 
       teamName: '합성 1인 팀',
-      teamUrl: '/programs/program-capstone/my-team',
       applicationStatus: 'APPROVED',
       nextMilestone: {
         id: 'milestones-upcoming',
@@ -80,7 +77,6 @@ export const dashboardFixture: StudentDashboard = {
         submissionStatus: 'NOT_SUBMITTED',
       },
       detailUrl: '/programs/program-capstone',
-      checklistUrl: '/programs/program-capstone/submissions',
       repository: {
         repositoryName: 'synthetic-capstone-repo',
         provisionStatus: 'SUCCEEDED',
@@ -93,7 +89,6 @@ export const dashboardFixture: StudentDashboard = {
       programId: 'program-oss-contest',
       programName: 'OSS 경진대회',
       teamName: '합성 오픈소스 팀',
-      teamUrl: '/programs/program-oss-contest/my-team',
       applicationStatus: 'APPROVED',
       nextMilestone: {
         id: 'milestones-overdue',
@@ -102,7 +97,6 @@ export const dashboardFixture: StudentDashboard = {
         submissionStatus: 'CHANGES_REQUESTED',
       },
       detailUrl: '/programs/program-oss-contest',
-      checklistUrl: '/programs/program-oss-contest/submissions',
       repository: {
         repositoryName: null,
         provisionStatus: 'PROCESSING',
@@ -120,12 +114,10 @@ export const pendingDashboardFixture: StudentDashboard = {
       programId: 'program-oss-contest',
       programName: 'OSS 경진대회',
       teamName: '합성 대기 팀',
-      teamUrl: '/programs/program-oss-contest/my-team',
       applicationStatus: 'SUBMITTED',
       nextMilestone: null,
 
       detailUrl: '/programs/program-oss-contest/apply',
-      checklistUrl: '/programs/program-oss-contest/submissions',
       repository: null,
     },
   ],
@@ -138,11 +130,9 @@ export const completedDashboardFixture: StudentDashboard = {
       programId: 'program-study',
       programName: '오픈소스 스터디',
       teamName: '합성 스터디 팀',
-      teamUrl: '/programs/program-study/my-team',
       applicationStatus: 'APPROVED',
       nextMilestone: null,
       detailUrl: '/programs/program-study',
-      checklistUrl: '/programs/program-study/submissions',
       repository: {
         repositoryName: null,
         provisionStatus: 'NOT_STARTED',
@@ -160,16 +150,32 @@ export const rejectedDashboardFixture: StudentDashboard = {
       programId: 'program-rejected',
       programName: '기여 캠프',
       teamName: '합성 반려 팀',
-      teamUrl: '/programs/program-rejected/my-team',
       applicationStatus: 'REJECTED',
       nextMilestone: null,
 
       detailUrl: '/programs/program-rejected/apply',
-      checklistUrl: '/programs/program-rejected/submissions',
       repository: null,
     },
   ],
 };
+
+export const legacyDashboardLinkFieldsFixture = [
+  {},
+  {
+    teamUrl: '/programs/program-capstone/my-team',
+    checklistUrl: '/programs/program-capstone/submissions',
+  },
+  { teamUrl: null, checklistUrl: null },
+  { teamUrl: 42, checklistUrl: { unexpected: true } },
+  {
+    teamUrl: 'https://evil.example.com/my-team',
+    checklistUrl: '//evil.example.com/submissions',
+  },
+  {
+    teamUrl: '/programs/other/my-team',
+    checklistUrl: '/programs/other/submissions?milestoneId=other',
+  },
+] as const;
 
 export const feedbackItemFixture: DashboardFeedbackItem = {
   id: 'review-changes-requested',

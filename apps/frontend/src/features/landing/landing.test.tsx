@@ -33,6 +33,7 @@ describe('landing page sections', () => {
     expect(html).not.toContain(
       '<section aria-labelledby="landing-flow-heading"',
     );
+    expect(html).toContain('id="landing-steps-heading"');
     expect(html).not.toContain('landing-entry-heading');
     expect(html).not.toContain('data-panel=');
   });
@@ -193,7 +194,7 @@ describe('landing page sections', () => {
     const html = renderToStaticMarkup(<LandingFooter />);
 
     expect(html).toContain('전남대학교 SW중심대학사업단');
-    expect(html).toContain('href="/policies/privacy/2026-08-11.html"');
+    expect(html).toContain('href="/policies/privacy"');
     expect(html).not.toContain('href="/consent"');
   });
 });

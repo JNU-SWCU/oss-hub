@@ -135,7 +135,7 @@ for (const width of [1440, 390]) {
         fullPage: true,
         animations: 'disabled',
       });
-      await staff.goto(`${detailPath}/edit?view=operations`);
+      await staff.goto(`${detailPath}/edit`);
       if (mode === 'invalid') {
         await expect(
           staff.getByText('프로그램을 불러오지 못했습니다', { exact: true }),

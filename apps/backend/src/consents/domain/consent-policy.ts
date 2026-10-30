@@ -28,17 +28,17 @@ export const CURRENT_CONSENT_POLICY: ConsentPolicy = {
     {
       key: CONSENT_ITEM_KEYS.PRIVACY_COLLECTION,
       label: '개인정보 수집·이용',
-      documentUrl: `/policies/privacy/${CONSENT_POLICY_VERSION}.html`,
+      documentUrl: '/policies/privacy',
     },
     {
       key: CONSENT_ITEM_KEYS.GITHUB_ACTIVITY,
       label: 'GitHub 활동 수집·공개 범위',
-      documentUrl: `/policies/github-activity/${CONSENT_POLICY_VERSION}.html`,
+      documentUrl: '/policies/github-activity',
     },
     {
       key: CONSENT_ITEM_KEYS.ORG_REPOSITORY_TERMS,
       label: 'Org 저장소 운영 약관',
-      documentUrl: `/policies/org-repository-terms/${CONSENT_POLICY_VERSION}.html`,
+      documentUrl: '/policies/org-repository-terms',
     },
   ],
 

@@ -46,11 +46,6 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
         reloadKey={matrixVersion}
         headerActions={
           <div className="flex flex-wrap items-center gap-3 sm:max-w-xl">
-            {session.memberKind === 'STUDENT' ? (
-              <p className="text-small text-muted-foreground">
-                우리 팀 서류는 다른 운영자가 검토합니다.
-              </p>
-            ) : null}
             <ProgramDocumentChangeRequestPanel
               key={`change-requests-${programId}`}
               programId={programId}

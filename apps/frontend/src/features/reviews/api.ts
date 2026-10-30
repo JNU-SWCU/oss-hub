@@ -8,7 +8,9 @@ import type {
 } from './types';
 
 export function getReviewContext(submissionId: string): Promise<ReviewContext> {
-  return apiClient<ReviewContext>(`submissions/${submissionId}/review-context`);
+  return apiClient<ReviewContext>(
+    `submissions/${encodeURIComponent(submissionId)}/review-context`,
+  );
 }
 
 export function createReview(
@@ -16,7 +18,7 @@ export function createReview(
   request: CreateReviewRequest,
 ): Promise<CreateReviewResponse> {
   return apiClient<CreateReviewResponse>(
-    `submissions/${submissionId}/reviews`,
+    `submissions/${encodeURIComponent(submissionId)}/reviews`,
     {
       method: 'POST',
       body: JSON.stringify(request),
