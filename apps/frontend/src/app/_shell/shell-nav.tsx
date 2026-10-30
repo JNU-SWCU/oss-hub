@@ -43,14 +43,13 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         brand={brand}
         items={items}
         actions={actions}
-
         menuResetKey={pathname}
         sidebarDrawerOpen={drawer?.open}
         onToggleSidebarDrawer={drawer && hasSidebar ? drawer.toggle : undefined}
         sidebarDrawerId={SIDEBAR_DRAWER_DIALOG_ID}
 
         className={cn(
-          'max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex',
+          'max-[479px]:px-3 [&_a:not([role=menuitem])]:inline-flex',
           '[&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11',
           '[&_a:not([role=menuitem])]:items-center',
           '[&_a:not([role=menuitem])]:justify-center',

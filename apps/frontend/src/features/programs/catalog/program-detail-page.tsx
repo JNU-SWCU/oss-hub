@@ -15,6 +15,7 @@ import {
   ProgramDetailFailureState,
   ProgramDetailReadyState,
   ProgramDetailSkeleton,
+  type RenderSignInApply,
 } from './program-detail-view';
 import type { ProgramDetail } from './dto';
 
@@ -42,10 +43,12 @@ export function ProgramDetailPage({
   programId,
   session,
   operationsView: selectedOperationsView,
+  renderSignInApply,
 }: {
   readonly programId: string;
   readonly session: ProgramDetailSession;
   readonly operationsView?: boolean;
+  readonly renderSignInApply: RenderSignInApply;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -137,6 +140,7 @@ export function ProgramDetailPage({
       <ProgramDetailReadyState
         program={state.program}
         overview={state.overview}
+        renderSignInApply={renderSignInApply}
       />
     </>
   );

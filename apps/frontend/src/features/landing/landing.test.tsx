@@ -1,38 +1,57 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import { ClosingCtaSection } from './components/closing-cta-section';
-import {
-  CurrentProgramSection,
-  CurrentProgramSectionView,
-} from './components/current-program-section';
+import { describe, expect, it, vi } from 'vitest';
+import { CurrentProgramSection } from './components/current-program-section';
 import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
-import { ProgramFlowSection } from './components/program-flow-section';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const renderJourney = (
   props: Partial<Parameters<typeof LandingJourney>[0]> = {},
 ): string =>
   renderToStaticMarkup(
     <LandingJourney
+      starPrograms={[]}
+      stats={{ items: [], note: null }}
       primaryAction={<a href="/login">GitHub으로 로그인</a>}
       {...props}
     />,
   );
 
 describe('landing page sections', () => {
-  it('renders all five journey panels of the cosmos scroll experience', () => {
+  it('renders the hero followed by the three story sections', () => {
     const html = renderJourney();
 
     expect(html).toContain('id="landing-journey"');
-    for (const index of [0, 1, 2, 3, 4]) {
-      expect(html).toContain(`data-panel="${index}"`);
-    }
-
+    expect(html).toContain('id="landing-hero"');
     expect(html).toContain('aria-labelledby="landing-hero-heading"');
     expect(html).toContain('aria-labelledby="landing-program-heading"');
     expect(html).toContain('aria-labelledby="landing-flow-heading"');
     expect(html).toContain('aria-labelledby="landing-activity-heading"');
-    expect(html).toContain('aria-labelledby="landing-entry-heading"');
+    expect(html.match(/<section/g)).toHaveLength(4);
+    expect(html).not.toContain('landing-entry-heading');
+    expect(html).not.toContain('data-panel=');
+  });
+
+  it('tags the hero and each chapter with the graph focus it drives', () => {
+    const html = renderJourney();
+
+    expect(html).toContain('data-focus="hero"');
+    expect(html).toContain('data-focus="programs"');
+    expect(html).toContain('data-focus="flow"');
+    expect(html).toContain('data-focus="activity"');
+    expect(html).toContain('data-tone="dawn"');
+    expect(html.match(/<canvas /g)).toHaveLength(1);
+  });
+
+  it('keeps every dash out of the rendered landing copy', () => {
+    const html = renderJourney({
+      authErrorMessage: '로그인 요청을 완료하지 못했습니다.',
+    });
+
+    expect(html).not.toMatch(/[\u2014\u2013]/);
   });
 
   it('renders exactly one h1 carrying the landing hero heading id', () => {
@@ -40,35 +59,75 @@ describe('landing page sections', () => {
 
     expect(html.match(/<h1[^>]*>/g)).toHaveLength(1);
     expect(html).toContain('<h1 id="landing-hero-heading">');
-    expect(html).toContain('흩어진 정보를 한 곳으로');
+    expect(html).toContain('흩어진 정보를 하나로');
+    expect(html).toContain(
+      'OSS Hub는 오픈소스 활동을 모아 역량으로 쌓아줍니다. 교내 활동, 팀 프로젝트, 대외 활동 등의 제출 및 검토를 간편하게 만들어줍니다.',
+    );
   });
 
-  it('renders the primary action and the programs link in the journey', () => {
+  it('renders the primary action once, beside the programs link in the hero', () => {
     const html = renderJourney();
 
-    expect(html).toContain('GitHub으로 로그인');
-    expect(html).toContain('href="/login"');
-    expect(html).toContain('href="/programs"');
+    expect(html.match(/GitHub으로 로그인/g)).toHaveLength(1);
+    expect(html.match(/href="\/login"/g)).toHaveLength(1);
+    expect(html.match(/href="\/programs"/g)).toHaveLength(1);
     expect(html).toContain('프로그램 둘러보기');
   });
 
-  it('lets the journey skip link point at the content anchor below the journey', () => {
+  it('lets the hero skip link point at the content anchor below the journey', () => {
     const html = renderJourney();
 
     expect(html).toContain('href="#current-programs"');
-    expect(html).toContain('로그인·프로그램 정보로 건너뛰기');
+    expect(html).toContain('프로그램 정보로 건너뛰기');
+    expect(html).not.toContain('로그인·프로그램 정보로 건너뛰기');
   });
 
-  it('renders the legend, the progress ticks and the scroll hint', () => {
+  it('renders the three legend items without an example note, a hint or progress ticks', () => {
     const html = renderJourney();
 
     expect(html).toContain('학생');
     expect(html).toContain('저장소');
     expect(html).toContain('프로그램');
-    expect(html).toContain('예시 구성');
-    expect(html).toContain('aria-label="소개 진행 상태"');
-    expect(html.match(/단계<\/span>/g)).toHaveLength(5);
-    expect(html).toContain('SCROLL');
+    expect(html).not.toContain('예시 구성');
+    expect(html).not.toContain('끌어서 돌리고');
+    expect(html).not.toContain('점을 누르면 열립니다');
+    expect(html).not.toContain('소개 진행 상태');
+    expect(html).not.toContain('단계</span>');
+    expect(html).not.toContain('SCROLL');
+  });
+
+  it('renders the story sections with stats, flow steps and activity copy', () => {
+    const html = renderJourney();
+
+    expect(html).not.toContain('공개 프로그램');
+    expect(html).not.toContain('예시 데이터 기준');
+    expect(html.match(/STEP \d/g)).toHaveLength(4);
+    expect(html).toContain('모든 활동은 프로그램\u00a0단위로 묶입니다');
+    expect(html).toContain(
+      '경진대회·해커톤·기여 챌린지·스터디·세미나와 같은 프로그램들은 학생, 저장소와 연결되어 관리됩니다.',
+    );
+    expect(html).toContain('신청부터 공개까지, 하나의 흐름');
+    expect(html).toContain(
+      '익숙한 GitHub 위에서 신청, 협업, 검토가 끊김 없이 이어집니다.',
+    );
+    expect(html).toContain('신청·팀 구성');
+    expect(html).toContain('초대를 수락해 팀에 합류');
+    expect(html).toContain('저장소 연결');
+    expect(html).toContain('승인되면 팀 저장소가 열림');
+    expect(html).toContain('제출·검토');
+    expect(html).toContain('마일스톤 단위로 교직원이 검토');
+    expect(html).toContain('공개 프로젝트');
+    expect(html).toContain('공개 프로젝트로 남음');
+    expect(html).toContain('참여 기록이 모두 남습니다');
+    expect(html).toContain(
+      '참여한 프로그램, 팀, 저장소, 제출 기록을 대시보드에서 확인합니다. 진행 중인 저장소는 팀과 교직원만 볼 수 있고, 공개는 검토 후 명시적 승인을 거칩니다.',
+    );
+  });
+
+  it('serves the story sections visible: no reveal attribute in server markup', () => {
+    const html = renderJourney();
+
+    expect(html).not.toContain('data-reveal');
   });
 
   it('renders the journey auth error alert with hero danger color, not the light-surface destructive variant', () => {
@@ -84,11 +143,15 @@ describe('landing page sections', () => {
     expect(html).not.toContain('text-destructive');
   });
 
-  it('renders a status notice instead of the alert when only a notice is passed', () => {
-    const html = renderJourney({ notice: <>다시 로그인할 수 있습니다.</> });
+  it('drops the whole action row, programs link included, when no primary action is given', () => {
+    const html = renderToStaticMarkup(
+      <LandingJourney starPrograms={[]} stats={{ items: [], note: null }} />,
+    );
 
-    expect(html).toContain('role="status"');
-    expect(html).toContain('다시 로그인할 수 있습니다.');
+    expect(html).toContain('흩어진 정보를 하나로');
+    expect(html).not.toContain('href="/programs"');
+    expect(html).not.toContain('프로그램 둘러보기');
+    expect(html).not.toContain('role="status"');
     expect(html).not.toContain('role="alert"');
   });
 
@@ -96,189 +159,31 @@ describe('landing page sections', () => {
     const html = renderJourney();
 
     for (const rejected of [
-      '별처럼 이어지는 곳',
-      '나의 별자리',
-      '성운',
-      '별무리',
-      '자산으로 쌓인다',
-      '개발 패널',
+      /별처럼 이어지는 곳/,
+      /(?<!하)나의 별자리/,
+      /성운/,
+      /별무리/,
+      /자산으로 쌓인다/,
+      /개발 패널/,
+      /한 곳/,
+      /오픈소스로 성장하는 곳/,
     ]) {
-      expect(html, `${rejected} 문구가 남아 있습니다`).not.toContain(rejected);
+      expect(html, `${rejected.source} 문구가 남아 있습니다`).not.toMatch(
+        rejected,
+      );
     }
-  });
-
-  it('renders the current program section with a real destination', () => {
-    const html = renderToStaticMarkup(<CurrentProgramSection />);
-
-    expect(html).toContain('현재 모집 중인 프로그램');
-    expect(html).toContain('href="/programs"');
-    expect(html).toContain('break-keep');
-    expect(html).not.toContain('함께 열 수 있는 프로그램 유형');
-  });
-
-  it('renders public recruiting program data as detail links', () => {
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView
-        state={{
-          kind: 'ready',
-          programs: [
-            {
-              id: 'program_public_01',
-              name: '공개 OSS 기여 프로그램',
-              organizer: 'JNU-SWCU',
-              trackType: 'EXTRACURRICULAR',
-              applicationEndAt: '2026-08-14T00:00:00.000Z',
-            },
-          ],
-        }}
-      />,
-    );
-
-    expect(html).toContain('공개 OSS 기여 프로그램');
-    expect(html).toContain('href="/programs/program_public_01"');
-    expect(html).toContain('2026년 8월 14일 마감');
-  });
-
-  it('encodes seed-style program ids in detail links', () => {
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView
-        state={{
-          kind: 'ready',
-          programs: [
-            {
-              id: 'seed:intake:program-capstone',
-              name: '캡스톤 시드',
-              organizer: 'seed-organizer',
-              trackType: 'CURRICULAR',
-              applicationEndAt: '2026-08-14T00:00:00.000Z',
-            },
-          ],
-        }}
-      />,
-    );
-
-    expect(html).toContain('캡스톤 시드');
-    expect(html).toContain(
-      `href="/programs/${encodeURIComponent('seed:intake:program-capstone')}"`,
-    );
-  });
-
-  it('shows owned and notice-imported covers on recruiting cards', () => {
-    const external =
-      'https://sojoong.kr/wp-content/uploads/kboard_attached/1/209901/synthetic-poster.png';
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView
-        state={{
-          kind: 'ready',
-          programs: [
-            {
-              id: 'program_owned_cover',
-              name: '자체 이미지 프로그램',
-              organizer: 'JNU-SWCU',
-              trackType: 'EXTRACURRICULAR',
-              applicationEndAt: '2026-08-14T00:00:00.000Z',
-              coverImageUrl: '/programs/program_owned_cover/cover/cover_01',
-            },
-            {
-              id: 'program_notice_cover',
-              name: '공지 포스터 프로그램',
-              organizer: 'JNU-SWCU',
-              trackType: 'EXTRACURRICULAR',
-              applicationEndAt: '2026-08-14T00:00:00.000Z',
-              coverImageUrl: external,
-            },
-          ],
-        }}
-      />,
-    );
-
-    expect(html).toContain(
-      'src="/api/v1/programs/program_owned_cover/cover/cover_01"',
-    );
-    expect(html).toContain(`src="${external}"`);
-  });
-
-  it('renders the program flow section with the step-by-step flow', () => {
-    const html = renderToStaticMarkup(<ProgramFlowSection />);
-
-    expect(html).toContain('참여부터 기록까지 한 흐름으로 연결됩니다');
-    expect(html).toContain('01');
-    expect(html).toContain('요구사항에 맞춰 제출합니다.');
-    expect(html).not.toContain('요구사항을 확인한 뒤 결과물을 제출합니다.');
-    expect(html).not.toContain('결과를 공개 프로젝트에 남깁니다.');
-    expect(html).not.toContain('활동이 실시간으로 보여요');
-    expect(html).toContain('sm:grid-cols-2');
-    expect(html).toContain('lg:grid-cols-4');
-    expect(html).toContain('break-keep');
-  });
-
-  it('renders the closing CTA section with the GitHub login link', () => {
-    const html = renderToStaticMarkup(
-      <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
-    );
-
-    expect(html).toContain('프로그램 참여와 제출 현황을 확인하세요');
-    expect(html).toContain('href="/login"');
   });
 
   it('renders each landing section as a named region landmark', () => {
-    const sections = [
-      {
-        name: 'CurrentProgramSection',
-        html: renderToStaticMarkup(<CurrentProgramSection />),
-      },
-      {
-        name: 'ProgramFlowSection',
-        html: renderToStaticMarkup(<ProgramFlowSection />),
-      },
-      {
-        name: 'ClosingCtaSection',
-        html: renderToStaticMarkup(
-          <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
-        ),
-      },
+    const html = `${renderJourney()}${renderToStaticMarkup(<CurrentProgramSection programs={[]} />)}`;
+    const landmarks = [
+      ...html.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g),
     ];
 
-    for (const { name, html } of sections) {
-      const match = /<section[^>]*aria-labelledby="([^"]+)"/.exec(html);
-      expect(match, `${name}에 aria-labelledby가 없습니다`).not.toBeNull();
-
-      const headingId = match?.[1];
+    expect(landmarks).toHaveLength(5);
+    for (const [, headingId] of landmarks) {
       expect(html).toContain(`id="${headingId}"`);
     }
-  });
-
-  it('renders the current program list with ul/li list semantics', () => {
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView
-        state={{
-          kind: 'ready',
-          programs: [
-            {
-              id: 'program_public_01',
-              name: '공개 OSS 기여 프로그램',
-              organizer: 'JNU-SWCU',
-              trackType: 'EXTRACURRICULAR',
-              applicationEndAt: '2026-08-14T00:00:00.000Z',
-            },
-          ],
-        }}
-      />,
-    );
-
-    expect(html).toContain('<ul');
-    expect(html).toContain('<li');
-  });
-
-  it('renders the error state without example program cards', () => {
-    const html = renderToStaticMarkup(
-      <CurrentProgramSectionView state={{ kind: 'error' }} />,
-    );
-
-    expect(html).toContain('모집 정보를 불러오지 못했습니다');
-    expect(html).toContain('프로그램 목록에서 확인하기');
-    expect(html).not.toContain('로컬 예시 데이터');
-    expect(html).not.toContain('캡스톤 2026');
   });
 
   it('renders the footer with copyright and policy links', () => {

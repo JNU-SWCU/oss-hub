@@ -65,3 +65,31 @@
   with the PR-programs-ended-v2 prefix. No images committed.
 - Production gate checked on 2026-10-30: status=current 400, ended-years 404.
   PR A #1611 must deploy first; both endpoints must return 200 before merge.
+
+## Main integration — 2026-10-30
+
+- Merged origin/main at 9cda404a without rebase or history rewriting.
+- Resolved 10 landing conflicts: retained main's deletion of api.ts/api.test.ts;
+  retained server-only loading, cache configuration, independent data sections,
+  server-rendered props, and main's landing composition and tests.
+- Reapplied only project naming, `/projects/<id>` detail links, and `projects`
+  list variable naming. Updated the new server loader and its tests accordingly.
+- Semantic inspection: no references to loadProjectPage/loadProjectYears,
+  parseProjectPage/parseProjectYears, features/archive, or LandingArchive remain.
+  Remaining archive matches are document ZIP functionality, lifecycle-related
+  wording, and the deliberate removed-route 404 assertions.
+- Focused landing tests: 17 files, 107 tests passed.
+- Merged frontend source tests: 394 files, 4257 tests passed.
+- Merged frontend typecheck and lint passed; knip found no issues with the same
+  5 existing configuration hints.
+- Requested 6-spec merged e2e run executed once: 20 passed, 2 failed.
+  Both failures are the unchanged landing-server-data spec at line 34
+  (1440 and 390): live API expected `e2e:program-authoring:program`, while the
+  server-rendered cached response still contained `E2E 마감 알림 프로그램`.
+  Earlier ownership flows mutate the backend fixture after the landing cache
+  is populated. The spec compares live data to a 300-second cached response.
+  Both that spec and server-api-client.ts are byte-identical to origin/main.
+  No assertion was weakened, cache semantics changed, or retry performed.
+- Full repository prettier check passed after e2e cleanup.
+- Confirmed no compose resources or listeners on 3398/4398 remained, and the
+  temporary backend compilation directory was removed.

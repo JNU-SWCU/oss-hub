@@ -19,7 +19,7 @@ function render() {
 }
 
 describe('NavBar 좁은 화면 메뉴 접기', () => {
-  it('900px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
+  it('640px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
     const html = render();
     const menuClass = html.match(
       /data-slot="nav-bar-menu"[^>]*class="([^"]*)"/,
@@ -28,9 +28,11 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       /data-slot="nav-bar-items"[^>]*class="([^"]*)"/,
     )?.[1];
 
-    expect(menuClass?.split(' ')).toContain('min-[900px]:hidden');
+    expect(menuClass?.split(' ')).toContain('min-[640px]:hidden');
     expect(itemsClass?.split(' ')).toContain('hidden');
-    expect(itemsClass?.split(' ')).toContain('min-[900px]:flex');
+    expect(itemsClass?.split(' ')).toContain('min-[640px]:flex');
+    expect(menuClass).not.toContain('min-[900px]');
+    expect(itemsClass).not.toContain('min-[900px]');
     expect(menuClass).not.toContain('min-[480px]');
     expect(itemsClass).not.toContain('min-[480px]');
   });
@@ -62,7 +64,7 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     );
   });
 
-  it('항목 목록 자체에는 900px 기준으로 숨는 항목이 없다 — 좌측 사이드바 도달은 드로어 토글이 전담한다', () => {
+  it('항목 목록 자체에는 뷰포트 기준으로 숨는 항목이 없다 — 좌측 사이드바 도달은 드로어 토글이 전담한다', () => {
     const html = render();
     const menuPanel = html.match(
       /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
@@ -70,8 +72,10 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     const inlineList = html.match(
       /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
     )?.[0];
-    expect(menuPanel).not.toContain('min-[900px]:hidden');
-    expect(inlineList).not.toContain('min-[900px]:hidden');
+    for (const hidden of ['min-[640px]:hidden', 'min-[900px]:hidden']) {
+      expect(menuPanel).not.toContain(hidden);
+      expect(inlineList).not.toContain(hidden);
+    }
   });
 
   it('접힌 메뉴도 같은 링크를 모두 담는다 — 좁은 화면에서 길이 끊기지 않는다', () => {

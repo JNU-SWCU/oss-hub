@@ -278,3 +278,70 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dialog()).toBeNull();
   });
 });
+
+const ANONYMOUS_SESSION: DrawerSession = {
+  status: 'anonymous',
+  role: null,
+  memberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+  isProfileComplete: false,
+};
+
+const OVERLAY_WRAPPER = '.fixed.inset-x-0.top-0.z-40';
+
+describe('AppFrame 랜딩(/) 내비 — 처음부터 흰 바', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    mocks.getProgramNavigationMilestones
+      .mockReset()
+      .mockReturnValue(new Promise(() => {}));
+    mockSession(ANONYMOUS_SESSION);
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.clearAllMocks();
+  });
+
+  function nav(): HTMLElement {
+    const el = container.querySelector<HTMLElement>('nav[data-slot="nav-bar"]');
+    if (el === null) throw new Error('상단 nav를 찾지 못했습니다');
+    return el;
+  }
+
+  async function renderAt(pathname: string): Promise<void> {
+    mocks.usePathname.mockReturnValue(pathname);
+    await act(async () => {
+      root.render(
+        <AppFrame brand="OSS Hub" items={ITEMS}>
+          <section id="landing-hero">히어로</section>
+        </AppFrame>,
+      );
+    });
+  }
+
+  it('히어로가 있어도 랜딩 내비는 흰 기본 표면이고 fixed로 히어로 위에 선다', async () => {
+    await renderAt('/');
+
+    const bar = nav();
+    expect(bar.getAttribute('data-surface')).toBeNull();
+    expect(bar.classList.contains('bg-background')).toBe(true);
+    expect(bar.classList.contains('bg-transparent')).toBe(false);
+    expect(container.querySelector(OVERLAY_WRAPPER)?.contains(bar)).toBe(true);
+  });
+
+  it('/consent 로 가면 같은 흰 바이고 fixed가 아니다', async () => {
+    await renderAt('/consent');
+
+    expect(nav().getAttribute('data-surface')).toBeNull();
+    expect(nav().classList.contains('bg-background')).toBe(true);
+    expect(container.querySelector(OVERLAY_WRAPPER)).toBeNull();
+  });
+});

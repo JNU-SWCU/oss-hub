@@ -63,6 +63,14 @@ vi.mock('next/navigation', () => ({
 
 import { ProgramDetailPage } from './program-detail-page';
 
+function stubSignInApply(applyHref: string) {
+  return (
+    <a href="/stub-sign-in" data-apply-href={applyHref}>
+      신청하기
+    </a>
+  );
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -135,7 +143,11 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
   async function openDetail(): Promise<void> {
     await act(async () => {
       root.render(
-        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+        <ProgramDetailPage
+          renderSignInApply={stubSignInApply}
+          programId={PROGRAM_ID}
+          session="present"
+        />,
       );
     });
     await vi.waitFor(() => {

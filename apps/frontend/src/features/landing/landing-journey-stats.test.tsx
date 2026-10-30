@@ -1,74 +1,32 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  LandingGraph,
-  LandingGraphCompleteness,
-  LandingGraphNode,
-  LandingGraphNodeKind,
-} from './landing-overview';
-
-const mocks = vi.hoisted(() => ({ useLandingGraph: vi.fn() }));
-
-vi.mock('./components/use-landing-graph', () => ({
-  useLandingGraph: mocks.useLandingGraph,
-}));
-
 import { LandingJourney } from './components/landing-journey';
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
-const graphOf = (
-  source: LandingGraph['source'],
-  kinds: readonly LandingGraphNodeKind[],
-): LandingGraph => ({
-  source,
-  nodes: kinds.map((kind, index): LandingGraphNode => ({
-    id: `${kind}:${index}`,
-    kind,
-    label: `${kind}-${index}`,
-    href: null,
-    x: 0,
-    y: 0,
-  })),
-  edges: [],
-});
+describe('server supplied landing props', () => {
+  it('renders program labels and statistics when passed from the server', () => {
+    const programs = [{ name: 'Server program', href: '/programs/p1' }];
+    const stats = { items: [{ key: 'programs', value: '12' }], note: null };
 
-const PUBLIC_GRAPH = graphOf('public', [
-  'program',
-  'repository',
-  'repository',
-  'student',
-  'student',
-]);
+    const html = renderToStaticMarkup(
+      <LandingJourney
+        primaryAction={null}
+        starPrograms={programs}
+        stats={stats}
+      />,
+    );
 
-function renderWith(completeness: LandingGraphCompleteness): string {
-  mocks.useLandingGraph.mockReturnValue({
-    graph: PUBLIC_GRAPH,
-    completeness,
+    expect(html).toContain('data-cosmos-poster');
+    expect(html).toContain('>Server program</text>');
+    expect(html).toContain('>12</div>');
   });
-  return renderToStaticMarkup(
-    <LandingJourney primaryAction={<a href="/login">GitHub으로 로그인</a>} />,
-  );
-}
+  it('omits the statistics row when the server supplies no statistics', () => {
+    const stats = { items: [], note: null };
 
-const statValue = (html: string, key: string): string | undefined =>
-  new RegExp(`>([^<>]*)</div><div[^>]*>${key}</div>`).exec(html)?.[1];
+    const html = renderToStaticMarkup(
+      <LandingJourney primaryAction={null} starPrograms={[]} stats={stats} />,
+    );
 
-describe('LandingJourney second panel stats', () => {
-  it('renders the contributor slot as an em dash and badges 일부 집계 when the graph is partial', () => {
-    const html = renderWith('partial');
-
-    expect(statValue(html, '공개 기여자')).toBe('—');
-    expect(html).toContain('일부 집계');
-    expect(html).not.toContain('공개 프로젝트 기준');
-
-    expect(statValue(html, '공개 프로그램')).toBe('1');
-    expect(statValue(html, '공개 저장소')).toBe('2');
-  });
-
-  it('renders exact counts under 공개 프로젝트 기준 when the graph is complete', () => {
-    const html = renderWith('complete');
-
-    expect(statValue(html, '공개 기여자')).toBe('2');
-    expect(html).toContain('공개 프로젝트 기준');
-    expect(html).not.toContain('일부 집계');
+    expect(html).not.toContain('<ul');
   });
 });

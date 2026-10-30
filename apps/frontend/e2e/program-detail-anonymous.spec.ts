@@ -86,6 +86,23 @@ test('비로그인 방문자의 프로그램 상세는 401 응답과 콘솔 오�
     ).toContainText(PROGRAM_NAME);
     await expect(guest.getByText('합성 마일스톤')).toBeVisible();
     await guest.waitForLoadState('networkidle');
+
+    const apply = guest
+      .locator('main [data-slot="page-header"]')
+      .getByRole('link', { name: '신청하기', exact: true });
+    await expect(apply).toHaveAttribute('href', '/api/v1/auth/github');
+    await guest.route('**/api/v1/auth/github**', (route) =>
+      route.abort('aborted'),
+    );
+    const oauthStart = guest.waitForRequest('**/api/v1/auth/github');
+    await apply.click();
+    await oauthStart;
+    const stored = await guest.evaluate(() =>
+      sessionStorage.getItem('oss-hub-login-destination'),
+    );
+    expect(JSON.parse(stored ?? 'null')).toMatchObject({
+      destination: `/programs/${programId}/apply`,
+    });
     audit.assertClean();
   } finally {
     await context.close();
