@@ -25,6 +25,7 @@ import {
 } from '../domain/program-list-status';
 import {
   programListOrderBySql,
+  programEndYearSql,
   programListPrismaWhere,
   programListSqlWhere,
   programStatusCountsSql,
@@ -46,8 +47,25 @@ export class ProgramsRepository {
       ...(query.search
         ? { name: { contains: query.search, mode: 'insensitive' as const } }
         : {}),
+      ...(query.year !== undefined
+        ? {
+            AND: [
+              {
+                endAt: {
+                  gte: new Date(Date.UTC(query.year, 0, 1, -9)),
+                  lt: new Date(Date.UTC(query.year + 1, 0, 1, -9)),
+                },
+              },
+            ],
+          }
+        : {}),
     };
-    const sqlWhere = programListSqlWhere(query.status, query.search, now);
+    const sqlWhere = programListSqlWhere(
+      query.status,
+      query.search,
+      now,
+      query.year,
+    );
     const orderBy = programListOrderBySql(query.sort, query.direction, now);
     const offset = (query.page - 1) * query.pageSize;
     return this.prisma.$transaction([
@@ -76,6 +94,18 @@ export class ProgramsRepository {
       `),
       this.prisma.program.count({ where }),
     ]);
+  }
+
+  async findEndedYears(now: Date): Promise<readonly number[]> {
+    const rows = await this.prisma.$queryRaw<
+      readonly { readonly year: number }[]
+    >(Prisma.sql`
+      SELECT DISTINCT ${programEndYearSql} AS year
+      FROM "Program" AS p
+      ${programListSqlWhere('ended', '', now)}
+      ORDER BY year DESC
+    `);
+    return rows.map((row) => row.year);
   }
 
   async countProgramsByStatus(now: Date): Promise<ProgramStatusCounts> {

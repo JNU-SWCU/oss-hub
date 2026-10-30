@@ -220,7 +220,7 @@ describe('ProgramsRepository list ordering integration', () => {
     const shuffledIndexes = Array.from(
       { length: count },
       (_, index) => index,
-    ).sort(() => Math.random() - 0.5);
+    ).reverse();
     await prisma.program.createMany({
       data: shuffledIndexes.map((nameIndex, insertOrder) => ({
         id: `${TEST_PREFIX}name-${insertOrder.toString().padStart(2, '0')}`,
@@ -571,5 +571,107 @@ describe('ProgramsRepository list ordering integration', () => {
       `${TEST_PREFIX}combo-recruiting-a`,
       `${TEST_PREFIX}combo-recruiting-b`,
     ]);
+  });
+
+  it('returns no ended years when the public catalog is empty', async () => {
+    await expect(repository.findEndedYears(NOW)).resolves.toEqual([]);
+  });
+
+  describe('ended program years and current status', () => {
+    const endedNow = new Date('2028-01-01T00:00:00.000Z');
+
+    beforeEach(async () => {
+      await prisma.program.createMany({
+        data: [
+          { id: 'ended-2026', endAt: '2026-12-31T14:59:59.999Z' },
+          { id: 'ended-2027-a', endAt: '2026-12-31T15:00:00.000Z' },
+          { id: 'ended-2027-b', endAt: '2026-12-31T15:30:00.000Z' },
+          {
+            id: 'archived',
+            endAt: '2029-06-01T00:00:00.000Z',
+            lifecycle: 'ARCHIVED' as const,
+          },
+          {
+            id: 'recruiting',
+            endAt: '2028-06-01T00:00:00.000Z',
+            applicationEndAt: '2028-02-01T00:00:00.000Z',
+          },
+          { id: 'in-progress', endAt: '2028-06-01T00:00:00.000Z' },
+          {
+            id: 'upcoming',
+            endAt: '2028-06-01T00:00:00.000Z',
+            applicationStartAt: '2028-02-01T00:00:00.000Z',
+            applicationEndAt: '2028-03-01T00:00:00.000Z',
+          },
+          { id: 'exact-now', endAt: endedNow.toISOString() },
+        ].map((fixture) => ({
+          organizer: 'OSS Hub',
+          category: ProgramCategory.BASIC,
+          applicationTemplateKey: 'basic',
+          applicationTemplateVersion: 1,
+          applicationStartAt: new Date(
+            fixture.applicationStartAt ?? '2025-01-01T00:00:00.000Z',
+          ),
+          applicationEndAt: new Date(
+            fixture.applicationEndAt ?? '2025-02-01T00:00:00.000Z',
+          ),
+          startAt: new Date('2025-03-01T00:00:00.000Z'),
+          teamMinSize: 1,
+          teamMaxSize: 4,
+          description: 'Program year fixture',
+          lifecycle: fixture.lifecycle ?? 'PUBLISHED',
+          id: `${TEST_PREFIX}${fixture.id}`,
+          name: `YearFixture ${fixture.id}`,
+          endAt: new Date(fixture.endAt),
+        })),
+      });
+    });
+
+    it('filters ended programs by Seoul year before sorting and pagination with matching totals', async () => {
+      const [items, total] = await repository.listPrograms(
+        {
+          page: 2,
+          pageSize: 1,
+          search: 'YearFixture ended',
+          status: 'ended',
+          year: 2027,
+          sort: 'name',
+          direction: 'asc',
+        },
+        endedNow,
+      );
+
+      expect(total).toBe(2);
+      expect(items.map((item) => item.id)).toEqual([
+        `${TEST_PREFIX}ended-2027-b`,
+      ]);
+    });
+
+    it('returns distinct descending Seoul years including archived programs only from the ended catalog', async () => {
+      await expect(repository.findEndedYears(endedNow)).resolves.toEqual([
+        2029, 2027, 2026,
+      ]);
+    });
+
+    it('keeps recruiting, upcoming, in-progress and the exact end boundary in current', async () => {
+      const [items, total] = await repository.listPrograms(
+        {
+          page: 1,
+          pageSize: 20,
+          search: 'YearFixture',
+          status: 'current',
+          sort: 'name',
+        },
+        endedNow,
+      );
+
+      expect(total).toBe(4);
+      expect(items.map((item) => item.id)).toEqual([
+        `${TEST_PREFIX}exact-now`,
+        `${TEST_PREFIX}in-progress`,
+        `${TEST_PREFIX}recruiting`,
+        `${TEST_PREFIX}upcoming`,
+      ]);
+    });
   });
 });
