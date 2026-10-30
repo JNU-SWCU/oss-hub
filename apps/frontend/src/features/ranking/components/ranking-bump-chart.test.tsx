@@ -1,4 +1,5 @@
-import { act, type ReactNode } from 'react';
+import { act, StrictMode, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RankingTimeline } from '../types';
@@ -97,6 +98,36 @@ function timelineFixture(
       },
     ],
     ...overrides,
+  };
+}
+
+function lastMonthFixture(): RankingTimeline {
+  return timelineFixture({
+    points: [
+      { date: '2026-09-30', starEstimated: true },
+      { date: '2026-10-31', starEstimated: true },
+      { date: '2026-11-30', starEstimated: false },
+    ],
+    series: [
+      { githubLogin: 'synthetic-one', ranks: [1, 1, 3], totals: [30, 30, 10] },
+      { githubLogin: 'synthetic-two', ranks: [2, 2, 2], totals: [20, 20, 20] },
+      {
+        githubLogin: 'synthetic-three',
+        ranks: [3, 3, 1],
+        totals: [10, 10, 30],
+      },
+      { githubLogin: 'synthetic-four', ranks: [5, 5, 5], totals: [1, 1, 1] },
+    ],
+  });
+}
+
+function hoverEvent(x: number, y: number) {
+  return {
+    clientX: x,
+    clientY: y,
+    currentTarget: {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    },
   };
 }
 
@@ -313,20 +344,77 @@ describe('RankingBumpChart', () => {
       }),
     );
 
+    await act(async () => chart.onMouseMove?.({}, hoverEvent(176, 48)));
+
+    expect(container.textContent).not.toContain('합계');
+  });
+
+  it('말풍선이 덮는 자리에서는 점프 주석을 흐리게 비킨다', async () => {
+    await render(lastMonthFixture());
+    const climbNote = () => container.querySelector('[data-note="climb"]');
+    expect(climbNote()).not.toBeNull();
+    expect(climbNote()?.getAttribute('opacity')).toBe('1');
+
+    await act(async () => chart.onMouseMove?.({}, hoverEvent(716, 38)));
+    expect(container.textContent).toContain('@synthetic-three · 11월 · 1위');
+    expect(climbNote()?.getAttribute('opacity')).toBe('0.15');
+
+    await act(async () => chart.onMouseMove?.({}, hoverEvent(596, 78)));
+    expect(container.textContent).toContain('@synthetic-four · 9월 · 5위');
+    expect(climbNote()?.getAttribute('opacity')).toBe('1');
+  });
+
+  it('재생 중에는 끝 이름표를 흐리게 해 현재 프레임과 구분한다', async () => {
+    vi.useFakeTimers();
+    await render(timelineFixture());
+    const endLabels = () => container.querySelector('[data-end-labels]');
+    expect(endLabels()).not.toBeNull();
+    expect(endLabels()?.getAttribute('opacity')).toBe('1');
+
+    await act(async () => button('재생').click());
+    expect(endLabels()?.getAttribute('opacity')).toBe('0.4');
+
+    await act(async () => {
+      vi.advanceTimersByTime(1400);
+    });
+    expect(revealed()).toBe('3');
+    expect(endLabels()?.getAttribute('opacity')).toBe('1');
+  });
+
+  it('엄격 모드에서도 재생이 한 번에 한 달씩만 공개한다', async () => {
+    vi.useFakeTimers();
     await act(async () =>
-      chart.onMouseMove?.(
-        {},
-        {
-          clientX: 176,
-          clientY: 48,
-          currentTarget: {
-            getBoundingClientRect: () => ({ left: 0, top: 0 }),
-          },
-        },
+      root.render(
+        <StrictMode>
+          <RankingBumpChart timeline={timelineFixture()} />
+        </StrictMode>,
       ),
     );
 
-    expect(container.textContent).not.toContain('합계');
+    await act(async () => button('재생').click());
+    expect(revealed()).toBe('1');
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(revealed()).toBe('2');
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(revealed()).toBe('3');
+  });
+
+  it('모션을 줄이는 설정이면 첫 프레임부터 재생 버튼이 없다', async () => {
+    stubMotionPreference(true);
+
+    await act(async () => {
+      flushSync(() => {
+        root.render(<RankingBumpChart timeline={timelineFixture()} />);
+      });
+      expect(container.textContent).not.toContain('재생');
+      expect(revealed()).toBe('3');
+    });
   });
 
   it('달이 없으면 카드를 아예 그리지 않는다', async () => {

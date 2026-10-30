@@ -18,8 +18,60 @@ const CROWD_OPACITY_FLOOR = 0.1;
 const LATIN_GLYPH_WIDTH = 6.2;
 const WIDE_GLYPH_WIDTH = 13;
 const ASCII_LIMIT = 128;
+const BUBBLE_PAD = 24;
+const BUBBLE_SIDE_PAD = 16;
+const BUBBLE_ROW_HEIGHT = 20;
+const BUBBLE_BASE_HEIGHT = 20;
+const BUBBLE_GAP = 12;
+const BUBBLE_TAIL_DROP = 14;
+const BUBBLE_LIFT = 2;
+const BUBBLE_RIGHT_EDGE = 160;
+const BUBBLE_OVERFLOW_ALLOWANCE = 48;
+const NOTE_REACH = 28;
+const NOTE_SWIPE_REACH = 34;
+const NOTE_BOX_PAD = 4;
+const NOTE_BOX_RISE = 14;
+const NOTE_BOX_HEIGHT = 20;
 
 type BumpRow = Record<string, string | number | null>;
+
+export interface Pointer {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface PlotBounds {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+export interface NotePlacement {
+  readonly label: string;
+  readonly anchor: Pointer;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly below: boolean;
+  readonly flipLeft: boolean;
+  readonly swipe: boolean;
+}
+
+export interface HoverBubble {
+  readonly headline: string;
+  readonly total: number | null;
+  readonly starEstimated: boolean;
+  readonly below: boolean;
+  readonly rect: Rect;
+}
 
 export interface SeriesPick {
   readonly order: number;
@@ -59,10 +111,7 @@ export function rankAt(
   return series.ranks[index] ?? null;
 }
 
-export function totalAt(
-  series: RankingTimelineSeries,
-  index: number,
-): number | null {
+function totalAt(series: RankingTimelineSeries, index: number): number | null {
   return series.totals === undefined ? null : (series.totals[index] ?? null);
 }
 
@@ -223,7 +272,7 @@ export function stackLabels(
   return placements;
 }
 
-export function nearestPointIndex(
+function nearestPointIndex(
   labels: readonly string[],
   pointerX: number,
   xScale: (value: string) => number | undefined,
@@ -242,7 +291,7 @@ export function nearestPointIndex(
   return best;
 }
 
-export function nearestSeriesOrder(
+function nearestSeriesOrder(
   series: readonly RankingTimelineSeries[],
   pointIndex: number,
   pointerY: number,
@@ -278,9 +327,117 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function distance(
-  from: { readonly x: number; readonly y: number },
-  to: { readonly x: number; readonly y: number },
-): number {
+export function distance(from: Pointer, to: Pointer): number {
   return Math.hypot(from.x - to.x, from.y - to.y);
+}
+
+export function rectsOverlap(one: Rect, other: Rect): boolean {
+  return (
+    one.x < other.x + other.width &&
+    other.x < one.x + one.width &&
+    one.y < other.y + other.height &&
+    other.y < one.y + one.height
+  );
+}
+
+function bubbleBox(
+  anchor: Pointer,
+  plot: Rect,
+  headline: string,
+  rows: number,
+): Rect & { readonly below: boolean } {
+  const width = approxTextWidth(headline) + BUBBLE_PAD + BUBBLE_SIDE_PAD;
+  const height = BUBBLE_BASE_HEIGHT + BUBBLE_ROW_HEIGHT * rows + BUBBLE_PAD;
+  const below = anchor.y - height - BUBBLE_GAP < plot.y;
+  const nearRight = anchor.x > plot.x + plot.width - BUBBLE_RIGHT_EDGE;
+  const x = clamp(
+    nearRight ? anchor.x - width - BUBBLE_GAP : anchor.x + BUBBLE_GAP,
+    plot.x,
+    Math.max(plot.x, plot.x + plot.width - width + BUBBLE_OVERFLOW_ALLOWANCE),
+  );
+  const y = below
+    ? anchor.y + BUBBLE_TAIL_DROP
+    : anchor.y - height - BUBBLE_LIFT;
+  return { x, y, width, height, below };
+}
+
+export function hoverBubble(input: {
+  readonly points: readonly RankingTimelinePoint[];
+  readonly series: readonly RankingTimelineSeries[];
+  readonly labels: readonly string[];
+  readonly revealed: number;
+  readonly pointer: Pointer | null;
+  readonly plot: Rect;
+  readonly xScale: (value: string) => number | undefined;
+  readonly yScale: (rank: number) => number | undefined;
+}): HoverBubble | null {
+  const { points, series, labels, revealed, pointer, plot } = input;
+  if (pointer === null) return null;
+  const monthIndex = nearestPointIndex(
+    labels.slice(0, revealed),
+    pointer.x,
+    input.xScale,
+  );
+  if (monthIndex === null) return null;
+  const order = nearestSeriesOrder(series, monthIndex, pointer.y, input.yScale);
+  if (order === null) return null;
+  const item = series[order];
+  const point = points[monthIndex];
+  const label = labels[monthIndex];
+  if (item === undefined || point === undefined || label === undefined) {
+    return null;
+  }
+  const rank = rankAt(item, monthIndex);
+  const x = input.xScale(label);
+  const y = rank === null ? undefined : input.yScale(rank);
+  if (rank === null || x === undefined || y === undefined) return null;
+  const total = totalAt(item, monthIndex);
+  const headline = `@${item.githubLogin} · ${monthLabel(point)} · ${String(rank)}위`;
+  const { below, ...rect } = bubbleBox(
+    { x, y },
+    plot,
+    headline,
+    total === null ? 1 : 2,
+  );
+  return {
+    headline,
+    total,
+    starEstimated: point.starEstimated,
+    below,
+    rect,
+  };
+}
+
+export function notePlacement(input: {
+  readonly label: string;
+  readonly anchor: Pointer;
+  readonly below: boolean;
+  readonly flipLeft: boolean;
+  readonly bounds: PlotBounds;
+  readonly swipe: boolean;
+}): NotePlacement {
+  const { label, anchor, below, flipLeft, bounds, swipe } = input;
+  const width = approxTextWidth(label);
+  const reach = swipe ? NOTE_SWIPE_REACH : NOTE_REACH;
+  const rawX = flipLeft ? anchor.x - reach - width : anchor.x + reach;
+  const rawY = below ? anchor.y + reach + 4 : anchor.y - reach + 2;
+  return {
+    label,
+    anchor,
+    x: clamp(rawX, bounds.left + 4, bounds.right - width - 4),
+    y: clamp(rawY, bounds.top + 14, bounds.bottom - 6),
+    width,
+    below,
+    flipLeft,
+    swipe,
+  };
+}
+
+export function noteBox(placement: NotePlacement): Rect {
+  return {
+    x: placement.x - NOTE_BOX_PAD,
+    y: placement.y - NOTE_BOX_RISE,
+    width: placement.width + NOTE_BOX_PAD * 2,
+    height: NOTE_BOX_HEIGHT,
+  };
 }

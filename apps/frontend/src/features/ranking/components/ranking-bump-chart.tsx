@@ -44,22 +44,25 @@ import {
   crowdOpacity,
   distance,
   firstRankedIndex,
+  hoverBubble,
   indexOfLogin,
   isColoredMode,
   isRookie,
   labelCandidates,
   leaderAt,
   monthLabel,
-  nearestPointIndex,
-  nearestSeriesOrder,
+  noteBox,
+  notePlacement,
   pointLabel,
   rankAt,
   rankDomainMax,
   rankTicks,
+  rectsOverlap,
   seriesKey,
   stackLabels,
-  totalAt,
   PLAY_INTERVAL_MS,
+  type NotePlacement,
+  type Pointer,
   type SeriesPick,
 } from './ranking-bump-chart-model';
 
@@ -96,9 +99,9 @@ const CROWN_LIFT = 22;
 const CROWN_HALF = 9;
 const DOT_RADIUS = 4;
 const ANNOTATION_COLLISION_PX = 48;
-const BUBBLE_PAD = 24;
-const BUBBLE_ROW_HEIGHT = 20;
-const BUBBLE_BASE_HEIGHT = 20;
+const NOTE_DIM_OPACITY = 0.15;
+const PLAYBACK_LABEL_OPACITY = 0.4;
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const LINE_Z = 400;
 const COLORED_Z = 410;
 const UNDERLAY_Z = 420;
@@ -108,11 +111,6 @@ const AXIS_INK_Z = 505;
 const MARKER_Z = 1300;
 const END_LABEL_Z = 2000;
 const BUBBLE_Z = 2100;
-
-interface Pointer {
-  readonly x: number;
-  readonly y: number;
-}
 
 interface LayerProps {
   readonly points: readonly RankingTimelinePoint[];
@@ -144,6 +142,12 @@ function fitLabel(login: string, maxWidth: number): string {
     cut = cut.slice(0, -1);
   }
   return `${cut}…`;
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window === 'undefined'
+    ? false
+    : window.matchMedia(REDUCED_MOTION_QUERY).matches;
 }
 
 function plotHeightFor(seriesCount: number): number {
@@ -273,7 +277,8 @@ function MarkerLayer({
   viewerOrder,
   pinnedOrder,
   colored,
-}: LayerProps) {
+  pointer,
+}: LayerProps & { readonly pointer: Pointer | null }) {
   const geometry = useGeometry();
   if (geometry === null || revealed < 1) return null;
   const { plot, xScale, yScale } = geometry;
@@ -312,10 +317,46 @@ function MarkerLayer({
     climberAt !== null &&
     distance(viewerAt, climberAt) < ANNOTATION_COLLISION_PX;
 
-  const left = plot.x;
-  const right = plot.x + plot.width;
-  const top = plot.y;
-  const bottom = plot.y + plot.height;
+  const bounds = {
+    left: plot.x,
+    right: plot.x + plot.width,
+    top: plot.y,
+    bottom: plot.y + plot.height,
+  };
+  const viewerNote =
+    viewerAt === null || collides
+      ? null
+      : notePlacement({
+          label: '나',
+          anchor: viewerAt,
+          below: viewerAt.y < bounds.top + 48,
+          flipLeft: viewerAt.x > bounds.right - 80,
+          bounds,
+          swipe: false,
+        });
+  const climbNote =
+    climber === null || climberAt === null
+      ? null
+      : notePlacement({
+          label: `+${String(climber.climb)}칸 점프!`,
+          anchor: climberAt,
+          below: climberAt.y <= bounds.bottom - 48,
+          flipLeft: true,
+          bounds,
+          swipe: true,
+        });
+  const bubble = hoverBubble({
+    points,
+    series,
+    labels,
+    revealed,
+    pointer,
+    plot,
+    xScale: (value: string) => xScale(value),
+    yScale: (rank: number) => yScale(rank),
+  });
+  const coveredByBubble = (placement: NotePlacement): boolean =>
+    bubble !== null && rectsOverlap(noteBox(placement), bubble.rect);
 
   return (
     <g>
@@ -384,24 +425,18 @@ function MarkerLayer({
           </g>
         );
       })}
-      {viewerAt === null || collides ? null : (
+      {viewerNote === null ? null : (
         <PencilNote
-          label="나"
-          anchor={viewerAt}
-          below={viewerAt.y < top + 48}
-          flipLeft={viewerAt.x > right - 80}
-          bounds={{ left, right, top, bottom }}
-          swipe={false}
+          kind="viewer"
+          placement={viewerNote}
+          dimmed={coveredByBubble(viewerNote)}
         />
       )}
-      {climber === null || climberAt === null ? null : (
+      {climbNote === null ? null : (
         <PencilNote
-          label={`+${String(climber.climb)}칸 점프!`}
-          anchor={climberAt}
-          below={climberAt.y <= bottom - 48}
-          flipLeft
-          bounds={{ left, right, top, bottom }}
-          swipe
+          kind="climb"
+          placement={climbNote}
+          dimmed={coveredByBubble(climbNote)}
         />
       )}
     </g>
@@ -409,31 +444,15 @@ function MarkerLayer({
 }
 
 function PencilNote({
-  label,
-  anchor,
-  below,
-  flipLeft,
-  bounds,
-  swipe,
+  kind,
+  placement,
+  dimmed,
 }: {
-  readonly label: string;
-  readonly anchor: Pointer;
-  readonly below: boolean;
-  readonly flipLeft: boolean;
-  readonly bounds: {
-    readonly left: number;
-    readonly right: number;
-    readonly top: number;
-    readonly bottom: number;
-  };
-  readonly swipe: boolean;
+  readonly kind: 'viewer' | 'climb';
+  readonly placement: NotePlacement;
+  readonly dimmed: boolean;
 }) {
-  const width = approxTextWidth(label);
-  const reach = swipe ? 34 : 28;
-  const rawX = flipLeft ? anchor.x - reach - width : anchor.x + reach;
-  const rawY = below ? anchor.y + reach + 4 : anchor.y - reach + 2;
-  const x = clamp(rawX, bounds.left + 4, bounds.right - width - 4);
-  const y = clamp(rawY, bounds.top + 14, bounds.bottom - 6);
+  const { label, anchor, x, y, width, below, flipLeft, swipe } = placement;
   const tipX = anchor.x + (flipLeft ? -6 : 6);
   const tipY = anchor.y + (below ? 6 : -6);
   const handleX = x + (flipLeft ? width : 0);
@@ -441,7 +460,12 @@ function PencilNote({
   const controlX = (handleX + tipX) / 2;
   const controlY = below ? Math.min(handleY, tipY) - 14 : handleY + 14;
   return (
-    <g filter={FINE_FILTER}>
+    <g
+      data-note={kind}
+      className={styles.note}
+      opacity={dimmed ? NOTE_DIM_OPACITY : 1}
+      filter={FINE_FILTER}
+    >
       {swipe ? (
         <rect
           className={styles.noteSwipe}
@@ -460,7 +484,7 @@ function PencilNote({
         className={styles.noteArrow}
         d={`M${tipX + (flipLeft ? -6 : 6)},${tipY - 5}L${tipX},${tipY}L${tipX + (flipLeft ? -2 : 2)},${tipY + 7}`}
       />
-      <text className={styles.note} x={x} y={y}>
+      <text className={styles.noteText} x={x} y={y}>
         {label}
       </text>
     </g>
@@ -473,8 +497,10 @@ function EndLabels({
   pinnedOrder,
   colored,
   gutter,
+  playing,
 }: Omit<LayerProps, 'points' | 'labels' | 'revealed'> & {
   readonly gutter: number;
+  readonly playing: boolean;
 }) {
   const geometry = useGeometry();
   if (geometry === null) return null;
@@ -487,7 +513,12 @@ function EndLabels({
   );
   const x = plot.x + plot.width + END_LABEL_OFFSET;
   return (
-    <g filter={FINE_FILTER}>
+    <g
+      data-end-labels=""
+      className={styles.endLabels}
+      opacity={playing ? PLAYBACK_LABEL_OPACITY : 1}
+      filter={FINE_FILTER}
+    >
       {placements.map((placement) => (
         <text
           key={`end-${String(placement.order)}`}
@@ -519,55 +550,33 @@ function SpeechBubble({
   readonly pointer: Pointer | null;
 }) {
   const geometry = useGeometry();
-  if (geometry === null || pointer === null) return null;
+  if (geometry === null) return null;
   const { plot, xScale, yScale } = geometry;
-  const visible = labels.slice(0, revealed);
-  const monthIndex = nearestPointIndex(visible, pointer.x, (value) =>
-    xScale(value),
-  );
-  if (monthIndex === null) return null;
-  const order = nearestSeriesOrder(series, monthIndex, pointer.y, (rank) =>
-    yScale(rank),
-  );
-  const item = order === null ? undefined : series[order];
-  const point = points[monthIndex];
-  const label = labels[monthIndex];
-  if (item === undefined || point === undefined || label === undefined) {
-    return null;
-  }
-  const rank = rankAt(item, monthIndex);
-  const x = xScale(label);
-  const y = rank === null ? undefined : yScale(rank);
-  if (rank === null || x === undefined || y === undefined) return null;
-
-  const total = totalAt(item, monthIndex);
-  const headline = `@${item.githubLogin} · ${monthLabel(point)} · ${String(rank)}위`;
-  const width = approxTextWidth(headline) + BUBBLE_PAD + 16;
-  const height =
-    BUBBLE_BASE_HEIGHT +
-    BUBBLE_ROW_HEIGHT * (total === null ? 1 : 2) +
-    BUBBLE_PAD;
-  const below = y - height - 12 < plot.y;
-  const nearRight = x > plot.x + plot.width - 160;
-  const boxX = clamp(
-    nearRight ? x - width - 12 : x + 12,
-    plot.x,
-    Math.max(plot.x, plot.x + plot.width - width + 48),
-  );
-  const boxY = below ? y + 14 : y - height - 2;
+  const bubble = hoverBubble({
+    points,
+    series,
+    labels,
+    revealed,
+    pointer,
+    plot,
+    xScale: (value: string) => xScale(value),
+    yScale: (rank: number) => yScale(rank),
+  });
+  if (bubble === null) return null;
+  const { rect, below, headline, total, starEstimated } = bubble;
   return (
     <foreignObject
-      x={boxX}
-      y={boxY}
-      width={width}
-      height={height}
+      x={rect.x}
+      y={rect.y}
+      width={rect.width}
+      height={rect.height}
       pointerEvents="none"
     >
       <div className={cn(styles.bubble, below && styles.bubbleBelow)}>
         <span>{headline}</span>
         {total === null ? null : (
           <span className={styles.bubbleTotal}>
-            {`합계 ${String(total)}${point.starEstimated ? '*' : ''}`}
+            {`합계 ${String(total)}${starEstimated ? '*' : ''}`}
           </span>
         )}
       </div>
@@ -649,7 +658,7 @@ export function RankingBumpChart({
   const [playing, setPlaying] = useState(false);
   const [pinnedLogin, setPinnedLogin] = useState<string | null>(null);
   const [pointer, setPointer] = useState<Pointer | null>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
 
   const labels = useMemo(() => points.map(pointLabel), [points]);
   const colored = isColoredMode(seriesCount);
@@ -666,7 +675,7 @@ export function RankingBumpChart({
   );
 
   useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const query = window.matchMedia(REDUCED_MOTION_QUERY);
     setReducedMotion(query.matches);
     const onChange = (event: MediaQueryListEvent) => {
       setReducedMotion(event.matches);
@@ -790,12 +799,13 @@ export function RankingBumpChart({
     setPinnedLogin((current) => (current === login ? null : login));
   }, []);
   const togglePlay = useCallback(() => {
-    setPlaying((current) => {
-      if (current) return false;
-      setRevealed((at) => (at >= pointCount ? 1 : at));
-      return true;
-    });
-  }, [pointCount]);
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    if (revealed >= pointCount) setRevealed(1);
+    setPlaying(true);
+  }, [playing, revealed, pointCount]);
   const onKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Escape') return;
     setPinnedLogin(null);
@@ -962,7 +972,7 @@ export function RankingBumpChart({
                   <SketchAxes />
                 </ZIndexLayer>
                 <ZIndexLayer zIndex={MARKER_Z}>
-                  <MarkerLayer {...layerProps} />
+                  <MarkerLayer {...layerProps} pointer={pointer} />
                 </ZIndexLayer>
                 <ZIndexLayer zIndex={END_LABEL_Z}>
                   <EndLabels
@@ -971,6 +981,7 @@ export function RankingBumpChart({
                     pinnedOrder={pinnedOrder}
                     colored={colored}
                     gutter={gutter}
+                    playing={playing}
                   />
                 </ZIndexLayer>
                 <ZIndexLayer zIndex={BUBBLE_Z}>

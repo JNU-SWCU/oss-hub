@@ -204,7 +204,12 @@
   fill: var(--muted-foreground);
 }
 
+/* 말풍선이 주석 위로 올라오면 주석을 통째로 흐리게 비킨다(opacity 는 React 가 걸어 준다). */
 .note {
+  transition: opacity 120ms ease-out;
+}
+
+.noteText {
   font-family: var(--font-comic), var(--font-sans);
   font-size: 13px;
   fill: var(--foreground);
@@ -220,6 +225,11 @@
 
 .noteSwipe {
   fill: color-mix(in oklch, var(--chart-3) 30%, transparent);
+}
+
+/* 재생 중에는 끝 이름표가 도착지임을 분명히 하려고 흐려 둔다. */
+.endLabels {
+  transition: opacity 200ms ease-out;
 }
 
 .endLabel {
@@ -401,7 +411,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .crown {
+  .crown,
+  .note,
+  .endLabels {
     transition: none;
   }
 
