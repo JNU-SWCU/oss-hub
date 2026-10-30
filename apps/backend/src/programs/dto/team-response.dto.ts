@@ -4,7 +4,7 @@ import type {
   RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
-} from '../domain/program-teams.types';
+} from '../program-teams.types';
 
 export class RenameTeamResponseDto {
   readonly teamId: string;

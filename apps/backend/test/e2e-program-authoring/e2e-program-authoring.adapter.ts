@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
-import { ApplicationsService } from '../../src/applications/service/applications.service';
+import { ApplicationsService } from '../../src/programs/applications.service';
 import { RepositoryOutboxConsumer } from '../../src/github/service/repository-outbox.consumer';
 import { RepositoryProvisionWorker } from '../../src/github/service/repository-provision.worker';
-import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/service/milestone-document-current-file.service';
-import { MilestoneDocumentFilesService } from '../../src/milestone-documents/service/milestone-document-files.service';
-import { MilestoneDocumentsService } from '../../src/milestone-documents/service/milestone-documents.service';
+import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-current-file.service';
+import { MilestoneDocumentFilesService } from '../../src/programs/milestone-document-files.service';
+import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
 import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/deadline-digest';
-import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
+import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { PrismaService } from '../../src/platform/prisma.service';
-import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
-import { PrismaStorageReferenceRepository } from '../../src/submissions/repository/storage-orphan-reconciliation.repository';
+import { SubmissionFileCleanupService } from '../../src/programs/submission-file-cleanup.service';
+import { PrismaStorageReferenceRepository } from '../../src/programs/storage-orphan-reconciliation.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,

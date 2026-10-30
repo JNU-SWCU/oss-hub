@@ -1,4 +1,4 @@
-import type { UpdateProgramCommand } from '../domain/program-write.commands';
+import type { UpdateProgramCommand } from '../program-write.types';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,

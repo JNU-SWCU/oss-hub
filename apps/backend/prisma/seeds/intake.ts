@@ -7,7 +7,7 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/join-code-digest.policy';
 import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
 
 function placeholderAnswers(scenarioId: string): Prisma.InputJsonObject {

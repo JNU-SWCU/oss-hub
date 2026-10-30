@@ -197,18 +197,6 @@ edge(
   false,
 );
 edge(
-  'legacy public service retains its own module capture',
-  'src/programs/public/public-projects/service/own.service.ts',
-  'src/programs/public/public-projects/repository/own.repository.ts',
-  true,
-);
-edge(
-  'legacy public service cannot import flat programs repository',
-  'src/programs/public/public-projects/service/foreign.service.ts',
-  'src/programs/foreign.repository.ts',
-  false,
-);
-edge(
   'flat service may import a foreign flat service',
   'src/staff/foreign-service.service.ts',
   'src/programs/foreign-service.service.ts',
@@ -532,36 +520,6 @@ edge(
   true,
 );
 edge(
-  'nested module owns its repository',
-  'src/programs/public/overview/service/read.ts',
-  'src/programs/public/overview/repository/target.ts',
-  true,
-);
-edge(
-  'nested modules cannot share repositories',
-  'src/programs/public/projects/service/read.ts',
-  'src/programs/public/overview/repository/target.ts',
-  false,
-);
-edge(
-  'nested module is not parent module',
-  'src/programs/service/public.ts',
-  'src/programs/public/overview/repository/target.ts',
-  false,
-);
-edge(
-  'nested dto may use foreign domain',
-  'src/programs/public/projects/dto/read.ts',
-  'src/alpha/domain/target.ts',
-  true,
-);
-edge(
-  'nested controller cannot use parent module dto',
-  'src/programs/public/projects/controller/read.ts',
-  'src/programs/dto/target.ts',
-  false,
-);
-edge(
   'deep service file cannot use foreign dto',
   'src/alpha/service/internal/deep/dto.ts',
   'src/beta/dto/target.ts',
@@ -704,12 +662,6 @@ add(
   null,
 );
 add(
-  'nested DTO class is accepted',
-  'src/programs/public/overview/dto/result.ts',
-  'export class ResultResponseDto {}',
-  null,
-);
-add(
   'test may use import type node',
   'test/import-type.spec.ts',
   "export type Value = import('../src/alpha/domain/target').Shape;",
@@ -832,8 +784,6 @@ for (const file of [
   'src/enums/service/client.spec.ts',
   'test/client.ts',
   'prisma/seeds/synthetic.ts',
-  'src/programs/public/overview/repository/client.ts',
-  'src/programs/public/overview/overview.module.ts',
 ]) {
   add(
     `DB access exemption ${file}`,

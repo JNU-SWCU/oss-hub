@@ -46,7 +46,7 @@ QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실
 | W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submission-reviews.controller.ts` |
 | W9 | 반려 → 재제출 | **학생이 반려를 보고** → 재제출 → 새 revision | 이전 이력 보존 / 교직원 재심사 / 재제출 폼 fail-closed | `submissions.service.ts` |
 | W10 | 최종 반려 | `REJECTED` 확인 | **재제출 불가가 실제로 막히는가** | `submissions.service.ts` |
-| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/submission-reviews/service` |
+| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/programs` |
 | W12 | 마감 임박 → 알림 | 교직원 다이제스트 **실수신** | 학생 리마인드 / 미제출자 명단 정확도 / Asia/Seoul 표기 | `deadline-digest.service.ts` |
 | W13 | 활동 수집 → 랭킹 | 가입자 실명 노출 | 미가입자 `githubLogin` + '미가입' 배지 / 비로그인 조회 | `ranking.service.ts` |
 | W14 | 관 → 계정 상태 | 비활성화 → 접근 차단 | 재활성화 → 복구 / 자기 비활성화 차단 / 마지막 관리자 제거 차단 | `admin-access-mutation-policy.ts` |

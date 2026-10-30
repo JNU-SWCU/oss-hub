@@ -4,7 +4,7 @@ import { configureHttpApp } from '../../src/platform/configure-http-app.config';
 import { GithubAppClient } from '../../src/github/gateway/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { MAIL_SENDER } from '../../src/notifications/domain/mail-sender.port';
-import { ProgramAuthoringRepository } from '../../src/programs/repository/program-authoring.repository';
+import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
 import { OBJECT_STORAGE } from '../../src/platform/object-storage.types';
 import type { RuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';

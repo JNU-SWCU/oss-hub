@@ -1,4 +1,4 @@
-import type { CreateProgramCommand } from '../domain/program-write.commands';
+import type { CreateProgramCommand } from '../program-write.types';
 import { ProgramTrackType } from '@prisma/client';
 import {
   IsDateString,

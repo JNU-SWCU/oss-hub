@@ -17,7 +17,7 @@ import {
   type ProgramListQueryDirection,
   type ProgramListQuerySort,
   type ProgramListQueryStatus,
-} from '../domain/program-list-query';
+} from '../program-list-query.policy';
 
 export class ProgramListQueryRequestDto {
   @Type(() => Number)

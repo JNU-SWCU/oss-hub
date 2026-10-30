@@ -18,7 +18,6 @@ import { ConsentsService } from './consents.service';
 import { RolesRepository } from './member-onboarding.repository';
 import { RolesService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
-import { PublicUserProfileController } from './public-profile.controller';
 import { StaffAccessRequestsController } from './role-requests.controller';
 
 describe('UsersModule admin access wiring', () => {
@@ -78,7 +77,6 @@ describe('UsersModule admin access wiring', () => {
       OnboardingController,
       StaffAccessRequestsController,
       ConsentsController,
-      PublicUserProfileController,
     ]);
   });
 

@@ -6,7 +6,7 @@ import {
   programId,
   oldId,
   input,
-} from '../../applications/service/student-repository-url.integration.fixture';
+} from '../../programs/student-repository-url.integration.fixture';
 import { SystemStatusRepository } from './system-status.repository';
 
 assertIsolatedIntegrationDatabase({
