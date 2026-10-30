@@ -194,7 +194,7 @@ describe('landing page sections', () => {
     const html = renderToStaticMarkup(<LandingFooter />);
 
     expect(html).toContain('전남대학교 SW중심대학사업단');
-    expect(html).toContain('href="/policies/privacy/2026-08-11.html"');
+    expect(html).toContain('href="/policies/privacy"');
     expect(html).not.toContain('href="/consent"');
   });
 });

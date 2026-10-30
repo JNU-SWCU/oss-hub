@@ -23,7 +23,7 @@ export function SettingsPolicyUpdateNotice() {
         동의 없이 이용할 수 있습니다.
       </p>
       <a
-        href="/policies/github-activity/2026-10-19.html"
+        href="/policies/github-activity"
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm text-primary underline underline-offset-4"

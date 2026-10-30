@@ -1,4 +1,4 @@
-:root {
+:root:has(.policy-document) {
   --policy-surface: #000d29;
   --policy-title: #ffffff;
   --policy-body: #adc1eb;
@@ -8,11 +8,11 @@
   color-scheme: dark;
 }
 
-html {
+html:has(.policy-document) {
   background: var(--policy-surface);
 }
 
-body {
+body:has(.policy-document) {
   margin: 0;
   background: var(--policy-surface);
   color: var(--policy-body);
@@ -30,19 +30,20 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-main {
+.policy-document {
+  box-sizing: content-box;
   max-width: 42rem;
   margin: 0 auto;
   padding: 1.75rem 1.25rem 3rem;
 }
 
 @media (min-width: 800px) {
-  main {
+  .policy-document {
     max-width: 48rem;
   }
 }
 
-h1 {
+.policy-document h1 {
   margin: 0;
   color: var(--policy-title);
   font-size: 1.5rem;
@@ -51,14 +52,14 @@ h1 {
   letter-spacing: -0.01em;
 }
 
-h1 + p {
+.policy-document h1 + p {
   margin: 0.5rem 0 0;
   color: var(--policy-accent);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
-h2 {
+.policy-document h2 {
   margin: 2rem 0 0.75rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--policy-rule);
@@ -68,10 +69,15 @@ h2 {
   line-height: 1.45;
 }
 
-p {
+.policy-document p {
   margin: 0 0 1rem;
 }
 
-p:last-child {
+.policy-document p:last-child {
   margin-bottom: 0;
+}
+
+.policy-document a {
+  color: LinkText;
+  text-decoration: underline;
 }

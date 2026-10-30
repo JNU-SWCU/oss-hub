@@ -13,7 +13,6 @@ import {
 } from './_shell/sidebar-collapsed';
 import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
-import { SkipLink } from './_shell/skip-link';
 
 const pretendard = localFont({
   src: '../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2',
@@ -46,8 +45,6 @@ export default async function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', pretendard.variable)}>
       <body className="relative">
-        <SkipLink />
-
         <AppFrame
           brand={<Link href="/">OSS Hub</Link>}
           items={PUBLIC_MENU}

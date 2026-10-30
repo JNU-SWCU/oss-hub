@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { installBrowserAudit } from './support/browser-audit';
 
-const POLICY_PATH = '/policies/privacy/2026-08-11.html';
+const POLICY_PATH = '/policies/privacy';
 const POLICY_LINK_NAME = '개인정보 수집·이용';
 
 async function expectPublicPolicy(page: Page) {
