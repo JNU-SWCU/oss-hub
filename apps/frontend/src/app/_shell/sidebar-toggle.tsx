@@ -3,10 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
-import {
-  SIDEBAR_KEY_SHORTCUTS,
-  useSidebarDrawer,
-} from './sidebar-drawer-context';
+import { SIDEBAR_KEY_SHORTCUTS, useShellMenu } from './shell-menu-context';
 import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
 
 const TOGGLE_CLASS = cn(
@@ -15,7 +12,7 @@ const TOGGLE_CLASS = cn(
 );
 
 export function SidebarToggle() {
-  const shell = useSidebarDrawer();
+  const shell = useShellMenu();
   if (shell === null || !shell.sidebarAvailable) return null;
 
   const collapseLabel = shell.collapsed ? '사이드바 펼치기' : '사이드바 접기';

@@ -8,10 +8,11 @@ import {
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { BottomTabBar } from './bottom-tab-bar';
-import { ProductShell, SidebarDrawerProvider } from './product-shell';
+import { ProductShell, ShellMenuProvider } from './product-shell';
+import { ProgramNameReportProvider } from './program-name-report-context';
 import { sectionItemsFor } from './section-list';
 import { ShellNav } from './shell-nav';
-import { hasShellSidebar } from './sidebar-presence';
+import { hasShellSidebar, shellSheetKind } from './sidebar-presence';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
@@ -92,21 +93,24 @@ function SessionAppFrame({
 
   return (
     <SessionRoleProvider value={session}>
-      <SidebarDrawerProvider
+      <ShellMenuProvider
         initialCollapsed={initialSidebarCollapsed}
         sidebarAvailable={hasShellSidebar(pathname, session)}
+        sheetAvailable={shellSheetKind(pathname, session) !== null}
       >
-        <div className="flex h-dvh flex-col overflow-hidden">
-          <ShellNav
-            brand={brand}
-            items={navItems}
-            actions={actions}
-            compactMenu={false}
-          />
-          <ProductShell>{children}</ProductShell>
-          <BottomTabBar items={navItems} pathname={pathname} />
-        </div>
-      </SidebarDrawerProvider>
+        <ProgramNameReportProvider>
+          <div className="flex h-dvh flex-col overflow-hidden">
+            <ShellNav
+              brand={brand}
+              items={navItems}
+              actions={actions}
+              compactMenu={false}
+            />
+            <ProductShell>{children}</ProductShell>
+            <BottomTabBar items={navItems} pathname={pathname} />
+          </div>
+        </ProgramNameReportProvider>
+      </ShellMenuProvider>
     </SessionRoleProvider>
   );
 }

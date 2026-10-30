@@ -48,8 +48,17 @@ vi.mock(
   }),
 );
 
+import {
+  ProgramNameReportProvider,
+  useReportedProgramName,
+} from '../../_shell/program-name-report-context';
 import { ProgramDetailScreen } from './program-detail-screen';
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
+
+function ReportedName({ programId }: { readonly programId: string }) {
+  const name = useReportedProgramName(programId);
+  return <output data-testid="reported-name">{name ?? ''}</output>;
+}
 
 const program: ProgramDetail = {
   id: 'program:basic',
@@ -131,5 +140,20 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
     ).not.toBeNull();
     expect(container.querySelector('[data-testid="checklist"]')).toBeNull();
     expect(navigation.router.replace).not.toHaveBeenCalled();
+  });
+
+  it('불러온 프로그램 이름을 쉘의 이름 보고 컨텍스트로 올린다 — 모바일 스코프 바가 id 대신 쓴다', async () => {
+    await act(async () => {
+      root.render(
+        <ProgramNameReportProvider>
+          <ReportedName programId={program.id} />
+          <ProgramDetailScreen programId={program.id} />
+        </ProgramNameReportProvider>,
+      );
+    });
+
+    expect(
+      container.querySelector('[data-testid="reported-name"]')?.textContent,
+    ).toBe('합성 프로그램');
   });
 });

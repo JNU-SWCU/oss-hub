@@ -228,8 +228,24 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
     });
 
-    it('데스크톱 aside가 숨겨진 폭에서는 드로어를 연다', async () => {
+    it('필터 칩 섹션(/programs)에서는 aside가 숨겨져도 단축키가 시트를 열지 않는다', async () => {
       await renderFrame('/programs');
+
+      const aside = document.getElementById(SIDEBAR_ASIDE_ID);
+      if (aside) aside.style.display = 'none';
+
+      let event!: KeyboardEvent;
+      await act(async () => {
+        event = press(document.body, 'metaKey');
+      });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+    });
+
+    it('시트가 있는 경로(프로그램 상세)에서는 aside가 숨겨지면 단축키가 시트를 연다', async () => {
+      await renderFrame('/programs/prog-1');
       const aside = document.getElementById(SIDEBAR_ASIDE_ID);
       if (aside) aside.style.display = 'none';
 
@@ -237,7 +253,12 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
         press(document.body, 'metaKey');
       });
 
-      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      expect(dialog?.getAttribute('data-slot')).toBe('shell-menu-sheet');
+      expect(
+        dialog?.querySelector('[data-slot="program-scope-sidebar-nav"]'),
+      ).not.toBeNull();
       expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
     });
 
@@ -356,7 +377,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     expect(aside?.querySelector('button')).toBeNull();
   });
 
-  it('랭킹 카운트다운은 한 바인딩으로 aside와 드로어 양쪽에 그려진다', async () => {
+  it('랭킹 카운트다운은 aside 하단에 그려지고 시트는 없다', async () => {
     await renderFrame('/ranking');
     expect(
       document
@@ -373,6 +394,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       aside?.querySelector('[data-slot="program-countdown"]'),
     ).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
+    expect(container.querySelector('[data-slot="scope-bar"]')).toBeNull();
 
     if (aside) aside.style.display = 'none';
     await act(async () => {
@@ -387,14 +409,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       );
     });
 
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(
-      dialog?.querySelector('[data-slot="program-countdown"]'),
-    ).not.toBeNull();
-    expect(
-      dialog?.querySelector(
-        '[data-slot="sidebar-shell"][data-variant="drawer"]',
-      ),
-    ).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });
