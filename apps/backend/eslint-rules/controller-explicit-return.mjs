@@ -17,35 +17,12 @@ const forbiddenTypes = {
   TSUnknownKeyword: 'unknown',
 };
 
-export const returnTypeAllowlist = new Set([
-  'GET programs/:programId/applications/me',
-  'GET application-preparations/programs/:programId/me',
-]);
-
 function decoratorCall(decorator) {
   const { expression } = decorator;
   return expression.type === 'CallExpression' &&
     expression.callee.type === 'Identifier'
     ? expression
     : undefined;
-}
-
-function firstStringArgument(call) {
-  const [first] = call.arguments;
-  return first?.type === 'Literal' && typeof first.value === 'string'
-    ? first.value
-    : '';
-}
-
-function routeName(method, verb) {
-  const controller = method.parent.parent.decorators
-    ?.map(decoratorCall)
-    .find((call) => call?.callee.name === 'Controller');
-  const parts = [
-    controller ? firstStringArgument(controller) : '',
-    firstStringArgument(verb),
-  ].filter(Boolean);
-  return `${verb.callee.name.toUpperCase()} ${parts.join('/')}`;
 }
 
 const forbiddenFlags = [
@@ -144,7 +121,7 @@ export const controllerExplicitReturn = {
         const verb = node.decorators
           ?.map(decoratorCall)
           .find((call) => call && httpDecorators.has(call.callee.name));
-        if (!verb || returnTypeAllowlist.has(routeName(node, verb))) return;
+        if (!verb) return;
         const annotation = node.value.returnType?.typeAnnotation;
         if (!annotation) {
           context.report({ node: node.key, messageId: 'missing' });

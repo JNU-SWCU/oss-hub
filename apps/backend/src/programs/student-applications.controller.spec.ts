@@ -47,8 +47,9 @@ function createService() {
   >;
 }
 
-function present<T>(value: T | null, what: string): T {
-  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+function present<T>(value: T | undefined, what: string): T {
+  if (value === undefined)
+    throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
   return value;
 }
 
@@ -62,12 +63,39 @@ describe('StudentApplicationsController', () => {
     expect(methodGuards('cancelMine')).toEqual([OriginGuard]);
   });
 
+  it('신청이 없으면 NONE 상태만 돌려주고 application 키를 두지 않는다', async () => {
+    const service = createService();
+    service.getMine.mockResolvedValue(null);
+    const controller = new StudentApplicationsController(service);
+
+    const result = await controller.getMine(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    expect(result).toStrictEqual({ status: 'NONE' });
+  });
+
+  it('신청이 있으면 신청 상태를 최상위 status로 함께 돌려준다', async () => {
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+
+    const result = await controller.getMine(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    expect(Object.keys(result).sort()).toEqual(['application', 'status']);
+    expect(result.status).toBe(ApplicationStatus.SUBMITTED);
+  });
+
   it('내 신청을 ISO 날짜 응답으로 조회한다', async () => {
     const service = createService();
     const controller = new StudentApplicationsController(service);
 
     const result = present(
-      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      (await controller.getMine({ sessionGithubId: 4242n }, 'program-1'))
+        .application,
       '신청',
     );
 
@@ -93,7 +121,8 @@ describe('StudentApplicationsController', () => {
     const controller = new StudentApplicationsController(service);
 
     const result = present(
-      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      (await controller.getMine({ sessionGithubId: 4242n }, 'program-1'))
+        .application,
       '신청',
     );
 
@@ -105,7 +134,8 @@ describe('StudentApplicationsController', () => {
     const controller = new StudentApplicationsController(service);
 
     const result = present(
-      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      (await controller.getMine({ sessionGithubId: 4242n }, 'program-1'))
+        .application,
       '신청',
     );
 

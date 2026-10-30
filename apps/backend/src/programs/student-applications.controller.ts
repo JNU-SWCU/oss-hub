@@ -13,6 +13,7 @@ import {
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import { MyStudentApplicationResponseDto } from './dto/my-student-application-response.dto';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import {
   StudentApplicationCancellationResponseDto,
@@ -38,12 +39,14 @@ export class StudentApplicationsController {
   async getMine(
     @Req() request: StudentApplicationRequest,
     @Param('programId') programId: string,
-  ): Promise<StudentApplicationResponseDto | null> {
+  ): Promise<MyStudentApplicationResponseDto> {
     const application = await this.service.getMine(
       request.sessionGithubId,
       programId,
     );
-    return application ? StudentApplicationResponseDto.from(application) : null;
+    return MyStudentApplicationResponseDto.from(
+      application ? StudentApplicationResponseDto.from(application) : null,
+    );
   }
 
   @Patch()

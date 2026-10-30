@@ -4,12 +4,20 @@ import type {
   UpdateStudentApplicationInput,
 } from './student-application-dto';
 
-export function getMyApplication(
+type MyStudentApplicationResponse =
+  | { readonly status: 'NONE' }
+  | {
+      readonly status: StudentApplication['status'];
+      readonly application: StudentApplication;
+    };
+
+export async function getMyApplication(
   programId: string,
 ): Promise<StudentApplication | null> {
-  return apiClient<StudentApplication | null>(
+  const body = await apiClient<MyStudentApplicationResponse>(
     `programs/${encodeURIComponent(programId)}/applications/me`,
   );
+  return body.status === 'NONE' ? null : body.application;
 }
 
 export function updateMyApplication(

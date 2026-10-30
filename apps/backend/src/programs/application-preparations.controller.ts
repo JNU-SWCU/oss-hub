@@ -22,6 +22,7 @@ import {
 } from './dto/application-preparation-response.dto';
 import { CreateApplicationPreparationRequestDto } from './dto/create-application-preparation-request.dto';
 import { InviteApplicationPreparationRequestDto } from './dto/invite-application-preparation-request.dto';
+import { MyApplicationPreparationResponseDto } from './dto/my-application-preparation-response.dto';
 import { SearchApplicationPreparationRequestDto } from './dto/search-application-preparation-request.dto';
 
 @Controller('application-preparations')
@@ -33,14 +34,14 @@ export class ApplicationPreparationsController {
   async get(
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
-  ): Promise<ApplicationPreparationResponseDto | null> {
+  ): Promise<MyApplicationPreparationResponseDto> {
     const preparation = await this.service.get(
       request.sessionGithubId,
       programId,
     );
-    return preparation
-      ? ApplicationPreparationResponseDto.from(preparation)
-      : null;
+    return MyApplicationPreparationResponseDto.from(
+      preparation ? ApplicationPreparationResponseDto.from(preparation) : null,
+    );
   }
   @Post('programs/:programId')
   @UseGuards(OriginGuard)

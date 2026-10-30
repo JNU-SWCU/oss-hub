@@ -92,11 +92,21 @@ exports[`programs response DTO JSON MilestoneDocumentSummaryResponseDto 1`] = `"
 
 exports[`programs response DTO JSON MilestoneDocumentUploadPolicyResponseDto 1`] = `"{"maxBytes":5242880,"maxLabel":"5 MB","accept":".pdf,.hwp,.zip","formatLabel":"PDF, HWP, ZIP"}"`;
 
+exports[`programs response DTO JSON MyApplicationPreparationResponseDto leader 1`] = `"{"membership":"LEADER","preparation":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true}],"preparation":true,"hasApplication":false,"canInvite":true,"canRemoveMembers":true,"canLeave":false}}"`;
+
+exports[`programs response DTO JSON MyApplicationPreparationResponseDto member 1`] = `"{"membership":"MEMBER","preparation":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"isLeader":false,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":false}],"preparation":true,"hasApplication":false,"canInvite":false,"canRemoveMembers":false,"canLeave":true}}"`;
+
+exports[`programs response DTO JSON MyApplicationPreparationResponseDto none 1`] = `"{"membership":"NONE"}"`;
+
 exports[`programs response DTO JSON MyProgramTeamResponseDto leader 1`] = `"{"membership":"LEADER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"hasApplication":false,"canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":true,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
 
 exports[`programs response DTO JSON MyProgramTeamResponseDto member 1`] = `"{"membership":"MEMBER","team":{"id":"team-1","name":"Team A","memberCount":2,"minMembers":1,"maxMembers":4,"hasApplication":false,"canInvite":true,"canRemoveMembers":true,"canLeave":false,"isLeader":false,"members":[{"userId":"user-1","nickname":"octo","name":"Octo","isLeader":true},{"userId":"user-2","nickname":"cat","name":null,"isLeader":false}]}}"`;
 
 exports[`programs response DTO JSON MyProgramTeamResponseDto none 1`] = `"{"membership":"NONE","team":null}"`;
+
+exports[`programs response DTO JSON MyStudentApplicationResponseDto application 1`] = `"{"status":"SUBMITTED","application":{"id":"application-1","programId":"program-1","status":"SUBMITTED","teamId":"team-1","answers":{"applicantName":"Octo","title":"Project"},"submittedAt":"2026-01-02T03:04:05.000Z","updatedAt":"2026-01-03T03:04:05.000Z","isRepositoryPublicationPlanned":true,"rejectionReason":null,"isManager":true,"canManage":true,"canEdit":true,"canCancel":true}}"`;
+
+exports[`programs response DTO JSON MyStudentApplicationResponseDto none 1`] = `"{"status":"NONE"}"`;
 
 exports[`programs response DTO JSON ProgramActivityResponseDto 1`] = `"{"applicationId":"application-1","label":"Team A","commitCount":1,"pullRequestCount":2,"releaseCount":3,"collectionStatus":"READY","members":[{"githubLogin":"octo","commitCount":1,"pullRequestCount":2,"releaseCount":3}],"hasIncompleteContributions":false,"lastActivityAt":"2026-05-01T00:00:00.000Z","dataAsOf":null}"`;
 

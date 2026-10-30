@@ -46,7 +46,9 @@ import {
   MilestoneDocumentSubmissionFileResponseDto,
   MilestoneDocumentSubmissionResponseDto,
 } from '../../src/programs/dto/milestone-document-submission-response.dto';
+import { MyApplicationPreparationResponseDto } from '../../src/programs/dto/my-application-preparation-response.dto';
 import { MyProgramTeamResponseDto } from '../../src/programs/dto/my-program-team-response.dto';
+import { MyStudentApplicationResponseDto } from '../../src/programs/dto/my-student-application-response.dto';
 import {
   ProgramActivityResponseDto,
   ProgramDetailResponseDto,
@@ -1076,6 +1078,54 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         ],
       }),
   ],
+  [
+    'MyApplicationPreparationResponseDto none',
+    () => MyApplicationPreparationResponseDto.from(null),
+  ],
+  [
+    'MyApplicationPreparationResponseDto leader',
+    () =>
+      MyApplicationPreparationResponseDto.from(
+        ApplicationPreparationResponseDto.from({
+          id: 'team-1',
+          name: 'Team A',
+          memberCount: 2,
+          minMembers: 1,
+          maxMembers: 4,
+          isLeader: true,
+          members: [
+            {
+              userId: 'user-1',
+              nickname: 'octo',
+              name: 'Octo',
+              isLeader: true,
+            },
+          ],
+        }),
+      ),
+  ],
+  [
+    'MyApplicationPreparationResponseDto member',
+    () =>
+      MyApplicationPreparationResponseDto.from(
+        ApplicationPreparationResponseDto.from({
+          id: 'team-1',
+          name: 'Team A',
+          memberCount: 2,
+          minMembers: 1,
+          maxMembers: 4,
+          isLeader: false,
+          members: [
+            {
+              userId: 'user-1',
+              nickname: 'octo',
+              name: 'Octo',
+              isLeader: false,
+            },
+          ],
+        }),
+      ),
+  ],
   ['MyProgramTeamResponseDto none', () => MyProgramTeamResponseDto.from(null)],
   [
     'MyProgramTeamResponseDto leader',
@@ -1654,6 +1704,29 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'ProgramDocumentChangeRequestCountResponseDto',
     () =>
       ProgramDocumentChangeRequestCountResponseDto.from({ requestedCount: 3 }),
+  ],
+  [
+    'MyStudentApplicationResponseDto none',
+    () => MyStudentApplicationResponseDto.from(null),
+  ],
+  [
+    'MyStudentApplicationResponseDto application',
+    () =>
+      MyStudentApplicationResponseDto.from(
+        StudentApplicationResponseDto.from({
+          id: 'application-1',
+          programId: 'program-1',
+          status: 'SUBMITTED',
+          teamId: 'team-1',
+          answers: { applicantName: 'Octo', title: 'Project' },
+          submittedAt: at('2026-01-02T03:04:05.000Z'),
+          updatedAt: at('2026-01-03T03:04:05.000Z'),
+          isRepositoryPublicationPlanned: true,
+          rejectionReason: null,
+          isManager: true,
+          canManage: true,
+        }),
+      ),
   ],
   [
     'StudentApplicationResponseDto manager',

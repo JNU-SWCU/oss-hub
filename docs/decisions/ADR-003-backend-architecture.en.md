@@ -69,8 +69,6 @@ These checks enforce the rules.
 | `boundaries/no-unknown-files` | No folders or files outside the module map |
 | `architecture/no-cycle` | No dependency cycles between modules |
 
-Return type allowlist of `conventions/controller-explicit-return` (route names): `GET programs/:programId/applications/me`, `GET application-preparations/programs/:programId/me`. They send an empty 200 body when there is no application or preparation, and a state field would change the JSON.
-
 Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapped-types, nestjs-zod, nestia.
 
 ```json adr-003-contract

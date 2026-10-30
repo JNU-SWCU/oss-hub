@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { returnTypeAllowlist } from '../apps/backend/eslint-rules/controller-explicit-return.mjs';
 import {
   dtoSuffixes,
   rootSuffixes,
@@ -60,15 +59,6 @@ test('ADR-003 modules are exactly the backend src folders', () => {
     .map((entry) => entry.name)
     .sort();
   assert.deepEqual(folders, [...readContract(koPath).modules].sort());
-});
-
-test('ADR-003 prints every controller return type allowlist route', () => {
-  for (const path of [koPath, enPath]) {
-    const text = readFileSync(path, 'utf8');
-    for (const route of returnTypeAllowlist) {
-      assert.ok(text.includes(`\`${route}\``), `${path} must list ${route}`);
-    }
-  }
 });
 
 test('ADR-003 suffix lists match the file name rule', () => {

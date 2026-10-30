@@ -125,24 +125,6 @@ valid(
 );
 valid(
   'controller-explicit-return',
-  'skips an allowlisted route',
-  controllerFile(),
-  handler(
-    'Promise<ThingResponseDto | null>',
-    "@Controller('programs/:programId/applications/me')",
-  ),
-);
-valid(
-  'controller-explicit-return',
-  'skips the second allowlisted route',
-  controllerFile(),
-  handler(
-    'Promise<ThingResponseDto | null>',
-    "@Controller('application-preparations/programs/:programId/me')",
-  ),
-);
-valid(
-  'controller-explicit-return',
   'accepts an array of a real imported response DTO class',
   controllerFile(),
   handler(
@@ -222,16 +204,18 @@ for (const type of [
     ['forbidden'],
   );
 }
-invalid(
-  'controller-explicit-return',
-  'rejects null on a route outside the allowlist',
-  controllerFile(),
-  handler(
-    'Promise<ThingResponseDto | null>',
-    "@Controller('programs/:programId/applications')",
-  ),
-  ['forbidden'],
-);
+for (const controller of [
+  'programs/:programId/applications/me',
+  'application-preparations/programs/:programId/me',
+]) {
+  invalid(
+    'controller-explicit-return',
+    `rejects null on ${controller}`,
+    controllerFile(),
+    handler('Promise<ThingResponseDto | null>', `@Controller('${controller}')`),
+    ['forbidden'],
+  );
+}
 invalid(
   'controller-explicit-return',
   'checks every HTTP verb',
