@@ -5,7 +5,6 @@ import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-resp
 import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
-import { Public } from '../auth/authentication.guard';
 
 @Controller('programs/:programId/overview')
 @UseGuards(SessionGuard)
@@ -27,7 +26,6 @@ export class ProgramOverviewController {
   }
 
   @Get('teams')
-  @Public()
   async listTeams(
     @Param('programId') programId: string,
   ): Promise<ProgramOverviewTeamResponseDto[]> {
