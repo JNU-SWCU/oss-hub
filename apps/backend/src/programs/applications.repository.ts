@@ -53,6 +53,11 @@ export type ApplicationDecisionAction =
     }
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.REVERT };
 
+interface ApplicationParticipantRow {
+  readonly id: string;
+  readonly githubLogin: string;
+}
+
 export interface ApplicationDecisionTarget {
   readonly id: string;
   readonly programId: string;
@@ -62,8 +67,7 @@ export interface ApplicationDecisionTarget {
   readonly teamId: string | null;
   readonly status: ApplicationStatus;
   readonly repositoryProvisioningEnabled: boolean;
-  readonly collaboratorGithubLogins: readonly string[];
-  readonly notificationRecipientIds: readonly string[];
+  readonly participants: readonly ApplicationParticipantRow[];
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly processedById: string | null;
@@ -1482,12 +1486,6 @@ const APPLICATION_LIST_SELECT = {
 function toApplicationDecisionTarget(
   application: ApplicationWithProgram,
 ): ApplicationDecisionTarget {
-  const githubLogins = application.team
-    ? [
-        application.team.leader.nickname,
-        ...application.team.members.map((member) => member.user.nickname),
-      ]
-    : [application.applicant.nickname];
   return {
     id: application.id,
     programId: application.programId,
@@ -1498,19 +1496,23 @@ function toApplicationDecisionTarget(
     status: application.status,
     repositoryProvisioningEnabled:
       application.program.repositoryProvisioningEnabled,
-    collaboratorGithubLogins: [
-      ...new Set(githubLogins.map((login) => login.toLowerCase())),
-    ].sort(),
-    notificationRecipientIds: [
-      ...new Set(
-        application.team
-          ? [
-              application.team.leader.id,
-              ...application.team.members.map((member) => member.user.id),
-            ]
-          : [application.applicant.id],
-      ),
-    ].sort(),
+    participants: application.team
+      ? [
+          {
+            id: application.team.leader.id,
+            githubLogin: application.team.leader.nickname,
+          },
+          ...application.team.members.map((member) => ({
+            id: member.user.id,
+            githubLogin: member.user.nickname,
+          })),
+        ]
+      : [
+          {
+            id: application.applicant.id,
+            githubLogin: application.applicant.nickname,
+          },
+        ],
     repositoryConnectionMode: application.repositoryConnectionMode,
     repositoryUrl: application.repositoryUrl,
     processedById: application.processedById,

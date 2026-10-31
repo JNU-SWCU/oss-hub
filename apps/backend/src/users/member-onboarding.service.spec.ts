@@ -13,7 +13,6 @@ import type { ConsentsService } from './consents.service';
 import type { UserProfileView } from '../platform/user-profile-read.config';
 import {
   type StaffAccessRequestOutcome,
-  type StaffAccessRequestTarget,
   PlatformRepository,
 } from '../platform/platform.repository';
 import type {
@@ -85,9 +84,7 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
     return Promise.resolve(this.user);
   }
 
-  requestStaffAccess(
-    target: StaffAccessRequestTarget,
-  ): Promise<StaffAccessRequestOutcome> {
+  requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome> {
     return PlatformRepository.requestStaffAccess(
       {
         staffAccessRequest: {
@@ -96,7 +93,7 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
             this.createPendingRequest(data.userId)) as never,
         },
       },
-      target,
+      userId,
     );
   }
 

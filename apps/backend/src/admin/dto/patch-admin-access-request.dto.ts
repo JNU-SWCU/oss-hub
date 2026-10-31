@@ -1,4 +1,3 @@
-import type { AuthorityLabel } from '../../users/authority-label.types';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -10,18 +9,6 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import { DomainException } from '../../platform/error-code.error';
-import {
-  ROLES_ERROR_CODES,
-  RolesErrorCode,
-} from '../../users/roles-error-code.error';
-import type {
-  AdminAccessExpectedPendingRequest,
-  AdminAccessMutationCommand,
-  AdminAccessRequestDecision,
-} from '../../users/admin-access-mutation.service';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from '../../users/admin-access-query.config';
 
 class ExpectedPendingRequestDto {
   @IsString()
@@ -30,13 +17,6 @@ class ExpectedPendingRequestDto {
 
   @IsString()
   declare readonly status: string;
-
-  toExpectation(): AdminAccessExpectedPendingRequest {
-    if (this.status !== StaffAccessRequestStatus.PENDING) {
-      throw invalidDecision();
-    }
-    return { id: this.id, status: StaffAccessRequestStatus.PENDING };
-  }
 }
 
 class AdminAccessRequestDecisionRequestDto {
@@ -46,24 +26,6 @@ class AdminAccessRequestDecisionRequestDto {
   @IsOptional()
   @IsString()
   declare readonly reason?: string;
-
-  toDecision(): AdminAccessRequestDecision {
-    switch (this.decision) {
-      case ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE:
-        return { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE };
-      case ADMIN_ACCESS_REQUEST_DECISIONS.REJECT: {
-        const reason = this.reason?.trim();
-        if (!reason) {
-          throw new DomainException(
-            ROLES_ERROR_CODES[RolesErrorCode.REJECTION_REASON_REQUIRED],
-          );
-        }
-        return { decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT, reason };
-      }
-      default:
-        throw invalidDecision();
-    }
-  }
 }
 
 export class PatchAdminAccessRequestDto {
@@ -105,71 +67,4 @@ export class PatchAdminAccessRequestDto {
   @ValidateNested()
   @Type(() => AdminAccessRequestDecisionRequestDto)
   declare readonly requestDecision?: AdminAccessRequestDecisionRequestDto;
-
-  toCommand(): AdminAccessMutationCommand {
-    return {
-      expectedRole: parseRole(this.expectedRole),
-      desiredRole: parseRole(this.desiredRole),
-      expectedAccountStatus: parseAccountStatus(this.expectedAccountStatus),
-      desiredAccountStatus: parseAccountStatus(this.desiredAccountStatus),
-      expectedPendingRequest:
-        this.expectedPendingRequest?.toExpectation() ?? null,
-      ...parseExpectedCanonicalAuthority(this),
-      ...(this.requestDecision
-        ? { requestDecision: this.requestDecision.toDecision() }
-        : {}),
-    };
-  }
-}
-
-function parseExpectedCanonicalAuthority(body: {
-  readonly expectedHasStaffAccess?: boolean;
-  readonly expectedHasAdminAccess?: boolean;
-}): Pick<
-  AdminAccessMutationCommand,
-  'expectedHasStaffAccess' | 'expectedHasAdminAccess'
-> {
-  const hasStaff = body.expectedHasStaffAccess;
-  const hasAdmin = body.expectedHasAdminAccess;
-  if (hasStaff === undefined && hasAdmin === undefined) {
-    return {};
-  }
-  if (typeof hasStaff !== 'boolean' || typeof hasAdmin !== 'boolean') {
-    throw invalidDecision();
-  }
-  return {
-    expectedHasStaffAccess: hasStaff,
-    expectedHasAdminAccess: hasAdmin,
-  };
-}
-
-function parseRole(value: string | null): AuthorityLabel | null {
-  switch (value) {
-    case null:
-      return null;
-    case 'STUDENT':
-    case 'STAFF':
-    case 'ADMIN':
-      return value;
-    default:
-      throw new DomainException(
-        ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ROLE],
-      );
-  }
-}
-
-function parseAccountStatus(value: string): AccountStatus {
-  switch (value) {
-    case AccountStatus.ACTIVE:
-    case AccountStatus.DEACTIVATED:
-      return value;
-    default:
-      throw invalidDecision();
-  }
-}
-
-function invalidDecision(): DomainException {
-  return new DomainException(
-    ROLES_ERROR_CODES[RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION],
-  );
 }

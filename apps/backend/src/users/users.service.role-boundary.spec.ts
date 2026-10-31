@@ -154,6 +154,7 @@ describe('역할 변경 경계', () => {
         affiliationName: input.department,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        requestsStaffAccess: false,
       },
       expect.any(Function),
     );
@@ -200,6 +201,7 @@ describe('역할 변경 경계', () => {
         affiliationName: input.department,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        requestsStaffAccess: true,
       },
       expect.any(Function),
     );

@@ -354,11 +354,21 @@ beforeAll(async () => {
       },
       {
         provide: MilestoneDocumentReviewsService,
-        useValue: { review },
+        useValue: Object.assign(
+          Object.create(
+            MilestoneDocumentReviewsService.prototype,
+          ) as MilestoneDocumentReviewsService,
+          { review },
+        ),
       },
       {
         provide: MilestoneDocumentArchiveService,
-        useValue: { archiveForStaff },
+        useValue: Object.assign(
+          Object.create(
+            MilestoneDocumentArchiveService.prototype,
+          ) as MilestoneDocumentArchiveService,
+          { archiveForStaff },
+        ),
       },
     ],
   })

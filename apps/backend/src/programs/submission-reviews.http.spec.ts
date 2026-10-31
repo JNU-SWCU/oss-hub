@@ -69,7 +69,15 @@ beforeAll(async () => {
     ],
     providers: [
       ...STATELESS_PROVIDERS,
-      { provide: SubmissionReviewsService, useValue: service },
+      {
+        provide: SubmissionReviewsService,
+        useValue: Object.assign(
+          Object.create(
+            SubmissionReviewsService.prototype,
+          ) as SubmissionReviewsService,
+          service,
+        ),
+      },
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
@@ -117,7 +125,12 @@ beforeAll(async () => {
       },
       {
         provide: SubmissionReviewsService,
-        useValue: unauthenticatedService,
+        useValue: Object.assign(
+          Object.create(
+            SubmissionReviewsService.prototype,
+          ) as SubmissionReviewsService,
+          unauthenticatedService,
+        ),
       },
     ],
   })

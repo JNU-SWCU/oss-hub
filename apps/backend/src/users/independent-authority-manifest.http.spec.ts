@@ -69,16 +69,21 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     getHistory: jest.fn(),
     patchAccess: jest.fn(),
   };
-  const authorityService = {
-    patchStaffAccess: jest.fn(),
-    patchAdminAccess: jest.fn().mockResolvedValue({
-      id: 'target',
-      role: 'STUDENT',
-      memberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    }),
-  };
+  const authorityService = Object.assign(
+    Object.create(
+      IndependentAuthorityService.prototype,
+    ) as IndependentAuthorityService,
+    {
+      patchStaffAccess: jest.fn(),
+      patchAdminAccess: jest.fn().mockResolvedValue({
+        id: 'target',
+        role: 'STUDENT',
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+    },
+  );
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({

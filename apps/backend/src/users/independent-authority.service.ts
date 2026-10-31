@@ -1,3 +1,4 @@
+import { DomainException } from '../platform/error-code.error';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -10,7 +11,7 @@ import type {
   AuditPersonSnapshot,
   IndependentAuthorityAuditState,
 } from '../platform/audit-log-metadata.config';
-import { RolesErrorCode } from './roles-error-code.error';
+import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
 import {
   IndependentAuthorityRepository,
   type IndependentAuthorityRepositoryPort,
@@ -81,6 +82,20 @@ export class IndependentAuthorityService {
     private readonly adminAccessMutationService: AdminAccessMutationService,
     private readonly userProfileService: UserProfileService,
   ) {}
+
+  adminCommandFromRequest(request: {
+    readonly command: string;
+  }): AdminAuthorityMutationCommand {
+    switch (request.command) {
+      case ADMIN_ACCESS_COMMANDS.GRANT:
+      case ADMIN_ACCESS_COMMANDS.REVOKE:
+        return { command: request.command };
+      default:
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION],
+        );
+    }
+  }
 
   patchStaffAccess(
     actorGithubId: bigint,

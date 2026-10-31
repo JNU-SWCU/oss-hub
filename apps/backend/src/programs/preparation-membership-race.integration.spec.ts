@@ -140,7 +140,7 @@ describe('official and preparation membership exclusion', () => {
       now,
     );
     preparationInvitationId = (
-      await repository.invite(draft.id, leaderId, actorId, now)
+      await repository.invite(draft.id, programId, leaderId, actorId, now)
     ).id;
   });
   afterEach(cleanup);

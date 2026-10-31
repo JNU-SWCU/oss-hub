@@ -68,20 +68,16 @@ export class PlatformRepository {
 
   static async requestStaffAccess(
     transaction: StaffAccessRequestTransaction,
-    target: StaffAccessRequestTarget,
+    userId: string,
   ): Promise<StaffAccessRequestOutcome> {
-    if (target.memberKind !== MemberKind.STAFF || target.hasStaffAccess) {
-      return NOTHING_REQUESTED;
-    }
-
     const pending = await transaction.staffAccessRequest.findFirst({
-      where: { userId: target.id, status: StaffAccessRequestStatus.PENDING },
+      where: { userId, status: StaffAccessRequestStatus.PENDING },
     });
     if (pending) {
       return { requestStatus: pending.status };
     }
     const created = await transaction.staffAccessRequest.create({
-      data: { userId: target.id },
+      data: { userId },
     });
     return { requestStatus: created.status };
   }
@@ -211,12 +207,6 @@ export class PlatformRepository {
   }
 }
 
-export type StaffAccessRequestTarget = {
-  readonly id: string;
-  readonly memberKind: MemberKind;
-  readonly hasStaffAccess: boolean;
-};
-
 export type StaffAccessRequestOutcome = {
   readonly requestStatus: StaffAccessRequestStatus | null;
 };
@@ -227,8 +217,6 @@ type StaffAccessRequestTransaction = {
     'findFirst' | 'create'
   >;
 };
-
-const NOTHING_REQUESTED: StaffAccessRequestOutcome = { requestStatus: null };
 
 type LockedRow = Readonly<{ id: string }>;
 

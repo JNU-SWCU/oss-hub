@@ -23,6 +23,7 @@ export interface CompleteUserProfileInput {
   readonly affiliationName: string;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
+  readonly requestsStaffAccess: boolean;
 }
 
 export interface UpdateProfileFieldsInput {
@@ -172,11 +173,9 @@ export class UsersRepository implements UsersRepositoryPort {
           expected,
           input.phone,
         );
-        await PlatformRepository.requestStaffAccess(transaction, {
-          id: expected.id,
-          memberKind: input.memberKind,
-          hasStaffAccess: input.hasStaffAccess,
-        });
+        if (input.requestsStaffAccess) {
+          await PlatformRepository.requestStaffAccess(transaction, expected.id);
+        }
         return 'completed';
       });
     } catch (error) {

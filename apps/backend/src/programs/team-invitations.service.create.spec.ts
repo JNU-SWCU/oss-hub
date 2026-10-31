@@ -1,3 +1,4 @@
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
 import {
   buildService,
@@ -99,7 +100,7 @@ describe('TeamInvitationsService.create', () => {
     ).rejects.toMatchObject({
       errorCode: { code: TeamInvitationErrorCode.NOT_TEAM_LEADER },
     });
-    expect(repository.getInviteeEligibility).not.toHaveBeenCalled();
+    expect(repository.findInviteeAccount).not.toHaveBeenCalled();
     expect(repository.createInvitation).not.toHaveBeenCalled();
   });
 
@@ -130,7 +131,7 @@ describe('TeamInvitationsService.create', () => {
 
   it('초대 대상 User가 없으면 TIV_006으로 거부한다', async () => {
     const { service, repository } = leaderService({
-      getInviteeEligibility: jest.fn().mockResolvedValue('not-found'),
+      findInviteeAccount: jest.fn().mockResolvedValue(null),
       createInvitation: jest.fn(),
     });
 
@@ -144,7 +145,10 @@ describe('TeamInvitationsService.create', () => {
 
   it('승인된 활성 학생이 아니면 TIV_013으로 거부한다', async () => {
     const { service, repository } = leaderService({
-      getInviteeEligibility: jest.fn().mockResolvedValue('not-eligible'),
+      findInviteeAccount: jest.fn().mockResolvedValue({
+        accountStatus: AccountStatus.ACTIVE,
+        profile: { memberKind: MemberKind.STAFF },
+      }),
       createInvitation: jest.fn(),
     });
 

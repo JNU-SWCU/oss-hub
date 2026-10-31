@@ -126,6 +126,7 @@ describe('UsersRepository 가입 마치기 확정', () => {
       {
         ...staffCompletion,
         hasStaffAccess: true,
+        requestsStaffAccess: false,
       },
       recordPhoneAudit,
     );

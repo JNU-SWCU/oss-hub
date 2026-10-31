@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ReviewDecision } from '@prisma/client';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -13,6 +14,14 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
+export interface MilestoneDocumentReviewRequest {
+  readonly decision: ReviewDecision;
+  readonly comment?: string;
+  readonly resubmissionDueAt?: string;
+  readonly expectedRevision: number;
+  readonly expectedLatestReviewId: string | null;
+}
+
 @Injectable()
 export class MilestoneDocumentReviewsService {
   constructor(
@@ -24,6 +33,58 @@ export class MilestoneDocumentReviewsService {
     >,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
+
+  reviewInputFromRequest(
+    request: MilestoneDocumentReviewRequest,
+  ): CreateMilestoneDocumentReviewInput {
+    const comment = request.comment?.trim() || null;
+    const version = {
+      expectedRevision: request.expectedRevision,
+      expectedLatestReviewId: request.expectedLatestReviewId,
+    };
+    switch (request.decision) {
+      case ReviewDecision.APPROVED:
+        return {
+          decision: request.decision,
+          comment,
+          resubmissionDueAt: null,
+          ...version,
+        };
+      case ReviewDecision.CHANGES_REQUESTED:
+      case ReviewDecision.REJECTED: {
+        if (comment === null) {
+          throw this.error(MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED);
+        }
+        if (request.decision === ReviewDecision.REJECTED) {
+          return {
+            decision: request.decision,
+            comment,
+            resubmissionDueAt: null,
+            ...version,
+          };
+        }
+
+        const resubmissionDueAt =
+          request.resubmissionDueAt === undefined
+            ? null
+            : new Date(request.resubmissionDueAt);
+        if (
+          resubmissionDueAt === null ||
+          Number.isNaN(resubmissionDueAt.getTime())
+        ) {
+          throw this.error(
+            MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
+          );
+        }
+        return {
+          decision: request.decision,
+          comment,
+          resubmissionDueAt,
+          ...version,
+        };
+      }
+    }
+  }
 
   async review(
     sessionGithubId: bigint,

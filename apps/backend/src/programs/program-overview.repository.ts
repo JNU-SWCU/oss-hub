@@ -87,6 +87,16 @@ function toCurrentSubmissionMilestone(
   };
 }
 
+export interface ProgramApplicationTeamRow {
+  readonly id: string;
+  readonly teamId: string | null;
+}
+
+export interface SubmittedDocumentPairRow {
+  readonly applicationId: string;
+  readonly milestoneDocumentId: string;
+}
+
 @Injectable()
 export class ProgramOverviewRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -298,183 +308,45 @@ export class ProgramOverviewRepository {
     return new Set(rows.map((row) => row.milestoneDocumentId));
   }
 
-  async countFullySubmittedParticipants(
+  findProgramApplications(
     programId: string,
-    requiredDocumentIds: string[],
-  ): Promise<number> {
-    const result = await this.countFullySubmittedParticipantsForKeys(
-      programId,
-      new Map([['current', requiredDocumentIds]]),
-    );
-    return result.get('current') ?? 0;
-  }
-
-  async countFullySubmittedTeamsByMilestone(
-    programId: string,
-    milestones: readonly {
-      milestoneId: string;
-      requiredDocumentIds: string[];
-    }[],
-  ): Promise<Map<string, number>> {
-    if (milestones.length === 0) {
-      return new Map();
-    }
-    return this.countFullySubmittedTeamsForKeys(
-      programId,
-      new Map(milestones.map((m) => [m.milestoneId, m.requiredDocumentIds])),
-    );
-  }
-
-  private async countFullySubmittedParticipantsForKeys(
-    programId: string,
-    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
-  ): Promise<Map<string, number>> {
-    const keys = [...requiredDocumentIdsByKey.keys()];
-    const applications = await this.prisma.application.findMany({
+  ): Promise<readonly ProgramApplicationTeamRow[]> {
+    return this.prisma.application.findMany({
       where: { programId },
       select: { id: true, teamId: true },
     });
-    if (applications.length === 0) {
-      return new Map(keys.map((key) => [key, 0]));
-    }
-
-    const applicationIds = applications.map((application) => application.id);
-    const submittedDocumentIdsByApplication =
-      await this.loadSubmittedDocumentIdsByApplication(
-        applicationIds,
-        requiredDocumentIdsByKey,
-      );
-
-    const memberCountByTeam = await this.loadMemberCountByTeam(
-      programId,
-      applications,
-    );
-
-    const result = new Map<string, number>();
-    for (const key of keys) {
-      const requiredDocumentIds = requiredDocumentIdsByKey.get(key) ?? [];
-      const fullySubmitted = applications.filter((application) =>
-        this.hasAllRequiredDocuments(
-          submittedDocumentIdsByApplication.get(application.id),
-          requiredDocumentIds,
-        ),
-      );
-      result.set(
-        key,
-        fullySubmitted.reduce(
-          (total, application) =>
-            total +
-            (application.teamId
-              ? (memberCountByTeam.get(application.teamId) ?? 0)
-              : 1),
-          0,
-        ),
-      );
-    }
-    return result;
   }
 
-  private async countFullySubmittedTeamsForKeys(
-    programId: string,
-    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
-  ): Promise<Map<string, number>> {
-    const keys = [...requiredDocumentIdsByKey.keys()];
-
-    const applications = await this.prisma.application.findMany({
-      where: { programId },
-      select: { id: true, teamId: true },
-    });
-    if (applications.length === 0) {
-      return new Map(keys.map((key) => [key, 0]));
-    }
-
-    const applicationIds = applications.map((application) => application.id);
-    const submittedDocumentIdsByApplication =
-      await this.loadSubmittedDocumentIdsByApplication(
-        applicationIds,
-        requiredDocumentIdsByKey,
-      );
-
-    const result = new Map<string, number>();
-    for (const key of keys) {
-      const requiredDocumentIds = requiredDocumentIdsByKey.get(key) ?? [];
-      const completedTeamIds = new Set<string>();
-      for (const application of applications) {
-        if (
-          this.hasAllRequiredDocuments(
-            submittedDocumentIdsByApplication.get(application.id),
-            requiredDocumentIds,
-          )
-        ) {
-          if (application.teamId) {
-            completedTeamIds.add(application.teamId);
-          } else {
-            completedTeamIds.add(`application:${application.id}`);
-          }
-        }
-      }
-      result.set(key, completedTeamIds.size);
-    }
-    return result;
-  }
-
-  private async loadSubmittedDocumentIdsByApplication(
+  async findSubmittedDocumentPairs(
     applicationIds: readonly string[],
-    requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
-  ): Promise<Map<string, Set<string>>> {
-    const allRequiredDocumentIds = Array.from(
-      new Set([...requiredDocumentIdsByKey.values()].flat()),
-    );
-    if (allRequiredDocumentIds.length === 0) {
-      return new Map();
+    documentIds: readonly string[],
+  ): Promise<readonly SubmittedDocumentPairRow[]> {
+    if (documentIds.length === 0) {
+      return [];
     }
-
     const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
       by: ['milestoneDocumentId', 'applicationId'],
       where: {
         applicationId: { in: [...applicationIds] },
-        milestoneDocumentId: { in: allRequiredDocumentIds },
+        milestoneDocumentId: { in: [...documentIds] },
       },
     });
-
-    const submittedDocumentIdsByApplication = new Map<string, Set<string>>();
-    for (const row of rows) {
-      const set =
-        submittedDocumentIdsByApplication.get(row.applicationId) ??
-        new Set<string>();
-      set.add(row.milestoneDocumentId);
-      submittedDocumentIdsByApplication.set(row.applicationId, set);
-    }
-    return submittedDocumentIdsByApplication;
+    return rows.map((row) => ({
+      applicationId: row.applicationId,
+      milestoneDocumentId: row.milestoneDocumentId,
+    }));
   }
 
-  private hasAllRequiredDocuments(
-    submitted: Set<string> | undefined,
-    requiredDocumentIds: readonly string[],
-  ): boolean {
-    if (requiredDocumentIds.length === 0) {
-      return true;
-    }
-    if (!submitted) {
-      return false;
-    }
-    return requiredDocumentIds.every((documentId) => submitted.has(documentId));
-  }
-
-  private async loadMemberCountByTeam(
+  async countTeamMembers(
     programId: string,
-    applications: readonly { id: string; teamId: string | null }[],
-  ): Promise<Map<string, number>> {
-    const teamIds = applications
-      .map((application) => application.teamId)
-      .filter((teamId): teamId is string => teamId !== null);
+    teamIds: readonly string[],
+  ): Promise<ReadonlyMap<string, number>> {
     if (teamIds.length === 0) {
       return new Map();
     }
-
     const memberCounts = await this.prisma.teamMember.groupBy({
       by: ['teamId'],
-      where: { programId, teamId: { in: teamIds } },
+      where: { programId, teamId: { in: [...teamIds] } },
       _count: { teamId: true },
     });
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));

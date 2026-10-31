@@ -20,6 +20,7 @@ export function canonicalCompletion(
     affiliationName: profile.department,
     hasStaffAccess: false,
     hasAdminAccess: false,
+    requestsStaffAccess: memberKind === MemberKind.STAFF,
   };
 }
 

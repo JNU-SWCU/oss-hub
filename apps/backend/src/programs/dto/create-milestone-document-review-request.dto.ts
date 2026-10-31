@@ -9,12 +9,6 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { DomainException } from '../../platform/error-code.error';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from '../milestone-documents-error-code.error';
-import { type CreateMilestoneDocumentReviewInput } from '../milestone-document-collection-read.repository';
 
 export class CreateMilestoneDocumentReviewRequestDto {
   @IsEnum(ReviewDecision)
@@ -36,60 +30,4 @@ export class CreateMilestoneDocumentReviewRequestDto {
   @ValidateIf((_, value) => value !== null)
   @IsString()
   declare readonly expectedLatestReviewId: string | null;
-
-  toInput(): CreateMilestoneDocumentReviewInput {
-    const comment = this.comment?.trim() || null;
-    const version = {
-      expectedRevision: this.expectedRevision,
-      expectedLatestReviewId: this.expectedLatestReviewId,
-    };
-    switch (this.decision) {
-      case ReviewDecision.APPROVED:
-        return {
-          decision: this.decision,
-          comment,
-          resubmissionDueAt: null,
-          ...version,
-        };
-      case ReviewDecision.CHANGES_REQUESTED:
-      case ReviewDecision.REJECTED: {
-        if (comment === null) {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED
-            ],
-          );
-        }
-        if (this.decision === ReviewDecision.REJECTED) {
-          return {
-            decision: this.decision,
-            comment,
-            resubmissionDueAt: null,
-            ...version,
-          };
-        }
-
-        const resubmissionDueAt =
-          this.resubmissionDueAt === undefined
-            ? null
-            : new Date(this.resubmissionDueAt);
-        if (
-          resubmissionDueAt === null ||
-          Number.isNaN(resubmissionDueAt.getTime())
-        ) {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED
-            ],
-          );
-        }
-        return {
-          decision: this.decision,
-          comment,
-          resubmissionDueAt,
-          ...version,
-        };
-      }
-    }
-  }
 }

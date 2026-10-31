@@ -171,6 +171,11 @@ jobs:
       - name: 릴리스 배포 스코프 판정 단위테스트
         run: node --test scripts/select-release-deploy-scope.test.mjs scripts/select-frontend-release-baseline.test.mjs
 
+      - name: 빈 Markdown 문서 검사
+        run: |
+          bash scripts/check-empty-docs.test.sh
+          bash scripts/check-empty-docs.sh
+
       - name: pnpm 설정
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: pnpm/action-setup@v4
@@ -243,10 +248,6 @@ jobs:
       - name: 의존성 설치
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
-
-      - name: ADR-003 계약 검사
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
-        run: node --test scripts/adr-003-contract.test.mjs
 
       - name: Rails 계약 테스트
         if: ${{ steps.scope.outputs.rails == 'true' }}

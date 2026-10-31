@@ -46,12 +46,12 @@ export class UserAccessController {
     @Inject(IndependentAuthorityService)
     private readonly authorityService: Pick<
       IndependentAuthorityService,
-      'patchAdminAccess'
+      'patchAdminAccess' | 'adminCommandFromRequest'
     >,
     @Inject(MemberKindService)
     private readonly memberKindService: Pick<
       MemberKindService,
-      'patchMemberKind'
+      'patchMemberKind' | 'commandFromRequest'
     >,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
@@ -92,7 +92,7 @@ export class UserAccessController {
       await this.service.patchAccess(
         request.sessionGithubId,
         id,
-        body.toCommand(),
+        this.adminAccessMutationService.commandFromPatchAccessRequest(body),
       ),
     );
   }
@@ -126,7 +126,7 @@ export class UserAccessController {
       await this.authorityService.patchAdminAccess(
         request.sessionGithubId,
         id,
-        body.toCommand(),
+        this.authorityService.adminCommandFromRequest(body),
       ),
     );
   }
@@ -143,7 +143,7 @@ export class UserAccessController {
       await this.memberKindService.patchMemberKind(
         request.sessionGithubId,
         id,
-        body.toCommand(),
+        this.memberKindService.commandFromRequest(body),
       ),
     );
   }

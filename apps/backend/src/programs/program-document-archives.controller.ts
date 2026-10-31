@@ -39,7 +39,7 @@ export class ProgramDocumentArchivesController {
     @Query() query: ProgramDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const scope = query.toScope();
+    const scope = this.archives.programArchiveScopeFromRequest(query);
     const archive = await this.archives.archiveForProgramStaff(
       request.sessionGithubId,
       programId,

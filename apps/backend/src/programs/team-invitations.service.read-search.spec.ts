@@ -1,4 +1,4 @@
-import { TeamInvitationStatus } from '@prisma/client';
+import { AccountStatus, TeamInvitationStatus } from '@prisma/client';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
 import {
   buildService,
@@ -227,6 +227,12 @@ describe('TeamInvitationsService.searchCandidates', () => {
   });
 });
 
+const activeStaff = {
+  accountStatus: AccountStatus.ACTIVE,
+  hasStaffAccess: true,
+  hasAdminAccess: false,
+};
+
 describe('교직원의 초대 관리 권한', () => {
   it('교직원은 구성원이 아니어도 보낸 초대를 본다', async () => {
     const sent = [sentInvitationRecord()];
@@ -235,7 +241,7 @@ describe('교직원의 초대 관리 권한', () => {
         .fn()
         .mockResolvedValue(teamContext(syntheticLeaderId)),
       isTeamMember: jest.fn().mockResolvedValue(false),
-      isActiveStaff: jest.fn().mockResolvedValue(true),
+      findStaffAuthority: jest.fn().mockResolvedValue(activeStaff),
       findByTeamId: jest.fn().mockResolvedValue(sent),
     });
 
@@ -250,7 +256,7 @@ describe('교직원의 초대 관리 권한', () => {
       findTeamContext: jest
         .fn()
         .mockResolvedValue(teamContext('cuid-synthetic-other-leader')),
-      isActiveStaff: jest.fn().mockResolvedValue(true),
+      findStaffAuthority: jest.fn().mockResolvedValue(activeStaff),
       searchCandidates: jest.fn().mockResolvedValue([]),
     });
 
@@ -260,13 +266,46 @@ describe('교직원의 초대 관리 권한', () => {
     expect(repository.searchCandidates).toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      '관리자 권한만 있는 활성 계정',
+      { hasStaffAccess: false, hasAdminAccess: true },
+      true,
+    ],
+    [
+      '권한 없는 활성 계정',
+      { hasStaffAccess: false, hasAdminAccess: false },
+      false,
+    ],
+    ['비활성화된 교직원', { accountStatus: AccountStatus.DEACTIVATED }, false],
+  ] as const)(
+    '%s의 팀 초대 관리 우회 여부',
+    async (_name, overrides, bypasses) => {
+      const sent = [sentInvitationRecord()];
+      const { service } = buildService({
+        findTeamContext: jest
+          .fn()
+          .mockResolvedValue(teamContext('cuid-synthetic-other-leader')),
+        isTeamMember: jest.fn().mockResolvedValue(false),
+        findStaffAuthority: jest
+          .fn()
+          .mockResolvedValue({ ...activeStaff, ...overrides }),
+        findByTeamId: jest.fn().mockResolvedValue(sent),
+      });
+
+      const result = service.listSentByTeam(syntheticGithubId, syntheticTeamId);
+      if (bypasses) await expect(result).resolves.toBe(sent);
+      else await expect(result).rejects.toThrow();
+    },
+  );
+
   it('교직원이 아닌 사람은 여전히 막힌다', async () => {
     const { service } = buildService({
       findTeamContext: jest
         .fn()
         .mockResolvedValue(teamContext('cuid-synthetic-other-leader')),
       isTeamMember: jest.fn().mockResolvedValue(false),
-      isActiveStaff: jest.fn().mockResolvedValue(false),
+      findStaffAuthority: jest.fn().mockResolvedValue(null),
     });
 
     await expect(
