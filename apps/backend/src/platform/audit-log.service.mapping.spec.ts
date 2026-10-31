@@ -602,7 +602,7 @@ describe('AuditLogService record mapping', () => {
     ]);
   });
 
-  it('v1 APPLICATION join select는 applicant를 절대 요청하지 않고, 신청자 로그인이 있어도 라벨에 새지 않는다(ADR-007)', async () => {
+  it('v1 APPLICATION join select는 applicant를 절대 요청하지 않고, 신청자 로그인이 있어도 라벨에 새지 않는다', async () => {
     const applicationFindMany = jest
       .fn<Promise<unknown>, [Prisma.ApplicationFindManyArgs]>()
       .mockResolvedValue([

@@ -37,7 +37,7 @@ export const fileNameConvention = {
     schema: [],
     messages: {
       invalid:
-        '파일 이름은 kebab-case stem에 ADR-003 닫힌 접미사를 붙인다: {{file}}',
+        '파일 이름은 kebab-case stem에 허용된 역할 접미사(.service, .controller, -request.dto 등) 하나를 붙인다: {{file}}',
     },
   },
   create(context) {
