@@ -21,7 +21,10 @@ import {
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 import { Protected } from '../auth/authentication.guard';
 
-type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type SessionIdentity = Pick<
+  AuthenticatedRequest,
+  'sessionGithubId' | 'principal'
+>;
 
 @Controller('users')
 export class AccessRequestsController {
@@ -43,7 +46,7 @@ export class AccessRequestsController {
   ): Promise<AccessRequestsUserPageResponseDto> {
     return AccessRequestsUserPageResponseDto.from(
       await this.service.listRequests(
-        request.sessionGithubId,
+        request.principal,
         query.toRequestQuery(),
       ),
     );
@@ -58,7 +61,7 @@ export class AccessRequestsController {
   ): Promise<AccessRequestsUserDetailResponseDto> {
     this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserDetailResponseDto.from(
-      await this.service.get(request.sessionGithubId, id),
+      await this.service.get(request.principal, id),
     );
   }
 
@@ -72,11 +75,7 @@ export class AccessRequestsController {
   ): Promise<AccessRequestsUserHistoryResponseDto> {
     this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserHistoryResponseDto.from(
-      await this.service.getHistory(
-        request.sessionGithubId,
-        id,
-        query.toQuery(),
-      ),
+      await this.service.getHistory(request.principal, id, query.toQuery()),
     );
   }
 }

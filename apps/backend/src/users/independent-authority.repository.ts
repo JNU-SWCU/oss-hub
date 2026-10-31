@@ -66,26 +66,6 @@ export type IndependentAuthorityTransition = IndependentAuthorityState & {
   readonly role: AuthorityLabel | null;
 };
 
-@Injectable()
-export class UsersAuthorityRepository {
-  constructor(
-    @Inject(PrismaService)
-    private readonly prisma: Pick<PrismaService, 'user'>,
-  ) {}
-
-  async findActorByGithubId(sessionGithubId: bigint) {
-    return this.prisma.user.findUnique({
-      where: { githubId: sessionGithubId },
-      select: {
-        id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
-}
-
 export interface IndependentAuthorityTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;

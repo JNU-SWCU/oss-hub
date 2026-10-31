@@ -3,8 +3,6 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { CollectionAdminService } from '../github/collection-admin.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -18,7 +16,10 @@ import { CollectionAdminController } from './collection-admin.controller';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -50,12 +51,15 @@ describe('Collection admin authorization HTTP characterization', () => {
         AuthSessionService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         CollectionAdminService,
-        UsersAuthorityService,
-        UsersAuthorityRepository,
         {
           provide: AuthService,
           useValue: {
-            getMe: () => ({ id: 'synthetic-actor', sessionVersion: 0 }),
+            getMe: () =>
+              sessionPrincipal({
+                hasStaffAccess: actor[1],
+                hasAdminAccess: actor[2],
+                accountStatus: actor[3],
+              }),
           },
         },
         {

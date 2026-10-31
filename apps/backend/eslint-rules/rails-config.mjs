@@ -721,7 +721,7 @@ export async function createRailsConfig(rootDir) {
             category: 'auth-capability',
             pattern: [
               'src/auth/{authentication.guard,http-auth.types}.ts',
-              'src/platform/{origin.guard,auth.config}.ts',
+              'src/platform/{origin.guard,roles.guard,auth.config}.ts',
             ],
           },
           {

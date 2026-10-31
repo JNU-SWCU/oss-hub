@@ -2,8 +2,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionStatus,
 } from '@prisma/client';
-import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/users-authority.service';
+import { Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -97,11 +96,6 @@ export interface MilestoneDocumentHistoryResult {
 export class MilestoneDocumentsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
@@ -201,14 +195,10 @@ export class MilestoneDocumentsService {
   }
 
   async collectForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResult> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     return this.repository.withCollectionSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null) {
@@ -262,15 +252,11 @@ export class MilestoneDocumentsService {
   }
 
   async historyForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     query: { readonly cursor: string | null; readonly limit: number },
   ): Promise<MilestoneDocumentHistoryResult> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const document = await this.repository.findDocumentContext(documentId);
     if (document === null || document.milestoneId !== milestoneId) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -346,13 +332,9 @@ export class MilestoneDocumentsService {
   }
 
   async createDocument(
-    sessionGithubId: bigint,
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const record = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -367,14 +349,10 @@ export class MilestoneDocumentsService {
   }
 
   async updateDocument(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const record = await this.repository.withTransaction(async (store) => {
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
@@ -386,14 +364,10 @@ export class MilestoneDocumentsService {
   }
 
   async updateGraceDueAt(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     graceDueAt: Date | null,
   ): Promise<void> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestoneForGrace(milestoneId);
       if (milestone === null)
@@ -416,13 +390,9 @@ export class MilestoneDocumentsService {
   }
 
   async reorderDocuments(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const records = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -437,14 +407,7 @@ export class MilestoneDocumentsService {
     return records;
   }
 
-  async deleteDocument(
-    sessionGithubId: bigint,
-    milestoneId: string,
-    documentId: string,
-  ): Promise<void> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
+  async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
 

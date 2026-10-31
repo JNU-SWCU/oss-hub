@@ -5,12 +5,6 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { ProgramRulesService } from './program-rules.service';
 
-const authority = {
-  assertActiveStaff: jest
-    .fn()
-    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
-};
-
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
@@ -135,7 +129,7 @@ function review(
   } = {},
 ) {
   return service.review(
-    1n,
+    'cuid-synthetic-staff',
     syntheticMilestoneId,
     syntheticDocumentId,
     syntheticApplicationId,
@@ -167,7 +161,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
       });
       const service = new MilestoneDocumentReviewsService(
         repository,
-        authority,
         new MilestoneDocumentRulesService(new ProgramRulesService()),
       );
 
@@ -189,7 +182,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -212,7 +204,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -230,7 +221,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -247,7 +237,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -263,7 +252,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -283,7 +271,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -299,7 +286,6 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -320,7 +306,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -340,7 +325,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -358,7 +342,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -374,7 +357,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -391,7 +373,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -405,7 +386,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { mocks, transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -426,7 +406,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -449,7 +428,6 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -466,7 +444,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
       buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -487,7 +464,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -508,7 +484,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -522,7 +497,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -535,7 +509,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -559,7 +532,6 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -578,7 +550,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -608,7 +579,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -640,7 +610,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 
@@ -666,7 +635,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 → 제출 상태', 
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
     );
 

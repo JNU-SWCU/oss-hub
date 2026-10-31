@@ -228,11 +228,6 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
     service: new SubmissionReviewsService(
       repository,
       repositories,
-      {
-        assertActiveStaff: jest
-          .fn()
-          .mockResolvedValue({ actorId: 'reviewer-1' }),
-      },
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),

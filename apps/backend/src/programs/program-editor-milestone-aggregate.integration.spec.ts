@@ -21,8 +21,6 @@ import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import {
   cleanup,
   createMilestone,
@@ -257,11 +255,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
       ),
-      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     ).uploadTemplate(
-      STAFF_GITHUB_ID,
+      `${TEST_PREFIX}staff`,
       milestoneId,
       firstDocumentId,
       pdfUpload(),
@@ -392,14 +389,13 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
       ),
-      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
 
     await expect(
       files.uploadTemplate(
-        STAFF_GITHUB_ID,
+        `${TEST_PREFIX}staff`,
         milestoneId,
         firstDocumentId,
         pdfUpload(),
@@ -435,12 +431,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
       ),
-      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
     const direct = files.uploadTemplate(
-      STAFF_GITHUB_ID,
+      `${TEST_PREFIX}staff`,
       milestoneId,
       firstDocumentId,
       pdfUpload(),
@@ -586,13 +581,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
       ),
-      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
     await expect(
       files.uploadTemplate(
-        STAFF_GITHUB_ID,
+        `${TEST_PREFIX}staff`,
         milestoneId,
         firstDocumentId,
         pdfUpload(),

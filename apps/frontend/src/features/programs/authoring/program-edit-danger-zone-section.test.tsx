@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
+import { featureKey, programFeatureKey, programKey } from '@/lib/query-keys';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -208,12 +209,24 @@ describe('ProgramEditDangerZoneSection', () => {
   it('확정은 마지막으로 표시한 전체 범위와 fingerprint를 그대로 한 번만 보낸다', async () => {
     const listKey = ['programs', { page: 2, search: 'x' }] as const;
     const yearsKey = ['program-ended-years'] as const;
+    const statusKey = featureKey('staff-dashboard');
+    const otherProgramKey = programFeatureKey('program-2', 'detail', true);
+    root.queryClient.setQueryDefaults(['program'], { gcTime: Infinity });
+    root.queryClient.setQueryDefaults(statusKey, { gcTime: Infinity });
     root.queryClient.setQueryDefaults(['programs'], { gcTime: Infinity });
     root.queryClient.setQueryDefaults(['program-ended-years'], {
       gcTime: Infinity,
     });
     root.queryClient.setQueryData(listKey, { items: [{ id: 'program-1' }] });
     root.queryClient.setQueryData(yearsKey, [2026]);
+    root.queryClient.setQueryData(statusKey, { total: 1 });
+    root.queryClient.setQueryData(otherProgramKey, { id: 'program-2' });
+    for (const feature of ['overview', 'detail', 'activity']) {
+      root.queryClient.setQueryData(
+        programFeatureKey('program-1', feature, true),
+        { id: 'program-1' },
+      );
+    }
     let resolvePurge:
       | ((value: {
           id: string;
@@ -258,6 +271,13 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(onDeleted).toHaveBeenCalledWith('지원서 2건 · 팀 1건');
     expect(root.queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     expect(root.queryClient.getQueryState(yearsKey)?.isInvalidated).toBe(true);
+    expect(root.queryClient.getQueryState(statusKey)?.isInvalidated).toBe(true);
+    expect(
+      root.queryClient.getQueriesData({ queryKey: programKey('program-1') }),
+    ).toEqual([]);
+    expect(root.queryClient.getQueryData(otherProgramKey)).toEqual({
+      id: 'program-2',
+    });
   });
 
   it('PRG_014는 자동 재시도하지 않고 갱신된 범위로 명시적 재확인을 요구한다', async () => {

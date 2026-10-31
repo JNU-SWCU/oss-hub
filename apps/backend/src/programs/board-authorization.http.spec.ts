@@ -6,7 +6,6 @@ import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
@@ -55,12 +54,6 @@ describe('board authorization HTTP characterization', () => {
         AuthSessionService,
         UserProfileService,
         BoardService,
-        {
-          provide: UsersAuthorityService,
-          useValue: new UsersAuthorityService({
-            findActorByGithubId: () => prisma.user.findUnique(),
-          }),
-        },
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
         { provide: BoardRepository, useValue: repository },

@@ -17,8 +17,9 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
-const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
+const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId' | 'principal'> = {
   sessionGithubId: 9_131_400_001n,
+  principal: { githubId: 9_131_400_001n } as AuthenticatedRequest['principal'],
 };
 
 describe('AccessRequestsController routes', () => {
@@ -64,7 +65,7 @@ describe('AccessRequestsController delegation', () => {
 
     await controller.listRequests(REQUEST, query);
 
-    expect(service.listRequests).toHaveBeenCalledWith(REQUEST.sessionGithubId, {
+    expect(service.listRequests).toHaveBeenCalledWith(REQUEST.principal, {
       query: '',
       pendingRequest: 'PENDING',
       sort: 'createdAt',
@@ -93,7 +94,7 @@ describe('AccessRequestsController delegation', () => {
     await controller.getHistory(REQUEST, 'target-user', query);
 
     expect(service.getHistory).toHaveBeenCalledWith(
-      REQUEST.sessionGithubId,
+      REQUEST.principal,
       'target-user',
       {
         staffAccessRequests: { page: 2, limit: 5 },

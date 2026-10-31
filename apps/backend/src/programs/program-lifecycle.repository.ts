@@ -43,17 +43,6 @@ type ProgramLifecycleTransaction = Prisma.TransactionClient;
 export class ProgramLifecycleRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findDeletionActor(githubId: bigint) {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
-
   withDeleteTransaction<T>(
     operation: (transaction: ProgramLifecycleTransaction) => Promise<T>,
   ): Promise<T> {

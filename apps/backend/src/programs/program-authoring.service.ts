@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
   ProgramAuthoringRepository,
@@ -11,7 +11,7 @@ import {
   type ProgramNoticePreview,
   parseProgramNoticeUrl,
 } from './program-notice-fetch.client';
-import { AccountStatus, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
@@ -24,7 +24,6 @@ import {
 } from './program-authoring-upload-transaction.repository';
 import {
   ProgramAuthoringAttachmentRaceError,
-  ProgramAuthoringForbiddenError,
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringIdempotencyRaceError,
 } from './program-authoring.error';
@@ -110,23 +109,11 @@ export class ProgramNoticePreviewService {
   private attempts: { readonly actorId: string; readonly at: number }[] = [];
 
   constructor(
-    @Inject(ProgramAuthoringRepository)
-    private readonly repository: Pick<ProgramAuthoringRepository, 'findActor'>,
     @Inject(ProgramNoticeFetchClient)
     private readonly client: Pick<ProgramNoticeFetchClient, 'read'>,
   ) {}
 
-  async preview(
-    githubId: bigint,
-    input: string,
-  ): Promise<ProgramNoticePreview> {
-    const actor = await this.repository.findActor(githubId);
-    if (
-      !actor ||
-      actor.accountStatus !== 'ACTIVE' ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    )
-      throw new ConflictException('Program authoring is unavailable.');
+  async preview(actorId: string, input: string): Promise<ProgramNoticePreview> {
     const source = parseProgramNoticeUrl(input);
     const now = Date.now();
     this.attempts = this.attempts.filter(
@@ -135,11 +122,10 @@ export class ProgramNoticePreviewService {
     if (
       this.active >= 4 ||
       this.attempts.length >= 60 ||
-      this.attempts.filter((attempt) => attempt.actorId === actor.id).length >=
-        6
+      this.attempts.filter((attempt) => attempt.actorId === actorId).length >= 6
     )
       throw new DomainException(PROGRAM_NOTICE_ERRORS.RATE_LIMITED);
-    this.attempts.push({ actorId: actor.id, at: now });
+    this.attempts.push({ actorId, at: now });
     this.active++;
     try {
       return extractProgramNotice(await this.client.read(source), source);
@@ -151,7 +137,7 @@ export class ProgramNoticePreviewService {
 
 type ProgramAuthoringStore = Pick<
   ProgramAuthoringRepository,
-  'findActor' | 'findReplay' | 'withTransaction'
+  'findReplay' | 'withTransaction'
 >;
 
 @Injectable()
@@ -165,24 +151,12 @@ export class ProgramAuthoringService {
     private readonly programUploadRulesService: ProgramUploadRulesService,
   ) {}
 
-  async requireAuthor(githubId: bigint): Promise<string> {
-    const actor = await this.repository.findActor(githubId);
-    if (
-      actor === null ||
-      actor.accountStatus !== AccountStatus.ACTIVE ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new ProgramAuthoringForbiddenError();
-    }
-    return actor.id;
-  }
-
   async create(
-    githubId: bigint,
+    actor: { readonly id: string; readonly githubId: bigint },
     idempotencyKey: string,
     request: ProgramAuthoringRequest,
   ): Promise<ProgramAuthoringProgram> {
-    const actorId = await this.requireAuthor(githubId);
+    const actorId = actor.id;
     const plan = this.buildProgramAuthoringPlan(request);
     const payloadHash = this.hashProgramAuthoringPayload(plan);
     const existing = await this.repository.findReplay(actorId, idempotencyKey);
@@ -192,7 +166,7 @@ export class ProgramAuthoringService {
       return await this.repository.withTransaction((store) =>
         this.createInTransaction(
           store,
-          githubId,
+          actor.githubId,
           actorId,
           idempotencyKey,
           payloadHash,

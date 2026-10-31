@@ -1,7 +1,6 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
-import { AuditLogErrorCode } from './audit-log-error-code.error';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 import { ACCESS_AUDIT_EVENT_KINDS } from './audit-log-metadata.config';
@@ -120,7 +119,7 @@ describe('Audit log integration', () => {
       ],
     });
 
-    const result = await service.list(ADMIN_GITHUB_ID, {
+    const result = await service.list({
       actor: '132-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       from: '2026-07-24',
@@ -166,12 +165,12 @@ describe('Audit log integration', () => {
       })),
     });
 
-    const firstPage = await service.list(ADMIN_GITHUB_ID, {
+    const firstPage = await service.list({
       action: 'TIED_TIMESTAMP_PAGINATION',
       page: 1,
       limit: 2,
     });
-    const secondPage = await service.list(ADMIN_GITHUB_ID, {
+    const secondPage = await service.list({
       action: 'TIED_TIMESTAMP_PAGINATION',
       page: 2,
       limit: 2,
@@ -184,14 +183,6 @@ describe('Audit log integration', () => {
     expect([...new Set(pagedIds)].sort()).toEqual([...insertedIds].sort());
     expect(pagedIds).toEqual(expectedIds);
     expect([firstPage.total, secondPage.total]).toEqual([4, 4]);
-  });
-
-  it('STAFF 조회를 차단한다', async () => {
-    await expect(
-      service.list(STAFF_GITHUB_ID, { page: 1, limit: 20 }),
-    ).rejects.toMatchObject({
-      errorCode: { code: AuditLogErrorCode.ADMIN_ONLY, status: 403 },
-    });
   });
 
   it('선택한 한국 날짜의 00:00부터 23:59:59.999까지만 조회한다', async () => {
@@ -236,7 +227,7 @@ describe('Audit log integration', () => {
       ],
     });
 
-    const result = await service.list(ADMIN_GITHUB_ID, {
+    const result = await service.list({
       action: 'BOUNDARY',
       from: '2026-07-24',
       to: '2026-07-24',

@@ -29,8 +29,6 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -39,6 +37,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -116,7 +115,6 @@ export class PublicExposurePersonaHttpHarness {
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),
       repositoriesService,
-      new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
@@ -156,11 +154,10 @@ export class PublicExposurePersonaHttpHarness {
         {
           provide: AuthService,
           useValue: {
-            getMe: jest
-              .fn<Promise<ActivePrincipal>, [bigint]>()
-              .mockImplementation((githubId) =>
-                Promise.resolve(makePersonaPrincipal(githubId)),
-              ),
+            getMe: async (githubId: bigint) => ({
+              ...makePersonaPrincipal(githubId),
+              ...(await databaseSessionPrincipal(this.prisma, githubId)),
+            }),
             findActivePrincipal: jest
               .fn<Promise<ActivePrincipal>, [bigint]>()
               .mockImplementation((githubId) =>

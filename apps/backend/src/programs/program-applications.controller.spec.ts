@@ -3,6 +3,7 @@ import {
   RepositoryVisibility,
   ApplicationStatus,
 } from '@prisma/client';
+import { RolesGuard } from '../platform/roles.guard';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../platform/origin.guard';
 import type { ApplicationsService } from './applications.service';
@@ -27,9 +28,9 @@ describe('ProgramApplicationsController', () => {
     ).toEqual([OriginGuard]);
   });
 
-  it('GET 에 로컬 가드를 두지 않는다', () => {
+  it('GET 에는 역할 가드만 둔다', () => {
     expect(readGuards(ProgramApplicationsController.prototype, 'list')).toEqual(
-      [],
+      [RolesGuard],
     );
   });
 
@@ -257,13 +258,9 @@ describe('ProgramApplicationsController', () => {
       status: 'SUBMITTED' as const,
     });
 
-    const response = await controller.list(
-      { sessionGithubId: 4242n },
-      'synthetic-program',
-      query,
-    );
+    const response = await controller.list('synthetic-program', query);
 
-    expect(listForProgram).toHaveBeenCalledWith(4242n, 'synthetic-program', {
+    expect(listForProgram).toHaveBeenCalledWith('synthetic-program', {
       page: 1,
       pageSize: 20,
       search: '합성',

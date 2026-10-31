@@ -1,10 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import {
-  APPLICATIONS_ERROR_CODES,
-  ApplicationsErrorCode,
-} from '../programs/applications-error-code.error';
+import { Injectable } from '@nestjs/common';
 import {
   StaffInsightsRepository,
   type StaffInsightsStudentRecord,
@@ -83,27 +77,11 @@ const EMPTY_METRICS: StaffInsightsMetrics = {
 export class StaffInsightsService {
   constructor(
     private readonly repository: StaffInsightsRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly rankingYearService: RankingYearService,
     private readonly staffInsightsQueryService: StaffInsightsQueryService,
   ) {}
 
-  async summarize(
-    sessionGithubId: bigint,
-    scope: InsightsYearScope,
-  ): Promise<StaffInsightsSummary> {
-    await this.authority.assertActiveStaff(
-      sessionGithubId,
-      () =>
-        new DomainException(
-          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_LIST_ONLY],
-        ),
-    );
-
+  async summarize(scope: InsightsYearScope): Promise<StaffInsightsSummary> {
     const [students, participations, activity, dataAsOf, years] =
       await Promise.all([
         this.repository.listStudents(),

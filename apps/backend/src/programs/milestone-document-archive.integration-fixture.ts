@@ -1,7 +1,5 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
@@ -22,7 +20,6 @@ export class ProgramArchiveIntegrationFixture {
     new MilestoneDocumentsRepository(this.prisma),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
-    new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
     new MilestoneDocumentRulesService(new ProgramRulesService()),
   );
 

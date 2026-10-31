@@ -31,7 +31,10 @@ import { MemberKindService } from '../users/member-kind.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 import { Protected } from '../auth/authentication.guard';
 
-type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type SessionIdentity = Pick<
+  AuthenticatedRequest,
+  'sessionGithubId' | 'principal'
+>;
 
 @Controller('users')
 export class UserAccessController {
@@ -64,7 +67,7 @@ export class UserAccessController {
     @Query() query: AdminAccessListRequestDto,
   ): Promise<AdminAccessUserPageResponseDto> {
     return AdminAccessUserPageResponseDto.from(
-      await this.service.list(request.sessionGithubId, query.toQuery()),
+      await this.service.list(request.principal, query.toQuery()),
     );
   }
 
@@ -76,7 +79,7 @@ export class UserAccessController {
     @Query() query: AdminAccessListRequestDto,
   ): Promise<AdminAccessFacetsResponseDto> {
     return AdminAccessFacetsResponseDto.from(
-      await this.service.facets(request.sessionGithubId, query.toQuery()),
+      await this.service.facets(request.principal, query.toQuery()),
     );
   }
 

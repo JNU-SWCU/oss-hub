@@ -18,6 +18,7 @@ import {
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
 import { JoinCodeSecretService } from './join-code-secret.service';
+import { RolesGuard } from './roles.guard';
 
 @Global()
 @Module({
@@ -37,6 +38,7 @@ import { JoinCodeSecretService } from './join-code-secret.service';
     AuditLogMetadataService,
     JoinCodeSecretService,
     AuditLogService,
+    RolesGuard,
   ],
   exports: [
     RUNTIME_CONFIG,
@@ -46,6 +48,7 @@ import { JoinCodeSecretService } from './join-code-secret.service';
     AuditLogMetadataService,
     JoinCodeSecretService,
     AuditLogService,
+    RolesGuard,
   ],
 })
 export class PlatformModule {}

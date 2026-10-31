@@ -81,7 +81,7 @@ export function getMilestoneDocumentHistory(
 ): Promise<MilestoneDocumentHistoryPage> {
   const params = new URLSearchParams();
   params.set('limit', '20');
-  if (cursor !== null) params.set('cursor', cursor);
+  if (cursor?.trim()) params.set('cursor', cursor);
   return apiClient<MilestoneDocumentHistoryPage>(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/history?${params.toString()}`,
   );

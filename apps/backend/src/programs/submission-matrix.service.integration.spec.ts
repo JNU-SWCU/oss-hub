@@ -229,11 +229,7 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it('STAFF가 개인·팀·미제출 행을 dueAt ASC 매트릭스로 조회한다', async () => {
-    const matrix = await service.matrix(
-      seedGithubId(STAFF_VIEWER_ID),
-      PROGRAM_ID,
-      query(),
-    );
+    const matrix = await service.matrix(PROGRAM_ID, query());
 
     const dueTimes = matrix.milestones.map((milestone) =>
       new Date(milestone.dueAt).getTime(),
@@ -331,35 +327,15 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it('ADMIN도 같은 매트릭스를 조회한다', async () => {
-    const matrix = await service.matrix(
-      seedGithubId(ADMIN_VIEWER_ID),
-      PROGRAM_ID,
-      query(),
-    );
+    const matrix = await service.matrix(PROGRAM_ID, query());
 
     expect(matrix.total).toBe(3);
     expect(matrix.rows).toHaveLength(3);
   });
 
-  it.each([
-    ['학생', STUDENT_VIEWER_ID],
-    ['PENDING 교직원(role 미승인)', PENDING_STAFF_ID],
-    ['비활성 교직원', DEACTIVATED_STAFF_ID],
-  ] as const)('%s 접근은 403 STAFF_ONLY로 차단한다', async (_, userId) => {
-    await expect(
-      service.matrix(seedGithubId(userId), PROGRAM_ID, query()),
-    ).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.STAFF_ONLY, status: 403 },
-    });
-  });
-
   it('없는 프로그램은 404 PROGRAM_NOT_FOUND', async () => {
     await expect(
-      service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        'synthetic-matrix-missing-program',
-        query(),
-      ),
+      service.matrix('synthetic-matrix-missing-program', query()),
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.PROGRAM_NOT_FOUND, status: 404 },
     });
@@ -374,11 +350,7 @@ describe('SubmissionMatrixService integration', () => {
   ] as const)(
     '검색은 %s을(를) 대소문자 무시로 필터하고 total도 같은 필터를 쓴다',
     async (_, q, expectedIds) => {
-      const matrix = await service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        PROGRAM_ID,
-        query({ q }),
-      );
+      const matrix = await service.matrix(PROGRAM_ID, query({ q }));
 
       expect(matrix.rows.map((row) => row.applicationId)).toEqual([
         ...expectedIds,
@@ -389,17 +361,9 @@ describe('SubmissionMatrixService integration', () => {
 
   it('참여 유형 필터는 더 이상 행을 가르지 않는다', async () => {
     const [personalOnly, teamOnly, noFilter] = await Promise.all([
-      service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        PROGRAM_ID,
-        query({ applicationMode: 'PERSONAL' }),
-      ),
-      service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        PROGRAM_ID,
-        query({ applicationMode: 'TEAM' }),
-      ),
-      service.matrix(seedGithubId(STAFF_VIEWER_ID), PROGRAM_ID, query({})),
+      service.matrix(PROGRAM_ID, query({ applicationMode: 'PERSONAL' })),
+      service.matrix(PROGRAM_ID, query({ applicationMode: 'TEAM' })),
+      service.matrix(PROGRAM_ID, query({})),
     ]);
 
     expect(personalOnly.rows.map((row) => row.applicationId)).toEqual(
@@ -419,16 +383,8 @@ describe('SubmissionMatrixService integration', () => {
 
   it('페이지네이션은 안정 정렬을 유지하고 total은 페이지와 무관하다', async () => {
     const [secondPage, beyondPage] = await Promise.all([
-      service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        PROGRAM_ID,
-        query({ page: 2, pageSize: 1 }),
-      ),
-      service.matrix(
-        seedGithubId(STAFF_VIEWER_ID),
-        PROGRAM_ID,
-        query({ page: 9, pageSize: 1 }),
-      ),
+      service.matrix(PROGRAM_ID, query({ page: 2, pageSize: 1 })),
+      service.matrix(PROGRAM_ID, query({ page: 9, pageSize: 1 })),
     ]);
 
     expect(secondPage.rows.map((row) => row.applicationId)).toEqual([

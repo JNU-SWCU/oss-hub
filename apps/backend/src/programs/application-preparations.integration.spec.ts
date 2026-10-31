@@ -5,8 +5,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import {
@@ -35,7 +33,6 @@ const preparations = new ApplicationPreparationsService(
 const applications = new ApplicationsService(
   new ApplicationsRepository(prisma),
   audit,
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new ApplicationJoinCodeService(
     {
       TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',

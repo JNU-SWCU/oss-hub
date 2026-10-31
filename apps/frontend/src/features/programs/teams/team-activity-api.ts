@@ -139,7 +139,7 @@ export async function getRepositoryHistory(
   cursor?: string,
 ): Promise<RepositoryHistoryPage> {
   const params = new URLSearchParams();
-  if (cursor !== undefined) params.set('cursor', cursor);
+  if (cursor?.trim()) params.set('cursor', cursor);
   return parseRepositoryHistory(
     await apiClient<unknown>(
       withQuery(

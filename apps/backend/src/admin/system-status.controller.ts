@@ -1,8 +1,11 @@
-import { Controller, Get, Req } from '@nestjs/common';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import { Controller, ForbiddenException, Get } from '@nestjs/common';
 import { SystemStatusResponseDto } from './dto/system-status-response.dto';
 import { SystemStatusService } from './system-status.service';
 import { Protected } from '../auth/authentication.guard';
+import { ADMIN_AUDIENCE, Roles } from '../platform/roles.guard';
+
+const adminRequired = () =>
+  new ForbiddenException('Active administrator access is required');
 
 @Controller('system-status')
 export class SystemStatusController {
@@ -10,11 +13,8 @@ export class SystemStatusController {
 
   @Get()
   @Protected()
-  async getStatus(
-    @Req() request: AuthenticatedRequest,
-  ): Promise<SystemStatusResponseDto> {
-    return SystemStatusResponseDto.from(
-      await this.service.getStatus(request.sessionGithubId),
-    );
+  @Roles(ADMIN_AUDIENCE, adminRequired)
+  async getStatus(): Promise<SystemStatusResponseDto> {
+    return SystemStatusResponseDto.from(await this.service.getStatus());
   }
 }

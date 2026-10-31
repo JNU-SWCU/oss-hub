@@ -373,17 +373,6 @@ export class ProgramsRepository {
     });
   }
 
-  findCreatorRole(githubId: bigint) {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
-
   withCreateTransaction<T>(
     operation: (
       writer: Pick<Prisma.TransactionClient, 'program' | 'auditLog'>,

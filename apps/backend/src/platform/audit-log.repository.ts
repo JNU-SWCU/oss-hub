@@ -1,6 +1,6 @@
 import type { AuditLogTransactionWriter } from './audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, type Prisma } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import type { AuditLogListQuery } from './audit-log-query.types';
 
@@ -154,28 +154,9 @@ export type AuditLogRowPage = {
   readonly total: number;
 };
 
-export interface AuditLogActor {
-  readonly id: string;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly accountStatus: AccountStatus;
-}
-
 @Injectable()
 export class AuditLogRepository {
   constructor(private readonly prisma: PrismaService) {}
-
-  findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null> {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
 
   async list(query: AuditLogListQuery): Promise<AuditLogRowPage> {
     const where: Prisma.AuditLogWhereInput = {

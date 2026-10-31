@@ -14,7 +14,6 @@ import {
   canonicalUserCreateFromLabel,
 } from '../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
@@ -25,8 +24,6 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import type {
   GithubAppClient,
   GithubPublicRepositoryMetadata,
@@ -64,7 +61,6 @@ const service = new ApplicationsService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new ApplicationJoinCodeService(
     {
       TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
@@ -342,7 +338,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
 
       const decision = await service.decide(
-        STAFF_GITHUB_ID,
+        { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         AUTHORITY_APPLICATION_ID,
         { action: 'APPROVE' },
       );
@@ -376,56 +372,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         action: 'APPLICATION_APPROVED',
       });
     });
-
-    it('실 DB의 STUDENT 세션은 쓰기 전에 APP_004로 거부한다', async () => {
-      await createOwnApplication(
-        AUTHORITY_DENIED_APPLICATION_ID,
-        APPLICANT_ID,
-        OWN_REPOSITORY_URL,
-      );
-
-      await expect(
-        service.decide(
-          STUDENT_ACTOR_GITHUB_ID,
-          AUTHORITY_DENIED_APPLICATION_ID,
-          { action: 'APPROVE' },
-        ),
-      ).rejects.toMatchObject({
-        errorCode: { code: ApplicationsErrorCode.STAFF_ONLY, status: 403 },
-      });
-
-      await expect(
-        prisma.application.findUniqueOrThrow({
-          where: { id: AUTHORITY_DENIED_APPLICATION_ID },
-        }),
-      ).resolves.toMatchObject({
-        status: ApplicationStatus.SUBMITTED,
-        processedById: null,
-      });
-      await expect(
-        prisma.applicationReviewHistory.count({
-          where: { applicationId: AUTHORITY_DENIED_APPLICATION_ID },
-        }),
-      ).resolves.toBe(0);
-      await expect(
-        prisma.auditLog.count({
-          where: {
-            targetType: 'APPLICATION',
-            targetId: AUTHORITY_DENIED_APPLICATION_ID,
-          },
-        }),
-      ).resolves.toBe(0);
-      await expect(
-        prisma.outboxEvent.count({
-          where: { aggregateId: AUTHORITY_DENIED_APPLICATION_ID },
-        }),
-      ).resolves.toBe(0);
-      await expect(
-        prisma.repositoryProvisionJob.count({
-          where: { applicationId: AUTHORITY_DENIED_APPLICATION_ID },
-        }),
-      ).resolves.toBe(0);
-    });
   });
 
   it(
@@ -439,7 +385,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
 
       const decision = await service.decide(
-        STAFF_GITHUB_ID,
+        { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         CHAIN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
@@ -529,7 +475,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
 
       const decision = await service.decide(
-        STAFF_GITHUB_ID,
+        { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         ORG_OWNER_EXTERNAL_APPLICATION_ID,
         { action: 'APPROVE' },
       );
@@ -603,7 +549,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       NO_CONSENT_REPOSITORY_URL,
     );
     const decision = await service.decide(
-      STAFF_GITHUB_ID,
+      { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
       NO_CONSENT_APPLICATION_ID,
       { action: 'APPROVE' },
     );
@@ -684,7 +630,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         ORG_OWN_REPOSITORY_URL,
       );
       const decision = await service.decide(
-        STAFF_GITHUB_ID,
+        { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         ORG_OWN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
@@ -747,9 +693,13 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       APPLICANT_ID,
       OWN_REPOSITORY_URL,
     );
-    await service.decide(STAFF_GITHUB_ID, CHAIN_APPLICATION_ID, {
-      action: 'APPROVE',
-    });
+    await service.decide(
+      { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
+      CHAIN_APPLICATION_ID,
+      {
+        action: 'APPROVE',
+      },
+    );
     const github = githubClient();
     github.findPublicRepository.mockResolvedValue(
       ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
@@ -827,9 +777,13 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         PRECHECK_APPLICANT_ID,
         'https://github.com/synthetic/private',
       );
-      await service.decide(STAFF_GITHUB_ID, applicationId, {
-        action: 'APPROVE',
-      });
+      await service.decide(
+        { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
+        applicationId,
+        {
+          action: 'APPROVE',
+        },
+      );
       const queueNow = await consumeApproval(
         applicationId,
         'synthetic-legacy-outbox',

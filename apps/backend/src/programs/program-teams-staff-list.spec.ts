@@ -1,6 +1,5 @@
 import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { StaffProgramTeamResponseDto } from './dto/program-team-response.dto';
 import {
   ProgramTeamsRepository,
@@ -17,7 +16,6 @@ import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
-const STAFF_GITHUB_ID = 5201n;
 
 type AuthorityActor = {
   readonly id: string;
@@ -31,27 +29,6 @@ const STAFF_USER: AuthorityActor = {
   hasStaffAccess: true,
   hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
-};
-
-const ADMIN_USER: AuthorityActor = {
-  id: 'synthetic-admin',
-  hasStaffAccess: false,
-  hasAdminAccess: true,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-const STUDENT_USER: AuthorityActor = {
-  id: 'synthetic-student',
-  hasStaffAccess: false,
-  hasAdminAccess: false,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-const INACTIVE_STAFF_USER: AuthorityActor = {
-  id: 'synthetic-inactive-staff',
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-  accountStatus: AccountStatus.DEACTIVATED,
 };
 
 const PROGRAM: TeamProgramRecord = {
@@ -88,7 +65,6 @@ function buildService(overrides: {
     repository,
     { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
-    new UsersAuthorityService({ findActorByGithubId }),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
@@ -121,7 +97,7 @@ describe('ProgramTeamsService.listForStaff', () => {
       ],
     });
 
-    const teams = await service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID);
+    const teams = await service.listForStaff(PROGRAM_ID);
 
     expect(teams.map((team) => team.teamId)).toEqual(['team-1', 'team-2']);
 
@@ -154,7 +130,7 @@ describe('ProgramTeamsService.listForStaff', () => {
       ],
     });
 
-    const teams = await service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID);
+    const teams = await service.listForStaff(PROGRAM_ID);
 
     expect(teams[0]?.members).toEqual([
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
@@ -165,17 +141,13 @@ describe('ProgramTeamsService.listForStaff', () => {
   it('팀이 없으면 빈 배열을 반환한다', async () => {
     const { service } = buildService({ teams: [] });
 
-    await expect(
-      service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID),
-    ).resolves.toEqual([]);
+    await expect(service.listForStaff(PROGRAM_ID)).resolves.toEqual([]);
   });
 
   it('프로그램이 없으면 404 를 던지고 팀 조회를 하지 않는다', async () => {
     const { service, listStaffTeams } = buildService({ program: null });
 
-    await expect(
-      service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID),
-    ).rejects.toMatchObject({
+    await expect(service.listForStaff(PROGRAM_ID)).rejects.toMatchObject({
       errorCode: { code: TeamsErrorCode.PROGRAM_NOT_FOUND, status: 404 },
     });
     expect(listStaffTeams).not.toHaveBeenCalled();
@@ -196,7 +168,7 @@ describe('ProgramTeamsService.listForStaff', () => {
     const payload: unknown = JSON.parse(
       JSON.stringify(
         StaffProgramTeamResponseDto.fromAll(
-          await service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID),
+          await service.listForStaff(PROGRAM_ID),
         ),
       ),
     );
@@ -232,54 +204,6 @@ describe('ProgramTeamsService.listForStaff', () => {
       expect(serialized).not.toContain(forbidden);
     }
   });
-});
-
-describe('ProgramTeamsService.listForStaff 권한', () => {
-  const TEAM: StaffTeamRecord = {
-    id: 'team-1',
-    name: '오픈소스팀',
-    leaderId: 'user-a',
-    members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
-  };
-
-  it.each([
-    ['STAFF', STAFF_USER],
-    ['ADMIN', ADMIN_USER],
-  ] as const)(
-    'ACTIVE %s 는 세션 식별자로 권한을 확인한 뒤 팀을 읽는다',
-    async (_label, actor) => {
-      const { service, findActorByGithubId, findProgramById, listStaffTeams } =
-        buildService({ actor, teams: [TEAM] });
-
-      const teams = await service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID);
-
-      expect(teams.map((team) => team.teamId)).toEqual(['team-1']);
-      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
-      expect(findProgramById).toHaveBeenCalledWith(PROGRAM_ID);
-      expect(listStaffTeams).toHaveBeenCalledWith(PROGRAM_ID);
-    },
-  );
-
-  it.each([
-    ['STUDENT', STUDENT_USER],
-    ['비활성 STAFF', INACTIVE_STAFF_USER],
-    ['없는 계정', null],
-  ] as const)(
-    '%s 은 프로그램·팀 조회 전에 403 TEAM_003 으로 막힌다',
-    async (_label, actor) => {
-      const { service, findActorByGithubId, findProgramById, listStaffTeams } =
-        buildService({ actor, teams: [TEAM] });
-
-      await expect(
-        service.listForStaff(STAFF_GITHUB_ID, PROGRAM_ID),
-      ).rejects.toMatchObject({
-        errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
-      });
-      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
-      expect(findProgramById).not.toHaveBeenCalled();
-      expect(listStaffTeams).not.toHaveBeenCalled();
-    },
-  );
 });
 
 describe('ProgramTeamsRepository.listStaffTeams', () => {

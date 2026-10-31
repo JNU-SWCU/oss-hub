@@ -6,7 +6,10 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './program-submissions.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  databaseSessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -14,6 +17,7 @@ const sessionSecret = new Uint8Array(32).fill(48);
 
 export async function createMatrixDeliveryHttp(
   service: SubmissionMatrixService,
+  prisma: Parameters<typeof databaseSessionPrincipal>[0],
 ): Promise<INestApplication> {
   const module = await Test.createTestingModule({
     controllers: [ProgramSubmissionsController],
@@ -25,7 +29,8 @@ export async function createMatrixDeliveryHttp(
       {
         provide: AuthService,
         useValue: {
-          getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }),
+          getMe: (githubId: bigint) =>
+            databaseSessionPrincipal(prisma, githubId),
         },
       },
     ],

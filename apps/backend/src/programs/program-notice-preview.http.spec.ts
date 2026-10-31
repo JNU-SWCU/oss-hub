@@ -52,9 +52,9 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: () =>
+          getMe: async () =>
             Promise.resolve({
-              ...actor,
+              ...(await findActor()),
               githubId: 101n,
               nickname: 'synthetic',
               name: null,

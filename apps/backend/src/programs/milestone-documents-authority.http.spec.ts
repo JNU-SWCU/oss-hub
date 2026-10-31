@@ -5,8 +5,6 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
@@ -16,7 +14,10 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -52,19 +53,6 @@ let app: INestApplication;
 let base: string;
 
 beforeAll(async () => {
-  const findActor = (githubId: bigint) => {
-    const actor = actors.find((item) => item[1] === githubId);
-    return Promise.resolve(
-      actor === undefined
-        ? null
-        : {
-            id: `actor-${githubId}`,
-            hasStaffAccess: actor[2],
-            hasAdminAccess: actor[3],
-            accountStatus: actor[4],
-          },
-    );
-  };
   const store = {
     lockMilestoneForGrace: jest.fn().mockResolvedValue({
       id: 'milestone',
@@ -95,18 +83,24 @@ beforeAll(async () => {
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       MilestoneDocumentsService,
-      UsersAuthorityService,
       {
         provide: AuthConfig,
         useValue: { sessionSecret: secret, allowedOrigin: origin },
       },
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }) },
-      },
-      {
-        provide: UsersAuthorityRepository,
-        useValue: { findActorByGithubId: findActor },
+        useValue: {
+          getMe: (githubId: bigint) => {
+            const actor = actors.find((item) => item[1] === githubId);
+            return Promise.resolve(
+              sessionPrincipal({
+                hasStaffAccess: actor?.[2] ?? false,
+                hasAdminAccess: actor?.[3] ?? false,
+                accountStatus: actor?.[4] ?? null,
+              }),
+            );
+          },
+        },
       },
       {
         provide: MilestoneDocumentsRepository,
@@ -185,7 +179,7 @@ it.each(actors)(
 );
 
 it.each([1n, 2n])(
-  'validates invalid inputs before staff authorization for actor %s',
+  'rejects a wrong-role actor before validating input for actor %s',
   async (githubId) => {
     const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
     for (const [method, path, body] of [
@@ -203,10 +197,10 @@ it.each([1n, 2n])(
         headers: { origin, cookie, 'content-type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(403);
       await expect(response.json()).resolves.toMatchObject({
-        status: 400,
-        code: 'SYS_003',
+        status: 403,
+        code: 'MSD_001',
       });
     }
     expect(writer).not.toHaveBeenCalled();

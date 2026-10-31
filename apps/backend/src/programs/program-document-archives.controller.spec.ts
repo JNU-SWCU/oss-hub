@@ -5,20 +5,14 @@ import { Readable } from 'node:stream';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import {
-  MilestoneDocumentArchiveService,
-  type ProgramDocumentArchiveScope,
-} from './milestone-document-archive.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { DomainException } from '../platform/error-code.error';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -33,9 +27,6 @@ let application: INestApplication;
 let url: string;
 
 beforeAll(async () => {
-  const authority = new UsersAuthorityService({
-    findActorByGithubId: findUser,
-  });
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],
     providers: [
@@ -45,7 +36,12 @@ beforeAll(async () => {
       { provide: AuthConfig, useValue: { sessionSecret: secret } },
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }) },
+        useValue: {
+          getMe: async () =>
+            sessionPrincipal(
+              (await findUser()) as Parameters<typeof sessionPrincipal>[0],
+            ),
+        },
       },
       {
         provide: MilestoneDocumentArchiveService,
@@ -53,24 +49,7 @@ beforeAll(async () => {
           Object.create(
             MilestoneDocumentArchiveService.prototype,
           ) as MilestoneDocumentArchiveService,
-          {
-            archiveForProgramStaff: async (
-              sessionGithubId: bigint,
-              programId: string,
-              scope: ProgramDocumentArchiveScope,
-            ) => {
-              await authority.assertActiveStaff(
-                sessionGithubId,
-                () =>
-                  new DomainException(
-                    MILESTONE_DOCUMENTS_ERROR_CODES[
-                      MilestoneDocumentsErrorCode.STAFF_ONLY
-                    ],
-                  ),
-              );
-              return archiveForProgramStaff(sessionGithubId, programId, scope);
-            },
-          },
+          { archiveForProgramStaff },
         ),
       },
     ],
@@ -133,7 +112,6 @@ it.each([
     );
     expect(await response.text()).toBe('synthetic-zip');
     expect(archiveForProgramStaff).toHaveBeenCalledWith(
-      githubId,
       'synthetic-program',
       scope,
     );
@@ -185,26 +163,22 @@ it.each([
     hasAdminAccess: false,
     accountStatus: AccountStatus.DEACTIVATED,
   },
-])(
-  'blocks non-staff/inactive users with service authorization (%o)',
-  async (user) => {
-    findUser.mockResolvedValue({ id: 'synthetic-user', ...user });
-    const response = await fetch(`${url}?scope=PROGRAM`, {
-      headers: await headers(),
-    });
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      type: 'about:blank',
-      title: 'FORBIDDEN',
-      status: 403,
-      detail: '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
-      instance:
-        '/api/v1/programs/synthetic-program/documents/collection/archive',
-      code: 'MSD_001',
-    });
-    expect(archiveForProgramStaff).not.toHaveBeenCalled();
-  },
-);
+])('blocks non-staff/inactive users with the route role (%o)', async (user) => {
+  findUser.mockResolvedValue({ id: 'synthetic-user', ...user });
+  const response = await fetch(`${url}?scope=PROGRAM`, {
+    headers: await headers(),
+  });
+  expect(response.status).toBe(403);
+  await expect(response.json()).resolves.toEqual({
+    type: 'about:blank',
+    title: 'FORBIDDEN',
+    status: 403,
+    detail: '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
+    instance: '/api/v1/programs/synthetic-program/documents/collection/archive',
+    code: 'MSD_001',
+  });
+  expect(archiveForProgramStaff).not.toHaveBeenCalled();
+});
 
 it('allows an active administrator without staff access', async () => {
   findUser.mockResolvedValue({
@@ -221,7 +195,7 @@ it('allows an active administrator without staff access', async () => {
 });
 
 it.each([AccountStatus.ACTIVE, AccountStatus.DEACTIVATED])(
-  'rejects an invalid query before staff authorization (%s)',
+  'rejects a wrong-role actor before validating the query (%s)',
   async (accountStatus) => {
     findUser.mockResolvedValue({
       id: 'synthetic-user',
@@ -232,12 +206,11 @@ it.each([AccountStatus.ACTIVE, AccountStatus.DEACTIVATED])(
     const response = await fetch(`${url}?scope=INVALID`, {
       headers: await headers(),
     });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
-      status: 400,
-      code: 'SYS_003',
+      status: 403,
+      code: 'MSD_001',
     });
-    expect(findUser).not.toHaveBeenCalled();
     expect(archiveForProgramStaff).not.toHaveBeenCalled();
   },
 );

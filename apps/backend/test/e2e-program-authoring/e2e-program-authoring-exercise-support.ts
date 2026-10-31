@@ -12,6 +12,7 @@ import {
   E2E_NOW,
   E2E_PROGRAM_ID,
   E2E_STAFF_GITHUB_ID,
+  E2E_STAFF_ID,
 } from './e2e-program-authoring-fixture';
 import { type ProgramAuthoringRequest } from '../../src/programs/program-authoring-upload-transaction.repository';
 
@@ -51,13 +52,8 @@ export function configureFailure(
 export async function stalePreview(
   deadlines: DeadlineDigestService,
 ): Promise<void> {
-  const preview = await deadlines.previewProgram(
-    E2E_STAFF_GITHUB_ID,
-    E2E_PROGRAM_ID,
-    E2E_NOW,
-  );
+  const preview = await deadlines.previewProgram(E2E_PROGRAM_ID, E2E_NOW);
   await deadlines.sendProgramFromPreview(
-    E2E_STAFF_GITHUB_ID,
     E2E_PROGRAM_ID,
     preview,
 
@@ -71,7 +67,7 @@ export async function exercisePrismaFailure(
 ): Promise<void> {
   try {
     await authoring.create(
-      E2E_STAFF_GITHUB_ID,
+      { id: E2E_STAFF_ID, githubId: E2E_STAFF_GITHUB_ID },
       'e2e-prisma-fault',
       prismaAggregateRequest(uploadId),
     );
@@ -109,13 +105,8 @@ function prismaAggregateRequest(uploadId: string): ProgramAuthoringRequest {
 export async function exerciseSmtpFailure(
   deadlines: DeadlineDigestService,
 ): Promise<void> {
-  const preview = await deadlines.previewProgram(
-    E2E_STAFF_GITHUB_ID,
-    E2E_PROGRAM_ID,
-    E2E_NOW,
-  );
+  const preview = await deadlines.previewProgram(E2E_PROGRAM_ID, E2E_NOW);
   const result = await deadlines.sendProgramFromPreview(
-    E2E_STAFF_GITHUB_ID,
     E2E_PROGRAM_ID,
     preview,
     E2E_NOW,

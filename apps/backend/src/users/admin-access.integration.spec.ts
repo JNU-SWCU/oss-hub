@@ -173,7 +173,8 @@ describe('Admin access real PostgreSQL transactions', () => {
     );
     const request = {
       sessionGithubId: actor.githubId,
-    } as Pick<AuthenticatedRequest, 'sessionGithubId'>;
+      principal: actor,
+    } as unknown as Pick<AuthenticatedRequest, 'sessionGithubId' | 'principal'>;
     const body = Object.assign(new PatchAdminAccessRequestDto(), {
       expectedRole: 'STUDENT',
       desiredRole: 'ADMIN',

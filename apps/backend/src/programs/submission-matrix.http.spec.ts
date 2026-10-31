@@ -32,12 +32,6 @@ const pageCalls: Array<{
 }> = [];
 
 const repository: SubmissionMatrixRepositoryPort = {
-  findActiveStaffOrAdmin: (githubId) =>
-    Promise.resolve(
-      githubId === STAFF_GITHUB_ID || githubId === ADMIN_GITHUB_ID
-        ? { id: 'synthetic-viewer' }
-        : null,
-    ),
   programExists: (programId) => Promise.resolve(programId === PROGRAM_ID),
   findMilestones: () =>
     Promise.resolve([
@@ -112,9 +106,13 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest
-            .fn()
-            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          getMe: (githubId: bigint) =>
+            Promise.resolve({
+              id: 'synthetic',
+              sessionVersion: 0,
+              hasStaffAccess: githubId === STAFF_GITHUB_ID,
+              hasAdminAccess: githubId === ADMIN_GITHUB_ID,
+            }),
         },
       },
       { provide: SubmissionMatrixRepository, useValue: repository },

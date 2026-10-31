@@ -2,6 +2,7 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { OriginGuard } from '../platform/origin.guard';
+import { RolesGuard } from '../platform/roles.guard';
 import { PROTECTED_ROUTE_METADATA } from '../auth/authentication.guard';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
@@ -183,7 +184,7 @@ describe('program-lifecycle.controller', () => {
       expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
-      ).toEqual([OriginGuard]);
+      ).toEqual([OriginGuard, RolesGuard]);
     });
 
     it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
@@ -214,7 +215,7 @@ describe('program-lifecycle.controller', () => {
       );
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
-      ).toEqual([OriginGuard]);
+      ).toEqual([OriginGuard, RolesGuard]);
     });
   });
 });
@@ -468,7 +469,7 @@ describe('ProgramsController read boundaries', () => {
   it('프로그램 생성은 공용 세션·origin guard 뒤에 있다', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),
-    ).toEqual([OriginGuard]);
+    ).toEqual([OriginGuard, RolesGuard]);
   });
 
   it('returns ended years over HTTP before matching the detail route', async () => {

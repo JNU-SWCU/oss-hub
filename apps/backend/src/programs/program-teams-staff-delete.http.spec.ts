@@ -134,7 +134,6 @@ const service = new ProgramTeamsService(
   repository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
-  { assertActiveStaff: jest.fn() },
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),

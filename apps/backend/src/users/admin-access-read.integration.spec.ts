@@ -38,6 +38,12 @@ const service = new AdminAccessService(
 const prefix = 'test:pr03:admin-access-read:';
 const queryFragment = 'synthetic-access-read';
 let actor: { readonly id: string; readonly githubId: bigint };
+const adminPrincipal = () => ({
+  githubId: actor.githubId,
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+});
 let studentPending: { readonly id: string; readonly githubId: bigint };
 let studentPlain: { readonly id: string; readonly githubId: bigint };
 
@@ -77,7 +83,7 @@ afterAll(async () => {
 });
 
 it('uses DB pagination and computes each facet against the other active filters', async () => {
-  const page = await service.list(actor.githubId, {
+  const page = await service.list(adminPrincipal(), {
     query: queryFragment,
     role: ADMIN_ACCESS_ROLE_FILTERS.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
@@ -133,8 +139,8 @@ it('derives lastLoginAt from the latest successful LOGIN and preserves null', as
   });
 
   const [withLogin, withoutLogin] = await Promise.all([
-    service.get(actor.githubId, studentPending.id),
-    service.get(actor.githubId, studentPlain.id),
+    service.get(adminPrincipal(), studentPending.id),
+    service.get(adminPrincipal(), studentPlain.id),
   ]);
 
   expect(withLogin.lastLoginAt).toEqual(latestLogin);
@@ -166,7 +172,7 @@ it('returns separately bounded stable history pages using matching deployed inde
     ),
   });
 
-  const history = await service.getHistory(actor.githubId, studentPlain.id, {
+  const history = await service.getHistory(adminPrincipal(), studentPlain.id, {
     staffAccessRequests: { page: 2, limit: 1 },
     loginHistory: { page: 1, limit: 2 },
   });

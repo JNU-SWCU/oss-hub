@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { RolesGuard } from '../platform/roles.guard';
 import {
   GUARDS_METADATA,
   METHOD_METADATA,
@@ -23,7 +24,7 @@ describe('AuditLogController', () => {
     expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(
       RequestMethod.GET,
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([RolesGuard]);
   });
 
   it('세션 행위자와 필터를 서비스에 전달한다', async () => {
@@ -40,12 +41,9 @@ describe('AuditLogController', () => {
       actor: 'synthetic-admin',
     });
 
-    await controller.list(
-      { sessionGithubId: 1001n } as Parameters<AuditLogController['list']>[0],
-      query,
-    );
+    await controller.list(query);
 
-    expect(list).toHaveBeenCalledWith(1001n, {
+    expect(list).toHaveBeenCalledWith({
       actor: 'synthetic-admin',
       page: 1,
       limit: 20,

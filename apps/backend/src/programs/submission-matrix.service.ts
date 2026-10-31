@@ -63,13 +63,9 @@ export class SubmissionMatrixService {
   ) {}
 
   async matrix(
-    githubId: bigint,
     programId: string,
     query: SubmissionMatrixQuery,
   ): Promise<SubmissionMatrixResult> {
-    if (!(await this.repository.findActiveStaffOrAdmin(githubId))) {
-      throw this.error(SubmissionsErrorCode.STAFF_ONLY);
-    }
     if (!(await this.repository.programExists(programId))) {
       throw this.error(SubmissionsErrorCode.PROGRAM_NOT_FOUND);
     }

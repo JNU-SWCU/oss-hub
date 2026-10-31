@@ -8,6 +8,7 @@ import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import {
+  COVER_ACTOR,
   GITHUB_ID,
   PREFIX,
   prisma,
@@ -32,7 +33,7 @@ const externalCover = {
 };
 
 it('returns the same public-cover HTTP 404 for an external reference and a missing cover without reading storage', async () => {
-  const program = await authoring().create(GITHUB_ID, 'external-route', {
+  const program = await authoring().create(COVER_ACTOR, 'external-route', {
     ...request(),
     externalCover,
   });
@@ -66,7 +67,11 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
 
 it('creates and replays an external cover with public projections and no storage ownership', async () => {
   const input = { ...request(), externalCover };
-  const program = await authoring().create(GITHUB_ID, 'external-create', input);
+  const program = await authoring().create(
+    COVER_ACTOR,
+    'external-create',
+    input,
+  );
   const cover = await prisma.programCover.findUniqueOrThrow({
     where: { programId: program.id },
   });
@@ -78,10 +83,10 @@ it('creates and replays an external cover with public projections and no storage
     ...externalCover,
   });
   expect(
-    (await authoring().create(GITHUB_ID, 'external-create', input)).id,
+    (await authoring().create(COVER_ACTOR, 'external-create', input)).id,
   ).toBe(program.id);
   await expect(
-    authoring().create(GITHUB_ID, 'external-create', {
+    authoring().create(COVER_ACTOR, 'external-create', {
       ...input,
       externalCover: {
         ...externalCover,
@@ -129,7 +134,7 @@ it.each(['owned', 'external', 'none'] as const)(
   'replaces %s with an external cover, tombstoning only an owned object',
   async (previous) => {
     const upload = previous === 'owned' ? await seedUpload() : null;
-    const program = await authoring().create(GITHUB_ID, 'replace-external', {
+    const program = await authoring().create(COVER_ACTOR, 'replace-external', {
       ...request(),
       ...(upload
         ? { coverUploadId: upload.id }
@@ -160,7 +165,7 @@ it.each(['owned', 'external', 'none'] as const)(
 );
 
 it('retains an external cover when edit omits both choices', async () => {
-  const program = await authoring().create(GITHUB_ID, 'retain-external', {
+  const program = await authoring().create(COVER_ACTOR, 'retain-external', {
     ...request(),
     externalCover,
   });
@@ -173,7 +178,7 @@ it('retains an external cover when edit omits both choices', async () => {
 it.each(['owned', 'remove-external', 'remove-upload'] as const)(
   'changes an external cover to %s without deleting any remote object',
   async (next) => {
-    const program = await authoring().create(GITHUB_ID, 'remove-external', {
+    const program = await authoring().create(COVER_ACTOR, 'remove-external', {
       ...request(),
       externalCover,
     });
@@ -223,7 +228,7 @@ it.each([
   'rejects untrusted references at create and edit without prior preview',
   async (invalid) => {
     await expect(
-      authoring().create(GITHUB_ID, 'invalid-external', {
+      authoring().create(COVER_ACTOR, 'invalid-external', {
         ...request(),
         externalCover: invalid,
       }),
@@ -231,10 +236,14 @@ it.each([
     expect(
       await prisma.program.count({ where: { name: { startsWith: PREFIX } } }),
     ).toBe(0);
-    const program = await authoring().create(GITHUB_ID, 'before-invalid-edit', {
-      ...request(),
-      externalCover,
-    });
+    const program = await authoring().create(
+      COVER_ACTOR,
+      'before-invalid-edit',
+      {
+        ...request(),
+        externalCover,
+      },
+    );
     await expect(
       editor.updateProgram(GITHUB_ID, program.id, {
         ...request(),
@@ -249,7 +258,7 @@ it.each([
 
 it('enforces source-state constraints and preserves default owned rows', async () => {
   const program = await authoring().create(
-    GITHUB_ID,
+    COVER_ACTOR,
     'constraint-external',
     request(),
   );

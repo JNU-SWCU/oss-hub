@@ -17,7 +17,6 @@ import {
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
-import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -27,34 +26,6 @@ import { ApplicationAnswersService } from './application-answers.service';
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const PROGRAM_ID = 'synthetic-program';
-const SESSION_GITHUB_ID = 4_242n;
-const STAFF_ACTOR_ID = 'synthetic-staff';
-
-const DEFAULT_QUERY = {
-  page: 1,
-  pageSize: 20,
-  search: '',
-  status: 'all',
-  view: 'default',
-} as const;
-
-type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
-type AuthorityMock = jest.Mock<
-  ReturnType<AssertActiveStaff>,
-  Parameters<AssertActiveStaff>
->;
-
-function allowStaff(): AuthorityMock {
-  return jest
-    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
-    .mockResolvedValue({ actorId: STAFF_ACTOR_ID });
-}
-
-function denyStaff(): AuthorityMock {
-  return jest.fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>(
-    (_sessionGithubId, forbidden) => Promise.reject(forbidden()),
-  );
-}
 
 const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
@@ -80,7 +51,6 @@ function mapItem(source: ApplicationListSource | null | undefined) {
         undefined as never,
         undefined as never,
         undefined as never,
-        undefined as never,
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
@@ -90,45 +60,6 @@ function mapItem(source: ApplicationListSource | null | undefined) {
 }
 
 describe('ApplicationsService.listForProgram', () => {
-  it('교직원 권한이 없으면 APP_018 로 막고 프로그램도 목록도 읽지 않는다', async () => {
-    const findProgramById = jest.fn();
-    const listApplicationsForProgram = jest.fn();
-    const repository = {
-      findProgramById,
-      listApplicationsForProgram,
-    } as unknown as ApplicationsRepository;
-    const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(
-      repository,
-      noopAuditLog,
-      {
-        assertActiveStaff,
-      },
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
-
-    await expect(
-      service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, DEFAULT_QUERY),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.STAFF_LIST_ONLY, status: 403 },
-    });
-    expect(assertActiveStaff).toHaveBeenCalledWith(
-      SESSION_GITHUB_ID,
-      expect.any(Function),
-    );
-    expect(findProgramById).not.toHaveBeenCalled();
-    expect(listApplicationsForProgram).not.toHaveBeenCalled();
-  });
-
   it('프로그램이 없으면 404 를 던진다', async () => {
     const listApplicationsForProgram = jest.fn();
     const repository = {
@@ -138,9 +69,6 @@ describe('ApplicationsService.listForProgram', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
@@ -154,7 +82,7 @@ describe('ApplicationsService.listForProgram', () => {
     );
 
     await expect(
-      service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
+      service.listForProgram(PROGRAM_ID, {
         page: 1,
         pageSize: 20,
         search: '',
@@ -250,9 +178,6 @@ describe('ApplicationsService.listForProgram', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
@@ -272,9 +197,10 @@ describe('ApplicationsService.listForProgram', () => {
       view: 'default' as const,
     };
 
-    await expect(
-      service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, query),
-    ).resolves.toEqual({ ...page, items: [] });
+    await expect(service.listForProgram(PROGRAM_ID, query)).resolves.toEqual({
+      ...page,
+      items: [],
+    });
     expect(listApplicationsForProgram).toHaveBeenCalledWith(PROGRAM_ID, query);
   });
 
@@ -286,9 +212,6 @@ describe('ApplicationsService.listForProgram', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
@@ -302,7 +225,7 @@ describe('ApplicationsService.listForProgram', () => {
     );
 
     await expect(
-      service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
+      service.listForProgram(PROGRAM_ID, {
         page: 1,
         pageSize: 20,
         search: '',
@@ -313,49 +236,7 @@ describe('ApplicationsService.listForProgram', () => {
   });
 });
 
-describe('ApplicationsService.listTeamManagementForProgram', () => {
-  it('교직원 권한이 없으면 APP_018 로 막고 팀 관리 목록을 읽지 않는다', async () => {
-    const findProgramById = jest.fn();
-    const listTeamManagementForProgram = jest.fn();
-    const repository = {
-      findProgramById,
-      listTeamManagementForProgram,
-    } as unknown as ApplicationsRepository;
-    const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(
-      repository,
-      noopAuditLog,
-      {
-        assertActiveStaff,
-      },
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
-
-    await expect(
-      service.listTeamManagementForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
-        ...DEFAULT_QUERY,
-        view: 'team-management',
-      }),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.STAFF_LIST_ONLY, status: 403 },
-    });
-    expect(assertActiveStaff).toHaveBeenCalledWith(
-      SESSION_GITHUB_ID,
-      expect.any(Function),
-    );
-    expect(findProgramById).not.toHaveBeenCalled();
-    expect(listTeamManagementForProgram).not.toHaveBeenCalled();
-  });
-});
+describe('ApplicationsService.listTeamManagementForProgram', () => {});
 
 describe('ApplicationsRepository.listApplicationsForProgram', () => {
   const applicationUpdatedAt = new Date('2026-07-25T01:00:00.000Z');

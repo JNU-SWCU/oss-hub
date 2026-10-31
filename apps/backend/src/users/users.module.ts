@@ -8,10 +8,7 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import {
-  IndependentAuthorityRepository,
-  UsersAuthorityRepository,
-} from './independent-authority.repository';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
@@ -19,7 +16,6 @@ import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { UserProfileService } from './user-profile.service';
-import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import {
   ConsentsRepository,
@@ -57,8 +53,6 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminProfileService,
     UsersRepository,
     UsersService,
-    UsersAuthorityRepository,
-    UsersAuthorityService,
     ConsentsService,
     ConsentsRepository,
     MemberOnboardingRepository,
@@ -67,7 +61,6 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
   ],
   exports: [
     UsersService,
-    UsersAuthorityService,
     ConsentsService,
     AdminAccessMutationService,
     AdminAccessService,

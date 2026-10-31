@@ -507,6 +507,24 @@ export function ProgramStaffTeamDetailPage({
               requestAnimationFrame(() => deleteTriggerRef.current?.focus());
             }}
             onDeleted={() => {
+              queryClient.removeQueries({
+                queryKey: programFeatureKey(
+                  programId,
+                  'teams',
+                  'staff-detail',
+                  teamId,
+                ),
+              });
+              if (applicationId !== null) {
+                queryClient.removeQueries({
+                  queryKey: programFeatureKey(
+                    programId,
+                    'teams',
+                    'application',
+                    applicationId,
+                  ),
+                });
+              }
               void load();
               router.push(teamsHref);
             }}

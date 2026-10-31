@@ -1,0 +1,240 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/v1/admin/collection/trigger",
+    "roles": ["ADMIN"],
+    "status": 403,
+    "error": "COL_004"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/applications/:id",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "APP_018"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/applications/:id",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "APP_004"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/audit-logs",
+    "roles": ["ADMIN"],
+    "status": 403,
+    "error": "AUD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/staff/insights",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "APP_018"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/dashboard/staff/summary",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "APP_018"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/file",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/history",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/grace",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/collection",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/collection/archive",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/program-authoring/cover-uploads",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/program-authoring/notice-preview",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/program-authoring/programs",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/program-authoring/upload-policy",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/program-authoring/uploads",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/program-authoring/uploads/:id",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 409,
+    "error": "Program authoring is unavailable."
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/programs",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "PRG_002"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/programs/:id",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "PRG_011"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/programs/:id/purge",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "PRG_011"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/applications",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "APP_018"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/deadline-digest/preview",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "NOT_001"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/deadline-digest/send",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "NOT_001"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/documents/change-requests",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/documents/change-requests/targets",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/documents/collection/archive",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/submissions/matrix",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "SUB_015"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/teams",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "TEAM_003"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/programs/:programId/teams/:teamId",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "TEAM_003"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/repositories/:repositoryId/publish",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "SUB_002"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/submissions/:submissionId/review-context",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "SUB_002"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/submissions/:submissionId/reviews",
+    "roles": ["STAFF", "ADMIN"],
+    "status": 403,
+    "error": "SUB_002"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/system-status",
+    "roles": ["ADMIN"],
+    "status": 403,
+    "error": "Active administrator access is required"
+  }
+]

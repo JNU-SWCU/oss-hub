@@ -38,7 +38,6 @@ const auditLogMetadataService = new AuditLogMetadataService();
 const applicationsService = new ApplicationsService(
   applications,
   audit,
-  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
   new ApplicationJoinCodeService(
     { TEAM_JOIN_CODE_SECRET: 'synthetic-url-relink-secret' },
     new JoinCodeSecretService(),
@@ -149,8 +148,7 @@ it('projects a successful relink without an original provision outbox', async ()
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    (await applicationsService.getForStaff(githubId, applicationId))
-      .application,
+    (await applicationsService.getForStaff(applicationId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,

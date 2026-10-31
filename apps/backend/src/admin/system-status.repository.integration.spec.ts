@@ -38,11 +38,11 @@ afterAll(async () => {
 });
 
 it('drops a detached organization repository from the tracked set so its missing streams stop reading as partial', async () => {
-  const before = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
+  const before = (await statusService.getStatus()).collection;
 
   await service.updateMine(githubId, programId, input);
 
-  const after = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
+  const after = (await statusService.getStatus()).collection;
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
 
   expect(after.partialStreamCount).toBe(before.partialStreamCount - 4);

@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   type TeamActivityView,
   type RepositoryUrlHistoryCursor,
@@ -30,7 +30,6 @@ import {
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import {
   ProgramTeamsRepository,
   type StaffTeamDetailRecord,
@@ -100,11 +99,6 @@ export class ProgramTeamsService {
     private readonly repository: ProgramTeamsRepository,
     private readonly auditLog: AuditLogService,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryPublishService: RepositoryPublishService,
     private readonly repositoryUrlService: RepositoryUrlService,
@@ -326,13 +320,7 @@ export class ProgramTeamsService {
     );
   }
 
-  async listForStaff(
-    githubId: bigint,
-    programId: string,
-  ): Promise<StaffTeamView[]> {
-    await this.authority.assertActiveStaff(githubId, () =>
-      this.error(TeamsErrorCode.STAFF_ONLY),
-    );
+  async listForStaff(programId: string): Promise<StaffTeamView[]> {
     const program = await this.repository.findProgramById(programId);
     if (!program) {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
@@ -342,13 +330,9 @@ export class ProgramTeamsService {
   }
 
   async getForStaff(
-    githubId: bigint,
     programId: string,
     teamId: string,
   ): Promise<StaffTeamDetailView> {
-    await this.authority.assertActiveStaff(githubId, () =>
-      this.error(TeamsErrorCode.STAFF_ONLY),
-    );
     const detail = await this.repository.findStaffTeamDetail(programId, teamId);
     if (!detail) {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);

@@ -11,8 +11,6 @@ import {
 import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -28,18 +26,13 @@ assertIsolatedIntegrationDatabase({
 });
 
 const fixture = new MilestoneDocumentFlowFixture();
-const authority = new UsersAuthorityService(
-  new UsersAuthorityRepository(fixture.prisma),
-);
 const documentReviews = new MilestoneDocumentReviewsService(
   new MilestoneDocumentsRepository(fixture.prisma),
-  authority,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyReviews = new SubmissionReviewsService(
   new SubmissionReviewsRepository(fixture.prisma),
   { publish: jest.fn() },
-  authority,
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
@@ -57,9 +50,13 @@ async function review(
   actorGithubId: bigint,
   decision: ReviewDecision,
 ): Promise<unknown> {
+  const { id: reviewerId } = await fixture.prisma.user.findUniqueOrThrow({
+    where: { githubId: actorGithubId },
+    select: { id: true },
+  });
   if (path === 'document') {
     return documentReviews.review(
-      actorGithubId,
+      reviewerId,
       flowIds.milestone,
       flowIds.document,
       flowIds.application,
@@ -89,7 +86,7 @@ async function review(
       },
       select: { id: true },
     });
-  return legacyReviews.review(actorGithubId, submission.id, {
+  return legacyReviews.review(reviewerId, submission.id, {
     revision: 1,
     decision,
     comment: '합성 검토 사유',

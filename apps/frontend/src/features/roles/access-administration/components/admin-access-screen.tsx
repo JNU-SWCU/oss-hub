@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { ApiError } from '@/lib/api-client';
 
@@ -18,8 +18,7 @@ import {
 import {
   buildAdminAccessSearchParams,
   buildApplicantQueueSearchParams,
-  parseAdminAccessSearchParams,
-  parseApplicantQueueSearchParams,
+  useAdminAccessUrlState,
 } from '../admin-access-url-state';
 import { adminAccessMutationDialogCopy } from './admin-access-detail-mutation';
 import type { AdminAccessInlineActions } from './admin-access-inline-actions';
@@ -40,19 +39,11 @@ export function AdminAccessScreen({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { state, listSearch } = useAdminAccessUrlState(workspace);
   const isQueue = workspace === 'queue';
   const defaults = isQueue
     ? APPLICANT_QUEUE_DEFAULT_FILTER_STATE
     : ADMIN_ACCESS_DEFAULT_FILTER_STATE;
-
-  const state = useMemo(
-    () =>
-      isQueue
-        ? parseApplicantQueueSearchParams(searchParams)
-        : parseAdminAccessSearchParams(searchParams),
-    [isQueue, searchParams],
-  );
 
   const query = useAdminAccessListQuery(workspace, state);
   const items = query.data?.items ?? [];
@@ -70,8 +61,6 @@ export function AdminAccessScreen({
       setQueryInput(state.query);
     }
   }, [state.query]);
-
-  const listSearch = searchParams.toString();
 
   const navigate = useCallback(
     (next: AdminAccessListFilterState) => {

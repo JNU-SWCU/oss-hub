@@ -14,7 +14,6 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsController } from './applications.controller';
 import type {
   ApplicationsRepository,
@@ -42,7 +41,10 @@ import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { StaffInsightsQueryService } from '../staff/staff-insights-query.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -510,16 +512,9 @@ const applicationsRepository = {
   findRepositoryProvisionEvent,
   withTransaction,
 } as unknown as ApplicationsRepository;
-const findActorByGithubId = jest.fn((githubId: bigint) =>
-  Promise.resolve(
-    actors.find((actor) => actor.githubId === githubId)?.row ?? null,
-  ),
-);
-const authority = new UsersAuthorityService({ findActorByGithubId });
 const applicationsService = new ApplicationsService(
   applicationsRepository,
   { record } as unknown as AuditLogService,
-  authority,
   new ApplicationJoinCodeService(
     {
       TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
@@ -552,12 +547,19 @@ const staffInsightsService = new StaffInsightsService(
     findActivityDataAsOf,
     listActivityYears,
   } as unknown as StaffInsightsRepository,
-  authority,
   new RankingYearService(),
   new StaffInsightsQueryService(),
 );
 const getMe = jest.fn((githubId: bigint) =>
-  Promise.resolve({ id: `cuid-principal-${githubId}`, sessionVersion: 0 }),
+  Promise.resolve(
+    sessionPrincipal({
+      accountStatus: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      ...actors.find((actor) => actor.githubId === githubId)?.row,
+      githubId,
+    }),
+  ),
 );
 
 let application: INestApplication | undefined;
@@ -851,7 +853,7 @@ it.each(readCases)(
 );
 
 it.each(decisionCases)(
-  '$title 의 세션·Origin·형식 검증·권한·의미 검증 순서를 고정한다',
+  '$title 의 세션·Origin·권한·형식 검증·의미 검증 순서를 고정한다',
   async ({ actor, origin, body }) => {
     const response = await send({
       method: 'PATCH',
@@ -863,20 +865,10 @@ it.each(decisionCases)(
 
     if (actor.githubId === null) {
       await expectProblem(response, deniedDecisionProblem(actor), decisionPath);
-      expect(findActorByGithubId).not.toHaveBeenCalled();
-      expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
     if (origin.header !== allowedOrigin) {
       await expectProblem(response, ORIGIN_FORBIDDEN, decisionPath);
-      expect(findActorByGithubId).not.toHaveBeenCalled();
-      expect(withTransaction).not.toHaveBeenCalled();
-      return;
-    }
-    if (body.problem?.code === 'SYS_003') {
-      await expectProblem(response, body.problem, decisionPath);
-      expect(findActorByGithubId).not.toHaveBeenCalled();
-      expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
     if (!actor.allowed) {
@@ -884,10 +876,12 @@ it.each(decisionCases)(
       expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
+    if (body.problem?.code === 'SYS_003') {
+      await expectProblem(response, body.problem, decisionPath);
+      return;
+    }
     if (body.problem !== null) {
       await expectProblem(response, body.problem, decisionPath);
-      expect(findActorByGithubId).toHaveBeenCalledWith(actor.githubId);
-      expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
 
@@ -929,13 +923,12 @@ it.each(invalidQueryCases)(
 
     await expectProblem(
       response,
-      actor.githubId !== null
+      actor.allowed
         ? validationProblem(route.detail)
         : deniedReadProblem(actor),
       route.instance,
     );
     expect(route.notReached).not.toHaveBeenCalled();
-    expect(findActorByGithubId).not.toHaveBeenCalled();
   },
 );
 

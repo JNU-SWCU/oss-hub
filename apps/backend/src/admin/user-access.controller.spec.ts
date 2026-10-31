@@ -24,8 +24,11 @@ import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 describe('admin-access.controller', () => {
-  const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
+  const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId' | 'principal'> = {
     sessionGithubId: 9_131_400_001n,
+    principal: {
+      githubId: 9_131_400_001n,
+    } as AuthenticatedRequest['principal'],
   };
 
   describe('UserAccessController routes', () => {
@@ -87,7 +90,7 @@ describe('admin-access.controller', () => {
 
         await controller.list(REQUEST, query);
 
-        expect(service.list).toHaveBeenCalledWith(REQUEST.sessionGithubId, {
+        expect(service.list).toHaveBeenCalledWith(REQUEST.principal, {
           query: '',
           page: 1,
           limit: 20,
@@ -281,7 +284,12 @@ describe('admin-access.controller', () => {
 });
 
 describe('independent-authority.controller', () => {
-  const request = { sessionGithubId: 9_700_300_001n };
+  const request = {
+    sessionGithubId: 9_700_300_001n,
+    principal: {
+      githubId: 9_700_300_001n,
+    } as AuthenticatedRequest['principal'],
+  };
 
   it.each([['patchAdminAccess', ':id/admin-access']] as const)(
     '%s owns its PATCH route and write guards',
