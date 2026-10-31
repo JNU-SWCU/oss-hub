@@ -1,5 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPath, type ProblemDetail } from '@/lib/api-client';
 import type {
@@ -105,11 +107,14 @@ function props(): CapturedViewProps {
 describe('SystemStatusScreen', () => {
   let container: HTMLDivElement;
   let root: Root;
+  let queryClient: ReturnType<typeof createTestQueryClient>;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    queryClient = createTestQueryClient();
+    notifyManager.setScheduler(queueMicrotask);
     captured.props = null;
     api.fetchSystemStatus.mockReset().mockResolvedValue(statusData(baseStatus));
     api.triggerCollection.mockReset();
@@ -117,12 +122,18 @@ describe('SystemStatusScreen', () => {
 
   afterEach(async () => {
     await act(async () => root.unmount());
+    queryClient.clear();
+    notifyManager.setScheduler((callback) => setTimeout(callback, 0));
     container.remove();
   });
 
   async function renderScreen(): Promise<void> {
     await act(async () => {
-      root.render(<SystemStatusScreen />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <SystemStatusScreen />
+        </QueryClientProvider>,
+      );
     });
   }
 

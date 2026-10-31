@@ -3,9 +3,20 @@
 import { skipToken, useQuery, type QueryClient } from '@tanstack/react-query';
 import { programFeatureKey, programKey } from '@/lib/query-keys';
 import { getMyApplication } from '../applications/student-application-api';
-import { getProgramDetail, getPublicProgramDetail } from './api';
+import {
+  getProgramActivity,
+  getProgramDetail,
+  getPublicProgramDetail,
+} from './api';
 import { getProgramNavigationMilestones } from './program-navigation-api';
 import { getProgramOverview } from './program-overview-api';
+
+export function useProgramActivityQuery(programId: string) {
+  return useQuery({
+    queryKey: programFeatureKey(programId, 'activity'),
+    queryFn: () => getProgramActivity(programId),
+  });
+}
 
 export function useProgramDetailQuery(
   programId: string | null,
