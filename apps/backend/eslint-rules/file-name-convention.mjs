@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-export const rootSuffixes = [
+const rootSuffixes = [
   '.module',
   '.controller',
   '.service',
@@ -13,7 +13,7 @@ export const rootSuffixes = [
   '.types',
   '.config',
 ];
-export const dtoSuffixes = ['-request.dto.ts', '-response.dto.ts'];
+const dtoSuffixes = ['-request.dto.ts', '-response.dto.ts'];
 
 const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
