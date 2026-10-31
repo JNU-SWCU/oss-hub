@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { Module } from '@nestjs/common';
 import { HttpSecurityModule } from '../platform/http-security.module';
 import { UsersModule } from '../users/users.module';
@@ -12,6 +13,7 @@ import { AuthController } from './auth.controller';
   imports: [HttpSecurityModule, UsersModule],
   controllers: [AuthController, LoginHistoryController],
   providers: [
+    AuthFlowService,
     AuthService,
     AuthRepository,
     LoginHistoryRepository,

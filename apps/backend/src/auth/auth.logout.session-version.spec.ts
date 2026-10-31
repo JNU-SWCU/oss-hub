@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { randomBytes } from 'node:crypto';
 import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
@@ -92,12 +93,14 @@ function statefulAuthService(revocationFailure?: Error): {
 
 function controllerWith(authService: AuthService): AuthController {
   return new AuthController(
-    authService,
-    config(),
-    {
-      recordLogout: jest.fn(),
-    } as unknown as LoginHistoryService,
-    new AuthSessionService(),
+    new AuthFlowService(
+      authService,
+      config(),
+      {
+        recordLogout: jest.fn(),
+      } as unknown as LoginHistoryService,
+      new AuthSessionService(),
+    ),
   );
 }
 

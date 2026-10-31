@@ -1,3 +1,5 @@
+import { RankingYearService } from '../src/ranking/ranking-year.service';
+import { AuthFlowService } from '../src/auth/auth-flow.service';
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -145,6 +147,7 @@ export class AuthRouteStatusHarness {
         RankingController,
       ],
       providers: [
+        AuthFlowService,
         ...STATELESS_PROVIDERS,
         AuthenticationGuard,
         OriginGuard,
@@ -173,19 +176,25 @@ export class AuthRouteStatusHarness {
         },
         {
           provide: RankingService,
-          useValue: {
-            findPage: jest.fn().mockResolvedValue({
-              year: 'all',
-              items: [],
-              page: 1,
-              pageSize: 20,
-              total: 0,
-              dataAsOf: null,
-              viewerClass: 'public',
-              nextCycleAt: null,
-            }),
-            listYears: jest.fn().mockResolvedValue([]),
-          },
+          useValue: Object.assign(
+            Object.create(RankingService.prototype) as object,
+            {
+              rankingYearService: new RankingYearService(),
+              ...{
+                findPage: jest.fn().mockResolvedValue({
+                  year: 'all',
+                  items: [],
+                  page: 1,
+                  pageSize: 20,
+                  total: 0,
+                  dataAsOf: null,
+                  viewerClass: 'public',
+                  nextCycleAt: null,
+                }),
+                listYears: jest.fn().mockResolvedValue([]),
+              },
+            },
+          ),
         },
         { provide: ProgramCreationService, useValue: { create: jest.fn() } },
         { provide: ProgramCoverService, useValue: { read: jest.fn() } },

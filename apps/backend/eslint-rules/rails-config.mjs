@@ -863,9 +863,24 @@ export async function createRailsConfig(rootDir) {
       rules: { 'architecture/config-exports': 'error' },
     },
     {
-      files: ['src/**/*.service.ts'],
+      files: [
+        'src/**/*.service.ts',
+        'src/**/*.client.ts',
+        'src/**/*.guard.ts',
+        'src/**/*.interceptor.ts',
+      ],
       ignores: testFiles,
       rules: { 'architecture/service-exports': 'error' },
+    },
+    {
+      files: [
+        'src/**/*.service.ts',
+        'src/**/*.repository.ts',
+        'src/**/*.client.ts',
+        'src/**/*.guard.ts',
+        'src/**/*.interceptor.ts',
+      ],
+      rules: { 'architecture/injectable-role-class': 'error' },
     },
     {
       files: ['src/**/dto/*-request.dto.ts'],

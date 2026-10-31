@@ -806,6 +806,50 @@ invalid(
   ['method'],
 );
 
+for (const [name, filename, code, errors] of [
+  [
+    'a client without @Injectable',
+    'src/programs/rule-case.client.ts',
+    'export class ThingClient { read() { return 1; } }',
+    ['notInjectable'],
+  ],
+  [
+    'a guard without @Injectable',
+    'src/programs/rule-case.guard.ts',
+    'export class ThingGuard { canActivate() { return true; } }',
+    ['notInjectable'],
+  ],
+  [
+    'an interceptor without @Injectable',
+    'src/programs/rule-case.interceptor.ts',
+    'export class ThingInterceptor { intercept() { return 1; } }',
+    ['notInjectable'],
+  ],
+] as const) {
+  invalid('injectable-role-class', `rejects ${name}`, filename, code, [
+    ...errors,
+  ]);
+}
+valid(
+  'injectable-role-class',
+  'allows an injectable client',
+  'src/programs/rule-case.client.ts',
+  '@Injectable() export class ThingClient { read() { return 1; } }',
+);
+for (const filename of [
+  'src/programs/rule-case.client.ts',
+  'src/programs/rule-case.guard.ts',
+  'src/programs/rule-case.interceptor.ts',
+]) {
+  invalid(
+    'service-exports',
+    `rejects an exported function in ${filename}`,
+    filename,
+    'export function helper() { return 1; }',
+    ['forbidden'],
+  );
+}
+
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];
 

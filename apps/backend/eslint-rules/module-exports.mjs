@@ -103,7 +103,7 @@ export const configExports = exportedFunctionRule(
   (name) => CONFIG_FACTORY_NAME.test(name),
 );
 
-const ROLE_CLASS_NAME = /(Service|Repository)$/;
+const ROLE_CLASS_NAME = /(Service|Repository|Client|Guard|Interceptor)$/;
 
 function isInjectableDecorator(decorator) {
   const { expression } = decorator;
@@ -150,6 +150,6 @@ export const injectableRoleClass = {
 };
 
 export const serviceExports = exportedFunctionRule(
-  '서비스 파일은 클래스와 타입만 export한다. 함수는 메서드로 옮겨 생성자 주입으로 쓴다.',
+  '역할 클래스 파일은 클래스와 타입만 export한다. 함수는 메서드로 옮겨 생성자 주입으로 쓴다.',
   () => false,
 );

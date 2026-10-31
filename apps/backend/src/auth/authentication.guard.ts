@@ -94,10 +94,6 @@ export class AuthenticationGuard implements CanActivate {
   }
 }
 
-export function assertNeverHttpAuth(auth: never): never {
-  throw new TypeError(`Unexpected HTTP authentication kind: ${String(auth)}`);
-}
-
 function attachAnonymousAuth(
   request: Request,
   hasSessionCookie: boolean,
