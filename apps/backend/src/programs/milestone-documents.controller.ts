@@ -243,7 +243,7 @@ export class MilestoneDocumentsController {
         milestoneId,
         documentId,
         applicationId,
-        body.toInput(),
+        this.reviewsService.reviewInputFromRequest(body),
       )
       .then((result) => MilestoneDocumentReviewResponseDto.from(result));
   }
