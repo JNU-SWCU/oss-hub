@@ -1,3 +1,4 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
@@ -114,6 +115,8 @@ beforeAll(async () => {
   await prisma.$connect();
   const moduleRef = await Test.createTestingModule({
     providers: [
+      ...STATELESS_PROVIDERS,
+      ProgramCoverRepository,
       ProgramAuthoringService,
       ProgramAuthoringRepository,
       AuditLogMetadataService,

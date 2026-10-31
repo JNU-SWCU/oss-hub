@@ -1,3 +1,4 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -47,6 +48,8 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      ProgramCoverRepository,
       ProgramCoverService,
       { provide: ProgramCoverRepository, useValue: publicCovers },
       { provide: OBJECT_STORAGE, useValue: { get } },

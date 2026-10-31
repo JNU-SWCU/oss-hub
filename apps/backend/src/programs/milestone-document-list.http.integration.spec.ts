@@ -1,3 +1,4 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -68,6 +69,7 @@ describe('authenticated milestone document list filename contract', () => {
     const module = await Test.createTestingModule({
       controllers: [MilestoneDocumentsController],
       providers: [
+        ...STATELESS_PROVIDERS,
         { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,

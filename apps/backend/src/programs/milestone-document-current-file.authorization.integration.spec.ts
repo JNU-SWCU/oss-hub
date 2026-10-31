@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
@@ -369,6 +371,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
       providers: [
+        ...STATELESS_PROVIDERS,
+        SubmissionsRepository,
         SubmissionFilesService,
         SubmissionFilesRepository,
         ProgramRulesService,
