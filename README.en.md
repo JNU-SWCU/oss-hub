@@ -226,6 +226,5 @@ Before contributing, read the [onboarding guide](#getting-started-locally), [PR 
 | Writing and reviewing PRs                         | [PR scope and submission rules](skills/submit-pr-evidence/SKILL.md)     |
 | Public repository safety and data protection      | [Public safety checks](scripts/check-public-safe.sh)                    |
 | Pre-deployment checks                             | [Deployment verification](.github/workflows/ci.yml) |
-| Post-deployment operations tasks                  | [Ranking snapshot backfill](docs/operations/ranking-snapshot-backfill.en.md) |
 
 See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.
