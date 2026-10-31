@@ -42,6 +42,21 @@ afterEach(() => {
 });
 
 describe('listTeamManagementApplications', () => {
+  it.each(['', ' \t '])('빈 검색어 %j는 요청에서 생략한다', async (search) => {
+    await listTeamManagementApplications('program-1', {
+      page: 1,
+      pageSize: 20,
+      search,
+      status: 'SUBMITTED',
+    });
+
+    expect(
+      new URL(lastRequest().url, 'https://example.test').searchParams.has(
+        'search',
+      ),
+    ).toBe(false);
+  });
+
   it('같은 endpoint 에 view=team-management 를 붙여 lean projection 을 고른다', async () => {
     await listTeamManagementApplications('program 1', {
       page: 2,
@@ -55,6 +70,9 @@ describe('listTeamManagementApplications', () => {
     expect(url).toContain('view=team-management');
     expect(url).toContain('page=2');
     expect(url).toContain('status=SUBMITTED');
+    expect(
+      new URL(url, 'https://example.test').searchParams.get('search'),
+    ).toBe('가나다');
 
     expect(url).not.toContain('가나다');
   });

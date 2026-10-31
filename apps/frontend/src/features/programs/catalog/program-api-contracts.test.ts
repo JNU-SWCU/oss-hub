@@ -27,6 +27,17 @@ describe('listPrograms', () => {
     vi.mocked(apiClient).mockReset();
   });
 
+  it.each(['', ' \t '])('빈 검색어 %j는 요청에서 생략한다', async (search) => {
+    vi.mocked(apiClient).mockResolvedValue({ items: [] });
+
+    await listPrograms({ page: 1, pageSize: 20, search, status: 'current' });
+
+    const path = vi.mocked(apiClient).mock.calls[0]?.[0];
+    expect(
+      new URL(String(path), 'https://example.test').searchParams.has('search'),
+    ).toBe(false);
+  });
+
   it('sends search, status, and pagination through the public list query', async () => {
     const response = {
       items: [],
