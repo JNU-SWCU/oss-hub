@@ -1,7 +1,7 @@
 'use client';
 
 import { Download, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { PageBody } from '@/components/page-body';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,10 @@ import { downloadBlob } from '@/lib/download-blob';
 import { cn } from '@/lib/utils';
 import { ProgramDocumentArchiveOptions } from './program-document-archive-options';
 import { ApiError } from '@/lib/api-client';
-import { getProgramDetail } from '../catalog/api';
-import { listStaffProgramTeams } from '../teams/api';
+import {
+  useProgramDocumentArchiveQuery,
+  useProgramDocumentTeamsQuery,
+} from './queries';
 import { downloadProgramDocumentArchive } from './program-document-archive-api';
 import type {
   ProgramDocumentArchiveGrouping,
@@ -38,8 +40,21 @@ export function ProgramDocumentArchivePanel({
   readonly embedded?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [retry, setRetry] = useState(0);
+  const programQuery = useProgramDocumentArchiveQuery(programId, open);
+  const teamsQuery = useProgramDocumentTeamsQuery(programId, open);
+  const cause = programQuery.error ?? teamsQuery.error;
+  const loadState: LoadState =
+    cause !== null
+      ? {
+          kind: 'error',
+          message:
+            cause instanceof ApiError
+              ? cause.problem.detail
+              : '다운로드 범위를 불러오지 못했습니다.',
+        }
+      : programQuery.data === undefined || teamsQuery.data === undefined
+        ? { kind: 'loading' }
+        : { kind: 'ready', program: programQuery.data, teams: teamsQuery.data };
   const [kind, setKind] = useState<ProgramDocumentArchiveScope['kind']>(
     initialMilestoneId ? 'MILESTONE' : 'PROGRAM',
   );
@@ -50,32 +65,6 @@ export function ProgramDocumentArchivePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    let active = true;
-    setLoadState({ kind: 'loading' });
-    void Promise.all([
-      getProgramDetail(programId),
-      listStaffProgramTeams(programId),
-    ])
-      .then(([program, teams]) => {
-        if (active) setLoadState({ kind: 'ready', program, teams });
-      })
-      .catch((cause: unknown) => {
-        if (active)
-          setLoadState({
-            kind: 'error',
-            message:
-              cause instanceof ApiError
-                ? cause.problem.detail
-                : '다운로드 범위를 불러오지 못했습니다.',
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [programId, open, retry]);
 
   const selectedMilestone =
     loadState.kind === 'ready'
@@ -176,7 +165,10 @@ export function ProgramDocumentArchivePanel({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setRetry(retry + 1)}
+                  onClick={() => {
+                    void programQuery.refetch();
+                    void teamsQuery.refetch();
+                  }}
                 >
                   다시 시도
                 </Button>

@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -63,7 +63,7 @@ function staffAccessRequest(
 
 describe('useSessionRole — 반려 사유 불변식', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -143,6 +143,48 @@ describe('useSessionRole — 반려 사유 불변식', () => {
 
     expect(state.staffAccessRequestStatus).toBe(null);
     expect(state.staffAccessRequestRejectionReason).toBe(null);
+  });
+
+  it('같은 사용자의 역할 조회를 여러 소비자가 한 요청으로 공유한다', async () => {
+    mocks.fetchMyStaffAccessRequest.mockResolvedValue(staffAccessRequest());
+    const received: SessionRoleResult[] = [];
+    function Probe() {
+      received.push(useSessionRole());
+      return null;
+    }
+
+    await act(async () =>
+      root.render(
+        <>
+          <Probe />
+          <Probe />
+        </>,
+      ),
+    );
+
+    expect(received.at(-1)?.staffAccessRequestStatus).toBe('PENDING');
+    expect(mocks.fetchMyStaffAccessRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchMyRoleSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it('역할 조회 실패 후 재시도로 두 조회를 복구한다', async () => {
+    mocks.fetchMyStaffAccessRequest
+      .mockRejectedValueOnce(new TypeError('network closed'))
+      .mockResolvedValueOnce(staffAccessRequest());
+    const received: SessionRoleResult[] = [];
+    function Probe() {
+      const role = useSessionRole();
+      received.push(role);
+      return <input type="button" onClick={role.retry} />;
+    }
+    await act(async () => root.render(<Probe />));
+    expect(received.at(-1)?.status).toBe('error');
+
+    await act(async () => container.querySelector('input')?.click());
+
+    expect(received.at(-1)?.staffAccessRequestStatus).toBe('PENDING');
+    expect(mocks.fetchMyStaffAccessRequest).toHaveBeenCalledTimes(2);
+    expect(mocks.fetchMyRoleSelection).toHaveBeenCalledTimes(2);
   });
 
   it('같은 탭에서 인증 주체가 바뀌면 이전 사용자의 역할 요청을 한 프레임도 재사용하지 않는다', async () => {

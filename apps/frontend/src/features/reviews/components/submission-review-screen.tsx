@@ -28,20 +28,30 @@ function ReviewSkeleton() {
 }
 
 export function SubmissionReviewScreen({
+  programId,
   submissionId,
 }: {
+  readonly programId: string;
   readonly submissionId: string;
 }) {
-  return <ReviewSessionScreen key={submissionId} submissionId={submissionId} />;
+  return (
+    <ReviewSessionScreen
+      key={submissionId}
+      programId={programId}
+      submissionId={submissionId}
+    />
+  );
 }
 
 function ReviewSessionScreen({
+  programId,
   submissionId,
 }: {
+  readonly programId: string;
   readonly submissionId: string;
 }) {
   const router = useRouter();
-  const review = useReviewSession(submissionId);
+  const review = useReviewSession(programId, submissionId);
   if (!review.context) {
     if (!review.loadError) return <ReviewSkeleton />;
     return (

@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
-import {
-  createResubmission,
-  getSubmissionChecklist,
-  uploadSubmissionFile,
-} from './api';
+import { useQueryClient } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../programs/catalog/queries';
+import { useSubmissionChecklistQuery } from './queries';
+import { createResubmission, uploadSubmissionFile } from './api';
 import {
   applyResubmission,
   isRevisionNeeded,
@@ -69,7 +69,22 @@ export function SubmissionChecklistPage({
   readonly onCloseSelected?: () => void;
   readonly onSelectMilestone?: (milestoneId: string) => void;
 }) {
-  const [state, setState] = useState<ChecklistPageState>({ kind: 'loading' });
+  const queryClient = useQueryClient();
+  const result = useSubmissionChecklistQuery(programId);
+  const state: ChecklistPageState =
+    result.data !== undefined
+      ? { kind: 'ready', data: result.data }
+      : result.isError
+        ? isParticipationRequired(result.error)
+          ? { kind: 'not-participant' }
+          : {
+              kind: 'failed',
+              message:
+                result.error instanceof ApiError
+                  ? result.error.problem.detail
+                  : '체크리스트를 불러오지 못했습니다.',
+            }
+        : { kind: 'loading' };
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
   const [comment, setComment] = useState('');
   const [errors, setErrors] = useState<SubmissionFormErrors>({});
@@ -94,18 +109,15 @@ export function SubmissionChecklistPage({
   }, []);
 
   const refresh = useCallback(async () => {
-    try {
-      const data = await getSubmissionChecklist(programId);
-      setState({ kind: 'ready', data });
-      setRefreshError(null);
-    } catch (error: unknown) {
-      setRefreshError(
-        error instanceof ApiError
-          ? error.problem.detail
-          : '최신 제출 상태를 불러오지 못했습니다.',
-      );
-    }
-  }, [programId]);
+    const next = await result.refetch();
+    setRefreshError(
+      next.isError
+        ? next.error instanceof ApiError
+          ? next.error.problem.detail
+          : '최신 제출 상태를 불러오지 못했습니다.'
+        : null,
+    );
+  }, [result.refetch]);
 
   const triggerRefresh = useCallback(() => {
     void refresh();
@@ -119,32 +131,7 @@ export function SubmissionChecklistPage({
     resubmitting: submitting,
   });
 
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
-    setRefreshError(null);
-    try {
-      setState({
-        kind: 'ready',
-        data: await getSubmissionChecklist(programId),
-      });
-    } catch (error: unknown) {
-      if (isParticipationRequired(error)) {
-        setState({ kind: 'not-participant' });
-        return;
-      }
-      setState({
-        kind: 'failed',
-        message:
-          error instanceof ApiError
-            ? error.problem.detail
-            : '체크리스트를 불러오지 못했습니다.',
-      });
-    }
-  }, [programId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = result.refetch;
 
   useEffect(() => {
     setInput(EMPTY_INPUT);
@@ -205,15 +192,16 @@ export function SubmissionChecklistPage({
         );
         return;
       }
-      setState({
-        kind: 'ready',
-        data: applyResubmission(
+      queryClient.setQueryData(
+        programFeatureKey(programId, 'submissions', 'checklist'),
+        applyResubmission(
           checklist,
           item.milestoneId,
           result,
           now ?? new Date(),
         ),
-      });
+      );
+      void invalidateProgram(queryClient, programId);
       setStaleNotice(null);
       setFileError(null);
       uploadedFile.current.discard();

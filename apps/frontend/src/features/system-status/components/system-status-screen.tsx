@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { fetchSystemStatus, triggerCollection } from '../api';
+import { triggerCollection } from '../api';
+import { useSystemStatusQuery } from '../queries';
 import type { SystemStatusViewState, TriggerNotice } from '../types';
 import { SystemStatusView } from './system-status-view';
 
@@ -12,10 +13,22 @@ const GENERIC_TRIGGER_ERROR_MESSAGE =
   '수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 export function SystemStatusScreen() {
-  const [state, setState] = useState<SystemStatusViewState>({
-    kind: 'loading',
-  });
-  const requestSequence = useRef(0);
+  const query = useSystemStatusQuery();
+  const { refetch } = query;
+  const state: SystemStatusViewState =
+    query.data !== undefined
+      ? {
+          kind: 'success',
+          freshness: query.isFetching
+            ? 'refreshing'
+            : query.isError
+              ? 'stale'
+              : 'current',
+          ...query.data,
+        }
+      : query.isError
+        ? { kind: 'error' }
+        : { kind: 'loading' };
   const triggerInFlight = useRef(false);
   const mounted = useRef(false);
   const [isTriggering, setIsTriggering] = useState(false);
@@ -23,35 +36,12 @@ export function SystemStatusScreen() {
     null,
   );
 
-  const refresh = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    setState((previous) =>
-      previous.kind === 'success'
-        ? { ...previous, freshness: 'refreshing' }
-        : { kind: 'loading' },
-    );
-    try {
-      const data = await fetchSystemStatus();
-      if (!mounted.current || sequence !== requestSequence.current) return;
-      setState({ kind: 'success', freshness: 'current', ...data });
-    } catch {
-      if (!mounted.current || sequence !== requestSequence.current) return;
-      setState((previous) =>
-        previous.kind === 'success'
-          ? { ...previous, freshness: 'stale' }
-          : { kind: 'error' },
-      );
-    }
-  }, []);
-
   useEffect(() => {
     mounted.current = true;
-    void refresh();
     return () => {
       mounted.current = false;
-      requestSequence.current += 1;
     };
-  }, [refresh]);
+  }, []);
 
   const handleTrigger = useCallback(async () => {
     if (triggerInFlight.current) return;
@@ -65,7 +55,7 @@ export function SystemStatusScreen() {
         kind: 'success',
         message: '수집 요청을 접수했습니다.',
       });
-      await refresh();
+      await refetch();
     } catch (error: unknown) {
       if (!mounted.current) return;
       const message =
@@ -77,12 +67,12 @@ export function SystemStatusScreen() {
       triggerInFlight.current = false;
       if (mounted.current) setIsTriggering(false);
     }
-  }, [refresh]);
+  }, [refetch]);
 
   return (
     <SystemStatusView
       state={state}
-      onRetry={() => void refresh()}
+      onRetry={() => void refetch()}
       onTrigger={() => void handleTrigger()}
       isTriggering={isTriggering}
       triggerNotice={triggerNotice}

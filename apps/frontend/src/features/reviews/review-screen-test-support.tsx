@@ -1,6 +1,10 @@
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { notifyManager } from '@tanstack/react-query';
 import { expect } from 'vitest';
+import {
+  createTestQueryClient,
+  renderWithQuery,
+} from '../../../test-support/render-with-query';
 
 import { SubmissionReviewScreen } from './components/submission-review-screen';
 import type { ReviewContext } from './types';
@@ -45,41 +49,53 @@ export function deferred<T>() {
 }
 
 export function reviewScreen() {
-  const container = document.createElement('div');
-  document.body.append(container);
-  const root = createRoot(container);
+  const queryClient = createTestQueryClient();
+  let view: Awaited<ReturnType<typeof renderWithQuery>> | undefined;
+  const container = () => {
+    if (!view) throw new Error('review screen not rendered');
+    return view.container;
+  };
   return {
-    container,
-    render: (submissionId = 'submission-synthetic') =>
-      act(() => {
-        root.render(<SubmissionReviewScreen submissionId={submissionId} />);
-        return Promise.resolve();
-      }),
+    get container() {
+      return container();
+    },
+    queryClient,
+    render: async (submissionId = 'submission-synthetic') => {
+      notifyManager.setScheduler(queueMicrotask);
+      const screen = (
+        <SubmissionReviewScreen
+          programId="program-synthetic"
+          submissionId={submissionId}
+        />
+      );
+      if (view) await view.rerender(screen);
+      else view = await renderWithQuery(screen, { queryClient });
+    },
     cleanup: async () => {
-      await act(() => Promise.resolve(root.unmount()));
-      container.remove();
+      await view?.unmount();
+      notifyManager.setScheduler((callback) => setTimeout(callback, 0));
     },
     button: (text: string) => {
-      const button = [...container.querySelectorAll('button')].find(
+      const button = [...container().querySelectorAll('button')].find(
         (item) => item.textContent === text,
       );
       if (!button) throw new Error(`button missing: ${text}`);
       return button;
     },
     radio: (value = 'APPROVED') => {
-      const input = container.querySelector<HTMLInputElement>(
+      const input = container().querySelector<HTMLInputElement>(
         `input[value="${value}"]`,
       );
       if (!input) throw new Error(`radio missing: ${value}`);
       return input;
     },
     comment: () => {
-      const textarea = container.querySelector('textarea');
+      const textarea = container().querySelector('textarea');
       if (!textarea) throw new Error('comment missing');
       return textarea;
     },
     writeComment: async (value: string) => {
-      const textarea = container.querySelector('textarea');
+      const textarea = container().querySelector('textarea');
       expect(textarea).not.toBeNull();
       await act(() => {
         Object.getOwnPropertyDescriptor(

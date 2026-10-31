@@ -1,5 +1,22 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
+  );
+}
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from '../documents/components/milestone-row';
@@ -348,14 +365,16 @@ describe('ProgramDetailPage states', () => {
 
   it('승인된 학생에게 마일스톤 목록을 그린다', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState
-        renderSignInApply={stubSignInApply}
-        program={{
-          ...programWithoutMilestones,
-          viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
-          milestones: [milestone],
-        }}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
+          program={{
+            ...programWithoutMilestones,
+            viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+            milestones: [milestone],
+          }}
+        />
+      </QueryClientProvider>,
     );
 
     expect(html).toContain('id="milestones"');
@@ -365,10 +384,12 @@ describe('ProgramDetailPage states', () => {
 
   it('renders the activity anchor used by the staff dashboard direct link', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState
-        renderSignInApply={stubSignInApply}
-        program={programWithoutMilestones}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
+          program={programWithoutMilestones}
+        />
+      </QueryClientProvider>,
     );
     expect(html).toContain('id="activity"');
     expect(html).toContain('aria-label="활동 상세"');
@@ -376,10 +397,12 @@ describe('ProgramDetailPage states', () => {
 
   it('제목 줄에 모집 배지가 붙고, 주관기관·유형·신청 기간은 헤더 설명 줄에 한 번만 표시된다', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState
-        renderSignInApply={stubSignInApply}
-        program={programWithoutMilestones}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
+          program={programWithoutMilestones}
+        />
+      </QueryClientProvider>,
     );
 
     const titleSlot = html.match(
@@ -406,16 +429,18 @@ describe('ProgramDetailPage states', () => {
     '신청 기간과 구분한 운영 기간을 서울 시각으로 표시한다: $expectedEnd',
     ({ endsAt, expectedEnd }) => {
       const html = renderToStaticMarkup(
-        <ProgramDetailReadyState
-          renderSignInApply={stubSignInApply}
-          program={{
-            ...programWithoutMilestones,
-            operatingPeriod: {
-              startsAt: '2026-09-01T00:00:00.000Z',
-              endsAt,
-            },
-          }}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={{
+              ...programWithoutMilestones,
+              operatingPeriod: {
+                startsAt: '2026-09-01T00:00:00.000Z',
+                endsAt,
+              },
+            }}
+          />
+        </QueryClientProvider>,
       );
 
       expect(html).toContain('신청 기간 2026.07.01 ~ 2026.08.31');
@@ -428,13 +453,15 @@ describe('ProgramDetailPage states', () => {
     '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
       const html = renderToStaticMarkup(
-        <ProgramDetailReadyState
-          renderSignInApply={stubSignInApply}
-          program={{
-            ...programWithoutMilestones,
-            viewer: { role, applicationStatus: null },
-          }}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={{
+              ...programWithoutMilestones,
+              viewer: { role, applicationStatus: null },
+            }}
+          />
+        </QueryClientProvider>,
       );
       expect(html).toContain('data-slot="page-header-actions"');
       expect(html).toContain('href="/programs/program-1/edit"');
@@ -458,13 +485,15 @@ describe('ProgramDetailPage states', () => {
     '$role 에게는 프로그램 편집 입구를 숨긴다',
     ({ role, applicationStatus }) => {
       const html = renderToStaticMarkup(
-        <ProgramDetailReadyState
-          renderSignInApply={stubSignInApply}
-          program={{
-            ...programWithoutMilestones,
-            viewer: { role, applicationStatus },
-          }}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={{
+              ...programWithoutMilestones,
+              viewer: { role, applicationStatus },
+            }}
+          />
+        </QueryClientProvider>,
       );
 
       expect(html).not.toContain('/edit"');
@@ -546,10 +575,12 @@ describe('ProgramDetailPage states', () => {
 
     function titleSlotOf(program: ProgramDetail): string {
       const html = renderToStaticMarkup(
-        <ProgramDetailReadyState
-          renderSignInApply={stubSignInApply}
-          program={program}
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailReadyState
+            renderSignInApply={stubSignInApply}
+            program={program}
+          />
+        </QueryClientProvider>,
       );
       return (
         html.match(/<h1 data-slot="page-header-title"[^>]*>(.*?)<\/h1>/)?.[1] ??
@@ -675,7 +706,9 @@ describe('ProgramDetailPage states', () => {
 
   it('마일스톤이 없으면 빈 상태와 교직원 설정 진입을 표시한다', () => {
     const html = renderToStaticMarkup(
-      <ProgramMilestones program={programWithoutMilestones} />,
+      <QueryClientProvider client={queryClient}>
+        <ProgramMilestones program={programWithoutMilestones} />
+      </QueryClientProvider>,
     );
     expect(html).toContain('아직 등록된 마일스톤이 없습니다');
     expect(html).toContain('/programs/program-1/edit#milestones');
@@ -683,15 +716,17 @@ describe('ProgramDetailPage states', () => {
 
   it('교직원은 제출 항목이 있는 모든 마일스톤을 처음부터 펼쳐 둔다', () => {
     const html = renderToStaticMarkup(
-      <ProgramMilestones
-        program={{
-          ...programWithoutMilestones,
-          milestones: [
-            { ...milestone, id: 'milestone-1', submissionItemCount: 1 },
-            { ...milestone, id: 'milestone-2', submissionItemCount: 1 },
-          ],
-        }}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <ProgramMilestones
+          program={{
+            ...programWithoutMilestones,
+            milestones: [
+              { ...milestone, id: 'milestone-1', submissionItemCount: 1 },
+              { ...milestone, id: 'milestone-2', submissionItemCount: 1 },
+            ],
+          }}
+        />
+      </QueryClientProvider>,
     );
 
     expect((html.match(/aria-expanded="true"/g) ?? []).length).toBe(2);
@@ -811,6 +846,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('로딩 중에는 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
         closed={false}
@@ -827,6 +864,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('조회 실패 시 재시도 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
         closed={false}
@@ -844,6 +883,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('서류가 없으면 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [],
@@ -864,6 +905,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('교직원에게는 팀 제출 카운트를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [
@@ -895,6 +938,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('학생에게는 기존 양식 다운로드를 유지한다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [buildDocument({ hasTemplateFile: true })],
@@ -917,6 +962,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [
@@ -953,6 +1000,8 @@ describe('MilestoneDocumentSectionBody', () => {
   it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [buildDocument()],

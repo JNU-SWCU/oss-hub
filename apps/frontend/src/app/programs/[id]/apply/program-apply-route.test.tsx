@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPath } from '@/lib/api-client';
 import type { AuthSession } from '@/features/auth/types';
@@ -94,7 +94,7 @@ function unauthorizedSession(): ApiError {
 
 describe('ProgramApplyRoute 세션 조립', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let root: ReturnType<typeof createRoot>;
   let uncaughtErrors: unknown[];
 
   beforeEach(() => {

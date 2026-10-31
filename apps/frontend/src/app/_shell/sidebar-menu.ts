@@ -6,7 +6,7 @@ import {
   type ProgramListStatus,
 } from '@/features/programs/catalog/program-list-options';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
-import { buildProgramListHref } from '@/features/programs/catalog/program-list-sort';
+import { buildProgramListHref } from '@/features/programs/catalog/program-list-url-state';
 import {
   currentRankingYear,
   RANKING_YEAR_ALL,

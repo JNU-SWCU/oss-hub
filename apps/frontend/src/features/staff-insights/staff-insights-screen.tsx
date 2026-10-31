@@ -1,59 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useStaffInsightsUrlState } from './staff-insights-url-state';
 import { ApiError } from '@/lib/api-client';
-import { getStaffInsights } from './api';
-import { parseInsightsYearSearchParam } from './insights-year';
+import { useStaffInsightsQuery } from './queries';
 import { StaffInsightsView } from './staff-insights-view';
-import {
-  INSIGHTS_CUTS,
-  type InsightsCut,
-  type StaffInsightsSummary,
-} from './types';
-
-type LoadState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'ready'; readonly summary: StaffInsightsSummary }
-  | { readonly kind: 'error'; readonly message: string };
+import { INSIGHTS_CUTS, type InsightsCut } from './types';
 
 export function StaffInsightsScreen() {
-  const searchParams = useSearchParams();
-  const scope = useMemo(
-    () => parseInsightsYearSearchParam(searchParams.get('year')),
-    [searchParams],
-  );
+  const { state: scope } = useStaffInsightsUrlState();
   const [cut, setCut] = useState<InsightsCut>(INSIGHTS_CUTS.COHORT);
-  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [retry, setRetry] = useState(0);
+  const query = useStaffInsightsQuery(scope);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoadState({ kind: 'loading' });
-    void getStaffInsights(scope, controller.signal)
-      .then((summary) => setLoadState({ kind: 'ready', summary }))
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        setLoadState({
-          kind: 'error',
-          message: staffInsightsErrorMessage(error),
-        });
-      });
-    return () => controller.abort();
-  }, [scope, retry]);
-
-  const retryLoad = useCallback(() => setRetry((current) => current + 1), []);
-
-  if (loadState.kind === 'loading') {
+  if (query.isPending) {
     return <StaffInsightsView state={{ kind: 'loading' }} />;
   }
-  if (loadState.kind === 'error') {
+  if (query.isError) {
     return (
       <StaffInsightsView
         state={{
           kind: 'error',
-          message: loadState.message,
-          onRetry: retryLoad,
+          message: staffInsightsErrorMessage(query.error),
+          onRetry: () => void query.refetch(),
         }}
       />
     );
@@ -62,7 +30,7 @@ export function StaffInsightsScreen() {
     <StaffInsightsView
       state={{
         kind: 'ready',
-        summary: loadState.summary,
+        summary: query.data,
         cut,
         onCutChange: setCut,
       }}

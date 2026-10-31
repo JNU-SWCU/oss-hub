@@ -13,6 +13,7 @@ import {
 } from './_shell/sidebar-collapsed';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
+import { QueryProvider } from './_shell/query-provider';
 
 const pretendard = localFont({
   src: '../../node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2',
@@ -49,20 +50,22 @@ export default async function RootLayout({
   return (
     <html lang="ko" className={cn('font-sans', pretendard.variable)}>
       <body className="relative">
-        <NavigationNoticeProvider>
-          <AppFrame
-            brand={<Link href="/">OSS Hub</Link>}
-            actions={
-              <>
-                <SessionEntryNavLink />
-                <AccountSlot />
-              </>
-            }
-            initialSidebarCollapsed={initialSidebarCollapsed}
-          >
-            {children}
-          </AppFrame>
-        </NavigationNoticeProvider>
+        <QueryProvider>
+          <NavigationNoticeProvider>
+            <AppFrame
+              brand={<Link href="/">OSS Hub</Link>}
+              actions={
+                <>
+                  <SessionEntryNavLink />
+                  <AccountSlot />
+                </>
+              }
+              initialSidebarCollapsed={initialSidebarCollapsed}
+            >
+              {children}
+            </AppFrame>
+          </NavigationNoticeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

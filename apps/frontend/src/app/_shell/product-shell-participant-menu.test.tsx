@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -146,9 +158,11 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   async function renderShell() {
     await act(async () => {
       root.render(
-        <ProductShell>
-          <p>본문</p>
-        </ProductShell>,
+        <QueryClientProvider client={queryClient}>
+          <ProductShell>
+            <p>본문</p>
+          </ProductShell>
+        </QueryClientProvider>,
       );
     });
   }

@@ -1,50 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { fetchActivityTimeline } from '../api';
-import type {
-  ActivityGranularity,
-  ActivityTimeline,
-  ActivityTimelineStatus,
-} from '../types';
+import { useActivityTimelineUrlState } from '../activity-timeline-url-state';
+import { useActivityTimelineQuery } from '../queries';
 import { ActivityTimelineView } from './activity-timeline-view';
 
 export function ActivityTimelineScreen() {
-  const [granularity, setGranularity] = useState<ActivityGranularity>('MONTH');
-  const [data, setData] = useState<ActivityTimeline | null>(null);
-  const [status, setStatus] = useState<ActivityTimelineStatus>('loading');
-  const [requestKey, setRequestKey] = useState(0);
-
-  const retry = useCallback(() => setRequestKey((key) => key + 1), []);
-
-  useEffect(() => {
-    let active = true;
-    setData(null);
-    setStatus('loading');
-
-    fetchActivityTimeline(granularity)
-      .then((nextData) => {
-        if (active) {
-          setData(nextData);
-          setStatus('success');
-        }
-      })
-      .catch(() => {
-        if (active) setStatus('error');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [granularity, requestKey]);
-
+  const {
+    state: { granularity },
+    navigate,
+  } = useActivityTimelineUrlState();
+  const query = useActivityTimelineQuery(granularity);
   return (
     <ActivityTimelineView
-      data={data}
+      data={query.data ?? null}
       granularity={granularity}
-      status={status}
-      onGranularityChange={setGranularity}
-      onRetry={retry}
+      status={query.isPending ? 'loading' : query.isError ? 'error' : 'success'}
+      onGranularityChange={(next) => navigate({ granularity: next })}
+      onRetry={() => void query.refetch()}
     />
   );
 }

@@ -1,11 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useSession } from '@/features/auth/use-session';
-import {
-  fetchMyStaffAccessRequest,
-  fetchMyRoleSelection,
-} from '@/features/roles/onboarding/api';
+import { useOnboardingStatusQuery } from '@/features/roles/onboarding/queries';
 import type {
   StaffAccessRequestStatus,
   RoleSelection,
@@ -64,25 +61,8 @@ const ANONYMOUS: SessionRoleState = {
   isProfileComplete: false,
 };
 
-type OnboardingFetch =
-  | { readonly kind: 'idle' }
-  | {
-      readonly kind: 'loaded';
-
-      readonly subject: string;
-      readonly status: StaffAccessRequestStatus | null;
-
-      readonly rejectionReason: string | null;
-      readonly selectedRole: RoleSelection | null;
-    }
-  | { readonly kind: 'failed'; readonly subject: string };
-
 function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
   const session = useSession();
-  const [onboarding, setOnboarding] = useState<OnboardingFetch>({
-    kind: 'idle',
-  });
-  const [refreshGeneration, setRefreshGeneration] = useState(0);
 
   const onboardingSubject =
     enabled &&
@@ -92,50 +72,12 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
       ? session.user.nickname
       : null;
 
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    if (onboardingSubject === null) {
-      setOnboarding({ kind: 'idle' });
-      return;
-    }
-
-    let active = true;
-    Promise.all([fetchMyStaffAccessRequest(), fetchMyRoleSelection()])
-      .then(([request, selection]) => {
-        if (active) {
-          setOnboarding({
-            kind: 'loaded',
-            subject: onboardingSubject,
-            status: request?.status ?? null,
-
-            rejectionReason:
-              request?.status === 'REJECTED'
-                ? (request.rejectionReason ?? null)
-                : null,
-            selectedRole: selection.selectedRole,
-          });
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setOnboarding({ kind: 'failed', subject: onboardingSubject });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [enabled, onboardingSubject, refreshGeneration]);
-
+  const onboarding = useOnboardingStatusQuery(onboardingSubject);
+  const { refetch } = onboarding;
   const retry = useCallback(() => {
-    setOnboarding({ kind: 'idle' });
-
-    setRefreshGeneration((current) => current + 1);
+    if (onboardingSubject !== null) void refetch();
     session.retry();
-  }, [session]);
+  }, [onboardingSubject, refetch, session]);
 
   const state = useMemo<SessionRoleState>(() => {
     switch (session.status) {
@@ -163,23 +105,23 @@ function useOwnedSessionRole(enabled: boolean): SessionRoleResult {
         if (onboardingSubject === null) {
           return LOADING;
         }
-        switch (onboarding.kind) {
-          case 'idle':
+        switch (onboarding.status) {
+          case 'pending':
             return LOADING;
-          case 'failed':
-            return onboarding.subject === onboardingSubject ? ERROR : LOADING;
-          case 'loaded':
-            if (onboarding.subject !== onboardingSubject) {
-              return LOADING;
-            }
+          case 'error':
+            return ERROR;
+          case 'success':
             return {
               status: 'unassigned',
               memberKind: user.memberKind,
               hasStaffAccess: user.hasStaffAccess,
               hasAdminAccess: user.hasAdminAccess,
-              staffAccessRequestStatus: onboarding.status,
-              staffAccessRequestRejectionReason: onboarding.rejectionReason,
-              selectedRole: onboarding.selectedRole,
+              staffAccessRequestStatus: onboarding.data.request?.status ?? null,
+              staffAccessRequestRejectionReason:
+                onboarding.data.request?.status === 'REJECTED'
+                  ? (onboarding.data.request.rejectionReason ?? null)
+                  : null,
+              selectedRole: onboarding.data.selection.selectedRole,
               isProfileComplete: false,
             };
           default: {

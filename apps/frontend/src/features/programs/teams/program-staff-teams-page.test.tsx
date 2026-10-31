@@ -1,5 +1,10 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
+import {
+  listNavigation,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { ProgramStaffTeamsPage } from './program-staff-teams-page';
@@ -9,6 +14,12 @@ import type {
   TeamManagementListItem,
   TeamManagementListPage,
 } from '../applications/dto';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/programs/program-1/teams',
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -89,10 +100,9 @@ function statusSelects(): HTMLSelectElement[] {
   return [...container.querySelectorAll('select')];
 }
 
-beforeEach(() => {
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+beforeEach(async () => {
+  root = await renderWithQuery(null);
+  container = root.container;
   listTeamManagementApplicationsMock.mockResolvedValue(
     page([item('a', 'SUBMITTED')]),
   );
@@ -101,12 +111,25 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await root.unmount();
   container.remove();
   vi.clearAllMocks();
 });
 
 describe('ProgramStaffTeamsPage — 서버가 주는 순서와 페이지', () => {
+  it('주소의 검색 필터 페이지를 첫 요청부터 복원한다', async () => {
+    listNavigation.search = 'search=x&filter=APPROVED&page=2';
+    await mount();
+    expect(listTeamManagementApplicationsMock).toHaveBeenCalledExactlyOnceWith(
+      PROGRAM_ID,
+      { search: 'x', status: 'APPROVED', page: 2, pageSize: 20 },
+    );
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="팀 검색"]')
+        ?.value,
+    ).toBe('x');
+  });
+
   it('팀 상세 링크에 운영 화면 선택을 유지한다', async () => {
     await mount();
 

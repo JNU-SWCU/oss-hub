@@ -17,7 +17,10 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api-client';
-import { listStaffProgramTeams } from '../teams/api';
+import {
+  useProgramDocumentTeamsQuery,
+  useProgramDocumentChangeRequestTargetsQuery,
+} from './queries';
 import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   MILESTONE_DOCUMENT_REVIEW_ERROR_CODES,
@@ -29,7 +32,6 @@ import {
 import {
   changeRequestTargetCount,
   createProgramDocumentChangeRequest,
-  getProgramDocumentChangeRequestTargets,
 } from './program-document-change-request-api';
 import type {
   ProgramDocumentChangeRequestScope,
@@ -119,16 +121,19 @@ function ChangeRequestDialog({
 }) {
   const id = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [teams, setTeams] = useState<TeamsState>({ kind: 'loading' });
-  const [teamsReload, setTeamsReload] = useState(0);
+  const teamsQuery = useProgramDocumentTeamsQuery(programId);
+  const teams: TeamsState = teamsQuery.isError
+    ? { kind: 'error' }
+    : teamsQuery.data === undefined
+      ? { kind: 'loading' }
+      : { kind: 'ready', teams: teamsQuery.data };
   const [kind, setKind] =
     useState<ProgramDocumentChangeRequestScope['kind']>('PROGRAM');
   const [teamId, setTeamId] = useState('');
   const [includeFinalDecisions, setIncludeFinalDecisions] = useState(false);
   const [comment, setComment] = useState('');
   const [resubmissionDueAt, setResubmissionDueAt] = useState('');
-  const [targets, setTargets] = useState<TargetsState>({ kind: 'idle' });
-  const [reload, setReload] = useState(0);
+
   const [errors, setErrors] = useState<{
     readonly comment: string | null;
     readonly resubmissionDueAt: string | null;
@@ -140,49 +145,26 @@ function ChangeRequestDialog({
     kind === 'PROGRAM' ? { kind } : teamId === '' ? null : { kind, teamId };
   const sent = notice?.kind === 'sent';
 
-  useEffect(() => {
-    let active = true;
-    setTeams({ kind: 'loading' });
-    listStaffProgramTeams(programId)
-      .then((loaded) => {
-        if (active) setTeams({ kind: 'ready', teams: loaded });
-      })
-      .catch(() => {
-        if (active) setTeams({ kind: 'error' });
-      });
-    return () => {
-      active = false;
-    };
-  }, [programId, teamsReload]);
-
-  useEffect(() => {
-    if (kind === 'TEAM' && teamId === '') {
-      setTargets({ kind: 'idle' });
-      return;
-    }
-    let active = true;
-    setTargets({ kind: 'loading' });
-    getProgramDocumentChangeRequestTargets(
-      programId,
-      kind === 'PROGRAM' ? { kind } : { kind, teamId },
-    )
-      .then((loaded) => {
-        if (active) setTargets({ kind: 'ready', targets: loaded });
-      })
-      .catch((cause: unknown) => {
-        if (active)
-          setTargets({
-            kind: 'error',
-            message:
-              cause instanceof ApiError
-                ? cause.problem.detail
-                : '보낼 제출 수를 불러오지 못했습니다. 다시 시도해 주세요.',
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [programId, kind, teamId, reload]);
+  const targetsQuery = useProgramDocumentChangeRequestTargetsQuery(
+    programId,
+    scope,
+  );
+  const targets: TargetsState =
+    scope === null
+      ? { kind: 'idle' }
+      : targetsQuery.isFetching
+        ? { kind: 'loading' }
+        : targetsQuery.isError
+          ? {
+              kind: 'error',
+              message:
+                targetsQuery.error instanceof ApiError
+                  ? targetsQuery.error.problem.detail
+                  : '보낼 제출 수를 불러오지 못했습니다. 다시 시도해 주세요.',
+            }
+          : targetsQuery.data === undefined
+            ? { kind: 'loading' }
+            : { kind: 'ready', targets: targetsQuery.data };
 
   useEffect(() => {
     if (sent) closeRef.current?.focus();
@@ -252,7 +234,7 @@ function ChangeRequestDialog({
                   : '보완 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
             },
       );
-      setReload((value) => value + 1);
+      void targetsQuery.refetch();
     } finally {
       setBusy(false);
     }
@@ -375,7 +357,7 @@ function ChangeRequestDialog({
                       type="button"
                       variant="outline"
                       className="justify-self-start"
-                      onClick={() => setTeamsReload((value) => value + 1)}
+                      onClick={() => void teamsQuery.refetch()}
                     >
                       팀 목록 다시 불러오기
                     </Button>
@@ -427,7 +409,7 @@ function ChangeRequestDialog({
                 type="button"
                 variant="outline"
                 className="justify-self-start"
-                onClick={() => setReload((value) => value + 1)}
+                onClick={() => void targetsQuery.refetch()}
               >
                 다시 세기
               </Button>

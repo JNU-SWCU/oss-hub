@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
 import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
 import { classifyProfileApiError, getMyProfile } from '@/features/profile/api';
 
@@ -29,6 +31,7 @@ export function OnboardingGate({
   readonly children: ReactNode;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const session = useSessionRole();
   const { status, staffAccessRequestStatus, retry } = session;
@@ -43,7 +46,12 @@ export function OnboardingGate({
   const checkProfile = useCallback(
     (signal?: AbortSignal) => {
       setProfileStatus('checking');
-      getMyProfile(signal)
+      queryClient
+        .fetchQuery({
+          queryKey: featureKey('profile'),
+          queryFn: ({ signal: querySignal }) => getMyProfile(querySignal),
+          staleTime: 0,
+        })
         .then((profile) => {
           if (!signal?.aborted) {
             setConsentRequiredOpen(false);
@@ -69,7 +77,7 @@ export function OnboardingGate({
           }
         });
     },
-    [router],
+    [router, queryClient],
   );
 
   useEffect(() => {

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { milestoneDocumentsKey } from '@/lib/query-keys';
 import { Button } from '@/components/ui/button';
 import type { EditableMilestoneDocument } from '../authoring/dto';
 import type {
@@ -30,12 +32,15 @@ export type MilestoneDocumentEditorState =
     };
 
 export function ReadOnlyMilestoneDocuments({
+  programId,
   milestoneId,
   canonicalDocuments,
 }: {
+  readonly programId: string;
   readonly milestoneId: string;
   readonly canonicalDocuments?: readonly EditableMilestoneDocument[];
 }) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<MilestoneDocumentEditorState>({
     kind: 'loading',
   });
@@ -44,8 +49,11 @@ export function ReadOnlyMilestoneDocuments({
     const requestId = (requestIdRef.current += 1);
     setState({ kind: 'loading' });
     try {
-      const { documents, fileUpload } =
-        await listMilestoneDocuments(milestoneId);
+      const { documents, fileUpload } = await queryClient.fetchQuery({
+        queryKey: milestoneDocumentsKey(programId, milestoneId),
+        queryFn: () => listMilestoneDocuments(milestoneId),
+        staleTime: 0,
+      });
       if (requestId !== requestIdRef.current) return;
       setState({
         kind: 'ready',
@@ -57,7 +65,7 @@ export function ReadOnlyMilestoneDocuments({
     } catch {
       if (requestId === requestIdRef.current) setState({ kind: 'failed' });
     }
-  }, [milestoneId]);
+  }, [milestoneId, programId, queryClient]);
   useEffect(() => {
     if (canonicalDocuments !== undefined) {
       requestIdRef.current += 1;

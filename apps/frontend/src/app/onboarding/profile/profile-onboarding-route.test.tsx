@@ -1,4 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SessionRoleState } from '../../_shell/use-session-role';
@@ -45,7 +47,11 @@ function render(overrides: Partial<SessionRoleState> = {}) {
     ...state(overrides),
     retry: () => {},
   });
-  return renderToStaticMarkup(<ProfileOnboardingRoute />);
+  return renderToStaticMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <ProfileOnboardingRoute />
+    </QueryClientProvider>,
+  );
 }
 
 function renderRedirectDigest(overrides: Partial<SessionRoleState>) {

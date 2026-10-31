@@ -1,6 +1,21 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createTestQueryClient,
+  renderWithQuery,
+} from '../../../test-support/render-with-query';
 import { Component, act, type ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -114,7 +129,7 @@ describe('면이 없는 회원의 화면 도달', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mocks.usePathname.mockReturnValue('/dashboard');
     mocks.fetchMyRoleSelection.mockResolvedValue({ selectedRole: null });
@@ -129,16 +144,12 @@ describe('면이 없는 회원의 화면 도달', () => {
       channel: null,
       isVerified: false,
     });
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container, {
-      onCaughtError: () => {},
-      onUncaughtError: () => {},
-    });
+    root = await renderWithQuery(null);
+    container = root.container;
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await root.unmount();
     container.remove();
   });
 
@@ -165,9 +176,11 @@ describe('면이 없는 회원의 화면 도달', () => {
       );
 
       const { text } = await mount(
-        <AppFrame brand="OSS Hub">
-          <p>본문</p>
-        </AppFrame>,
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub">
+            <p>본문</p>
+          </AppFrame>
+        </QueryClientProvider>,
       );
 
       expect(text).not.toContain('대시보드');
@@ -196,9 +209,11 @@ describe('면이 없는 회원의 화면 도달', () => {
         mocks.useSession.mockReturnValue(authenticatedSession(access));
 
         const { text } = await mount(
-          <AppFrame brand="OSS Hub">
-            <p>본문</p>
-          </AppFrame>,
+          <QueryClientProvider client={queryClient}>
+            <AppFrame brand="OSS Hub">
+              <p>본문</p>
+            </AppFrame>
+          </QueryClientProvider>,
         );
 
         expect(text).toContain('대시보드');

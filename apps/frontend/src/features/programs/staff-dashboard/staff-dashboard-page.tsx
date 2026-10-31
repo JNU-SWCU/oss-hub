@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from 'react';
+import { useCallback, useMemo, type ReactElement } from 'react';
+import { useDebouncedUrlSearch } from '@/lib/list-url-state';
+import { useStaffDashboardUrlState } from './staff-dashboard-url-state';
+import { useStaffDashboardQuery } from './queries';
 import { ApiError } from '@/lib/api-client';
-import { getStaffDashboardSummary } from './api';
 import {
   buildStaffDashboardPageModel,
   type StaffDashboardPageModel,
@@ -18,7 +13,6 @@ import {
   StaffDashboardPageView,
   type StaffDashboardPageViewState,
 } from './staff-dashboard-page-view';
-import type { ProgramListStatus } from '../catalog/program-list-options';
 import type { StaffDashboardSummary } from './dto';
 
 export { StaffDashboardPageView } from './staff-dashboard-page-view';
@@ -38,34 +32,23 @@ function getStaffDashboardErrorMessage(error: unknown): string {
 }
 
 export function StaffDashboardPage(): ReactElement {
-  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ProgramListStatus>('all');
-  const [page, setPage] = useState(1);
-  const latestRequestId = useRef(0);
+  const { state: urlState, navigate } = useStaffDashboardUrlState();
+  const { search, status, page } = urlState;
+  const replaceSearch = useCallback(
+    (value: string) => navigate({ search: value, page: 1 }, 'replace'),
+    [navigate],
+  );
+  const [searchInput, setSearchInput] = useDebouncedUrlSearch(
+    search,
+    replaceSearch,
+  );
+  const query = useStaffDashboardQuery();
+  const loadState: LoadState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? { kind: 'error', message: getStaffDashboardErrorMessage(query.error) }
+      : { kind: 'ready', summary: query.data };
   const now = useMemo(() => new Date(), []);
-
-  const load = useCallback(async (): Promise<void> => {
-    const requestId = latestRequestId.current + 1;
-    latestRequestId.current = requestId;
-    setLoadState({ kind: 'loading' });
-    try {
-      const summary = await getStaffDashboardSummary();
-      if (requestId === latestRequestId.current) {
-        setLoadState({ kind: 'ready', summary });
-      }
-    } catch (error: unknown) {
-      if (requestId !== latestRequestId.current) return;
-      setLoadState({
-        kind: 'error',
-        message: getStaffDashboardErrorMessage(error),
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   if (loadState.kind === 'loading') {
     return <StaffDashboardPageView state={{ kind: 'loading' }} />;
@@ -76,7 +59,7 @@ export function StaffDashboardPage(): ReactElement {
         state={{
           kind: 'error',
           message: loadState.message,
-          onRetry: () => void load(),
+          onRetry: () => void query.refetch(),
         }}
       />
     );
@@ -92,25 +75,19 @@ export function StaffDashboardPage(): ReactElement {
   const state: StaffDashboardPageViewState = {
     kind: 'ready',
     model,
-    search,
+    search: searchInput,
     status,
     now,
     actions: {
-      onSearchChange: (value) => {
-        setSearch(value);
-        setPage(1);
-      },
-      onStatusChange: (value) => {
-        setStatus(value);
-        setPage(1);
-      },
-      onSubmit: () => setPage(1),
+      onSearchChange: setSearchInput,
+      onStatusChange: (value) => navigate({ status: value, page: 1 }),
+      onSubmit: () =>
+        navigate({ search: searchInput.trim(), page: 1 }, 'replace'),
       onResetFilters: () => {
-        setSearch('');
-        setStatus('all');
-        setPage(1);
+        setSearchInput('');
+        navigate({ search: '', status: 'all', page: 1 });
       },
-      onPageChange: setPage,
+      onPageChange: (nextPage) => navigate({ page: nextPage }),
     },
   };
   return <StaffDashboardPageView state={state} />;

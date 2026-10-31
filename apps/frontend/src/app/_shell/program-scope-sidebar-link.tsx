@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
 import type { ProgramScopeSidebarItem } from './sidebar-menu';
 import { setProgramOperationsView } from './program-operations-view';
+import { useShellMenu } from './shell-menu-context';
 import { SidebarCountSkeleton } from './sidebar-shell';
 
 function ViewSwitch({
@@ -24,6 +25,7 @@ function ViewSwitch({
   readonly href: string;
 }) {
   const router = useRouter();
+  const closeSheet = useShellMenu()?.closeSheet;
   return (
     <Button
       variant="ghost"
@@ -32,6 +34,7 @@ function ViewSwitch({
       data-view-switch
       onClick={() => {
         setProgramOperationsView(view.programId, view.operationsView);
+        closeSheet?.();
         router.push(href);
       }}
     />

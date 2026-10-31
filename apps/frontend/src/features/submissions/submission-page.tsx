@@ -1,12 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { matchQuery, useQueryClient } from '@tanstack/react-query';
+import { programKey, programFeatureKey } from '@/lib/query-keys';
+import { useSubmissionFormQuery } from './queries';
 import { ApiError } from '@/lib/api-client';
-import {
-  createSubmission,
-  getSubmissionForm,
-  uploadSubmissionFile,
-} from './api';
+import { createSubmission, uploadSubmissionFile } from './api';
 import { SubmissionFormView } from './components/submission-form-view';
 import {
   SubmissionLoadFailure,
@@ -51,7 +50,26 @@ export function SubmissionPage({
   readonly onSubmitted?: () => void;
   readonly onSubmittingChange?: (submitting: boolean) => void;
 }) {
-  const [state, setState] = useState<SubmissionPageState>({ kind: 'loading' });
+  const queryClient = useQueryClient();
+  const result = useSubmissionFormQuery(programId, milestoneId);
+  const [saved, setSaved] = useState<{
+    readonly milestoneId: string;
+    readonly submission: CreatedSubmission;
+  } | null>(null);
+  const state: SubmissionPageState =
+    saved?.milestoneId === milestoneId
+      ? { kind: 'success', submission: saved.submission }
+      : result.isError
+        ? {
+            kind: 'failed',
+            message:
+              result.error instanceof ApiError
+                ? result.error.problem.detail
+                : '제출 정보를 불러오지 못했습니다.',
+          }
+        : result.data === undefined
+          ? { kind: 'loading' }
+          : { kind: 'ready', data: result.data };
   const [input, setInput] = useState<SubmissionFormInput>(EMPTY_INPUT);
   const [comment, setComment] = useState('');
   const [errors, setErrors] = useState<SubmissionFormErrors>({});
@@ -67,35 +85,9 @@ export function SubmissionPage({
   >(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const submitInFlight = useRef(false);
-  const latestRequestId = useRef(0);
   const fileCheck = useSubmissionFileCheck(file);
 
-  const load = useCallback(async () => {
-    const requestId = latestRequestId.current + 1;
-    latestRequestId.current = requestId;
-    setState({ kind: 'loading' });
-    try {
-      const data = await getSubmissionForm(programId, milestoneId);
-      if (requestId !== latestRequestId.current) return;
-      setState({ kind: 'ready', data });
-    } catch (error: unknown) {
-      if (requestId !== latestRequestId.current) return;
-      setState({
-        kind: 'failed',
-        message:
-          error instanceof ApiError
-            ? error.problem.detail
-            : '제출 정보를 불러오지 못했습니다.',
-      });
-    }
-  }, [milestoneId, programId]);
-
-  useEffect(() => {
-    void load();
-    return () => {
-      latestRequestId.current += 1;
-    };
-  }, [load]);
+  const load = result.refetch;
 
   const submit = async (data: SubmissionFormData) => {
     if (submitInFlight.current) return;
@@ -144,7 +136,21 @@ export function SubmissionPage({
         content,
         comment,
       });
-      setState({ kind: 'success', submission });
+      setSaved({ milestoneId, submission });
+      const checklistKey = programFeatureKey(
+        programId,
+        'submissions',
+        'checklist',
+      );
+      void queryClient.invalidateQueries({
+        queryKey: checklistKey,
+        refetchType: 'none',
+      });
+      void queryClient.invalidateQueries({
+        queryKey: programKey(programId),
+        predicate: (query) =>
+          !matchQuery({ queryKey: checklistKey, exact: true }, query),
+      });
       onSubmitted?.();
     } catch (error: unknown) {
       if (

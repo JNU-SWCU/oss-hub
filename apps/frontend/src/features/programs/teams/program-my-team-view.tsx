@@ -249,14 +249,6 @@ export function ProgramMyTeamView({
 
       {application !== null && stage === 'approved' ? (
         <TeamRepositoryPanel
-          key={[
-            sessionNickname,
-            team.isLeader,
-            application.id,
-            application.status,
-            program.operatingPeriod?.endsAt,
-            team.members.map((member) => member.userId).join(','),
-          ].join('|')}
           programId={programId}
           teamId={team.id}
           activityTitle="우리 팀 활동"

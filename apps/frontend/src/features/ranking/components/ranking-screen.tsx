@@ -1,13 +1,8 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useRankingUrlState } from '../ranking-url-state';
+import { useRankingQuery } from '../queries';
 import { getRanking } from '../api';
 import {
   buildRankingCsv,
@@ -15,7 +10,7 @@ import {
   RANKING_CSV_PAGE_SIZE,
   rankingCsvFilename,
 } from '../csv';
-import { RANKING_VIEWER_CLASSES, parseRankingYearSearchParam } from '../types';
+import { RANKING_VIEWER_CLASSES } from '../types';
 import { RankingView, type RankingViewState } from './ranking-view';
 
 const PAGE_SIZE = 100;
@@ -27,43 +22,24 @@ interface RankingScreenProps {
 }
 
 export function RankingScreen({ onNextCycleAt, filters }: RankingScreenProps) {
-  const searchParams = useSearchParams();
-  const year = useMemo(
-    () => parseRankingYearSearchParam(searchParams.get('year')),
-    [searchParams],
-  );
-  const [page, setPage] = useState(1);
-  const [state, setState] = useState<RankingViewState>({ kind: 'loading' });
-  const [retry, setRetry] = useState(0);
+  const {
+    state: { year, page },
+    navigate,
+  } = useRankingUrlState();
+  const query = useRankingQuery(year, page, PAGE_SIZE);
+  const state: RankingViewState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? { kind: 'error' }
+      : { kind: 'ready', ranking: query.data };
   const [exportStatus, setExportStatus] = useState<
     'idle' | 'preparing' | 'error'
   >('idle');
 
   useEffect(() => {
-    setPage(1);
-  }, [year]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setState({ kind: 'loading' });
-    void getRanking(year, page, PAGE_SIZE, controller.signal)
-      .then((ranking) => {
-        setState({ kind: 'ready', ranking });
-        onNextCycleAt(ranking.nextCycleAt);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setState({ kind: 'error' });
-          onNextCycleAt(null);
-        }
-      });
-    return () => {
-      controller.abort();
-      onNextCycleAt(null);
-    };
-  }, [page, year, retry, onNextCycleAt]);
-
-  const retryLoad = useCallback(() => setRetry((current) => current + 1), []);
+    onNextCycleAt(query.data?.nextCycleAt ?? null);
+    return () => onNextCycleAt(null);
+  }, [query.data, onNextCycleAt]);
 
   const exportCsv = useCallback(() => {
     if (exportStatus === 'preparing') return;
@@ -113,8 +89,8 @@ export function RankingScreen({ onNextCycleAt, filters }: RankingScreenProps) {
       page={page}
       filters={filters}
       state={state}
-      onPageChange={setPage}
-      onRetry={retryLoad}
+      onPageChange={(nextPage) => navigate({ page: nextPage })}
+      onRetry={() => void query.refetch()}
       onExportCsv={exportCsv}
       isExportingCsv={exportStatus === 'preparing'}
       exportStatus={exportStatus}

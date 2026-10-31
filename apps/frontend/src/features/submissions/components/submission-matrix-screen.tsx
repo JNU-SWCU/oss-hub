@@ -1,80 +1,36 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { type ReactNode } from 'react';
+import { useUrlSearchDraft } from '@/lib/list-url-state';
+import { useSubmissionMatrixUrlState } from '../submission-matrix-url-state';
+import { useSubmissionMatrixQuery } from '../queries';
 import { ApiError } from '@/lib/api-client';
-import { getSubmissionMatrix } from '../api';
-import {
-  isMatrixFilterActive,
-  MATRIX_PAGE_SIZE,
-  type MatrixQueryInput,
-  type MatrixQuickFilter,
-} from '../matrix';
-import type { SubmissionMatrixPage } from '../types';
+import { isMatrixFilterActive } from '../matrix';
 import { SubmissionMatrixView } from './submission-matrix-view';
-
-const INITIAL_QUERY: MatrixQueryInput = {
-  q: '',
-  page: 1,
-  pageSize: MATRIX_PAGE_SIZE,
-};
 
 export function SubmissionMatrixScreen({
   programId,
   selectedMilestoneId,
   onSelectMilestone,
   headerActions,
-  reloadKey = 0,
 }: {
   readonly programId: string;
   readonly selectedMilestoneId: string | null;
   readonly onSelectMilestone: (milestoneId: string | null) => void;
   readonly headerActions?: ReactNode;
-  readonly reloadKey?: number;
 }) {
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
-
-  const [quickFilter, setQuickFilter] = useState<MatrixQuickFilter>('ALL');
-  const [data, setData] = useState<SubmissionMatrixPage | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
-
-  const load = useCallback(
-    async (input: MatrixQueryInput, requestId: number) => {
-      setIsLoading(true);
-      setErrorMessage(null);
-      try {
-        const next = await getSubmissionMatrix(programId, input);
-
-        if (requestId !== requestIdRef.current) return;
-        setData(next);
-      } catch (error) {
-        if (requestId !== requestIdRef.current) return;
-        setErrorMessage(
-          error instanceof ApiError
-            ? error.problem.detail
-            : '제출 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        );
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setIsLoading(false);
-        }
-      }
-    },
-    [programId],
-  );
-
-  useEffect(() => {
-    requestIdRef.current += 1;
-    void load(query, requestIdRef.current);
-  }, [query, load, reloadKey]);
+  const { state: urlState, navigate } = useSubmissionMatrixUrlState();
+  const { quickFilter, q, page, pageSize } = urlState;
+  const query = { q, page, pageSize };
+  const [search, setSearch] = useUrlSearchDraft(q);
+  const result = useSubmissionMatrixQuery(programId, query);
+  const data = result.data ?? null;
+  const isLoading = result.isFetching;
+  const errorMessage = result.isError
+    ? result.error instanceof ApiError
+      ? result.error.problem.detail
+      : '제출 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    : null;
 
   return (
     <SubmissionMatrixView
@@ -90,23 +46,17 @@ export function SubmissionMatrixScreen({
       headerActions={headerActions}
       onSearchChange={setSearch}
       onSearch={() => {
-        setQuickFilter('ALL');
-        setQuery((prev) => ({ ...prev, q: search.trim(), page: 1 }));
+        navigate({ q: search.trim(), page: 1, quickFilter: 'ALL' }, 'replace');
       }}
-      onQuickFilterChange={setQuickFilter}
+      onQuickFilterChange={(next) => navigate({ quickFilter: next })}
       onResetFilters={() => {
         setSearch('');
-        setQuickFilter('ALL');
-        setQuery(INITIAL_QUERY);
+        navigate({ q: '', page: 1, quickFilter: 'ALL' });
       }}
       onPageChange={(page) => {
-        setQuickFilter('ALL');
-        setQuery((prev) => ({ ...prev, page }));
+        navigate({ page, quickFilter: 'ALL' });
       }}
-      onRetry={() => {
-        requestIdRef.current += 1;
-        void load(query, requestIdRef.current);
-      }}
+      onRetry={() => void result.refetch()}
       onSelectMilestone={onSelectMilestone}
     />
   );

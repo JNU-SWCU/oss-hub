@@ -1,4 +1,13 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
 import type { EditableProgram } from './dto';
 import {
@@ -449,30 +458,32 @@ describe('ProgramEditView contract', () => {
     (lifecycle) => {
       const program = { ...editableProgram, lifecycle };
       const html = renderToStaticMarkup(
-        <ProgramEditView
-          onCoverChange={() => undefined}
-          program={program}
-          form={toProgramEditForm(program)}
-          errors={{}}
-          toastMessage={null}
-          generalAlert={null}
-          isSaving={false}
-          milestoneEditor={{ mode: 'closed' }}
-          deleteTarget={null}
-          isMilestoneBusy={false}
-          {...lifecycleActionProps}
-          canDeleteProgram
-          onFieldChange={noOp}
-          onSubmit={vi.fn()}
-          onAddMilestone={noOp}
-          onEditMilestone={noOp}
-          onCancelMilestone={noOp}
-          onMilestoneFieldChange={noOp}
-          onSaveMilestone={vi.fn()}
-          onRequestDeleteMilestone={noOp}
-          onCancelDelete={noOp}
-          onConfirmDelete={vi.fn()}
-        />,
+        <QueryClientProvider client={createTestQueryClient()}>
+          <ProgramEditView
+            onCoverChange={() => undefined}
+            program={program}
+            form={toProgramEditForm(program)}
+            errors={{}}
+            toastMessage={null}
+            generalAlert={null}
+            isSaving={false}
+            milestoneEditor={{ mode: 'closed' }}
+            deleteTarget={null}
+            isMilestoneBusy={false}
+            {...lifecycleActionProps}
+            canDeleteProgram
+            onFieldChange={noOp}
+            onSubmit={vi.fn()}
+            onAddMilestone={noOp}
+            onEditMilestone={noOp}
+            onCancelMilestone={noOp}
+            onMilestoneFieldChange={noOp}
+            onSaveMilestone={vi.fn()}
+            onRequestDeleteMilestone={noOp}
+            onCancelDelete={noOp}
+            onConfirmDelete={vi.fn()}
+          />
+        </QueryClientProvider>,
       );
 
       expect(html).toContain('위험 영역');
