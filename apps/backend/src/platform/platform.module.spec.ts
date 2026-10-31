@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { RolesGuard } from './roles.guard';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Readable } from 'node:stream';
@@ -107,6 +108,7 @@ describe('PlatformModule', () => {
       AuditLogMetadataService,
       JoinCodeSecretService,
       AuditLogService,
+      RolesGuard,
     ]);
     expect(exported).not.toContain(S3ObjectStorageClient);
     expect(exported).not.toContain(S3ObjectInventoryClient);
