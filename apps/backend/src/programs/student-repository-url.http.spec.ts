@@ -1,10 +1,12 @@
-import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { configureHttpApp } from '../configure-http-app';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { GithubRepositoryUrlConstraintService } from './github-repository-url-constraint.service';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { AuthSessionService } from '../auth/auth-session.service';
@@ -30,6 +32,8 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
+      RepositoryUrlService,
+      GithubRepositoryUrlConstraintService,
       {
         provide: StudentRepositoryUrlService,
         useValue: { updateMine, updateForTeam },
@@ -55,15 +59,7 @@ beforeAll(async () => {
     ],
   }).compile();
   app = module.createNestApplication();
-  app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
-  app.useGlobalFilters(new ProblemDetailFilter());
+  configureHttpApp(app);
   await app.listen(0, '127.0.0.1');
   baseUrl = await app.getUrl();
   cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 1133n, 0)}`;
