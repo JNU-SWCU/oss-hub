@@ -50,8 +50,9 @@ function baseApplication(
     applicantGithubLogin: 'synthetic-applicant-login',
     teamId: null,
     status: overrides.status ?? ApplicationStatus.SUBMITTED,
-    collaboratorGithubLogins: [] as string[],
-    notificationRecipientIds: ['synthetic-applicant'] as string[],
+    participants: [
+      { id: 'synthetic-applicant', githubLogin: 'synthetic-applicant' },
+    ],
     repositoryProvisioningEnabled:
       overrides.repositoryProvisioningEnabled ?? false,
     repositoryConnectionMode:

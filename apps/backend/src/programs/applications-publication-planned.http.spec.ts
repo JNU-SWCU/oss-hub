@@ -302,8 +302,9 @@ const decisionTarget: ApplicationDecisionTarget = {
   teamId: 'synthetic-team',
   status: ApplicationStatus.SUBMITTED,
   repositoryProvisioningEnabled: false,
-  collaboratorGithubLogins: ['synthetic-applicant'],
-  notificationRecipientIds: ['cuid-synthetic-applicant'],
+  participants: [
+    { id: 'cuid-synthetic-applicant', githubLogin: 'synthetic-applicant' },
+  ],
   repositoryConnectionMode: RepositoryConnectionMode.NEW,
   repositoryUrl: null,
   processedById: null,
