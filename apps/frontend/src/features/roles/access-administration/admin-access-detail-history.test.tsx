@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
@@ -36,11 +37,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 let container: HTMLDivElement;
 let root: Root;
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
-  container = document.createElement('div');
-  document.body.appendChild(container);
-  root = createRoot(container);
+  root = await renderWithQuery(null);
+  container = root.container;
 });
 
 function pagedHistory(label: string, page = 1): AdminAccessHistory {
@@ -158,8 +158,8 @@ describe('관리자 상세 이력 조회 복구와 사용자 전환', () => {
   );
 });
 
-afterEach(() => {
-  act(() => root.unmount());
+afterEach(async () => {
+  await root.unmount();
   container.remove();
 });
 

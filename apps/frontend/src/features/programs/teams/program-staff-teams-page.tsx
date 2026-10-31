@@ -19,7 +19,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { programTeamDetailHref } from '@/lib/program-route';
-import { decideApplication, getApplicationDetail } from '../applications/api';
+import { getApplicationDetail } from '../applications/api';
+import { useApplicationDecisionMutation } from '../applications/queries';
+import { programFeatureKey } from '@/lib/query-keys';
 import {
   APPLICATION_STATUS_LABELS,
   formatSubmittedAt,
@@ -73,6 +75,7 @@ export function ProgramStaffTeamsPage({
   const { search, filter, page } = urlState;
   const [searchInput, setSearchInput] = useUrlSearchDraft(search);
   const queryClient = useQueryClient();
+  const { mutateAsync: decide } = useApplicationDecisionMutation(programId);
   const query = useStaffTeamsQuery(programId, urlState);
   const state: ScreenState = query.isPending
     ? { kind: 'loading' }
@@ -130,8 +133,13 @@ export function ProgramStaffTeamsPage({
         (next === 'APPROVED' && item.status === 'REJECTED');
       setBusyId(item.id);
       const result = await runDecisionWithRefetch({
-        decide: () => decideApplication(item.id, input),
-        refetch: () => getApplicationDetail(item.id),
+        decide: () => decide({ applicationId: item.id, input }),
+        refetch: () =>
+          queryClient.fetchQuery({
+            queryKey: programFeatureKey(programId, 'applications', item.id),
+            queryFn: () => getApplicationDetail(item.id),
+            staleTime: 0,
+          }),
       });
       if (cancelled.current) return;
       setBusyId(null);
@@ -165,7 +173,7 @@ export function ProgramStaffTeamsPage({
 
       await load();
     },
-    [load],
+    [load, decide, queryClient, programId],
   );
 
   const onSelectStatus = useCallback(

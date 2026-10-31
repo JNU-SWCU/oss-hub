@@ -3,7 +3,8 @@ import {
   listNavigation,
   useTestSearchParams,
 } from '../../../test-support/list-screen-root';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dashboardFixture, feedbackItemFixture } from './fixtures';
 import type {
@@ -31,7 +32,7 @@ const mocks = vi.hoisted(() => ({
   fetchStudentFeedback: vi.fn(),
   fetchUnreadApplicationDecisionNotices: vi.fn(),
   markApplicationDecisionNoticeRead: vi.fn(),
-  loadStudentDashboard: vi.fn(),
+  fetchStudentDashboard: vi.fn(),
   consumeSignupCompletionNotice: vi.fn(),
 }));
 
@@ -41,13 +42,11 @@ vi.mock('./team-deletion-notices-api', () => ({
 }));
 
 vi.mock('./api', () => ({
+  fetchStudentDashboard: mocks.fetchStudentDashboard,
   fetchStudentFeedback: mocks.fetchStudentFeedback,
   fetchUnreadApplicationDecisionNotices:
     mocks.fetchUnreadApplicationDecisionNotices,
   markApplicationDecisionNoticeRead: mocks.markApplicationDecisionNoticeRead,
-}));
-vi.mock('./load-student-dashboard', () => ({
-  loadStudentDashboard: mocks.loadStudentDashboard,
 }));
 vi.mock('@/lib/signup-completion-notice', () => ({
   consumeSignupCompletionNotice: mocks.consumeSignupCompletionNotice,
@@ -61,6 +60,7 @@ type CapturedViewProps = {
   readonly applicationDecisionNotices: readonly ApplicationDecisionNotice[];
   readonly feedback: StudentFeedbackState;
   readonly onRetryFeedback: () => void;
+  readonly onRetry: () => void;
 };
 const captured = vi.hoisted(() => ({
   props: null as CapturedViewProps | null,
@@ -89,15 +89,12 @@ describe('StudentDashboardScreen', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+  beforeEach(async () => {
+    root = await renderWithQuery(null);
+    container = root.container;
     captured.props = null;
     mocks.consumeSignupCompletionNotice.mockReset().mockReturnValue(false);
-    mocks.loadStudentDashboard
-      .mockReset()
-      .mockResolvedValue({ status: 'success', data: { items: [] } });
+    mocks.fetchStudentDashboard.mockReset().mockResolvedValue({ items: [] });
     mocks.fetchUnreadApplicationDecisionNotices
       .mockReset()
       .mockResolvedValue([notice]);
@@ -123,7 +120,9 @@ describe('StudentDashboardScreen', () => {
       message: null,
       deletedAt: '2026-08-09T00:00:00.000Z',
     };
-    mocks.fetchUnreadTeamDeletionNotices.mockResolvedValue([deleted]);
+    mocks.fetchUnreadTeamDeletionNotices
+      .mockResolvedValueOnce([deleted])
+      .mockResolvedValue([]);
     await act(async () => root.render(<StudentDashboardScreen />));
     expect(captured.props?.teamDeletionNotices).toEqual([deleted]);
     expect(mocks.markTeamDeletionNoticeRead).not.toHaveBeenCalled();
@@ -135,7 +134,7 @@ describe('StudentDashboardScreen', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await root.unmount();
     container.remove();
   });
 
@@ -159,11 +158,23 @@ describe('StudentDashboardScreen', () => {
     expect(captured.props?.applicationDecisionNotices).toEqual([notice]);
   });
 
+  it.each([new TypeError('network'), 'unexpected'])(
+    '대시보드 조회 실패 후 재시도하면 서버 데이터를 표시한다: %s',
+    async (error) => {
+      mocks.fetchStudentDashboard
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce(dashboardFixture);
+      await act(async () => root.render(<StudentDashboardScreen />));
+      expect(captured.props?.status).toBe('error');
+      await act(async () => captured.props?.onRetry());
+      expect(captured.props?.status).toBe('success');
+      expect(captured.props?.data).toEqual(dashboardFixture);
+      expect(mocks.fetchStudentDashboard).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('최근 피드백 실패는 대시보드 카드 상태를 건드리지 않고 피드백만 다시 부른다', async () => {
-    mocks.loadStudentDashboard.mockResolvedValue({
-      status: 'success',
-      data: dashboardFixture,
-    });
+    mocks.fetchStudentDashboard.mockResolvedValue(dashboardFixture);
     mocks.fetchStudentFeedback
       .mockRejectedValueOnce(new Error('synthetic feedback failure'))
       .mockResolvedValueOnce([feedbackItemFixture]);
@@ -188,6 +199,6 @@ describe('StudentDashboardScreen', () => {
     });
     expect(captured.props?.data).toEqual(dashboardFixture);
     expect(mocks.fetchStudentFeedback).toHaveBeenCalledTimes(2);
-    expect(mocks.loadStudentDashboard).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchStudentDashboard).toHaveBeenCalledTimes(1);
   });
 });

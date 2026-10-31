@@ -31,10 +31,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api-client';
-import {
-  decideApplication,
-  getApplicationDetailWithHistory,
-} from '../applications/api';
+import { getApplicationDetailWithHistory } from '../applications/api';
+import { useApplicationDecisionMutation } from '../applications/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { programFeatureKey } from '@/lib/query-keys';
 import { invalidateProgram } from '../catalog/queries';
@@ -99,6 +97,7 @@ export function ProgramStaffTeamDetailPage({
   readonly sessionKey: string | null;
 }): ReactElement {
   const queryClient = useQueryClient();
+  const { mutateAsync: decide } = useApplicationDecisionMutation(programId);
   const query = useStaffTeamDetailQuery(programId, teamId, sessionKey);
   const loadState: LoadState =
     query.data !== undefined
@@ -159,8 +158,19 @@ export function ProgramStaffTeamDetailPage({
       }
       setDecisionBusy(true);
       const result = await runDecisionWithRefetch({
-        decide: () => decideApplication(applicationId, input),
-        refetch: () => getApplicationDetailWithHistory(applicationId),
+        decide: () => decide({ applicationId, input }),
+        refetch: () =>
+          queryClient.fetchQuery({
+            queryKey: programFeatureKey(
+              programId,
+              'teams',
+              'application',
+              applicationId,
+              sessionKey,
+            ),
+            queryFn: () => getApplicationDetailWithHistory(applicationId),
+            staleTime: 0,
+          }),
       });
       if (cancelled.current) return;
       setDecisionBusy(false);
@@ -190,7 +200,7 @@ export function ProgramStaffTeamDetailPage({
 
       await load();
     },
-    [applicationId, load, queryClient, programId, sessionKey],
+    [applicationId, load, queryClient, programId, sessionKey, decide],
   );
 
   const teamsHref = programHref(programId, '/teams');

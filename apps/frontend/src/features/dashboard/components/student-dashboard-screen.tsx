@@ -1,27 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStudentDashboardUrlState } from '../student-dashboard-url-state';
-
-import { ApiError } from '@/lib/api-client';
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
-import { loadStudentDashboard } from '../load-student-dashboard';
+import type { ApplicationDecisionNotice, StudentFeedbackState } from '../types';
 import {
-  fetchStudentFeedback,
-  fetchUnreadApplicationDecisionNotices,
-  markApplicationDecisionNoticeRead,
-} from '../api';
-import type {
-  ApplicationDecisionNotice,
-  StudentDashboard,
-  StudentDashboardStatus,
-  StudentFeedbackState,
-  TeamDeletionNotice,
-} from '../types';
-import {
-  fetchUnreadTeamDeletionNotices,
-  markTeamDeletionNoticeRead,
-} from '../team-deletion-notices-api';
+  useStudentDashboardQuery,
+  useStudentFeedbackQuery,
+  useApplicationDecisionNoticesQuery,
+  useReadApplicationDecisionNoticesMutation,
+  useTeamDeletionNoticesQuery,
+  useReadTeamDeletionNoticeMutation,
+} from '../queries';
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
@@ -29,148 +19,61 @@ export function StudentDashboardScreen() {
     state: { status: filter },
     navigate,
   } = useStudentDashboardUrlState();
-  const [data, setData] = useState<StudentDashboard | null>(null);
-  const [status, setStatus] = useState<StudentDashboardStatus>('loading');
-  const [requestKey, setRequestKey] = useState(0);
+  const dashboard = useStudentDashboardQuery();
+  const feedbackQuery = useStudentFeedbackQuery();
+  const decisions = useApplicationDecisionNoticesQuery();
+  const { mutate: readDecisions } = useReadApplicationDecisionNoticesMutation();
+  const deletions = useTeamDeletionNoticesQuery();
+  const readDeletion = useReadTeamDeletionNoticeMutation();
   const [signupCompleted, setSignupCompleted] = useState(false);
   const [applicationDecisionNotices, setApplicationDecisionNotices] = useState<
     readonly ApplicationDecisionNotice[]
   >([]);
 
-  const [teamDeletionNotices, setTeamDeletionNotices] = useState<
-    readonly TeamDeletionNotice[]
-  >([]);
-  const [teamDeletionFailed, setTeamDeletionFailed] = useState(false);
-  const [teamDeletionRequestKey, setTeamDeletionRequestKey] = useState(0);
-
-  const readTeamDeletion = async (notificationId: string) => {
-    try {
-      await markTeamDeletionNoticeRead(notificationId);
-      setTeamDeletionNotices((notices) =>
-        notices.filter((notice) => notice.id !== notificationId),
-      );
-      setTeamDeletionFailed(false);
-    } catch (error) {
-      if (
-        !(error instanceof ApiError) &&
-        !(error instanceof TypeError) &&
-        !(error instanceof SyntaxError)
-      )
-        throw error;
-      setTeamDeletionFailed(true);
-    }
-  };
-
   useEffect(() => {
-    let active = true;
-    void fetchUnreadTeamDeletionNotices().then(
-      (notices) => {
-        if (!active) return;
-        setTeamDeletionNotices(notices);
-        setTeamDeletionFailed(false);
-      },
-      () => {
-        if (active) setTeamDeletionFailed(true);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [teamDeletionRequestKey]);
-
-  const [feedback, setFeedback] = useState<StudentFeedbackState>({
-    status: 'loading',
-  });
-  const [feedbackRequestKey, setFeedbackRequestKey] = useState(0);
-
-  const retry = useCallback(() => setRequestKey((key) => key + 1), []);
-  const retryFeedback = useCallback(
-    () => setFeedbackRequestKey((key) => key + 1),
-    [],
-  );
-
-  useEffect(() => {
-    if (consumeSignupCompletionNotice()) {
-      setSignupCompleted(true);
-    }
+    if (consumeSignupCompletionNotice()) setSignupCompleted(true);
   }, []);
 
   useEffect(() => {
-    let active = true;
-    void fetchUnreadApplicationDecisionNotices()
-      .then((notices) => {
-        if (!active) return;
-        setApplicationDecisionNotices(notices);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (decisions.data?.length) setApplicationDecisionNotices(decisions.data);
+  }, [decisions.data]);
 
   useEffect(() => {
-    if (applicationDecisionNotices.length === 0) return;
+    if (applicationDecisionNotices.length)
+      readDecisions(applicationDecisionNotices.map((notice) => notice.id));
+  }, [applicationDecisionNotices, readDecisions]);
 
-    void Promise.allSettled(
-      applicationDecisionNotices.map((notice) =>
-        markApplicationDecisionNoticeRead(notice.id),
-      ),
-    );
-  }, [applicationDecisionNotices]);
-
-  useEffect(() => {
-    let active = true;
-    setData(null);
-    setStatus('loading');
-
-    void loadStudentDashboard().then((result) => {
-      if (!active) return;
-      if (result.status === 'success') {
-        setData(result.data);
-        setStatus('success');
-        return;
-      }
-      setStatus('error');
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [requestKey]);
-
-  useEffect(() => {
-    let active = true;
-    setFeedback({ status: 'loading' });
-
-    void fetchStudentFeedback().then(
-      (items) => {
-        if (active) setFeedback({ status: 'success', items });
-      },
-      () => {
-        if (active) setFeedback({ status: 'error' });
-      },
-    );
-
-    return () => {
-      active = false;
-    };
-  }, [feedbackRequestKey]);
+  const feedback: StudentFeedbackState =
+    feedbackQuery.data !== undefined
+      ? { status: 'success', items: feedbackQuery.data }
+      : feedbackQuery.isError
+        ? { status: 'error' }
+        : { status: 'loading' };
 
   return (
     <StudentDashboardView
       filter={filter}
       onFilterChange={(next) => navigate({ status: next })}
-      data={data}
-      status={status}
+      data={dashboard.data ?? null}
+      status={
+        dashboard.data !== undefined
+          ? 'success'
+          : dashboard.isError
+            ? 'error'
+            : 'loading'
+      }
       showSignupCompleteNotice={signupCompleted}
       applicationDecisionNotices={applicationDecisionNotices}
-      teamDeletionNotices={teamDeletionNotices}
-      teamDeletionFailed={teamDeletionFailed}
-      onReadTeamDeletion={(id) => void readTeamDeletion(id)}
-      onRetryTeamDeletions={() => setTeamDeletionRequestKey((key) => key + 1)}
+      teamDeletionNotices={deletions.data ?? []}
+      teamDeletionFailed={deletions.isError || readDeletion.isError}
+      onReadTeamDeletion={(id) => readDeletion.mutate(id)}
+      onRetryTeamDeletions={() => {
+        readDeletion.reset();
+        void deletions.refetch();
+      }}
       feedback={feedback}
-      onRetry={retry}
-      onRetryFeedback={retryFeedback}
+      onRetry={() => void dashboard.refetch()}
+      onRetryFeedback={() => void feedbackQuery.refetch()}
     />
   );
 }
