@@ -2,16 +2,11 @@ import type { RankingTimeline, RankingTimelineSeries } from '../types';
 
 const LEGEND_LIMIT = 10;
 const LEAD_LIMIT = 3;
-const SERIES_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-4)',
-] as const;
+const SERIES_COLORS = ['var(--chart-1)', 'var(--chart-2)'] as const;
 const VIEWER_COLOR = 'var(--chart-3)';
 const REST_COLOR =
   'color-mix(in oklch, var(--muted-foreground) 55%, var(--card))';
-const DASH_PATTERNS = [undefined, '7 5', '2 4', '12 4 2 4'] as const;
-const SWATCH_STYLES = ['solid', 'dashed', 'dotted', 'double'] as const;
+const DASH_PATTERNS = [undefined, '7 5', '2 4', '8 3 2 3', '1 6'] as const;
 export const RANKING_HISTORY_COMPACT_LEGEND_LIMIT = 5;
 
 export const RANKING_HISTORY_STROKE = {
@@ -28,7 +23,6 @@ export interface RankingHistoryLine {
   readonly ranks: readonly (number | null)[];
   readonly color: string;
   readonly dash: string | undefined;
-  readonly swatchStyle: (typeof SWATCH_STYLES)[number];
   readonly strokeWidth: number;
   readonly faded: boolean;
   readonly isViewer: boolean;
@@ -136,7 +130,6 @@ function lineOf(
     ranks: series.ranks,
     color: colorOf(finalRank, isViewer, ranked),
     dash: DASH_PATTERNS[style],
-    swatchStyle: SWATCH_STYLES[style] ?? 'solid',
     strokeWidth: rankingHistoryStrokeWidth(finalRank, isViewer),
     faded: !isViewer && !ranked,
     isViewer,
@@ -145,7 +138,7 @@ function lineOf(
 
 function styleIndexOf(finalRank: number): number {
   return Math.min(
-    Math.floor(finalRank / SERIES_COLORS.length),
+    Math.floor((finalRank - 1) / SERIES_COLORS.length),
     DASH_PATTERNS.length - 1,
   );
 }

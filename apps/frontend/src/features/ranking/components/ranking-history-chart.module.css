@@ -86,7 +86,7 @@
 .swatch {
   flex: none;
   inline-size: var(--space-4);
-  border-block-start-width: 3px;
+  block-size: 4px;
 }
 
 .rank,

@@ -114,6 +114,11 @@ test('상위 10명은 색·선모양 조합이 서로 겹치지 않는다', () =
     chart.legend.find((line) => line.finalRank === 1)?.dash,
   ).toBeUndefined();
   expect(chart.legend.find((line) => line.finalRank === 4)?.dash).toBe('7 5');
+  expect(
+    new Set(
+      chart.legend.filter((line) => !line.isViewer).map((line) => line.color),
+    ),
+  ).toEqual(new Set(['var(--chart-1)', 'var(--chart-2)']));
   expect(new Set(identities).size).toBe(identities.length);
 });
 

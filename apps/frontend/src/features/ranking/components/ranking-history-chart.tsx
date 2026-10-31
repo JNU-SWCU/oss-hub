@@ -224,15 +224,22 @@ function WobbleDefs() {
 
 function Swatch({ line }: { readonly line: RankingHistoryLine }) {
   return (
-    <span
+    <svg
       aria-hidden="true"
       className={styles.swatch}
-      style={{
-        borderBlockStartColor: line.color,
-        borderBlockStartStyle: line.swatchStyle,
-        opacity: line.faded ? FADED_OPACITY : 1,
-      }}
-    />
+      viewBox="0 0 16 4"
+      opacity={line.faded ? FADED_OPACITY : 1}
+    >
+      <line
+        x1={0}
+        y1={2}
+        x2={16}
+        y2={2}
+        stroke={line.color}
+        strokeWidth={3}
+        strokeDasharray={line.dash}
+      />
+    </svg>
   );
 }
 
