@@ -27,7 +27,9 @@
 - 모듈의 공개 API는 `exports`에 올린 provider뿐입니다.
 - 파일 이름은 kebab-case입니다. 리소스는 복수형, 개념은 단수형입니다.
 - 클래스 이름은 PascalCase(stem) + 접미사입니다. 접미사와 예외 파일은 아래 계약 블록이 정합니다.
-- `*.repository.ts`는 데이터 접근만 두고 클래스와 타입만 export합니다. 상수와 repository가 함께 쓰는 순수 함수는 `.config.ts`에 둡니다.
+- 계층은 controller → service → repository입니다. `*.repository.ts`는 Prisma 쿼리와 트랜잭션만 두고 row를 돌려주며 클래스와 타입만 export합니다. 계산과 검증은 서비스가 합니다.
+- `*.service.ts`는 클래스와 타입만 export합니다. 다른 모듈의 함수는 export된 서비스를 생성자로 주입받아 씁니다.
+- `.config.ts`는 상수, 타입, 설정 클래스, `load*Config` 팩토리만 export합니다.
 - 타입은 그것을 만드는 코드 옆에 둡니다. `.types.ts`는 여러 모듈이 공유하는 타입에만 씁니다.
 
 ### DTO
@@ -98,13 +100,16 @@ export class ProgramSummaryResponseDto {
     "conventions/file-class-match",
     "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
-    "architecture/no-cycle"
+    "architecture/no-cycle",
+    "architecture/config-exports",
+    "architecture/service-exports"
   ],
   "outOfScopeFiles": [
     "src/main.ts",
     "src/cli.ts",
     "src/app.module.ts",
     "src/app-controller-discovery.ts",
+    "src/configure-http-app.ts",
     "test/**/*.ts",
     "src/**/*.spec.ts",
     "src/**/*.integration.spec.ts",

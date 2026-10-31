@@ -9,6 +9,7 @@ import tseslint from 'typescript-eslint';
 import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../../scripts/prisma-enum-names.mjs';
+import { configExports, serviceExports } from './module-exports.mjs';
 
 const layers = [
   'controller',
@@ -36,6 +37,7 @@ export const bootstrapFiles = [
   'src/cli.ts',
   'src/app.module.ts',
   'src/app-controller-discovery.ts',
+  'src/configure-http-app.ts',
 ];
 const dtoFiles = [`${flatModuleGlob}/dto/*.ts`];
 const enumExemptFiles = [
@@ -631,6 +633,8 @@ export async function createRailsConfig(rootDir) {
             'no-class-alias': noClassAlias,
             'dto-location': dtoLocation,
             'repository-exports': repositoryExports,
+            'config-exports': configExports,
+            'service-exports': serviceExports,
             'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
@@ -687,7 +691,6 @@ export async function createRailsConfig(rootDir) {
           {
             type: 'common',
             pattern: [
-              'src/platform/configure-http-app.config.ts',
               'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,prisma-serialization-retry.repository}.ts',
               'src/platform/{system-error-code,error-code}.error.ts',
             ],
@@ -846,6 +849,16 @@ export async function createRailsConfig(rootDir) {
       files: ['src/**/*.repository.ts'],
       ignores: testFiles,
       rules: { 'architecture/repository-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.config.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/config-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.service.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/service-exports': 'error' },
     },
     {
       files: ['src/**/*.types.ts'],

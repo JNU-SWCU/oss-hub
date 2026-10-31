@@ -26,6 +26,8 @@ const rules = {
   'request-dto-decorated': await load('request-dto-decorated.mjs', 'requestDtoDecorated'),
   'file-name-convention': await load('file-name-convention.mjs', 'fileNameConvention'),
   'file-class-match': await load('file-class-match.mjs', 'fileClassMatch'),
+  'config-exports': await load('module-exports.mjs', 'configExports'),
+  'service-exports': await load('module-exports.mjs', 'serviceExports'),
 };
 let current;
 RuleTester.describe = (_name, fn) => fn();
@@ -503,6 +505,84 @@ invalid(
 export class ThingRequestDto { @Type(() => Number) declare readonly page: number; }`,
   ['undecorated'],
 );
+
+const configFile = 'src/programs/rule-case.config.ts';
+const serviceFile = 'src/programs/rule-case.service.ts';
+for (const [name, code] of [
+  ['constants', 'export const LIMIT = 1; export enum Mode { A = "A" }'],
+  ['a const from a call', "export const config = registerAs('x', () => ({}));"],
+  [
+    'types',
+    'export type Shape = { id: string }; export interface Row { id: string }',
+  ],
+  [
+    'a config class',
+    'export class ThingConfig { static parse() { return 1; } }',
+  ],
+  ['a load*Config factory', 'export function loadThingConfig() { return {}; }'],
+  [
+    'an exported load*Config binding',
+    'function loadThingConfig() { return {}; } export { loadThingConfig };',
+  ],
+  ['a type re-export', 'export type { Row } from "./row.types";'],
+] as const) {
+  valid('config-exports', `allows ${name}`, configFile, code);
+}
+for (const [name, code] of [
+  ['a domain function', 'export function parseThing() { return 1; }'],
+  [
+    'an async domain function',
+    'export async function parseThing() { return 1; }',
+  ],
+  ['an arrow function', 'export const parseThing = () => 1;'],
+  [
+    'a function expression',
+    'export const parseThing = function () { return 1; };',
+  ],
+  [
+    'an arrow named like a factory is still allowed only by name',
+    'export const parseConfig = () => 1;',
+  ],
+  ['a default function', 'export default function () { return 1; }'],
+  [
+    'an export list of a function',
+    'function parseThing() { return 1; } export { parseThing };',
+  ],
+  [
+    'an export list of an arrow',
+    'const parseThing = () => 1; export { parseThing };',
+  ],
+] as const) {
+  invalid('config-exports', `rejects ${name}`, configFile, code, ['forbidden']);
+}
+for (const [name, code] of [
+  ['its class', 'export class ThingService { run() { return 1; } }'],
+  [
+    'types',
+    'export type Shape = { id: string }; export interface Row { id: string }',
+  ],
+  ['constants', 'export const LIMIT = 1;'],
+  [
+    'a local helper',
+    'function helper() { return 1; } export class ThingService { run() { return helper(); } }',
+  ],
+] as const) {
+  valid('service-exports', `allows ${name}`, serviceFile, code);
+}
+for (const [name, code] of [
+  ['a function', 'export function run() { return 1; }'],
+  ['a load*Config function', 'export function loadThingConfig() { return 1; }'],
+  ['an arrow function', 'export const run = () => 1;'],
+  ['a default function', 'export default function run() { return 1; }'],
+  [
+    'an export list of a function',
+    'function run() { return 1; } export { run };',
+  ],
+] as const) {
+  invalid('service-exports', `rejects ${name}`, serviceFile, code, [
+    'forbidden',
+  ]);
+}
 
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];

@@ -27,7 +27,9 @@ The backend is split into 10 Nest modules and follows the [Nest defaults](https:
 - A module's public API is the providers in its `exports`.
 - File names are kebab-case: plural for resources, singular for concepts.
 - A class is named PascalCase(stem) plus the suffix. The contract block below defines the suffixes and exempt files.
-- `*.repository.ts` holds data access only and exports classes and types only. Constants and pure functions shared by repositories live in `.config.ts`.
+- The layers are controller → service → repository. `*.repository.ts` holds only Prisma queries and transactions, returns rows, and exports only its class and types. Services do computation and validation.
+- `*.service.ts` exports only its class and types. Other modules use its functions by injecting the exported service through the constructor.
+- `.config.ts` exports only constants, types, config classes, and `load*Config` factories.
 - Types live next to the code that produces them. `.types.ts` is only for types shared across modules.
 
 ### DTOs
@@ -98,13 +100,16 @@ The contract block's `rules` enforce the above as lint errors. Nested contexts, 
     "conventions/file-class-match",
     "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
-    "architecture/no-cycle"
+    "architecture/no-cycle",
+    "architecture/config-exports",
+    "architecture/service-exports"
   ],
   "outOfScopeFiles": [
     "src/main.ts",
     "src/cli.ts",
     "src/app.module.ts",
     "src/app-controller-discovery.ts",
+    "src/configure-http-app.ts",
     "test/**/*.ts",
     "src/**/*.spec.ts",
     "src/**/*.integration.spec.ts",
