@@ -55,11 +55,7 @@ export function MilestoneDocumentCollectionSummary({
                 onSelectionChange({ id: document.id, submissionState: 'ALL' })
               }
             >
-              <span>{document.name}</span>
-              <span>{document.isRequired ? '필수' : '선택'}</span>
-              <span className="tabular-nums">
-                제출 {total.submitted} / {total.total}
-              </span>
+              {`${document.name} ${document.isRequired ? '필수' : '선택'} 제출 ${total.submitted} / ${total.total}`}
             </FilterChip>
           );
         })}
