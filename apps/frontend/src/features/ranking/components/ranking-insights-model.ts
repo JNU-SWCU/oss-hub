@@ -4,7 +4,14 @@ import {
   type RankingTimelinePoint,
   type RankingTimelineSeries,
 } from '../types';
-import { monthLabel, pointLabel } from './ranking-bump-chart-model';
+import {
+  approxTextWidth,
+  clamp,
+  monthLabel,
+  pointLabel,
+  type Pointer,
+  type Rect,
+} from './ranking-bump-chart-model';
 
 const RANKING_CHART_TABS = ['growth', 'month', 'race'] as const;
 
@@ -22,6 +29,25 @@ const MAX_STEP_EXPONENT = 12;
 const DOMAIN_HEADROOM = 1.04;
 const PERSONAL_BEST_HISTORY = 2;
 const ENVELOPE_MIN_POOL = 2;
+
+const APPROX_TEXT_FONT_SIZE = 13;
+const TAG_FONT_SIZE = 11;
+const TAG_MIN_HEIGHT = 18;
+const TAG_INSET = 10;
+const TAG_CLEARANCE = 20;
+const TAG_LIFT = 9;
+const TAG_RISE = 8;
+const TAG_DROP = 5;
+const TAG_FLOOR_PAD = 4;
+const PENNANT_FONT_SIZE = 10;
+const PENNANT_LABEL_REACH = 13;
+const PENNANT_LABEL_BACK = 6;
+const PENNANT_LABEL_RISE = 8;
+const PENNANT_LABEL_DROP = 3;
+const PENNANT_FLAG_ROW = -9;
+const PENNANT_ABOVE_ROW = -24;
+const PENNANT_BELOW_ROW = 16;
+const PENNANT_FIT_SLACK = 0.5;
 
 export interface BandTier {
   readonly name: string;
@@ -396,6 +422,148 @@ export function buildGrowthInsights(timeline: RankingTimeline): GrowthInsights {
       false,
     estimated: points.some((point) => point.starEstimated),
   };
+}
+
+function textWidthAt(text: string, fontSize: number): number {
+  return (approxTextWidth(text) * fontSize) / APPROX_TEXT_FONT_SIZE;
+}
+
+export interface TierTag {
+  readonly band: number;
+  readonly text: string;
+  readonly x: number;
+  readonly y: number;
+  readonly box: Rect;
+}
+
+export function tierTags(input: {
+  readonly edges: readonly number[];
+  readonly domainTop: number;
+  readonly plot: Rect;
+  readonly yOf: (value: number) => number | undefined;
+  readonly viewerY: number | null;
+}): TierTag[] {
+  const { edges, domainTop, plot, yOf, viewerY } = input;
+  const right = plot.x + plot.width;
+  const tags: TierTag[] = [];
+  for (const [band, tier] of BAND_TIERS.entries()) {
+    const summit = band === BAND_TIERS.length - 1;
+    const low = band === 0 ? 0 : (edges[band - 1] ?? 0);
+    const high = summit ? domainTop : (edges[band] ?? 0);
+    const top = yOf(high) ?? plot.y;
+    const bottom = yOf(low) ?? plot.y + plot.height;
+    if (!summit && bottom - top < TAG_MIN_HEIGHT) continue;
+    const y = clamp(
+      bottom - TAG_LIFT,
+      plot.y + TAG_LIFT,
+      plot.y + plot.height - TAG_FLOOR_PAD,
+    );
+    if (viewerY !== null && Math.abs(viewerY - y) < TAG_CLEARANCE) continue;
+    const text = `${tier.name} · ${tier.range}`;
+    const width = textWidthAt(text, TAG_FONT_SIZE);
+    tags.push({
+      band,
+      text,
+      x: right - TAG_INSET,
+      y,
+      box: {
+        x: right - TAG_INSET - width,
+        y: y - TAG_RISE,
+        width,
+        height: TAG_RISE + TAG_DROP,
+      },
+    });
+  }
+  return tags;
+}
+
+export type PennantSide = 'start' | 'end';
+
+interface PennantSlot {
+  readonly x: number;
+  readonly y: number;
+  readonly textAnchor: PennantSide;
+}
+
+export interface PennantMark extends PennantSlot {
+  readonly crossing: BandCrossing;
+  readonly spot: Pointer;
+  readonly text: string;
+  readonly box: Rect;
+}
+
+const PENNANT_SLOT_DEFAULT: PennantSlot = {
+  x: PENNANT_LABEL_REACH,
+  y: PENNANT_FLAG_ROW,
+  textAnchor: 'start',
+};
+
+const PENNANT_SLOTS: readonly PennantSlot[] = [
+  PENNANT_SLOT_DEFAULT,
+  { x: -PENNANT_LABEL_BACK, y: PENNANT_ABOVE_ROW, textAnchor: 'end' },
+  { x: PENNANT_LABEL_REACH, y: PENNANT_ABOVE_ROW, textAnchor: 'start' },
+  { x: -PENNANT_LABEL_BACK, y: PENNANT_FLAG_ROW, textAnchor: 'end' },
+  { x: PENNANT_LABEL_REACH, y: PENNANT_BELOW_ROW, textAnchor: 'start' },
+  { x: -PENNANT_LABEL_BACK, y: PENNANT_BELOW_ROW, textAnchor: 'end' },
+];
+
+function slotBox(spot: Pointer, slot: PennantSlot, width: number): Rect {
+  return {
+    x: slot.textAnchor === 'end' ? spot.x + slot.x - width : spot.x + slot.x,
+    y: spot.y + slot.y - PENNANT_LABEL_RISE,
+    width,
+    height: PENNANT_LABEL_RISE + PENNANT_LABEL_DROP,
+  };
+}
+
+function overlapArea(one: Rect, other: Rect): number {
+  const width =
+    Math.min(one.x + one.width, other.x + other.width) -
+    Math.max(one.x, other.x);
+  const height =
+    Math.min(one.y + one.height, other.y + other.height) -
+    Math.max(one.y, other.y);
+  return width <= 0 || height <= 0 ? 0 : width * height;
+}
+
+function slotCost(box: Rect, plot: Rect, obstacles: readonly Rect[]): number {
+  return obstacles.reduce(
+    (sum, obstacle) => sum + overlapArea(box, obstacle),
+    box.width * box.height - overlapArea(box, plot),
+  );
+}
+
+export function pennantMarks(input: {
+  readonly crossings: readonly BandCrossing[];
+  readonly spotOf: (pointIndex: number) => Pointer | null;
+  readonly plot: Rect;
+  readonly obstacles: readonly Rect[];
+}): PennantMark[] {
+  const { crossings, spotOf, plot } = input;
+  const taken: Rect[] = [...input.obstacles];
+  const marks: PennantMark[] = [];
+  for (const crossing of crossings) {
+    const spot = spotOf(crossing.pointIndex);
+    if (spot === null) continue;
+    const text = `${BAND_TIERS[crossing.band]?.name ?? ''}!`;
+    const width = textWidthAt(text, PENNANT_FONT_SIZE);
+    let slot = PENNANT_SLOT_DEFAULT;
+    let box = slotBox(spot, slot, width);
+    let lowest = Number.POSITIVE_INFINITY;
+    for (const candidate of PENNANT_SLOTS) {
+      const candidateBox = slotBox(spot, candidate, width);
+      const cost = slotCost(candidateBox, plot, taken);
+      if (cost < lowest) {
+        lowest = cost;
+        slot = candidate;
+        box = candidateBox;
+      }
+      if (cost < PENNANT_FIT_SLACK) break;
+    }
+    taken.push(box);
+    marks.push({ ...slot, crossing, spot, text, box });
+  }
+  return marks;
 }
 
 function competitionRanks(racers: readonly MonthRacer[]): MonthRacer[] {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { RankingTimeline, RankingTimelineSeries } from '../types';
 import {
+  rectsOverlap,
+  type Pointer,
+  type Rect,
+} from './ranking-bump-chart-model';
+import {
   bandCrossings,
   bandOf,
   boundariesOf,
@@ -13,9 +18,12 @@ import {
   growthEndLabel,
   insightsModeFor,
   monthlyActivity,
+  pennantMarks,
   poolAt,
   quantile,
   splitSeries,
+  tierTags,
+  type BandCrossing,
 } from './ranking-insights-model';
 
 const MONTHS = ['2026-01-31', '2026-02-28', '2026-03-19'] as const;
@@ -236,6 +244,133 @@ describe('성장 탭 축과 이름표', () => {
       true,
     );
     expect(insights.viewer?.login).toBe('me');
+  });
+});
+
+describe('구간 이름표와 깃발 라벨 자리', () => {
+  const PLOT = { x: 56, y: 28, width: 1100, height: 320 };
+  const EDGES = [10, 20, 30, 40];
+  const DOMAIN_TOP = 50;
+  const RIGHT = PLOT.x + PLOT.width;
+  const SPACING = PLOT.width / 7;
+
+  function yOf(value: number): number {
+    return PLOT.y + PLOT.height - (value / DOMAIN_TOP) * PLOT.height;
+  }
+
+  function tagsAt(viewerY: number | null) {
+    return tierTags({
+      edges: EDGES,
+      domainTop: DOMAIN_TOP,
+      plot: PLOT,
+      yOf,
+      viewerY,
+    });
+  }
+
+  function ridgeTag() {
+    const tag = tagsAt(null).find((entry) => entry.band === 2);
+    if (tag === undefined) throw new Error('ridge tag must be laid out');
+    return tag;
+  }
+
+  function marksOf(
+    crossings: readonly BandCrossing[],
+    spots: readonly (Pointer | null)[],
+    obstacles: readonly Rect[],
+  ) {
+    return pennantMarks({
+      crossings,
+      spotOf: (pointIndex) => spots[pointIndex] ?? null,
+      plot: PLOT,
+      obstacles,
+    });
+  }
+
+  it('이름표는 띠 아래쪽에 서고 오른쪽 끝에서 제 글자 폭만큼 자리를 잡는다', () => {
+    const tags = tagsAt(null);
+    expect(tags.map((tag) => tag.text)).toEqual([
+      '베이스캠프 · 하위 25%',
+      '숲길 · 상위 50–75%',
+      '바위 능선 · 상위 25–50%',
+      '설원 · 상위 10–25%',
+      '정상 공기 · 상위 10%',
+    ]);
+    expect(tags.map((tag) => tag.y)).toEqual([339, 275, 211, 147, 83]);
+    for (const tag of tags) {
+      expect(tag.x).toBe(RIGHT - 10);
+      expect(tag.box.x + tag.box.width).toBeCloseTo(tag.x, 10);
+      expect(tag.box.width).toBeGreaterThan(60);
+    }
+  });
+
+  it('내 끝점과 같은 높이의 이름표만 접고 남은 범위는 그대로 둔다', () => {
+    expect(tagsAt(ridgeTag().y).map((tag) => tag.band)).toEqual([0, 1, 3, 4]);
+    expect(tagsAt(ridgeTag().y).map((tag) => tag.text)).toContain(
+      '설원 · 상위 10–25%',
+    );
+  });
+
+  it('마지막에서 두 번째 달 깃발이 이름표와 같은 높이면 왼쪽 위로 넘긴다', () => {
+    const ridge = ridgeTag();
+    const boxes = tagsAt(null).map((tag) => tag.box);
+    const [mark] = marksOf(
+      [{ band: 2, pointIndex: 6 }],
+      [
+        ...Array.from({ length: 6 }, () => null),
+        { x: RIGHT - SPACING, y: ridge.y },
+      ],
+      boxes,
+    );
+    if (mark === undefined) throw new Error('pennant must be placed');
+    expect(mark.text).toBe('바위 능선!');
+    expect(mark.textAnchor).toBe('end');
+    expect(mark.y).toBeLessThan(-9);
+    expect(boxes.some((box) => rectsOverlap(mark.box, box))).toBe(false);
+  });
+
+  it('가장자리에서 먼 깃발은 기본 오른쪽 자리를 지킨다', () => {
+    const [mark] = marksOf(
+      [{ band: 2, pointIndex: 2 }],
+      [null, null, { x: PLOT.x + 344, y: ridgeTag().y }],
+      tagsAt(null).map((tag) => tag.box),
+    );
+    if (mark === undefined) throw new Error('pennant must be placed');
+    expect(mark.textAnchor).toBe('start');
+    expect(mark.x).toBe(13);
+    expect(mark.y).toBe(-9);
+  });
+
+  it('마지막 달 깃발도 라벨 상자를 플롯 안에 둔다', () => {
+    const [mark] = marksOf(
+      [{ band: 1, pointIndex: 7 }],
+      [...Array.from({ length: 7 }, () => null), { x: RIGHT, y: yOf(12) }],
+      tagsAt(null).map((tag) => tag.box),
+    );
+    if (mark === undefined) throw new Error('pennant must be placed');
+    expect(mark.textAnchor).toBe('end');
+    expect(mark.box.x).toBeGreaterThanOrEqual(PLOT.x);
+    expect(mark.box.x + mark.box.width).toBeLessThanOrEqual(RIGHT);
+  });
+
+  it('같은 달에 두 구간을 넘어도 라벨끼리 겹치지 않는다', () => {
+    const [first, second] = marksOf(
+      [
+        { band: 2, pointIndex: 3 },
+        { band: 3, pointIndex: 3 },
+      ],
+      [null, null, null, { x: PLOT.x + 344, y: ridgeTag().y }],
+      [],
+    );
+    if (first === undefined || second === undefined) {
+      throw new Error('both pennants must be placed');
+    }
+    expect([first.text, second.text]).toEqual(['바위 능선!', '설원!']);
+    expect(rectsOverlap(first.box, second.box)).toBe(false);
+  });
+
+  it('집계 전 달에는 깃발 자리를 만들지 않는다', () => {
+    expect(marksOf([{ band: 2, pointIndex: 0 }], [null], [])).toEqual([]);
   });
 });
 

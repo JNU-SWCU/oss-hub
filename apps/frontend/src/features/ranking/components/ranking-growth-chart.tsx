@@ -21,14 +21,16 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import type { RankingTimeline } from '../types';
-import { approxTextWidth, clamp } from './ranking-bump-chart-model';
+import { approxTextWidth, clamp, type Rect } from './ranking-bump-chart-model';
 import {
   BAND_TIERS,
   endLabelDelta,
+  pennantMarks,
   SUMMIT_BAND,
-  type BandCrossing,
+  tierTags,
   type GrowthInsights,
   type GrowthPoint,
+  type TierTag,
 } from './ranking-insights-model';
 import styles from './ranking-insights.module.css';
 
@@ -63,12 +65,7 @@ const NARROW_QUERY = '(max-width: 639px)';
 const GUTTER_PAD = 18;
 const LABEL_LINE = 15;
 const DOT_RADIUS = 4;
-const TAG_MIN_HEIGHT = 18;
-const TAG_INSET = 10;
-const TAG_CLEARANCE = 20;
-const TAG_LIFT = 9;
 const RIDGE_KEY = 'p90';
-const STICKER_FLIP_PAD = 96;
 const END_LABEL_INSET = 8;
 const BUBBLE_HEIGHT = 34;
 const BUBBLE_GAP = 14;
@@ -206,48 +203,21 @@ function useGeometry() {
   return { plot, xScale, yScale };
 }
 
-function BandLabels({
-  insights,
-  viewerY,
-}: {
-  readonly insights: GrowthInsights;
-  readonly viewerY: number | null;
-}) {
-  const geometry = useGeometry();
-  const edge = insights.points.at(-1)?.boundaries ?? null;
-  if (geometry === null || edge === null) return null;
-  const { plot, yScale } = geometry;
-  const right = plot.x + plot.width;
+function BandLabels({ tags }: { readonly tags: readonly TierTag[] }) {
   return (
     <g>
-      {BAND_TIERS.map((tier, band) => {
-        const summit = band === BAND_TIERS.length - 1;
-        const low = band === 0 ? 0 : (edge[band - 1] ?? 0);
-        const high = summit ? insights.domainTop : (edge[band] ?? 0);
-        const top = yScale(high) ?? plot.y;
-        const bottom = yScale(low) ?? plot.y + plot.height;
-        if (!summit && bottom - top < TAG_MIN_HEIGHT) return null;
-        const anchor = clamp(
-          bottom - TAG_LIFT,
-          plot.y + TAG_LIFT,
-          plot.y + plot.height - 4,
-        );
-        if (viewerY !== null && Math.abs(viewerY - anchor) < TAG_CLEARANCE) {
-          return null;
-        }
-        return (
-          <text
-            key={`tag-${String(band)}`}
-            className={styles.tierTag}
-            x={right - TAG_INSET}
-            y={anchor}
-            textAnchor="end"
-            dominantBaseline="middle"
-          >
-            {`${tier.name} · ${tier.range}`}
-          </text>
-        );
-      })}
+      {tags.map((tag) => (
+        <text
+          key={`tag-${String(tag.band)}`}
+          className={styles.tierTag}
+          x={tag.x}
+          y={tag.y}
+          textAnchor="end"
+          dominantBaseline="middle"
+        >
+          {tag.text}
+        </text>
+      ))}
     </g>
   );
 }
@@ -275,13 +245,27 @@ function GrowthLabelLayer({
 }) {
   const geometry = useGeometry();
   if (geometry === null) return null;
+  const { plot, yScale } = geometry;
+  const edges = insights.points.at(-1)?.boundaries ?? null;
+  const tags =
+    edges === null
+      ? []
+      : tierTags({
+          edges,
+          domainTop: insights.domainTop,
+          plot,
+          yOf: (value) => yScale(value),
+          viewerY: viewerEndY(insights, (value) => yScale(value)),
+        });
   return (
     <g>
-      <BandLabels
+      <BandLabels tags={tags} />
+      <ViewerMarks
         insights={insights}
-        viewerY={viewerEndY(insights, (value) => geometry.yScale(value))}
+        gutter={gutter}
+        narrow={narrow}
+        obstacles={narrow ? [] : tags.map((tag) => tag.box)}
       />
-      <ViewerMarks insights={insights} gutter={gutter} narrow={narrow} />
     </g>
   );
 }
@@ -296,10 +280,12 @@ function ViewerMarks({
   insights,
   gutter,
   narrow,
+  obstacles,
 }: {
   readonly insights: GrowthInsights;
   readonly gutter: number;
   readonly narrow: boolean;
+  readonly obstacles: readonly Rect[];
 }) {
   const geometry = useGeometry();
   const viewer = insights.viewer;
@@ -317,10 +303,12 @@ function ViewerMarks({
   const endSpot = spotOf(lastIndex);
   const debut = viewer.debutIndex === null ? null : spotOf(viewer.debutIndex);
   const label = viewer.endLabel;
-  const stickers = viewer.crossings.map((crossing: BandCrossing) => ({
-    crossing,
-    spot: spotOf(crossing.pointIndex),
-  }));
+  const marks = pennantMarks({
+    crossings: viewer.crossings,
+    spotOf,
+    plot,
+    obstacles,
+  });
   return (
     <g>
       {debut === null ? null : (
@@ -357,49 +345,45 @@ function ViewerMarks({
           );
         })}
       </g>
-      {stickers.map(({ crossing, spot }) => {
-        if (spot === null) return null;
-        const flip = spot.x > plot.x + plot.width - STICKER_FLIP_PAD;
-        return (
+      {marks.map((mark) => (
+        <g
+          key={`sticker-${String(mark.crossing.band)}-${String(mark.crossing.pointIndex)}`}
+          data-band-crossing={`${String(mark.crossing.band)}:${String(mark.crossing.pointIndex)}`}
+          transform={`translate(${String(mark.spot.x)}, ${String(mark.spot.y)})`}
+        >
           <g
-            key={`sticker-${String(crossing.band)}-${String(crossing.pointIndex)}`}
-            data-band-crossing={`${String(crossing.band)}:${String(crossing.pointIndex)}`}
-            transform={`translate(${String(spot.x)}, ${String(spot.y)})`}
+            {...(mark.crossing === insights.freshCrossing
+              ? { 'data-fresh': '' }
+              : {})}
+            className={styles.pennant}
           >
-            <g
-              {...(crossing === insights.freshCrossing
-                ? { 'data-fresh': '' }
-                : {})}
-              className={styles.pennant}
-            >
-              <path
-                className={styles.pennantPole}
-                d={`M0 0 V-${String(PENNANT_POLE)}`}
-              />
+            <path
+              className={styles.pennantPole}
+              d={`M0 0 V-${String(PENNANT_POLE)}`}
+            />
+            <path
+              className={styles.pennantFlag}
+              d="M0 -14 L10 -11 L0 -8 Z"
+              fill={BAND_INKS[mark.crossing.band]}
+            />
+            {mark.crossing.band === SUMMIT_BAND ? (
               <path
                 className={styles.pennantFlag}
-                d="M0 -14 L10 -11 L0 -8 Z"
-                fill={BAND_INKS[crossing.band]}
+                d="M0 -20 L10 -17 L0 -14 Z"
+                fill={BAND_INKS[mark.crossing.band]}
               />
-              {crossing.band === SUMMIT_BAND ? (
-                <path
-                  className={styles.pennantFlag}
-                  d="M0 -20 L10 -17 L0 -14 Z"
-                  fill={BAND_INKS[crossing.band]}
-                />
-              ) : null}
-              <text
-                className={styles.pennantLabel}
-                x={flip ? -6 : 13}
-                y={flip ? -24 : -9}
-                textAnchor={flip ? 'end' : 'start'}
-              >
-                {`${BAND_TIERS[crossing.band]?.name ?? ''}!`}
-              </text>
-            </g>
+            ) : null}
+            <text
+              className={styles.pennantLabel}
+              x={mark.x}
+              y={mark.y}
+              textAnchor={mark.textAnchor}
+            >
+              {mark.text}
+            </text>
           </g>
-        );
-      })}
+        </g>
+      ))}
       {label === null || endSpot === null ? null : (
         <text
           data-growth-endlabel=""

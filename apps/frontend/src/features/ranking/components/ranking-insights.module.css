@@ -288,6 +288,10 @@
   font-size: 10px;
   font-weight: 700;
   fill: var(--foreground);
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .pennant[data-fresh] {
