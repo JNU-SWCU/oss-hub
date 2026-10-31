@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MemberKind } from '@prisma/client';
@@ -82,7 +83,7 @@ describe('ProgramEditorService integration', () => {
       },
     });
     const documents = new MilestoneDocumentsService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );

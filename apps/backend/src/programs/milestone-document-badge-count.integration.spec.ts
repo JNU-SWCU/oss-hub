@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { AccountStatus, ApplicationStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -22,7 +23,10 @@ const staffId = `${prefix}-staff`;
 const staffGithubId = 9600000000998001n;
 
 const prisma = new PrismaService();
-const repository = new MilestoneDocumentsRepository(prisma);
+const repository = new MilestoneDocumentsRepository(
+  prisma,
+  new LockProgramTreeRepository(),
+);
 const service = new MilestoneDocumentsService(
   repository,
   new MilestoneDocumentRulesService(new ProgramRulesService()),

@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ProgramCategory,
   StaffAccessRequestStatus,
@@ -22,6 +23,7 @@ describe('ProgramEditorRepository authority', () => {
     };
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
+      new LockProgramTreeRepository(),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -89,6 +91,7 @@ describe('ProgramEditorRepository edit counts', () => {
     };
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
+      new LockProgramTreeRepository(),
     );
 
     const result = await repository.withTransaction((store) =>

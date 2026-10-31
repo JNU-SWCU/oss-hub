@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentKind,
   ReviewDecision,
@@ -27,7 +28,10 @@ assertIsolatedIntegrationDatabase({
 
 const fixture = new MilestoneDocumentFlowFixture();
 const documentReviews = new MilestoneDocumentReviewsService(
-  new MilestoneDocumentsRepository(fixture.prisma),
+  new MilestoneDocumentsRepository(
+    fixture.prisma,
+    new LockProgramTreeRepository(),
+  ),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyReviews = new SubmissionReviewsService(

@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Prisma } from '@prisma/client';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -56,10 +57,13 @@ it.each([
       }),
     },
   };
-  const repository = new ProgramEditorRepository({
-    $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
-      operation(tx),
-  } as unknown as PrismaService);
+  const repository = new ProgramEditorRepository(
+    {
+      $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
+        operation(tx),
+    } as unknown as PrismaService,
+    new LockProgramTreeRepository(),
+  );
   const result = await repository.withTransaction<unknown>((store) =>
     store[method]('m'),
   );
@@ -90,10 +94,13 @@ it.each([
       .mockResolvedValue([{ id: 'p' }]),
     program: { findUnique: jest.fn().mockResolvedValue(null) },
   };
-  const repository = new ProgramEditorRepository({
-    $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
-      operation(tx),
-  } as unknown as PrismaService);
+  const repository = new ProgramEditorRepository(
+    {
+      $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
+        operation(tx),
+    } as unknown as PrismaService,
+    new LockProgramTreeRepository(),
+  );
   if (method === 'findEditableProgramForUpdate') {
     tx.$queryRaw.mockResolvedValue([]);
   }

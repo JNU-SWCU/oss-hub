@@ -607,7 +607,7 @@ const policies = [
     disallow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
-    from: [element('repository'), category('test')],
+    from: [element('repository'), category('test'), category('composition')],
     allow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {

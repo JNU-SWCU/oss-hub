@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MemberKind,
   MilestoneDocumentKind,
@@ -247,7 +248,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     await new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
       memoryStorage(),
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
@@ -381,7 +382,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
       memoryStorage(),
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
@@ -414,7 +415,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await seedGraph();
     const gate = deferred<void>();
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
       {
         ...memoryStorage(),
         put: (input) =>
@@ -573,7 +574,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
       memoryStorage(),
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
@@ -1183,7 +1184,10 @@ function createFaultingEditor(
     | 'lockAttachableUploads'
     | 'countSubmissionHistoriesForDocuments',
 ): ProgramEditorService {
-  const actual = new ProgramEditorRepository(prisma);
+  const actual = new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+  );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {
@@ -1249,7 +1253,10 @@ function pausingAggregateEditorAt(
   locked: ReturnType<typeof deferred<void>>,
   release: ReturnType<typeof deferred<void>>,
 ): ProgramEditorService {
-  const actual = new ProgramEditorRepository(prisma);
+  const actual = new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+  );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {

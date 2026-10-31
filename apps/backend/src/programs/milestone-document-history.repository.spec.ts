@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
@@ -41,13 +42,16 @@ describe('MilestoneDocumentsRepository history page', () => {
         row('history-2', middle),
         row('history-1', oldest),
       ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findUnique },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findUnique },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     const page = await repository.findSubmissionHistoryPage(
       'document-1',
@@ -72,15 +76,18 @@ describe('MilestoneDocumentsRepository history page', () => {
 
   it('uses the supplied cursor without returning it again', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord()),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     await repository.findSubmissionHistoryPage(
       'document-1',
@@ -96,15 +103,18 @@ describe('MilestoneDocumentsRepository history page', () => {
 
   it('rejects a cursor that does not belong to the requested submission', async () => {
     const findMany = jest.fn();
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord()),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     await expect(
       repository.findSubmissionHistoryPage(
@@ -153,15 +163,18 @@ describe('MilestoneDocumentsRepository history page', () => {
       .fn()
       .mockResolvedValueOnce([decision, submission, olderSubmission])
       .mockResolvedValueOnce([olderSubmission]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord()),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'history-submission' }),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord()),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'history-submission' }),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     const firstPage = await repository.findSubmissionHistoryPage(
       'document-1',
@@ -212,15 +225,18 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn(),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn(),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     const page = await repository.findSubmissionHistoryPage(
       'document-1',
@@ -268,15 +284,18 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn(),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn(),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     const page = await repository.findSubmissionHistoryPage(
       'document-1',
@@ -315,15 +334,18 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: {
-        findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
-      },
-      milestoneDocumentSubmissionHistory: {
-        findFirst: jest.fn(),
-        findMany,
-      },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: {
+          findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
+        },
+        milestoneDocumentSubmissionHistory: {
+          findFirst: jest.fn(),
+          findMany,
+        },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+    );
 
     const page = await repository.findSubmissionHistoryPage(
       'document-1',

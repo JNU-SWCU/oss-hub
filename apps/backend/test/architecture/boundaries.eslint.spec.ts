@@ -788,7 +788,7 @@ add(
 add(
   'repository may export its class and types',
   'src/programs/exports-allowed.repository.ts',
-  'export class ExportsAllowedRepository {} export type Row = { id: string }; export interface Shape { id: string }',
+  '@Injectable() export class ExportsAllowedRepository {} export type Row = { id: string }; export interface Shape { id: string }',
   null,
 );
 add(
@@ -1059,7 +1059,7 @@ for (const [name, code] of envAccess) {
 add(
   'NODE_ENV production branch is accepted',
   'src/programs/node-env-production.service.ts',
-  "export class NodeEnvProductionService { isProduction(env: { NODE_ENV: string }) { return env.NODE_ENV === 'production'; } }",
+  "@Injectable() export class NodeEnvProductionService { isProduction(env: { NODE_ENV: string }) { return env.NODE_ENV === 'production'; } }",
   null,
 );
 add(

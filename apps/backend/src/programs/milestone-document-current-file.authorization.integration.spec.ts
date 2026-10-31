@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Readable } from 'node:stream';
 import { PlatformModule } from '../platform/platform.module';
 import { buffer } from 'node:stream/consumers';
@@ -123,7 +124,10 @@ const users = {
 } as const;
 
 const prisma = new PrismaService();
-const documentsRepository = new MilestoneDocumentsRepository(prisma);
+const documentsRepository = new MilestoneDocumentsRepository(
+  prisma,
+  new LockProgramTreeRepository(),
+);
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
   new MilestoneDocumentRulesService(new ProgramRulesService()),

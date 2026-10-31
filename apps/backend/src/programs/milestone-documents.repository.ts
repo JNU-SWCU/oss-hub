@@ -350,7 +350,10 @@ function countSubmissionsForDocumentWith(
 
 class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteStore {
   private milestoneLock: MilestoneLock | null = null;
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly locks: LockProgramTreeRepository,
+  ) {}
 
   async isApplicationParticipant(
     applicationId: string,
@@ -367,13 +370,10 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
   }
 
   async lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
-    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-      },
-    );
+    this.milestoneLock = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+    });
     if (this.milestoneLock === null) return null;
     return this.transaction.milestone.findUniqueOrThrow({
       where: { id: this.milestoneLock.id },
@@ -387,22 +387,16 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
       select: { programId: true },
     });
     if (initial === null) return null;
-    const program = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId: initial.programId,
-      },
-    );
+    const program = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId: initial.programId,
+    });
     if (program === null) return null;
-    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-        after: program,
-      },
-    );
+    this.milestoneLock = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: program,
+    });
     if (this.milestoneLock === null) return null;
     const milestone = await this.transaction.milestone.findUniqueOrThrow({
       where: { id: milestoneId },
@@ -472,14 +466,11 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
     if (this.milestoneLock === null || this.milestoneLock.id !== milestoneId) {
       throw new Error('Milestone must be locked before its documents.');
     }
-    const result = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'documents',
-        after: this.milestoneLock,
-        documentKind: 'DOCUMENT',
-      },
-    );
+    const result = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'documents',
+      after: this.milestoneLock,
+      documentKind: 'DOCUMENT',
+    });
     return result.documentIds;
   }
 
@@ -876,13 +867,18 @@ class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocume
 
 @Injectable()
 export class MilestoneDocumentsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly locks: LockProgramTreeRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaMilestoneDocumentWriteRepository(transaction)),
+      operation(
+        new PrismaMilestoneDocumentWriteRepository(transaction, this.locks),
+      ),
     );
   }
 

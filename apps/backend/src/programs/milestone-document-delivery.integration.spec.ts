@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentCollectionResponseDto,
   MilestoneDocumentDeliveryCollectionResponseDto,
@@ -34,7 +35,10 @@ const service = new MilestoneDocumentCollectionService(
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyService = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(harness.prisma),
+  new MilestoneDocumentsRepository(
+    harness.prisma,
+    new LockProgramTreeRepository(),
+  ),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
 );

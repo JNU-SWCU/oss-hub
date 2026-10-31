@@ -240,7 +240,10 @@ type ProgramRecord = PrismaTypes.ProgramGetPayload<{
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 
 class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
-  constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
+  constructor(
+    private readonly transaction: PrismaTypes.TransactionClient,
+    private readonly locks: LockProgramTreeRepository,
+  ) {}
 
   findUserAuthorityByGithubId(githubId: bigint) {
     return this.transaction.user.findUnique({
@@ -275,13 +278,10 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   async findEditableProgramForUpdate(
     programId: string,
   ): Promise<EditableProgramRow | null> {
-    const locked = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId,
-      },
-    );
+    const locked = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     return locked ? this.findEditableProgramById(programId) : null;
   }
 
@@ -345,13 +345,10 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   async findProgramScheduleForMilestoneCreate(
     programId: string,
   ): Promise<ProgramSchedule | null> {
-    const locked = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId,
-      },
-    );
+    const locked = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!locked) return null;
     return this.transaction.program.findUnique({
       where: { id: programId },
@@ -382,22 +379,16 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   ): Promise<ProgramMilestoneTarget | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
     if (programId === null) return null;
-    const programLocked = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId,
-      },
-    );
+    const programLocked = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!programLocked) return null;
-    const lockedMilestone = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-        after: programLocked,
-      },
-    );
+    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: programLocked,
+    });
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
@@ -460,25 +451,19 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   ): Promise<LockedProgramMilestoneEdit | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
     if (programId === null) return null;
-    const program = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId,
-      },
-    );
+    const program = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (program === null) return null;
-    const lockedMilestone = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-        after: program,
-      },
-    );
+    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: program,
+    });
     if (lockedMilestone === null) return null;
     return this.readMilestoneEditWith(milestoneId, programId, async () => {
-      await LockProgramTreeRepository.lockProgramTree(this.transaction, {
+      await this.locks.lockProgramTree(this.transaction, {
         stage: 'documents',
         after: lockedMilestone,
         documentKind: 'DOCUMENT',
@@ -669,27 +654,21 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   ): Promise<ProgramMilestoneDeleteTarget | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
     if (programId === null) return null;
-    const programLocked = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId,
-      },
-    );
+    const programLocked = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!programLocked) return null;
-    const lockedMilestone = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-        after: programLocked,
-      },
-    );
+    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: programLocked,
+    });
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
 
-    await LockProgramTreeRepository.lockProgramTree(this.transaction, {
+    await this.locks.lockProgramTree(this.transaction, {
       stage: 'documents',
       after: lockedMilestone,
       documentKind: 'ALL',
@@ -739,13 +718,16 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
 
 @Injectable()
 export class ProgramEditorRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly locks: LockProgramTreeRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: ProgramEditorTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaProgramEditorRepository(transaction)),
+      operation(new PrismaProgramEditorRepository(transaction, this.locks)),
     );
   }
 }

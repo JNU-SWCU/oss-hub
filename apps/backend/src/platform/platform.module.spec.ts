@@ -1,3 +1,4 @@
+import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import 'reflect-metadata';
 import { RolesGuard } from './roles.guard';
 import { MODULE_METADATA } from '@nestjs/common/constants';
@@ -102,6 +103,7 @@ describe('PlatformModule', () => {
 
     expect(exported).toEqual([
       RUNTIME_CONFIG,
+      LockProgramTreeRepository,
       PrismaService,
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
