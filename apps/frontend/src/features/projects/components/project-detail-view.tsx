@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Users } from 'lucide-react';
 import {
   DetailPanelLayout,
@@ -12,7 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { ProjectNotFoundError, loadProjectDetail } from '../api';
+import { ProjectNotFoundError } from '../api';
+import { useProjectDetailQuery } from '../queries';
 import type { ProjectDetail, ProjectDetailState } from '../types';
 
 type ProjectDetailContentProps = {
@@ -189,29 +189,17 @@ export function ProjectDetailView({
 }: {
   readonly projectId: string;
 }) {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<ProjectDetailState>({ kind: 'loading' });
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
+  const query = useProjectDetailQuery(projectId);
+  const state: ProjectDetailState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? {
+          kind:
+            query.error instanceof ProjectNotFoundError ? 'not-found' : 'error',
+        }
+      : { kind: 'ready', project: query.data };
 
-  useEffect(() => {
-    let active = true;
-    setState({ kind: 'loading' });
-    loadProjectDetail(projectId)
-      .then((project) => {
-        if (active) setState({ kind: 'ready', project });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setState(
-          error instanceof ProjectNotFoundError
-            ? { kind: 'not-found' }
-            : { kind: 'error' },
-        );
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, projectId]);
-
-  return <ProjectDetailContent state={state} onRetry={retry} />;
+  return (
+    <ProjectDetailContent state={state} onRetry={() => void query.refetch()} />
+  );
 }
