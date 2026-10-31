@@ -15,12 +15,12 @@ export function SettingsPolicyUpdateNotice() {
         id="settings-policy-update-heading"
         className="text-base font-semibold text-foreground"
       >
-        활동 수집·랭킹 안내를 정리했습니다
+        비공개 기여 집계와 랭킹 안내를 업데이트했습니다
       </h2>
       <p className="break-keep text-sm text-muted-foreground">
-        2026년 10월 19일, 공개 랭킹의 학과 표시와 다섯 가지 지표, 활동 수집
-        범위를 현재 운영 기준에 맞춰 안내했습니다. 기존 동의는 유지되며 추가
-        동의 없이 이용할 수 있습니다.
+        2026년 11월 1일부터 로그인할 때 조회하는 비공개 저장소 기여 건수를
+        랭킹 지표 합계에 포함합니다. 기존 회원은 다음 로그인 때 변경된 안내를
+        확인하고 한 번 동의하면 계속 이용할 수 있습니다.
       </p>
       <a
         href="/policies/github-activity"
