@@ -1,27 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError } from '@/lib/api-client';
-import {
-  fetchAdminAccessHistory,
-  parseAdminAccessConflictProjection,
-} from '../admin-access-api';
+import { fetchAdminAccessHistory } from '../admin-access-api';
 import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
   AdminAccessDetailNotFoundError,
   loadAdminAccessDetail,
 } from '../admin-access-detail-api';
 import type { AccessWorkspace } from '../admin-access-list-query';
-import { executeAdminAccessMutation } from '../admin-access-mutation-execution';
 import {
-  adminAccessMutationErrorMessage,
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
   applyAdminAccessDecidedRequestToHistory,
   isIndependentAuthorityMutationAction,
-  isMemberKindMutationAction,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import { runAdminAccessMutation } from '../admin-access-mutation-outcome';
 import type { MemberKindMutationFields } from '../independent-authority-api';
 import {
   AdminAccessDetailContentForState,
@@ -150,64 +144,54 @@ export function AdminAccessDetailScreen({
     setDialogError(null);
     setSuccessMessage(null);
     try {
-      const result = isMemberKindMutationAction(action)
-        ? await executeAdminAccessMutation(
-            userId,
-            action,
-            detail,
-            rejectReason,
-            memberKindFields,
-          )
-        : await executeAdminAccessMutation(
-            userId,
-            action,
-            detail,
-            rejectReason,
-          );
-      setConfirmAction(null);
-      setRejectReason('');
-      setConflictNotice(null);
-      setSuccessMessage(
-        adminAccessMutationSuccessMessage(action, detail.githubLogin),
-      );
-
-      if (workspace === 'queue' && result) {
-        setState((current) =>
-          current.kind === 'ready'
-            ? {
-                kind: 'ready',
-                detail: applyAdminAccessConflictProjection(
-                  current.detail,
-                  result,
-                ),
-                history: applyAdminAccessDecidedRequestToHistory(
-                  current.history,
-                  result.decidedRequest,
-                ),
-              }
-            : current,
-        );
-      } else {
-        retry();
-      }
-    } catch (error) {
-      if (
-        isMemberKindMutationAction(action) &&
-        error instanceof ApiError &&
-        error.problem.status === 409
-      ) {
+      const outcome = await runAdminAccessMutation({
+        userId,
+        action,
+        detail,
+        reason: rejectReason,
+        memberKindFields,
+      });
+      if (outcome.kind === 'success') {
+        const { result } = outcome;
         setConfirmAction(null);
         setRejectReason('');
-        setDialogError(null);
-        setSuccessMessage(null);
-        setConflictNotice(
-          '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+        setConflictNotice(null);
+        setSuccessMessage(
+          adminAccessMutationSuccessMessage(action, detail.githubLogin),
         );
-        retry();
-        return;
-      }
-      const projection = parseAdminAccessConflictProjection(error);
-      if (projection) {
+
+        if (workspace === 'queue' && result) {
+          setState((current) =>
+            current.kind === 'ready'
+              ? {
+                  kind: 'ready',
+                  detail: applyAdminAccessConflictProjection(
+                    current.detail,
+                    result,
+                  ),
+                  history: applyAdminAccessDecidedRequestToHistory(
+                    current.history,
+                    result.decidedRequest,
+                  ),
+                }
+              : current,
+          );
+        } else {
+          retry();
+        }
+      } else if (outcome.kind === 'conflict') {
+        const { projection } = outcome;
+        if (!projection) {
+          setConfirmAction(null);
+          setRejectReason('');
+          setDialogError(null);
+          setSuccessMessage(null);
+          setConflictNotice(
+            '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+          );
+          retry();
+          return;
+        }
         if (isIndependentAuthorityMutationAction(action)) {
           retry();
         } else {
@@ -224,7 +208,7 @@ export function AdminAccessDetailScreen({
           '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
         );
       } else {
-        setDialogError(adminAccessMutationErrorMessage(error));
+        setDialogError(outcome.message);
       }
     } finally {
       setProcessingAction(null);
