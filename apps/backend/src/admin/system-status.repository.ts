@@ -123,17 +123,6 @@ function toSweepActivity(row: {
 export class SystemStatusRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findActor(githubId: bigint): Promise<SystemStatusActor | null> {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
-
   countFinalProvisionFailures(): Promise<number> {
     return this.prisma.repositoryProvisionJob.count({
       where: { status: 'FAILED_FINAL' },

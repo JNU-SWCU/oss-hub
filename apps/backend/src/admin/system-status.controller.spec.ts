@@ -1,6 +1,6 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { RolesGuard } from '../platform/roles.guard';
 import { Test } from '@nestjs/testing';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusService } from './system-status.service';
 
@@ -78,10 +78,10 @@ describe('SystemStatusController', () => {
     }).compile();
     const controller = testingModule.get(SystemStatusController);
 
-    await expect(
-      controller.getStatus({ sessionGithubId: 133n } as AuthenticatedRequest),
-    ).resolves.toEqual(JSON.parse(JSON.stringify(result)));
-    expect(getStatus).toHaveBeenCalledWith(133n);
+    await expect(controller.getStatus()).resolves.toEqual(
+      JSON.parse(JSON.stringify(result)),
+    );
+    expect(getStatus).toHaveBeenCalledWith();
     await testingModule.close();
   });
 
@@ -98,6 +98,6 @@ describe('SystemStatusController', () => {
       'system-status',
     );
     expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('/');
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([RolesGuard]);
   });
 });

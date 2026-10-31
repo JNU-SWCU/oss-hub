@@ -344,12 +344,10 @@ export class DeadlineDigestService {
   }
 
   async previewProgram(
-    githubId: bigint,
     programId: string,
     now: Date = new Date(),
     guidance: DeadlineDigestGuidance = {},
   ): Promise<DeadlineDigestPreview> {
-    await this.requireStaffOrAdmin(githubId);
     const eligibility = await this.requireEligibility(programId, now);
     const staffRecipients =
       eligibility.staffMilestones.length === 0
@@ -376,12 +374,10 @@ export class DeadlineDigestService {
   }
 
   async sendProgramFromPreview(
-    githubId: bigint,
     programId: string,
     preview: DeadlineDigestSendRequest,
     now: Date = new Date(),
   ): Promise<DeadlineDigestSendResult> {
-    await this.requireStaffOrAdmin(githubId);
     const previewedAt = new Date(preview.previewedAt);
     if (
       !Number.isFinite(previewedAt.getTime()) ||
@@ -466,11 +462,6 @@ export class DeadlineDigestService {
         },
       );
     }
-  }
-
-  private async requireStaffOrAdmin(githubId: bigint): Promise<void> {
-    if (!(await this.repository.findActiveStaffOrAdmin(githubId)))
-      this.fail(NotificationsErrorCode.STAFF_ONLY);
   }
 
   private async requireEligibility(

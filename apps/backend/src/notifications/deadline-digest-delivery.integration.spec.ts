@@ -120,13 +120,11 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   const manual = new RecordingMailSender();
   const service = harness.service(manual);
   const preview = await service.previewProgram(
-    DIGEST_FIXTURE.staffOnGithub,
     DIGEST_FIXTURE.notifyProgram,
     DIGEST_FIXTURE.now,
   );
 
   const result = await service.sendProgramFromPreview(
-    DIGEST_FIXTURE.staffOnGithub,
     DIGEST_FIXTURE.notifyProgram,
     preview,
     DIGEST_FIXTURE.now,
@@ -164,7 +162,6 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   expect(ledger.every((row) => row.status === 'SENT')).toBe(true);
 
   await service.sendProgramFromPreview(
-    DIGEST_FIXTURE.staffOnGithub,
     DIGEST_FIXTURE.notifyProgram,
     preview,
     DIGEST_FIXTURE.now,
