@@ -78,6 +78,24 @@ describe('서류 목록 API의 파싱 경계', () => {
 });
 
 describe('getMilestoneDocumentParticipantHistory', () => {
+  it.each(['', ' \t '])('빈 커서 %j는 요청에서 생략한다', async (cursor) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getMilestoneDocumentParticipantHistory(
+      'milestone-1',
+      'document-1',
+      cursor,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('milestones/milestone-1/documents/document-1/history?limit=20'),
+      undefined,
+    );
+  });
+
   it('정확한 학생 이력 endpoint에 제한과 cursor를 붙여 요청한다', async () => {
     const page = { items: [], nextCursor: 'older-page' };
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page));

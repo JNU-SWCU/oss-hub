@@ -3,6 +3,7 @@ import { renderWithQuery } from '../../../../test-support/render-with-query';
 type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import { programFeatureKey } from '@/lib/query-keys';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
 import { updateTeamRepositoryUrl } from './repository-url-api';
 import { removeStaffTeamMember } from './staff-team-members-api';
@@ -956,12 +957,17 @@ describe('ProgramStaffTeamDetailPage', () => {
   });
 
   describe('팀 삭제', () => {
-    it('삭제 뒤에도 운영 팀 목록으로 돌아간다', async () => {
+    it('삭제된 팀과 신청서를 재조회하지 않고 목록을 갱신한 뒤 돌아간다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       deleteStaffProgramTeamMock.mockResolvedValue({
         deletedCounts: withApplication.deletionScope,
       });
       await render();
+      const listKey = programFeatureKey('program-1', 'teams', 'staff');
+      root.queryClient.setQueryDefaults(listKey, { gcTime: Infinity });
+      root.queryClient.setQueryData(listKey, { items: [] });
+      getStaffProgramTeamDetailMock.mockClear();
+      getApplicationDetailWithHistoryMock.mockClear();
       const trigger = [...container.querySelectorAll('button')].find(
         (button) => button.textContent?.trim() === '팀 삭제',
       );
@@ -975,6 +981,9 @@ describe('ProgramStaffTeamDetailPage', () => {
       });
 
       expect(routerPushMock).toHaveBeenCalledWith('/programs/program-1/teams');
+      expect(getStaffProgramTeamDetailMock).not.toHaveBeenCalled();
+      expect(getApplicationDetailWithHistoryMock).not.toHaveBeenCalled();
+      expect(root.queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     });
 
     it('위험 영역에 팀 삭제 버튼이 있고 누르면 확인 창이 열린다', async () => {

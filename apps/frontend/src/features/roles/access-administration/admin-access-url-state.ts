@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type {
   AdminAccessAccountStatus,
   AdminAccessPendingFilter,
@@ -10,8 +12,20 @@ import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_DEFAULT_SORT,
   APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
+  type AccessWorkspace,
   type AdminAccessListFilterState,
 } from './admin-access-list-query';
+
+export function useAdminAccessUrlState(workspace: AccessWorkspace) {
+  const listSearch = useSearchParams().toString();
+  const state = useMemo(() => {
+    const searchParams = new URLSearchParams(listSearch);
+    return workspace === 'queue'
+      ? parseApplicantQueueSearchParams(searchParams)
+      : parseAdminAccessSearchParams(searchParams);
+  }, [workspace, listSearch]);
+  return { state, listSearch };
+}
 
 const ROLE_FILTER_VALUES: readonly AdminAccessRoleFilter[] = [
   'UNASSIGNED',

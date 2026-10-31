@@ -1,4 +1,5 @@
 import { ProjectDetailView } from '@/features/projects';
+import { decodeRouteProgramId } from '@/features/programs/program-paths';
 
 export default async function ProjectDetailPage({
   params,
@@ -6,5 +7,5 @@ export default async function ProjectDetailPage({
   readonly params: Promise<{ readonly projectId: string }>;
 }) {
   const { projectId } = await params;
-  return <ProjectDetailView projectId={projectId} />;
+  return <ProjectDetailView projectId={decodeRouteProgramId(projectId)} />;
 }

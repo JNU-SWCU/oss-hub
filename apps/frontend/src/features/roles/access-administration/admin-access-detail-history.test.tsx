@@ -78,6 +78,46 @@ async function nextHistoryPage(index: number) {
 }
 
 describe('관리자 상세 이력 조회 복구와 사용자 전환', () => {
+  it('같은 사용자의 서로 다른 이력 페이지는 각 화면의 조회 결과만 표시한다', async () => {
+    const firstRequest = Promise.withResolvers<AdminAccessHistory>();
+    const secondRequest = Promise.withResolvers<AdminAccessHistory>();
+    vi.mocked(loadAdminAccessDetail).mockResolvedValue({
+      detail: adminDetail(),
+      history: pagedHistory('original-history'),
+    });
+    vi.mocked(fetchAdminAccessHistory)
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+    await root.rerender(
+      <>
+        <div data-consumer="first">
+          <AdminAccessDetailScreen userId="target" />
+        </div>
+        <div data-consumer="second">
+          <AdminAccessDetailScreen userId="target" />
+        </div>
+      </>,
+    );
+    await nextHistoryPage(0);
+    await nextHistoryPage(3);
+    await act(async () =>
+      secondRequest.resolve(pagedHistory('second-history', 2)),
+    );
+    await act(async () =>
+      firstRequest.resolve(pagedHistory('first-history', 2)),
+    );
+
+    expect(
+      container.querySelector('[data-consumer="first"]')?.textContent,
+    ).toContain('first-history');
+    expect(
+      container.querySelector('[data-consumer="second"]')?.textContent,
+    ).toContain('second-history');
+    expect(
+      container.querySelector('[data-consumer="second"]')?.textContent,
+    ).not.toContain('first-history');
+  });
+
   it.each([0, 2])(
     '같은 사용자 화면의 공유 이력 요청을 %i번에서 시작하고 하나를 닫아도 남은 화면은 완료된다',
     async (first) => {

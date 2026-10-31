@@ -14,7 +14,7 @@ export async function listPrograms(
   const search = new URLSearchParams({
     page: String(params.page),
     pageSize: String(params.pageSize),
-    search: params.search,
+    ...(params.search.trim() ? { search: params.search } : {}),
     status: params.status,
   });
   if (params.sort) search.set('sort', params.sort);

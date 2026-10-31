@@ -3,6 +3,7 @@ import { featureKey } from '@/lib/query-keys';
 import {
   fetchAdminAccessList,
   fetchAdminAccessRequests,
+  type AdminAccessHistoryParams,
 } from './admin-access-api';
 import { loadAdminAccessDetail } from './admin-access-detail-api';
 import {
@@ -26,6 +27,14 @@ export function useAdminAccessListQuery(
 
 export function adminAccessDetailKey(userId: string) {
   return featureKey('admin-access', 'detail', userId);
+}
+
+export function adminAccessHistoryKey(
+  userId: string,
+  detailUpdatedAt: number,
+  params: AdminAccessHistoryParams | null,
+) {
+  return featureKey('admin-access', 'history', userId, detailUpdatedAt, params);
 }
 
 export function useAdminAccessDetailQuery(userId: string) {

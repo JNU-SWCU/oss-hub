@@ -16,6 +16,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it.each(['', ' \t '])(
+  '서류 수합 이력의 빈 커서 %j는 생략한다',
+  async (cursor) => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], nextCursor: null }), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getMilestoneDocumentHistory(
+      'milestone-1',
+      'document-1',
+      'application-1',
+      cursor,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath(
+        'milestones/milestone-1/documents/document-1/applications/application-1/history?limit=20',
+      ),
+      undefined,
+    );
+  },
+);
+
 describe('buildMilestoneDocumentCollectionSearchParams', () => {
   it('page·pageSize·filter를 언제나 함께 싣는다', () => {
     expect(
