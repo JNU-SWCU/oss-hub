@@ -103,6 +103,12 @@ const ICON_PATHS = {
   ),
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  panelLeft: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </>
+  ),
 } as const;
 
 export type ShellIconName = keyof typeof ICON_PATHS;

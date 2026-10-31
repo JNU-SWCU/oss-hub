@@ -21,46 +21,37 @@ function render() {
 describe('NavBar 좁은 화면 메뉴 접기', () => {
   it('640px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
     const html = render();
-    const menuClass = html.match(
-      /data-slot="nav-bar-menu"[^>]*class="([^"]*)"/,
-    )?.[1];
-    const itemsClass = html.match(
-      /data-slot="nav-bar-items"[^>]*class="([^"]*)"/,
-    )?.[1];
+    const visibility = (slot: string) =>
+      html.match(
+        new RegExp(
+          `data-slot="${slot}"[^>]*data-breakpoint-visibility="([^"]*)"`,
+        ),
+      )?.[1];
 
-    expect(menuClass?.split(' ')).toContain('min-[640px]:hidden');
-    expect(itemsClass?.split(' ')).toContain('hidden');
-    expect(itemsClass?.split(' ')).toContain('min-[640px]:flex');
-    expect(menuClass).not.toContain('min-[900px]');
-    expect(itemsClass).not.toContain('min-[900px]');
-    expect(menuClass).not.toContain('min-[480px]');
-    expect(itemsClass).not.toContain('min-[480px]');
+    expect(visibility('nav-bar-menu')).toBe('narrow');
+    expect(visibility('nav-bar-items')).toBe('wide');
   });
 
-  it('onToggleSidebarDrawer가 있으면 900px 미만 전용 사이드바 드로어 토글을 그린다', () => {
+  it('leading을 넘기면 브랜드 앞, 맨 왼쪽에 그린다', () => {
     const html = renderToStaticMarkup(
       <NavBar
         brand={<span>OSS Hub</span>}
         items={ITEMS}
         actions={<a href="/login">GitHub으로 로그인</a>}
-        sidebarDrawerOpen={false}
-        onToggleSidebarDrawer={() => {}}
-        sidebarDrawerId="app-sidebar-drawer"
+        leading={<span data-slot="test-leading" />}
       />,
     );
 
-    const trigger = html.match(
-      /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
-    )?.[0];
-    expect(trigger).toBeDefined();
-    expect(trigger).toContain('min-[900px]:hidden');
-    expect(trigger).toContain('aria-expanded="false"');
-    expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
+    const leading = html.indexOf('data-slot="test-leading"');
+    expect(leading).toBeGreaterThan(html.indexOf('data-slot="nav-bar"'));
+    expect(leading).toBeLessThan(html.indexOf('data-slot="nav-bar-brand"'));
   });
 
-  it('onToggleSidebarDrawer가 없으면 사이드바 드로어 토글을 그리지 않는다', () => {
-    expect(render()).not.toContain(
-      'data-slot="nav-bar-sidebar-drawer-trigger"',
+  it('leading이 없으면 브랜드가 첫 자식이다', () => {
+    const html = render();
+    const nav = html.match(/<nav[^>]*>([\s\S]*)<\/nav>/)?.[1] ?? '';
+    expect(nav.trimStart().startsWith('<div data-slot="nav-bar-brand"')).toBe(
+      true,
     );
   });
 
@@ -72,9 +63,10 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     const inlineList = html.match(
       /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
     )?.[0];
-    for (const hidden of ['min-[640px]:hidden', 'min-[900px]:hidden']) {
-      expect(menuPanel).not.toContain(hidden);
-      expect(inlineList).not.toContain(hidden);
+    for (const list of [menuPanel, inlineList]) {
+      expect(list).toBeDefined();
+      const children = list?.slice(list.indexOf('>') + 1);
+      expect(children).not.toContain('data-breakpoint-visibility');
     }
   });
 

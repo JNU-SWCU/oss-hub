@@ -140,11 +140,23 @@ describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프
     expect(html).not.toContain('data-slot="app-sidebar"');
   });
 
-  it('overview 응답이 오기 전에는 프로그램 id를 이름 자리표시자로 쓴다', () => {
+  it('overview 응답이 오기 전에는 프로그램 이름 자리를 스켈레톤으로 잡고 id를 제목으로 쓰지 않는다', () => {
     mockSession();
     const html = render('/programs/prog-1');
 
-    expect(html).toContain('prog-1');
+    expect(html).toContain('data-slot="sidebar-scope-title-skeleton"');
+    expect(html).not.toContain('data-slot="sidebar-shell-scope-title"');
+    expect(html).toContain('data-slot="sidebar-bottom-skeleton"');
+  });
+
+  it('비회원은 overview를 부르지 않으므로 스켈레톤 없이 id 제목을 바로 그린다', () => {
+    mockSession({ status: 'anonymous', role: null, isProfileComplete: false });
+    const html = render('/programs/prog-1');
+
+    expect(html).not.toMatch(/data-slot="[a-z-]+-skeleton"/);
+    expect(html).toMatch(
+      /<p[^>]*data-slot="sidebar-shell-scope-title"[^>]*>prog-1<\/p>/,
+    );
   });
 
   it('학생 회원은 "내 제출물"을 본다', () => {
@@ -214,24 +226,49 @@ describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프
     expect(incompleteProfile).not.toContain('서류 현황');
   });
 
-  it('overview 로딩 중에는 팀 수·게시판 뱃지를 하드코딩 없이 비운다', () => {
+  it('overview 로딩 중에는 팀 수·게시판 뱃지 자리를 숫자 없이 고정 폭 스켈레톤으로 잡는다', () => {
     mockSession();
     const html = render('/programs/prog-1');
 
     expect(html).not.toContain('data-slot="program-scope-sidebar-count"');
+    expect(html.match(/data-slot="sidebar-count-skeleton"/g)?.length).toBe(2);
   });
 
-  it('회원 셸 그리드는 두 사이드바가 같은 사이드바 폭 토큰을 쓴다', () => {
+  it('/programs 목록은 상태별 집계를 기다리는 동안 뱃지 자리를 스켈레톤으로 잡는다', () => {
+    mockSession();
+    const html = render('/programs');
+
+    expect(html).not.toContain('data-slot="app-sidebar-count"');
+    expect(html).toContain('data-slot="sidebar-count-skeleton"');
+  });
+
+  it('회원 셸 그리드는 두 사이드바 모두 같은 펼침 상태로 렌더된다', () => {
     mockSession();
     const listHtml = render('/programs');
     const scopeHtml = render('/programs/prog-1');
+    const shellOpen = /data-slot="product-shell"[^>]*data-collapsed="false"/;
 
-    expect(listHtml).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+    expect(listHtml).toMatch(shellOpen);
+    expect(scopeHtml).toMatch(shellOpen);
+  });
+
+  it('접힘 쿠키(initialCollapsed)로 SSR하면 첫 HTML부터 레일 상태다', () => {
+    mockSession();
+    mocks.usePathname.mockReturnValue('/programs');
+    const html = renderToStaticMarkup(
+      <ProductShell initialCollapsed>
+        <p>본문</p>
+      </ProductShell>,
     );
-    expect(scopeHtml).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+
+    expect(html).toMatch(
+      /data-slot="product-shell"[^>]*data-collapsed="true"[^>]*data-sidebar-phase="collapsed"/,
     );
+    expect(html).toMatch(/<aside[^>]*data-collapsed="true"/);
+    expect(html).toMatch(
+      /data-slot="sidebar-shell-panel"[^>]*data-phase="collapsed"/,
+    );
+    expect(html).not.toContain('data-slot="app-sidebar-foot"');
   });
 
   it('본문을 SkipLink 목적지(#main-content)로 감싼다', () => {

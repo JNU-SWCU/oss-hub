@@ -1,6 +1,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  bodyAttributeRemoved,
+  callSignal,
+  documentListenerAdded,
+  nextFocus,
+} from './drawer-test-signals';
 import { SidebarDrawer, SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -37,7 +43,7 @@ describe('SidebarDrawer', () => {
     await act(async () => root.unmount());
     container.remove();
     trigger.remove();
-    document.body.style.overflow = '';
+    document.body.removeAttribute('data-scroll-locked');
   });
 
   async function renderDrawer(open: boolean, onClose: () => void) {
@@ -52,12 +58,12 @@ describe('SidebarDrawer', () => {
 
   it('닫혀 있을 때는 아무것도 렌더하지 않는다', async () => {
     await renderDrawer(false, () => {});
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('role=dialog, aria-modal, aria-label을 단다', async () => {
     await renderDrawer(true, () => {});
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = document.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
     expect(dialog?.getAttribute('aria-label')).toBe('메뉴');
@@ -66,7 +72,7 @@ describe('SidebarDrawer', () => {
 
   it('열리면 첫 포커서블 요소로 포커스가 이동한다', async () => {
     await renderDrawer(true, () => {});
-    const closeButton = container.querySelector<HTMLElement>(
+    const closeButton = document.querySelector<HTMLElement>(
       '[aria-label="사이드바 메뉴 닫기"]',
     );
     expect(document.activeElement).toBe(closeButton);
@@ -74,7 +80,9 @@ describe('SidebarDrawer', () => {
 
   it('닫히면(트리거로) 열기 전 포커스로 복귀한다', async () => {
     await renderDrawer(true, () => {});
+    const refocused = nextFocus(trigger);
     await renderDrawer(false, () => {});
+    await act(() => refocused);
     expect(document.activeElement).toBe(trigger);
   });
 
@@ -96,16 +104,18 @@ describe('SidebarDrawer', () => {
   });
 
   it('배경 스크롤을 잠근다', async () => {
-    expect(document.body.style.overflow).toBe('');
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
     await renderDrawer(true, () => {});
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(true);
+    const unlocked = bodyAttributeRemoved('data-scroll-locked');
     await renderDrawer(false, () => {});
-    expect(document.body.style.overflow).toBe('');
+    await act(() => unlocked);
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
   });
 
   it('Tab이 드로어 밖으로 나가지 않는다(포커스 트랩) — 마지막에서 Tab하면 첫 요소로', async () => {
     await renderDrawer(true, () => {});
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = document.querySelector('[role="dialog"]');
     const focusables = dialog?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled])',
     );
@@ -130,7 +140,7 @@ describe('SidebarDrawer', () => {
 
   it('Tab이 드로어 밖으로 나가지 않는다(포커스 트랩) — 첫 요소에서 Shift+Tab하면 마지막 요소로', async () => {
     await renderDrawer(true, () => {});
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = document.querySelector('[role="dialog"]');
     const focusables = dialog?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled])',
     );
@@ -152,23 +162,34 @@ describe('SidebarDrawer', () => {
   });
 
   it('배경(backdrop) 클릭 시 onClose가 호출된다', async () => {
-    const onClose = vi.fn();
+    const closeSignal = callSignal();
+    const onClose = vi.fn(closeSignal.notify);
+    const outsideListenerReady = documentListenerAdded('pointerdown');
     await renderDrawer(true, onClose);
-    const backdrop = container.querySelector<HTMLElement>(
+    await act(() => outsideListenerReady);
+    const backdrop = document.querySelector<HTMLElement>(
       '[data-slot="sidebar-drawer-backdrop"]',
     );
     expect(backdrop).not.toBeNull();
 
     await act(async () => {
+      backdrop?.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
       backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
+    await act(() => closeSignal.called);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('닫기 버튼 클릭 시 onClose가 호출된다', async () => {
     const onClose = vi.fn();
     await renderDrawer(true, onClose);
-    const closeButton = container.querySelector<HTMLElement>(
+    const closeButton = document.querySelector<HTMLElement>(
       '[aria-label="사이드바 메뉴 닫기"]',
     );
 
@@ -180,7 +201,7 @@ describe('SidebarDrawer', () => {
 
   it('children으로 넘긴 메뉴 콘텐츠를 그대로 렌더한다', async () => {
     await renderDrawer(true, () => {});
-    expect(container.querySelector('a[href="/programs"]')).not.toBeNull();
-    expect(container.querySelector('a[href="/ranking"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/programs"]')).not.toBeNull();
+    expect(document.querySelector('a[href="/ranking"]')).not.toBeNull();
   });
 });
