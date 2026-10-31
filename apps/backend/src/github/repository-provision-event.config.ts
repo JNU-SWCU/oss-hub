@@ -128,13 +128,13 @@ export function repositoryAccessSyncEventData(
   };
 }
 
-export type UnknownRecord = { readonly [key: string]: unknown };
+type UnknownRecord = { readonly [key: string]: unknown };
 
-export function isRecord(value: unknown): value is UnknownRecord {
+function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function requiredString(record: UnknownRecord, key: string): string {
+function requiredString(record: UnknownRecord, key: string): string {
   const value = record[key];
   if (!isNonEmptyString(value)) {
     throw new InvalidRepositoryProvisionEventError();

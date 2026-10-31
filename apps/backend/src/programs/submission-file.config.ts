@@ -9,7 +9,7 @@ const CANONICAL_CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.zip': 'application/zip',
 };
 
-export function submissionFileExtension(fileName: string): string | null {
+function submissionFileExtension(fileName: string): string | null {
   const dot = fileName.lastIndexOf('.');
   if (dot <= 0) return null;
   return fileName.slice(dot).toLowerCase();

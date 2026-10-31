@@ -31,7 +31,7 @@ export const USER_NAME_MAX_LENGTH = 100;
 
 export const USER_DEPARTMENT_MAX_LENGTH = 100;
 
-export const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
+const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;

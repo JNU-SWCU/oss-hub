@@ -110,7 +110,7 @@ export function assertNeverHttpAuth(auth: never): never {
   throw new TypeError(`Unexpected HTTP authentication kind: ${String(auth)}`);
 }
 
-export function attachAnonymousAuth(
+function attachAnonymousAuth(
   request: Request,
   hasSessionCookie: boolean,
 ): void {

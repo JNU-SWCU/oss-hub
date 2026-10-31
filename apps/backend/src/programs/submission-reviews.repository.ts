@@ -96,7 +96,7 @@ export interface CreateSubmissionReviewInput {
   readonly comment: string | null;
 }
 
-export interface SubmissionReviewTarget {
+interface SubmissionReviewTarget {
   readonly id: string;
   readonly currentRevision: number;
   readonly status: SubmissionStatus;

@@ -219,7 +219,7 @@ export class ProgramLifecycleService {
   }
 }
 
-export function sameProgramDeletionScopeCounts(
+function sameProgramDeletionScopeCounts(
   left: ProgramDeletionScopeCounts,
   right: ProgramDeletionScopeCounts,
 ): boolean {
@@ -233,7 +233,7 @@ export function sameProgramDeletionScopeCounts(
   );
 }
 
-export function sameProgramDeletionScopeCountValues(
+function sameProgramDeletionScopeCountValues(
   left: ProgramDeletionScopeCounts,
   right: Omit<ProgramDeletionScopeCounts, 'scopeFingerprint'>,
 ): boolean {
