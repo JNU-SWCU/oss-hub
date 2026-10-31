@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -1238,7 +1239,10 @@ function createFaultingEditor(
     repository,
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramUploadRulesService(
+      new SubmissionFileRulesService(),
+      new ProgramNoticeFetchClient(),
+    ),
     new SubmissionFileRulesService(),
   );
 }
@@ -1305,7 +1309,10 @@ function pausingAggregateEditorAt(
     repository,
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramUploadRulesService(
+      new SubmissionFileRulesService(),
+      new ProgramNoticeFetchClient(),
+    ),
     new SubmissionFileRulesService(),
   );
 }

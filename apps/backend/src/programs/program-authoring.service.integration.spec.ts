@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import {
   ProgramTrackType,
@@ -29,7 +30,10 @@ const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   new AuditLogMetadataService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
 );
 
 describe('ProgramAuthoringService integration', () => {
@@ -39,7 +43,10 @@ describe('ProgramAuthoringService integration', () => {
     { record: jest.fn() } as unknown as AuditLogService,
     new AuditLogMetadataService(),
     new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramUploadRulesService(
+      new SubmissionFileRulesService(),
+      new ProgramNoticeFetchClient(),
+    ),
   );
 
   beforeAll(async () => {

@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import type { ProgramAuthoringUploadFile } from './program-authoring-upload.error';
@@ -9,6 +10,7 @@ import { SubmissionFileRulesService } from './submission-file-rules.service';
 const programCoverUrlService = new ProgramCoverUrlService();
 const programUploadRulesService = new ProgramUploadRulesService(
   new SubmissionFileRulesService(),
+  new ProgramNoticeFetchClient(),
 );
 
 const PNG = Buffer.from(

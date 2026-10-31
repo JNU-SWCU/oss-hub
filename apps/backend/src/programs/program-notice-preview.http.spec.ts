@@ -66,7 +66,10 @@ beforeAll(async () => {
         },
       },
       { provide: ProgramAuthoringRepository, useValue: { findActor } },
-      { provide: ProgramNoticeFetchClient, useValue: { read } },
+      {
+        provide: ProgramNoticeFetchClient,
+        useValue: Object.assign(new ProgramNoticeFetchClient(), { read }),
+      },
       ProgramNoticePreviewService,
     ],
   })

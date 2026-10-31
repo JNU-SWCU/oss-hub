@@ -1,9 +1,11 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID } from 'node:crypto';
 import { ProgramUploadRulesService } from './program-upload-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const programUploadRulesService = new ProgramUploadRulesService(
   new SubmissionFileRulesService(),
+  new ProgramNoticeFetchClient(),
 );
 
 jest.mock('node:crypto', () => ({

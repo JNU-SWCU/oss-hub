@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
@@ -21,6 +22,7 @@ import { AdminAccessMutationService } from '../src/users/admin-access-mutation.s
 import { AdminProfileMutationService } from '../src/users/admin-profile-mutation.service';
 
 export const STATELESS_PROVIDERS = [
+  ProgramNoticeFetchClient,
   AuditLogMetadataService,
   UserProfileService,
   JoinCodeSecretService,

@@ -7,9 +7,7 @@ import {
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
   ProgramNoticeFetchClient,
-  extractProgramNotice,
   type ProgramNoticePreview,
-  parseProgramNoticeUrl,
 } from './program-notice-fetch.client';
 import { ProgramCategory } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -108,13 +106,10 @@ export class ProgramNoticePreviewService {
 
   private attempts: { readonly actorId: string; readonly at: number }[] = [];
 
-  constructor(
-    @Inject(ProgramNoticeFetchClient)
-    private readonly client: Pick<ProgramNoticeFetchClient, 'read'>,
-  ) {}
+  constructor(private readonly client: ProgramNoticeFetchClient) {}
 
   async preview(actorId: string, input: string): Promise<ProgramNoticePreview> {
-    const source = parseProgramNoticeUrl(input);
+    const source = this.client.parseProgramNoticeUrl(input);
     const now = Date.now();
     this.attempts = this.attempts.filter(
       (attempt) => attempt.at > now - 60_000,
@@ -128,7 +123,10 @@ export class ProgramNoticePreviewService {
     this.attempts.push({ actorId, at: now });
     this.active++;
     try {
-      return extractProgramNotice(await this.client.read(source), source);
+      return this.client.extractProgramNotice(
+        await this.client.read(source),
+        source,
+      );
     } finally {
       this.active--;
     }

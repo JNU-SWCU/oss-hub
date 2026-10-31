@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import {
   AccountStatus,
   MilestoneSubmissionType,
@@ -115,7 +116,10 @@ export function createProgramEditorServiceHarness(): {
       repository,
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
-      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new ProgramUploadRulesService(
+        new SubmissionFileRulesService(),
+        new ProgramNoticeFetchClient(),
+      ),
       new SubmissionFileRulesService(),
     ),
     store,

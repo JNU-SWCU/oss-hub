@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
@@ -51,7 +52,10 @@ function setup() {
     service: new ProgramAuthoringUploadService(
       repository,
       storage,
-      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new ProgramUploadRulesService(
+        new SubmissionFileRulesService(),
+        new ProgramNoticeFetchClient(),
+      ),
       () => NOW,
     ),
   };

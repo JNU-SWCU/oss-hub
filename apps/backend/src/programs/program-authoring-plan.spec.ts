@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import {
@@ -16,7 +17,10 @@ const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   new AuditLogMetadataService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
 );
 
 function request(): ProgramAuthoringRequest {
