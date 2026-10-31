@@ -2,39 +2,37 @@ import { TeamInvitationStatus } from '@prisma/client';
 import type { ReceivedTeamInvitationRecord } from '../team-invitation.types';
 
 export class ReceivedTeamInvitationResponseDto {
-  readonly preparation?: true;
-  id: string;
-  teamId: string;
-  programId: string;
-  invitedById: string;
-  status: TeamInvitationStatus;
-  invitedAt: string;
-  respondedAt: string | null;
-  teamName: string;
-  programName: string;
-  invitedByDisplayName: string;
-  memberCount: number;
-  teamMaxSize: number;
-
-  private constructor(record: ReceivedTeamInvitationRecord) {
-    if (record.preparation) this.preparation = true;
-    this.id = record.id;
-    this.teamId = record.teamId;
-    this.programId = record.programId;
-    this.invitedById = record.invitedById;
-    this.status = record.status;
-    this.invitedAt = record.invitedAt.toISOString();
-    this.respondedAt = record.respondedAt?.toISOString() ?? null;
-    this.teamName = record.teamName;
-    this.programName = record.programName;
-    this.invitedByDisplayName = record.invitedByDisplayName;
-    this.memberCount = record.memberCount;
-    this.teamMaxSize = record.teamMaxSize;
-  }
+  declare readonly preparation?: true;
+  declare readonly id: string;
+  declare readonly teamId: string;
+  declare readonly programId: string;
+  declare readonly invitedById: string;
+  declare readonly status: TeamInvitationStatus;
+  declare readonly invitedAt: string;
+  declare readonly respondedAt: string | null;
+  declare readonly teamName: string;
+  declare readonly programName: string;
+  declare readonly invitedByDisplayName: string;
+  declare readonly memberCount: number;
+  declare readonly teamMaxSize: number;
 
   static from(
     record: ReceivedTeamInvitationRecord,
   ): ReceivedTeamInvitationResponseDto {
-    return new ReceivedTeamInvitationResponseDto(record);
+    return {
+      preparation: record.preparation ? true : undefined,
+      id: record.id,
+      teamId: record.teamId,
+      programId: record.programId,
+      invitedById: record.invitedById,
+      status: record.status,
+      invitedAt: record.invitedAt.toISOString(),
+      respondedAt: record.respondedAt?.toISOString() ?? null,
+      teamName: record.teamName,
+      programName: record.programName,
+      invitedByDisplayName: record.invitedByDisplayName,
+      memberCount: record.memberCount,
+      teamMaxSize: record.teamMaxSize,
+    };
   }
 }

@@ -31,6 +31,7 @@ import type {
   MilestoneDocumentArchiveScope,
   ProgramDocumentArchiveScope,
 } from './milestone-document-result.types';
+import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -39,17 +40,6 @@ interface ZipFileFinalSize {
     options: { forceZip64Format: boolean; comment: string },
     onFinalSize: (finalSize: number) => void,
   ): void;
-}
-
-export class MilestoneDocumentArchiveEntryError extends Error {
-  override readonly name = 'MilestoneDocumentArchiveEntryError';
-
-  constructor(
-    readonly storageKey: string,
-    cause: unknown,
-  ) {
-    super(cause instanceof Error ? cause.message : String(cause), { cause });
-  }
 }
 
 @Injectable()

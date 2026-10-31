@@ -2,12 +2,10 @@ import { Logger } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
-import {
-  CollectionDiscoveryClient,
-  CollectionDiscoveryClientError,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
+import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 function deferred<T>(): {
   readonly promise: Promise<T>;

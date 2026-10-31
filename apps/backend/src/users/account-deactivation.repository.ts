@@ -4,7 +4,7 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
@@ -57,7 +57,7 @@ type PrismaAccountDeactivationTarget = Prisma.UserGetPayload<{
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-class PrismaAccountDeactivationTransactionStore implements AccountDeactivationTransactionStore {
+class PrismaAccountDeactivationTransactionRepository implements AccountDeactivationTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -101,7 +101,9 @@ export class AccountDeactivationRepository implements AccountDeactivationReposit
     operation: (store: AccountDeactivationTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaAccountDeactivationTransactionStore(transaction)),
+      operation(
+        new PrismaAccountDeactivationTransactionRepository(transaction),
+      ),
     );
   }
 }

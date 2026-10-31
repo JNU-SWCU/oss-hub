@@ -114,7 +114,9 @@ function rejectionFetch(
     return Promise.resolve(jsonResponse({ items: [] }));
   }
   if (url.pathname === apiPath(`programs/${PROGRAM_ID}/applications/me`)) {
-    return Promise.resolve(jsonResponse(REJECTED_APPLICATION));
+    return Promise.resolve(
+      jsonResponse({ status: 'REJECTED', application: REJECTED_APPLICATION }),
+    );
   }
   throw new Error(`unexpected request ${url.pathname}`);
 }

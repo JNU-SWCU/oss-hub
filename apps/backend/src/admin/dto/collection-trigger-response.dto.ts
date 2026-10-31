@@ -1,5 +1,8 @@
 export class CollectionTriggerResponseDto {
-  readonly status = 'PENDING' as const;
+  declare readonly runId: string;
+  declare readonly status: 'PENDING';
 
-  constructor(readonly runId: string) {}
+  static from(runId: string): CollectionTriggerResponseDto {
+    return { runId, status: 'PENDING' };
+  }
 }

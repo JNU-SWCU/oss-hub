@@ -68,7 +68,7 @@ export interface SubmissionReviewsRepositoryPort {
   ): Promise<RepositoryPublishEligibility | null>;
 }
 
-class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransactionStore {
+class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
 
   async isSubmissionParticipant(
@@ -192,7 +192,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     operation: (store: SubmissionReviewTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaSubmissionReviewTransactionStore(transaction)),
+      operation(new PrismaSubmissionReviewTransactionRepository(transaction)),
     );
   }
 

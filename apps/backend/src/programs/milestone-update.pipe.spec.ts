@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import { MilestoneUpdatePipe } from './milestones.controller';
+import { milestoneUpdatePipe } from './milestones.controller';
 
-const pipe = new MilestoneUpdatePipe();
+const pipe = milestoneUpdatePipe;
 const legacy = { name: ' Legacy ', dueAt: '2026-11-01T00:00:00.000Z' };
 const aggregate = {
   name: ' Aggregate ',

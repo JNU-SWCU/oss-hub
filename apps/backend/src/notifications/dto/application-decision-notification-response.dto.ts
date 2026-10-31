@@ -2,22 +2,26 @@ import type { ApplicationStatus } from '@prisma/client';
 import type { ApplicationDecisionNotification } from '../notifications.types';
 
 export class ApplicationDecisionNotificationResponseDto {
-  readonly id: string;
-  readonly applicationId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly decision:
+  declare readonly id: string;
+  declare readonly applicationId: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly decision:
     | typeof ApplicationStatus.APPROVED
     | typeof ApplicationStatus.REJECTED
     | typeof ApplicationStatus.SUBMITTED;
-  readonly decidedAt: string;
+  declare readonly decidedAt: string;
 
-  constructor(notification: ApplicationDecisionNotification) {
-    this.id = notification.id;
-    this.applicationId = notification.applicationId;
-    this.programId = notification.programId;
-    this.programName = notification.programName;
-    this.decision = notification.decision;
-    this.decidedAt = notification.decidedAt.toISOString();
+  static from(
+    notification: ApplicationDecisionNotification,
+  ): ApplicationDecisionNotificationResponseDto {
+    return {
+      id: notification.id,
+      applicationId: notification.applicationId,
+      programId: notification.programId,
+      programName: notification.programName,
+      decision: notification.decision,
+      decidedAt: notification.decidedAt.toISOString(),
+    };
   }
 }

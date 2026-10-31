@@ -9,6 +9,8 @@ import {
   SubmissionDashboardSummaryRepository,
   type SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
+import { UnexpectedSubmissionStatusError } from './submission-dashboard-summary.error';
+
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
   readonly approvedApplications: number;
@@ -31,10 +33,6 @@ interface MutableSubmissionDashboardProgramSummary {
   approved: number;
   changesRequested: number;
   rejected: number;
-}
-
-class UnexpectedSubmissionStatusError extends Error {
-  override readonly name = 'UnexpectedSubmissionStatusError';
 }
 
 @Injectable()

@@ -7,8 +7,6 @@ import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
-import { Cron, CronExpression } from '@nestjs/schedule';
-
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
 const DEFAULT_BATCH_SIZE = 100;
@@ -91,30 +89,6 @@ export class ProgramPurgeFileCleanupService {
         attemptCount,
         error: 'storage_delete_failed',
       });
-    }
-  }
-}
-
-@Injectable()
-export class ProgramPurgeFileCleanupScheduler {
-  private readonly logger = new Logger(ProgramPurgeFileCleanupScheduler.name);
-  private running = false;
-
-  constructor(private readonly cleanup: ProgramPurgeFileCleanupService) {}
-
-  @Cron(CronExpression.EVERY_HOUR, { name: 'program-purge-file-cleanup' })
-  async run(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
-    try {
-      await this.cleanup.runDue();
-    } catch {
-      this.logger.error({
-        event: 'program-purge-file.cleanup.run.failed',
-        error: 'MAINTENANCE_RUN_FAILED',
-      });
-    } finally {
-      this.running = false;
     }
   }
 }

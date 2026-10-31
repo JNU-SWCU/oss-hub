@@ -5,6 +5,7 @@ import {
   type RepositoryConnectionMode,
   type RepositorySource,
 } from '@prisma/client';
+import { InvalidRepositoryProvisionHistoryEventError } from './repository-provision-generation.error';
 
 interface RepositoryProvisionHistoryPayload {
   readonly applicationId: string;
@@ -15,10 +16,6 @@ interface RepositoryProvisionHistoryPayload {
 export type RepositoryProvisionHistoryPayloadParser = (
   value: unknown,
 ) => RepositoryProvisionHistoryPayload;
-
-class InvalidRepositoryProvisionHistoryEventError extends Error {
-  override readonly name = 'InvalidRepositoryProvisionHistoryEventError';
-}
 
 interface LockedProvisionGenerationRow {
   readonly id: string;

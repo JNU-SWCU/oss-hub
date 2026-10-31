@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { LockOrderError } from './lock-program-tree.error';
 
 const programBrand: unique symbol = Symbol('ProgramLock');
 const milestoneBrand: unique symbol = Symbol('MilestoneLock');
@@ -23,12 +24,6 @@ type Step =
       after: MilestoneLock;
       documentKind: 'DOCUMENT' | 'ALL';
     };
-class LockOrderError extends Error {
-  override readonly name = 'LockOrderError';
-  constructor() {
-    super('Invalid program tree lock order.');
-  }
-}
 
 export class LockProgramTreeRepository {
   static lockProgramTree(

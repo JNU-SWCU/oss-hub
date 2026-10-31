@@ -5,7 +5,6 @@ import {
   COLLECTION_CRON_JOB_NAME,
   CollectionTriggerService,
   DEFAULT_COLLECTION_CRON_EXPRESSION,
-  CollectionScheduler,
 } from './collection-trigger.service';
 import { Logger } from '@nestjs/common';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
@@ -17,11 +16,12 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
+import { GithubScheduler } from './github.scheduler';
 
-describe('collection.scheduler', () => {
-  describe('CollectionScheduler', () => {
+describe('github.scheduler', () => {
+  describe('GithubScheduler', () => {
     let testingModule: TestingModule;
-    let scheduler: CollectionScheduler;
+    let scheduler: GithubScheduler;
     const runScheduled = jest.fn<Promise<void>, []>();
 
     const registeredJob = () =>
@@ -33,12 +33,12 @@ describe('collection.scheduler', () => {
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          CollectionScheduler,
+          GithubScheduler,
           { provide: CollectionTriggerService, useValue: { runScheduled } },
         ],
       }).compile();
       await testingModule.init();
-      scheduler = testingModule.get(CollectionScheduler);
+      scheduler = testingModule.get(GithubScheduler);
     });
 
     afterEach(async () => {

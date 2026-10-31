@@ -31,7 +31,10 @@ describe('student application API', () => {
       canEdit: true,
       canCancel: true,
     };
-    vi.mocked(apiClient).mockResolvedValue(response);
+    vi.mocked(apiClient).mockResolvedValue({
+      status: 'SUBMITTED',
+      application: response,
+    });
 
     const result = await getMyApplication('program-1');
 
@@ -39,6 +42,12 @@ describe('student application API', () => {
       'programs/program-1/applications/me',
     );
     expect(result).toEqual(response);
+  });
+
+  it('NONE 상태는 신청 없음(null)으로 읽는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ status: 'NONE' });
+
+    await expect(getMyApplication('program-1')).resolves.toBeNull();
   });
 
   it('내 신청 내용을 수정한다', async () => {

@@ -45,6 +45,24 @@ test('file clients, local path builders and method options are recognized', () =
   assert.equal(routeMatches(board, call), false);
 });
 
+test('withQuery wrapper resolves literal, template and local builder paths', () => {
+  const calls = frontendCalls(`
+    import { apiClient, withQuery } from '@/lib/api-client';
+    const postsBase = (id: string) => \`programs/\${id}/board/posts\`;
+    apiClient(withQuery('users/access', new URLSearchParams(search)));
+    apiClient(withQuery(\`users/\${id}/access/history\`, params), { signal });
+    apiClient(withQuery(postsBase(id), search));
+  `);
+  assert.deepEqual(
+    calls.map(({ method, path }) => [method, path]),
+    [
+      ['GET', 'users/access'],
+      ['GET', 'users/:param/access/history'],
+      ['GET', 'programs/:param/board/posts'],
+    ],
+  );
+});
+
 test('different static segments and path depths do not match', () => {
   const [call] = frontendCalls(
     "apiClient('programs/example/board/posts/extra')",

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
   ProgramTeamResponseError,
+  getMyApplicationPreparation,
   getMyTeam,
   removeMyTeamMember,
 } from '../teams/api';
@@ -320,6 +321,67 @@ describe('decideApplication', () => {
         body: JSON.stringify({ action: 'REVERT' }),
       }),
     );
+  });
+});
+
+describe('getMyApplicationPreparation', () => {
+  const preparation = {
+    id: 'team-1',
+    name: '준비팀',
+    memberCount: 1,
+    minMembers: 1,
+    maxMembers: 4,
+    hasApplication: false,
+    canInvite: true,
+    canRemoveMembers: true,
+    canLeave: false,
+    isLeader: true,
+    members: [
+      { userId: 'user-1', nickname: 'leader', name: '팀장', isLeader: true },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('NONE 소속은 지원 준비 없음(null)으로 읽는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ membership: 'NONE' });
+
+    await expect(getMyApplicationPreparation('program 1')).resolves.toBeNull();
+    expect(apiClient).toHaveBeenCalledWith(
+      'application-preparations/programs/program%201/me',
+    );
+  });
+
+  it('LEADER와 MEMBER 소속은 preparation 본문을 읽는다', async () => {
+    const member = { ...preparation, isLeader: false, canLeave: true };
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      membership: 'LEADER',
+      preparation,
+    });
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      membership: 'MEMBER',
+      preparation: member,
+    });
+
+    await expect(getMyApplicationPreparation('program-1')).resolves.toEqual(
+      preparation,
+    );
+    await expect(getMyApplicationPreparation('program-1')).resolves.toEqual(
+      member,
+    );
+  });
+
+  it('알 수 없는 소속 상태는 응답 오류로 끊는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      membership: 'OWNER',
+      preparation,
+    });
+
+    await expect(
+      getMyApplicationPreparation('program-1'),
+    ).rejects.toBeInstanceOf(ProgramTeamResponseError);
   });
 });
 

@@ -144,11 +144,9 @@ export class AuthController {
         if (req.auth.hasSessionCookie) {
           this.clearSessionCookie(res);
         }
-        return SessionResponseDto.anonymous();
+        return SessionResponseDto.from();
       case HTTP_AUTH_KINDS.AUTHENTICATED:
-        return SessionResponseDto.authenticated(
-          MeResponseDto.from(req.auth.principal),
-        );
+        return SessionResponseDto.from(MeResponseDto.from(req.auth.principal));
       default:
         return assertNeverHttpAuth(req.auth);
     }
@@ -165,13 +163,13 @@ export class AuthController {
     this.clearSessionCookie(res);
     switch (req.auth.kind) {
       case HTTP_AUTH_KINDS.ANONYMOUS:
-        return new LogoutResponseDto(false);
+        return LogoutResponseDto.from(false);
       case HTTP_AUTH_KINDS.AUTHENTICATED:
         await this.authService.incrementSessionVersion(
           req.auth.principal.githubId,
         );
         await this.recordLogoutHistory(req.auth.principal.githubId);
-        return new LogoutResponseDto(false);
+        return LogoutResponseDto.from(false);
       default:
         return assertNeverHttpAuth(req.auth);
     }

@@ -1,49 +1,12 @@
-import {
-  CollectionAppClientError,
-  type CollectionAppClient,
-  type CollectionAppClientTokenProvider,
-} from './collection-app.client';
-import type { ProviderRequestQueue } from './collection-discovery.client';
 import type {
   CollectionRepositoryRow,
+  CollectionSyncRuntime,
   SyncLeaseToken,
 } from './collection-incremental.types';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { splitNameWithOwner } from './github.policy';
-
-export class RunDeadlineError extends Error {}
-
-export class CollectionSyncDeadline {
-  constructor(private readonly now: () => Date) {}
-
-  async run<T>(operation: Promise<T>, deadline: number): Promise<T> {
-    const remaining = deadline - this.now().getTime();
-    if (remaining <= 0) throw new RunDeadlineError();
-    let timer: NodeJS.Timeout | undefined;
-    try {
-      return await Promise.race([
-        operation,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new RunDeadlineError()), remaining);
-        }),
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-}
-
-export interface CollectionSyncRuntime {
-  appId: string;
-  organizationLogin: string;
-
-  tokens: CollectionAppClientTokenProvider;
-  client: CollectionAppClient;
-  queue: ProviderRequestQueue;
-}
-
-export type CollectionSyncRuntimeFactory = () =>
-  CollectionSyncRuntime | Promise<CollectionSyncRuntime>;
+import { CollectionSyncDeadline, splitNameWithOwner } from './github.policy';
+import { CollectionAppClientError } from './collection-app.error';
+import { RunDeadlineError } from './collection-inventory.error';
 
 export interface SweepInventory {
   readonly complete: boolean;

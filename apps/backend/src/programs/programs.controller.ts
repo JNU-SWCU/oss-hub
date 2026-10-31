@@ -29,6 +29,8 @@ import {
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
+import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
 import {
   EditableProgramResponseDto,
   ProgramMilestoneResponseDto,
@@ -42,10 +44,8 @@ import { ProgramViewerRequestDto } from './dto/program-viewer-request.dto';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
 import {
-  programDetailResponse,
-  programActivityResponse,
-  type ProgramActivityResponseDto,
-  type ProgramDetailResponseDto,
+  ProgramDetailResponseDto,
+  ProgramActivityResponseDto,
 } from './dto/program-detail-response.dto';
 import { ProgramListRequestDto } from './dto/program-list-request.dto';
 import { ProgramEndedYearsResponseDto } from './dto/program-ended-years-response.dto';
@@ -122,7 +122,7 @@ export class ProgramsController {
   async detail(
     @Param('id') programId: string,
   ): Promise<ProgramDetailResponseDto> {
-    return programDetailResponse(
+    return ProgramDetailResponseDto.from(
       await this.programs.detail(programId, ANONYMOUS_VIEWER),
     );
   }
@@ -134,7 +134,7 @@ export class ProgramsController {
     @Req() request: SessionIdentity,
     @Query() query: ProgramViewerRequestDto = {},
   ): Promise<ProgramDetailResponseDto> {
-    return programDetailResponse(
+    return ProgramDetailResponseDto.from(
       await this.programs.detail(
         programId,
         await this.viewers.fromGithubId(
@@ -157,7 +157,7 @@ export class ProgramsController {
         programId,
         await this.viewers.fromGithubId(request.sessionGithubId),
       )
-    ).map(programActivityResponse);
+    ).map((result) => ProgramActivityResponseDto.from(result));
   }
 
   @Get(':id/cover/:coverId')
@@ -178,25 +178,29 @@ export class ProgramsController {
 
   @Delete(':id/purge')
   @UseGuards(SessionGuard, OriginGuard)
-  purge(
+  async purge(
     @Param('id') programId: string,
     @Body() body: PurgeProgramRequestDto,
     @Req() request: SessionIdentity,
-  ) {
-    return this.lifecycle.purge(
-      request.sessionGithubId,
-      programId,
-      body.expectedScope,
+  ): Promise<PurgeProgramResponseDto> {
+    return PurgeProgramResponseDto.from(
+      await this.lifecycle.purge(
+        request.sessionGithubId,
+        programId,
+        body.expectedScope,
+      ),
     );
   }
 
   @Delete(':id')
   @UseGuards(SessionGuard, OriginGuard)
-  delete(
+  async delete(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
-  ): Promise<{ readonly id: string; readonly deleted: true }> {
-    return this.lifecycle.delete(request.sessionGithubId, programId);
+  ): Promise<DeleteProgramResponseDto> {
+    return DeleteProgramResponseDto.from(
+      await this.lifecycle.delete(request.sessionGithubId, programId),
+    );
   }
 
   @Get(':id/edit')

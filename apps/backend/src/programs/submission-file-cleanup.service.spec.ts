@@ -1,14 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  SubmissionFileCleanupService,
-  SubmissionFileCleanupScheduler,
-} from './submission-file-cleanup.service';
+import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFileCleanupScheduler } from './programs.scheduler';
 
-describe('submission-file-cleanup.scheduler', () => {
+describe('programs.scheduler', () => {
   const CRON_JOB_NAME = 'submission-file-cleanup';
 
   const settleRun = (): Promise<void> =>

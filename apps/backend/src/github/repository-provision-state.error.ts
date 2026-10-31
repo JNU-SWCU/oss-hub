@@ -13,3 +13,6 @@ export class RepositoryProvisionSupersededError extends Error {
 export class GithubRepositoryClaimConflictError extends Error {
   override readonly name = 'GithubRepositoryClaimConflictError';
 }
+export class RepositoryProvisionStateError extends Error {
+  override readonly name = 'RepositoryProvisionStateError';
+}

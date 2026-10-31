@@ -5,6 +5,7 @@ import {
   ReleaseFrontier,
   RequestFingerprint,
 } from './github.policy';
+import { CollectionAppClientError } from './collection-app.error';
 
 const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';
@@ -58,27 +59,6 @@ type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 export interface CollectionAppClientTokenProvider {
   getToken(signal?: AbortSignal): Promise<string>;
   clear(expectedToken?: string): void;
-}
-
-export type CollectionAppErrorKind =
-  | 'UPSTREAM'
-  | 'RESPONSE'
-  | 'PAGINATION'
-  | 'DEADLINE'
-  | 'RATE_LIMITED'
-  | 'AUTH'
-  | 'PERMISSION'
-  | 'NOT_FOUND'
-  | 'GRAPHQL_ERROR';
-export class CollectionAppClientError extends Error {
-  readonly code = 'COLLECTION_APP_CLIENT_ERROR';
-  constructor(
-    readonly kind: CollectionAppErrorKind,
-    readonly retryAfterSeconds?: number,
-  ) {
-    super(`Collection App request failed: ${kind}`);
-    this.name = 'CollectionAppClientError';
-  }
 }
 
 export interface CollectionRepository {

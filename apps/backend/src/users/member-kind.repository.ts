@@ -6,7 +6,7 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -118,7 +118,7 @@ type PrismaMemberKindTarget = Prisma.UserGetPayload<{
 
 type LockedRow = Readonly<{ id: string }>;
 
-class PrismaMemberKindTransactionStore implements MemberKindTransactionStore {
+class PrismaMemberKindTransactionRepository implements MemberKindTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -200,7 +200,7 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(new PrismaMemberKindTransactionStore(transaction)),
+            operation(new PrismaMemberKindTransactionRepository(transaction)),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {

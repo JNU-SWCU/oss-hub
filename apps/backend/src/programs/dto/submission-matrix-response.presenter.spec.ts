@@ -1,5 +1,5 @@
 import type { SubmissionMatrixResult } from '../submission.types';
-import { presentSubmissionMatrix } from './submission-matrix-response.dto';
+import { SubmissionMatrixResponseDto } from './submission-matrix-response.dto';
 
 it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로를 보존한다', () => {
   const dueAt = new Date('2026-10-01T14:59:59.123Z');
@@ -49,7 +49,7 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
     pageSize: 10,
     total: 11,
   };
-  expect(presentSubmissionMatrix(result, 'program')).toEqual({
+  expect(SubmissionMatrixResponseDto.from(result, 'program')).toEqual({
     milestones: [
       { id: 'second', name: '후반', dueAt: dueAt.toISOString() },
       { id: 'first', name: '전반', dueAt: dueAt.toISOString() },

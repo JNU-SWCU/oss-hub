@@ -38,6 +38,7 @@ The backend `src/` had more than 20 folders, each split into layer subfolders (c
 ### DTOs
 
 - Request DTOs hold fields plus class-validator decorators only.
+- Request DTO inheritance is allowed only when Create and Update are field-for-field identical, validators included (`UpdateXRequestDto extends CreateXRequestDto`).
 - Response DTOs hold `declare readonly` fields and a `static from()` that returns an object literal in the baseline JSON key order. No mapped-types.
 - Absence is an explicit state field, never null. Nest sends null as an empty 200 body.
 
@@ -52,6 +53,7 @@ export class ProgramSummaryResponseDto {
 
 - A read endpoint lives in the audience module (`student`, `staff`, `admin`) of the lowest-privilege menu that calls it.
 - Writes stay in the module that owns the data.
+- Direction: one write repository per aggregate. Not executed in this phase.
 - Frontend and backend never reference each other's paths.
 
 ## Consequences
@@ -60,12 +62,12 @@ These checks enforce the rules.
 
 | Rule id | Check |
 | --- | --- |
-| `controller-explicit-return` | Controller handlers return an explicit response DTO type |
-| `response-dto-shape` | Response DTOs have only `declare readonly` fields and `static from()` |
-| `request-dto-decorated` | Every request DTO field has a class-validator decorator |
-| `file-name-convention` | File names follow kebab-case and the closed suffix list |
-| `file-class-match` | Class name matches the file stem and suffix |
-| `no-cross-app-path` | No path references between frontend and backend |
+| `conventions/controller-explicit-return` | Controller handlers return an explicit response DTO type |
+| `conventions/response-dto-shape` | Response DTOs have only `declare readonly` fields and `static from()` |
+| `conventions/request-dto-decorated` | Every request DTO field has a class-validator decorator |
+| `conventions/file-name-convention` | File names follow kebab-case and the closed suffix list |
+| `conventions/file-class-match` | Class name matches the file stem and suffix |
+| `cross-app/no-cross-app-path` | No path references between frontend and backend |
 | `boundaries/no-unknown-files` | No folders or files outside the module map |
 | `architecture/no-cycle` | No dependency cycles between modules |
 
@@ -106,12 +108,12 @@ Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapp
     "-response.dto.ts"
   ],
   "rules": [
-    "controller-explicit-return",
-    "response-dto-shape",
-    "request-dto-decorated",
-    "file-name-convention",
-    "file-class-match",
-    "no-cross-app-path",
+    "conventions/controller-explicit-return",
+    "conventions/response-dto-shape",
+    "conventions/request-dto-decorated",
+    "conventions/file-name-convention",
+    "conventions/file-class-match",
+    "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
     "architecture/no-cycle"
   ],

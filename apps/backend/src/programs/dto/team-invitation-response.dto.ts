@@ -5,47 +5,43 @@ import type {
 } from '../team-invitation.types';
 
 export class TeamInvitationInviteeResponseDto {
-  id: string;
-  nickname: string;
-  name: string | null;
-  avatarUrl: string | null;
-
-  private constructor(invitee: TeamInvitationInvitee) {
-    this.id = invitee.id;
-    this.nickname = invitee.nickname;
-    this.name = invitee.name;
-    this.avatarUrl = invitee.avatarUrl;
-  }
+  declare readonly id: string;
+  declare readonly nickname: string;
+  declare readonly name: string | null;
+  declare readonly avatarUrl: string | null;
 
   static from(
     invitee: TeamInvitationInvitee,
   ): TeamInvitationInviteeResponseDto {
-    return new TeamInvitationInviteeResponseDto(invitee);
+    return {
+      id: invitee.id,
+      nickname: invitee.nickname,
+      name: invitee.name,
+      avatarUrl: invitee.avatarUrl,
+    };
   }
 }
 
 export class TeamInvitationResponseDto {
-  id: string;
-  teamId: string;
-  programId: string;
-  invitedById: string;
-  status: TeamInvitationStatus;
-  invitedAt: string;
-  respondedAt: string | null;
-  invitee: TeamInvitationInviteeResponseDto;
-
-  private constructor(record: SentTeamInvitationRecord) {
-    this.id = record.id;
-    this.teamId = record.teamId;
-    this.programId = record.programId;
-    this.invitedById = record.invitedById;
-    this.status = record.status;
-    this.invitedAt = record.invitedAt.toISOString();
-    this.respondedAt = record.respondedAt?.toISOString() ?? null;
-    this.invitee = TeamInvitationInviteeResponseDto.from(record.invitee);
-  }
+  declare readonly id: string;
+  declare readonly teamId: string;
+  declare readonly programId: string;
+  declare readonly invitedById: string;
+  declare readonly status: TeamInvitationStatus;
+  declare readonly invitedAt: string;
+  declare readonly respondedAt: string | null;
+  declare readonly invitee: TeamInvitationInviteeResponseDto;
 
   static from(record: SentTeamInvitationRecord): TeamInvitationResponseDto {
-    return new TeamInvitationResponseDto(record);
+    return {
+      id: record.id,
+      teamId: record.teamId,
+      programId: record.programId,
+      invitedById: record.invitedById,
+      status: record.status,
+      invitedAt: record.invitedAt.toISOString(),
+      respondedAt: record.respondedAt?.toISOString() ?? null,
+      invitee: TeamInvitationInviteeResponseDto.from(record.invitee),
+    };
   }
 }

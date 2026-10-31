@@ -4,52 +4,62 @@ import type {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 
-interface StudentDashboardMilestoneResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly dueAt: string;
-  readonly lateSubmissionDueAt: string | null;
-  readonly submissionStatus:
+export class StudentDashboardMilestoneResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly dueAt: string;
+  declare readonly lateSubmissionDueAt: string | null;
+  declare readonly submissionStatus:
     | 'NOT_SUBMITTED'
     | 'SUBMITTED'
     | 'APPROVED'
     | 'CHANGES_REQUESTED'
     | 'REJECTED';
-  readonly requiredItemCount: number;
-  readonly remainingItemCount: number;
+  declare readonly requiredItemCount: number;
+  declare readonly remainingItemCount: number;
+
+  static from(
+    milestone: NonNullable<StudentDashboardItem['nextMilestone']>,
+  ): StudentDashboardMilestoneResponseDto {
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      dueAt: milestone.dueAt.toISOString(),
+      lateSubmissionDueAt: milestone.lateSubmissionDueAt?.toISOString() ?? null,
+      submissionStatus: milestone.submissionStatus,
+      requiredItemCount: milestone.requiredItemCount,
+      remainingItemCount: milestone.remainingItemCount,
+    };
+  }
 }
 
-export interface StudentDashboardItemResponseDto {
-  readonly coverImageUrl: string | null;
-  readonly applicationId: string;
-  readonly programId: string;
-  readonly programName: string;
+export class StudentDashboardItemResponseDto {
+  declare readonly coverImageUrl: string | null;
+  declare readonly applicationId: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
 
-  readonly teamName: string;
+  declare readonly teamName: string;
 
-  readonly teamUrl: string;
-  readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
-  readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
-  readonly progress: {
+  declare readonly teamUrl: string;
+  declare readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  declare readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
+  declare readonly progress: {
     readonly approvedCount: number;
     readonly inReviewCount: number;
     readonly totalCount: number;
   } | null;
-  readonly detailUrl: string;
-  readonly checklistUrl: string;
-  readonly repository: {
+  declare readonly detailUrl: string;
+  declare readonly checklistUrl: string;
+  declare readonly repository: {
     readonly repositoryName: string | null;
     readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
     readonly invitationStatus: RepositoryInvitationStatus | null;
     readonly githubUrl: string | null;
   } | null;
-}
 
-export class StudentDashboardResponseDto {
-  readonly items: readonly StudentDashboardItemResponseDto[];
-
-  private constructor(items: readonly StudentDashboardItem[]) {
-    this.items = items.map((item) => ({
+  static from(item: StudentDashboardItem): StudentDashboardItemResponseDto {
+    return {
       coverImageUrl: item.coverImageUrl ?? null,
       applicationId: item.applicationId,
       programId: item.programId,
@@ -58,27 +68,24 @@ export class StudentDashboardResponseDto {
       teamUrl: item.teamUrl,
       applicationStatus: item.applicationStatus,
       nextMilestone: item.nextMilestone
-        ? {
-            id: item.nextMilestone.id,
-            name: item.nextMilestone.name,
-            dueAt: item.nextMilestone.dueAt.toISOString(),
-            lateSubmissionDueAt:
-              item.nextMilestone.lateSubmissionDueAt?.toISOString() ?? null,
-            submissionStatus: item.nextMilestone.submissionStatus,
-            requiredItemCount: item.nextMilestone.requiredItemCount,
-            remainingItemCount: item.nextMilestone.remainingItemCount,
-          }
+        ? StudentDashboardMilestoneResponseDto.from(item.nextMilestone)
         : null,
       progress: item.progress,
       detailUrl: item.detailUrl,
       checklistUrl: item.checklistUrl,
       repository: item.repository,
-    }));
+    };
   }
+}
+
+export class StudentDashboardResponseDto {
+  declare readonly items: readonly StudentDashboardItemResponseDto[];
 
   static from(
     items: readonly StudentDashboardItem[],
   ): StudentDashboardResponseDto {
-    return new StudentDashboardResponseDto(items);
+    return {
+      items: items.map((item) => StudentDashboardItemResponseDto.from(item)),
+    };
   }
 }

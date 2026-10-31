@@ -171,3 +171,11 @@ export interface MilestoneDocumentFeedbackItemResult {
 export interface MilestoneDocumentFeedbackResult {
   readonly items: readonly MilestoneDocumentFeedbackItemResult[];
 }
+
+export interface UploadedMilestoneDocumentFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}

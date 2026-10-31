@@ -21,7 +21,7 @@ import {
   RepositoryProvisionJobStatus,
   type ProgramCategory,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { requiredMilestonesApproved } from './milestone-completion.policy';
 import { publishBlockedReasons } from '../github/github.policy';

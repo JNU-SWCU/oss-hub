@@ -15,7 +15,7 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-describe('CollectionScheduler integration', () => {
+describe('GithubScheduler integration', () => {
   const prisma = new PrismaService();
   const leaseKey = { appId: 9_000_000_740_001n, scope: 'synthetic-scheduler' };
   const cutover = new CollectionCutoverRepository(prisma);

@@ -13,9 +13,9 @@ import type { SubmissionApplication } from './submission.types';
 import {
   type ResubmissionTarget,
   type SubmissionMilestone,
-  StaleSubmissionRevisionError,
 } from './submissions.repository';
 import { createSubmissionsServiceHarness } from './submissions.service-fixture';
+import { StaleSubmissionRevisionError } from './submissions.error';
 
 const githubId = 4242n;
 const submissionId = 'submission-1';

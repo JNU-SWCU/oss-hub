@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`users response DTO JSON AccountDeactivationResponseDto 1`] = `"{"accountStatus":"DEACTIVATED"}"`;
+
+exports[`users response DTO JSON ConsentCurrentResponseDto 1`] = `"{"policyVersion":"2026-10-19","requiredItems":[{"key":"PRIVACY_COLLECTION","label":"개인정보 수집·이용","documentUrl":"/policies/privacy"},{"key":"GITHUB_ACTIVITY","label":"GitHub 활동 수집·공개 범위","documentUrl":"/policies/github-activity"},{"key":"ORG_REPOSITORY_TERMS","label":"Org 저장소 운영 약관","documentUrl":"/policies/org-repository-terms"}],"consented":false,"nextUrl":"/onboarding/role"}"`;
+
+exports[`users response DTO JSON ConsentResponseDto 1`] = `"{"policyVersion":"2026-10-19","consentedAt":"2026-02-03T04:05:06.000Z","nextUrl":"/onboarding/profile"}"`;
+
+exports[`users response DTO JSON MemberKindSelectionStateResponseDto 1`] = `"{"selectedRole":null}"`;
+
+exports[`users response DTO JSON MyStaffAccessRequestResponseDto none 1`] = `"{"status":"NONE","request":null}"`;
+
+exports[`users response DTO JSON MyStaffAccessRequestResponseDto request 1`] = `"{"status":"PENDING","request":{"requestedRole":"STAFF","status":"PENDING","requestedAt":"2026-01-02T03:04:05.000Z","decidedAt":null,"rejectionReason":null}}"`;
+
+exports[`users response DTO JSON RoleRequestResponseDto pending 1`] = `"{"requestedRole":"STAFF","status":"PENDING","requestedAt":"2026-01-02T03:04:05.000Z","decidedAt":null,"rejectionReason":null}"`;
+
+exports[`users response DTO JSON RoleRequestResponseDto rejected 1`] = `"{"requestedRole":"STAFF","status":"REJECTED","requestedAt":"2026-01-02T03:04:05.000Z","decidedAt":"2026-01-03T03:04:05.000Z","rejectionReason":"Not eligible"}"`;
+
+exports[`users response DTO JSON RoleSelectionResponseDto 1`] = `"{"selectedRole":"STUDENT","redirectTo":"/onboarding/profile"}"`;
+
+exports[`users response DTO JSON UserProfileResponseDto 1`] = `"{"name":"Octo Cat","studentId":"2026000001","staffNumber":null,"department":"Computer Science","phone":"redacted-synthetic-phone","isComplete":true}"`;

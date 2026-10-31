@@ -13,119 +13,109 @@ import {
 } from '../public-projects.policy';
 
 class PublicProjectListItemResponseDto {
-  readonly projectId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly trackType: ProgramTrackType | null;
-  readonly applicationMode: PublicProjectApplicationMode;
-  readonly displayName: string;
-  readonly repositoryName: string;
-  readonly githubUrl: string;
-  readonly publishedAt: string;
-
-  private constructor(row: PublicProjectRow) {
-    this.projectId = row.projectId;
-    this.programId = row.programId;
-    this.programName = row.programName;
-    this.trackType = row.trackType;
-    this.applicationMode = applicationMode(row.teamMemberCount);
-    this.displayName = displayNameOf(row);
-    this.repositoryName = row.repositoryName;
-    this.githubUrl = row.githubUrl;
-    this.publishedAt = row.publishedAt.toISOString();
-  }
+  declare readonly projectId: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly trackType: ProgramTrackType | null;
+  declare readonly applicationMode: PublicProjectApplicationMode;
+  declare readonly displayName: string;
+  declare readonly repositoryName: string;
+  declare readonly githubUrl: string;
+  declare readonly publishedAt: string;
 
   static from(row: PublicProjectRow): PublicProjectListItemResponseDto {
-    return new PublicProjectListItemResponseDto(row);
+    return {
+      projectId: row.projectId,
+      programId: row.programId,
+      programName: row.programName,
+      trackType: row.trackType,
+      applicationMode: applicationMode(row.teamMemberCount),
+      displayName: displayNameOf(row),
+      repositoryName: row.repositoryName,
+      githubUrl: row.githubUrl,
+      publishedAt: row.publishedAt.toISOString(),
+    };
   }
 }
 
 export class PublicProjectPageResponseDto {
-  readonly items: PublicProjectListItemResponseDto[];
-  readonly pageSize: number;
-  readonly nextPageId: string | null;
-
-  private constructor(page: PublicProjectPageResult) {
-    this.items = page.items.map((row) =>
-      PublicProjectListItemResponseDto.from(row),
-    );
-    this.pageSize = page.pageSize;
-    this.nextPageId = page.nextPageId;
-  }
+  declare readonly items: PublicProjectListItemResponseDto[];
+  declare readonly pageSize: number;
+  declare readonly nextPageId: string | null;
 
   static from(page: PublicProjectPageResult): PublicProjectPageResponseDto {
-    return new PublicProjectPageResponseDto(page);
+    return {
+      items: page.items.map((row) =>
+        PublicProjectListItemResponseDto.from(row),
+      ),
+      pageSize: page.pageSize,
+      nextPageId: page.nextPageId,
+    };
   }
 }
 
 class PublicProjectMetricsResponseDto {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-
-  private constructor(metrics: PublicProjectMetrics) {
-    this.commitCount = metrics.commitCount;
-    this.pullRequestCount = metrics.pullRequestCount;
-    this.releaseCount = metrics.releaseCount;
-  }
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly releaseCount: number;
 
   static from(metrics: PublicProjectMetrics): PublicProjectMetricsResponseDto {
-    return new PublicProjectMetricsResponseDto(metrics);
+    return {
+      commitCount: metrics.commitCount,
+      pullRequestCount: metrics.pullRequestCount,
+      releaseCount: metrics.releaseCount,
+    };
   }
 }
 
 class PublicProjectContributorResponseDto {
-  readonly githubLogin: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-
-  private constructor(contributor: PublicProjectContributor) {
-    this.githubLogin = contributor.githubLogin;
-    this.commitCount = contributor.commitCount;
-    this.pullRequestCount = contributor.pullRequestCount;
-    this.releaseCount = contributor.releaseCount;
-  }
+  declare readonly githubLogin: string;
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly releaseCount: number;
 
   static from(
     contributor: PublicProjectContributor,
   ): PublicProjectContributorResponseDto {
-    return new PublicProjectContributorResponseDto(contributor);
+    return {
+      githubLogin: contributor.githubLogin,
+      commitCount: contributor.commitCount,
+      pullRequestCount: contributor.pullRequestCount,
+      releaseCount: contributor.releaseCount,
+    };
   }
 }
 
 export class PublicProjectDetailResponseDto {
-  readonly projectId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly trackType: ProgramTrackType | null;
-  readonly applicationMode: PublicProjectApplicationMode;
-  readonly displayName: string;
-  readonly repositoryName: string;
-  readonly githubUrl: string;
-  readonly publishedAt: string;
-  readonly metrics: PublicProjectMetricsResponseDto;
-  readonly contributors: PublicProjectContributorResponseDto[];
-
-  private constructor(detail: PublicProjectDetailResult) {
-    this.projectId = detail.row.projectId;
-    this.programId = detail.row.programId;
-    this.programName = detail.row.programName;
-    this.trackType = detail.row.trackType;
-    this.applicationMode = applicationMode(detail.row.teamMemberCount);
-    this.displayName = displayNameOf(detail.row);
-    this.repositoryName = detail.row.repositoryName;
-    this.githubUrl = detail.row.githubUrl;
-    this.publishedAt = detail.row.publishedAt.toISOString();
-    this.metrics = PublicProjectMetricsResponseDto.from(detail.metrics);
-    this.contributors = detail.contributors.map((contributor) =>
-      PublicProjectContributorResponseDto.from(contributor),
-    );
-  }
+  declare readonly projectId: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly trackType: ProgramTrackType | null;
+  declare readonly applicationMode: PublicProjectApplicationMode;
+  declare readonly displayName: string;
+  declare readonly repositoryName: string;
+  declare readonly githubUrl: string;
+  declare readonly publishedAt: string;
+  declare readonly metrics: PublicProjectMetricsResponseDto;
+  declare readonly contributors: PublicProjectContributorResponseDto[];
 
   static from(
     detail: PublicProjectDetailResult,
   ): PublicProjectDetailResponseDto {
-    return new PublicProjectDetailResponseDto(detail);
+    return {
+      projectId: detail.row.projectId,
+      programId: detail.row.programId,
+      programName: detail.row.programName,
+      trackType: detail.row.trackType,
+      applicationMode: applicationMode(detail.row.teamMemberCount),
+      displayName: displayNameOf(detail.row),
+      repositoryName: detail.row.repositoryName,
+      githubUrl: detail.row.githubUrl,
+      publishedAt: detail.row.publishedAt.toISOString(),
+      metrics: PublicProjectMetricsResponseDto.from(detail.metrics),
+      contributors: detail.contributors.map((contributor) =>
+        PublicProjectContributorResponseDto.from(contributor),
+      ),
+    };
   }
 }

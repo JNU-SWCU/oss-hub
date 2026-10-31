@@ -33,13 +33,11 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import type { MilestoneDocumentArchive } from './milestone-document-result.types';
-import {
-  MilestoneDocumentArchiveEntryError,
-  MilestoneDocumentArchiveService,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 describe('milestone-document-current-file.controller', () => {
   const SESSION_GITHUB_ID = 342_900_002n;

@@ -94,7 +94,7 @@ describe('ProgramListPageResponseDto', () => {
     });
 
     expect(page.items).toHaveLength(2);
-    expect(page.items[0]).toBeInstanceOf(ProgramListResponseDto);
+    expect(page.items[0]).toEqual(ProgramListResponseDto.from(baseItem()));
     expect(page.items.map((item) => item.id)).toEqual([
       'program-1',
       'program-2',

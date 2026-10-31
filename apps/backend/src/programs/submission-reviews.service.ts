@@ -8,10 +8,7 @@ import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
-import {
-  RepositoriesService,
-  RepositoryNotFoundError,
-} from '../github/repositories.service';
+import { RepositoriesService } from '../github/repositories.service';
 import {
   publishBlockedReasons,
   type CreateSubmissionReviewInput,
@@ -28,6 +25,7 @@ import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
 } from './submission-reviews-error-code.error';
+import { RepositoryNotFoundError } from '../github/repositories.error';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,

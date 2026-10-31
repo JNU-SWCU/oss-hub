@@ -2,7 +2,6 @@ import type {
   MilestoneDocumentCollectionResult,
   MilestoneDocumentDeliveryCollectionResult,
   MilestoneContext,
-  MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentRecord,
 } from '../milestone-document-result.types';
@@ -12,219 +11,290 @@ import {
   type MilestoneDocumentSubmittedContent,
   readMilestoneDocumentSubmittedContent,
 } from '../milestone-document.policy';
-import type { MilestoneDocumentCollectionPage } from '../milestone-document-collection-page.policy';
 
-export interface MilestoneDocumentCollectionMilestoneResponseDto {
-  readonly id: string;
+export class MilestoneDocumentCollectionMilestoneResponseDto {
+  declare readonly id: string;
 
-  readonly programId: string;
-  readonly name: string;
-  readonly dueAt: string;
-}
+  declare readonly programId: string;
+  declare readonly name: string;
+  declare readonly dueAt: string;
 
-export interface MilestoneDocumentCollectionDocumentResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly isRequired: boolean;
-  readonly sortOrder: number;
-}
-
-interface MilestoneDocumentCollectionFileResponseDto {
-  readonly name: string;
-  readonly sizeBytes: number;
-}
-
-interface MilestoneDocumentCollectionCellResponseDto {
-  readonly documentId: string;
-  readonly isSubmitted: boolean;
-  readonly submittedAt: string | null;
-
-  readonly revision: number | null;
-  readonly file: MilestoneDocumentCollectionFileResponseDto | null;
-
-  readonly content: MilestoneDocumentSubmittedContent | null;
-
-  readonly status: SubmissionStatus | null;
-
-  readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
-}
-
-interface MilestoneDocumentCollectionReviewResponseDto {
-  readonly id: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: string;
-
-  readonly resubmissionDueAt: string | null;
-}
-
-export interface MilestoneDocumentCollectionRowResponseDto {
-  readonly applicationId: string;
-  readonly teamName: string;
-  readonly applicantName: string | null;
-  readonly memberNicknames: readonly string[];
-  readonly cells: readonly MilestoneDocumentCollectionCellResponseDto[];
-}
-
-export interface MilestoneDocumentCollectionFilterCountsResponseDto {
-  readonly all: number;
-  readonly hasMissing: number;
-  readonly zeroSubmission: number;
-}
-
-export interface MilestoneDocumentCollectionDocumentTotalResponseDto {
-  readonly documentId: string;
-  readonly submitted: number;
-  readonly total: number;
-}
-
-export class MilestoneDocumentCollectionResponseDto {
-  milestone: MilestoneDocumentCollectionMilestoneResponseDto;
-  documents: readonly MilestoneDocumentCollectionDocumentResponseDto[];
-  rows: readonly MilestoneDocumentCollectionRowResponseDto[];
-  page: number;
-  pageSize: number;
-
-  total: number;
-  filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto;
-  documentTotals: readonly MilestoneDocumentCollectionDocumentTotalResponseDto[];
-
-  private constructor(
+  static from(
     milestone: MilestoneContext,
-    documents: readonly MilestoneDocumentRecord[],
-    collection: MilestoneDocumentCollectionPage<
-      MilestoneDocumentCollectionApplication,
-      MilestoneDocumentCollectionSubmission
-    >,
-  ) {
-    this.milestone = {
+  ): MilestoneDocumentCollectionMilestoneResponseDto {
+    return {
       id: milestone.id,
       programId: milestone.programId,
       name: milestone.name,
       dueAt: milestone.dueAt.toISOString(),
     };
-    this.documents = documents.map((document) => ({
+  }
+}
+
+export class MilestoneDocumentCollectionDocumentResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly isRequired: boolean;
+  declare readonly sortOrder: number;
+
+  static from(
+    document: MilestoneDocumentRecord,
+  ): MilestoneDocumentCollectionDocumentResponseDto {
+    return {
       id: document.id,
       name: document.name,
       isRequired: document.required,
       sortOrder: document.sortOrder,
-    }));
-    this.documentTotals = collection.documentTotals;
-    this.filterCounts = collection.filterCounts;
-    this.page = collection.page;
-    this.pageSize = collection.pageSize;
-    this.total = collection.total;
+    };
+  }
+}
 
-    this.rows = collection.rows.map((row) => ({
+export class MilestoneDocumentCollectionFileResponseDto {
+  declare readonly name: string;
+  declare readonly sizeBytes: number;
+
+  static from(
+    file: NonNullable<MilestoneDocumentCollectionSubmission['file']>,
+  ): MilestoneDocumentCollectionFileResponseDto {
+    return { name: file.originalFileName, sizeBytes: file.sizeBytes };
+  }
+}
+
+export class MilestoneDocumentCollectionReviewResponseDto {
+  declare readonly id: string;
+  declare readonly decision: ReviewDecision;
+  declare readonly comment: string | null;
+  declare readonly reviewedAt: string;
+
+  declare readonly resubmissionDueAt: string | null;
+
+  static from(
+    review: NonNullable<MilestoneDocumentCollectionSubmission['review']>,
+  ): MilestoneDocumentCollectionReviewResponseDto {
+    return {
+      id: review.id,
+      decision: review.decision,
+      comment: review.comment,
+      reviewedAt: review.reviewedAt.toISOString(),
+      resubmissionDueAt: review.resubmissionDueAt?.toISOString() ?? null,
+    };
+  }
+}
+
+export class MilestoneDocumentCollectionCellResponseDto {
+  declare readonly documentId: string;
+  declare readonly isSubmitted: boolean;
+  declare readonly submittedAt: string | null;
+
+  declare readonly revision: number | null;
+  declare readonly file: MilestoneDocumentCollectionFileResponseDto | null;
+
+  declare readonly content: MilestoneDocumentSubmittedContent | null;
+
+  declare readonly status: SubmissionStatus | null;
+
+  declare readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
+
+  static from(
+    document: MilestoneDocumentRecord,
+    submission: MilestoneDocumentCollectionSubmission | null,
+  ): MilestoneDocumentCollectionCellResponseDto {
+    if (submission === null) {
+      return {
+        documentId: document.id,
+        isSubmitted: false,
+        submittedAt: null,
+        revision: null,
+        file: null,
+        content: null,
+        status: null,
+        review: null,
+      };
+    }
+    return {
+      documentId: document.id,
+      isSubmitted: true,
+      submittedAt: submission.submittedAt.toISOString(),
+      revision: submission.revision,
+      file:
+        submission.file === null
+          ? null
+          : MilestoneDocumentCollectionFileResponseDto.from(submission.file),
+
+      content: readMilestoneDocumentSubmittedContent(submission.content),
+      status: submission.status,
+      review:
+        submission.review === null
+          ? null
+          : MilestoneDocumentCollectionReviewResponseDto.from(
+              submission.review,
+            ),
+    };
+  }
+}
+
+export class MilestoneDocumentCollectionRowResponseDto {
+  declare readonly applicationId: string;
+  declare readonly teamName: string;
+  declare readonly applicantName: string | null;
+  declare readonly memberNicknames: readonly string[];
+  declare readonly cells: readonly MilestoneDocumentCollectionCellResponseDto[];
+
+  static from(
+    row: MilestoneDocumentCollectionResult['rows'][number],
+    documents: readonly MilestoneDocumentRecord[],
+  ): MilestoneDocumentCollectionRowResponseDto {
+    return {
       applicationId: row.application.applicationId,
       teamName: row.application.teamName,
       applicantName: row.application.applicantName,
       memberNicknames: row.application.memberNicknames,
       cells: documents.map((document, index) =>
-        toCell(document, row.cells[index] ?? null),
+        MilestoneDocumentCollectionCellResponseDto.from(
+          document,
+          row.cells[index] ?? null,
+        ),
       ),
-    }));
-  }
-
-  static from(
-    milestone: MilestoneContext,
-    documents: readonly MilestoneDocumentRecord[],
-    collection: MilestoneDocumentCollectionPage<
-      MilestoneDocumentCollectionApplication,
-      MilestoneDocumentCollectionSubmission
-    >,
-  ): MilestoneDocumentCollectionResponseDto {
-    return new MilestoneDocumentCollectionResponseDto(
-      milestone,
-      documents,
-      collection,
-    );
+    };
   }
 }
 
-export interface MilestoneDocumentDeliveryCollectionResponseDto extends Omit<
-  MilestoneDocumentCollectionResponseDto,
-  'rows'
-> {
-  readonly rows: readonly (MilestoneDocumentCollectionRowResponseDto & {
-    readonly deliveryStatus: DocumentDeliveryStatus;
-  })[];
-  readonly deliveryCounts: {
+export class MilestoneDocumentCollectionFilterCountsResponseDto {
+  declare readonly all: number;
+  declare readonly hasMissing: number;
+  declare readonly zeroSubmission: number;
+
+  static from(
+    counts: MilestoneDocumentCollectionResult['filterCounts'],
+  ): MilestoneDocumentCollectionFilterCountsResponseDto {
+    return {
+      all: counts.all,
+      hasMissing: counts.hasMissing,
+      zeroSubmission: counts.zeroSubmission,
+    };
+  }
+}
+
+export class MilestoneDocumentCollectionDocumentTotalResponseDto {
+  declare readonly documentId: string;
+  declare readonly submitted: number;
+  declare readonly total: number;
+
+  static from(
+    total: MilestoneDocumentCollectionResult['documentTotals'][number],
+  ): MilestoneDocumentCollectionDocumentTotalResponseDto {
+    return {
+      documentId: total.documentId,
+      submitted: total.submitted,
+      total: total.total,
+    };
+  }
+}
+
+export class MilestoneDocumentCollectionResponseDto {
+  declare readonly milestone: MilestoneDocumentCollectionMilestoneResponseDto;
+  declare readonly documents: readonly MilestoneDocumentCollectionDocumentResponseDto[];
+  declare readonly rows: readonly MilestoneDocumentCollectionRowResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+
+  declare readonly total: number;
+  declare readonly filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto;
+  declare readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotalResponseDto[];
+
+  static from(
+    result: MilestoneDocumentCollectionResult,
+  ): MilestoneDocumentCollectionResponseDto {
+    return {
+      milestone: MilestoneDocumentCollectionMilestoneResponseDto.from(
+        result.milestone,
+      ),
+      documents: result.documents.map((document) =>
+        MilestoneDocumentCollectionDocumentResponseDto.from(document),
+      ),
+      rows: result.rows.map((row) =>
+        MilestoneDocumentCollectionRowResponseDto.from(row, result.documents),
+      ),
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto.from(
+        result.filterCounts,
+      ),
+      documentTotals: result.documentTotals.map((total) =>
+        MilestoneDocumentCollectionDocumentTotalResponseDto.from(total),
+      ),
+    };
+  }
+}
+
+export class MilestoneDocumentDeliveryCollectionRowResponseDto {
+  declare readonly applicationId: string;
+  declare readonly teamName: string;
+  declare readonly applicantName: string | null;
+  declare readonly memberNicknames: readonly string[];
+  declare readonly cells: readonly MilestoneDocumentCollectionCellResponseDto[];
+  declare readonly deliveryStatus: DocumentDeliveryStatus;
+
+  static from(
+    row: MilestoneDocumentCollectionRowResponseDto,
+    deliveryStatus: DocumentDeliveryStatus,
+  ): MilestoneDocumentDeliveryCollectionRowResponseDto {
+    return {
+      applicationId: row.applicationId,
+      teamName: row.teamName,
+      applicantName: row.applicantName,
+      memberNicknames: row.memberNicknames,
+      cells: row.cells,
+      deliveryStatus,
+    };
+  }
+}
+
+export class MilestoneDocumentDeliveryCollectionResponseDto {
+  declare readonly milestone: MilestoneDocumentCollectionMilestoneResponseDto;
+  declare readonly documents: readonly MilestoneDocumentCollectionDocumentResponseDto[];
+  declare readonly rows: readonly MilestoneDocumentDeliveryCollectionRowResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+
+  declare readonly total: number;
+  declare readonly filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto;
+  declare readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotalResponseDto[];
+  declare readonly deliveryCounts: {
     readonly missing: number;
     readonly late: number;
     readonly complete: number;
     readonly noRequiredItems: number;
   };
-}
 
-function toCell(
-  document: MilestoneDocumentRecord,
-  submission: MilestoneDocumentCollectionSubmission | null,
-): MilestoneDocumentCollectionCellResponseDto {
-  if (submission === null) {
+  static from(
+    result: MilestoneDocumentDeliveryCollectionResult,
+  ): MilestoneDocumentDeliveryCollectionResponseDto {
+    const response = MilestoneDocumentCollectionResponseDto.from(result);
     return {
-      documentId: document.id,
-      isSubmitted: false,
-      submittedAt: null,
-      revision: null,
-      file: null,
-      content: null,
-      status: null,
-      review: null,
+      milestone: response.milestone,
+      documents: response.documents,
+      rows: response.rows.map((row, index) => {
+        const coordinateRow = result.rows[index];
+        if (coordinateRow === undefined)
+          throw new Error('Collection row mapping lost its source');
+        return MilestoneDocumentDeliveryCollectionRowResponseDto.from(
+          row,
+          coordinateRow.deliveryStatus,
+        );
+      }),
+      page: response.page,
+      pageSize: response.pageSize,
+      total: response.total,
+      filterCounts: response.filterCounts,
+      documentTotals: response.documentTotals,
+      deliveryCounts: {
+        missing: result.deliveryCounts.missing,
+        late: result.deliveryCounts.late,
+        complete: result.deliveryCounts.complete,
+        noRequiredItems: result.deliveryCounts.noRequiredItems,
+      },
     };
   }
-  const file =
-    submission.file === null
-      ? null
-      : {
-          name: submission.file.originalFileName,
-          sizeBytes: submission.file.sizeBytes,
-        };
-  return {
-    documentId: document.id,
-    isSubmitted: true,
-    submittedAt: submission.submittedAt.toISOString(),
-    revision: submission.revision,
-    file,
-
-    content: readMilestoneDocumentSubmittedContent(submission.content),
-    status: submission.status,
-    review:
-      submission.review === null
-        ? null
-        : {
-            id: submission.review.id,
-            decision: submission.review.decision,
-            comment: submission.review.comment,
-            reviewedAt: submission.review.reviewedAt.toISOString(),
-            resubmissionDueAt:
-              submission.review.resubmissionDueAt?.toISOString() ?? null,
-          },
-  };
-}
-
-export function presentMilestoneDocumentCollection(
-  result: MilestoneDocumentCollectionResult,
-): MilestoneDocumentCollectionResponseDto {
-  return MilestoneDocumentCollectionResponseDto.from(
-    result.milestone,
-    result.documents,
-    result,
-  );
-}
-
-export function presentMilestoneDocumentDeliveryCollection(
-  result: MilestoneDocumentDeliveryCollectionResult,
-): MilestoneDocumentDeliveryCollectionResponseDto {
-  const response = presentMilestoneDocumentCollection(result);
-  return {
-    ...response,
-    deliveryCounts: result.deliveryCounts,
-    rows: response.rows.map((row, index) => {
-      const coordinateRow = result.rows[index];
-      if (coordinateRow === undefined)
-        throw new Error('Collection row mapping lost its source');
-      return { ...row, deliveryStatus: coordinateRow.deliveryStatus };
-    }),
-  };
 }

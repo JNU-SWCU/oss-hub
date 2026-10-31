@@ -1,12 +1,10 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import {
-  MilestoneDocumentArchiveEntryError,
-  MilestoneDocumentArchiveService,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';

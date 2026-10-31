@@ -10,7 +10,7 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -160,7 +160,7 @@ type LockedProvisionJobRow = {
   readonly currentEventId: string | null;
 };
 
-class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore {
+class PrismaRepositoriesTransactionRepository implements RepositoriesTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -385,7 +385,7 @@ export class RepositoriesRepository {
     operation: (store: RepositoriesTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaRepositoriesTransactionStore(transaction)),
+      operation(new PrismaRepositoriesTransactionRepository(transaction)),
     );
   }
   async listOwnedProvisionJobs(

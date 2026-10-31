@@ -11,87 +11,80 @@ import type {
 } from '../programs.types';
 
 class PublicUserProfileMetricsResponseDto {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
-
-  private constructor(metrics: PublicProjectMetrics) {
-    this.commitCount = metrics.commitCount;
-    this.pullRequestCount = metrics.pullRequestCount;
-    this.releaseCount = metrics.releaseCount;
-  }
+  declare readonly commitCount: number;
+  declare readonly pullRequestCount: number;
+  declare readonly releaseCount: number;
 
   static from(
     metrics: PublicProjectMetrics,
   ): PublicUserProfileMetricsResponseDto {
-    return new PublicUserProfileMetricsResponseDto(metrics);
+    return {
+      commitCount: metrics.commitCount,
+      pullRequestCount: metrics.pullRequestCount,
+      releaseCount: metrics.releaseCount,
+    };
   }
 }
 
 class PublicUserProfileProjectResponseDto {
-  readonly projectId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly trackType: ProgramTrackType | null;
-  readonly applicationMode: PublicProjectApplicationMode;
-  readonly displayName: string;
-  readonly repositoryName: string;
-  readonly githubUrl: string;
-  readonly publishedAt: string;
-  readonly observed: boolean;
-  readonly hasCollectedData: boolean;
-  readonly dataAsOf: string | null;
-  readonly metrics: PublicUserProfileMetricsResponseDto | null;
-
-  private constructor(result: PublicUserProfileProjectResult) {
-    const { row } = result;
-    this.projectId = row.projectId;
-    this.programId = row.programId;
-    this.programName = row.programName;
-    this.trackType = row.trackType;
-    this.applicationMode = applicationMode(row.teamMemberCount);
-    this.displayName = displayNameOf(row);
-    this.repositoryName = row.repositoryName;
-    this.githubUrl = row.githubUrl;
-    this.publishedAt = row.publishedAt.toISOString();
-    this.observed = result.observed;
-    this.hasCollectedData = result.hasCollectedData;
-    this.dataAsOf =
-      result.dataAsOf === null ? null : result.dataAsOf.toISOString();
-    this.metrics =
-      result.metrics === null
-        ? null
-        : PublicUserProfileMetricsResponseDto.from(result.metrics);
-  }
+  declare readonly projectId: string;
+  declare readonly programId: string;
+  declare readonly programName: string;
+  declare readonly trackType: ProgramTrackType | null;
+  declare readonly applicationMode: PublicProjectApplicationMode;
+  declare readonly displayName: string;
+  declare readonly repositoryName: string;
+  declare readonly githubUrl: string;
+  declare readonly publishedAt: string;
+  declare readonly observed: boolean;
+  declare readonly hasCollectedData: boolean;
+  declare readonly dataAsOf: string | null;
+  declare readonly metrics: PublicUserProfileMetricsResponseDto | null;
 
   static from(
     result: PublicUserProfileProjectResult,
   ): PublicUserProfileProjectResponseDto {
-    return new PublicUserProfileProjectResponseDto(result);
+    const { row } = result;
+    return {
+      projectId: row.projectId,
+      programId: row.programId,
+      programName: row.programName,
+      trackType: row.trackType,
+      applicationMode: applicationMode(row.teamMemberCount),
+      displayName: displayNameOf(row),
+      repositoryName: row.repositoryName,
+      githubUrl: row.githubUrl,
+      publishedAt: row.publishedAt.toISOString(),
+      observed: result.observed,
+      hasCollectedData: result.hasCollectedData,
+      dataAsOf: result.dataAsOf === null ? null : result.dataAsOf.toISOString(),
+      metrics:
+        result.metrics === null
+          ? null
+          : PublicUserProfileMetricsResponseDto.from(result.metrics),
+    };
   }
 }
 
 export class PublicUserProfileResponseDto {
-  readonly userId: string;
-  readonly githubNickname: string;
-  readonly avatarUrl: string | null;
-  readonly projects: PublicUserProfileProjectResponseDto[];
+  declare readonly userId: string;
+  declare readonly githubNickname: string;
+  declare readonly avatarUrl: string | null;
+  declare readonly projects: PublicUserProfileProjectResponseDto[];
 
-  readonly observedTotals: PublicUserProfileMetricsResponseDto;
-
-  private constructor(result: PublicUserProfileResult) {
-    this.userId = result.identity.userId;
-    this.githubNickname = result.identity.githubNickname;
-    this.avatarUrl = result.identity.avatarUrl;
-    this.projects = result.projects.map((project) =>
-      PublicUserProfileProjectResponseDto.from(project),
-    );
-    this.observedTotals = PublicUserProfileMetricsResponseDto.from(
-      result.observedTotals,
-    );
-  }
+  declare readonly observedTotals: PublicUserProfileMetricsResponseDto;
 
   static from(result: PublicUserProfileResult): PublicUserProfileResponseDto {
-    return new PublicUserProfileResponseDto(result);
+    return {
+      userId: result.identity.userId,
+      githubNickname: result.identity.githubNickname,
+      avatarUrl: result.identity.avatarUrl,
+      projects: result.projects.map((project) =>
+        PublicUserProfileProjectResponseDto.from(project),
+      ),
+      observedTotals: PublicUserProfileMetricsResponseDto.from(
+        result.observedTotals,
+      ),
+    };
   }
 }

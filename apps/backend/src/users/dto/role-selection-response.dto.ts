@@ -5,30 +5,24 @@ import type {
 } from '../users.types';
 
 export class RoleSelectionResponseDto {
-  readonly selectedRole: SelectableMemberKind;
+  declare readonly selectedRole: SelectableMemberKind;
 
-  readonly redirectTo: '/onboarding/profile';
-
-  private constructor(result: MemberKindSelectionResult) {
-    this.selectedRole = result.selectedMemberKind;
-    this.redirectTo = result.redirectTo;
-  }
+  declare readonly redirectTo: '/onboarding/profile';
 
   static from(result: MemberKindSelectionResult): RoleSelectionResponseDto {
-    return new RoleSelectionResponseDto(result);
+    return {
+      selectedRole: result.selectedMemberKind,
+      redirectTo: result.redirectTo,
+    };
   }
 }
 
 export class MemberKindSelectionStateResponseDto {
-  readonly selectedRole: SelectableMemberKind | null;
-
-  private constructor(state: MemberKindSelectionState) {
-    this.selectedRole = state.selectedMemberKind;
-  }
+  declare readonly selectedRole: SelectableMemberKind | null;
 
   static from(
     state: MemberKindSelectionState,
   ): MemberKindSelectionStateResponseDto {
-    return new MemberKindSelectionStateResponseDto(state);
+    return { selectedRole: state.selectedMemberKind };
   }
 }

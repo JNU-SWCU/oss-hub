@@ -21,7 +21,6 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import {
   ProgramNoticePreviewService,
-  ProgramAuthoringForbiddenError,
   ProgramAuthoringService,
 } from './program-authoring.service';
 import {
@@ -33,6 +32,8 @@ import {
   ProgramErrorCode,
 } from './program-error-code.error';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-upload-response.dto';
+import { ProgramIdResponseDto } from './dto/program-id-response.dto';
 import { ProgramAuthoringRequestDto } from './dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from './dto/program-authoring-upload-policy-response.dto';
 import {
@@ -49,6 +50,7 @@ import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
 import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
+import { ProgramAuthoringForbiddenError } from './program-authoring.error';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -83,7 +85,7 @@ export class ProgramAuthoringController {
     @Req() request: SessionIdentity,
   ): Promise<ProgramAuthoringUploadPolicyResponseDto> {
     await this.requireAuthor(request.sessionGithubId);
-    return new ProgramAuthoringUploadPolicyResponseDto();
+    return ProgramAuthoringUploadPolicyResponseDto.from();
   }
 
   @Post('uploads')
@@ -96,11 +98,13 @@ export class ProgramAuthoringController {
   async upload(
     @Req() request: SessionIdentity,
     @UploadedFile() file: ProgramAuthoringUploadFile | undefined,
-  ) {
+  ): Promise<ProgramAuthoringUploadResponseDto> {
     try {
-      return await this.uploads.upload(
-        await this.requireAuthor(request.sessionGithubId),
-        file,
+      return ProgramAuthoringUploadResponseDto.from(
+        await this.uploads.upload(
+          await this.requireAuthor(request.sessionGithubId),
+          file,
+        ),
       );
     } catch (error) {
       throw uploadHttpError(error);
@@ -117,11 +121,13 @@ export class ProgramAuthoringController {
   async uploadCover(
     @Req() request: SessionIdentity,
     @UploadedFile() file: ProgramAuthoringUploadFile | undefined,
-  ) {
+  ): Promise<ProgramAuthoringUploadResponseDto> {
     try {
-      return await this.uploads.uploadCover(
-        await this.requireAuthor(request.sessionGithubId),
-        file,
+      return ProgramAuthoringUploadResponseDto.from(
+        await this.uploads.uploadCover(
+          await this.requireAuthor(request.sessionGithubId),
+          file,
+        ),
       );
     } catch (error) {
       throw uploadHttpError(error);
@@ -151,7 +157,7 @@ export class ProgramAuthoringController {
     @Req() request: SessionIdentity,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body() input: ProgramAuthoringRequestDto,
-  ): Promise<{ readonly id: string }> {
+  ): Promise<ProgramIdResponseDto> {
     if (idempotencyKey === undefined || idempotencyKey.trim().length === 0) {
       throw new BadRequestException('A valid idempotency key is required.');
     }
@@ -161,7 +167,7 @@ export class ProgramAuthoringController {
         idempotencyKey,
         input,
       );
-      return { id: program.id };
+      return ProgramIdResponseDto.from(program);
     } catch (error) {
       if (error instanceof ProgramAuthoringForbiddenError) {
         throw new ConflictException('Program authoring is unavailable.');
@@ -203,7 +209,7 @@ export class ProgramAuthoringController {
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Body() input: ProgramNoticePreviewRequestDto,
   ): Promise<ProgramNoticePreviewResponseDto> {
-    return new ProgramNoticePreviewResponseDto(
+    return ProgramNoticePreviewResponseDto.from(
       await this.previews.preview(request.sessionGithubId, input.url),
     );
   }

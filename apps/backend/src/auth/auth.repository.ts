@@ -17,6 +17,7 @@ import {
 } from './http-auth.types';
 import { isCompleteProfileFields } from '../users/user-profile.policy';
 import { AuthConfig, type InitialAccountSeed } from './auth.config';
+import { StaffAccessRequestSeedConflictError } from './auth.error';
 
 @Injectable()
 export class LoginHistoryRepository {
@@ -92,18 +93,11 @@ type AuthUserRow = Prisma.UserGetPayload<{
   select: typeof AUTH_USER_SELECT;
 }>;
 
-export class StaffAccessRequestSeedConflictError extends Error {
-  constructor() {
-    super('초기 역할 시드가 전이하려던 신청이 이미 결정되었습니다.');
-    this.name = 'StaffAccessRequestSeedConflictError';
-  }
-}
-
 export interface AuthTransactionStore {
   upsertUser(profile: GithubProfile): Promise<AuthLoginResult>;
 }
 
-class PrismaAuthTransactionStore implements AuthTransactionStore {
+class PrismaAuthTransactionRepository implements AuthTransactionStore {
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly config: AuthConfig,
@@ -252,7 +246,11 @@ export class AuthRepository {
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
       operation(
-        new PrismaAuthTransactionStore(transaction, this.config, this.logger),
+        new PrismaAuthTransactionRepository(
+          transaction,
+          this.config,
+          this.logger,
+        ),
       ),
     );
   }

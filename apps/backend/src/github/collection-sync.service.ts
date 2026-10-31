@@ -1,34 +1,30 @@
 import {
   CollectionInventoryService,
-  type CollectionSyncRuntime,
-  type CollectionSyncRuntimeFactory,
   type SweepInventory,
-  CollectionSyncDeadline,
-  RunDeadlineError,
 } from './collection-inventory.service';
-import { splitNameWithOwner, requestFingerprintKey } from './github.policy';
+import {
+  CollectionSyncDeadline,
+  splitNameWithOwner,
+  requestFingerprintKey,
+} from './github.policy';
 import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CollectionAppClientError,
-  CollectionCommit,
-} from './collection-app.client';
+import { CollectionCommit } from './collection-app.client';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
   CollectionStreamType,
+  CollectionSyncRuntime,
+  CollectionSyncRuntimeFactory,
   RecordSweepHistoryInput,
   RegisteredGithubIdSet,
   RepositorySource,
   RepositoryTeamMemberAccount,
   SyncLeaseToken,
 } from './collection-incremental.types';
-
-export type {
-  CollectionSyncRuntime,
-  CollectionSyncRuntimeFactory,
-} from './collection-inventory.service';
+import { CollectionAppClientError } from './collection-app.error';
+import { RunDeadlineError } from './collection-inventory.error';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;

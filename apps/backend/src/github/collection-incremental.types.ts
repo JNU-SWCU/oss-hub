@@ -1,3 +1,21 @@
+import type {
+  CollectionAppClient,
+  CollectionAppClientTokenProvider,
+} from './collection-app.client';
+import type { ProviderRequestQueue } from './provider-request-queue.policy';
+
+export interface CollectionSyncRuntime {
+  appId: string;
+  organizationLogin: string;
+
+  tokens: CollectionAppClientTokenProvider;
+  client: CollectionAppClient;
+  queue: ProviderRequestQueue;
+}
+
+export type CollectionSyncRuntimeFactory = () =>
+  CollectionSyncRuntime | Promise<CollectionSyncRuntime>;
+
 interface SyncLeaseKey {
   appId: bigint;
   scope: string;

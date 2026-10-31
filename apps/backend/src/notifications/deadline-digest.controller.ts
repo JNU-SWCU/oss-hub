@@ -11,10 +11,8 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { DeadlineDigestService } from './deadline-digest.service';
-import type {
-  DeadlineDigestPreview,
-  DeadlineDigestSendResult,
-} from './notifications.types';
+import { DeadlineDigestPreviewResponseDto } from './dto/deadline-digest-preview-response.dto';
+import { DeadlineDigestSendResponseDto } from './dto/deadline-digest-send-response.dto';
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
 
@@ -27,31 +25,35 @@ export class DeadlineDigestController {
   @Post('preview')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard, OriginGuard)
-  preview(
+  async preview(
     @Req() request: SessionIdentity,
     @Param('programId') programId: string,
     @Body() input: DeadlineDigestGuidanceRequestDto,
-  ): Promise<DeadlineDigestPreview> {
-    return this.service.previewProgram(
-      request.sessionGithubId,
-      programId,
-      new Date(),
-      input,
+  ): Promise<DeadlineDigestPreviewResponseDto> {
+    return DeadlineDigestPreviewResponseDto.from(
+      await this.service.previewProgram(
+        request.sessionGithubId,
+        programId,
+        new Date(),
+        input,
+      ),
     );
   }
 
   @Post('send')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard, OriginGuard)
-  send(
+  async send(
     @Req() request: SessionIdentity,
     @Param('programId') programId: string,
     @Body() input: DeadlineDigestSendRequestDto,
-  ): Promise<DeadlineDigestSendResult> {
-    return this.service.sendProgramFromPreview(
-      request.sessionGithubId,
-      programId,
-      input,
+  ): Promise<DeadlineDigestSendResponseDto> {
+    return DeadlineDigestSendResponseDto.from(
+      await this.service.sendProgramFromPreview(
+        request.sessionGithubId,
+        programId,
+        input,
+      ),
     );
   }
 }

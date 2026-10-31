@@ -3,7 +3,6 @@ import type { CollectionIncrementalRepository } from './collection-incremental.r
 import {
   RepositoryOwnEnrollmentService,
   RepositoriesService,
-  RepositoryNotFoundError,
 } from './repositories.service';
 import {
   RepositoryConnectionMode,
@@ -19,10 +18,9 @@ import type {
   RepositoriesRepository,
   RepositoriesTransactionStore,
 } from './repositories.repository';
-import {
-  RepositoriesReadService,
-  RepositoryProvisionStateError,
-} from './repositories-read.service';
+import { RepositoriesReadService } from './repositories-read.service';
+import { RepositoryProvisionStateError } from './repository-provision-state.error';
+import { RepositoryNotFoundError } from './repositories.error';
 
 describe('repository-own-enrollment.service', () => {
   const INPUT = {

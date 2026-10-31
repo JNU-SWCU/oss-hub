@@ -47,7 +47,7 @@ export interface DocumentDeliveryCoordinate {
   readonly firstSubmittedAt: Date;
 }
 
-export class MilestoneDocumentCollectionReadStore {
+export class MilestoneDocumentCollectionReadStoreRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
@@ -215,11 +215,15 @@ export class MilestoneDocumentCollectionReadRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   withSnapshot<T>(
-    operation: (store: MilestoneDocumentCollectionReadStore) => Promise<T>,
+    operation: (
+      store: MilestoneDocumentCollectionReadStoreRepository,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction(
       (transaction) =>
-        operation(new MilestoneDocumentCollectionReadStore(transaction)),
+        operation(
+          new MilestoneDocumentCollectionReadStoreRepository(transaction),
+        ),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }

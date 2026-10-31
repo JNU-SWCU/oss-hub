@@ -1,21 +1,19 @@
 import type { InvitationCandidateRecord } from '../team-invitation.types';
 
 export class InvitationCandidateResponseDto {
-  id: string;
-  nickname: string;
-  name: string | null;
-  avatarUrl: string | null;
-
-  private constructor(record: InvitationCandidateRecord) {
-    this.id = record.id;
-    this.nickname = record.nickname;
-    this.name = record.name;
-    this.avatarUrl = record.avatarUrl;
-  }
+  declare readonly id: string;
+  declare readonly nickname: string;
+  declare readonly name: string | null;
+  declare readonly avatarUrl: string | null;
 
   static from(
     record: InvitationCandidateRecord,
   ): InvitationCandidateResponseDto {
-    return new InvitationCandidateResponseDto(record);
+    return {
+      id: record.id,
+      nickname: record.nickname,
+      name: record.name,
+      avatarUrl: record.avatarUrl,
+    };
   }
 }

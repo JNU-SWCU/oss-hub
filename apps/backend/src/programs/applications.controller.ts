@@ -12,10 +12,7 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationsService } from './applications.service';
-import {
-  type ApplicationDecisionResponseDto,
-  toApplicationDecisionResponse,
-} from './dto/application-decision-response.dto';
+import { ApplicationDecisionResponseDto } from './dto/application-decision-response.dto';
 import { ApplicationDetailResponseDto } from './dto/application-list-page-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
@@ -37,7 +34,7 @@ export class ApplicationsController {
     @Req() request: ApplicationActorRequest,
     @Param('id') applicationId: string,
   ): Promise<ApplicationDetailResponseDto> {
-    return ApplicationDetailResponseDto.fromDetail(
+    return ApplicationDetailResponseDto.from(
       await this.service.getForStaff(request.sessionGithubId, applicationId),
     );
   }
@@ -54,6 +51,6 @@ export class ApplicationsController {
       applicationId,
       body,
     );
-    return toApplicationDecisionResponse(result);
+    return ApplicationDecisionResponseDto.from(result);
   }
 }

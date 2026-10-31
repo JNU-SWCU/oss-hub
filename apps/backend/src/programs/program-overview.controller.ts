@@ -3,10 +3,8 @@ import { Public } from '../auth/auth-route-metadata.policy';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-response.dto';
-import {
-  ProgramOverviewQueryRequestDto,
-  ProgramOverviewResponseDto,
-} from './dto/program-overview-response.dto';
+import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
+import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
 
 @Controller('programs/:programId/overview')

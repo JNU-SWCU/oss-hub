@@ -16,6 +16,6 @@ export class CollectionAdminController {
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
   ): Promise<CollectionTriggerResponseDto> {
     const result = await this.admin.trigger(request.sessionGithubId);
-    return new CollectionTriggerResponseDto(result.runId);
+    return CollectionTriggerResponseDto.from(result.runId);
   }
 }

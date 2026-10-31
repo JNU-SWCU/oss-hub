@@ -21,6 +21,7 @@ import {
   isForeignKeyConflict,
   ProgramLifecycleRepository,
 } from './program-lifecycle.repository';
+import { ProgramPurgeDeletedScopeMismatchError } from './program-lifecycle.error';
 
 @Injectable()
 export class ProgramLifecycleService {
@@ -213,12 +214,5 @@ export class ProgramLifecycleService {
       }
       throw error;
     }
-  }
-}
-
-class ProgramPurgeDeletedScopeMismatchError extends Error {
-  constructor() {
-    super('Program purge deleted counts differ from its confirmed scope.');
-    this.name = 'ProgramPurgeDeletedScopeMismatchError';
   }
 }

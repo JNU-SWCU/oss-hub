@@ -38,6 +38,7 @@
 ### DTO
 
 - Request DTO는 필드와 class-validator 데코레이터만 둡니다.
+- Request DTO 상속은 Create와 Update가 validator까지 필드 단위로 같을 때만 씁니다(`UpdateXRequestDto extends CreateXRequestDto`).
 - Response DTO는 `declare readonly` 필드와, 기존 JSON 키 순서대로 객체 리터럴을 돌려주는 `static from()`을 둡니다. mapped-types는 쓰지 않습니다.
 - 값이 없을 때는 null 대신 명시적인 상태 필드를 둡니다. Nest는 null을 빈 200 본문으로 보내기 때문입니다.
 
@@ -52,6 +53,7 @@ export class ProgramSummaryResponseDto {
 
 - 읽기 엔드포인트는 그것을 부르는 메뉴 중 가장 낮은 권한의 오디언스 모듈(`student`, `staff`, `admin`)에 둡니다.
 - 쓰기는 데이터를 소유한 모듈에 남깁니다.
+- 방향: 쓰기 repository는 aggregate당 하나로 모읍니다. 이번 단계에서는 실행하지 않습니다.
 - frontend와 backend는 서로의 경로를 참조하지 않습니다.
 
 ## Consequences
@@ -60,12 +62,12 @@ export class ProgramSummaryResponseDto {
 
 | 규칙 id | 검사 |
 | --- | --- |
-| `controller-explicit-return` | 컨트롤러 핸들러가 명시적 응답 DTO 타입을 반환 |
-| `response-dto-shape` | Response DTO가 `declare readonly` 필드와 `static from()`만 가짐 |
-| `request-dto-decorated` | Request DTO의 모든 필드에 class-validator 데코레이터 |
-| `file-name-convention` | 파일 이름이 kebab-case와 닫힌 접미사 목록을 따름 |
-| `file-class-match` | 클래스 이름이 파일 stem과 접미사에 맞음 |
-| `no-cross-app-path` | frontend와 backend 사이 경로 참조 금지 |
+| `conventions/controller-explicit-return` | 컨트롤러 핸들러가 명시적 응답 DTO 타입을 반환 |
+| `conventions/response-dto-shape` | Response DTO가 `declare readonly` 필드와 `static from()`만 가짐 |
+| `conventions/request-dto-decorated` | Request DTO의 모든 필드에 class-validator 데코레이터 |
+| `conventions/file-name-convention` | 파일 이름이 kebab-case와 닫힌 접미사 목록을 따름 |
+| `conventions/file-class-match` | 클래스 이름이 파일 stem과 접미사에 맞음 |
+| `cross-app/no-cross-app-path` | frontend와 backend 사이 경로 참조 금지 |
 | `boundaries/no-unknown-files` | 모듈 맵 밖의 폴더나 파일 금지 |
 | `architecture/no-cycle` | 모듈 사이 순환 의존 금지 |
 
@@ -106,12 +108,12 @@ export class ProgramSummaryResponseDto {
     "-response.dto.ts"
   ],
   "rules": [
-    "controller-explicit-return",
-    "response-dto-shape",
-    "request-dto-decorated",
-    "file-name-convention",
-    "file-class-match",
-    "no-cross-app-path",
+    "conventions/controller-explicit-return",
+    "conventions/response-dto-shape",
+    "conventions/request-dto-decorated",
+    "conventions/file-name-convention",
+    "conventions/file-class-match",
+    "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
     "architecture/no-cycle"
   ],

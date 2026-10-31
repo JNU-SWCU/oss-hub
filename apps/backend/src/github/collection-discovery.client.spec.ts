@@ -1,10 +1,10 @@
 import {
-  ProviderRequestQueue,
   CollectionDiscoveryClient,
   CollectionDiscoveryClientConfig,
-  CollectionDiscoveryClientError,
   CollectionDiscoveryTokenProvider,
 } from './collection-discovery.client';
+import { CollectionDiscoveryClientError } from './collection-discovery.error';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
 
 describe('collection-provider-queue.client', () => {
   const jsonResponse = (headers: Record<string, string> = {}): Response =>

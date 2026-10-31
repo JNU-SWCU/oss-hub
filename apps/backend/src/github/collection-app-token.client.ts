@@ -1,6 +1,7 @@
 import { createPrivateKey } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { CollectionAppConfigValues } from './collection-app.config';
+import { CollectionAppTokenError } from './collection-app-token.error';
 
 const API_VERSION = '2022-11-28';
 const EARLY_REFRESH_MS = 5 * 60_000;
@@ -15,18 +16,6 @@ const ALLOWED_PERMISSIONS: Readonly<Record<string, string>> = {
   ...REQUIRED_PERMISSIONS,
   ...OPTIONAL_PERMISSIONS,
 };
-
-export class CollectionAppTokenError extends Error {
-  readonly code = 'COLLECTION_APP_TOKEN_INVALID';
-  constructor(
-    readonly safeReason:
-      'AUTH' | 'UPSTREAM' | 'INSTALLATION' | 'PERMISSIONS' | 'RESPONSE',
-  ) {
-    super(`Collection App token unavailable: ${safeReason}`);
-    this.name = 'CollectionAppTokenError';
-  }
-}
-
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface CollectionAppInstallationIdentity {

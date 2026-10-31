@@ -8,10 +8,7 @@ import type { MyRepositoryResult } from './repositories-read.types';
 import { parseGithubRepositoryUrl } from './github-repository-url.policy';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repositories.repository';
-
-export class RepositoryProvisionStateError extends Error {
-  override readonly name = 'RepositoryProvisionStateError';
-}
+import { RepositoryProvisionStateError } from './repository-provision-state.error';
 
 @Injectable()
 export class RepositoriesReadService {

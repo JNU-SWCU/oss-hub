@@ -31,6 +31,12 @@ import {
 } from './submission-checklist-record.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import {
+  SubmissionAlreadyExistsError,
+  SubmissionFileUnavailableError,
+  StaleSubmissionRevisionError,
+  LegacySubmissionSlotMissingError,
+} from './submissions.error';
 
 type SubmissionsDatabase = Prisma.TransactionClient;
 
@@ -135,21 +141,6 @@ export interface SubmissionsStore {
   ): Promise<{ readonly revision: number }>;
 }
 
-export class SubmissionAlreadyExistsError extends Error {
-  override readonly name = 'SubmissionAlreadyExistsError';
-}
-
-export class SubmissionFileUnavailableError extends Error {
-  override readonly name = 'SubmissionFileUnavailableError';
-}
-export class StaleSubmissionRevisionError extends Error {
-  override readonly name = 'StaleSubmissionRevisionError';
-}
-
-class LegacySubmissionSlotMissingError extends Error {
-  override readonly name = 'LegacySubmissionSlotMissingError';
-}
-
 const LEGACY_SUBMISSION_SLOT_SORT_ORDER = -1;
 
 function legacySubmissionSlotIdFor(milestoneId: string): string {
@@ -166,7 +157,7 @@ const MILESTONE_SELECT = {
   program: { select: { endAt: true } },
 } as const;
 
-class PrismaSubmissionsStore implements SubmissionsStore {
+class PrismaSubmissionsRepository implements SubmissionsStore {
   constructor(private readonly database: SubmissionsDatabase) {}
 
   async findActiveStudentByGithubId(
@@ -575,10 +566,10 @@ class PrismaSubmissionsStore implements SubmissionsStore {
 
 @Injectable()
 export class SubmissionsRepository implements SubmissionsStore {
-  private readonly store: PrismaSubmissionsStore;
+  private readonly store: PrismaSubmissionsRepository;
 
   constructor(private readonly prisma: PrismaService) {
-    this.store = new PrismaSubmissionsStore(prisma);
+    this.store = new PrismaSubmissionsRepository(prisma);
   }
 
   findActiveStudentByGithubId(githubId: bigint) {
@@ -659,7 +650,7 @@ export class SubmissionsRepository implements SubmissionsStore {
     operation: (store: SubmissionsStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaSubmissionsStore(transaction)),
+      operation(new PrismaSubmissionsRepository(transaction)),
     );
   }
 }

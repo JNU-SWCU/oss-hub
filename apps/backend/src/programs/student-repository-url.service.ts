@@ -1,3 +1,4 @@
+import type { StudentRepositoryUrlView } from './programs.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/application-repository-url-audit-metadata.policy';
@@ -23,10 +24,6 @@ import {
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 
-export type StudentRepositoryUrlView = {
-  readonly repositoryUrl: string | null;
-  readonly canEditRepositoryUrl: boolean;
-};
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;
 };

@@ -1,11 +1,9 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import {
-  AuditLogService,
-  type AuditLogPage,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
+import { AuditLogPageResponseDto } from './dto/audit-log-page-response.dto';
 
 @Controller('audit-logs')
 export class AuditLogController {
@@ -13,10 +11,12 @@ export class AuditLogController {
 
   @Get()
   @UseGuards(SessionGuard)
-  list(
+  async list(
     @Req() request: AuthenticatedRequest,
     @Query() query: AuditLogListRequestDto,
-  ): Promise<AuditLogPage> {
-    return this.service.list(request.sessionGithubId, query.toQuery());
+  ): Promise<AuditLogPageResponseDto> {
+    return AuditLogPageResponseDto.from(
+      await this.service.list(request.sessionGithubId, query.toQuery()),
+    );
   }
 }

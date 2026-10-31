@@ -1,17 +1,12 @@
 import type { AcceptedInvitationResult } from '../team-invitation.types';
 
 export class AcceptTeamInvitationResponseDto {
-  teamId: string;
-  programId: string;
-
-  private constructor(result: AcceptedInvitationResult) {
-    this.teamId = result.teamId;
-    this.programId = result.programId;
-  }
+  declare readonly teamId: string;
+  declare readonly programId: string;
 
   static from(
     result: AcceptedInvitationResult,
   ): AcceptTeamInvitationResponseDto {
-    return new AcceptTeamInvitationResponseDto(result);
+    return { teamId: result.teamId, programId: result.programId };
   }
 }

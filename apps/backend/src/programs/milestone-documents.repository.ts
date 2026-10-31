@@ -41,10 +41,7 @@ import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
 } from './milestone-document-submission.repository';
-
-export class InvalidMilestoneDocumentHistoryCursorError extends Error {
-  override readonly name = 'InvalidMilestoneDocumentHistoryCursorError';
-}
+import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 export interface MilestoneDocumentViewer {
   readonly id: string;
@@ -360,7 +357,7 @@ function countSubmissionsForDocumentWith(
   });
 }
 
-class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
+class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteStore {
   private milestoneLock: MilestoneLock | null = null;
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
@@ -769,7 +766,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   }
 }
 
-class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCollectionReadStore {
+class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocumentCollectionReadStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   async findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
@@ -898,7 +895,7 @@ export class MilestoneDocumentsRepository {
     operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaMilestoneDocumentWriteStore(transaction)),
+      operation(new PrismaMilestoneDocumentWriteRepository(transaction)),
     );
   }
 
@@ -925,7 +922,9 @@ export class MilestoneDocumentsRepository {
   ): Promise<T> {
     return this.prisma.$transaction(
       (transaction) =>
-        operation(new PrismaMilestoneDocumentCollectionReadStore(transaction)),
+        operation(
+          new PrismaMilestoneDocumentCollectionReadRepository(transaction),
+        ),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }

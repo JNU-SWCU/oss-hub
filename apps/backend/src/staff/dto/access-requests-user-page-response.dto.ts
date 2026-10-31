@@ -14,184 +14,200 @@ import type {
   AdminAccessUserHistory,
 } from '../../users/admin-access.types';
 
-type StaffAccessRequestHistoryItemResponseDto = {
-  readonly id: string;
-  readonly status: StaffAccessRequestStatus;
-  readonly rejectionReason: string | null;
-  readonly decidedAt: string | null;
-  readonly decidedBy: string | null;
-  readonly createdAt: string;
-};
+class StaffAccessRequestHistoryItemResponseDto {
+  declare readonly id: string;
+  declare readonly status: StaffAccessRequestStatus;
+  declare readonly rejectionReason: string | null;
+  declare readonly decidedAt: string | null;
+  declare readonly decidedBy: string | null;
+  declare readonly createdAt: string;
 
-type LoginHistoryItemResponseDto = {
-  readonly id: string;
-  readonly event: LoginHistoryEvent;
-  readonly provider: 'github';
-  readonly success: boolean;
-  readonly loginAt: string;
-};
+  static from(
+    item: AdminAccessUserHistory['staffAccessRequests']['items'][number],
+  ): StaffAccessRequestHistoryItemResponseDto {
+    return {
+      id: item.id,
+      status: item.status,
+      rejectionReason: item.rejectionReason,
+      decidedAt: item.decidedAt?.toISOString() ?? null,
+      decidedBy: item.decidedBy,
+      createdAt: item.createdAt.toISOString(),
+    };
+  }
+}
+
+class LoginHistoryItemResponseDto {
+  declare readonly id: string;
+  declare readonly event: LoginHistoryEvent;
+  declare readonly provider: 'github';
+  declare readonly success: boolean;
+  declare readonly loginAt: string;
+
+  static from(
+    item: AdminAccessUserHistory['loginHistory']['items'][number],
+  ): LoginHistoryItemResponseDto {
+    return {
+      id: item.id,
+      event: item.event,
+      provider: item.provider,
+      success: item.success,
+      loginAt: item.loginAt.toISOString(),
+    };
+  }
+}
 
 export class AccessRequestsUserHistoryResponseDto {
-  readonly staffAccessRequests: {
+  declare readonly staffAccessRequests: {
     readonly items: readonly StaffAccessRequestHistoryItemResponseDto[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
   };
-  readonly loginHistory: {
+  declare readonly loginHistory: {
     readonly items: readonly LoginHistoryItemResponseDto[];
     readonly page: number;
     readonly limit: number;
     readonly total: number;
   };
 
-  private constructor(history: AdminAccessUserHistory) {
-    this.staffAccessRequests = {
-      ...history.staffAccessRequests,
-      items: history.staffAccessRequests.items.map((item) => ({
-        ...item,
-        decidedAt: item.decidedAt?.toISOString() ?? null,
-        createdAt: item.createdAt.toISOString(),
-      })),
-    };
-    this.loginHistory = {
-      ...history.loginHistory,
-      items: history.loginHistory.items.map((item) => ({
-        ...item,
-        loginAt: item.loginAt.toISOString(),
-      })),
-    };
-  }
-
   static from(
     history: AdminAccessUserHistory,
   ): AccessRequestsUserHistoryResponseDto {
-    return new AccessRequestsUserHistoryResponseDto(history);
+    return {
+      staffAccessRequests: {
+        items: history.staffAccessRequests.items.map((item) =>
+          StaffAccessRequestHistoryItemResponseDto.from(item),
+        ),
+        page: history.staffAccessRequests.page,
+        limit: history.staffAccessRequests.limit,
+        total: history.staffAccessRequests.total,
+      },
+      loginHistory: {
+        items: history.loginHistory.items.map((item) =>
+          LoginHistoryItemResponseDto.from(item),
+        ),
+        page: history.loginHistory.page,
+        limit: history.loginHistory.limit,
+        total: history.loginHistory.total,
+      },
+    };
   }
 }
 
-type PendingRequestResponseDto = {
-  readonly id: string;
-  readonly status: typeof StaffAccessRequestStatus.PENDING;
-  readonly createdAt: string;
-};
+class PendingRequestResponseDto {
+  declare readonly id: string;
+  declare readonly status: AdminAccessPendingRequest['status'];
+  declare readonly createdAt: string;
+
+  static from(request: AdminAccessPendingRequest): PendingRequestResponseDto {
+    return {
+      id: request.id,
+      status: request.status,
+      createdAt: request.createdAt.toISOString(),
+    };
+  }
+}
 
 export class AccessRequestsUserResponseDto {
-  readonly id: string;
-  readonly githubLogin: string;
-  readonly name: string | null;
-  readonly role: AuthorityLabel | null;
-  readonly accountStatus: AccountStatus;
-  readonly isSelf: boolean;
-  readonly isProfileComplete: boolean;
-  readonly createdAt: string;
-  readonly pendingRequest: PendingRequestResponseDto | null;
-  readonly lastLoginAt: string | null;
-
-  private constructor(user: AdminAccessUser) {
-    this.id = user.id;
-    this.githubLogin = user.githubLogin;
-    this.name = user.name;
-    this.role = user.role;
-    this.accountStatus = user.accountStatus;
-    this.isSelf = user.isSelf;
-    this.isProfileComplete = user.isProfileComplete;
-    this.createdAt = user.createdAt.toISOString();
-    this.pendingRequest = toPendingRequest(user.pendingRequest);
-    this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
-  }
+  declare readonly id: string;
+  declare readonly githubLogin: string;
+  declare readonly name: string | null;
+  declare readonly role: AuthorityLabel | null;
+  declare readonly accountStatus: AccountStatus;
+  declare readonly isSelf: boolean;
+  declare readonly isProfileComplete: boolean;
+  declare readonly createdAt: string;
+  declare readonly pendingRequest: PendingRequestResponseDto | null;
+  declare readonly lastLoginAt: string | null;
 
   static from(user: AdminAccessUser): AccessRequestsUserResponseDto {
-    return new AccessRequestsUserResponseDto(user);
+    return {
+      id: user.id,
+      githubLogin: user.githubLogin,
+      name: user.name,
+      role: user.role,
+      accountStatus: user.accountStatus,
+      isSelf: user.isSelf,
+      isProfileComplete: user.isProfileComplete,
+      createdAt: user.createdAt.toISOString(),
+      pendingRequest: toPendingRequest(user.pendingRequest),
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    };
   }
 }
 
 export class AccessRequestsFacetsResponseDto {
-  readonly roles: AdminAccessFacets['roles'];
-  readonly accountStatuses: AdminAccessFacets['accountStatuses'];
-  readonly pendingRequests: AdminAccessFacets['pendingRequests'];
-
-  private constructor(facets: AdminAccessFacets) {
-    this.roles = facets.roles;
-    this.accountStatuses = facets.accountStatuses;
-    this.pendingRequests = facets.pendingRequests;
-  }
+  declare readonly roles: AdminAccessFacets['roles'];
+  declare readonly accountStatuses: AdminAccessFacets['accountStatuses'];
+  declare readonly pendingRequests: AdminAccessFacets['pendingRequests'];
 
   static from(facets: AdminAccessFacets): AccessRequestsFacetsResponseDto {
-    return new AccessRequestsFacetsResponseDto(facets);
+    return {
+      roles: facets.roles,
+      accountStatuses: facets.accountStatuses,
+      pendingRequests: facets.pendingRequests,
+    };
   }
 }
 
 export class AccessRequestsUserPageResponseDto {
-  readonly items: readonly AccessRequestsUserResponseDto[];
-  readonly page: number;
-  readonly limit: number;
-  readonly total: number;
-  readonly facets: AccessRequestsFacetsResponseDto;
-
-  private constructor(page: AdminAccessUserPage) {
-    this.items = page.items.map((user) =>
-      AccessRequestsUserResponseDto.from(user),
-    );
-    this.page = page.page;
-    this.limit = page.limit;
-    this.total = page.total;
-    this.facets = AccessRequestsFacetsResponseDto.from(page.facets);
-  }
+  declare readonly items: readonly AccessRequestsUserResponseDto[];
+  declare readonly page: number;
+  declare readonly limit: number;
+  declare readonly total: number;
+  declare readonly facets: AccessRequestsFacetsResponseDto;
 
   static from(page: AdminAccessUserPage): AccessRequestsUserPageResponseDto {
-    return new AccessRequestsUserPageResponseDto(page);
+    return {
+      items: page.items.map((user) => AccessRequestsUserResponseDto.from(user)),
+      page: page.page,
+      limit: page.limit,
+      total: page.total,
+      facets: AccessRequestsFacetsResponseDto.from(page.facets),
+    };
   }
 }
 
 export class AccessRequestsUserDetailResponseDto {
-  readonly id: string;
-  readonly githubLogin: string;
-  readonly name: string | null;
-  readonly role: AuthorityLabel | null;
-  readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly accountStatus: AccountStatus;
-  readonly isSelf: boolean;
-  readonly isProfileComplete: boolean;
-  readonly createdAt: string;
-  readonly pendingRequest: PendingRequestResponseDto | null;
-  readonly lastLoginAt: string | null;
-  readonly profile: AdminAccessUserDetail['profile'];
-
-  private constructor(user: AdminAccessUserDetail) {
-    this.id = user.id;
-    this.githubLogin = user.githubLogin;
-    this.name = user.name;
-    this.role = user.role;
-    this.memberKind = user.memberKind;
-    this.hasStaffAccess = user.hasStaffAccess;
-    this.hasAdminAccess = user.hasAdminAccess;
-    this.accountStatus = user.accountStatus;
-    this.isSelf = user.isSelf;
-    this.isProfileComplete = user.isProfileComplete;
-    this.createdAt = user.createdAt.toISOString();
-    this.pendingRequest = toPendingRequest(user.pendingRequest);
-    this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
-    this.profile = user.profile;
-  }
+  declare readonly id: string;
+  declare readonly githubLogin: string;
+  declare readonly name: string | null;
+  declare readonly role: AuthorityLabel | null;
+  declare readonly memberKind: MemberKind | null;
+  declare readonly hasStaffAccess: boolean;
+  declare readonly hasAdminAccess: boolean;
+  declare readonly accountStatus: AccountStatus;
+  declare readonly isSelf: boolean;
+  declare readonly isProfileComplete: boolean;
+  declare readonly createdAt: string;
+  declare readonly pendingRequest: PendingRequestResponseDto | null;
+  declare readonly lastLoginAt: string | null;
+  declare readonly profile: AdminAccessUserDetail['profile'];
 
   static from(
     user: AdminAccessUserDetail,
   ): AccessRequestsUserDetailResponseDto {
-    return new AccessRequestsUserDetailResponseDto(user);
+    return {
+      id: user.id,
+      githubLogin: user.githubLogin,
+      name: user.name,
+      role: user.role,
+      memberKind: user.memberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+      accountStatus: user.accountStatus,
+      isSelf: user.isSelf,
+      isProfileComplete: user.isProfileComplete,
+      createdAt: user.createdAt.toISOString(),
+      pendingRequest: toPendingRequest(user.pendingRequest),
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      profile: user.profile,
+    };
   }
 }
 
 function toPendingRequest(
   request: AdminAccessPendingRequest | null,
 ): PendingRequestResponseDto | null {
-  return request
-    ? {
-        id: request.id,
-        status: request.status,
-        createdAt: request.createdAt.toISOString(),
-      }
-    : null;
+  return request ? PendingRequestResponseDto.from(request) : null;
 }

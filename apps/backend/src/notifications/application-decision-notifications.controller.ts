@@ -39,7 +39,7 @@ export class ApplicationDecisionNotificationsController {
   ): Promise<readonly ApplicationDecisionNotificationResponseDto[]> {
     return (await this.service.listUnread(request.sessionGithubId)).map(
       (notification) =>
-        new ApplicationDecisionNotificationResponseDto(notification),
+        ApplicationDecisionNotificationResponseDto.from(notification),
     );
   }
 
@@ -61,8 +61,8 @@ export class ApplicationDecisionNotificationsController {
   ): Promise<readonly TeamDeletionNotificationResponseDto[]> {
     return (
       await this.service.listUnreadTeamDeletions(request.sessionGithubId)
-    ).map(
-      (notification) => new TeamDeletionNotificationResponseDto(notification),
+    ).map((notification) =>
+      TeamDeletionNotificationResponseDto.from(notification),
     );
   }
 

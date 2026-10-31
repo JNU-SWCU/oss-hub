@@ -11,10 +11,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';
-import {
-  type RepositoryPublishResponseDto,
-  toRepositoryPublishResponse,
-} from './dto/submission-review-context-response.dto';
+import { RepositoryPublishResponseDto } from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -33,7 +30,7 @@ export class SubmissionRepositoryPublishingController {
     @Body() body: ConfirmRepositoryPublishRequestDto,
   ): Promise<RepositoryPublishResponseDto> {
     body.assertConfirmed();
-    return toRepositoryPublishResponse(
+    return RepositoryPublishResponseDto.from(
       await this.service.publishRepository(
         repositoryId,
         request.sessionGithubId,

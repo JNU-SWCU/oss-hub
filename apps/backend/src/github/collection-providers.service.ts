@@ -1,22 +1,45 @@
 import type { RuntimeConfig } from '../platform/runtime-config.config';
-import { CollectionAppConfig } from './collection-app.config';
+import {
+  CollectionAppConfig,
+  CollectionPublicReadConfig,
+} from './collection-app.config';
 import type { Provider } from '@nestjs/common';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppTokenClient } from './collection-app-token.client';
-import {
-  CollectionDiscoveryClient,
-  ProviderRequestQueue,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import {
+import type {
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
-  CollectionSyncService,
-} from './collection-sync.service';
-import { CollectionPublicTokenService } from './collection-public-token.service';
+} from './collection-incremental.types';
+import { CollectionSyncService } from './collection-sync.service';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
+
+export class CollectionPublicTokenService {
+  private token: string | undefined;
+
+  constructor(private readonly runtimeConfig: RuntimeConfig) {}
+
+  getToken(): Promise<string> {
+    if (this.token !== undefined) return Promise.resolve(this.token);
+    try {
+      const config = CollectionPublicReadConfig.fromRuntimeConfig(
+        this.runtimeConfig,
+      );
+      this.token = config.token;
+      return Promise.resolve(this.token);
+    } catch (error) {
+      return Promise.reject(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    }
+  }
+
+  clear(): void {}
+}
 
 export class CollectionProvidersService {
   static readonly providers: Provider[] = [

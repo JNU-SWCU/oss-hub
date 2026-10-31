@@ -19,13 +19,11 @@ const layers = [
   'dto',
   'domain',
 ];
-const modulePatterns = ['src/(*)'];
-const moduleGlobs = ['src/*'];
 const flatModules =
   'auth|users|programs|ranking|student|staff|admin|notifications|github|platform';
 const flatModulePattern = `src/(${flatModules})`;
 const flatModuleGlob = `src/{${flatModules.replaceAll('|', ',')}}`;
-const testFiles = [
+export const testFiles = [
   'test/**/*.ts',
   'src/**/*.spec.ts',
   'src/**/*.spec.helpers.ts',
@@ -34,16 +32,16 @@ const testFiles = [
   'src/**/*fixtures.ts',
   'src/**/*support.ts',
 ];
-const moduleFiles = moduleGlobs.map((pattern) => `${pattern}/*.module.ts`);
-const repositoryFiles = [
-  ...moduleGlobs.map((pattern) => `${pattern}/repository/**/*.ts`),
-  `${flatModuleGlob}/*.repository.ts`,
+export const bootstrapFiles = [
+  'src/main.ts',
+  'src/app.module.ts',
+  'src/app-controller-discovery.ts',
 ];
-const dtoFiles = moduleGlobs.map((pattern) => `${pattern}/dto/**/*.ts`);
+const dtoFiles = [`${flatModuleGlob}/dto/*.ts`];
 const enumExemptFiles = [
   ...testFiles,
-  ...moduleFiles,
-  ...repositoryFiles,
+  `${flatModuleGlob}/*.module.ts`,
+  `${flatModuleGlob}/*.repository.ts`,
   'src/platform/prisma.service.ts',
   'prisma/**/*.ts',
 ];
@@ -434,6 +432,12 @@ const policies = [
     allow: { to: element('domain') },
   },
   {
+    from: element('dto'),
+    allow: {
+      to: element('dto', { module: '{{from.element.captured.module}}' }),
+    },
+  },
+  {
     from: layers
       .filter((layer) => layer !== 'domain')
       .map((layer) => element(layer)),
@@ -454,6 +458,16 @@ const policies = [
             captured: { module: '{{from.file.captured.module}}' },
           },
         },
+      ],
+    },
+  },
+  {
+    from: { file: { categories: 'root-contract', path: '**/*.types.ts' } },
+    dependency: { kind: 'type' },
+    allow: {
+      to: [
+        element('gateway', { module: '{{from.file.captured.module}}' }),
+        element('repository', { module: '{{from.file.captured.module}}' }),
       ],
     },
   },
@@ -558,6 +572,7 @@ export async function createRailsConfig(rootDir) {
             pattern: [
               'src/platform/prisma.service.ts',
               'src/platform/{platform,user-profile-read,lock-program-tree,repository-provision-generation,program-application-participant}.repository.ts',
+              'src/platform/{lock-program-tree,repository-provision-generation}.error.ts',
             ],
             mode: 'full',
           },
@@ -576,19 +591,6 @@ export async function createRailsConfig(rootDir) {
             ],
             mode: 'full',
           },
-          ...['common', 'prisma', 'runtime-config'].map((type) => ({
-            type,
-            pattern: `src/${type}`,
-            partialMatch: false,
-          })),
-          ...layers.flatMap((type) =>
-            modulePatterns.map((pattern) => ({
-              type,
-              pattern: `${pattern}/${type}`,
-              capture: ['module'],
-              partialMatch: false,
-            })),
-          ),
           ...Object.entries({
             controller: '*.{controller,guard,interceptor,filter}.ts',
             service: '*.service.ts',
@@ -609,11 +611,7 @@ export async function createRailsConfig(rootDir) {
           { category: 'test', pattern: 'prisma/**/*.ts' },
           {
             category: 'bootstrap',
-            pattern: [
-              'src/main.ts',
-              'src/app.module.ts',
-              'src/app-controller-discovery.ts',
-            ],
+            pattern: bootstrapFiles,
           },
           {
             category: 'auth-capability',
@@ -626,7 +624,7 @@ export async function createRailsConfig(rootDir) {
             category: 'storage-public',
             pattern: [
               'src/platform/platform.module.ts',
-              'src/platform/object-storage.{types,token}.ts',
+              'src/platform/object-storage.types.ts',
             ],
           },
           {
@@ -634,28 +632,16 @@ export async function createRailsConfig(rootDir) {
             pattern: `${flatModulePattern}/*.{guard,interceptor,filter}.ts`,
             capture: ['module'],
           },
-          ...modulePatterns.flatMap((pattern) => [
-            {
-              category: 'composition',
-              pattern: `${pattern}/*.module.ts`,
-              capture: ['module'],
-            },
-            {
-              category: 'guard',
-              pattern: `${pattern}/*.guard.ts`,
-              capture: ['module'],
-            },
-            {
-              category: 'root-contract',
-              pattern: `${pattern}/*.{config,key,token,types,error-code,error-code.enum}.ts`,
-              capture: ['module'],
-            },
-            {
-              category: 'root-contract',
-              pattern: `${pattern}/*-error-code.enum.ts`,
-              capture: ['module'],
-            },
-          ]),
+          {
+            category: 'composition',
+            pattern: `${flatModulePattern}/*.module.ts`,
+            capture: ['module'],
+          },
+          {
+            category: 'root-contract',
+            pattern: `${flatModulePattern}/*.{config,types}.ts`,
+            capture: ['module'],
+          },
         ],
         'import/resolver': {
           typescript: {

@@ -3,7 +3,6 @@ import { AuthModule } from '../auth/auth.module';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import {
-  DeadlineDigestScheduler,
   DeadlineDigestService,
   mailSenderProvider,
 } from './deadline-digest.service';
@@ -17,6 +16,7 @@ import {
   ApplicationDecisionNotificationsService,
 } from './application-decision-notifications.service';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
+import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 
 @Module({
   imports: [AuthModule],

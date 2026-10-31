@@ -2,20 +2,19 @@ import type { StaffAccessRequestStatus } from '@prisma/client';
 import type { StaffAccessRequestRecord } from '../users.types';
 
 export class RoleRequestResponseDto {
-  readonly requestedRole = 'STAFF' as const;
-  readonly status: StaffAccessRequestStatus;
-  readonly requestedAt: string;
-  readonly decidedAt: string | null;
-  readonly rejectionReason: string | null;
-
-  private constructor(request: StaffAccessRequestRecord) {
-    this.status = request.status;
-    this.requestedAt = request.createdAt.toISOString();
-    this.decidedAt = request.decidedAt?.toISOString() ?? null;
-    this.rejectionReason = request.rejectionReason;
-  }
+  declare readonly requestedRole: 'STAFF';
+  declare readonly status: StaffAccessRequestStatus;
+  declare readonly requestedAt: string;
+  declare readonly decidedAt: string | null;
+  declare readonly rejectionReason: string | null;
 
   static from(request: StaffAccessRequestRecord): RoleRequestResponseDto {
-    return new RoleRequestResponseDto(request);
+    return {
+      requestedRole: 'STAFF',
+      status: request.status,
+      requestedAt: request.createdAt.toISOString(),
+      decidedAt: request.decidedAt?.toISOString() ?? null,
+      rejectionReason: request.rejectionReason,
+    };
   }
 }

@@ -2,7 +2,6 @@ import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   DeadlineDigestService,
-  DeadlineDigestScheduler,
   mailSenderProvider,
   resolveMailSender,
 } from './deadline-digest.service';
@@ -17,6 +16,7 @@ import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import type { DeadlineProgramSource } from './deadline-digest-eligibility.policy';
 import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
+import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 
 describe('deadline-digest.scheduler', () => {
   describe('DeadlineDigestScheduler', () => {

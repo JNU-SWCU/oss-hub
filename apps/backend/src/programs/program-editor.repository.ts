@@ -26,13 +26,14 @@ import { ProgramAuthoringUploadTransactionRepository } from './program-authoring
 import type { ProgramAuthoringPendingUploadConsumption } from './program-authoring.policy';
 import { replaceProgramCover } from './program-cover.repository';
 import { programCoverImageUrl } from './program-cover.policy';
+import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 
-class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
+class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
 
   findUserAuthorityByGithubId(githubId: bigint) {
@@ -538,16 +539,8 @@ export class ProgramEditorRepository {
     operation: (store: ProgramEditorTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaProgramEditorStore(transaction)),
+      operation(new PrismaProgramEditorRepository(transaction)),
     );
-  }
-}
-
-class ProgramEditorMilestoneEditRaceError extends Error {
-  override readonly name = 'ProgramEditorMilestoneEditRaceError';
-
-  constructor() {
-    super('Locked upload was unavailable during milestone edit.');
   }
 }
 

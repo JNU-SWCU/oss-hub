@@ -16,7 +16,7 @@ import type {
   AppendedReviewHistory,
 } from './review-history-writer.repository';
 
-class StudentResubmissionStore {
+class StudentResubmissionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   appendReviewHistory(
@@ -201,7 +201,9 @@ export class StudentApplicationManagementRepository {
         select: APPLICATION_SELECT,
       });
       if (resubmitted) {
-        await new StudentResubmissionStore(transaction).appendReviewHistory({
+        await new StudentResubmissionRepository(
+          transaction,
+        ).appendReviewHistory({
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.RESUBMITTED,
           actorId: input.studentId,

@@ -26,17 +26,11 @@ import {
   MilestoneDocumentCollectionService,
 } from './milestone-document-collection.service';
 import {
-  presentMilestoneDocumentViewer,
+  MilestoneDocumentResponseDto,
   MilestoneDocumentListResponseDto,
 } from './dto/milestone-document-response.dto';
-import {
-  presentMilestoneDocumentDeliveryCollection,
-  type MilestoneDocumentDeliveryCollectionResponseDto,
-} from './dto/milestone-document-collection-response.dto';
-import {
-  presentMilestoneDocumentHistory,
-  type MilestoneDocumentHistoryPageResponseDto,
-} from './dto/milestone-document-history-page-response.dto';
+import { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
+import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { OriginGuard } from '../auth/origin.guard';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
@@ -50,14 +44,12 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import {
-  MilestoneDocumentArchiveEntryError,
-  MilestoneDocumentArchiveService,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import type { MilestoneDocumentArchiveScope } from './milestone-document-result.types';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -112,7 +104,7 @@ export class MilestoneDocumentsController {
     return MilestoneDocumentListResponseDto.from(
       (
         await this.service.listForViewer(request.sessionGithubId, milestoneId)
-      ).map(presentMilestoneDocumentViewer),
+      ).map((result) => MilestoneDocumentResponseDto.from(result)),
     );
   }
 
@@ -126,7 +118,9 @@ export class MilestoneDocumentsController {
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return this.collectionService
       .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
-      .then(presentMilestoneDocumentDeliveryCollection);
+      .then((result) =>
+        MilestoneDocumentDeliveryCollectionResponseDto.from(result),
+      );
   }
 
   @Get('collection/archive')
@@ -226,7 +220,7 @@ export class MilestoneDocumentsController {
         applicationId,
         query.toQuery(),
       )
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
   }
 
   @Get(':documentId/history')
@@ -245,7 +239,7 @@ export class MilestoneDocumentsController {
         documentId,
         query.toQuery(),
       )
-      .then(presentMilestoneDocumentHistory);
+      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
   }
 
   @Post(':documentId/applications/:applicationId/reviews')

@@ -6,72 +6,65 @@ import type {
 } from '../program-teams.types';
 
 export class RepositoryUrlHistoryResponseDto {
-  readonly items: RepositoryUrlHistoryPage['items'];
-  readonly nextCursor: string | null;
-
-  private constructor(view: RepositoryUrlHistoryPage) {
-    this.items = view.items;
-    this.nextCursor = view.nextCursor;
-  }
+  declare readonly items: RepositoryUrlHistoryPage['items'];
+  declare readonly nextCursor: string | null;
 
   static from(view: RepositoryUrlHistoryPage): RepositoryUrlHistoryResponseDto {
-    return new RepositoryUrlHistoryResponseDto(view);
+    return { items: view.items, nextCursor: view.nextCursor };
   }
 }
 
 export class TeamApplicationResponseDto {
-  readonly id: string;
-  readonly status: TeamApplicationView['status'];
-  readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
-  readonly repository: TeamApplicationView['repository'];
-  readonly repositoryProvisioning: {
+  declare readonly id: string;
+  declare readonly status: TeamApplicationView['status'];
+  declare readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
+  declare readonly repository: TeamApplicationView['repository'];
+  declare readonly repositoryProvisioning: {
     readonly enabled: boolean;
     readonly jobStatus: TeamApplicationView['repositoryProvisioning']['jobStatus'];
     readonly updatedAt: string;
     readonly safeErrorClass: TeamApplicationView['repositoryProvisioning']['safeErrorClass'];
   };
 
-  private constructor(view: TeamApplicationView) {
-    this.id = view.id;
-    this.status = view.status;
-    this.repositoryConnectionMode = view.repositoryConnectionMode;
-    this.repository = view.repository;
-    this.repositoryProvisioning = {
-      ...view.repositoryProvisioning,
-      updatedAt: view.repositoryProvisioning.updatedAt.toISOString(),
-    };
-  }
-
   static from(view: TeamApplicationView): TeamApplicationResponseDto {
-    return new TeamApplicationResponseDto(view);
+    return {
+      id: view.id,
+      status: view.status,
+      repositoryConnectionMode: view.repositoryConnectionMode,
+      repository: view.repository,
+      repositoryProvisioning: {
+        enabled: view.repositoryProvisioning.enabled,
+        jobStatus: view.repositoryProvisioning.jobStatus,
+        updatedAt: view.repositoryProvisioning.updatedAt.toISOString(),
+        safeErrorClass: view.repositoryProvisioning.safeErrorClass,
+      },
+    };
   }
 }
 
 export class StaffTeamDetailResponseDto {
-  readonly teamId: string;
-  readonly name: string;
-  readonly memberCount: number;
-  readonly members: readonly TeamMemberView[];
-  readonly application: TeamApplicationResponseDto | null;
-  readonly repositoryContributions: StaffTeamDetailView['repositoryContributions'];
-  readonly repositoryUrlHistory: StaffTeamDetailView['repositoryUrlHistory'];
+  declare readonly teamId: string;
+  declare readonly name: string;
+  declare readonly memberCount: number;
+  declare readonly members: readonly TeamMemberView[];
+  declare readonly application: TeamApplicationResponseDto | null;
+  declare readonly repositoryContributions: StaffTeamDetailView['repositoryContributions'];
+  declare readonly repositoryUrlHistory: StaffTeamDetailView['repositoryUrlHistory'];
 
-  readonly deletionScope: StaffTeamDetailView['deletionScope'];
-
-  private constructor(view: StaffTeamDetailView) {
-    this.teamId = view.teamId;
-    this.name = view.name;
-    this.memberCount = view.memberCount;
-    this.members = view.members;
-    this.repositoryContributions = view.repositoryContributions;
-    this.repositoryUrlHistory = view.repositoryUrlHistory;
-    this.application = view.application
-      ? TeamApplicationResponseDto.from(view.application)
-      : null;
-    this.deletionScope = view.deletionScope;
-  }
+  declare readonly deletionScope: StaffTeamDetailView['deletionScope'];
 
   static from(view: StaffTeamDetailView): StaffTeamDetailResponseDto {
-    return new StaffTeamDetailResponseDto(view);
+    return {
+      teamId: view.teamId,
+      name: view.name,
+      memberCount: view.memberCount,
+      members: view.members,
+      application: view.application
+        ? TeamApplicationResponseDto.from(view.application)
+        : null,
+      repositoryContributions: view.repositoryContributions,
+      repositoryUrlHistory: view.repositoryUrlHistory,
+      deletionScope: view.deletionScope,
+    };
   }
 }

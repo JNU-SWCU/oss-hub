@@ -9,20 +9,12 @@ import { CollectionUserActivityRepository } from './repository-provision-job.rep
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';
-import {
-  CollectionDiscoveryClient,
-  ProviderRequestQueue,
-} from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import {
-  CollectionScheduler,
-  CollectionTriggerService,
-} from './collection-trigger.service';
+import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import {
-  CollectionSyncRuntime,
-  CollectionSyncService,
-} from './collection-sync.service';
+import type { CollectionSyncRuntime } from './collection-incremental.types';
+import { CollectionSyncService } from './collection-sync.service';
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';
@@ -30,7 +22,9 @@ import {
   RepositoriesService,
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
-import { CollectionPublicTokenService } from './collection-public-token.service';
+import { CollectionPublicTokenService } from './collection-providers.service';
+import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { GithubScheduler } from './github.scheduler';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
@@ -99,7 +93,7 @@ describe('GithubModule', () => {
     expect(providers).toEqual(
       expect.arrayContaining([
         CollectionAdminService,
-        CollectionScheduler,
+        GithubScheduler,
         CollectionTriggerService,
         expect.objectContaining({ provide: CollectionSyncService }),
       ]),

@@ -5,70 +5,94 @@ import type {
 } from '../submission.types';
 import type { DocumentDeliveryStatus } from '../milestone-document.policy';
 
-interface MatrixMilestoneResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly dueAt: string;
-}
+export class MatrixMilestoneResponseDto {
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly dueAt: string;
 
-interface MatrixCellResponseDto {
-  readonly milestoneId: string;
-  readonly submissionId: string | null;
-  readonly revision: number | null;
-  readonly status: MatrixCellStatus;
-  readonly submittedAt: string | null;
-  readonly reviewUrl: string | null;
-  readonly deliveryStatus: DocumentDeliveryStatus;
-  readonly changesRequestedCount: number;
-}
-
-interface MatrixRowResponseDto {
-  readonly applicationId: string;
-  readonly applicationMode: MatrixApplicationMode;
-  readonly displayName: string;
-  readonly githubLogins: readonly string[];
-  readonly cells: readonly MatrixCellResponseDto[];
-}
-
-export interface SubmissionMatrixResponseDto {
-  readonly milestones: readonly MatrixMilestoneResponseDto[];
-  readonly rows: readonly MatrixRowResponseDto[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly total: number;
-}
-
-export function presentSubmissionMatrix(
-  result: SubmissionMatrixResult,
-  programId: string,
-): SubmissionMatrixResponseDto {
-  return {
-    milestones: result.milestones.map((milestone) => ({
+  static from(
+    milestone: SubmissionMatrixResult['milestones'][number],
+  ): MatrixMilestoneResponseDto {
+    return {
       id: milestone.id,
       name: milestone.name,
       dueAt: milestone.dueAt.toISOString(),
-    })),
-    rows: result.rows.map((row) => ({
+    };
+  }
+}
+
+export class MatrixCellResponseDto {
+  declare readonly milestoneId: string;
+  declare readonly submissionId: string | null;
+  declare readonly revision: number | null;
+  declare readonly status: MatrixCellStatus;
+  declare readonly submittedAt: string | null;
+  declare readonly reviewUrl: string | null;
+  declare readonly deliveryStatus: DocumentDeliveryStatus;
+  declare readonly changesRequestedCount: number;
+
+  static from(
+    cell: SubmissionMatrixResult['rows'][number]['cells'][number],
+    programId: string,
+  ): MatrixCellResponseDto {
+    return {
+      milestoneId: cell.milestoneId,
+      submissionId: cell.submissionId,
+      revision: cell.revision,
+      status: cell.status,
+      submittedAt: cell.submittedAt?.toISOString() ?? null,
+      reviewUrl:
+        cell.submissionId === null
+          ? null
+          : `/programs/${programId}/submissions/${cell.submissionId}/review`,
+      deliveryStatus: cell.deliveryStatus,
+      changesRequestedCount: cell.changesRequestedCount,
+    };
+  }
+}
+
+export class MatrixRowResponseDto {
+  declare readonly applicationId: string;
+  declare readonly applicationMode: MatrixApplicationMode;
+  declare readonly displayName: string;
+  declare readonly githubLogins: readonly string[];
+  declare readonly cells: readonly MatrixCellResponseDto[];
+
+  static from(
+    row: SubmissionMatrixResult['rows'][number],
+    programId: string,
+  ): MatrixRowResponseDto {
+    return {
       applicationId: row.applicationId,
       applicationMode: row.applicationMode,
       displayName: row.displayName,
       githubLogins: row.githubLogins,
-      cells: row.cells.map((cell) => ({
-        milestoneId: cell.milestoneId,
-        submissionId: cell.submissionId,
-        revision: cell.revision,
-        status: cell.status,
-        submittedAt: cell.submittedAt?.toISOString() ?? null,
-        reviewUrl:
-          cell.submissionId === null
-            ? null
-            : `/programs/${programId}/submissions/${cell.submissionId}/review`,
-        deliveryStatus: cell.deliveryStatus,
-        changesRequestedCount: cell.changesRequestedCount,
-      })),
-    })),
-    page: result.page,
-    pageSize: result.pageSize,
-    total: result.total,
-  };
+      cells: row.cells.map((cell) =>
+        MatrixCellResponseDto.from(cell, programId),
+      ),
+    };
+  }
+}
+
+export class SubmissionMatrixResponseDto {
+  declare readonly milestones: readonly MatrixMilestoneResponseDto[];
+  declare readonly rows: readonly MatrixRowResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+  declare readonly total: number;
+
+  static from(
+    result: SubmissionMatrixResult,
+    programId: string,
+  ): SubmissionMatrixResponseDto {
+    return {
+      milestones: result.milestones.map((milestone) =>
+        MatrixMilestoneResponseDto.from(milestone),
+      ),
+      rows: result.rows.map((row) => MatrixRowResponseDto.from(row, programId)),
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+    };
+  }
 }

@@ -16,11 +16,21 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 
-export interface SubmissionFormResponseDto {
-  readonly fileUpload: { readonly maxBytes: number; readonly maxLabel: string };
-  readonly applicationId: string;
-  readonly applicationMode: 'PERSONAL' | 'TEAM';
-  readonly milestone: {
+function fileUploadLimits() {
+  return {
+    maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
+    maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
+  };
+}
+
+export class SubmissionFormResponseDto {
+  declare readonly applicationId: string;
+  declare readonly fileUpload: {
+    readonly maxBytes: number;
+    readonly maxLabel: string;
+  };
+  declare readonly applicationMode: 'PERSONAL' | 'TEAM';
+  declare readonly milestone: {
     readonly id: string;
     readonly name: string;
     readonly dueAt: string;
@@ -29,36 +39,91 @@ export interface SubmissionFormResponseDto {
     readonly submissionType: MilestoneSubmissionType;
     readonly instructions: string | null;
   };
-  readonly existingSubmission: {
+  declare readonly existingSubmission: {
     readonly id: string;
     readonly status: SubmissionStatus;
     readonly checklistUrl: string;
   } | null;
-  readonly canSubmit: boolean;
-  readonly blockedReason: SubmissionBlockedReason | null;
+  declare readonly canSubmit: boolean;
+  declare readonly blockedReason: SubmissionBlockedReason | null;
+
+  static from(
+    result: SubmissionFormResult,
+    programId: string,
+    milestoneId: string,
+  ): SubmissionFormResponseDto {
+    return {
+      applicationId: result.applicationId,
+      fileUpload: fileUploadLimits(),
+      applicationMode: result.applicationMode,
+      milestone: {
+        id: result.milestone.id,
+        name: result.milestone.name,
+        dueAt: result.milestone.dueAt.toISOString(),
+        dDay: result.milestone.dDay,
+        deadlineLabel: result.milestone.deadlineLabel,
+        submissionType: result.milestone.submissionType,
+        instructions: result.milestone.instructions,
+      },
+      existingSubmission: result.existingSubmission
+        ? {
+            id: result.existingSubmission.id,
+            status: result.existingSubmission.status,
+            checklistUrl: `/programs/${programId}/submissions?milestoneId=${milestoneId}`,
+          }
+        : null,
+      canSubmit: result.canSubmit,
+      blockedReason: result.blockedReason,
+    };
+  }
 }
 
-export interface CreatedSubmissionResponseDto {
-  readonly submissionId: string;
-  readonly status: SubmissionStatus;
-  readonly submittedAt: string;
+export class CreatedSubmissionResponseDto {
+  declare readonly submissionId: string;
+  declare readonly status: SubmissionStatus;
+  declare readonly submittedAt: string;
+
+  static from(result: CreatedSubmissionResult): CreatedSubmissionResponseDto {
+    return {
+      submissionId: result.submissionId,
+      status: result.status,
+      submittedAt: result.submittedAt.toISOString(),
+    };
+  }
 }
 
-interface SubmissionFileMetadataResponseDto {
-  readonly fileId: string;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly size: number;
-  readonly expiresAt: string;
-  readonly downloadUrl: string;
+export class SubmissionFileMetadataResponseDto {
+  declare readonly fileId: string;
+  declare readonly fileName: string;
+  declare readonly contentType: string;
+  declare readonly size: number;
+  declare readonly expiresAt: string;
+  declare readonly downloadUrl: string;
+
+  static from(
+    file: NonNullable<
+      NonNullable<
+        SubmissionChecklistResult['items'][number]['submission']
+      >['file']
+    >,
+  ): SubmissionFileMetadataResponseDto {
+    return {
+      fileId: file.fileId,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+      expiresAt: file.expiresAt.toISOString(),
+      downloadUrl: `/api/v1/submission-files/${file.fileId}`,
+    };
+  }
 }
 
-interface SubmissionChecklistItemResponseDto {
-  readonly milestoneId: string;
-  readonly name: string;
-  readonly dueAt: string;
-  readonly submissionType: MilestoneSubmissionType;
-  readonly submission: {
+export class SubmissionChecklistItemResponseDto {
+  declare readonly milestoneId: string;
+  declare readonly name: string;
+  declare readonly dueAt: string;
+  declare readonly submissionType: MilestoneSubmissionType;
+  declare readonly submission: {
     readonly id: string;
     readonly status: SubmissionStatus;
     readonly currentRevision: number;
@@ -68,86 +133,11 @@ interface SubmissionChecklistItemResponseDto {
     readonly canResubmit: boolean;
     readonly file: SubmissionFileMetadataResponseDto | null;
   } | null;
-}
 
-export interface SubmissionChecklistResponseDto {
-  readonly fileUpload: { readonly maxBytes: number; readonly maxLabel: string };
-  readonly applicationId: string;
-  readonly applicationMode: 'PERSONAL' | 'TEAM';
-  readonly items: readonly SubmissionChecklistItemResponseDto[];
-}
-
-export interface ResubmittedSubmissionResponseDto {
-  readonly submissionId: string;
-  readonly revision: number;
-  readonly status: SubmissionStatus;
-}
-
-function fileUploadLimits() {
-  return {
-    maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
-    maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
-  };
-}
-
-export function presentSubmissionForm(
-  result: SubmissionFormResult,
-  programId: string,
-  milestoneId: string,
-): SubmissionFormResponseDto {
-  return {
-    applicationId: result.applicationId,
-    fileUpload: fileUploadLimits(),
-    applicationMode: result.applicationMode,
-    milestone: {
-      id: result.milestone.id,
-      name: result.milestone.name,
-      dueAt: result.milestone.dueAt.toISOString(),
-      dDay: result.milestone.dDay,
-      deadlineLabel: result.milestone.deadlineLabel,
-      submissionType: result.milestone.submissionType,
-      instructions: result.milestone.instructions,
-    },
-    existingSubmission: result.existingSubmission
-      ? {
-          id: result.existingSubmission.id,
-          status: result.existingSubmission.status,
-          checklistUrl: `/programs/${programId}/submissions?milestoneId=${milestoneId}`,
-        }
-      : null,
-    canSubmit: result.canSubmit,
-    blockedReason: result.blockedReason,
-  };
-}
-
-export function presentCreatedSubmission(
-  result: CreatedSubmissionResult,
-): CreatedSubmissionResponseDto {
-  return {
-    submissionId: result.submissionId,
-    status: result.status,
-    submittedAt: result.submittedAt.toISOString(),
-  };
-}
-
-export function presentResubmittedSubmission(
-  result: ResubmittedSubmissionResult,
-): ResubmittedSubmissionResponseDto {
-  return {
-    submissionId: result.submissionId,
-    revision: result.revision,
-    status: result.status,
-  };
-}
-
-export function presentSubmissionChecklist(
-  result: SubmissionChecklistResult,
-): SubmissionChecklistResponseDto {
-  return {
-    applicationId: result.applicationId,
-    fileUpload: fileUploadLimits(),
-    applicationMode: result.applicationMode,
-    items: result.items.map((item) => ({
+  static from(
+    item: SubmissionChecklistResult['items'][number],
+  ): SubmissionChecklistItemResponseDto {
+    return {
       milestoneId: item.milestoneId,
       name: item.name,
       dueAt: item.dueAt.toISOString(),
@@ -163,17 +153,49 @@ export function presentSubmissionChecklist(
             reviewComment: item.submission.reviewComment,
             canResubmit: item.submission.canResubmit,
             file: item.submission.file
-              ? {
-                  fileId: item.submission.file.fileId,
-                  fileName: item.submission.file.fileName,
-                  contentType: item.submission.file.contentType,
-                  size: item.submission.file.size,
-                  expiresAt: item.submission.file.expiresAt.toISOString(),
-                  downloadUrl: `/api/v1/submission-files/${item.submission.file.fileId}`,
-                }
+              ? SubmissionFileMetadataResponseDto.from(item.submission.file)
               : null,
           }
         : null,
-    })),
+    };
+  }
+}
+
+export class SubmissionChecklistResponseDto {
+  declare readonly applicationId: string;
+  declare readonly fileUpload: {
+    readonly maxBytes: number;
+    readonly maxLabel: string;
   };
+  declare readonly applicationMode: 'PERSONAL' | 'TEAM';
+  declare readonly items: readonly SubmissionChecklistItemResponseDto[];
+
+  static from(
+    result: SubmissionChecklistResult,
+  ): SubmissionChecklistResponseDto {
+    return {
+      applicationId: result.applicationId,
+      fileUpload: fileUploadLimits(),
+      applicationMode: result.applicationMode,
+      items: result.items.map((item) =>
+        SubmissionChecklistItemResponseDto.from(item),
+      ),
+    };
+  }
+}
+
+export class ResubmittedSubmissionResponseDto {
+  declare readonly submissionId: string;
+  declare readonly revision: number;
+  declare readonly status: SubmissionStatus;
+
+  static from(
+    result: ResubmittedSubmissionResult,
+  ): ResubmittedSubmissionResponseDto {
+    return {
+      submissionId: result.submissionId,
+      revision: result.revision,
+      status: result.status,
+    };
+  }
 }

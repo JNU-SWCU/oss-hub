@@ -7,18 +7,12 @@ import {
   UseGuards,
   Query,
 } from '@nestjs/common';
-import {
-  presentSubmissionChecklist,
-  type SubmissionChecklistResponseDto,
-} from './dto/submission-form-response.dto';
+import { SubmissionChecklistResponseDto } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
-import {
-  presentSubmissionMatrix,
-  type SubmissionMatrixResponseDto,
-} from './dto/submission-matrix-response.dto';
+import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from './submission-matrix.service';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -39,7 +33,7 @@ export class ProgramSubmissionsController {
   ): Promise<SubmissionChecklistResponseDto> {
     return this.service
       .checklist(request.sessionGithubId, programId)
-      .then(presentSubmissionChecklist);
+      .then((result) => SubmissionChecklistResponseDto.from(result));
   }
 
   @Get('matrix')
@@ -55,6 +49,6 @@ export class ProgramSubmissionsController {
       programId,
       query.toQuery(),
     );
-    return presentSubmissionMatrix(result, programId);
+    return SubmissionMatrixResponseDto.from(result, programId);
   }
 }

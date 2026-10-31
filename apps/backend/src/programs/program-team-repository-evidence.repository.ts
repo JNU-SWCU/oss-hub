@@ -18,6 +18,7 @@ import {
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
   parseRepositoryConnectionAuditMetadata,
 } from '../platform/repository-program-audit-metadata.policy';
+import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 
 const REPOSITORY_CONNECTION_CHANGED =
   REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;
@@ -370,8 +371,4 @@ function repositoryUrlChange(
       metadata.after.nameWithOwner,
     ),
   };
-}
-
-class InvalidRepositoryUrlHistoryError extends Error {
-  override readonly name = 'InvalidRepositoryUrlHistoryError';
 }

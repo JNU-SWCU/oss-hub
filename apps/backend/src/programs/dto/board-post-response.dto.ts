@@ -8,112 +8,104 @@ import type {
 } from '../programs.types';
 
 export class BoardPostResponseDto {
-  id: string;
-  programId: string;
-  authorName: string;
-  category: BoardPostCategory;
-  title: string;
-  pinned: boolean;
-  createdAt: string;
-  commentCount: number;
-  canEdit: boolean;
-  canDelete: boolean;
-
-  private constructor(record: BoardPostSummaryResult) {
-    this.id = record.id;
-    this.programId = record.programId;
-    this.authorName = record.authorName;
-    this.category = record.category;
-    this.title = record.title;
-    this.pinned = record.pinned;
-    this.createdAt = record.createdAt.toISOString();
-    this.commentCount = record.commentCount;
-    this.canEdit = record.canEdit;
-    this.canDelete = record.canDelete;
-  }
+  declare readonly id: string;
+  declare readonly programId: string;
+  declare readonly authorName: string;
+  declare readonly category: BoardPostCategory;
+  declare readonly title: string;
+  declare readonly pinned: boolean;
+  declare readonly createdAt: string;
+  declare readonly commentCount: number;
+  declare readonly canEdit: boolean;
+  declare readonly canDelete: boolean;
 
   static from(record: BoardPostSummaryResult): BoardPostResponseDto {
-    return new BoardPostResponseDto(record);
+    return {
+      id: record.id,
+      programId: record.programId,
+      authorName: record.authorName,
+      category: record.category,
+      title: record.title,
+      pinned: record.pinned,
+      createdAt: record.createdAt.toISOString(),
+      commentCount: record.commentCount,
+      canEdit: record.canEdit,
+      canDelete: record.canDelete,
+    };
   }
 }
 
 export class BoardCommentResponseDto {
-  id: string;
-  postId: string;
+  declare readonly id: string;
+  declare readonly postId: string;
 
-  authorRole: AuthorityLabel;
-  authorName: string;
-  body: string;
-  createdAt: string;
-  canDelete: boolean;
-
-  private constructor(record: BoardCommentResult) {
-    this.id = record.id;
-    this.postId = record.postId;
-    this.authorRole = record.authorRole;
-    this.authorName = record.authorName;
-    this.body = record.body;
-    this.createdAt = record.createdAt.toISOString();
-    this.canDelete = record.canDelete;
-  }
+  declare readonly authorRole: AuthorityLabel;
+  declare readonly authorName: string;
+  declare readonly body: string;
+  declare readonly createdAt: string;
+  declare readonly canDelete: boolean;
 
   static from(record: BoardCommentResult): BoardCommentResponseDto {
-    return new BoardCommentResponseDto(record);
+    return {
+      id: record.id,
+      postId: record.postId,
+      authorRole: record.authorRole,
+      authorName: record.authorName,
+      body: record.body,
+      createdAt: record.createdAt.toISOString(),
+      canDelete: record.canDelete,
+    };
   }
 }
 
 export class BoardPostDetailResponseDto {
-  id: string;
-  programId: string;
-  authorName: string;
-  category: BoardPostCategory;
-  title: string;
-  body: string;
-  pinned: boolean;
-  createdAt: string;
-  updatedAt: string;
-  commentCount: number;
-  comments: BoardCommentResponseDto[];
-  canEdit: boolean;
-  canDelete: boolean;
-
-  private constructor(record: BoardPostDetailResult) {
-    this.id = record.id;
-    this.programId = record.programId;
-    this.authorName = record.authorName;
-    this.category = record.category;
-    this.title = record.title;
-    this.body = record.body;
-    this.pinned = record.pinned;
-    this.createdAt = record.createdAt.toISOString();
-    this.updatedAt = record.updatedAt.toISOString();
-    this.commentCount = record.commentCount;
-    this.canEdit = record.canEdit;
-    this.canDelete = record.canDelete;
-    this.comments = record.comments.map((comment) =>
-      BoardCommentResponseDto.from(comment),
-    );
-  }
+  declare readonly id: string;
+  declare readonly programId: string;
+  declare readonly authorName: string;
+  declare readonly category: BoardPostCategory;
+  declare readonly title: string;
+  declare readonly body: string;
+  declare readonly pinned: boolean;
+  declare readonly createdAt: string;
+  declare readonly updatedAt: string;
+  declare readonly commentCount: number;
+  declare readonly comments: BoardCommentResponseDto[];
+  declare readonly canEdit: boolean;
+  declare readonly canDelete: boolean;
 
   static from(record: BoardPostDetailResult): BoardPostDetailResponseDto {
-    return new BoardPostDetailResponseDto(record);
+    return {
+      id: record.id,
+      programId: record.programId,
+      authorName: record.authorName,
+      category: record.category,
+      title: record.title,
+      body: record.body,
+      pinned: record.pinned,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+      commentCount: record.commentCount,
+      comments: record.comments.map((comment) =>
+        BoardCommentResponseDto.from(comment),
+      ),
+      canEdit: record.canEdit,
+      canDelete: record.canDelete,
+    };
   }
 }
 
 export class BoardPostsPageResponseDto {
-  items: BoardPostResponseDto[];
-  total: number;
-  page: number;
-  limit: number;
-
-  private constructor(page: BoardPostsPageResult) {
-    this.items = page.items.map((item) => BoardPostResponseDto.from(item));
-    this.total = page.total;
-    this.page = page.page;
-    this.limit = page.limit;
-  }
+  declare readonly items: BoardPostResponseDto[];
+  declare readonly total: number;
+  declare readonly page: number;
+  declare readonly limit: number;
 
   static from(page: BoardPostsPageResult): BoardPostsPageResponseDto {
-    return new BoardPostsPageResponseDto(page);
+    return {
+      items: page.items.map((item) => BoardPostResponseDto.from(item)),
+      total: page.total,
+      page: page.page,
+      limit: page.limit,
+    };
   }
 }

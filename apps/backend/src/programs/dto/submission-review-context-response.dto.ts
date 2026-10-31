@@ -10,96 +10,126 @@ import type {
   SubmissionRevisionContent,
 } from '../submission-review.types';
 
-interface SubmissionReviewResponseDto {
-  readonly id: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: string;
+export class SubmissionReviewResponseDto {
+  declare readonly id: string;
+  declare readonly decision: ReviewDecision;
+  declare readonly comment: string | null;
+  declare readonly reviewedAt: string;
+
+  static from(review: SubmissionReviewRecord): SubmissionReviewResponseDto {
+    return {
+      id: review.id,
+      decision: review.decision,
+      comment: review.comment,
+      reviewedAt: review.reviewedAt.toISOString(),
+    };
+  }
 }
 
-interface SubmissionRevisionResponseDto {
-  readonly number: number;
-  readonly content: SubmissionRevisionContent;
-  readonly comment: string | null;
-  readonly submittedAt: string;
-  readonly files: readonly SubmissionReviewFileResponseDto[];
-  readonly review: SubmissionReviewResponseDto | null;
+export class SubmissionReviewFileResponseDto {
+  declare readonly fileId: string;
+  declare readonly fileName: string;
+  declare readonly contentType: string;
+  declare readonly size: number;
+  declare readonly expiresAt: string;
+  declare readonly downloadUrl: string;
+
+  static from(
+    file: SubmissionReviewFileRecord,
+  ): SubmissionReviewFileResponseDto {
+    return {
+      fileId: file.fileId,
+      fileName: file.fileName,
+      contentType: file.contentType,
+      size: file.size,
+      expiresAt: file.expiresAt.toISOString(),
+      downloadUrl: file.downloadUrl,
+    };
+  }
 }
 
-interface SubmissionReviewFileResponseDto extends Omit<
-  SubmissionReviewFileRecord,
-  'expiresAt'
-> {
-  readonly expiresAt: string;
+export class SubmissionRevisionResponseDto {
+  declare readonly number: number;
+  declare readonly content: SubmissionRevisionContent;
+  declare readonly comment: string | null;
+  declare readonly submittedAt: string;
+  declare readonly files: readonly SubmissionReviewFileResponseDto[];
+  declare readonly review: SubmissionReviewResponseDto | null;
+
+  static from(
+    revision: SubmissionRevisionRecord,
+  ): SubmissionRevisionResponseDto {
+    return {
+      number: revision.number,
+      content: revision.content,
+      comment: revision.comment,
+      submittedAt: revision.submittedAt.toISOString(),
+      files: revision.files.map((file) =>
+        SubmissionReviewFileResponseDto.from(file),
+      ),
+      review: revision.review
+        ? SubmissionReviewResponseDto.from(revision.review)
+        : null,
+    };
+  }
 }
 
-export interface SubmissionReviewContextResponseDto {
-  readonly submissionId: string;
-  readonly application: SubmissionReviewContext['application'];
-  readonly milestone: SubmissionReviewContext['milestone'];
-  readonly currentRevision: SubmissionRevisionResponseDto;
-  readonly history: readonly SubmissionRevisionResponseDto[];
-  readonly repository: {
+export class SubmissionReviewContextResponseDto {
+  declare readonly submissionId: string;
+  declare readonly application: SubmissionReviewContext['application'];
+  declare readonly milestone: SubmissionReviewContext['milestone'];
+  declare readonly currentRevision: SubmissionRevisionResponseDto;
+  declare readonly history: readonly SubmissionRevisionResponseDto[];
+  declare readonly repository: {
     readonly id: string;
     readonly url: string;
     readonly visibility: RepositoryVisibility;
     readonly publishEligible: boolean;
     readonly blockedReasons: readonly PublishBlockedReason[];
   } | null;
+
+  static from(
+    context: SubmissionReviewContext,
+  ): SubmissionReviewContextResponseDto {
+    return {
+      submissionId: context.submissionId,
+      application: context.application,
+      milestone: context.milestone,
+      currentRevision: SubmissionRevisionResponseDto.from(
+        context.currentRevision,
+      ),
+      history: context.history.map((revision) =>
+        SubmissionRevisionResponseDto.from(revision),
+      ),
+      repository: context.repository,
+    };
+  }
 }
 
-export interface CreateSubmissionReviewResponseDto {
-  readonly reviewId: string;
-  readonly submissionStatus: SubmissionReviewResult['submissionStatus'];
+export class CreateSubmissionReviewResponseDto {
+  declare readonly reviewId: string;
+  declare readonly submissionStatus: SubmissionReviewResult['submissionStatus'];
+
+  static from(
+    result: SubmissionReviewResult,
+  ): CreateSubmissionReviewResponseDto {
+    return {
+      reviewId: result.reviewId,
+      submissionStatus: result.submissionStatus,
+    };
+  }
 }
 
-export interface RepositoryPublishResponseDto {
-  readonly repositoryId: string;
-  readonly visibility: RepositoryPublishResult['visibility'];
-  readonly publishedAt: string;
-}
+export class RepositoryPublishResponseDto {
+  declare readonly repositoryId: string;
+  declare readonly visibility: RepositoryPublishResult['visibility'];
+  declare readonly publishedAt: string;
 
-export function toReviewContextResponse(
-  context: SubmissionReviewContext,
-): SubmissionReviewContextResponseDto {
-  return {
-    ...context,
-    currentRevision: toRevisionResponse(context.currentRevision),
-    history: context.history.map(toRevisionResponse),
-  };
-}
-
-export function toCreateReviewResponse(
-  result: SubmissionReviewResult,
-): CreateSubmissionReviewResponseDto {
-  return result;
-}
-
-export function toRepositoryPublishResponse(
-  result: RepositoryPublishResult,
-): RepositoryPublishResponseDto {
-  return { ...result, publishedAt: result.publishedAt.toISOString() };
-}
-
-function toRevisionResponse(
-  revision: SubmissionRevisionRecord,
-): SubmissionRevisionResponseDto {
-  return {
-    ...revision,
-    submittedAt: revision.submittedAt.toISOString(),
-    files: revision.files.map(toFileResponse),
-    review: revision.review ? toReviewResponse(revision.review) : null,
-  };
-}
-
-function toFileResponse(
-  file: SubmissionReviewFileRecord,
-): SubmissionReviewFileResponseDto {
-  return { ...file, expiresAt: file.expiresAt.toISOString() };
-}
-
-function toReviewResponse(
-  review: SubmissionReviewRecord,
-): SubmissionReviewResponseDto {
-  return { ...review, reviewedAt: review.reviewedAt.toISOString() };
+  static from(result: RepositoryPublishResult): RepositoryPublishResponseDto {
+    return {
+      repositoryId: result.repositoryId,
+      visibility: result.visibility,
+      publishedAt: result.publishedAt.toISOString(),
+    };
+  }
 }

@@ -6,56 +6,52 @@ import type {
 } from '../application-records.types';
 
 export class TeamManagementListItemResponseDto {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: ApplicationStatus;
-  readonly submittedAt: string;
-  readonly rejectionReason: string | null;
-  readonly applicant: {
+  declare readonly id: string;
+  declare readonly programId: string;
+  declare readonly status: ApplicationStatus;
+  declare readonly submittedAt: string;
+  declare readonly rejectionReason: string | null;
+  declare readonly applicant: {
     readonly id: string;
     readonly name: string | null;
     readonly nickname: string;
   };
-  readonly team: {
+  declare readonly team: {
     readonly id: string;
     readonly name: string;
     readonly memberCount: number;
     readonly members: readonly TeamManagementMember[];
   } | null;
 
-  private constructor(item: TeamManagementListItem) {
-    this.id = item.id;
-    this.programId = item.programId;
-    this.status = item.status;
-    this.submittedAt = item.submittedAt.toISOString();
-    this.rejectionReason = item.rejectionReason;
-    this.applicant = item.applicant;
-    this.team = item.team;
-  }
-
   static from(item: TeamManagementListItem): TeamManagementListItemResponseDto {
-    return new TeamManagementListItemResponseDto(item);
+    return {
+      id: item.id,
+      programId: item.programId,
+      status: item.status,
+      submittedAt: item.submittedAt.toISOString(),
+      rejectionReason: item.rejectionReason,
+      applicant: item.applicant,
+      team: item.team,
+    };
   }
 }
 
 export class TeamManagementListPageResponseDto {
-  readonly items: readonly TeamManagementListItemResponseDto[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-
-  private constructor(page: TeamManagementListPage) {
-    this.items = page.items.map((item) =>
-      TeamManagementListItemResponseDto.from(item),
-    );
-    this.page = page.page;
-    this.pageSize = page.pageSize;
-    this.totalItems = page.totalItems;
-    this.totalPages = page.totalPages;
-  }
+  declare readonly items: readonly TeamManagementListItemResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+  declare readonly totalItems: number;
+  declare readonly totalPages: number;
 
   static from(page: TeamManagementListPage): TeamManagementListPageResponseDto {
-    return new TeamManagementListPageResponseDto(page);
+    return {
+      items: page.items.map((item) =>
+        TeamManagementListItemResponseDto.from(item),
+      ),
+      page: page.page,
+      pageSize: page.pageSize,
+      totalItems: page.totalItems,
+      totalPages: page.totalPages,
+    };
   }
 }
