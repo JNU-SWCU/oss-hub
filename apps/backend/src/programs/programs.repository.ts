@@ -8,22 +8,22 @@ import {
   StaffAccessRequestStatus,
   type ProgramTrackType,
   type ProgramLifecycle,
-  type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfileName,
+} from '../platform/user-profile-read.config';
 import {
   ProgramListStatusFilterRepository,
   type ProgramListQuery,
 } from './program-list-status-filter.repository';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import {
-  ProgramApplicationParticipantRepository,
   submissionCompletionTargetSelect,
-} from '../platform/program-application-participant.repository';
-export { submissionCompletionTargetSelect } from '../platform/program-application-participant.repository';
+  type SubmissionCompletionTargetRow,
+  projectSubmissionCompletionTargets,
+} from './submission-completion.config';
 
 export type ProgramListRecord = {
   readonly id: string;
@@ -58,59 +58,6 @@ function emptyProgramStatusCounts(): ProgramStatusCounts {
     upcoming: 0,
     ended: 0,
   };
-}
-
-export interface SubmissionCompletionTargetRow {
-  readonly status: SubmissionStatus;
-  readonly milestoneDocument: {
-    readonly id: string;
-    readonly milestoneId: string;
-    readonly kind: MilestoneDocumentKind;
-  };
-}
-
-export interface SubmissionCompletionProjections {
-  readonly submissions: readonly {
-    readonly milestoneId: string;
-    readonly status: SubmissionStatus;
-  }[];
-
-  readonly documentSubmissions: readonly {
-    readonly milestoneDocumentId: string;
-    readonly status: SubmissionStatus;
-  }[];
-}
-
-export function projectSubmissionCompletionTargets(
-  targetRows: readonly SubmissionCompletionTargetRow[],
-): SubmissionCompletionProjections {
-  const submissions: {
-    milestoneId: string;
-    status: SubmissionStatus;
-  }[] = [];
-  const documentSubmissions: {
-    milestoneDocumentId: string;
-    status: SubmissionStatus;
-  }[] = [];
-
-  for (const targetRow of targetRows) {
-    switch (targetRow.milestoneDocument.kind) {
-      case MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION:
-        submissions.push({
-          milestoneId: targetRow.milestoneDocument.milestoneId,
-          status: targetRow.status,
-        });
-        break;
-      case MilestoneDocumentKind.DOCUMENT:
-        documentSubmissions.push({
-          milestoneDocumentId: targetRow.milestoneDocument.id,
-          status: targetRow.status,
-        });
-        break;
-    }
-  }
-
-  return { submissions, documentSubmissions };
 }
 
 export interface ProgramApplicationCounts {
@@ -269,9 +216,7 @@ export class ProgramsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -304,9 +249,7 @@ export class ProgramsRepository {
     const applications = await this.prisma.application.findMany({
       where: {
         programId: { in: [...programIds] },
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: { programId: true, status: true },
     });
@@ -349,9 +292,7 @@ export class ProgramsRepository {
         ...(studentUserId
           ? {
               application: {
-                ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-                  studentUserId,
-                ),
+                ...programApplicationParticipantWhere(studentUserId),
               },
             }
           : {}),
@@ -389,9 +330,7 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: UserProfileReadRepository.resolveUserProfileName(
-              repository.application!.applicant,
-            ),
+            name: resolveUserProfileName(repository.application!.applicant),
           },
           team: repository.application!.team,
         },
@@ -402,9 +341,7 @@ export class ProgramsRepository {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: {
         teamId: true,

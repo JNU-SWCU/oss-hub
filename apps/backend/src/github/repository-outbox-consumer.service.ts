@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
+import { RepositoriesRepository } from './repositories.repository';
 import {
-  RepositoriesRepository,
   parseRepositoryAccessSyncEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryProvisionEvent,
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repositories.repository';
-import { InvalidRepositoryProvisionEventError } from './repositories.repository';
+} from './repository-provision-event.config';
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 const PROVISION_POLL_INTERVAL_MS = 5_000;

@@ -1,8 +1,6 @@
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
-import {
-  ProgramAuthoringUploadTransactionRepository,
-  type ProgramAuthoringUploadToken,
-} from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   ProgramAuthoringUploadTokenError,

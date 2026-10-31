@@ -17,7 +17,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 describe('AdminAccessService mutation', () => {

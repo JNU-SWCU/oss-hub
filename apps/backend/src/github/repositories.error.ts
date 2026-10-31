@@ -9,3 +9,7 @@ export class RepositoryNameInputError extends Error {
     super('Repository name requires stable ASCII identifiers');
   }
 }
+
+export class InvalidRepositoryProvisionEventError extends Error {
+  override readonly name = 'InvalidRepositoryProvisionEventError';
+}

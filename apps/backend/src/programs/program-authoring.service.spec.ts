@@ -19,7 +19,7 @@ import {
   ProgramAuthoringRepository,
   type ProgramAuthoringTransactionStore,
 } from './program-authoring.repository';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   ProgramAuthoringIdempotencyRaceError,
   ProgramAuthoringIdempotencyConflictError,

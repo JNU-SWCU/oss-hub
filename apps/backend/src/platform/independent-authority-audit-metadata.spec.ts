@@ -1,10 +1,10 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
+import { createIndependentAuthorityAuditMetadata } from './audit-log.service';
 import {
-  createIndependentAuthorityAuditMetadata,
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
   parseAuditLogMetadata,
-} from './audit-log.repository';
+} from './audit-log-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 import {
   createIndependentAuthorityAudit,

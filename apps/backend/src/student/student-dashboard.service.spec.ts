@@ -15,7 +15,7 @@ import {
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
-import { submissionCompletionTargetSelect } from '../platform/program-application-participant.repository';
+import { submissionCompletionTargetSelect } from '../programs/submission-completion.config';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');

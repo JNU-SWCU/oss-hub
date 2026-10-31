@@ -1,6 +1,5 @@
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import {
-  submissionMatrixApplicationWhere,
+  SubmissionMatrixRepository,
   type MatrixApplicationRecord,
   type MatrixDocumentChangeRequest,
   type MatrixMilestoneRecord,
@@ -8,6 +7,7 @@ import {
   type SubmissionMatrixRepositoryPort,
   type SubmissionMatrixFilter,
 } from './submission-matrix.repository';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
@@ -282,7 +282,7 @@ describe('SubmissionMatrixService', () => {
 describe('submissionMatrixApplicationWhere', () => {
   it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -295,19 +295,19 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
     };
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
     ).toEqual(base);
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
     ).toEqual(base);
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -318,7 +318,7 @@ describe('submissionMatrixApplicationWhere', () => {
     const contains = { contains: 'Hong', mode: 'insensitive' };
 
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: 'Hong',
         applicationMode: null,
       }),

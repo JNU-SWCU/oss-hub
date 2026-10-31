@@ -7,19 +7,16 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
-import {
-  RepositoryProvisionGenerationRepository,
-  parseRepositoryProvisionEvent,
-} from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.config';
 import {
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
-  STUDENT_REPOSITORY_URL_SELECT,
   StudentRepositoryUrlContextRepository,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
 
 export class StudentRepositoryUrlTransactionRepository {
@@ -131,13 +128,13 @@ export class StudentRepositoryUrlTransactionRepository {
     );
     return repositoryId;
   }
-}
 
-export function isStudentRepositoryUrlConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  );
+  static isStudentRepositoryUrlConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
+  }
 }
 
 @Injectable()
@@ -151,11 +148,10 @@ export class StudentRepositoryUrlRepository {
     return this.prisma.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          studentId,
-        ),
+        ...programApplicationParticipantWhere(studentId),
       },
-      select: STUDENT_REPOSITORY_URL_SELECT,
+      select:
+        StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,
     });
   }
 

@@ -1,5 +1,5 @@
-import { authorityLabel } from '../platform/user-profile-read.repository';
-import { type AuthorityLabel } from '../users/authority-label.types';
+import { authorityLabel } from '../users/authority-label.config';
+import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -7,7 +7,7 @@ import {
   MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
 
 export interface ProgramOverviewRecord {
@@ -240,9 +240,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

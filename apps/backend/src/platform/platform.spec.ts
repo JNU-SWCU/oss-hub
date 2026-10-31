@@ -1,4 +1,4 @@
-import { addOneCalendarYear } from '../programs/submission-files.repository';
+import { addOneCalendarYear } from '../programs/submission-file.config';
 import { normalizeMultipartFileName } from './multipart-file-upload.interceptor';
 
 describe('add-one-calendar-year', () => {

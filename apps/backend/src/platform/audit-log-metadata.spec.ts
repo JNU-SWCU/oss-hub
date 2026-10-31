@@ -7,10 +7,6 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import {
-  ACCESS_AUDIT_EVENT_KINDS,
-  ACCESS_AUDIT_SCHEMA_VERSION,
-  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
-  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
@@ -24,9 +20,15 @@ import {
   createTeamMembershipAuditMetadata,
   createTeamRenamedAuditMetadata,
   createRepositoryPublishAuditMetadata,
-  createRepositoryConnectionAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   createUserPhoneAuditMetadata,
+} from './audit-log.service';
+import {
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  ACCESS_AUDIT_SCHEMA_VERSION,
+  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
   parseAuditLogMetadata,
   APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
   PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
@@ -34,7 +36,6 @@ import {
   TEAM_CREATED_AUDIT_SCHEMA_VERSION,
   TEAM_DELETED_AUDIT_SCHEMA_VERSION,
   TEAM_JOINED_AUDIT_SCHEMA_VERSION,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
   TEAM_RENAMED_AUDIT_SCHEMA_VERSION,
   TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
@@ -42,7 +43,8 @@ import {
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1,
-} from './audit-log.repository';
+} from './audit-log-metadata.config';
+import { createRepositoryConnectionAuditMetadata } from './repository-audit-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 
 const STATE = {

@@ -8,7 +8,7 @@ import {
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 
 describe('AccountDeactivationService', () => {
   const account = {

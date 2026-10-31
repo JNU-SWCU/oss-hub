@@ -11,89 +11,18 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  RepositoryProvisionGenerationRepository,
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryProvisionEvent,
-  requiredString,
-  isRecord,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from './repository-provision-event.config';
+import {
   repositoryUrlFromNameWithOwner,
   repositoryNameFromNameWithOwner,
-} from '../platform/repository-provision-generation.repository';
-import type { UnknownRecord } from '../platform/repository-provision-generation.repository';
+} from './repository-url.config';
+
 import { PrismaService } from '../platform/prisma.service';
-import { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
-export { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
-export {
-  publishBlockedReasons,
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-  parseRepositoryProvisionEvent,
-  repositoryAccessSyncEventData,
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-  type RepositoryProvisionEventPayload,
-  PUBLISH_BLOCKED_REASONS,
-  type PublishBlockedReason,
-  type RepositoryPublishEligibility,
-} from '../platform/repository-provision-generation.repository';
-
-export interface RepositoryAccessSyncEventPayload {
-  readonly applicationId: string;
-  readonly teamId: string;
-  readonly requestedAt: string;
-}
-
-export const REPOSITORY_PROVISION_EVENT_TYPE =
-  'REPOSITORY_PROVISION_REQUESTED' as const;
-
-const ACCESS_SYNC_PAYLOAD_KEYS = [
-  'applicationId',
-  'teamId',
-  'requestedAt',
-] as const;
-
-export function parseRepositoryAccessSyncEvent(
-  value: unknown,
-): RepositoryAccessSyncEventPayload {
-  if (!isRecord(value)) {
-    throw new InvalidRepositoryProvisionEventError();
-  }
-  const keys = Object.keys(value);
-  if (
-    keys.length !== ACCESS_SYNC_PAYLOAD_KEYS.length ||
-    !ACCESS_SYNC_PAYLOAD_KEYS.every((key) => keys.includes(key))
-  ) {
-    throw new InvalidRepositoryProvisionEventError();
-  }
-  return {
-    applicationId: requiredString(value, 'applicationId'),
-    teamId: requiredString(value, 'teamId'),
-    requestedAt: requiredIsoTimestamp(value, 'requestedAt'),
-  };
-}
-
-function requiredIsoTimestamp(record: UnknownRecord, key: string): string {
-  const value = requiredString(record, key);
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp) || new Date(timestamp).toISOString() !== value) {
-    throw new InvalidRepositoryProvisionEventError();
-  }
-  return value;
-}
-
-export function canonicalGithubLogin(login: string | null | undefined): string {
-  return (login ?? '').trim().toLowerCase();
-}
-
-export function canonicalGithubLogins(
-  logins: readonly (string | null | undefined)[],
-): readonly string[] {
-  return [
-    ...new Set(
-      logins.map(canonicalGithubLogin).filter((login) => login.length > 0),
-    ),
-  ].sort();
-}
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;

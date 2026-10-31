@@ -7,7 +7,7 @@ import type {
   GithubRepositoryMetadata,
 } from './github-app.client';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
-import { PROVISION_ERROR_CODES } from './repository-provision-state.repository';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 import { parseGithubRepositoryUrl } from './repository-url.config';
 
 const names = {

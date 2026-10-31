@@ -8,14 +8,11 @@ import {
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import {
   PublicProjectsRepository,
-  type PublicProjectApplicationMode,
   type PublicProjectRow,
   type PublicUserIdentity,
   type PublicProjectCursor,
-  applicationMode,
-  displayNameOf,
-  isPublicEligible,
 } from './public-projects.repository';
+import { PublicProjectApplicationMode } from './public-projects.config';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { PublicProjectCursorSecretError } from './public-project-cursor.error';
@@ -25,6 +22,7 @@ import {
   createCipheriv,
   createDecipheriv,
 } from 'node:crypto';
+import type { PublicEligibilityInput } from './public-projects.repository';
 
 export interface PublicProjectListItem extends PublicProjectRow {
   readonly applicationMode: PublicProjectApplicationMode;
@@ -433,4 +431,34 @@ export class PublicProjectsService {
 
     return { identity, projects: profileProjects, observedTotals };
   }
+}
+
+export function isPublicEligible(input: PublicEligibilityInput): boolean {
+  if (!input.platformPublic || input.publishedAt === null) return false;
+
+  const observation = input.observation;
+  if (observation === null || observation.observedAt === null) return true;
+
+  const isPrivateOrMissing =
+    observation.visibility === 'PRIVATE' || observation.presence === 'ABSENT';
+  if (!isPrivateOrMissing) return true;
+
+  return observation.observedAt.getTime() <= input.publishedAt.getTime();
+}
+
+export function applicationMode(
+  teamMemberCount: number,
+): PublicProjectApplicationMode {
+  return teamMemberCount > 1
+    ? PublicProjectApplicationMode.TEAM
+    : PublicProjectApplicationMode.PERSONAL;
+}
+
+export function displayNameOf(row: {
+  readonly teamName: string | null;
+  readonly teamMemberCount: number;
+  readonly applicantNickname: string;
+}): string {
+  if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
+  return row.applicantNickname;
 }

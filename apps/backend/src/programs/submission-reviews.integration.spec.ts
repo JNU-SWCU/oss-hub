@@ -9,10 +9,8 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import {
-  AuditLogRepository,
-  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
+import { AuditLogRepository } from '../platform/audit-log.repository';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
   prisma as seedPrisma,
@@ -32,7 +30,7 @@ import { RepositoriesRepository } from '../github/repositories.repository';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../platform/repository-provision-generation.repository';
+} from '../github/repository-url.config';
 import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';

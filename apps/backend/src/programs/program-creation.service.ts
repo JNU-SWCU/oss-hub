@@ -18,8 +18,8 @@ import {
 import {
   AuditLogService,
   createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
 import {

@@ -5,15 +5,17 @@ import {
   type Prisma,
 } from '@prisma/client';
 import type { PrismaService } from './prisma.service';
+import { AuditLogRepository } from './audit-log.repository';
 import {
-  AuditLogRepository,
-  ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
   createProgramCreatedAuditMetadata,
   createProgramLifecycleAuditMetadata,
   createTeamCreatedAuditMetadata,
+} from './audit-log.service';
+import {
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
-} from './audit-log.repository';
+  ACCESS_AUDIT_EVENT_KINDS,
+} from './audit-log-metadata.config';
 
 const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
   schemaVersion: 1,

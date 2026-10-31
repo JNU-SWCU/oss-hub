@@ -3,12 +3,10 @@ import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import type { ProgramAuthoringUploadFile } from './program-authoring-upload.error';
 import {
   assertProgramCoverUpload,
-  programCoverImageUrl,
-} from './program-cover.repository';
-import {
   assertProgramTemplateUpload,
   type ProgramAuthoringUploadToken,
-} from './program-authoring-upload-transaction.repository';
+} from './program-authoring-upload.config';
+import { programCoverImageUrl } from './program-cover.config';
 import { validateProgramCoverUpload } from './program-authoring-upload.service';
 
 const PNG = Buffer.from(

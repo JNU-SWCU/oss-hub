@@ -3,8 +3,8 @@ import { AccountStatus } from '@prisma/client';
 import {
   AuditLogService,
   createProgramDeletionAuditMetadata,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
 } from '../platform/audit-log.service';
+import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
@@ -12,16 +12,11 @@ import {
   ProgramErrorCode,
 } from './program-error-code.error';
 import {
-  isForeignKeyConflict,
   ProgramLifecycleRepository,
   ProgramPurgeDeletedCounts,
 } from './program-lifecycle.repository';
 import { ProgramPurgeDeletedScopeMismatchError } from './program-lifecycle.error';
-import {
-  sameProgramDeletionScopeCountValues,
-  sameProgramDeletionScopeCounts,
-  type ProgramDeletionScopeCounts,
-} from './program-deletion-scope.repository';
+import { type ProgramDeletionScopeCounts } from './program-deletion-scope.repository';
 
 export type ProgramPurgeResult = {
   readonly id: string;
@@ -195,7 +190,8 @@ export class ProgramLifecycleService {
     } catch (error) {
       const serializationFailure =
         PrismaSerializationRetryRepository.isSerializationFailure(error);
-      const foreignKeyConflict = isForeignKeyConflict(error);
+      const foreignKeyConflict =
+        ProgramLifecycleRepository.isForeignKeyConflict(error);
       const deletedScopeMismatch =
         error instanceof ProgramPurgeDeletedScopeMismatchError;
       if (
@@ -221,4 +217,31 @@ export class ProgramLifecycleService {
       throw error;
     }
   }
+}
+
+export function sameProgramDeletionScopeCounts(
+  left: ProgramDeletionScopeCounts,
+  right: ProgramDeletionScopeCounts,
+): boolean {
+  return (
+    left.applications === right.applications &&
+    left.teams === right.teams &&
+    left.boardPosts === right.boardPosts &&
+    left.submissions === right.submissions &&
+    left.submissionEvents === right.submissionEvents &&
+    left.scopeFingerprint === right.scopeFingerprint
+  );
+}
+
+export function sameProgramDeletionScopeCountValues(
+  left: ProgramDeletionScopeCounts,
+  right: Omit<ProgramDeletionScopeCounts, 'scopeFingerprint'>,
+): boolean {
+  return (
+    left.applications === right.applications &&
+    left.teams === right.teams &&
+    left.boardPosts === right.boardPosts &&
+    left.submissions === right.submissions &&
+    left.submissionEvents === right.submissionEvents
+  );
 }

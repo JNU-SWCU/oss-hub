@@ -13,7 +13,7 @@ import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repositories.repository';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';

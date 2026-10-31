@@ -18,11 +18,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
-import {
-  SubmissionFilesRepository,
-  addOneCalendarYear,
-} from './submission-files.repository';
+import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
+import { addOneCalendarYear } from './submission-file.config';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 
 const REQUIRED_ENV = [

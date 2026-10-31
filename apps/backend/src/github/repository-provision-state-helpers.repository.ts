@@ -18,12 +18,12 @@ import type { GithubRepositoryMetadata } from './github-app.client';
 import {
   createRepositoryConnectionAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../platform/repository-provision-generation.repository';
+} from '../platform/repository-audit-metadata.config';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-  canonicalGithubLogins,
-} from './repositories.repository';
+} from './repository-url.config';
+import { canonicalGithubLogins } from './repository-provision-event.config';
 
 export interface ProvisionedRepository {
   readonly id: string;
@@ -167,14 +167,6 @@ interface LockedRepositoryClaimTarget {
   readonly applicationId: string | null;
   readonly source: RepositorySource;
 }
-
-export const repositorySelection = {
-  id: true,
-  applicationId: true,
-  githubRepositoryId: true,
-  nameWithOwner: true,
-  visibility: true,
-} as const;
 
 export interface ProvisionedRepositoryRow {
   readonly id: string;
@@ -362,7 +354,7 @@ export class RepositoryProvisionStateHelpersRepository {
             source,
             presence: CollectionRepositoryPresence.PRESENT,
           },
-          select: repositorySelection,
+          select: RepositoryProvisionStateHelpersRepository.repositorySelection,
         });
       } catch (error) {
         if (
@@ -395,7 +387,7 @@ export class RepositoryProvisionStateHelpersRepository {
       }
       repository = await transaction.githubRepository.findUniqueOrThrow({
         where: { id: target.id },
-        select: repositorySelection,
+        select: RepositoryProvisionStateHelpersRepository.repositorySelection,
       });
     }
 
@@ -489,10 +481,19 @@ export class RepositoryProvisionStateHelpersRepository {
       repository.visibility === input.metadata.visibility
     );
   }
-}
 
-export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
-  'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
+  static readonly repositorySelection = {
+    id: true,
+    applicationId: true,
+    githubRepositoryId: true,
+    nameWithOwner: true,
+    visibility: true,
+  } as const;
+
+  static readonly teamMemberLoginSelection = {
+    user: { select: { nickname: true } },
+  } as const;
+}
 
 const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -500,7 +501,3 @@ const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
   RepositoryInvitationStatus.REVOKE_FAILED_FINAL,
 ] as const;
-
-export const teamMemberLoginSelection = {
-  user: { select: { nickname: true } },
-} as const;

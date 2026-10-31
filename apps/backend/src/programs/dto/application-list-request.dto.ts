@@ -9,12 +9,14 @@ import {
   Min,
 } from 'class-validator';
 import {
-  APPLICATION_LIST_STATUSES,
-  APPLICATION_LIST_VIEWS,
   type ApplicationListQuery,
   type ApplicationListStatus,
   type ApplicationListView,
 } from '../applications.repository';
+import {
+  APPLICATION_LIST_STATUSES,
+  APPLICATION_LIST_VIEWS,
+} from '../applications.config';
 
 export class ApplicationListRequestDto {
   @Type(() => Number)

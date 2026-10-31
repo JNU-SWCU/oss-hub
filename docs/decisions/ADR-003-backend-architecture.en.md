@@ -27,6 +27,7 @@ The backend is split into 10 Nest modules and follows the [Nest defaults](https:
 - A module's public API is the providers in its `exports`.
 - File names are kebab-case: plural for resources, singular for concepts.
 - A class is named PascalCase(stem) plus the suffix. The contract block below defines the suffixes and exempt files.
+- `*.repository.ts` holds data access only and exports classes and types only. Constants and pure functions shared by repositories live in `.config.ts`.
 - Types live next to the code that produces them. `.types.ts` is only for types shared across modules.
 
 ### DTOs
@@ -52,7 +53,7 @@ export class ProgramSummaryResponseDto {
 
 - File size rule: small files are no longer absorbed. A file holds one concept ([Angular style guide](https://angular.dev/style-guide)).
 - Type-only file split: replaced by the `.types.ts` rule above.
-- `.scheduler`, `.job`, and `.policy` roles: `@Cron`/`@Interval` are methods on module services ([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI commands run through one `src/cli.ts` using `createApplicationContext` ([standalone applications](https://docs.nestjs.com/standalone-applications)). Domain-rule functions live in services or repositories.
+- `.scheduler`, `.job`, and `.policy` roles: `@Cron`/`@Interval` are methods on module services ([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI commands run through one `src/cli.ts` using `createApplicationContext` ([standalone applications](https://docs.nestjs.com/standalone-applications)). Domain-rule functions live in services.
 
 ## Consequences
 

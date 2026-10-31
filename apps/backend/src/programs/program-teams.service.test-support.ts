@@ -1,5 +1,5 @@
 import type { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.repository';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
 export const EMPTY_TEAM_DELETION_SCOPE: TeamDeletionScopeCounts = {
   applications: 0,

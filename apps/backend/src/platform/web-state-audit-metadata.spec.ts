@@ -2,14 +2,16 @@ import {
   createTeamCreatedAuditMetadata,
   createTeamJoinedAuditMetadata,
   createTeamMembershipAuditMetadata,
+} from './audit-log.service';
+import {
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   parseApplicationSubmittedAuditMetadata,
   parseTeamCreatedAuditMetadata,
   parseTeamJoinedAuditMetadata,
   parseTeamMembershipAuditMetadata,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
   TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
-} from './audit-log.repository';
+} from './audit-log-metadata.config';
 
 const PROGRAM_NAME = '합성 프로그램';
 const TEAM_NAME = '합성 팀';

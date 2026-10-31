@@ -1,12 +1,11 @@
+import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import {
-  replaceProgramCover,
-  programCoverImageUrl,
-} from './program-cover.repository';
+
+import { programCoverImageUrl } from './program-cover.config';
 import {
   ACTOR,
   GITHUB_ID,
@@ -174,7 +173,7 @@ it.each(['replace', 'remove'])(
     const second = await seedUpload();
     await expect(
       prisma.$transaction(async (transaction) => {
-        await replaceProgramCover(transaction, {
+        await ProgramCoverRepository.replaceProgramCover(transaction, {
           programId: program.id,
           actorId: ACTOR,
           uploadId: operation === 'replace' ? second.id : null,

@@ -10,8 +10,10 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { parseRepositoryAccessSyncEvent } from '../github/repositories.repository';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-provision-generation.repository';
+import {
+  parseRepositoryAccessSyncEvent,
+  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+} from '../github/repository-provision-event.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

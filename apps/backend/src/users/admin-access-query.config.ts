@@ -38,3 +38,13 @@ export const ADMIN_ACCESS_COMMANDS = {
   GRANT: 'GRANT_ADMIN_ACCESS',
   REVOKE: 'REVOKE_ADMIN_ACCESS',
 } as const;
+
+export const STAFF_ACCESS_COMMANDS = {
+  GRANT: 'GRANT_STAFF_ACCESS',
+  REVOKE: 'REVOKE_STAFF_ACCESS',
+} as const;
+
+export const AUTHORITY_TARGETS = {
+  STAFF: 'STAFF',
+  ADMIN: 'ADMIN',
+} as const;

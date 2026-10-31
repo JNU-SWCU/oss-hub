@@ -1,3 +1,4 @@
+import { ProgramCoverRepository } from './program-cover.repository';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
 import {
@@ -9,7 +10,6 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramAuthoringUploadTransactionRepository,
   type ProgramAuthoringProgramPlan,
-  type ProgramAuthoringUploadToken,
   type ProgramExternalCover,
   type ProgramAuthoringProgram,
   type ProgramAuthoringCreateRequestInput,
@@ -18,10 +18,8 @@ import {
   type ProgramAuthoringTemplateInput,
   type ProgramAuthoringReplay,
 } from './program-authoring-upload-transaction.repository';
-import {
-  createProgramCover,
-  createExternalProgramCover,
-} from './program-cover.repository';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+
 import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
 
 export interface ProgramAuthoringTransactionStore {
@@ -149,13 +147,13 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     });
     if (cover !== undefined) {
       if ('externalCover' in cover) {
-        await createExternalProgramCover(
+        await ProgramCoverRepository.createExternalProgramCover(
           this.prisma,
           program.id,
           cover.externalCover,
         );
       } else {
-        await createProgramCover(this.prisma, {
+        await ProgramCoverRepository.createProgramCover(this.prisma, {
           programId: program.id,
           ...cover,
         });

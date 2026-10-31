@@ -4,8 +4,8 @@ import { MAX_FILE_BYTES } from './submission-files.service';
 import {
   isAllowedSubmissionFileType,
   hasValidSubmissionFileSignature,
-} from './submission-files.repository';
-import { safeSubmissionFileContentType } from './submission-checklist-record.repository';
+  safeSubmissionFileContentType,
+} from './submission-file.config';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
   SUBMISSION_UPLOAD_FORMAT_LABEL,

@@ -16,7 +16,7 @@ import type {
   AdminAccessUserPageRecord,
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
-} from './admin-access.repository';
+} from './admin-access-read.repository';
 import {
   type AdminAccessListQuery,
   type AdminAccessLoginHistoryPage,

@@ -1,8 +1,8 @@
+import { createUserProfileAuditMetadata } from './audit-log.service';
 import {
-  createUserProfileAuditMetadata,
   parseAuditLogMetadata,
   USER_PROFILE_AUDIT_FIELDS,
-} from './audit-log.repository';
+} from './audit-log-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 
 const ACTOR = {

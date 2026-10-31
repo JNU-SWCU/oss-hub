@@ -21,9 +21,9 @@ import {
 import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
-} from './submissions.repository';
+} from './milestone-completion.config';
 import { type ProgramListQuery } from './program-list-status-filter.repository';
-import { programCoverImageUrl } from './program-cover.repository';
+import { programCoverImageUrl } from './program-cover.config';
 
 export interface ProgramListItemNote {
   readonly text: string;

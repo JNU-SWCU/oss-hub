@@ -10,7 +10,7 @@ import type {
   SubmissionsRepository,
 } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
-import { type ChecklistMilestone } from './submission-checklist-record.repository';
+import { type ChecklistMilestone } from './submissions.repository';
 
 const githubId = 4242n;
 

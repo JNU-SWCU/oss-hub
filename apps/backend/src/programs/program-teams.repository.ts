@@ -25,18 +25,16 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import { requiredMilestonesApproved } from './submissions.repository';
-import {
-  publishBlockedReasons,
-  repositoryUrlFromNameWithOwner,
-  repositoryAccessSyncEventData,
-} from '../platform/repository-provision-generation.repository';
+  resolveUserProfileName,
+} from '../platform/user-profile-read.config';
+import { requiredMilestonesApproved } from './milestone-completion.config';
+import { repositoryAccessSyncEventData } from '../github/repository-provision-event.config';
+import { publishBlockedReasons } from '../github/repository-publish.config';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
-} from './programs.repository';
+} from './submission-completion.config';
 
 export interface TeamStudentActor {
   readonly id: string;
@@ -172,7 +170,7 @@ export class ProgramTeamsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: UserProfileReadRepository.resolveUserProfileName(user),
+          name: resolveUserProfileName(user),
         }
       : null;
   }
@@ -296,7 +294,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: UserProfileReadRepository.resolveUserProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
     };
   }
@@ -330,7 +328,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: UserProfileReadRepository.resolveUserProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
     }));
   }
@@ -489,7 +487,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: UserProfileReadRepository.resolveUserProfileName(member.user),
+        name: resolveUserProfileName(member.user),
       })),
       application: applicationView,
       repositoryContributions: application

@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AuditLogService,
-  USER_PHONE_AUDIT_TRANSITIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
   createUserPhoneAuditMetadata,
   createUserProfileAuditMetadata,
 } from '../platform/audit-log.service';
+import {
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+} from '../platform/audit-log-metadata.config';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
@@ -19,12 +21,12 @@ import {
   type UsersRepositoryPort,
   CompleteUserProfileInput,
   type UpdateProfileFieldsInput,
+} from './users.repository';
+import {
   isValidPhone,
   isValidStudentId,
   isCompleteUserProfile,
   effectiveProfileMemberKind,
-} from './users.repository';
-import {
   type UserProfileRecord,
   normalizeProfileText,
   isValidUserName,

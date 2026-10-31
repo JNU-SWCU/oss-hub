@@ -10,7 +10,7 @@ import {
   type AcceptInvitationOnOk,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-provision-generation.repository';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.config';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticTeamId = 'cuid-synthetic-team';

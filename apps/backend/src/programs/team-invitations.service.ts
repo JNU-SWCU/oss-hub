@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   AuditLogService,
   createTeamJoinedAuditMetadata,
-  TEAM_JOINED_AUDIT_ACTIONS,
 } from '../platform/audit-log.service';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import {
   TEAM_INVITATION_ERROR_CODES,

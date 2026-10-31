@@ -3,22 +3,22 @@ import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { createUserProfileAuditMetadata } from '../platform/audit-log.service';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
-  createUserProfileAuditMetadata,
   USER_PROFILE_AUDIT_FIELDS,
-} from '../platform/audit-log.service';
+} from '../platform/audit-log-metadata.config';
+import type { UserProfileAuditAction } from '../platform/audit-log.repository';
 import type {
-  UserProfileAuditAction,
   UserProfileAuditMetadata,
   UserProfileAuditFieldChange,
-} from '../platform/audit-log.service';
+} from '../platform/audit-log-metadata.config';
 import {
   type AdminProfileTargetRecord,
   type AdminProfileRepositoryPort,
 } from './admin-profile.repository';
 import { requireActiveAdmin, roleError } from './admin-access-mutation.service';
-import { isValidStudentId } from './users.repository';
+import { isValidStudentId } from './profile-validation.config';
 
 type AdminProfileFields = {
   readonly name: string | null;

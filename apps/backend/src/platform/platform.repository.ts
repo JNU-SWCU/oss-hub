@@ -7,7 +7,7 @@ import {
   type ReviewDecision,
   type AffiliationKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from './program-application-participant.repository';
+import { programApplicationParticipantWhere } from './program-application-participant.config';
 
 export class PlatformRepository {
   static linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
@@ -75,9 +75,7 @@ export class PlatformRepository {
     const current = await tx.application.findFirst({
       where: {
         id: applicationId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

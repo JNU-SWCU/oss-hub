@@ -23,11 +23,9 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import {
-  SubmissionFilesRepository,
-  addOneCalendarYear,
-} from './submission-files.repository';
+import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
+import { addOneCalendarYear } from './submission-file.config';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';

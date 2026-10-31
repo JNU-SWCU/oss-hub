@@ -70,10 +70,8 @@ import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
-import {
-  StudentApplicationManagementRepository,
-  STUDENT_APPLICATION_MANAGEMENT_CLOCK,
-} from './student-application-management.repository';
+import { StudentApplicationManagementRepository } from './student-application-management.repository';
+import { STUDENT_APPLICATION_MANAGEMENT_CLOCK } from './student-application-management.config';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';

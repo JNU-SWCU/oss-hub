@@ -6,10 +6,10 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import {
-  nextMilestoneDocumentHistoryCreatedAt,
   type CreateMilestoneDocumentReviewInput,
   type CreatedMilestoneDocumentReview,
 } from './milestone-document-collection-read.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { reviewDecisionToSubmissionStatus } from './milestone-documents.service';
 

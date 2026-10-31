@@ -10,6 +10,8 @@ import {
   decodePublicProjectCursor,
   encodePublicProjectCursor,
   resolvePublicProjectCursorKey,
+  applicationMode,
+  displayNameOf,
 } from './public-projects.service';
 import { DomainException } from '../platform/error-code.error';
 import type {
@@ -19,8 +21,6 @@ import type {
 } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import {
-  applicationMode,
-  displayNameOf,
   type PublicProjectsRepository,
   type PublicProjectRow,
   type PublicUserIdentity,

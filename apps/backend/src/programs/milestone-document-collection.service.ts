@@ -32,8 +32,10 @@ import {
   documentDeliveryStatus,
   toMilestoneDocumentCollectionCell,
 } from './milestone-documents.service';
-import { safeSubmissionFileContentType } from './submission-checklist-record.repository';
-import { sanitizeSubmissionFileOriginalName } from './submission-files.repository';
+import {
+  safeSubmissionFileContentType,
+  sanitizeSubmissionFileOriginalName,
+} from './submission-file.config';
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly deliveryStatus?: DocumentDeliveryStatus;

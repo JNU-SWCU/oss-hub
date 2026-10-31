@@ -1,20 +1,6 @@
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
-import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
-
-export const STUDENT_REPOSITORY_URL_SELECT = {
-  id: true,
-  programId: true,
-  teamId: true,
-  status: true,
-  applicantId: true,
-  applicant: { select: { githubId: true } },
-  team: { select: { leaderId: true } },
-  program: { select: { name: true, endAt: true } },
-  repository: {
-    select: { id: true, githubRepositoryId: true, nameWithOwner: true },
-  },
-} as const satisfies Prisma.ApplicationSelect;
+import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
+import { programApplicationManagerWhere } from '../platform/program-application-participant.config';
 
 export type StudentRepositoryUrlContext = {
   readonly id: string;
@@ -59,16 +45,15 @@ export class StudentRepositoryUrlContextRepository {
     if (!actor) return null;
     const context = await db.application.findUnique({
       where: { programId_teamId: { programId, teamId } },
-      select: STUDENT_REPOSITORY_URL_SELECT,
+      select:
+        StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,
     });
     if (!context) return null;
     const leads = await db.application.count({
       where: {
         id: context.id,
         AND: [
-          ProgramApplicationParticipantRepository.programApplicationManagerWhere(
-            actor.id,
-          ),
+          programApplicationManagerWhere(actor.id),
           { team: { leader: STUDENT_MEMBER_WHERE } },
         ],
       },
@@ -82,4 +67,18 @@ export class StudentRepositoryUrlContextRepository {
       },
     };
   }
+
+  static readonly STUDENT_REPOSITORY_URL_SELECT = {
+    id: true,
+    programId: true,
+    teamId: true,
+    status: true,
+    applicantId: true,
+    applicant: { select: { githubId: true } },
+    team: { select: { leaderId: true } },
+    program: { select: { name: true, endAt: true } },
+    repository: {
+      select: { id: true, githubRepositoryId: true, nameWithOwner: true },
+    },
+  } as const satisfies Prisma.ApplicationSelect;
 }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
-} from './submission-files.repository';
+} from './submission-file.config';
 
 jest.mock('node:crypto', () => ({
   randomUUID: jest.fn(),

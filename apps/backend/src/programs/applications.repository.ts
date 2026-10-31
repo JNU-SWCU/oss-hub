@@ -18,16 +18,15 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  RepositoryProvisionGenerationRepository,
-  repositoryUrlFromNameWithOwner,
-  parseRepositoryProvisionEvent,
-} from '../platform/repository-provision-generation.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.config';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfileName,
+  userProfileNameWhere,
+} from '../platform/user-profile-read.config';
 import {
   type AppendReviewHistoryInput,
   type AppendedReviewHistory,
@@ -40,12 +39,11 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationPreparationConflictError,
 } from './applications.error';
-
-export const APPLICATION_DECISION_ACTIONS = {
-  APPROVE: 'APPROVE',
-  REJECT: 'REJECT',
-  REVERT: 'REVERT',
-} as const;
+import {
+  APPLICATION_DECISION_ACTIONS,
+  APPLICATION_LIST_STATUSES,
+  APPLICATION_LIST_VIEWS,
+} from './applications.config';
 
 export type ApplicationDecisionAction =
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.APPROVE }
@@ -140,16 +138,7 @@ export type ApplicationDecisionCommand = {
   readonly reason?: string;
 };
 
-export const APPLICATION_LIST_STATUSES = [
-  'all',
-  'SUBMITTED',
-  'APPROVED',
-  'REJECTED',
-] as const;
-
 export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
-
-export const APPLICATION_LIST_VIEWS = ['default', 'team-management'] as const;
 
 export type ApplicationListView = (typeof APPLICATION_LIST_VIEWS)[number];
 
@@ -932,7 +921,7 @@ export class ApplicationsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: UserProfileReadRepository.resolveUserProfileName(user),
+          name: resolveUserProfileName(user),
         }
       : null;
   }
@@ -1098,7 +1087,7 @@ export class ApplicationsRepository {
       occurredAt: row.occurredAt,
       rejectionReason: row.rejectionReason,
       actor: {
-        name: UserProfileReadRepository.resolveUserProfileName(row.actor),
+        name: resolveUserProfileName(row.actor),
         nickname: row.actor.nickname,
       },
     }));
@@ -1259,7 +1248,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: UserProfileReadRepository.userProfileNameWhere(search),
+            applicant: userProfileNameWhere(search),
           },
           {
             applicant: {
@@ -1310,9 +1299,7 @@ function buildTeamManagementListWhere(
             some: {
               OR: [
                 {
-                  user: UserProfileReadRepository.userProfileNameWhere(
-                    query.search,
-                  ),
+                  user: userProfileNameWhere(query.search),
                 },
                 {
                   user: {
@@ -1377,7 +1364,7 @@ function toTeamManagementListItem(
     rejectionReason: row.rejectionReason,
     applicant: {
       id: row.applicant.id,
-      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
+      name: resolveUserProfileName(row.applicant),
       nickname: row.applicant.nickname,
     },
     team:
@@ -1389,9 +1376,7 @@ function toTeamManagementListItem(
             memberCount: row.team._count.members,
             members: row.team.members.map((member) => ({
               id: member.user.id,
-              name: UserProfileReadRepository.resolveUserProfileName(
-                member.user,
-              ),
+              name: resolveUserProfileName(member.user),
               nickname: member.user.nickname,
             })),
           },
@@ -1530,7 +1515,7 @@ function toApplicationListItem(
     applicant: {
       id: row.applicant.id,
       nickname: row.applicant.nickname,
-      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
+      name: resolveUserProfileName(row.applicant),
     },
     team,
     answers: parseListAnswers(row.answers),

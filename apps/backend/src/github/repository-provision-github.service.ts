@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
-} from './repository-provision-state.repository';
+} from './repository-provision-state.config';
 import { parseGithubRepositoryUrl } from './repository-url.config';
 
 export const GITHUB_REPOSITORY_NAME_MAX_LENGTH = 100;

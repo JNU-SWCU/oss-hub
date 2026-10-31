@@ -2,11 +2,13 @@ import { AccountStatus } from '@prisma/client';
 import { AuditLogErrorCode } from './audit-log-error-code.error';
 import {
   type AuditLogRepository,
-  ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
   type AuditLogRecordInput,
 } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
+import {
+  createAccessAuditMetadata,
+  AuditLogService,
+} from './audit-log.service';
+import { ACCESS_AUDIT_EVENT_KINDS } from './audit-log-metadata.config';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 

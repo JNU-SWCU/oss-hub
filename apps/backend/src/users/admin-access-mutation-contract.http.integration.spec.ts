@@ -5,7 +5,7 @@ import { AdminAccessHttpHarness } from './admin-access.http.integration-support'
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

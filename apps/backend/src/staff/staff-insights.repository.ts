@@ -3,8 +3,8 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_DEPARTMENT_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfileDepartment,
+} from '../platform/user-profile-read.config';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;
@@ -47,7 +47,7 @@ export class StaffInsightsRepository {
     return rows.map((row) => ({
       id: row.id,
       githubId: row.githubId,
-      department: UserProfileReadRepository.resolveUserProfileDepartment(row),
+      department: resolveUserProfileDepartment(row),
     }));
   }
 

@@ -6,7 +6,7 @@ import type {
   PublicProjectMetrics,
   PublicProjectPageResult,
 } from '../public-projects.service';
-import type { PublicProjectApplicationMode } from '../public-projects.repository';
+import type { PublicProjectApplicationMode } from '../public-projects.config';
 
 class PublicProjectListItemResponseDto {
   declare readonly projectId: string;

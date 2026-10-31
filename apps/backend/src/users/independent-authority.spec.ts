@@ -1,5 +1,5 @@
 import { MemberKind } from '@prisma/client';
-import { AUTHORITY_TARGETS } from './independent-authority.repository';
+import { AUTHORITY_TARGETS } from './admin-access-query.config';
 import { resolveIndependentAuthorityTransition } from './independent-authority.service';
 
 describe('independent-authority-transition', () => {

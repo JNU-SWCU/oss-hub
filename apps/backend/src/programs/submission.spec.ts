@@ -1,8 +1,6 @@
-import {
-  exactSubmissionByPublicId,
-  publicSubmissionId,
-  submissionPublicIdWhere,
-} from './submission-checklist-record.repository';
+import { SubmissionsRepository } from './submissions.repository';
+
+import { publicSubmissionId } from './submission-file.config';
 import { SubmissionPublicIdCollisionError } from './submissions.error';
 
 describe('submission-public-id', () => {
@@ -20,18 +18,25 @@ describe('submission-public-id', () => {
     });
 
     it('builds the permanent dual-key predicate', () => {
-      expect(submissionPublicIdWhere('submission-id')).toEqual({
+      expect(
+        SubmissionsRepository.submissionPublicIdWhere('submission-id'),
+      ).toEqual({
         OR: [{ id: 'submission-id' }, { legacySubmissionId: 'submission-id' }],
       });
     });
 
     it('returns exactly zero or one row and fails closed on ambiguity', () => {
-      expect(exactSubmissionByPublicId([])).toBeNull();
-      expect(exactSubmissionByPublicId([{ id: 'only' }])).toEqual({
+      expect(SubmissionsRepository.exactSubmissionByPublicId([])).toBeNull();
+      expect(
+        SubmissionsRepository.exactSubmissionByPublicId([{ id: 'only' }]),
+      ).toEqual({
         id: 'only',
       });
       expect(() =>
-        exactSubmissionByPublicId([{ id: 'a' }, { id: 'b' }]),
+        SubmissionsRepository.exactSubmissionByPublicId([
+          { id: 'a' },
+          { id: 'b' },
+        ]),
       ).toThrow(SubmissionPublicIdCollisionError);
     });
   });

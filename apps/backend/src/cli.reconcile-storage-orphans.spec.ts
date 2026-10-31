@@ -1,3 +1,4 @@
+import { PrismaStorageReferenceRepository } from './programs/prisma-storage-reference.repository';
 import type { INestApplicationContext } from '@nestjs/common';
 import { PlatformModule } from './platform/platform.module';
 import { NestFactory } from '@nestjs/core';
@@ -5,12 +6,14 @@ import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
 } from './platform/object-storage.types';
-import { createStorageReferenceRepository } from './programs/prisma-storage-reference.repository';
+
 import { reconcileStorageOrphans } from './cli';
 import { KNOWN_STORAGE_PREFIXES } from './programs/storage-orphan-reconciliation.service';
 
 jest.mock('./programs/prisma-storage-reference.repository', () => ({
-  createStorageReferenceRepository: jest.fn(),
+  PrismaStorageReferenceRepository: {
+    createStorageReferenceRepository: jest.fn(),
+  },
 }));
 
 describe('storage orphan reconciliation runner', () => {
@@ -47,10 +50,15 @@ describe('storage orphan reconciliation runner', () => {
         lastModified: new Date('2026-08-12T00:00:00.000Z'),
       },
     ]);
-    jest.mocked(createStorageReferenceRepository).mockReturnValue({
-      references,
-      disconnect,
-    });
+    jest
+      .spyOn(
+        PrismaStorageReferenceRepository,
+        'createStorageReferenceRepository',
+      )
+      .mockReturnValue({
+        references,
+        disconnect,
+      });
     bootstrap = jest
       .spyOn(NestFactory, 'createApplicationContext')
       .mockResolvedValue(context as unknown as INestApplicationContext);

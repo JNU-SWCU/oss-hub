@@ -27,6 +27,7 @@
 - 모듈의 공개 API는 `exports`에 올린 provider뿐입니다.
 - 파일 이름은 kebab-case입니다. 리소스는 복수형, 개념은 단수형입니다.
 - 클래스 이름은 PascalCase(stem) + 접미사입니다. 접미사와 예외 파일은 아래 계약 블록이 정합니다.
+- `*.repository.ts`는 데이터 접근만 두고 클래스와 타입만 export합니다. 상수와 repository가 함께 쓰는 순수 함수는 `.config.ts`에 둡니다.
 - 타입은 그것을 만드는 코드 옆에 둡니다. `.types.ts`는 여러 모듈이 공유하는 타입에만 씁니다.
 
 ### DTO
@@ -52,7 +53,7 @@ export class ProgramSummaryResponseDto {
 
 - 파일 크기 규칙: 작은 파일을 흡수하지 않습니다. 파일 하나에 개념 하나를 둡니다([Angular 스타일 가이드](https://angular.dev/style-guide)).
 - type 전용 파일 분리: 위 `.types.ts` 규칙으로 대체합니다.
-- `.scheduler`, `.job`, `.policy` 역할: `@Cron`/`@Interval`은 모듈 서비스의 메서드에 둡니다([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI는 `src/cli.ts` 하나에서 `createApplicationContext`로 실행합니다([standalone applications](https://docs.nestjs.com/standalone-applications)). 도메인 규칙 함수는 서비스나 repository에 둡니다.
+- `.scheduler`, `.job`, `.policy` 역할: `@Cron`/`@Interval`은 모듈 서비스의 메서드에 둡니다([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI는 `src/cli.ts` 하나에서 `createApplicationContext`로 실행합니다([standalone applications](https://docs.nestjs.com/standalone-applications)). 도메인 규칙 함수는 서비스에 둡니다.
 
 ## Consequences
 

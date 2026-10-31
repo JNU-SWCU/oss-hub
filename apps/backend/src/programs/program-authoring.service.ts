@@ -16,8 +16,8 @@ import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   AuditLogService,
   createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   ProgramAuthoringUploadTransactionRepository,
   type ProgramAuthoringRequest,
@@ -25,8 +25,11 @@ import {
   type ProgramAuthoringMilestonePlan,
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringProgram,
-  assertProgramTemplateUpload,
 } from './program-authoring-upload-transaction.repository';
+import {
+  assertProgramTemplateUpload,
+  assertProgramCoverUpload,
+} from './program-authoring-upload.config';
 import {
   ProgramAuthoringAttachmentRaceError,
   ProgramAuthoringForbiddenError,
@@ -42,7 +45,6 @@ import {
   getProgramTemplate,
 } from './programs.service';
 import { createHash } from 'node:crypto';
-import { assertProgramCoverUpload } from './program-cover.repository';
 
 export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
   return {

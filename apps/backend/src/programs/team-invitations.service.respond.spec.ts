@@ -1,3 +1,4 @@
+import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -7,7 +8,7 @@ import {
 } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
-import { acceptTeamInvitationTransaction } from './team-invitations.repository';
+
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
 import {
   buildService,
@@ -17,8 +18,8 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-provision-generation.repository';
-import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.config';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 
 const INVITATION_ID = 'cuid-invitation';
 const syntheticSuccessorLeaderId = 'cuid-synthetic-successor-leader';
@@ -294,7 +295,7 @@ describe('acceptTeamInvitationTransaction', () => {
       $transaction: <T>(operation: (t: typeof tx) => Promise<T>) =>
         operation(tx),
     } as unknown as PrismaService;
-    return acceptTeamInvitationTransaction(
+    return TeamInvitationsRepository.acceptTeamInvitationTransaction(
       prisma,
       INVITATION_ID,
       inviteeId,
@@ -505,7 +506,7 @@ describe('acceptTeamInvitationTransaction', () => {
     } as unknown as PrismaService;
 
     await expect(
-      acceptTeamInvitationTransaction(
+      TeamInvitationsRepository.acceptTeamInvitationTransaction(
         prisma,
         OTHER_TEAM_INVITATION_ID,
         syntheticUserId,

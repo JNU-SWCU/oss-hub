@@ -12,11 +12,11 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  RepositoriesRepository,
-  REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryProvisionEvent,
   repositoryAccessSyncEventData,
-} from './repositories.repository';
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from './repository-provision-event.config';
+import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 
 assertIsolatedIntegrationDatabase({

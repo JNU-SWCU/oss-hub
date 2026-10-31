@@ -1,11 +1,11 @@
-import { MilestoneSubmissionType } from '@prisma/client';
-import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import {
+  MilestoneSubmissionType,
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionStatus,
   ReviewDecision,
 } from '@prisma/client';
+import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -43,7 +43,7 @@ import {
 } from './milestone-document-collection-read.repository';
 import { hasProgramDeadlinePassed } from './programs.service';
 import { createHash } from 'node:crypto';
-import { addOneCalendarYear } from './submission-files.repository';
+import { addOneCalendarYear } from './submission-file.config';
 
 export function documentDeliveryStatus(input: {
   readonly requiredFirstSubmissions: readonly (Date | null)[];

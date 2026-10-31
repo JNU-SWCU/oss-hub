@@ -9,7 +9,7 @@ import type {
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
   AdminAccessPendingDecisionUpdate,
-} from './admin-access.repository';
+} from './admin-access-read.repository';
 import type {
   IndependentAuthorityRepositoryPort,
   IndependentAuthorityTransactionStore,

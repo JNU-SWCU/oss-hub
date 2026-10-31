@@ -1,32 +1,9 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import {
-  AccountStatus,
-  AffiliationKind,
-  ApplicationStatus,
-  MemberKind,
-  MilestoneDocumentKind,
-  MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
-  ProgramCategory,
-  RepositoryProvisionJobStatus,
-  RepositoryVisibility,
-  ReviewDecision,
-  StaffAccessRequestStatus,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, MilestoneDocumentKind, MilestoneDocumentSubmissionHistoryEvent, MilestoneSubmissionType, ProgramCategory, RepositoryProvisionJobStatus, RepositoryVisibility, ReviewDecision, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import {
-  prisma,
-  seedGithubId,
-  seedId,
-  SeedStats,
-  upsertSeedUser,
-} from './seeds/helpers';
-import {
-  resolveJoinCodeSecret,
-  computeJoinCodeDigest,
-} from '../src/platform/join-code-secret.config';
+import { prisma, seedGithubId, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
+import { resolveJoinCodeSecret, computeJoinCodeDigest } from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
@@ -34,7 +11,7 @@ import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
-import { repositoryUrlFromNameWithOwner } from '../src/platform/repository-provision-generation.repository';
+import { repositoryUrlFromNameWithOwner } from '../src/github/repository-url.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
 
 assertIsolatedIntegrationDatabase({

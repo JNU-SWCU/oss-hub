@@ -9,11 +9,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import { publicSubmissionId } from './submission-checklist-record.repository';
-
-export const MATRIX_APPLICATION_MODES = ['PERSONAL', 'TEAM'] as const;
+  userProfileNameWhere,
+  resolveUserProfileName,
+} from '../platform/user-profile-read.config';
+import { publicSubmissionId } from './submission-file.config';
+import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
 
 export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
 
@@ -130,27 +130,6 @@ export interface MatrixDocumentChangeRequest {
   readonly milestoneId: string;
 }
 
-export function submissionMatrixApplicationWhere(
-  programId: string,
-  filter: SubmissionMatrixFilter,
-): Prisma.ApplicationWhereInput {
-  const where: Prisma.ApplicationWhereInput = {
-    programId,
-    status: ApplicationStatus.APPROVED,
-  };
-
-  if (filter.q.length > 0) {
-    const contains = { contains: filter.q, mode: 'insensitive' as const };
-    where.OR = [
-      { applicant: UserProfileReadRepository.userProfileNameWhere(filter.q) },
-      { applicant: { nickname: contains } },
-      { team: { name: contains } },
-      { team: { members: { some: { user: { nickname: contains } } } } },
-    ];
-  }
-  return where;
-}
-
 const matrixApplicationSelect = {
   id: true,
   applicant: {
@@ -180,9 +159,7 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: UserProfileReadRepository.resolveUserProfileName(
-        application.applicant,
-      ),
+      name: resolveUserProfileName(application.applicant),
       nickname: application.applicant.nickname,
     },
     team: application.team
@@ -259,7 +236,10 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     skip: number,
     take: number,
   ): Promise<MatrixApplicationPage> {
-    const where = submissionMatrixApplicationWhere(programId, filter);
+    const where = SubmissionMatrixRepository.submissionMatrixApplicationWhere(
+      programId,
+      filter,
+    );
     const [applications, total] = await Promise.all([
       this.prisma.application.findMany({
         where,
@@ -323,5 +303,26 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       currentRevision: submission.revision,
       submittedAt: submission.submittedAt,
     }));
+  }
+
+  static submissionMatrixApplicationWhere(
+    programId: string,
+    filter: SubmissionMatrixFilter,
+  ): Prisma.ApplicationWhereInput {
+    const where: Prisma.ApplicationWhereInput = {
+      programId,
+      status: ApplicationStatus.APPROVED,
+    };
+
+    if (filter.q.length > 0) {
+      const contains = { contains: filter.q, mode: 'insensitive' as const };
+      where.OR = [
+        { applicant: userProfileNameWhere(filter.q) },
+        { applicant: { nickname: contains } },
+        { team: { name: contains } },
+        { team: { members: { some: { user: { nickname: contains } } } } },
+      ];
+    }
+    return where;
   }
 }

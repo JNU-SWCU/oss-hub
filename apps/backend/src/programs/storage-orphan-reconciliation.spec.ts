@@ -7,9 +7,9 @@ import {
 } from './storage-orphan-reconciliation.service';
 import {
   PrismaStorageReferenceRepository,
-  STORAGE_KEY_OWNERS,
   type StorageReferenceRepository,
 } from './prisma-storage-reference.repository';
+import { STORAGE_KEY_OWNERS } from './storage-orphan-reconciliation.config';
 
 const OLD = new Date('2026-08-12T00:00:00.000Z');
 const RUN_STARTED_AT = new Date('2026-08-12T02:00:00.000Z');

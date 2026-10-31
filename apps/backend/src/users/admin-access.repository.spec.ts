@@ -5,11 +5,7 @@ import {
   AffiliationKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import {
-  lockActiveAdminRows,
-  toAdminActor,
-  AdminAccessRepository,
-} from './admin-access.repository';
+import { AdminAccessRepository } from './admin-access.repository';
 import type { PrismaService } from '../platform/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
@@ -17,7 +13,7 @@ import {
 } from './admin-access-query.config';
 
 describe('admin-actor-locks.repository', () => {
-  type ActorRow = Parameters<typeof toAdminActor>[0];
+  type ActorRow = Parameters<typeof AdminAccessRepository.toAdminActor>[0];
 
   function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
     return {
@@ -40,7 +36,7 @@ describe('admin-actor-locks.repository', () => {
         hasAdminAccess: true,
       });
 
-      const actor = toAdminActor(row);
+      const actor = AdminAccessRepository.toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(true);
       expect(actor.hasAdminAccess).toBe(true);
@@ -49,7 +45,7 @@ describe('admin-actor-locks.repository', () => {
     it('does not imply staff access from admin access', () => {
       const row = actorRow({ hasAdminAccess: true, hasStaffAccess: false });
 
-      const actor = toAdminActor(row);
+      const actor = AdminAccessRepository.toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(false);
       expect(actor.hasAdminAccess).toBe(true);
@@ -69,7 +65,7 @@ describe('admin-actor-locks.repository', () => {
           hasAdminAccess,
         });
 
-        const actor = toAdminActor(row);
+        const actor = AdminAccessRepository.toAdminActor(row);
 
         expect(actor.role).toBe(expected);
         expect(actor.hasStaffAccess).toBe(hasStaffAccess);
@@ -88,7 +84,8 @@ describe('admin-actor-locks.repository', () => {
         },
       } as unknown as Prisma.TransactionClient;
 
-      const count = await lockActiveAdminRows(transaction);
+      const count =
+        await AdminAccessRepository.lockActiveAdminRows(transaction);
 
       expect(count).toBe(2);
       expect(queries).toHaveLength(1);

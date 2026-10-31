@@ -7,8 +7,8 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfileName,
+} from '../platform/user-profile-read.config';
 
 export interface MilestoneDocumentArchiveDocument {
   readonly id: string;
@@ -112,9 +112,7 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: UserProfileReadRepository.resolveUserProfileName(
-        application.applicant,
-      ),
+      applicantName: resolveUserProfileName(application.applicant),
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

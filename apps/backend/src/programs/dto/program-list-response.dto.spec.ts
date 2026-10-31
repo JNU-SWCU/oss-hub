@@ -7,7 +7,7 @@ import {
   type PersonalizedProgramListItem,
   type ProgramListPageItem,
 } from '../programs.service';
-import { programCoverImageUrl } from '../program-cover.repository';
+import { programCoverImageUrl } from '../program-cover.config';
 
 function baseItem(
   overrides: Partial<ProgramListPageItem> = {},

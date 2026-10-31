@@ -4,7 +4,7 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   requiredMilestonesApproved,
-} from './submissions.repository';
+} from './milestone-completion.config';
 
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
   it('필수 서류가 없으면 Submission 상태를 그대로 쓴다', () => {

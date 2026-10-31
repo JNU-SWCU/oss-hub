@@ -1,5 +1,5 @@
 import { type ProgramTrackType } from '@prisma/client';
-import type { PublicProjectApplicationMode } from '../public-projects.repository';
+import type { PublicProjectApplicationMode } from '../public-projects.config';
 import type {
   PublicProjectMetrics,
   PublicUserProfileProjectResult,

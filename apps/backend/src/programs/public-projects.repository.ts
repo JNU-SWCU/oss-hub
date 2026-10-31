@@ -4,7 +4,11 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../platform/repository-provision-generation.repository';
+} from '../github/repository-url.config';
+import {
+  PUBLIC_PROJECT_YEAR_MIN,
+  PUBLIC_PROJECT_YEAR_MAX,
+} from './public-projects.config';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
@@ -23,23 +27,6 @@ export interface PublicEligibilityInput {
   readonly observation: PublicEligibilityObservation | null;
 }
 
-export function isPublicEligible(input: PublicEligibilityInput): boolean {
-  if (!input.platformPublic || input.publishedAt === null) return false;
-
-  const observation = input.observation;
-  if (observation === null || observation.observedAt === null) return true;
-
-  const isPrivateOrMissing =
-    observation.visibility === 'PRIVATE' || observation.presence === 'ABSENT';
-  if (!isPrivateOrMissing) return true;
-
-  return observation.observedAt.getTime() <= input.publishedAt.getTime();
-}
-
-export const PUBLIC_PROJECT_YEAR_MIN = 2000;
-
-export const PUBLIC_PROJECT_YEAR_MAX = 2100;
-
 export interface PublicProjectRow {
   readonly id: string;
 
@@ -55,28 +42,6 @@ export interface PublicProjectRow {
 
   readonly teamMemberCount: number;
   readonly applicantNickname: string;
-}
-
-export enum PublicProjectApplicationMode {
-  PERSONAL = 'PERSONAL',
-  TEAM = 'TEAM',
-}
-
-export function applicationMode(
-  teamMemberCount: number,
-): PublicProjectApplicationMode {
-  return teamMemberCount > 1
-    ? PublicProjectApplicationMode.TEAM
-    : PublicProjectApplicationMode.PERSONAL;
-}
-
-export function displayNameOf(row: {
-  readonly teamName: string | null;
-  readonly teamMemberCount: number;
-  readonly applicantNickname: string;
-}): string {
-  if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
-  return row.applicantNickname;
 }
 
 export interface PublicProjectCursor {

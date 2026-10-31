@@ -9,8 +9,9 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   STUDENT_MEMBER_WHERE,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfileName,
+  userProfileNameWhere,
+} from '../platform/user-profile-read.config';
 import {
   PreparationConflict,
   type PreparationInvitation,
@@ -72,7 +73,7 @@ function view(row: PreparationRow, actorId: string): PreparationView {
     members: row.participants.map(({ user }) => ({
       userId: user.id,
       nickname: user.nickname,
-      name: UserProfileReadRepository.resolveUserProfileName(user),
+      name: resolveUserProfileName(user),
       isLeader: user.id === row.leaderId,
     })),
   };
@@ -89,15 +90,14 @@ function invitation(row: InvitationRow): PreparationInvitation {
     teamName: row.preparation.name,
     programName: row.preparation.program.name,
     invitedByDisplayName:
-      UserProfileReadRepository.resolveUserProfileName(
-        row.preparation.leader,
-      ) ?? row.preparation.leader.nickname,
+      resolveUserProfileName(row.preparation.leader) ??
+      row.preparation.leader.nickname,
     memberCount: row.preparation.participants.length,
     teamMaxSize: row.preparation.program.teamMaxSize,
     invitee: {
       id: row.user.id,
       nickname: row.user.nickname,
-      name: UserProfileReadRepository.resolveUserProfileName(row.user),
+      name: resolveUserProfileName(row.user),
       avatarUrl: row.user.avatarUrl,
     },
   };
@@ -260,7 +260,7 @@ export class ApplicationPreparationsRepository {
         ...STUDENT_MEMBER_WHERE,
         OR: [
           { nickname: { contains: query.trim(), mode: 'insensitive' } },
-          UserProfileReadRepository.userProfileNameWhere(query.trim()),
+          userProfileNameWhere(query.trim()),
         ],
         teamMemberships: { none: { programId: row.programId } },
         preparationParticipants: {
@@ -274,7 +274,7 @@ export class ApplicationPreparationsRepository {
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
-      name: UserProfileReadRepository.resolveUserProfileName(user),
+      name: resolveUserProfileName(user),
       avatarUrl: user.avatarUrl,
     }));
   }

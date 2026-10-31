@@ -21,7 +21,7 @@ import {
 } from './github-app.error';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
-import { PROVISION_ERROR_CODES } from './repository-provision-state.repository';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };

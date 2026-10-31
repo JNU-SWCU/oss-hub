@@ -26,13 +26,13 @@ import {
 } from './program-authoring-upload.error';
 import { randomUUID, createHash } from 'node:crypto';
 import { ValidatedProgramAuthoringUpload } from './program-authoring-upload-transaction.repository';
+import { inspectSubmissionZipMetadata } from './submission-files.service';
 import {
   sanitizeSubmissionFileOriginalName,
   hasValidSubmissionTemplateSignature,
-} from './submission-files.repository';
+} from './submission-file.config';
 import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
-import { inspectSubmissionZipMetadata } from './submission-files.service';
-import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.repository';
+import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 import { extname } from 'node:path';
 
 export function createProgramAuthoringObjectKey(): string {

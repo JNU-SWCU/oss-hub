@@ -14,6 +14,14 @@ import {
   SubmissionFilesService,
   inspectSubmissionZipMetadata,
 } from './submission-files.service';
+import {
+  isAllowedSubmissionFileType,
+  createSubmissionFileObjectKey,
+  sanitizeSubmissionFileOriginalName,
+  hasValidSubmissionFileSignature,
+  hasValidSubmissionTemplateSignature,
+  safeSubmissionFileContentType,
+} from './submission-file.config';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
@@ -22,14 +30,6 @@ import {
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
-import {
-  isAllowedSubmissionFileType,
-  createSubmissionFileObjectKey,
-  sanitizeSubmissionFileOriginalName,
-  hasValidSubmissionFileSignature,
-  hasValidSubmissionTemplateSignature,
-} from './submission-files.repository';
-import { safeSubmissionFileContentType } from './submission-checklist-record.repository';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { milestoneDocumentSubmissionBlock } from './milestone-documents.service';
 

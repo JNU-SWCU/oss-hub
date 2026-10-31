@@ -1,7 +1,5 @@
-import {
-  asiaSeoulYear,
-  CollectionIncrementalRepository,
-} from './collection-incremental.repository';
+import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { asiaSeoulYear } from './collection-incremental.config';
 import type { PrismaService } from '../platform/prisma.service';
 
 interface MockDb {

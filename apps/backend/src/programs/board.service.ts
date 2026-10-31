@@ -1,4 +1,4 @@
-import { type AuthorityLabel } from '../users/authority-label.types';
+import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
 import { UsersAuthorityService } from '../users/users-authority.service';

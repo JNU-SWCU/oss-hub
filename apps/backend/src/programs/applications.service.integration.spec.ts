@@ -11,10 +11,8 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import {
-  ApplicationsRepository,
-  APPLICATION_DECISION_ACTIONS,
-} from './applications.repository';
+import { ApplicationsRepository } from './applications.repository';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';

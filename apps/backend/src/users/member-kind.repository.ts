@@ -1,5 +1,7 @@
-import { authorityLabel } from './users.repository';
-import { type AuthorityLabel } from './authority-label.types';
+import { AdminAccessRepository } from './admin-access.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
+import { authorityLabel } from './authority-label.config';
+import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AffiliationKind,
@@ -12,13 +14,8 @@ import type { AuditLogTransactionWriter } from '../platform/audit-log-transactio
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-  insertRevokedStaffAccessRequest,
-} from './admin-access.repository';
+
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
 
 type MemberKindTargetProfile = {
   readonly name: string;
@@ -127,11 +124,14 @@ class PrismaMemberKindTransactionRepository implements MemberKindTransactionStor
   }
 
   async lockActiveAdmins(): Promise<void> {
-    await lockActiveAdminRows(this.transaction);
+    await AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   async findTargetForUpdate(
@@ -186,7 +186,10 @@ class PrismaMemberKindTransactionRepository implements MemberKindTransactionStor
     readonly actorId: string;
     readonly decidedAt: Date;
   }): Promise<{ readonly id: string }> {
-    return insertRevokedStaffAccessRequest(this.transaction, input);
+    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+      this.transaction,
+      input,
+    );
   }
 }
 

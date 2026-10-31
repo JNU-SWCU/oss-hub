@@ -1,11 +1,11 @@
-import { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import {
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryAccessSyncEvent,
+  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryProvisionEvent,
   repositoryAccessSyncEventData,
-} from './repositories.repository';
+} from './repository-provision-event.config';
 
 describe('parseRepositoryProvisionEvent', () => {
   it('승인 시점 collaborator snapshot을 typed event로 파싱한다', () => {

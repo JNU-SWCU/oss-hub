@@ -1,4 +1,4 @@
-import { type AuthorityLabel } from './authority-label.types';
+import type { AuthorityLabel } from './authority-label.types';
 import {
   AccountStatus,
   LoginHistoryEvent,

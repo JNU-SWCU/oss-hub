@@ -11,6 +11,10 @@ import {
   PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
   ProgramAuthoringUploadConsumptionRaceError,
 } from './program-authoring.error';
+import {
+  assertProgramTemplateUpload,
+  type ProgramAuthoringUploadToken,
+} from './program-authoring-upload.config';
 
 export type ProgramExternalCover = {
   readonly sourceUrl: string;
@@ -103,17 +107,6 @@ export type ProgramAuthoringReplay = {
   readonly program: ProgramAuthoringProgram;
 };
 
-export type ProgramAuthoringUploadToken = {
-  readonly id: string;
-  readonly actorId: string;
-  readonly lifecycle: ProgramAuthoringUploadLifecycle;
-  readonly unexpired: boolean;
-  readonly storageKey: string;
-  readonly originalFileName: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-};
-
 export type ProgramAuthoringCreateRequestInput = {
   readonly actorId: string;
   readonly idempotencyKey: string;
@@ -138,14 +131,6 @@ export interface ValidatedProgramAuthoringUpload {
   readonly mimeType: string;
   readonly sizeBytes: number;
   readonly sha256: string;
-}
-
-export function assertProgramTemplateUpload(
-  upload: ProgramAuthoringUploadToken,
-): void {
-  if (!upload.storageKey.startsWith('program-authoring/')) {
-    throw new ProgramAuthoringUploadTokenError('WRONG_PURPOSE', [upload.id]);
-  }
 }
 
 export class ProgramAuthoringUploadTransactionRepository {

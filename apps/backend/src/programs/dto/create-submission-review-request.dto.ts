@@ -5,7 +5,7 @@ import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
 } from '../submission-reviews-error-code.error';
-import { type CreateSubmissionReviewInput } from '../submission-review-context-mapper.repository';
+import { type CreateSubmissionReviewInput } from '../submission-reviews.repository';
 
 export class CreateSubmissionReviewRequestDto {
   @IsInt()

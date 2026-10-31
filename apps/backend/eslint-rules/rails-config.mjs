@@ -222,6 +222,44 @@ const noDpdmIgnore = {
   },
 };
 
+const repositoryExports = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      forbidden:
+        'repository 파일은 데이터 접근만 둔다 — 클래스와 타입만 export한다. 함수는 서비스, 상수는 .config.ts로 옮긴다.',
+    },
+  },
+  create(context) {
+    const report = (node) => context.report({ node, messageId: 'forbidden' });
+    return {
+      ExportDefaultDeclaration(node) {
+        if (node.declaration.type !== 'ClassDeclaration') report(node);
+      },
+      ExportAllDeclaration(node) {
+        if (node.exportKind !== 'type') report(node);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.exportKind === 'type') return;
+        if (node.declaration) {
+          if (
+            [
+              'VariableDeclaration',
+              'FunctionDeclaration',
+              'TSEnumDeclaration',
+            ].includes(node.declaration.type)
+          )
+            report(node);
+          return;
+        }
+        for (const specifier of node.specifiers)
+          if (specifier.exportKind !== 'type') report(specifier);
+      },
+    };
+  },
+};
+
 async function cycleRule(rootDir) {
   const tsconfig = path.join(rootDir, 'tsconfig.json');
   const read = ts.readConfigFile(tsconfig, ts.sys.readFile);
@@ -493,7 +531,18 @@ const policies = [
   { from: element('runtime-config'), allow: { to: element('runtime-config') } },
   {
     from: element('prisma'),
-    allow: { to: [element('prisma'), element('runtime-config')] },
+    allow: {
+      to: [
+        element('prisma'),
+        element('runtime-config'),
+        {
+          file: {
+            categories: 'root-contract',
+            captured: { module: 'platform' },
+          },
+        },
+      ],
+    },
   },
   {
     from: category('composition'),
@@ -549,6 +598,7 @@ export async function createRailsConfig(rootDir) {
           rules: {
             'no-class-alias': noClassAlias,
             'dto-location': dtoLocation,
+            'repository-exports': repositoryExports,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
             'restricted-imports': builtinRules.get('no-restricted-imports'),
@@ -590,7 +640,7 @@ export async function createRailsConfig(rootDir) {
             type: 'prisma',
             pattern: [
               'src/platform/prisma.service.ts',
-              'src/platform/{platform,user-profile-read,lock-program-tree,repository-provision-generation,program-application-participant}.repository.ts',
+              'src/platform/{platform,lock-program-tree,repository-provision-generation}.repository.ts',
               'src/platform/{lock-program-tree,repository-provision-generation}.error.ts',
             ],
             mode: 'full',
@@ -758,6 +808,11 @@ export async function createRailsConfig(rootDir) {
           { paths: [nestTestingImport], patterns: [mainImport] },
         ],
       },
+    },
+    {
+      files: ['src/**/*.repository.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/repository-exports': 'error' },
     },
     {
       files: ['test/**/*.ts'],

@@ -6,11 +6,12 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/repository-audit-metadata.config';
 import {
-  RepositoryProvisionGenerationRepository,
   parseRepositoryProvisionEvent,
-  parseApplicationRepositoryUrlAuditMetadata,
-} from '../platform/repository-provision-generation.repository';
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from '../github/repository-provision-event.config';
 import {
   prisma,
   service,
@@ -26,7 +27,6 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from '../github/repositories.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

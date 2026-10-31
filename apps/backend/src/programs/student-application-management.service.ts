@@ -11,12 +11,14 @@ import {
   type UpdateStudentApplicationInput,
 } from './applications.repository';
 import {
-  CANCELLABLE_STATUSES,
-  RESUBMITTABLE_STATUSES,
   StudentApplicationManagementRepository,
   type OwnedStudentApplication,
   type StudentApplicationMutationFailure,
 } from './student-application-management.repository';
+import {
+  CANCELLABLE_STATUSES,
+  RESUBMITTABLE_STATUSES,
+} from './student-application-management.config';
 import {
   type ApplicationAnswers,
   checkApplicationTemplateVersion,

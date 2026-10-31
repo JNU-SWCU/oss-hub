@@ -10,13 +10,13 @@ import {
   type AdminAccessMutationCommand,
   type AdminAccessMutationResult,
 } from './admin-access-mutation.service';
+import { AdminAccessRepository } from './admin-access.repository';
 import {
-  AdminAccessRepository,
   type AdminAccessActor,
   type AdminAccessRepositoryPort,
   type AdminAccessUserDetailRecord,
   type AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access-read.repository';
 import { DomainException } from '../platform/error-code.error';
 import {
   type AdminAccessFacets,

@@ -3,8 +3,8 @@ import {
   effectiveProfileMemberKind,
   isCompleteUserProfile,
   isValidCompleteUserProfileFields,
-} from './users.repository';
-import { profileFieldRequirement } from './profile-validation.config';
+  profileFieldRequirement,
+} from './profile-validation.config';
 
 it.each([
   ['STUDENT', { studentId: true, department: true }],

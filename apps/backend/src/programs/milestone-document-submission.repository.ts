@@ -8,10 +8,8 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  nextMilestoneDocumentHistoryCreatedAt,
-  type MilestoneDocumentSubmissionDetail,
-} from './milestone-document-collection-read.repository';
+import { type MilestoneDocumentSubmissionDetail } from './milestone-document-collection-read.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,

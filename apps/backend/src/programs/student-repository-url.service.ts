@@ -1,8 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
 import {
-  AuditLogService,
-  APPLICATION_REPOSITORY_URL_CHANGED,
-} from '../platform/audit-log.service';
+  StudentRepositoryUrlTransactionRepository,
+  StudentRepositoryUrlRepository,
+} from './student-repository-url-transaction.repository';
+import { Inject, Injectable } from '@nestjs/common';
+import { AuditLogService } from '../platform/audit-log.service';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionTriggerService } from '../github/collection-trigger.service';
@@ -13,10 +15,6 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import {
-  StudentRepositoryUrlRepository,
-  isStudentRepositoryUrlConflict,
-} from './student-repository-url-transaction.repository';
 import {
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
@@ -178,7 +176,11 @@ export class StudentRepositoryUrlService {
         );
       return view;
     } catch (error) {
-      if (isStudentRepositoryUrlConflict(error))
+      if (
+        StudentRepositoryUrlTransactionRepository.isStudentRepositoryUrlConflict(
+          error,
+        )
+      )
         throw repositoryUrlError('conflict');
       throw error;
     }

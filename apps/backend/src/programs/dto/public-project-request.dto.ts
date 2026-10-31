@@ -10,7 +10,7 @@ import {
 import {
   PUBLIC_PROJECT_YEAR_MIN,
   PUBLIC_PROJECT_YEAR_MAX,
-} from '../public-projects.repository';
+} from '../public-projects.config';
 
 export class PublicProjectRequestDto {
   @IsOptional()

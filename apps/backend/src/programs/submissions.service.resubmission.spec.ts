@@ -13,7 +13,7 @@ import type {
 } from './submissions.repository';
 import { createSubmissionsServiceHarness } from './submissions.service-fixture';
 import { StaleSubmissionRevisionError } from './submissions.error';
-import { type SubmissionApplication } from './submission-checklist-record.repository';
+import { type SubmissionApplication } from './submissions.repository';
 
 const githubId = 4242n;
 const submissionId = 'submission-1';

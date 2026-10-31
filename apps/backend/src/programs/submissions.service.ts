@@ -17,19 +17,17 @@ import {
   SubmissionContentInput,
   ResubmitSubmissionInput,
   CreateSubmissionInput,
+  type SubmissionApplication,
+  type SubmissionFileMetadata,
+  type ChecklistMilestone,
 } from './submissions.repository';
 import {
   StaleSubmissionRevisionError,
   SubmissionAlreadyExistsError,
   SubmissionFileUnavailableError,
 } from './submissions.error';
-import {
-  type SubmissionApplication,
-  type SubmissionFileMetadata,
-  type ChecklistMilestone,
-} from './submission-checklist-record.repository';
 import { hasProgramDeadlinePassed, programDeadline } from './programs.service';
-import { addOneCalendarYear } from './submission-files.repository';
+import { addOneCalendarYear } from './submission-file.config';
 
 export type SubmissionBlockedReason =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';

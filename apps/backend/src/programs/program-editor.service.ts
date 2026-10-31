@@ -25,11 +25,9 @@ import {
 import { createHash } from 'node:crypto';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { CreateProgramCommand } from './program-creation.service';
-import {
-  type ProgramExternalCover,
-  type ProgramAuthoringUploadToken,
-} from './program-authoring-upload-transaction.repository';
-import { addOneCalendarYear } from './submission-files.repository';
+import { type ProgramExternalCover } from './program-authoring-upload-transaction.repository';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import { addOneCalendarYear } from './submission-file.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { isProgramEndAtUndecided } from './programs.service';
 

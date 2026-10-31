@@ -4,10 +4,12 @@ import {
   createTeamDeletedAuditMetadata,
   createTeamMembershipAuditMetadata,
   createTeamRenamedAuditMetadata,
+} from '../platform/audit-log.service';
+import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../platform/audit-log.service';
+} from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import {
@@ -38,7 +40,7 @@ import {
   type StaffTeamView,
 } from './program-team-repository-evidence.repository';
 import { canEditStudentRepositoryUrl } from './student-repository-url.service';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.repository';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 

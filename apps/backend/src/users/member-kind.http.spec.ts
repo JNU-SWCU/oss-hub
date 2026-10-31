@@ -22,7 +22,7 @@ import {
 import { UserAccessController } from '../admin/user-access.controller';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
 
 const ADMIN_GITHUB_ID = 9_700_600_001n;
 const sessionSecret = new Uint8Array(32).fill(41);

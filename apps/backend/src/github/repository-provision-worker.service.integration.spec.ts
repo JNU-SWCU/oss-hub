@@ -15,6 +15,10 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from './repository-provision-event.config';
+import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
@@ -23,19 +27,15 @@ import {
   type GithubAppClient,
   type GithubRepositoryMetadata,
 } from './github-app.client';
-import {
-  RepositoriesRepository,
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repositories.repository';
+import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import {
-  RepositoryProvisionStateRepository,
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
   PROVISION_ERROR_CODES,
-} from './repository-provision-state.repository';
+} from './repository-provision-state.config';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
 import { ConsentsRepository } from '../users/member-onboarding.repository';

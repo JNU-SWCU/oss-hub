@@ -8,13 +8,15 @@ import {
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   AuditLogService,
-  APPLICATION_DECISION_AUDIT_ACTIONS,
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   createApplicationDecisionAuditMetadata,
   createApplicationSubmittedAuditMetadata,
   createTeamCreatedAuditMetadata,
-  TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log.service';
+import {
+  APPLICATION_DECISION_AUDIT_ACTIONS,
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
+  TEAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import {
@@ -29,7 +31,6 @@ import {
   ApplicationsRepository,
   ApplicationDecisionCommand,
   ApplicationDecisionAction,
-  APPLICATION_DECISION_ACTIONS,
   type ApplicationListQuery,
   type ApplicationListPage,
   type CreatedApplication,
@@ -42,6 +43,7 @@ import {
   type ApplicationTransition,
   type RepositoryProvisionJobSnapshot,
 } from './applications.repository';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import {
   ApplicationDuplicateError,
   ApplicationPreparationConflictError,

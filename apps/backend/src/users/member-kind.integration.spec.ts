@@ -6,11 +6,11 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogRepository } from '../platform/audit-log.repository';
 import {
-  AuditLogRepository,
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { MemberKindRepository } from './member-kind.repository';

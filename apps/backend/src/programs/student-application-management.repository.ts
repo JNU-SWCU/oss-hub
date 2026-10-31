@@ -6,15 +6,23 @@ import {
 } from '@prisma/client';
 import {
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+  resolveUserProfileName,
+} from '../platform/user-profile-read.config';
+import {
+  programApplicationParticipantWhere,
+  programApplicationManagerWhere,
+} from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ReviewHistoryWriterRepository,
   type AppendReviewHistoryInput,
   type AppendedReviewHistory,
 } from './review-history-writer.repository';
+import {
+  STUDENT_APPLICATION_MANAGEMENT_CLOCK,
+  RESUBMITTABLE_STATUSES,
+  CANCELLABLE_STATUSES,
+} from './student-application-management.config';
 
 class StudentResubmissionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -28,17 +36,6 @@ class StudentResubmissionRepository {
     );
   }
 }
-
-const RESUBMITTABLE_STATUSES: readonly ApplicationStatus[] = [
-  ApplicationStatus.SUBMITTED,
-  ApplicationStatus.REJECTED,
-];
-
-const CANCELLABLE_STATUSES: readonly ApplicationStatus[] = [
-  ApplicationStatus.SUBMITTED,
-];
-
-export { RESUBMITTABLE_STATUSES, CANCELLABLE_STATUSES };
 
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
@@ -122,15 +119,11 @@ function toOwnedStudentApplication(
     teamLeaderId: team.leaderId,
     applicant: {
       id: row.applicant.id,
-      name: UserProfileReadRepository.resolveUserProfileName(row.applicant),
+      name: resolveUserProfileName(row.applicant),
       nickname: row.applicant.nickname,
     },
   };
 }
-
-export const STUDENT_APPLICATION_MANAGEMENT_CLOCK = Symbol(
-  'STUDENT_APPLICATION_MANAGEMENT_CLOCK',
-);
 
 export type StudentApplicationManagementClock = () => Date;
 
@@ -150,9 +143,7 @@ export class StudentApplicationManagementRepository {
     const row = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          studentId,
-        ),
+        ...programApplicationParticipantWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });
@@ -281,9 +272,7 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationManagerWhere(
-          studentId,
-        ),
+        ...programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
@@ -296,9 +285,7 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationManagerWhere(
-          studentId,
-        ),
+        ...programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });

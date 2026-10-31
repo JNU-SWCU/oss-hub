@@ -1,3 +1,7 @@
+import {
+  ProgramCoverRepository,
+  type ProgramCoverChange,
+} from './program-cover.repository';
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
@@ -17,15 +21,11 @@ import {
 } from './program-deletion-scope.repository';
 import {
   ProgramAuthoringUploadTransactionRepository,
-  type ProgramAuthoringUploadToken,
   type ProgramExternalCover,
   type ProgramAuthoringPendingUploadConsumption,
 } from './program-authoring-upload-transaction.repository';
-import {
-  replaceProgramCover,
-  type ProgramCoverChange,
-  programCoverImageUrl,
-} from './program-cover.repository';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import { programCoverImageUrl } from './program-cover.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
 
 export type ProgramAuthority = {
@@ -283,7 +283,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
 
   async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView> {
     if (input.coverChange !== undefined) {
-      await replaceProgramCover(this.transaction, {
+      await ProgramCoverRepository.replaceProgramCover(this.transaction, {
         programId: input.programId,
         ...input.coverChange,
       });

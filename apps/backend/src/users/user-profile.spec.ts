@@ -4,8 +4,6 @@ import {
   isCompleteUserProfile,
   isValidPhone,
   isValidStudentId,
-} from './users.repository';
-import {
   isStoredStudentId,
   isValidDepartment,
   isValidUserName,

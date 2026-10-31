@@ -11,54 +11,7 @@ import { SystemErrorCode } from '../platform/system-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { StudentIdFillOutcome } from '../platform/platform.repository';
-import {
-  isCompleteProfileFields,
-  DEFAULT_PROFILE_MEMBER_KIND,
-  type UserProfileRecord,
-} from './profile-validation.config';
-export { authorityLabel } from '../platform/user-profile-read.repository';
-
-const STUDENT_ID_PATTERN = /^\d{6}$/;
-
-const PHONE_PATTERN = /^\d{10,11}$/;
-
-export function effectiveProfileMemberKind(
-  record: Pick<
-    UserProfileRecord,
-    'memberKind' | 'hasPendingStaffRequest' | 'selectedMemberKind'
-  >,
-): MemberKind | null {
-  if (record.memberKind) {
-    return record.memberKind;
-  }
-  if (record.hasPendingStaffRequest) {
-    return 'STAFF';
-  }
-  return record.selectedMemberKind ?? null;
-}
-
-export function isValidStudentId(studentId: string): boolean {
-  return STUDENT_ID_PATTERN.test(studentId);
-}
-
-export function isValidPhone(phone: string): boolean {
-  return PHONE_PATTERN.test(phone);
-}
-
-export function isCompleteUserProfile(record: UserProfileRecord): boolean {
-  return isCompleteProfileFields(record, effectiveProfileMemberKind(record));
-}
-
-export function isValidCompleteUserProfileFields(fields: {
-  readonly name: string;
-  readonly studentId: string;
-  readonly department: string;
-}): boolean {
-  return (
-    isValidStudentId(fields.studentId) &&
-    isCompleteProfileFields(fields, DEFAULT_PROFILE_MEMBER_KIND)
-  );
-}
+import { type UserProfileRecord } from './profile-validation.config';
 
 export interface CompleteUserProfileInput {
   readonly name: string;

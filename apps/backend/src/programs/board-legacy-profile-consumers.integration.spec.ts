@@ -1,3 +1,4 @@
+import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -8,7 +9,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { searchInvitationCandidates } from './team-invitations.repository';
+
 import { BoardRepository } from './board.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -150,24 +151,27 @@ it('preserves canonical and legacy fallback projections across all three consume
   const board = new BoardRepository(prisma);
 
   const students = await staffInsights.listStudents();
-  const canonicalCandidates = await searchInvitationCandidates(
-    prisma,
-    programId,
-    'canonical-person',
-    legacyUserId,
-  );
-  const staleLegacyCandidates = await searchInvitationCandidates(
-    prisma,
-    programId,
-    'legacy-person',
-    legacyUserId,
-  );
-  const legacyCandidates = await searchInvitationCandidates(
-    prisma,
-    programId,
-    'legacy-only-person',
-    canonicalUserId,
-  );
+  const canonicalCandidates =
+    await TeamInvitationsRepository.searchInvitationCandidates(
+      prisma,
+      programId,
+      'canonical-person',
+      legacyUserId,
+    );
+  const staleLegacyCandidates =
+    await TeamInvitationsRepository.searchInvitationCandidates(
+      prisma,
+      programId,
+      'legacy-person',
+      legacyUserId,
+    );
+  const legacyCandidates =
+    await TeamInvitationsRepository.searchInvitationCandidates(
+      prisma,
+      programId,
+      'legacy-only-person',
+      canonicalUserId,
+    );
   const posts = await board.findByProgramId(programId, 1, 20);
   const detail = await board.findDetailById(postId);
 

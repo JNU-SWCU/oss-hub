@@ -8,9 +8,9 @@ import { DomainException } from '../platform/error-code.error';
 import {
   type ApplicationsRepository,
   type ApplicationsTransactionStore,
-  APPLICATION_DECISION_ACTIONS,
   type ApplicationDecisionNotificationInput,
 } from './applications.repository';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';

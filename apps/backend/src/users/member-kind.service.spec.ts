@@ -9,10 +9,10 @@ import type {
 } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
+import { type AdminAccessActor } from './admin-access-read.repository';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;
 const TARGET_GITHUB_ID = 9_700_500_002n;

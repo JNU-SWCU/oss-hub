@@ -1,5 +1,5 @@
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
-import { parseAuditLogMetadata } from './audit-log.repository';
+import { parseAuditLogMetadata } from './audit-log-metadata.config';
 
 describe('application repository URL audit', () => {
   const metadata = {

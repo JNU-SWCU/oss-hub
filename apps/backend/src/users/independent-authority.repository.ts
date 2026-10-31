@@ -1,27 +1,21 @@
-import { type AuthorityLabel } from './authority-label.types';
+import {
+  AdminAccessReadRepository,
+  type AdminAccessUserRecord,
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+} from './admin-access-read.repository';
+import { AdminAccessRepository } from './admin-access.repository';
+import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { Prisma, MemberKind } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-  insertRevokedStaffAccessRequest,
-} from './admin-access.repository';
-import {
-  ADMIN_ACCESS_USER_SELECT,
-  AdminAccessUserProjectionRepository,
-  type AdminAccessUserRecord,
-  type AdminAccessActor,
-  type AdminAccessInsertedRequest,
-  type AdminAccessRevokedRequestInsert,
-} from './admin-access-user-projection.repository';
-import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
-
-export const STAFF_ACCESS_COMMANDS = {
-  GRANT: 'GRANT_STAFF_ACCESS',
-  REVOKE: 'REVOKE_STAFF_ACCESS',
-} as const;
+  ADMIN_ACCESS_COMMANDS,
+  STAFF_ACCESS_COMMANDS,
+  AUTHORITY_TARGETS,
+} from './admin-access-query.config';
 
 type GrantStaffAccessCommand = {
   readonly command: typeof STAFF_ACCESS_COMMANDS.GRANT;
@@ -56,11 +50,6 @@ export type IndependentAuthorityMutationResult = {
 export type IndependentAuthorityUserRecord = AdminAccessUserRecord & {
   readonly selectedMemberKind: MemberKind | null;
 };
-
-export const AUTHORITY_TARGETS = {
-  STAFF: 'STAFF',
-  ADMIN: 'ADMIN',
-} as const;
 
 export type AuthorityTarget =
   (typeof AUTHORITY_TARGETS)[keyof typeof AUTHORITY_TARGETS];
@@ -129,11 +118,14 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   lockActiveAdmins(): Promise<number> {
-    return lockActiveAdminRows(this.transaction);
+    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   async findUserForUpdate(
@@ -147,7 +139,7 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
     }
     const user = await this.transaction.user.findUnique({
       where: { id: userId },
-      select: ADMIN_ACCESS_USER_SELECT,
+      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
     return user === null ? null : toIndependentAuthorityUserRecord(user);
   }
@@ -169,15 +161,20 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    return insertRevokedStaffAccessRequest(this.transaction, input);
+    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+      this.transaction,
+      input,
+    );
   }
 }
 
 function toIndependentAuthorityUserRecord(
-  user: Prisma.UserGetPayload<{ select: typeof ADMIN_ACCESS_USER_SELECT }>,
+  user: Prisma.UserGetPayload<{
+    select: typeof AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT;
+  }>,
 ): IndependentAuthorityUserRecord {
   return {
-    ...AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user),
+    ...AdminAccessReadRepository.toAdminAccessUserRecord(user),
     selectedMemberKind: user.selectedMemberKind,
   };
 }

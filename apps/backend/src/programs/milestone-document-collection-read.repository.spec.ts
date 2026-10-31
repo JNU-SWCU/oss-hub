@@ -1,12 +1,13 @@
-import {
-  boundedReviewHistoryQuery,
-  nextMilestoneDocumentHistoryCreatedAt,
-} from './milestone-document-collection-read.repository';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 
 describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
     it('bounds routine review history reads to the latest 50 rows', () => {
-      expect(boundedReviewHistoryQuery).toMatchObject({
+      expect(
+        MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+      ).toMatchObject({
         take: 50,
         orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
       });

@@ -1,16 +1,14 @@
-import {
-  authorityLabel,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import type { UserProfileNameSource } from '../platform/user-profile-read.repository';
-import { type AuthorityLabel } from '../users/authority-label.types';
+import { resolveUserProfileName } from '../platform/user-profile-read.config';
+import { authorityLabel } from '../users/authority-label.config';
+import type { AuthorityLabel } from '../users/authority-label.types';
+import type { UserProfileNameSource } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   BoardPostCategory,
   type MemberKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
 
 export interface BoardPostSummaryRecord {
@@ -150,9 +148,7 @@ export class BoardRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -362,7 +358,5 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
 function resolveAuthorName(
   author: UserProfileNameSource & { nickname: string },
 ): string {
-  return (
-    UserProfileReadRepository.resolveUserProfileName(author) ?? author.nickname
-  );
+  return resolveUserProfileName(author) ?? author.nickname;
 }

@@ -1,5 +1,5 @@
-import { authorityLabel, isValidStudentId } from './users.repository';
 import {
+  isValidStudentId,
   isCompleteProfileFields,
   isStoredStudentId,
   isValidDepartment,
@@ -7,17 +7,20 @@ import {
   isValidStaffNumber,
   normalizeStaffNumber,
 } from './profile-validation.config';
+import { authorityLabel } from './authority-label.config';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AuditLogService,
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
   createIndependentAuthorityAuditMetadata,
   createUserProfileAuditMetadata,
 } from '../platform/audit-log.service';
-import type { UserProfileAuditFieldChange } from '../platform/audit-log.service';
+import {
+  USER_PROFILE_AUDIT_ACTIONS,
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
+  USER_PROFILE_AUDIT_FIELDS,
+} from '../platform/audit-log-metadata.config';
+import type { UserProfileAuditFieldChange } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { AffiliationKind, MemberKind } from '@prisma/client';

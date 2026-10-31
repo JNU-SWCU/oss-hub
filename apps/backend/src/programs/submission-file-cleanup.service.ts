@@ -2,9 +2,9 @@ import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   AuditLogService,
-  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
   createSubmissionFileCleanupAuditMetadata,
 } from '../platform/audit-log.service';
+import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import {
   OBJECT_STORAGE,

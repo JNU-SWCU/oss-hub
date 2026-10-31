@@ -2,10 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import {
   AuditLogService,
-  ACCESS_AUDIT_ACTIONS,
-  ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
 } from '../platform/audit-log.service';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+} from '../platform/audit-log-metadata.config';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import {

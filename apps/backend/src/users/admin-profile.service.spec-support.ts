@@ -1,6 +1,6 @@
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { adminActor } from './admin-access.service.spec-support';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
 import {
   type AdminProfileApplyOutcome,
   type AdminProfileLegacyFields,

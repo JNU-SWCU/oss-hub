@@ -26,7 +26,7 @@ import {
   type AdminAccessActor,
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
-} from './admin-access-user-projection.repository';
+} from './admin-access-read.repository';
 
 const githubId = 9_700_400_001n;
 const sessionSecret = new Uint8Array(32).fill(23);

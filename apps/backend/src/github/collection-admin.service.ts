@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import {
   AuditLogService,
-  COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
 } from '../platform/audit-log.service';
+import { COLLECTION_TRIGGER_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';

@@ -1,4 +1,4 @@
-import { type AuthorityLabel } from './authority-label.types';
+import type { AuthorityLabel } from './authority-label.types';
 import {
   MissingAdminAccessTransitionError,
   InvalidAdminAccessAuditError,
@@ -10,20 +10,18 @@ import { RolesErrorCode, ROLES_ERROR_CODES } from './roles-error-code.error';
 import type {
   AdminAccessRepositoryPort,
   AdminAccessTransactionStore,
-} from './admin-access.repository';
+} from './admin-access-read.repository';
+import { createAccessAuditMetadata } from '../platform/audit-log.service';
 import {
   ACCESS_AUDIT_ACTIONS,
-  createAccessAuditMetadata,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log.service';
-import type {
-  AccessAuditAction,
-  AccessAuditMetadata,
-} from '../platform/audit-log.service';
+} from '../platform/audit-log-metadata.config';
+import type { AccessAuditAction } from '../platform/audit-log.repository';
+import type { AccessAuditMetadata } from '../platform/audit-log-metadata.config';
 import {
   type AdminAccessActor,
   type AdminAccessUserRecord,
-} from './admin-access-user-projection.repository';
+} from './admin-access-read.repository';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';

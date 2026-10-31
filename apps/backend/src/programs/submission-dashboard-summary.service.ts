@@ -9,14 +9,7 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
-} from './submissions.repository';
-export {
-  collectAxisStatuses,
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-  type MilestoneCompletionStatus,
-} from './submissions.repository';
-export { projectSubmissionCompletionTargets } from './programs.repository';
+} from './milestone-completion.config';
 
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;

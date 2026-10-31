@@ -61,10 +61,11 @@ export async function reconcileStorageOrphans(
     runStorageOrphanReconciliation,
   } = await import('./programs/storage-orphan-reconciliation.service');
   const mode = parseStorageOrphanReconciliationMode(args);
-  const { createStorageReferenceRepository } =
+  const { PrismaStorageReferenceRepository } =
     await import('./programs/prisma-storage-reference.repository');
   const { PlatformModule } = await import('./platform/platform.module');
-  const { references, disconnect } = createStorageReferenceRepository();
+  const { references, disconnect } =
+    PrismaStorageReferenceRepository.createStorageReferenceRepository();
   let context: INestApplicationContext | undefined;
 
   try {

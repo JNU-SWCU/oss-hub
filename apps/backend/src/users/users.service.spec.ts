@@ -11,12 +11,12 @@ import type {
 import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import {
-  USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_ACTIONS,
+  USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_FIELDS,
   USER_PROFILE_AUDIT_SCHEMA_VERSION,
   type UserPhoneAuditTransition,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>

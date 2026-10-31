@@ -4,11 +4,8 @@ import type {
   PublicProjectListItem,
   PublicProjectsService,
 } from './public-projects.service';
-import {
-  applicationMode,
-  displayNameOf,
-  type PublicProjectRow,
-} from './public-projects.repository';
+import { type PublicProjectRow } from './public-projects.repository';
+import { applicationMode, displayNameOf } from './public-projects.service';
 
 function row(
   overrides: Partial<PublicProjectRow> & { id: string },

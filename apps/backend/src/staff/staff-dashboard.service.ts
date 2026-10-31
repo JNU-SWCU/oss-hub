@@ -1,4 +1,4 @@
-import { programCoverImageUrl } from '../programs/program-overview.service';
+import { programCoverImageUrl } from '../programs/program-cover.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
 import type { ProgramActivitySummary } from '../programs/program-activity-summary.service';

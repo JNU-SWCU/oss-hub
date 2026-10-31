@@ -1,5 +1,5 @@
-import { authorityLabel } from '../users/users-authority.service';
-import { type AuthorityLabel } from '../users/authority-label.types';
+import { authorityLabel } from '../users/authority-label.config';
+import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';

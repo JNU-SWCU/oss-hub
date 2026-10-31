@@ -12,54 +12,47 @@ import {
   type AuditLogRecordInput,
 } from './audit-log.repository';
 import type { AuditLogListQuery } from './audit-log-query.types';
-export {
-  COLLECTION_TRIGGER_AUDIT_ACTIONS,
-  createCollectionTriggerAuditMetadata,
-  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
-  createRepositoryPublishAuditMetadata,
-  deriveRepositoryFullName,
-  APPLICATION_DECISION_AUDIT_ACTIONS,
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
-  createApplicationDecisionAuditMetadata,
-  createApplicationSubmittedAuditMetadata,
-  createTeamCreatedAuditMetadata,
-  TEAM_CREATED_AUDIT_ACTIONS,
-  createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-  createProgramDeletionAuditMetadata,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-  createTeamDeletedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-  createTeamRenamedAuditMetadata,
-  TEAM_DELETED_AUDIT_ACTIONS,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
-  TEAM_RENAMED_AUDIT_ACTIONS,
-  APPLICATION_REPOSITORY_URL_CHANGED,
-  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
-  createSubmissionFileCleanupAuditMetadata,
-  createTeamJoinedAuditMetadata,
-  TEAM_JOINED_AUDIT_ACTIONS,
-  ACCESS_AUDIT_ACTIONS,
+import {
+  COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION,
+  type CollectionTriggerAuditMetadata,
+  SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION,
+  type SubmissionFileCleanupAuditMetadata,
+  ACCESS_AUDIT_SCHEMA_VERSION,
   ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
-  type AccessAuditAction,
-  type AccessAuditMetadata,
-  type UserProfileAuditAction,
-  type UserProfileAuditMetadata,
-  USER_PROFILE_AUDIT_ACTIONS,
-  createUserProfileAuditMetadata,
-  type UserProfileAuditFieldChange,
-  USER_PROFILE_AUDIT_FIELDS,
-  type AuditLogRecordInput,
-  type IndependentAuthorityAuditAction,
+  type AccessAuditMetadataV2,
+  APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+  type ApplicationDecisionAuditMetadataV2,
   type IndependentAuthorityAuditMetadata,
-  createIndependentAuthorityAuditMetadata,
-  type AuditPersonSnapshot,
-  type IndependentAuthorityAuditState,
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
-  USER_PHONE_AUDIT_TRANSITIONS,
-  createUserPhoneAuditMetadata,
+  REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
+  type RepositoryPublishAuditMetadataV2,
+  PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
+  type ProgramLifecycleAuditMetadataV2,
+  PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
+  type ProgramDeletionAuditMetadata,
+  USER_PROFILE_AUDIT_SCHEMA_VERSION,
+  type UserProfileAuditMetadata,
+  type UserPhoneAuditMetadata,
+  PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
+  type ProgramCreatedAuditMetadata,
+  TEAM_CREATED_AUDIT_SCHEMA_VERSION,
+  type TeamCreatedAuditMetadata,
+  TEAM_JOINED_AUDIT_SCHEMA_VERSION,
+  type TeamJoinedAuditMetadata,
+  APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+  type ApplicationSubmittedAuditMetadata,
+  TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
+  type TeamMembershipAuditMetadata,
+  TEAM_RENAMED_AUDIT_SCHEMA_VERSION,
+  type TeamRenamedAuditMetadata,
+  TEAM_DELETED_AUDIT_SCHEMA_VERSION,
+  type TeamDeletedAuditMetadata,
+} from './audit-log-metadata.config';
+import type {
+  AccessAuditMetadataInput,
+  ApplicationDecisionAuditMetadataInput,
+  IndependentAuthorityAuditMetadataInput,
+  RepositoryPublishAuditMetadataInput,
+  ProgramLifecycleAuditMetadataInput,
 } from './audit-log.repository';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
@@ -102,4 +95,127 @@ export class AuditLogService {
   ): Promise<AuditLogRecord> {
     return this.repository.record(input, writer);
   }
+}
+
+export function createCollectionTriggerAuditMetadata(
+  input: Omit<CollectionTriggerAuditMetadata, 'schemaVersion'>,
+): CollectionTriggerAuditMetadata {
+  return { schemaVersion: COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createSubmissionFileCleanupAuditMetadata(
+  input: Omit<SubmissionFileCleanupAuditMetadata, 'schemaVersion'>,
+): SubmissionFileCleanupAuditMetadata {
+  return {
+    schemaVersion: SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+export function createAccessAuditMetadata(
+  input: AccessAuditMetadataInput,
+): AccessAuditMetadataV2 {
+  return { schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createApplicationDecisionAuditMetadata(
+  input: ApplicationDecisionAuditMetadataInput,
+): ApplicationDecisionAuditMetadataV2 {
+  return {
+    schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+export function createIndependentAuthorityAuditMetadata(
+  input: IndependentAuthorityAuditMetadataInput,
+): IndependentAuthorityAuditMetadata {
+  return {
+    schemaVersion: ACCESS_AUDIT_SCHEMA_VERSION,
+    eventKind: ACCESS_AUDIT_EVENT_KINDS.INDEPENDENT_AUTHORITY_CHANGED,
+    ...input,
+  };
+}
+
+export function createRepositoryPublishAuditMetadata(
+  input: RepositoryPublishAuditMetadataInput,
+): RepositoryPublishAuditMetadataV2 {
+  return { schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+const GITHUB_REPOSITORY_URL_PATTERN =
+  /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)\/?$/;
+
+export function deriveRepositoryFullName(name: string, url: string): string {
+  const match = GITHUB_REPOSITORY_URL_PATTERN.exec(url);
+  return match ? `${match[1]}/${match[2]}` : name;
+}
+
+export function createProgramLifecycleAuditMetadata(
+  input: ProgramLifecycleAuditMetadataInput,
+): ProgramLifecycleAuditMetadataV2 {
+  return { schemaVersion: PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createProgramDeletionAuditMetadata(
+  input: Omit<ProgramDeletionAuditMetadata, 'schemaVersion'>,
+): ProgramDeletionAuditMetadata {
+  return { schemaVersion: PROGRAM_DELETION_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createUserProfileAuditMetadata(
+  input: Omit<UserProfileAuditMetadata, 'schemaVersion'>,
+): UserProfileAuditMetadata {
+  return { schemaVersion: USER_PROFILE_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createUserPhoneAuditMetadata(
+  input: Omit<UserPhoneAuditMetadata, 'schemaVersion'>,
+): UserPhoneAuditMetadata {
+  return { schemaVersion: USER_PROFILE_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createProgramCreatedAuditMetadata(
+  input: Omit<ProgramCreatedAuditMetadata, 'schemaVersion'>,
+): ProgramCreatedAuditMetadata {
+  return { schemaVersion: PROGRAM_CREATED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createTeamCreatedAuditMetadata(
+  input: Omit<TeamCreatedAuditMetadata, 'schemaVersion'>,
+): TeamCreatedAuditMetadata {
+  return { schemaVersion: TEAM_CREATED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createTeamJoinedAuditMetadata(
+  input: Omit<TeamJoinedAuditMetadata, 'schemaVersion'>,
+): TeamJoinedAuditMetadata {
+  return { schemaVersion: TEAM_JOINED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createApplicationSubmittedAuditMetadata(
+  input: Omit<ApplicationSubmittedAuditMetadata, 'schemaVersion'>,
+): ApplicationSubmittedAuditMetadata {
+  return {
+    schemaVersion: APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+export function createTeamMembershipAuditMetadata(
+  input: Omit<TeamMembershipAuditMetadata, 'schemaVersion'>,
+): TeamMembershipAuditMetadata {
+  return { schemaVersion: TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createTeamRenamedAuditMetadata(
+  input: Omit<TeamRenamedAuditMetadata, 'schemaVersion'>,
+): TeamRenamedAuditMetadata {
+  return { schemaVersion: TEAM_RENAMED_AUDIT_SCHEMA_VERSION, ...input };
+}
+
+export function createTeamDeletedAuditMetadata(
+  input: Omit<TeamDeletedAuditMetadata, 'schemaVersion'>,
+): TeamDeletedAuditMetadata {
+  return { schemaVersion: TEAM_DELETED_AUDIT_SCHEMA_VERSION, ...input };
 }

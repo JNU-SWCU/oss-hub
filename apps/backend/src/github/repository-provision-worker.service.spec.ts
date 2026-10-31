@@ -16,15 +16,15 @@ import {
 } from '../../test/repository-provision-worker.fixture';
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
-import { PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE } from './repository-provision-state-helpers.repository';
+import {
+  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+  PROVISION_ERROR_CODES,
+} from './repository-provision-state.config';
 import {
   RepositoryProvisionSupersededError,
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import {
-  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
-  PROVISION_ERROR_CODES,
-} from './repository-provision-state.repository';
 import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 
 describe('RepositoryProvisionWorkerService success', () => {

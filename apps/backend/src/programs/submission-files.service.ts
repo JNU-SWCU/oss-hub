@@ -17,10 +17,6 @@ import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
   SubmissionFilesRepository,
-  createSubmissionFileObjectKey,
-  sanitizeSubmissionFileOriginalName,
-  isAllowedSubmissionFileType,
-  hasValidSubmissionFileSignature,
 } from './submission-files.repository';
 import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
@@ -36,7 +32,13 @@ import {
 import { fromBufferPromise, type Entry } from 'yauzl';
 import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { hasProgramDeadlinePassed } from './programs.service';
-import { safeSubmissionFileContentType } from './submission-checklist-record.repository';
+import {
+  safeSubmissionFileContentType,
+  isAllowedSubmissionFileType,
+  createSubmissionFileObjectKey,
+  sanitizeSubmissionFileOriginalName,
+  hasValidSubmissionFileSignature,
+} from './submission-file.config';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 
 const MAX_COMPRESSION_RATIO = 100;

@@ -6,6 +6,7 @@ import type { Linter } from 'eslint';
 
 const backendRoot = path.resolve(__dirname, '../..');
 const dependencyRule = 'boundaries/dependencies';
+const repositoryExportsRule = 'architecture/repository-exports';
 const layers = [
   'controller',
   'service',
@@ -328,7 +329,7 @@ for (const [target, allowed] of [
 }
 for (const target of [
   'prisma.service.ts',
-  'user-profile-read.repository.ts',
+  'user-profile-read.config.ts',
   'lock-program-tree.repository.ts',
 ]) {
   edge(
@@ -745,6 +746,27 @@ for (const [name, file] of [
     'boundaries/no-unknown-files',
   );
 }
+for (const [name, code] of [
+  ['function', 'export function value() { return 1; }'],
+  ['const', 'export const value = 1;'],
+  ['enum', 'export enum Value { A }'],
+  ['value re-export', "export { value } from './other.error';"],
+  ['star re-export', "export * from './other.error';"],
+] as const) {
+  add(
+    `repository cannot export a ${name}`,
+    `src/programs/export-${name.replace(' ', '-')}.repository.ts`,
+    code,
+    repositoryExportsRule,
+  );
+}
+files.set('src/programs/other.error.ts', 'export const value = 1;');
+add(
+  'repository may export its class and types',
+  'src/programs/exports-allowed.repository.ts',
+  'export class ExportsAllowedRepository {} export type Row = { id: string }; export interface Shape { id: string }',
+  null,
+);
 add(
   'root config remains classified',
   'src/programs/alpha.config.ts',
@@ -1128,7 +1150,11 @@ describe('backend structural lint rails', () => {
   it.each(fixtures.map((fixture, index) => ({ ...fixture, index })))(
     '$name',
     ({ rule, index }) => {
-      const actual = messages[index];
+      const actual = messages[index]?.filter(
+        (message) =>
+          rule === repositoryExportsRule ||
+          message.ruleId !== repositoryExportsRule,
+      );
       expect(actual).toBeDefined();
       expect(actual?.filter((message) => message.fatal)).toEqual([]);
       if (rule === null) {

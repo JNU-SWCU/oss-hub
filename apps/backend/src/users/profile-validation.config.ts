@@ -133,3 +133,45 @@ export function isValidStaffNumber(value: string): boolean {
   const codePointCount = Array.from(normalized).length;
   return codePointCount >= 1 && codePointCount <= 100;
 }
+
+const STUDENT_ID_PATTERN = /^\d{6}$/;
+
+const PHONE_PATTERN = /^\d{10,11}$/;
+
+export function effectiveProfileMemberKind(
+  record: Pick<
+    UserProfileRecord,
+    'memberKind' | 'hasPendingStaffRequest' | 'selectedMemberKind'
+  >,
+): MemberKind | null {
+  if (record.memberKind) {
+    return record.memberKind;
+  }
+  if (record.hasPendingStaffRequest) {
+    return 'STAFF';
+  }
+  return record.selectedMemberKind ?? null;
+}
+
+export function isValidStudentId(studentId: string): boolean {
+  return STUDENT_ID_PATTERN.test(studentId);
+}
+
+export function isValidPhone(phone: string): boolean {
+  return PHONE_PATTERN.test(phone);
+}
+
+export function isCompleteUserProfile(record: UserProfileRecord): boolean {
+  return isCompleteProfileFields(record, effectiveProfileMemberKind(record));
+}
+
+export function isValidCompleteUserProfileFields(fields: {
+  readonly name: string;
+  readonly studentId: string;
+  readonly department: string;
+}): boolean {
+  return (
+    isValidStudentId(fields.studentId) &&
+    isCompleteProfileFields(fields, DEFAULT_PROFILE_MEMBER_KIND)
+  );
+}

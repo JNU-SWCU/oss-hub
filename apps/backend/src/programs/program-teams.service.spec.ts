@@ -25,7 +25,7 @@ import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';

@@ -9,106 +9,18 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
+import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  SubmissionChecklistRecordRepository,
-  submissionFileExtension,
-  exactSubmissionByPublicId,
-  submissionPublicIdWhere,
-} from './submission-checklist-record.repository';
+import { SubmissionsRepository } from './submissions.repository';
+
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
 } from './submission-file.error';
-import { SUBMISSION_FILE_EXTENSIONS } from './submission-upload.config';
 
-export function addOneCalendarYear(value: Date): Date {
-  const result = new Date(value);
-  const month = result.getUTCMonth();
-  result.setUTCFullYear(result.getUTCFullYear() + 1);
-  if (month === 1 && result.getUTCMonth() !== month) {
-    result.setUTCDate(0);
-  }
-  return result;
-}
-
-const ALLOWED_SUBMISSION_EXTENSIONS = new Set<string>(
-  SUBMISSION_FILE_EXTENSIONS,
-);
-
-export function isAllowedSubmissionFileType(fileName: string): boolean {
-  const extension = submissionFileExtension(fileName);
-  return extension !== null && ALLOWED_SUBMISSION_EXTENSIONS.has(extension);
-}
-
-const MAX_ORIGINAL_NAME_LENGTH = 255;
-
-const IS_SAFE_CHARACTER = (character: string): boolean => {
-  const characterCode = character.charCodeAt(0);
-  return characterCode > 0x1f && characterCode !== 0x7f;
-};
-
-export function createSubmissionFileObjectKey(): string {
-  return `submission-files/${randomUUID()}`;
-}
-
-export function sanitizeSubmissionFileOriginalName(name: string): string {
-  const baseName = name.replaceAll('\\', '/').split('/').at(-1) ?? '';
-  const sanitized = [...baseName]
-    .filter(IS_SAFE_CHARACTER)
-    .join('')
-    .trim()
-    .slice(0, MAX_ORIGINAL_NAME_LENGTH);
-
-  return sanitized.length > 0 && sanitized !== '.' && sanitized !== '..'
-    ? sanitized
-    : 'file';
-}
-
-const FILE_SIGNATURES: Readonly<Record<string, readonly Buffer[]>> = {
-  '.pdf': [Buffer.from('%PDF-')],
-  '.hwp': [Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])],
-  '.zip': [
-    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
-    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
-    Buffer.from([0x50, 0x4b, 0x07, 0x08]),
-  ],
-};
-
-export function hasValidSubmissionFileSignature(
-  buffer: Buffer,
-  fileName: string,
-): boolean {
-  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
-  return (
-    FILE_SIGNATURES[extension]?.some(
-      (signature) =>
-        buffer.length >= signature.length &&
-        buffer.subarray(0, signature.length).equals(signature),
-    ) ?? false
-  );
-}
-
-const IMAGE_SIGNATURES: Readonly<Record<string, Buffer>> = {
-  '.jpg': Buffer.from([0xff, 0xd8, 0xff]),
-  '.jpeg': Buffer.from([0xff, 0xd8, 0xff]),
-  '.png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-};
-
-export function hasValidSubmissionTemplateSignature(
-  buffer: Buffer,
-  fileName: string,
-): boolean {
-  const dot = fileName.lastIndexOf('.');
-  if (dot <= 0) return false;
-  const signature = IMAGE_SIGNATURES[fileName.slice(dot).toLowerCase()];
-  return signature === undefined
-    ? hasValidSubmissionFileSignature(buffer, fileName)
-    : buffer.subarray(0, signature.length).equals(signature);
-}
+import { addOneCalendarYear } from './submission-file.config';
 
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
@@ -260,9 +172,7 @@ export class SubmissionFilesRepository {
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
       application: {
-        is: SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          user.id,
-        ),
+        is: SubmissionsRepository.submissionParticipantWhere(user.id),
       },
     });
   }
@@ -276,9 +186,7 @@ export class SubmissionFilesRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
-        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          uploaderId,
-        ),
+        ...SubmissionsRepository.submissionParticipantWhere(uploaderId),
         program: { milestones: { some: { id: milestoneId } } },
       },
       select: {
@@ -302,7 +210,9 @@ export class SubmissionFilesRepository {
       const submissions =
         await this.prisma.milestoneDocumentSubmission.findMany({
           where: {
-            ...submissionPublicIdWhere(resubmissionContext.submissionId),
+            ...SubmissionsRepository.submissionPublicIdWhere(
+              resubmissionContext.submissionId,
+            ),
             applicationId: application.id,
             milestoneDocument: {
               milestoneId: milestone.id,
@@ -312,7 +222,8 @@ export class SubmissionFilesRepository {
           take: 2,
           select: { status: true, revision: true },
         });
-      const submission = exactSubmissionByPublicId(submissions);
+      const submission =
+        SubmissionsRepository.exactSubmissionByPublicId(submissions);
       if (submission === null) return null;
       resubmissionStatus = submission.status;
       currentRevision = submission.revision;

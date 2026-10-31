@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import {
   PROGRAM_PURGE_DELETION_ORDER,
   TEAM_PURGE_DELETION_ORDER,
-} from './program-lifecycle.repository';
+} from './program-lifecycle.config';
 
 type RelationEdge = {
   readonly parent: string;

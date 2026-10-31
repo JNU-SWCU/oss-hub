@@ -1,26 +1,14 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
-
-export const PROGRAM_LIST_QUERY_STATUSES = [
-  'all',
-  'current',
-  'recruiting',
-  'in_progress',
-  'upcoming',
-  'ended',
-] as const;
+import {
+  PROGRAM_LIST_QUERY_STATUSES,
+  PROGRAM_LIST_QUERY_SORTS,
+  PROGRAM_LIST_QUERY_DIRECTIONS,
+} from './program-list.config';
 
 export type ProgramListQueryStatus =
   (typeof PROGRAM_LIST_QUERY_STATUSES)[number];
 
-export const PROGRAM_LIST_QUERY_SORTS = [
-  'name',
-  'applicationPeriod',
-  'status',
-] as const;
-
 export type ProgramListQuerySort = (typeof PROGRAM_LIST_QUERY_SORTS)[number];
-
-export const PROGRAM_LIST_QUERY_DIRECTIONS = ['asc', 'desc'] as const;
 
 export type ProgramListQueryDirection =
   (typeof PROGRAM_LIST_QUERY_DIRECTIONS)[number];

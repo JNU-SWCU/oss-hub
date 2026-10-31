@@ -11,11 +11,11 @@ import {
   type ProgramArchiveReader,
 } from './milestone-document-archive.repository';
 import {
-  nextMilestoneDocumentHistoryCreatedAt,
   type ProgramDocumentChangeRequestInput,
   type ProgramDocumentChangeRequestPreview,
   type ProgramDocumentChangeRequestScope,
 } from './milestone-document-collection-read.repository';
+import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {
   changeRequestTargetStatuses,

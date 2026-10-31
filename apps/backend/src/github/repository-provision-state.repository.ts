@@ -10,9 +10,12 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
-  repositorySelection,
-  teamMemberLoginSelection,
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+  canonicalGithubLogin,
+  canonicalGithubLogins,
+} from './repository-provision-event.config';
+import {
   RepositoryProvisionStateHelpersRepository,
   type CompleteRepositoryInvitationInput,
   type FailRepositoryInvitationInput,
@@ -24,90 +27,17 @@ import {
   type RepositoryProvisionStateStore,
 } from './repository-provision-state-helpers.repository';
 import {
+  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+  PROVISION_ERROR_CODES,
+  finalProvisionFailure,
+} from './repository-provision-state.config';
+import {
   GithubRepositoryClaimConflictError,
   RepositoryProvisionLeaseLostError,
-  RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import { GithubOperationsError } from './github-app.error';
-import { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  canonicalGithubLogin,
-  canonicalGithubLogins,
-} from './repositories.repository';
 
-const DEFAULT_PROVISION_JOB_LEASE_MS = 5 * 60_000;
-
-const DEFAULT_PROVISION_MAX_ATTEMPTS = 5;
-
-const DEFAULT_PROVISION_RETRY_BASE_MS = 60_000;
-
-export const DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS =
-  15 * 60_000;
-
-export const DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS = 96;
-
-export const PROVISION_ERROR_CODES = {
-  APPLICATION_NOT_APPROVED: 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED',
-  FEATURE_DISABLED: 'REPOSITORY_PROVISION_FEATURE_DISABLED',
-  INVALID_EVENT: 'REPOSITORY_PROVISION_INVALID_EVENT',
-  REPOSITORY_MISMATCH: 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH',
-  OWN_REPOSITORY_URL_INVALID: 'REPOSITORY_PROVISION_OWN_REPOSITORY_URL_INVALID',
-  OWN_REPOSITORY_NOT_FOUND: 'REPOSITORY_PROVISION_OWN_REPOSITORY_NOT_FOUND',
-  OWN_ORGANIZATION_REPOSITORY_INACCESSIBLE:
-    'REPOSITORY_PROVISION_OWN_ORGANIZATION_REPOSITORY_INACCESSIBLE',
-
-  INVITATION_RECONCILIATION_EXHAUSTED:
-    'REPOSITORY_PROVISION_INVITATION_RECONCILIATION_EXHAUSTED',
-  INTERNAL: 'REPOSITORY_PROVISION_INTERNAL',
-} as const;
-
-export interface RepositoryProvisionWorkerOptions {
-  readonly leaseMs: number;
-  readonly maxAttempts: number;
-  readonly retryBaseMs: number;
-}
-
-export const DEFAULT_PROVISION_OPTIONS: RepositoryProvisionWorkerOptions = {
-  leaseMs: DEFAULT_PROVISION_JOB_LEASE_MS,
-  maxAttempts: DEFAULT_PROVISION_MAX_ATTEMPTS,
-  retryBaseMs: DEFAULT_PROVISION_RETRY_BASE_MS,
-};
-
-export function normalizeProvisionFailure(
-  error: unknown,
-): RepositoryProvisionFailure {
-  if (error instanceof GithubOperationsError) {
-    return new RepositoryProvisionFailure(
-      error.code,
-      error.retryable,
-      error.retryAt,
-    );
-  }
-  if (error instanceof RepositoryProvisionFailure) {
-    return error;
-  }
-  return new RepositoryProvisionFailure(PROVISION_ERROR_CODES.INTERNAL, true);
-}
-
-export function finalProvisionFailure(
-  code: string,
-): RepositoryProvisionFailure {
-  return new RepositoryProvisionFailure(code, false);
-}
-
-export function provisionRetryAt(
-  failure: RepositoryProvisionFailure,
-  attempt: number,
-  now: Date,
-  baseMs: number,
-): Date {
-  if (failure.retryAt !== null && failure.retryAt.getTime() > now.getTime()) {
-    return failure.retryAt;
-  }
-  return new Date(now.getTime() + baseMs * 2 ** Math.max(0, attempt - 1));
-}
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,
@@ -182,12 +112,15 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               team: {
                 select: {
                   name: true,
-                  members: { select: teamMemberLoginSelection },
+                  members: {
+                    select:
+                      RepositoryProvisionStateHelpersRepository.teamMemberLoginSelection,
+                  },
                 },
               },
               repository: {
                 select: {
-                  ...repositorySelection,
+                  ...RepositoryProvisionStateHelpersRepository.repositorySelection,
                   source: true,
                 },
               },
@@ -669,7 +602,8 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     }
     const members = await transaction.teamMember.findMany({
       where: { teamId: application.teamId },
-      select: teamMemberLoginSelection,
+      select:
+        RepositoryProvisionStateHelpersRepository.teamMemberLoginSelection,
     });
     return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
       RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(members),

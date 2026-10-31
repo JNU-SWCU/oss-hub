@@ -24,7 +24,7 @@ import {
 import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 

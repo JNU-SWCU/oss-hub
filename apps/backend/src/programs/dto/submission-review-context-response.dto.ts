@@ -1,5 +1,5 @@
 import type { RepositoryVisibility, ReviewDecision } from '@prisma/client';
-import type { PublishBlockedReason } from '../../github/repositories.repository';
+import type { PublishBlockedReason } from '../../github/repository-publish.config';
 import type {
   RepositoryPublishResult,
   SubmissionReviewContext,
@@ -8,7 +8,7 @@ import type {
   SubmissionReviewResult,
   SubmissionRevisionRecord,
   SubmissionRevisionContent,
-} from '../submission-review-context-mapper.repository';
+} from '../submission-reviews.repository';
 
 export class SubmissionReviewResponseDto {
   declare readonly id: string;

@@ -35,10 +35,8 @@ import type {
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoryProvisionJobRepository } from '../github/repository-provision-job.repository';
-import {
-  RepositoryProvisionStateRepository,
-  PROVISION_ERROR_CODES,
-} from '../github/repository-provision-state.repository';
+import { RepositoryProvisionStateRepository } from '../github/repository-provision-state.repository';
+import { PROVISION_ERROR_CODES } from '../github/repository-provision-state.config';
 import { RepositoryOutboxConsumerService } from '../github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../github/repository-provision-worker.service';
 import { RepositoryOwnEnrollmentService } from '../github/repositories.service';

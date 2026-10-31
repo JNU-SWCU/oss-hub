@@ -7,10 +7,8 @@ import {
 } from './program-error-code.error';
 import { ProgramLifecycleRepository } from './program-lifecycle.repository';
 import { ProgramLifecycleService } from './program-lifecycle.service';
-import {
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-  type AuditLogRecordInput,
-} from '../platform/audit-log.repository';
+import { type AuditLogRecordInput } from '../platform/audit-log.repository';
+import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { type ProgramDeletionScopeCounts } from './program-deletion-scope.repository';
 
 function createDeleteService(

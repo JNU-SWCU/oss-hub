@@ -1,4 +1,4 @@
-import { type AuthorityLabel } from '../users/authority-label.types';
+import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -12,7 +12,6 @@ import {
   ProgramOverviewRecord,
   type PublicTeamRow,
 } from './program-overview.repository';
-export { programCoverImageUrl } from './program-cover.repository';
 
 export interface ProgramOverviewViewerStats {
   role: AuthorityLabel | null;

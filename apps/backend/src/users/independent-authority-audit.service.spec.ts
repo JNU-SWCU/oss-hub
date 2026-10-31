@@ -5,12 +5,14 @@ import {
   type IndependentAuthorityRepositoryPort,
   type IndependentAuthorityTransactionStore,
   type IndependentAuthorityUserRecord,
-  STAFF_ACCESS_COMMANDS,
   type IndependentAuthorityTransition,
 } from './independent-authority.repository';
-import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
+import {
+  STAFF_ACCESS_COMMANDS,
+  ADMIN_ACCESS_COMMANDS,
+} from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
 
 const actorGithubId = 9_700_600_001n;
 

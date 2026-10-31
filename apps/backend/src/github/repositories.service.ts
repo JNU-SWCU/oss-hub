@@ -11,14 +11,10 @@ import {
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
 import {
-  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
   deriveRepositoryFullName,
 } from '../platform/audit-log.service';
-export {
-  publishBlockedReasons,
-  type PublishBlockedReason,
-} from './repositories.repository';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;

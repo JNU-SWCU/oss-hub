@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
+import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import {
   AccountStatus,
   MilestoneDocumentKind,
@@ -10,19 +10,13 @@ import {
   SubmissionStatus,
   type ApplicationStatus,
   MilestoneSubmissionType,
+  type ReviewDecision,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  submissionApplicationSelect,
-  checklistMilestoneOrderBy,
-  checklistMilestoneSelect,
-  SubmissionChecklistRecordRepository,
-  exactSubmissionByPublicId,
   publicSubmissionId,
-  submissionPublicIdWhere,
-  type ChecklistMilestone,
-  type SubmissionApplication,
-} from './submission-checklist-record.repository';
+  safeSubmissionFileContentType,
+} from './submission-file.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -30,111 +24,82 @@ import {
   SubmissionFileUnavailableError,
   StaleSubmissionRevisionError,
   LegacySubmissionSlotMissingError,
+  SubmissionPublicIdCollisionError,
 } from './submissions.error';
+import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 
-export type MilestoneCompletionStatus = SubmissionStatus | 'NOT_SUBMITTED';
+export interface SubmissionApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly teamId: string | null;
 
-export const MILESTONE_NOT_SUBMITTED = 'NOT_SUBMITTED' as const;
-
-export interface MilestoneCompletionInput {
-  readonly submissionAxisInUse?: boolean;
-
-  readonly requiredDocumentStatuses: readonly (SubmissionStatus | null)[];
-
-  readonly submissionStatus: SubmissionStatus | null;
+  readonly teamMemberCount: number;
+  readonly status: ApplicationStatus;
+  readonly existingSubmission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+  } | null;
 }
 
-const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
-  SubmissionStatus.REJECTED,
-  SubmissionStatus.CHANGES_REQUESTED,
-  MILESTONE_NOT_SUBMITTED,
-  SubmissionStatus.SUBMITTED,
-  SubmissionStatus.APPROVED,
+interface ChecklistLatestReview {
+  readonly decision: ReviewDecision;
+  readonly reviewedAt: Date;
+  readonly comment: string | null;
+}
+
+export interface SubmissionFileMetadata {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+}
+
+export interface ChecklistMilestone {
+  readonly id: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType;
+  readonly submission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+    readonly currentRevision: number;
+    readonly latestReview: ChecklistLatestReview | null;
+    readonly file: SubmissionFileMetadata | null;
+  } | null;
+}
+
+type ApplicationRecord = Prisma.ApplicationGetPayload<{
+  select: ReturnType<typeof SubmissionsRepository.submissionApplicationSelect>;
+}>;
+
+const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
+  MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+  MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
 ];
 
-function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
-  if (input.submissionAxisInUse === false) return false;
-  return (
-    input.requiredDocumentStatuses.length === 0 ||
-    input.submissionStatus !== null
-  );
-}
+type ChecklistMilestoneRecord = Prisma.MilestoneGetPayload<{
+  select: ReturnType<typeof SubmissionsRepository.checklistMilestoneSelect>;
+}>;
 
-export function collectAxisStatuses(
-  input: MilestoneCompletionInput,
-): readonly MilestoneCompletionStatus[] {
-  const statuses: MilestoneCompletionStatus[] =
-    input.requiredDocumentStatuses.map(
-      (status) => status ?? MILESTONE_NOT_SUBMITTED,
-    );
-  if (isSubmissionAxisInUse(input)) {
-    statuses.push(input.submissionStatus ?? MILESTONE_NOT_SUBMITTED);
-  }
-  return statuses;
-}
+type ChecklistTargetSubmission = NonNullable<
+  ChecklistMilestoneRecord['documents'][number]['submissions'][number]
+>;
 
-export function milestoneCompletionStatus(
-  input: MilestoneCompletionInput,
-): MilestoneCompletionStatus {
-  const statuses = collectAxisStatuses(input);
-  if (statuses.length === 0) return MILESTONE_NOT_SUBMITTED;
-  let worst: MilestoneCompletionStatus = SubmissionStatus.APPROVED;
-  let worstRank = STATUS_PRECEDENCE.indexOf(worst);
-  for (const status of statuses) {
-    const rank = STATUS_PRECEDENCE.indexOf(status);
-    if (rank < worstRank) {
-      worst = status;
-      worstRank = rank;
-    }
-  }
-  return worst;
-}
-
-export function isMilestoneComplete(input: MilestoneCompletionInput): boolean {
-  return milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
-}
-
-export function requiredMilestonesApproved(
-  milestones: readonly {
-    readonly id: string;
-
-    readonly submissionType?: MilestoneSubmissionType | null;
-    readonly documents: readonly { readonly id: string }[];
-  }[],
-  submissions: readonly {
-    readonly milestoneId: string;
-    readonly status: SubmissionStatus;
-  }[],
-  documentSubmissions: readonly {
-    readonly milestoneDocumentId: string;
-    readonly status: SubmissionStatus;
-  }[],
-): boolean {
-  const statusByMilestone = new Map(
-    submissions.map((submission) => [
-      submission.milestoneId,
-      submission.status,
-    ]),
-  );
-  const statusByDocument = new Map(
-    documentSubmissions.map((submission) => [
-      submission.milestoneDocumentId,
-      submission.status,
-    ]),
-  );
-  return milestones.every((milestone) =>
-    milestone.submissionType === null && milestone.documents.length === 0
-      ? true
-      : isMilestoneComplete({
-          ...(milestone.submissionType === null
-            ? { submissionAxisInUse: false }
-            : {}),
-          requiredDocumentStatuses: milestone.documents.map(
-            (document) => statusByDocument.get(document.id) ?? null,
-          ),
-          submissionStatus: statusByMilestone.get(milestone.id) ?? null,
-        }),
-  );
+function currentRevisionFile(
+  submission: ChecklistTargetSubmission,
+): SubmissionFileMetadata | null {
+  const currentHistory = submission.histories[0] ?? null;
+  if (currentHistory?.revision !== submission.revision) return null;
+  const file = currentHistory?.files[0] ?? null;
+  if (file === null || file.expiresAt === null) return null;
+  return {
+    fileId: file.id,
+    fileName: file.originalFileName,
+    contentType: safeSubmissionFileContentType(file.originalFileName),
+    size: file.sizeBytes,
+    expiresAt: file.expiresAt,
+  };
 }
 
 export type SubmissionContentInput =
@@ -324,14 +289,12 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const application = await this.database.application.findFirst({
       where: {
         programId,
-        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          userId,
-        ),
+        ...SubmissionsRepository.submissionParticipantWhere(userId),
       },
-      select: submissionApplicationSelect(milestoneId),
+      select: SubmissionsRepository.submissionApplicationSelect(milestoneId),
     });
     return application
-      ? SubmissionChecklistRecordRepository.toSubmissionApplication(application)
+      ? SubmissionsRepository.toSubmissionApplication(application)
       : null;
   }
 
@@ -343,14 +306,12 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const application = await this.database.application.findFirst({
       where: {
         id: applicationId,
-        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          userId,
-        ),
+        ...SubmissionsRepository.submissionParticipantWhere(userId),
       },
-      select: submissionApplicationSelect(milestoneId),
+      select: SubmissionsRepository.submissionApplicationSelect(milestoneId),
     });
     return application
-      ? SubmissionChecklistRecordRepository.toSubmissionApplication(application)
+      ? SubmissionsRepository.toSubmissionApplication(application)
       : null;
   }
 
@@ -510,9 +471,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
       .findFirst({
         where: {
           programId,
-          ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-            userId,
-          ),
+          ...SubmissionsRepository.submissionParticipantWhere(userId),
         },
         select: {
           id: true,
@@ -540,12 +499,14 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
   ): Promise<readonly ChecklistMilestone[]> {
     const milestones = await this.database.milestone.findMany({
       where: { programId },
-      orderBy: checklistMilestoneOrderBy,
-      select: checklistMilestoneSelect(applicationId, now),
+      orderBy: SubmissionsRepository.checklistMilestoneOrderBy,
+      select: SubmissionsRepository.checklistMilestoneSelect(
+        applicationId,
+        now,
+      ),
     });
     return milestones.flatMap((milestone) => {
-      const item =
-        SubmissionChecklistRecordRepository.toChecklistMilestone(milestone);
+      const item = SubmissionsRepository.toChecklistMilestone(milestone);
       return item === null ? [] : [item];
     });
   }
@@ -557,14 +518,11 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const submissions =
       await this.database.milestoneDocumentSubmission.findMany({
         where: {
-          ...submissionPublicIdWhere(submissionId),
+          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
-          application:
-            SubmissionChecklistRecordRepository.submissionParticipantWhere(
-              userId,
-            ),
+          application: SubmissionsRepository.submissionParticipantWhere(userId),
         },
         take: 2,
         select: {
@@ -588,7 +546,8 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
           application: { select: { status: true } },
         },
       });
-    const submission = exactSubmissionByPublicId(submissions);
+    const submission =
+      SubmissionsRepository.exactSubmissionByPublicId(submissions);
     if (submission === null) return null;
     if (submission.milestoneDocument.milestone.submissionType === null) {
       return null;
@@ -611,7 +570,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const submission =
       await this.database.milestoneDocumentSubmission.findFirst({
         where: {
-          ...submissionPublicIdWhere(submissionId),
+          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
@@ -775,6 +734,153 @@ export class SubmissionsRepository implements SubmissionsStore {
       operation(new PrismaSubmissionsRepository(transaction)),
     );
   }
+
+  static submissionParticipantWhere(
+    userId: string,
+  ): Prisma.ApplicationWhereInput {
+    return programApplicationParticipantWhere(userId);
+  }
+
+  static toSubmissionApplication(
+    application: ApplicationRecord,
+  ): SubmissionApplication {
+    return {
+      id: application.id,
+      programId: application.programId,
+      teamId: application.teamId,
+      teamMemberCount: application.team._count.members,
+      status: application.status,
+      existingSubmission: application.milestoneDocumentSubmissions[0]
+        ? {
+            id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
+            status: application.milestoneDocumentSubmissions[0].status,
+          }
+        : null,
+    };
+  }
+
+  static toChecklistMilestone(
+    record: ChecklistMilestoneRecord,
+  ): ChecklistMilestone | null {
+    if (record.submissionType === null) return null;
+    const submission = record.documents[0]?.submissions[0] ?? null;
+    return {
+      id: record.id,
+      name: record.name,
+      dueAt: record.dueAt,
+      submissionType: record.submissionType,
+      submission: submission
+        ? {
+            id: publicSubmissionId(submission),
+            status: submission.status,
+            currentRevision: submission.revision,
+            latestReview: submission.reviewHistories[0] ?? null,
+            file: currentRevisionFile(submission),
+          }
+        : null,
+    };
+  }
+
+  static submissionPublicIdWhere(publicId: string) {
+    return { OR: [{ id: publicId }, { legacySubmissionId: publicId }] };
+  }
+
+  static exactSubmissionByPublicId<T>(rows: readonly T[]): T | null {
+    if (rows.length > 1) {
+      throw new SubmissionPublicIdCollisionError(
+        'Ambiguous submission public id',
+      );
+    }
+    return rows[0] ?? null;
+  }
+
+  static readonly submissionApplicationSelect = (milestoneId: string) =>
+    ({
+      id: true,
+      programId: true,
+      teamId: true,
+
+      team: { select: { _count: { select: { members: true } } } },
+      status: true,
+      milestoneDocumentSubmissions: {
+        where: {
+          milestoneDocument: {
+            milestoneId,
+            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+          },
+        },
+        take: 1,
+        select: { id: true, legacySubmissionId: true, status: true },
+      },
+    }) as const;
+
+  static readonly checklistMilestoneOrderBy = [
+    { dueAt: 'asc' as const },
+    { createdAt: 'asc' as const },
+  ];
+
+  static readonly checklistMilestoneSelect = (
+    applicationId: string,
+    now: Date,
+  ) =>
+    ({
+      id: true,
+      name: true,
+      dueAt: true,
+      submissionType: true,
+      documents: {
+        where: { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+        take: 1,
+        select: {
+          submissions: {
+            where: { applicationId },
+            take: 1,
+            select: {
+              id: true,
+              legacySubmissionId: true,
+              status: true,
+              revision: true,
+              reviewHistories: {
+                orderBy: { reviewedAt: 'desc' as const },
+                take: 1,
+                select: {
+                  decision: true,
+                  reviewedAt: true,
+                  comment: true,
+                },
+              },
+              histories: {
+                where: {
+                  event: {
+                    in: SUBMISSION_HISTORY_EVENTS,
+                  },
+                },
+                orderBy: { revision: 'desc' as const },
+                take: 1,
+                select: {
+                  revision: true,
+                  files: {
+                    where: {
+                      lifecycle: SubmissionFileLifecycle.ATTACHED,
+                      expiresAt: { gt: now },
+                    },
+                    orderBy: { id: 'asc' as const },
+                    take: 1,
+                    select: {
+                      id: true,
+                      originalFileName: true,
+                      mimeType: true,
+                      sizeBytes: true,
+                      expiresAt: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }) as const;
 }
 
 type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{

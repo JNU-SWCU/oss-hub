@@ -10,7 +10,7 @@ import {
   ConsentErrorCode,
 } from './consent-error-code.error';
 import type { ConsentsService } from './consents.service';
-import type { UserProfileView } from '../platform/user-profile-read.repository';
+import type { UserProfileView } from '../platform/user-profile-read.config';
 import {
   type StaffAccessRequestOutcome,
   type StaffAccessRequestTarget,

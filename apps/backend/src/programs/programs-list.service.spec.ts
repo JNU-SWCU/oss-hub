@@ -10,8 +10,8 @@ import {
   type ProgramListDerivedStatus,
   type ProgramListStatusInput,
   ProgramListStatusFilterRepository,
-  PROGRAM_LIST_QUERY_STATUSES,
 } from './program-list-status-filter.repository';
+import { PROGRAM_LIST_QUERY_STATUSES } from './program-list.config';
 import {
   ProgramsRepository,
   type ProgramListRecord,

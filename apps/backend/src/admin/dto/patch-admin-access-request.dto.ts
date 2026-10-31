@@ -1,4 +1,4 @@
-import { type AuthorityLabel } from '../../users/authority-label.types';
+import type { AuthorityLabel } from '../../users/authority-label.types';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,

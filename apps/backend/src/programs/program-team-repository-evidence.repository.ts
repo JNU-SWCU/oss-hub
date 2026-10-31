@@ -2,14 +2,14 @@ import type { ApplicationStatus } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import {
-  repositoryUrlFromNameWithOwner,
   APPLICATION_REPOSITORY_URL_CHANGED,
   parseApplicationRepositoryUrlAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
   parseRepositoryConnectionAuditMetadata,
-} from '../platform/repository-provision-generation.repository';
-import type { PublishBlockedReason } from '../platform/repository-provision-generation.repository';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.repository';
+} from '../platform/repository-audit-metadata.config';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
+import type { PublishBlockedReason } from '../github/repository-publish.config';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
 interface RepositoryContributorView {
   readonly githubId: string;

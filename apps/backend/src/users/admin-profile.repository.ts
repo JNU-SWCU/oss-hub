@@ -1,3 +1,5 @@
+import { AdminAccessRepository } from './admin-access.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
@@ -5,16 +7,11 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
   USER_PROFILE_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+  resolveUserProfile,
+} from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-} from './admin-access.repository';
-import { type AdminAccessActor } from './admin-access-user-projection.repository';
 
 export type AdminProfileTargetRecord = {
   readonly id: string;
@@ -80,11 +77,14 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
   }
 
   async lockActiveAdmins(): Promise<void> {
-    await lockActiveAdminRows(this.transaction);
+    await AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   findActor(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   async findTarget(userId: string): Promise<AdminProfileTargetRecord | null> {
@@ -166,7 +166,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
 function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
-  const profile = UserProfileReadRepository.resolveUserProfile(user);
+  const profile = resolveUserProfile(user);
   return {
     id: user.id,
     githubLogin: user.nickname,
