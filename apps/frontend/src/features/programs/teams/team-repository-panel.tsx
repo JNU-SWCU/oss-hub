@@ -1,14 +1,7 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useId, useMemo, type ReactNode } from 'react';
 import { FailureState } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +14,9 @@ import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type { RepositoryUrlState } from './repository-url-dto';
 import { RepositoryUrlEditor } from './repository-url-editor';
 import { RepositoryUrlHistory } from './repository-url-history';
-import { getTeamActivity } from './team-activity-api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgram } from '../catalog/queries';
+import { useTeamActivityQuery } from './queries';
 import type { TeamActivity } from './team-activity-dto';
 import { TeamActivityGraph } from './team-activity-graph';
 
@@ -67,52 +62,44 @@ function TeamRepositoryPanelBody({
   children,
   activityExtra,
 }: TeamRepositoryPanelProps) {
-  const [repository, setRepository] = useState<RepositoryUrlState | null>(null);
-  const [graph, setGraph] = useState<GraphState>({ kind: 'loading' });
-  const [saves, setSaves] = useState(0);
-  const seqRef = useRef(0);
+  const queryClient = useQueryClient();
+  const query = useTeamActivityQuery(programId, teamId);
+  const activity = query.data;
+  const repository = useMemo<RepositoryUrlState | null>(
+    () =>
+      activity === undefined
+        ? null
+        : {
+            repositoryUrl: activity.repository?.url ?? null,
+            canEditRepositoryUrl: activity.canEditRepositoryUrl,
+          },
+    [activity],
+  );
+  const graph: GraphState = query.isFetching
+    ? { kind: 'loading' }
+    : activity !== undefined
+      ? { kind: 'ready', activity }
+      : query.isError
+        ? { kind: 'failed' }
+        : { kind: 'loading' };
   const titleId = useId();
-
   const load = useCallback(async (): Promise<boolean> => {
-    const seq = ++seqRef.current;
-    try {
-      const activity = await getTeamActivity(programId, teamId);
-      if (seq !== seqRef.current) return false;
-      setRepository({
-        repositoryUrl: activity.repository?.url ?? null,
-        canEditRepositoryUrl: activity.canEditRepositoryUrl,
-      });
-      setGraph({ kind: 'ready', activity });
-      return true;
-    } catch (error: unknown) {
-      if (seq === seqRef.current) {
-        setGraph((current) =>
-          current.kind === 'loading' ? { kind: 'failed' } : current,
-        );
-      }
-      throw error;
-    }
-  }, [programId, teamId]);
-
+    const result = await query.refetch({ throwOnError: true });
+    return result.isSuccess;
+  }, [query.refetch]);
   const refresh = useCallback(() => {
-    setGraph({ kind: 'loading' });
-    load().catch(() => {});
-  }, [load]);
-
-  useEffect(() => {
-    load().catch(() => {});
-  }, [load]);
+    void query.refetch();
+  }, [query.refetch]);
 
   const save = useCallback(
     async (repositoryUrl: string): Promise<RepositoryUrlState> => {
       const saved = await saveRepositoryUrl(repositoryUrl);
 
-      refresh();
-      setSaves((count) => count + 1);
+      void invalidateProgram(queryClient, programId);
       onSaved?.();
       return saved;
     },
-    [saveRepositoryUrl, refresh, onSaved],
+    [saveRepositoryUrl, queryClient, programId, onSaved],
   );
 
   if (repository === null) {
@@ -179,11 +166,7 @@ function TeamRepositoryPanelBody({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-2">
-              <RepositoryUrlHistory
-                key={saves}
-                programId={programId}
-                teamId={teamId}
-              />
+              <RepositoryUrlHistory programId={programId} teamId={teamId} />
             </CollapsibleContent>
           </Collapsible>
         </CardContent>

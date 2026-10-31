@@ -1,13 +1,11 @@
 import { act, type ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+import { programKey } from '@/lib/query-keys';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import type { ReceivedTeamInvitation } from './team-invitation-dto';
 import { TeamInvitationNotifications } from './team-invitation-notifications';
-import {
-  TEAM_MEMBERSHIP_CHANGED_EVENT,
-  type TeamMembershipChangedDetail,
-} from './team-membership-events';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -113,23 +111,20 @@ function findProgramLink(name: string): HTMLAnchorElement {
   return link;
 }
 
-function recordMembershipEvents(): {
-  readonly programIds: string[];
-  readonly stop: () => void;
-} {
-  const programIds: string[] = [];
-  const listener = (event: Event) => {
-    programIds.push(
-      (event as CustomEvent<TeamMembershipChangedDetail>).detail.programId,
-    );
-  };
-  window.addEventListener(TEAM_MEMBERSHIP_CHANGED_EVENT, listener);
+function recordProgramInvalidation() {
+  const key = programKey('program-1');
+  activeRoot.queryClient.setQueryDefaults(key, { gcTime: Infinity });
+  activeRoot.queryClient.setQueryData(key, 'before');
   return {
-    programIds,
-    stop: () =>
-      window.removeEventListener(TEAM_MEMBERSHIP_CHANGED_EVENT, listener),
+    get programIds() {
+      return activeRoot.queryClient.getQueryState(key)?.isInvalidated
+        ? ['program-1']
+        : [];
+    },
   };
 }
+
+let activeRoot: Root;
 
 function findRetryButton(): HTMLButtonElement {
   const button = [...document.querySelectorAll('button')].find(
@@ -147,6 +142,7 @@ describe('TeamInvitationNotifications', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    activeRoot = root;
     mocks.listReceivedInvitations.mockReset().mockResolvedValue([]);
     mocks.acceptInvitation.mockReset().mockResolvedValue({
       teamId: 'team-1',
@@ -396,7 +392,7 @@ describe('TeamInvitationNotifications', () => {
       teamId: 'team-1',
       programId: 'program-1',
     });
-    const events = recordMembershipEvents();
+    const events = recordProgramInvalidation();
 
     await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
@@ -422,7 +418,6 @@ describe('TeamInvitationNotifications', () => {
     });
     expect(events.programIds).toEqual(['program-1']);
     expect(mocks.refresh).toHaveBeenCalled();
-    events.stop();
   });
 
   it('대기 중인 초대의 프로그램명은 개요 화면만 연다', async () => {
@@ -456,7 +451,7 @@ describe('TeamInvitationNotifications', () => {
 
   it('거절하면 항목을 지우고 이동도 알림도 없다', async () => {
     mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
-    const events = recordMembershipEvents();
+    const events = recordProgramInvalidation();
 
     await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
@@ -485,7 +480,6 @@ describe('TeamInvitationNotifications', () => {
     await settleUntil(() => {
       expect(document.body.textContent ?? '').not.toContain('오픈소스팀');
     });
-    events.stop();
   });
 
   it('수락 실패는 그 항목에만 오류를 남기고 알림을 보내지 않는다', async () => {
@@ -493,7 +487,7 @@ describe('TeamInvitationNotifications', () => {
     mocks.acceptInvitation.mockRejectedValue(
       problem('이미 처리된 초대입니다.'),
     );
-    const events = recordMembershipEvents();
+    const events = recordProgramInvalidation();
 
     await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
@@ -522,14 +516,13 @@ describe('TeamInvitationNotifications', () => {
     expect(mocks.push).not.toHaveBeenCalled();
     expect(events.programIds).toEqual([]);
     expect(document.body.textContent ?? '').toContain('오픈소스팀');
-    events.stop();
   });
 
   it('수락 응답이 이전 계정의 것이면 이동도 알림도 하지 않는다', async () => {
     const accept = deferred<{ teamId: string; programId: string }>();
     mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
     mocks.acceptInvitation.mockReturnValue(accept.promise);
-    const events = recordMembershipEvents();
+    const events = recordProgramInvalidation();
 
     await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
@@ -560,7 +553,6 @@ describe('TeamInvitationNotifications', () => {
     expect(events.programIds).toEqual([]);
     expect(mocks.push).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
-    events.stop();
   });
 
   it('처리 중인 초대를 다시 눌러도 요청을 한 번만 보낸다', async () => {

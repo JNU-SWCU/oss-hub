@@ -13,25 +13,18 @@ import { EmptyState, FailureState, PageBody, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
-import { getMyTeam } from './api';
-import {
-  TEAM_MEMBERSHIP_CHANGED_EVENT,
-  type TeamMembershipChangedDetail,
-} from './team-membership-events';
-import { getProgramDetail } from '../catalog/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgram } from '../catalog/queries';
+import { TeamApplicationOutOfSyncError, useMyTeamQuery } from './queries';
 import type { ProgramTeam } from './dto';
 import type { ProgramApplySessionUser } from '../applications/load-program-apply-context';
 import { ProgramMyTeamView } from './program-my-team-view';
-import { getMyApplication } from '../applications/student-application-api';
 import type { StudentApplication } from '../applications/student-application-dto';
 import type { ProgramDetail } from '../catalog/dto';
 import { useTeamInvitationManagement } from './use-team-invitation-management';
 
 const LOAD_FAILED_MESSAGE =
   '우리 팀 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
-
-const APPLICATION_OUT_OF_SYNC_MESSAGE =
-  '팀 신청서를 찾지 못했습니다. 방금 상태가 바뀌었을 수 있으니 다시 시도해 주세요.';
 
 const REFRESH_FAILED_MESSAGE =
   '최신 팀 상태를 불러오지 못했습니다. 화면에는 마지막으로 확인한 상태가 남아 있습니다.';
@@ -70,190 +63,65 @@ export function ProgramMyTeamPage({
   readonly submissionContent: ReactNode;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<ProgramMyTeamPageState>({
-    kind: 'session-pending',
-  });
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-
+  const sessionNickname = sessionUser?.nickname ?? null;
+  const queryClient = useQueryClient();
+  const query = useMyTeamQuery(programId, sessionNickname);
+  const data = query.data;
+  const state: ProgramMyTeamPageState =
+    sessionNickname === null
+      ? { kind: 'session-pending' }
+      : data !== undefined
+        ? data.team === null
+          ? { kind: 'no-team', program: data.program }
+          : { kind: 'ready', ...data, team: data.team, sessionNickname }
+        : query.isError
+          ? query.error instanceof ApiError &&
+            query.error.problem.status === 404
+            ? { kind: 'not-found' }
+            : { kind: 'failed', message: loadFailureMessage(query.error) }
+          : { kind: 'loading' };
+  const refreshError =
+    data !== undefined && query.isError
+      ? query.error instanceof TeamApplicationOutOfSyncError ||
+        query.error instanceof ApiError
+        ? loadFailureMessage(query.error)
+        : REFRESH_FAILED_MESSAGE
+      : null;
   const [inviteOpen, setInviteOpen] = useState(false);
   const inviteTriggerRef = useRef<HTMLButtonElement | null>(null);
-
-  const sessionNickname = sessionUser?.nickname ?? null;
   const mountedRef = useRef(true);
-  const loadSeqRef = useRef(0);
-  const identityRef = useRef('');
-  const stateRef = useRef(state);
-  const programIdRef = useRef(programId);
-  const sessionNicknameRef = useRef(sessionNickname);
-  stateRef.current = state;
-  programIdRef.current = programId;
-  sessionNicknameRef.current = sessionNickname;
-  const identity = `${programId}\u0000${sessionNickname ?? ''}`;
-  identityRef.current = identity;
-
+  const identityRef = useRef(sessionNickname);
+  identityRef.current = sessionNickname;
   useEffect(() => {
     mountedRef.current = true;
+    setInviteOpen(false);
     return () => {
       mountedRef.current = false;
     };
-  }, []);
-
+  }, [programId, sessionNickname]);
   const invitation = useTeamInvitationManagement({
     programId,
     team: state.kind === 'ready' ? state.team : null,
     sessionKey: sessionNickname,
   });
-  const { reloadSent } = invitation;
-
   const load = useCallback(
-    async (options?: { readonly quiet?: boolean }): Promise<void> => {
-      const seq = ++loadSeqRef.current;
-      const startedIdentity = identityRef.current;
-      const currentProgramId = programIdRef.current;
-      const quiet = options?.quiet === true;
-
-      function stillCurrent(): boolean {
-        return (
-          mountedRef.current &&
-          seq === loadSeqRef.current &&
-          startedIdentity === identityRef.current
-        );
-      }
-
-      const currentNickname = sessionNicknameRef.current;
-      if (currentNickname === null) {
-        setState({ kind: 'session-pending' });
-        return;
-      }
-      if (!quiet) {
-        setState({ kind: 'loading' });
-        setRefreshError(null);
-      }
-
-      try {
-        const [program, team] = await Promise.all([
-          getProgramDetail(currentProgramId),
-          getMyTeam(currentProgramId),
-        ]);
-
-        let application: StudentApplication | null = null;
-        if (team !== null && team.hasApplication) {
-          const failWith = (message: string): void => {
-            if (
-              quiet &&
-              (stateRef.current.kind === 'ready' ||
-                stateRef.current.kind === 'no-team')
-            ) {
-              setRefreshError(message);
-              return;
-            }
-            setState({ kind: 'failed', message });
-          };
-          try {
-            application = await getMyApplication(currentProgramId);
-          } catch (error: unknown) {
-            if (!stillCurrent()) return;
-            failWith(loadFailureMessage(error));
-            return;
-          }
-
-          if (application === null) {
-            if (!stillCurrent()) return;
-            failWith(APPLICATION_OUT_OF_SYNC_MESSAGE);
-            return;
-          }
-        }
-
-        if (!stillCurrent()) return;
-        setRefreshError(null);
-        setState(
-          team === null
-            ? { kind: 'no-team', program }
-            : {
-                kind: 'ready',
-                program,
-                team,
-                application,
-                sessionNickname: currentNickname,
-              },
-        );
-      } catch (error: unknown) {
-        if (!stillCurrent()) return;
-        if (
-          quiet &&
-          (stateRef.current.kind === 'ready' ||
-            stateRef.current.kind === 'no-team')
-        ) {
-          setRefreshError(REFRESH_FAILED_MESSAGE);
-          return;
-        }
-        if (error instanceof ApiError && error.problem.status === 404) {
-          setState({ kind: 'not-found' });
-          return;
-        }
-        setState({ kind: 'failed', message: loadFailureMessage(error) });
-      }
-    },
-    [],
+    () => invalidateProgram(queryClient, programId),
+    [queryClient, programId],
   );
-
-  useEffect(() => {
-    loadSeqRef.current += 1;
-    setRefreshError(null);
-    setInviteOpen(false);
-    void load();
-    return () => {
-      loadSeqRef.current += 1;
-    };
-  }, [load, identity]);
-
-  useEffect(() => {
-    if (state.kind !== 'ready' && state.kind !== 'no-team') return;
-    function refresh() {
-      if (document.visibilityState !== 'visible') return;
-      void load({ quiet: true });
-    }
-    function membershipChanged(event: Event) {
-      if (
-        event instanceof CustomEvent &&
-        (event as CustomEvent<TeamMembershipChangedDetail>).detail
-          ?.programId === programId
-      ) {
-        void load({ quiet: true });
-      }
-    }
-    window.addEventListener(TEAM_MEMBERSHIP_CHANGED_EVENT, membershipChanged);
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      window.removeEventListener(
-        TEAM_MEMBERSHIP_CHANGED_EVENT,
-        membershipChanged,
-      );
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [load, programId, state.kind]);
-
   const handleMembersChanged = useCallback(() => {
-    void load({ quiet: true });
-
-    void reloadSent();
-  }, [load, reloadSent]);
-
+    void load();
+  }, [load]);
   const handleDeparted = useCallback(() => {
-    if (!mountedRef.current) return;
-
     if (
-      sessionNicknameRef.current === null ||
-      sessionNicknameRef.current !== sessionNickname
-    ) {
+      !mountedRef.current ||
+      identityRef.current !== sessionNickname ||
+      sessionNickname === null
+    )
       return;
-    }
-    loadSeqRef.current += 1;
+    void invalidateProgram(queryClient, programId);
     router.push('/dashboard');
     router.refresh();
-  }, [router, sessionNickname]);
+  }, [programId, queryClient, router, sessionNickname]);
 
   if (state.kind === 'session-pending' || state.kind === 'loading') {
     return (
@@ -303,7 +171,7 @@ export function ProgramMyTeamPage({
           <FailureState
             title="팀 상태 갱신 실패"
             description={refreshError}
-            onRetry={() => void load({ quiet: true })}
+            onRetry={() => void load()}
           />
         ) : null}
         <EmptyState
