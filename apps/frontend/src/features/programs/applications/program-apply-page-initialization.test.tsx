@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+import { focusManager } from '@tanstack/react-query';
+import { createQueryRoot as createRoot } from '../../../../test-support/render-with-query';
 type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -13,7 +14,11 @@ import {
   removeMyTeamMember,
 } from '../teams/api';
 import { ProgramApplyPage } from './program-apply-page';
-import { updateMyApplication } from './student-application-api';
+import {
+  cancelMyApplication,
+  updateMyApplication,
+} from './student-application-api';
+import { featureKey, programFeatureKey } from '@/lib/query-keys';
 import {
   createInvitation,
   listSentInvitations,
@@ -224,6 +229,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     refreshMock.mockReset();
     createApplicationMock.mockReset();
     updateMyApplicationMock.mockReset();
+    vi.mocked(cancelMyApplication).mockReset();
     createInvitationMock.mockReset();
     removeMyTeamMemberMock.mockReset().mockResolvedValue(undefined);
     loadProgramApplyContextMock.mockReset();
@@ -235,6 +241,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
 
   afterEach(async () => {
     await act(async () => root.unmount());
+    focusManager.setFocused(undefined);
+    vi.useRealTimers();
     container.remove();
     vi.clearAllMocks();
   });
@@ -322,32 +330,34 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     predicate: () => boolean,
     label: string,
   ): Promise<void> {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      if (predicate()) return;
-      await act(async () => {
-        await Promise.resolve();
-      });
-    }
-    throw new Error(`${label} 조건을 만족하지 못했다.`);
-  }
-
-  async function settleDelayedUntil(
-    predicate: () => boolean,
-    label: string,
-  ): Promise<void> {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      if (predicate()) return;
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-    }
-    throw new Error(`${label} 조건을 만족하지 못했다.`);
-  }
-
-  function afterMacrotask<T>(value: T): Promise<T> {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(value), 0);
-    });
+    if (predicate()) return;
+    await act(
+      async () =>
+        new Promise<void>((resolve, reject) => {
+          const observer = new MutationObserver(check);
+          const unsubscribe = root.queryClient.getQueryCache().subscribe(check);
+          const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error(`${label} 조건을 만족하지 못했다.`));
+          }, 1000);
+          function cleanup() {
+            observer.disconnect();
+            unsubscribe();
+            clearTimeout(timer);
+          }
+          function check() {
+            if (!predicate()) return;
+            cleanup();
+            resolve();
+          }
+          observer.observe(document.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+          });
+          check();
+        }),
+    );
   }
 
   function applicantName(): string | null {
@@ -417,6 +427,33 @@ describe('ProgramApplyPage 한 화면 신청', () => {
 
     expect(createInvitationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
+  });
+
+  it('팀 생성 직전의 실시간 조회가 대기 중이어도 생성 후 팀을 새로 읽는다', async () => {
+    const stale = deferredContext();
+    loadProgramApplyContextMock
+      .mockResolvedValueOnce(readyContext('program-team-race', ''))
+      .mockReturnValueOnce(stale.promise)
+      .mockResolvedValue(readyContext('program-team-race', '', 'team-created'));
+    createApplicationPreparationMock.mockResolvedValue({
+      id: 'team-created',
+      name: '합성 팀',
+      memberCount: 1,
+    });
+    await renderPage('program-team-race');
+    await enterText('#apply-team-name', '합성 팀');
+    await act(async () => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await act(async () => inviteTrigger().click());
+    expect(loadProgramApplyContextMock).toHaveBeenCalledTimes(3);
+    expect(inviteSearchInput()).not.toBeNull();
+    await resolve(stale, readyContext('program-team-race', ''));
+    expect(inviteSearchInput()).not.toBeNull();
+    expect(
+      container.querySelector<HTMLInputElement>('#apply-team-name')?.value,
+    ).toBe('합성 팀');
   });
 
   it('팀 이름 없이 ＋를 누르면 팀을 만들지 않고 이름부터 요구한다', async () => {
@@ -630,48 +667,37 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   });
 
   it('신청 응답이 지연되어도 같은 확인 한 번으로 신청이 접수된다', async () => {
-    loadProgramApplyContextMock
-      .mockImplementationOnce(() =>
-        afterMacrotask(readyContext('program-delayed', '')),
-      )
-      .mockImplementation(() =>
-        afterMacrotask(
-          readyContext('program-delayed', '', 'team-delayed', {
-            memberCount: 1,
-          }),
-        ),
-      );
-    createApplicationPreparationMock.mockImplementation(() =>
-      afterMacrotask({ id: 'team-delayed', name: '합성 팀', memberCount: 1 }),
-    );
-    createApplicationMock.mockImplementation(() =>
-      afterMacrotask({
+    const context = deferredContext();
+    const submission =
+      deferredList<Awaited<ReturnType<typeof createApplication>>>();
+    loadProgramApplyContextMock.mockReturnValue(context.promise);
+    createApplicationMock.mockReturnValue(submission.promise);
+
+    await renderPage('program-delayed');
+    expect(container.querySelector('#apply-team-name')).toBeNull();
+    await resolve(context, readyContext('program-delayed', ''));
+    await enterText('#apply-team-name', '지연 팀');
+    await checkConsent();
+    await act(async () => {
+      button('신청 제출').click();
+    });
+    await act(async () => {
+      button('신청서 제출', true).click();
+    });
+    expect(container.textContent).not.toContain('신청이 접수되었습니다');
+    await act(async () => {
+      submission.resolve({
         id: 'app-delayed',
         programId: 'program-delayed',
         status: 'SUBMITTED' as const,
         teamId: 'team-delayed',
         submittedAt: '2026-08-15T00:00:00Z',
         isRepositoryPublicationPlanned: true,
-      }),
-    );
-
-    await renderPage('program-delayed');
-    await settleDelayedUntil(
-      () => container.querySelector('#apply-team-name') !== null,
-      '신청 양식 표시',
-    );
-    await enterText('#apply-team-name', '지연 팀');
-    await checkConsent();
-    await act(async () => {
-      button('신청 제출').click();
-      await Promise.resolve();
-    });
-    await act(async () => {
-      button('신청서 제출', true).click();
-      await Promise.resolve();
+      });
+      await submission.promise;
     });
 
-    await settleDelayedUntil(
+    await settleUntil(
       () => container.textContent?.includes('신청이 접수되었습니다') === true,
       '지연 제출 성공 화면',
     );
@@ -740,7 +766,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     });
 
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 
@@ -817,6 +843,42 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).not.toContain('팀 나가기');
   });
 
+  it('신청 취소 성공은 프로그램과 대시보드를 무효화하고 대시보드로 이동한다', async () => {
+    const dashboardKey = featureKey('student-dashboard');
+    const overviewKey = programFeatureKey(
+      'program-withdraw',
+      'overview',
+      false,
+    );
+    root.queryClient.setQueryDefaults(dashboardKey, { gcTime: Infinity });
+    root.queryClient.setQueryDefaults(overviewKey, { gcTime: Infinity });
+    root.queryClient.setQueryData(dashboardKey, {
+      applications: ['application-1'],
+    });
+    root.queryClient.setQueryData(overviewKey, {
+      applicationStatus: 'SUBMITTED',
+    });
+    loadProgramApplyContextMock.mockResolvedValue(
+      readyContext('program-withdraw', '제출된 제목', 'team-withdraw', {
+        mode: 'edit',
+      }),
+    );
+    vi.mocked(cancelMyApplication).mockResolvedValue({ cancelled: true });
+    await renderPage('program-withdraw');
+    await act(async () => button('신청 취소').click());
+    await act(async () => button('신청 취소', true).click());
+    expect(vi.mocked(cancelMyApplication)).toHaveBeenCalledWith(
+      'program-withdraw',
+    );
+    expect(root.queryClient.getQueryState(dashboardKey)?.isInvalidated).toBe(
+      true,
+    );
+    expect(root.queryClient.getQueryState(overviewKey)?.isInvalidated).toBe(
+      true,
+    );
+    expect(pushMock).toHaveBeenCalledWith('/dashboard');
+  });
+
   it('새 신청서에 입력한 뒤 이전 identity의 context가 늦게 도착해도 현재 입력과 화면을 유지한다', async () => {
     const stale = deferredContext();
     const current = deferredContext();
@@ -863,6 +925,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(loadProgramApplyContextMock).toHaveBeenLastCalledWith(
       'program-current',
       sessionUser,
+      root.queryClient,
     );
     expect(titleInput().value).toBe('새 기본값');
   });
@@ -897,7 +960,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).not.toContain('member-nick');
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'));
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -924,13 +988,56 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await enterTitle('사용자가 작성한 제목');
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'));
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
       await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(titleInput().value).toBe('제출된 제목');
     expect(container.textContent).toContain('수정 내용 저장');
+  });
+
+  it('30초 간격으로 로스터와 보낸 초대를 갱신하되 작성 내용은 유지한다', async () => {
+    vi.useFakeTimers();
+    focusManager.setFocused(true);
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    loadProgramApplyContextMock
+      .mockResolvedValueOnce(
+        readyContext('program-interval', '서버 제목', 'team-interval'),
+      )
+      .mockResolvedValue(
+        readyContext('program-interval', '다른 제목', 'team-interval', {
+          members: [
+            {
+              userId: 'user-1',
+              nickname: sessionUser.nickname,
+              name: '합성 학생',
+              isLeader: true,
+            },
+            {
+              userId: 'user-2',
+              nickname: 'interval-member',
+              name: '새 팀원',
+              isLeader: false,
+            },
+          ],
+        }),
+      );
+    await renderPage('program-interval');
+    await enterTitle('작성 중인 제목');
+    expect(loadProgramApplyContextMock).toHaveBeenCalledTimes(1);
+    expect(listSentInvitationsMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(loadProgramApplyContextMock).toHaveBeenCalledTimes(2);
+    expect(listSentInvitationsMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('interval-member');
+    expect(titleInput().value).toBe('작성 중인 제목');
   });
 
   it('늦은 팀 만들기 완료는 새 프로그램 화면을 성공으로 바꾸지 않는다', async () => {

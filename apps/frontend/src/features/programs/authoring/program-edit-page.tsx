@@ -1,5 +1,7 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../catalog/queries';
 import { invalidateProgramLists } from '../catalog/list-queries';
 import { rememberProgramPurged } from '@/lib/navigation-notices';
 
@@ -121,7 +123,11 @@ export function ProgramEditPage({
     setState({ kind: 'loading' });
     setForm(null);
     try {
-      const program = await getEditableProgram(programId);
+      const program = await queryClient.fetchQuery({
+        queryKey: programFeatureKey(programId, 'edit'),
+        queryFn: () => getEditableProgram(programId),
+        staleTime: 0,
+      });
       if (loadId !== latestLoadId.current) return;
       setState({ kind: 'ready', program });
       setForm(toProgramEditForm(program));
@@ -132,7 +138,7 @@ export function ProgramEditPage({
       if (loadId !== latestLoadId.current) return;
       setState({ kind: 'failed', message: '잠시 후 다시 시도해 주세요.' });
     }
-  }, [programId]);
+  }, [programId, queryClient]);
 
   useEffect(() => {
     void load();
@@ -219,6 +225,7 @@ export function ProgramEditPage({
           : {}),
       });
       cover.saved();
+      void invalidateProgram(queryClient, programId);
       void invalidateProgramLists(queryClient);
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
@@ -246,7 +253,12 @@ export function ProgramEditPage({
   const refreshMilestoneSnapshot = (milestoneId: string) => {
     const requestId = (milestoneSnapshotRequestRef.current += 1);
     setLatestMilestoneSnapshot(null);
-    void getEditableMilestone(milestoneId)
+    void queryClient
+      .fetchQuery({
+        queryKey: programFeatureKey(programId, 'milestone-edit', milestoneId),
+        queryFn: () => getEditableMilestone(milestoneId),
+        staleTime: 0,
+      })
       .then((snapshot) => {
         if (requestId !== milestoneSnapshotRequestRef.current) return;
         if (milestoneSnapshot === null) {
@@ -277,7 +289,12 @@ export function ProgramEditPage({
     setLatestMilestoneSnapshot(null);
     setMilestoneSnapshotLoadFailed(false);
     const requestId = (milestoneSnapshotRequestRef.current += 1);
-    void getEditableMilestone(milestone.id)
+    void queryClient
+      .fetchQuery({
+        queryKey: programFeatureKey(programId, 'milestone-edit', milestone.id),
+        queryFn: () => getEditableMilestone(milestone.id),
+        staleTime: 0,
+      })
       .then((snapshot) => {
         if (requestId !== milestoneSnapshotRequestRef.current) return;
         setMilestoneSnapshot(snapshot);
@@ -474,6 +491,7 @@ export function ProgramEditPage({
           ),
         );
       }
+      void invalidateProgram(queryClient, programId);
       setMilestoneEditor({ mode: 'closed' });
       setHasUnsavedMilestoneDocuments(false);
     } catch (error: unknown) {
@@ -556,6 +574,7 @@ export function ProgramEditPage({
     setDeleteError(null);
     try {
       await deleteMilestone(deleteTarget.id);
+      void invalidateProgram(queryClient, programId);
       setState((current) => removeMilestone(current, deleteTarget.id));
       setDeleteTarget(null);
     } catch (error: unknown) {

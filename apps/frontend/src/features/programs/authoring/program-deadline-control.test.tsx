@@ -1,6 +1,18 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  createQueryRoot as createRoot,
+  createTestQueryClient,
+} from '../../../../test-support/render-with-query';
+type Root = ReturnType<typeof createRoot>;
+import { QueryClientProvider } from '@tanstack/react-query';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import { ProgramDeadlineControl } from './program-deadline-control';

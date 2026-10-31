@@ -149,6 +149,7 @@ export function useSentInvitationsQuery(
   teamId: string | null,
   identityKey: string | null,
   preparation: boolean,
+  refetchInterval: number | false = false,
 ) {
   return useQuery({
     queryKey: programFeatureKey(
@@ -163,6 +164,8 @@ export function useSentInvitationsQuery(
       teamId !== null && identityKey !== null
         ? () => listSentInvitations(teamId, preparation)
         : skipToken,
+    refetchOnWindowFocus: refetchInterval !== false,
+    refetchInterval,
   });
 }
 

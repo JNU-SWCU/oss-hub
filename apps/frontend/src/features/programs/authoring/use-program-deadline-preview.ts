@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
 import {
   previewProgramDeadline,
@@ -16,6 +18,7 @@ export function useProgramDeadlinePreview(
   programId: string | undefined,
   enabled: boolean,
 ) {
+  const queryClient = useQueryClient();
   const [guidance, setGuidance] = useState<ProgramDeadlineGuidance>({
     studentGuidance: '',
     staffGuidance: '',
@@ -78,7 +81,11 @@ export function useProgramDeadlinePreview(
     setError(null);
     setResult(null);
     try {
-      const next = await previewProgramDeadline(programId, guidance);
+      const next = await queryClient.fetchQuery({
+        queryKey: programFeatureKey(programId, 'deadline-preview', guidance),
+        queryFn: () => previewProgramDeadline(programId, guidance),
+        staleTime: 0,
+      });
       if (current !== requestId.current) return;
       setPreview(next);
       setNeedsRefresh(false);
@@ -113,6 +120,9 @@ export function useProgramDeadlinePreview(
         previewedAt: preview.previewedAt,
         previewVersion: preview.previewVersion,
         ...guidance,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: programFeatureKey(programId, 'deadline-preview'),
       });
       if (current !== requestId.current) return;
       setResult(sent);

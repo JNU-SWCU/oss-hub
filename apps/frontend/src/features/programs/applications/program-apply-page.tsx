@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { featureKey, programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../catalog/queries';
 import { EmptyState, FailureState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
@@ -84,6 +87,7 @@ export function ProgramApplyPage({
   readonly sessionUser: ProgramApplySessionUser;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<ProgramApplyPageState>({
     kind: 'loading',
   });
@@ -123,8 +127,21 @@ export function ProgramApplyPage({
     programId,
     team: invitationTeam,
     sessionKey: sessionUser.nickname,
+    refetchInterval: BACKGROUND_REFRESH_MS,
   });
-  const { reloadSent } = invitation;
+  const contextQuery = useQuery({
+    queryKey: programFeatureKey(
+      programId,
+      'apply-context',
+      sessionUser.nickname,
+      sessionUser.name,
+    ),
+    queryFn: () => loadProgramApplyContext(programId, sessionUser, queryClient),
+    enabled: state.kind !== 'success',
+    refetchOnWindowFocus: state.kind === 'ready' && !submitting,
+    refetchInterval:
+      state.kind === 'ready' && !submitting ? BACKGROUND_REFRESH_MS : false,
+  });
 
   function currentMutationIdentity(): MutationIdentity {
     return {
@@ -152,6 +169,21 @@ export function ProgramApplyPage({
     };
   }, []);
 
+  const applyContext = useCallback((context: ProgramApplyContext) => {
+    const current = stateRef.current;
+    if (current.kind === 'success' || submittingRef.current) return;
+    if (context.kind === 'ready') {
+      if (context.team === null) preparationCreatedRef.current = false;
+      const modeChanged =
+        current.kind === 'ready' && current.mode !== context.mode;
+      if (!hasUserInput.current || modeChanged) {
+        setValues(context.initialValues);
+        if (modeChanged) hasUserInput.current = false;
+      }
+    }
+    setState(context);
+  }, []);
+
   const load = useCallback(
     async (options?: {
       readonly quiet?: boolean;
@@ -159,29 +191,25 @@ export function ProgramApplyPage({
       const seq = ++loadSeqRef.current;
       const epoch = identityEpochRef.current;
       if (!options?.quiet) setState({ kind: 'loading' });
-      const context = await loadProgramApplyContext(
-        programIdRef.current,
-        sessionUserRef.current,
-      );
+      const context = await queryClient.fetchQuery({
+        queryKey: programFeatureKey(
+          programId,
+          'apply-context',
+          sessionUser.nickname,
+          sessionUser.name,
+        ),
+        queryFn: () =>
+          loadProgramApplyContext(programId, sessionUser, queryClient),
+        staleTime: 0,
+      });
       if (!mountedRef.current) return null;
       if (epoch !== identityEpochRef.current) return null;
 
       if (seq !== loadSeqRef.current) return context;
-      const current = stateRef.current;
-      if (current.kind === 'success') return context;
-      if (context.kind === 'ready') {
-        if (context.team === null) preparationCreatedRef.current = false;
-        const modeChanged =
-          current.kind === 'ready' && current.mode !== context.mode;
-        if (!hasUserInput.current || modeChanged) {
-          setValues(context.initialValues);
-          if (modeChanged) hasUserInput.current = false;
-        }
-      }
-      setState(context);
+      applyContext(context);
       return context;
     },
-    [],
+    [applyContext, programId, queryClient, sessionUser],
   );
 
   useEffect(() => {
@@ -200,41 +228,31 @@ export function ProgramApplyPage({
     setTeamError(null);
 
     setInviteOpen(false);
-    void load();
+    setState({ kind: 'loading' });
     return () => {
       identityEpochRef.current += 1;
       loadSeqRef.current += 1;
     };
-  }, [load, programId, sessionUser]);
+  }, [programId, sessionUser]);
+
+  useEffect(() => {
+    if (contextQuery.isFetchedAfterMount && contextQuery.data !== undefined) {
+      applyContext(contextQuery.data);
+    }
+  }, [
+    applyContext,
+    contextQuery.data,
+    contextQuery.dataUpdatedAt,
+    contextQuery.isFetchedAfterMount,
+  ]);
 
   const refreshLiveState = useCallback(async () => {
     const current = stateRef.current;
     if (current.kind !== 'ready') return;
-    await Promise.allSettled([load({ quiet: true }), reloadSent()]);
-  }, [load, reloadSent]);
-
-  useEffect(() => {
-    if (state.kind !== 'ready') return;
-    function onFocus() {
-      if (document.visibilityState === 'hidden') return;
-      void refreshLiveState();
-    }
-    function onVisibility() {
-      if (document.visibilityState !== 'visible') return;
-      void refreshLiveState();
-    }
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      void refreshLiveState();
-    }, BACKGROUND_REFRESH_MS);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.clearInterval(timer);
-    };
-  }, [refreshLiveState, state.kind]);
+    await queryClient.invalidateQueries({
+      queryKey: programFeatureKey(programId, 'apply-context'),
+    });
+  }, [programId, queryClient]);
 
   async function ensureTeam(
     started: MutationIdentity,
@@ -251,6 +269,17 @@ export function ProgramApplyPage({
         return null;
       }
       await createApplicationPreparation(programIdRef.current, { name });
+      if (!mutationStillCurrent(started)) return null;
+      await queryClient.cancelQueries({
+        queryKey: programFeatureKey(programId, 'apply-context'),
+      });
+      await queryClient.cancelQueries({
+        queryKey: programFeatureKey(programId, 'teams'),
+      });
+      if (!mutationStillCurrent(started)) return null;
+      void queryClient.invalidateQueries({
+        queryKey: programFeatureKey(programId, 'teams'),
+      });
 
       preparationCreatedRef.current = true;
     }
@@ -338,6 +367,10 @@ export function ProgramApplyPage({
     try {
       if (confirmation === 'cancel') {
         await cancelMyApplication(programId);
+        void invalidateProgram(queryClient, programId);
+        void queryClient.invalidateQueries({
+          queryKey: featureKey('student-dashboard'),
+        });
         if (!mutationStillCurrent(started)) return;
         invalidateBackgroundReads();
         router.push('/dashboard');
@@ -349,6 +382,10 @@ export function ProgramApplyPage({
         const updated = await updateMyApplication(programId, {
           answers: applicationAnswers(values),
           applicationTemplateVersion: currentTemplateVersion,
+        });
+        void invalidateProgram(queryClient, programId);
+        void queryClient.invalidateQueries({
+          queryKey: featureKey('student-dashboard'),
         });
         if (!mutationStillCurrent(started)) return;
         invalidateBackgroundReads();
@@ -369,6 +406,10 @@ export function ProgramApplyPage({
         isRepositoryPublicationPlanned:
           currentProgram.repositoryProvisioningEnabled &&
           values.isRepositoryPublicationPlanned,
+      });
+      void invalidateProgram(queryClient, programId);
+      void queryClient.invalidateQueries({
+        queryKey: featureKey('student-dashboard'),
       });
       if (!mutationStillCurrent(started)) return;
       invalidateBackgroundReads();
