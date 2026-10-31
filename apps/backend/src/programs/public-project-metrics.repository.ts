@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 
-export interface ContributionCountsRow {
+interface ContributionCountsRow {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;

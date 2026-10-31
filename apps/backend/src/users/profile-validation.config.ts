@@ -36,8 +36,3 @@ export interface ProfileFieldRequirement {
   readonly studentId: boolean;
   readonly department: boolean;
 }
-
-export const MEMBER_KINDS = {
-  STUDENT: 'STUDENT',
-  STAFF: 'STAFF',
-} as const satisfies Record<MemberKind, MemberKind>;

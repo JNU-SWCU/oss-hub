@@ -53,7 +53,7 @@ export type ApplicationDecisionAction =
     }
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.REVERT };
 
-export interface ApplicationParticipantRow {
+interface ApplicationParticipantRow {
   readonly id: string;
   readonly githubLogin: string;
 }
