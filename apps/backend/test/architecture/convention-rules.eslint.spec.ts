@@ -525,6 +525,10 @@ for (const [name, code] of [
     'function loadThingConfig() { return {}; } export { loadThingConfig };',
   ],
   ['a type re-export', 'export type { Row } from "./row.types";'],
+  [
+    'a type-only import re-exported by name',
+    'import type { Row } from "./row.types"; export { Row };',
+  ],
 ] as const) {
   valid('config-exports', `allows ${name}`, configFile, code);
 }
@@ -566,6 +570,46 @@ for (const [name, code] of [
     'an arrow behind satisfies',
     'export const parseThing = (() => 1) satisfies () => number;',
   ],
+  [
+    'a default binding behind a type assertion',
+    'const parseThing = () => 1; export default (parseThing as () => number);',
+  ],
+  [
+    'a default binding behind satisfies',
+    'const parseThing = () => 1; export default (parseThing satisfies () => number);',
+  ],
+  [
+    'a non-null default binding',
+    'const parseThing = () => 1; export default parseThing!;',
+  ],
+  [
+    'an angle-bracket asserted default binding',
+    'const parseThing = () => 1; export default <() => number>parseThing;',
+  ],
+  [
+    'a parenthesized default binding',
+    'const parseThing = () => 1; export default (parseThing);',
+  ],
+  [
+    'a default alias of a function binding',
+    'const parseThing = () => 1; const alias = parseThing; export default alias;',
+  ],
+  [
+    'an export list of an asserted alias',
+    'const parseThing = () => 1; const alias = parseThing as () => number; export { alias };',
+  ],
+  [
+    'an imported default binding',
+    'import { parseThing } from "./other"; export default parseThing;',
+  ],
+  [
+    'an imported export-list binding',
+    'import { parseThing } from "./other"; export { parseThing };',
+  ],
+  [
+    'an imported namespace binding',
+    'import * as helpers from "./other"; export { helpers };',
+  ],
 ] as const) {
   invalid('config-exports', `rejects ${name}`, configFile, code, ['forbidden']);
 }
@@ -601,6 +645,43 @@ for (const [name, code] of [
   [
     'an arrow behind a type assertion',
     'export const run = (() => 1) as never;',
+  ],
+  [
+    'a default binding behind a type assertion',
+    'const run = () => 1; export default (run as () => number);',
+  ],
+  [
+    'a default binding behind satisfies',
+    'const run = () => 1; export default (run satisfies () => number);',
+  ],
+  ['a non-null default binding', 'const run = () => 1; export default run!;'],
+  [
+    'an angle-bracket asserted default binding',
+    'const run = () => 1; export default <() => number>run;',
+  ],
+  [
+    'a parenthesized default binding',
+    'const run = () => 1; export default (run);',
+  ],
+  [
+    'a default alias of a function binding',
+    'const run = () => 1; const alias = run; export default alias;',
+  ],
+  [
+    'an export list of an asserted alias',
+    'const run = () => 1; const alias = run as () => number; export { alias };',
+  ],
+  [
+    'an imported default binding',
+    'import { run } from "./other"; export default run;',
+  ],
+  [
+    'an imported export-list binding',
+    'import { run } from "./other"; export { run };',
+  ],
+  [
+    'an imported namespace binding',
+    'import * as helpers from "./other"; export { helpers };',
   ],
 ] as const) {
   invalid('service-exports', `rejects ${name}`, serviceFile, code, [
