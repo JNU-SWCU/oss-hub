@@ -17,6 +17,9 @@ import { UsersAuthorityRepository } from '../users/independent-authority.reposit
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -71,6 +74,10 @@ describe('authenticated milestone document list filename contract', () => {
         MilestoneDocumentsService,
         UsersAuthorityRepository,
         UsersAuthorityService,
+        MilestoneDocumentRulesService,
+        ProgramRulesService,
+        SubmissionFileRulesService,
+        AuthSessionService,
         SessionGuard,
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },

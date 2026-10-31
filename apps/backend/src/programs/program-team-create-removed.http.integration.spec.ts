@@ -68,6 +68,7 @@ beforeAll(async () => {
     controllers: [ProgramTeamsController],
     providers: [
       { provide: ProgramTeamsService, useValue: service },
+      AuthSessionService,
       SessionGuard,
       OriginGuard,
       {

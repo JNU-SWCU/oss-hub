@@ -18,6 +18,7 @@ export async function createMatrixDeliveryHttp(
   const module = await Test.createTestingModule({
     controllers: [ProgramSubmissionsController],
     providers: [
+      AuthSessionService,
       SessionGuard,
       { provide: SubmissionMatrixService, useValue: service },
       { provide: AuthConfig, useValue: { sessionSecret } },

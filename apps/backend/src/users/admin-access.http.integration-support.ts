@@ -17,6 +17,10 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -41,10 +45,15 @@ export class AdminAccessHttpHarness {
       providers: [
         AdminAccessService,
         AdminAccessRepository,
+        AdminAccessMutationService,
         AdminProfileService,
         AdminProfileRepository,
+        AdminProfileMutationService,
         AuditLogService,
         AuditLogRepository,
+        AuditLogMetadataService,
+        UserProfileService,
+        AuthSessionService,
         SessionGuard,
         OriginGuard,
         { provide: PrismaService, useValue: this.prisma },

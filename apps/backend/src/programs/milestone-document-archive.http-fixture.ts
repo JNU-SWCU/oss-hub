@@ -14,6 +14,7 @@ import {
 } from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { DownloadResponseService } from './download-response.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -28,6 +29,8 @@ export async function startArchiveHttp(
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],
     providers: [
+      AuthSessionService,
+      DownloadResponseService,
       SessionGuard,
       { provide: AuthConfig, useValue: { sessionSecret } },
       {

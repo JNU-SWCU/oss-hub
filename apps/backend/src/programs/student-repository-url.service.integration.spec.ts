@@ -24,8 +24,25 @@ import {
   input,
 } from './student-repository-url.integration.fixture';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ApplicationsService } from './applications.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 const auditLogMetadataService = new AuditLogMetadataService();
+const applicationsService = new ApplicationsService(
+  applications,
+  audit,
+  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
+  new ApplicationJoinCodeService(
+    { TEAM_JOIN_CODE_SECRET: 'synthetic-url-relink-secret' },
+    new JoinCodeSecretService(),
+  ),
+  auditLogMetadataService,
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+);
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -127,7 +144,8 @@ it('projects a successful relink without an original provision outbox', async ()
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    await applications.findApplicationForStaff(applicationId),
+    (await applicationsService.getForStaff(githubId, applicationId))
+      .application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,

@@ -12,6 +12,8 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoriesRepository } from './repositories.repository';
+import { RepositoriesReadService } from './repositories-read.service';
+import { RepositoryUrlService } from './repository-url.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -20,6 +22,11 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new RepositoriesRepository(prisma);
+const readService = new RepositoriesReadService(
+  repository,
+  { requireOrganization: () => 'synthetic' },
+  new RepositoryUrlService(),
+);
 const PREFIX = 'synthetic-owned-provision-jobs';
 const CURRENT_USER_ID = `${PREFIX}-current-user`;
 const OTHER_USER_ID = `${PREFIX}-other-user`;
@@ -209,8 +216,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         },
         repository: {
           id: REPOSITORY_IDS[1],
-          name: REPOSITORY_IDS[1],
-          url: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
+          nameWithOwner: `synthetic/${REPOSITORY_IDS[1]}`,
           visibility: RepositoryVisibility.PRIVATE,
           source: RepositorySource.ORG_PROVISIONED,
           invitations: [{ status: RepositoryInvitationStatus.PENDING }],
@@ -219,6 +225,12 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       lastErrorCode: 'SYNTHETIC_ERROR',
       updatedAt: FIXED_UPDATED_AT,
+    });
+    const [mine] = await readService.getMyRepositories(8_300_000_000_001n);
+    expect(mine).toMatchObject({
+      repositoryId: REPOSITORY_IDS[1],
+      repositoryName: REPOSITORY_IDS[1],
+      githubUrl: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
     });
   });
 

@@ -11,6 +11,16 @@ import {
   ApplicationsRepository,
   type ApplicationListQuery,
 } from './applications.repository';
+import { ApplicationsService } from './applications.service';
+import { AuditLogRepository } from '../platform/audit-log.repository';
+import { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { UsersAuthorityService } from '../users/users-authority.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -42,6 +52,22 @@ const SEARCH_ONLY_MEMBER_NICKNAME = 'search-only-login';
 
 const prisma = new PrismaService();
 const repository = new ApplicationsRepository(prisma);
+const service = new ApplicationsService(
+  repository,
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new ApplicationJoinCodeService(
+    { TEAM_JOIN_CODE_SECRET: 'synthetic-staff-read-paths-secret' },
+    new JoinCodeSecretService(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+);
+const STAFF_GITHUB_ID = 9_410_000_000n;
 
 function query(overrides: Partial<ApplicationListQuery> = {}) {
   return {
@@ -103,7 +129,7 @@ async function seed(): Promise<void> {
   await prisma.user.create({
     data: {
       id: STAFF_ID,
-      githubId: 9_410_000_000n,
+      githubId: STAFF_GITHUB_ID,
       nickname: 'staff-reviewer',
       selectedMemberKind: MemberKind.STAFF,
       hasStaffAccess: true,
@@ -309,7 +335,8 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('기존 목록 projection 의 응답 모양은 그대로다 — 중간 배포에서 옛 화면이 산다', async () => {
-    const page = await repository.listApplicationsForProgram(
+    const page = await service.listForProgram(
+      STAFF_GITHUB_ID,
       PROGRAM_ID,
       query({ view: 'default' }),
     );

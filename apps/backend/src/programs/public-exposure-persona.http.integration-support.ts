@@ -136,11 +136,13 @@ export class PublicExposurePersonaHttpHarness {
       providers: [
         { provide: PublicProjectsService, useValue: publicProjectsService },
         { provide: RankingService, useValue: rankingService },
+        RankingYearService,
         {
           provide: SubmissionReviewsService,
           useValue: submissionReviewsService,
         },
         { provide: AuditLogService, useValue: auditLogService },
+        AuthSessionService,
         AuthenticationGuard,
         SessionGuard,
         OriginGuard,

@@ -361,7 +361,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
 
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
-      providers: [SubmissionFilesService, SubmissionFilesRepository],
+      providers: [
+        SubmissionFilesService,
+        SubmissionFilesRepository,
+        ProgramRulesService,
+        SubmissionFileRulesService,
+      ],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(

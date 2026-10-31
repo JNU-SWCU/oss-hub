@@ -46,6 +46,7 @@ describe('canonical auth session HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        AuthSessionService,
         AuthenticationGuard,
         OriginGuard,
         { provide: AuthService, useValue: authService },
