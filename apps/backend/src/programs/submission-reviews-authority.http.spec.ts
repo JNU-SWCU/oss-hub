@@ -9,7 +9,6 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { AuthConfig } from '../platform/auth.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
@@ -21,7 +20,10 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
-import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
+import {
+  protectedRouteGuardStub,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const actors = [
   ['anonymous', null],
@@ -124,6 +126,11 @@ beforeAll(async () => {
               AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
             );
           request.sessionGithubId = BigInt(index);
+          Object.assign(request, {
+            principal: sessionPrincipal(
+              actors[index]?.[1] as Parameters<typeof sessionPrincipal>[0],
+            ),
+          });
           return true;
         },
       }),
@@ -138,10 +145,6 @@ beforeAll(async () => {
           {
             publish: jest.fn(),
           },
-          new UsersAuthorityService({
-            findActorByGithubId: (githubId) =>
-              Promise.resolve(actors[Number(githubId)]?.[1] ?? null),
-          }),
           new RepositoryPublishService(),
           new RepositoryUrlService(),
           new MilestoneCompletionService(),
@@ -172,16 +175,16 @@ it.each(
       path: '/submissions/missing/reviews',
       body: { revision: 0, decision: 'INVALID' },
       origin: 'http://frontend.test',
-      status: 400,
-      code: 'SYS_003',
+      status: 403,
+      code: 'SUB_002',
     },
     {
       actorIndex,
       path: '/repositories/missing/publish',
       body: { isConfirmed: 'INVALID' },
       origin: 'http://frontend.test',
-      status: 400,
-      code: 'SYS_003',
+      status: 403,
+      code: 'SUB_002',
     },
     ...[
       '/submissions/missing/reviews',
@@ -206,7 +209,7 @@ it.each(
     ]),
   ]),
 )(
-  '권한 없는 $actorIndex $path 요청은 validation 또는 Origin 오류를 먼저 반환한다 ($code)',
+  '권한 없는 $actorIndex $path 요청은 Origin 오류를 먼저, 입력 오류보다 권한 오류를 먼저 반환한다 ($code)',
   async ({ actorIndex, path, body, origin, status, code }) => {
     const response = await fetch(`${baseUrl}/api/v1${path}`, {
       method: 'POST',
