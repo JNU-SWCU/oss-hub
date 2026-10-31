@@ -8,9 +8,9 @@ import {
   RepositoryProvisionWorkerService,
   type RepositoryProvisionResult,
 } from './repository-provision-worker.service';
-import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
+import { RepositoryProvisionScheduler } from './github.scheduler';
 
-describe('repository-provision.scheduler', () => {
+describe('github.scheduler', () => {
   const NOW = new Date('2026-07-22T00:00:00.000Z');
   const LATER = new Date('2026-07-22T00:00:01.000Z');
   const INTERVAL_NAME = 'repository-provision';

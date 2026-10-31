@@ -22,9 +22,9 @@ import {
   RepositoriesService,
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
-import { CollectionPublicTokenService } from './collection-public-token.service';
+import { CollectionPublicTokenService } from './collection-providers.service';
 import { ProviderRequestQueue } from './provider-request-queue.policy';
-import { CollectionScheduler } from './collection.scheduler';
+import { GithubScheduler } from './github.scheduler';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
@@ -93,7 +93,7 @@ describe('GithubModule', () => {
     expect(providers).toEqual(
       expect.arrayContaining([
         CollectionAdminService,
-        CollectionScheduler,
+        GithubScheduler,
         CollectionTriggerService,
         expect.objectContaining({ provide: CollectionSyncService }),
       ]),

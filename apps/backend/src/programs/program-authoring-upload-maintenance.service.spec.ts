@@ -4,9 +4,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
+import { ProgramAuthoringUploadMaintenanceScheduler } from './programs.scheduler';
 
-describe('program-authoring-upload-maintenance.scheduler', () => {
+describe('programs.scheduler', () => {
   function deferred(): {
     readonly promise: Promise<number>;
     readonly resolve: (value: number) => void;

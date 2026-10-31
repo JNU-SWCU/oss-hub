@@ -4,10 +4,9 @@ import type {
   SyncLeaseToken,
 } from './collection-incremental.types';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { splitNameWithOwner } from './github.policy';
+import { CollectionSyncDeadline, splitNameWithOwner } from './github.policy';
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
-import { CollectionSyncDeadline } from './collection-sync-deadline.policy';
 
 export interface SweepInventory {
   readonly complete: boolean;

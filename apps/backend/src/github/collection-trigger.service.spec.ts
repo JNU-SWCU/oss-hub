@@ -16,12 +16,12 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
-import { CollectionScheduler } from './collection.scheduler';
+import { GithubScheduler } from './github.scheduler';
 
-describe('collection.scheduler', () => {
-  describe('CollectionScheduler', () => {
+describe('github.scheduler', () => {
+  describe('GithubScheduler', () => {
     let testingModule: TestingModule;
-    let scheduler: CollectionScheduler;
+    let scheduler: GithubScheduler;
     const runScheduled = jest.fn<Promise<void>, []>();
 
     const registeredJob = () =>
@@ -33,12 +33,12 @@ describe('collection.scheduler', () => {
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          CollectionScheduler,
+          GithubScheduler,
           { provide: CollectionTriggerService, useValue: { runScheduled } },
         ],
       }).compile();
       await testingModule.init();
-      scheduler = testingModule.get(CollectionScheduler);
+      scheduler = testingModule.get(GithubScheduler);
     });
 
     afterEach(async () => {

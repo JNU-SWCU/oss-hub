@@ -19,7 +19,7 @@ import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
-import { CollectionScheduler } from './collection.scheduler';
+import { GithubScheduler } from './github.scheduler';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -350,7 +350,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     let personSweep: Promise<unknown> | undefined;
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
-        CollectionScheduler,
+        GithubScheduler,
         CollectionTriggerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         {
@@ -368,7 +368,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         },
       ],
     }).compile();
-    const scheduler = testingModule.get(CollectionScheduler);
+    const scheduler = testingModule.get(GithubScheduler);
 
     await scheduler.handleCron();
     expect(personSweep).toBeDefined();

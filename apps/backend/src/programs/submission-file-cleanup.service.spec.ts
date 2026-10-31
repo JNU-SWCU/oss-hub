@@ -4,9 +4,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
+import { SubmissionFileCleanupScheduler } from './programs.scheduler';
 
-describe('submission-file-cleanup.scheduler', () => {
+describe('programs.scheduler', () => {
   const CRON_JOB_NAME = 'submission-file-cleanup';
 
   const settleRun = (): Promise<void> =>

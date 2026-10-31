@@ -2,15 +2,15 @@ import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
-import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
+import { ProgramsScheduler } from './programs.scheduler';
 
-describe('program-purge-file-cleanup.scheduler', () => {
+describe('programs.scheduler', () => {
   const CRON_JOB_NAME = 'program-purge-file-cleanup';
 
   const settleRun = (): Promise<void> =>
     new Promise((resolve) => setImmediate(resolve));
 
-  describe('ProgramPurgeFileCleanupScheduler', () => {
+  describe('ProgramsScheduler', () => {
     let testingModule: TestingModule;
     const runDue = jest.fn<Promise<number>, []>();
     let releasePendingRun: (() => void) | undefined;
@@ -25,7 +25,7 @@ describe('program-purge-file-cleanup.scheduler', () => {
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          ProgramPurgeFileCleanupScheduler,
+          ProgramsScheduler,
           { provide: ProgramPurgeFileCleanupService, useValue: { runDue } },
         ],
       }).compile();

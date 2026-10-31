@@ -115,9 +115,11 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
-import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
-import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
+import {
+  ProgramAuthoringUploadMaintenanceScheduler,
+  ProgramsScheduler,
+  SubmissionFileCleanupScheduler,
+} from './programs.scheduler';
 
 @Module({
   imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
@@ -163,7 +165,7 @@ import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.schedu
     ProgramAuthoringUploadMaintenanceScheduler,
     ProgramPurgeFileCleanupRepository,
     ProgramPurgeFileCleanupService,
-    ProgramPurgeFileCleanupScheduler,
+    ProgramsScheduler,
     ProgramActivityRepository,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,

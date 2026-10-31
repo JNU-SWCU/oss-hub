@@ -27,14 +27,16 @@ import {
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
-import { CollectionScheduler } from './collection.scheduler';
-import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
+import {
+  GithubScheduler,
+  RepositoryProvisionScheduler,
+} from './github.scheduler';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
   providers: [
     CollectionAdminService,
-    CollectionScheduler,
+    GithubScheduler,
     CollectionTriggerService,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
