@@ -1,14 +1,14 @@
 export type SyntheticRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 export type SyntheticMemberKind = 'STUDENT' | 'STAFF';
-export type SyntheticAccountStatus = 'ACTIVE' | 'DEACTIVATED';
+type SyntheticAccountStatus = 'ACTIVE' | 'DEACTIVATED';
 
-export interface SyntheticPendingRequest {
+interface SyntheticPendingRequest {
   readonly id: string;
   readonly status: 'PENDING';
   readonly createdAt: string;
 }
 
-export interface SyntheticAuthorityFields {
+interface SyntheticAuthorityFields {
   readonly memberKind: SyntheticMemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
@@ -27,7 +27,7 @@ export interface SyntheticAdminUserRow extends SyntheticAuthorityFields {
   readonly lastLoginAt: string | null;
 }
 
-export interface SyntheticAdminUserProfile {
+interface SyntheticAdminUserProfile {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
@@ -39,7 +39,7 @@ export interface SyntheticAdminUserDetail extends SyntheticAdminUserRow {
   readonly profile: SyntheticAdminUserProfile;
 }
 
-export interface SyntheticFacetCounts {
+interface SyntheticFacetCounts {
   readonly roles: {
     readonly unassigned: number;
     readonly student: number;
@@ -97,8 +97,8 @@ export const SYNTHETIC_SELF = {
   name: '합성 권한 사용자',
 } as const;
 
-export const ADMIN_USERS_PAGE_LIMIT = 20;
-export const ADMIN_USERS_TOTAL = 41;
+const ADMIN_USERS_PAGE_LIMIT = 20;
+const ADMIN_USERS_TOTAL = 41;
 
 function authorityFor(role: SyntheticRole | null): SyntheticAuthorityFields {
   switch (role) {
@@ -298,7 +298,7 @@ export const adminUsersPage1Rows: readonly SyntheticAdminUserRow[] = [
   }),
 ];
 
-export const adminUsersFacets: SyntheticFacetCounts = {
+const adminUsersFacets: SyntheticFacetCounts = {
   roles: { unassigned: 2, student: 27, staff: 8, admin: 4 },
   accountStatuses: { active: 39, deactivated: 2 },
   pendingRequests: { none: 38, pending: 3 },
@@ -348,9 +348,6 @@ export const adminUsersDetailById: Readonly<
     { ...item, profile: profileFor(item) },
   ]),
 );
-
-export const adminUsersDetails: readonly SyntheticAdminUserDetail[] =
-  Object.values(adminUsersDetailById);
 
 export function adminUserHistoryFor(
   item: SyntheticAdminUserRow,

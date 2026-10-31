@@ -24,7 +24,7 @@ export interface MemberKindMutationRequest extends MemberKindMutationFields {
   readonly expectedHasStaffAccess: boolean;
 }
 
-export interface IndependentAuthority {
+interface IndependentAuthority {
   readonly memberKind: AdminMemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
