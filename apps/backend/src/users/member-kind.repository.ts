@@ -113,86 +113,6 @@ type PrismaMemberKindTarget = Prisma.UserGetPayload<{
 
 type LockedRow = Readonly<{ id: string }>;
 
-class PrismaMemberKindTransactionRepository implements MemberKindTransactionStore {
-  constructor(
-    private readonly transaction: Prisma.TransactionClient,
-    private readonly adminAccessRepository: AdminAccessRepository,
-  ) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
-  }
-
-  async lockActiveAdmins(): Promise<void> {
-    await this.adminAccessRepository.lockActiveAdminRows(this.transaction);
-  }
-
-  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return this.adminAccessRepository.findAdminActorByGithubId(
-      this.transaction,
-      githubId,
-    );
-  }
-
-  async findTargetForUpdate(
-    userId: string,
-  ): Promise<MemberKindTargetRecord | null> {
-    const userRows = await this.transaction.$queryRaw<readonly LockedRow[]>(
-      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
-    );
-    if (userRows.length !== 1) {
-      return null;
-    }
-
-    await this.transaction.$queryRaw(
-      Prisma.sql`SELECT "userId" FROM "UserProfile" WHERE "userId" = ${userId} FOR UPDATE`,
-    );
-    const user = await this.transaction.user.findUnique({
-      where: { id: userId },
-      select: MEMBER_KIND_TARGET_SELECT,
-    });
-    return user ? toMemberKindTargetRecord(user) : null;
-  }
-
-  async updateMemberKind(
-    userId: string,
-    hasStaffAccess: boolean,
-    selectedMemberKind: MemberKind,
-    profile: MemberKindProfileUpdate,
-  ): Promise<MemberKindUpdateOutcome> {
-    try {
-      await this.transaction.user.update({
-        where: { id: userId },
-        data: { selectedMemberKind, hasStaffAccess },
-      });
-      await this.transaction.userProfile.update({
-        where: { userId },
-        data: profile,
-      });
-      return 'updated';
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return 'studentIdTaken';
-      }
-      throw error;
-    }
-  }
-
-  insertRevokedRequest(input: {
-    readonly userId: string;
-    readonly actorId: string;
-    readonly decidedAt: Date;
-  }): Promise<{ readonly id: string }> {
-    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
-      this.transaction,
-      input,
-    );
-  }
-}
-
 @Injectable()
 export class MemberKindRepository implements MemberKindRepositoryPort {
   constructor(
@@ -208,12 +128,7 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(
-              new PrismaMemberKindTransactionRepository(
-                transaction,
-                this.adminAccessRepository,
-              ),
-            ),
+            operation(this.memberKindTransactionStore(transaction)),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {
@@ -222,6 +137,98 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
             USERS_ERROR_CODES[UsersErrorCode.PROFILE_UPDATE_CONFLICT],
           ),
       },
+    );
+  }
+
+  private memberKindTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): MemberKindTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
+      findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
+      findTargetForUpdate: this.findTargetForUpdateIn.bind(this, transaction),
+      updateMemberKind: this.updateMemberKindIn.bind(this, transaction),
+      insertRevokedRequest: this.insertRevokedRequestIn.bind(this, transaction),
+    };
+  }
+
+  private async lockActiveAdminsIn(
+    transaction: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.adminAccessRepository.lockActiveAdminRows(transaction);
+  }
+
+  private findActorByGithubIdIn(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    return this.adminAccessRepository.findAdminActorByGithubId(
+      transaction,
+      githubId,
+    );
+  }
+
+  private async findTargetForUpdateIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<MemberKindTargetRecord | null> {
+    const userRows = await transaction.$queryRaw<readonly LockedRow[]>(
+      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
+    );
+    if (userRows.length !== 1) {
+      return null;
+    }
+
+    await transaction.$queryRaw(
+      Prisma.sql`SELECT "userId" FROM "UserProfile" WHERE "userId" = ${userId} FOR UPDATE`,
+    );
+    const user = await transaction.user.findUnique({
+      where: { id: userId },
+      select: MEMBER_KIND_TARGET_SELECT,
+    });
+    return user ? toMemberKindTargetRecord(user) : null;
+  }
+
+  private async updateMemberKindIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    hasStaffAccess: boolean,
+    selectedMemberKind: MemberKind,
+    profile: MemberKindProfileUpdate,
+  ): Promise<MemberKindUpdateOutcome> {
+    try {
+      await transaction.user.update({
+        where: { id: userId },
+        data: { selectedMemberKind, hasStaffAccess },
+      });
+      await transaction.userProfile.update({
+        where: { userId },
+        data: profile,
+      });
+      return 'updated';
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return 'studentIdTaken';
+      }
+      throw error;
+    }
+  }
+
+  private insertRevokedRequestIn(
+    transaction: Prisma.TransactionClient,
+    input: {
+      readonly userId: string;
+      readonly actorId: string;
+      readonly decidedAt: Date;
+    },
+  ): Promise<{ readonly id: string }> {
+    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
+      transaction,
+      input,
     );
   }
 }

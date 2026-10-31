@@ -240,427 +240,15 @@ const MILESTONE_SELECT = {
   program: { select: { endAt: true } },
 } as const;
 
-class PrismaSubmissionsRepository implements SubmissionsStore {
-  constructor(
-    private readonly database: SubmissionsDatabase,
-    private readonly platformRepository: PlatformRepository,
-    private readonly submissionsRepository: SubmissionsRepository,
-  ) {}
-
-  async findActiveStudentByGithubId(
-    githubId: bigint,
-  ): Promise<SubmissionActor | null> {
-    return this.database.user.findFirst({
-      where: {
-        githubId,
-        accountStatus: AccountStatus.ACTIVE,
-        ...STUDENT_MEMBER_WHERE,
-      },
-      select: { id: true },
-    });
-  }
-
-  async findMilestoneByProgram(
-    programId: string,
-    milestoneId: string,
-  ): Promise<SubmissionMilestone | null> {
-    const milestone = await this.database.milestone.findFirst({
-      where: { id: milestoneId, programId },
-      select: MILESTONE_SELECT,
-    });
-    return milestone ? toSubmissionMilestone(milestone) : null;
-  }
-
-  async findMilestoneById(
-    milestoneId: string,
-  ): Promise<SubmissionMilestone | null> {
-    const milestone = await this.database.milestone.findUnique({
-      where: { id: milestoneId },
-      select: MILESTONE_SELECT,
-    });
-    return milestone ? toSubmissionMilestone(milestone) : null;
-  }
-
-  async findParticipantApplication(
-    programId: string,
-    milestoneId: string,
-    userId: string,
-  ): Promise<SubmissionApplication | null> {
-    const application = await this.database.application.findFirst({
-      where: {
-        programId,
-        ...this.submissionsRepository.submissionParticipantWhere(userId),
-      },
-      select:
-        this.submissionsRepository.submissionApplicationSelect(milestoneId),
-    });
-    return application
-      ? this.submissionsRepository.toSubmissionApplication(application)
-      : null;
-  }
-
-  async findApplicationForParticipant(
-    applicationId: string,
-    milestoneId: string,
-    userId: string,
-  ): Promise<SubmissionApplication | null> {
-    const application = await this.database.application.findFirst({
-      where: {
-        id: applicationId,
-        ...this.submissionsRepository.submissionParticipantWhere(userId),
-      },
-      select:
-        this.submissionsRepository.submissionApplicationSelect(milestoneId),
-    });
-    return application
-      ? this.submissionsRepository.toSubmissionApplication(application)
-      : null;
-  }
-
-  async lockProgramEndAt(programId: string): Promise<Date | null> {
-    const programs = await this.database.$queryRaw<
-      readonly { endAt: Date }[]
-    >(Prisma.sql`
-      SELECT "endAt"
-      FROM "Program"
-      WHERE "id" = ${programId}
-      FOR UPDATE
-    `);
-    return programs[0]?.endAt ?? null;
-  }
-
-  private async legacySubmissionSlotId(milestoneId: string): Promise<string> {
-    const existing = await this.findLegacySubmissionSlot(milestoneId);
-    if (existing !== null) return existing;
-
-    const milestone = await this.database.milestone.findFirst({
-      where: { id: milestoneId },
-      select: { name: true, createdAt: true, updatedAt: true },
-    });
-    if (milestone === null) throw new LegacySubmissionSlotMissingError();
-
-    await this.database.$queryRaw(Prisma.sql`
-      INSERT INTO "MilestoneDocument" (
-        "id", "milestoneId", "name", "required", "sortOrder", "kind",
-        "createdAt", "updatedAt"
-      )
-      VALUES (
-        ${legacySubmissionSlotIdFor(milestoneId)},
-        ${milestoneId},
-        ${milestone.name},
-        TRUE,
-        ${LEGACY_SUBMISSION_SLOT_SORT_ORDER},
-        ${MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION}::"MilestoneDocumentKind",
-        ${milestone.createdAt},
-        ${milestone.updatedAt}
-      )
-      ON CONFLICT DO NOTHING
-    `);
-
-    const created = await this.findLegacySubmissionSlot(milestoneId);
-    if (created === null) throw new LegacySubmissionSlotMissingError();
-    return created;
-  }
-
-  private async findLegacySubmissionSlot(
-    milestoneId: string,
-  ): Promise<string | null> {
-    const document = await this.database.milestoneDocument.findFirst({
-      where: {
-        milestoneId,
-        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-      },
-      select: { id: true },
-    });
-    return document?.id ?? null;
-  }
-
-  private async lockCurrentMembership(
-    applicationId: string,
-    actorUserId: string,
-  ): Promise<void> {
-    const stillMember = await this.platformRepository.lockSubmissionMembership(
-      this.database,
-      applicationId,
-      actorUserId,
-    );
-    if (!stillMember) {
-      throw new SubmissionMembershipChangedError(applicationId, actorUserId);
-    }
-  }
-
-  async createSubmission(
-    input: CreateSubmissionInput,
-    submittedById: string,
-    now: Date,
-    fileExpiresAt: Date | null,
-  ): Promise<CreatedSubmission> {
-    await this.lockCurrentMembership(input.applicationId, submittedById);
-    try {
-      const documentId = await this.legacySubmissionSlotId(input.milestoneId);
-
-      const submission = await this.database.milestoneDocumentSubmission.create(
-        {
-          data: {
-            milestoneDocumentId: documentId,
-            applicationId: input.applicationId,
-            status: SubmissionStatus.SUBMITTED,
-            content: submissionContentJson(input.content),
-            revision: 1,
-            submittedById,
-            submittedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          },
-          select: { id: true, status: true, submittedAt: true },
-        },
-      );
-      const history =
-        await this.database.milestoneDocumentSubmissionHistory.create({
-          data: {
-            milestoneDocumentSubmissionId: submission.id,
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-            revision: 1,
-            content: submissionContentJson(input.content),
-            comment: input.comment,
-            actorId: submittedById,
-            createdAt: now,
-          },
-          select: { id: true },
-        });
-
-      if (input.content.type === 'FILE') {
-        if (fileExpiresAt === null) throw new SubmissionFileUnavailableError();
-        const attached = await this.database.submissionFile.updateMany({
-          where: {
-            id: input.content.fileId,
-            uploaderId: submittedById,
-            applicationId: input.applicationId,
-            milestoneId: input.milestoneId,
-            lifecycle: SubmissionFileLifecycle.PENDING,
-            milestoneDocumentSubmissionId: null,
-            milestoneDocumentSubmissionHistoryId: null,
-            pendingExpiresAt: { gt: now },
-          },
-          data: {
-            milestoneDocumentSubmissionId: submission.id,
-            milestoneDocumentSubmissionHistoryId: history.id,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            pendingExpiresAt: null,
-            expiresAt: fileExpiresAt,
-          },
-        });
-        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
-      }
-
-      return submission;
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new SubmissionAlreadyExistsError();
-      }
-      throw error;
-    }
-  }
-
-  findChecklistApplication(
-    programId: string,
-    userId: string,
-  ): Promise<ChecklistApplication | null> {
-    return this.database.application
-      .findFirst({
-        where: {
-          programId,
-          ...this.submissionsRepository.submissionParticipantWhere(userId),
-        },
-        select: {
-          id: true,
-          teamId: true,
-          team: { select: { _count: { select: { members: true } } } },
-          status: true,
-        },
-      })
-      .then((row) =>
-        row === null
-          ? null
-          : {
-              id: row.id,
-              teamId: row.teamId,
-              teamMemberCount: row.team?._count.members ?? 0,
-              status: row.status,
-            },
-      );
-  }
-
-  async listChecklistMilestones(
-    programId: string,
-    applicationId: string,
-    now: Date,
-  ): Promise<readonly ChecklistMilestone[]> {
-    const milestones = await this.database.milestone.findMany({
-      where: { programId },
-      orderBy: this.submissionsRepository.checklistMilestoneOrderBy,
-      select: this.submissionsRepository.checklistMilestoneSelect(
-        applicationId,
-        now,
-      ),
-    });
-    return milestones.flatMap((milestone) => {
-      const item = this.submissionsRepository.toChecklistMilestone(milestone);
-      return item === null ? [] : [item];
-    });
-  }
-
-  async findSubmissionForParticipant(
-    submissionId: string,
-    userId: string,
-  ): Promise<ResubmissionTarget | null> {
-    const submissions =
-      await this.database.milestoneDocumentSubmission.findMany({
-        where: {
-          ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
-          milestoneDocument: {
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-          },
-          application:
-            this.submissionsRepository.submissionParticipantWhere(userId),
-        },
-        take: 2,
-        select: {
-          id: true,
-          legacySubmissionId: true,
-          applicationId: true,
-          status: true,
-          revision: true,
-          milestoneDocument: {
-            select: {
-              milestoneId: true,
-              milestone: {
-                select: {
-                  programId: true,
-                  submissionType: true,
-                  dueAt: true,
-                },
-              },
-            },
-          },
-          application: { select: { status: true } },
-        },
-      });
-    const submission =
-      this.submissionsRepository.exactSubmissionByPublicId(submissions);
-    if (submission === null) return null;
-    if (submission.milestoneDocument.milestone.submissionType === null) {
-      return null;
-    }
-    return {
-      id: submission.legacySubmissionId ?? submission.id,
-      submissionRecordId: submission.id,
-      applicationId: submission.applicationId,
-      milestoneId: submission.milestoneDocument.milestoneId,
-      programId: submission.milestoneDocument.milestone.programId,
-      status: submission.status,
-      currentRevision: submission.revision,
-      submissionType: submission.milestoneDocument.milestone.submissionType,
-      applicationStatus: submission.application.status,
-      dueAt: submission.milestoneDocument.milestone.dueAt,
-    };
-  }
-
-  async submissionExists(submissionId: string): Promise<boolean> {
-    const submission =
-      await this.database.milestoneDocumentSubmission.findFirst({
-        where: {
-          ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
-          milestoneDocument: {
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-          },
-        },
-        select: { id: true },
-      });
-    return submission !== null;
-  }
-
-  async createSubmissionRevision(
-    input: CreateSubmissionRevisionInput,
-  ): Promise<{ readonly revision: number }> {
-    await this.lockCurrentMembership(input.applicationId, input.submittedById);
-    const nextRevision = input.baseRevision + 1;
-    const updated = await this.database.milestoneDocumentSubmission.updateMany({
-      where: {
-        id: input.submissionId,
-        status: input.baseStatus,
-        revision: input.baseRevision,
-      },
-      data: {
-        status: SubmissionStatus.SUBMITTED,
-        revision: nextRevision,
-        content: submissionContentJson(input.content),
-        submittedById: input.submittedById,
-        submittedAt: input.now,
-        updatedAt: input.now,
-      },
-    });
-    if (updated.count === 0) throw new StaleSubmissionRevisionError();
-
-    const history =
-      await this.database.milestoneDocumentSubmissionHistory.create({
-        data: {
-          milestoneDocumentSubmissionId: input.submissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-          revision: nextRevision,
-          content: submissionContentJson(input.content),
-          comment: input.comment,
-          actorId: input.submittedById,
-          createdAt: input.now,
-        },
-        select: { id: true, revision: true },
-      });
-
-    if (input.content.type === 'FILE') {
-      if (input.fileExpiresAt === null) {
-        throw new SubmissionFileUnavailableError();
-      }
-      const attached = await this.database.submissionFile.updateMany({
-        where: {
-          id: input.content.fileId,
-          uploaderId: input.submittedById,
-          applicationId: input.applicationId,
-          milestoneId: input.milestoneId,
-          lifecycle: SubmissionFileLifecycle.PENDING,
-          milestoneDocumentSubmissionId: null,
-          milestoneDocumentSubmissionHistoryId: null,
-          pendingExpiresAt: { gt: input.now },
-        },
-        data: {
-          milestoneDocumentSubmissionId: input.submissionId,
-          milestoneDocumentSubmissionHistoryId: history.id,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
-          pendingExpiresAt: null,
-          expiresAt: input.fileExpiresAt,
-        },
-      });
-      if (attached.count !== 1) throw new SubmissionFileUnavailableError();
-    }
-    return { revision: nextRevision };
-  }
-}
-
 @Injectable()
 export class SubmissionsRepository implements SubmissionsStore {
-  private readonly store: PrismaSubmissionsRepository;
+  private readonly store: SubmissionsStore;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
   ) {
-    this.store = new PrismaSubmissionsRepository(
-      prisma,
-      this.platformRepository,
-      this,
-    );
+    this.store = this.submissionsStore(prisma);
   }
 
   findActiveStudentByGithubId(githubId: bigint) {
@@ -741,13 +329,7 @@ export class SubmissionsRepository implements SubmissionsStore {
     operation: (store: SubmissionsStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaSubmissionsRepository(
-          transaction,
-          this.platformRepository,
-          this,
-        ),
-      ),
+      operation(this.submissionsStore(transaction)),
     );
   }
 
@@ -894,6 +476,468 @@ export class SubmissionsRepository implements SubmissionsStore {
         },
       },
     }) as const;
+
+  private submissionsStore(database: SubmissionsDatabase): SubmissionsStore {
+    return {
+      findActiveStudentByGithubId: this.findActiveStudentByGithubIdIn.bind(
+        this,
+        database,
+      ),
+      findMilestoneByProgram: this.findMilestoneByProgramIn.bind(
+        this,
+        database,
+      ),
+      findMilestoneById: this.findMilestoneByIdIn.bind(this, database),
+      findParticipantApplication: this.findParticipantApplicationIn.bind(
+        this,
+        database,
+      ),
+      findApplicationForParticipant: this.findApplicationForParticipantIn.bind(
+        this,
+        database,
+      ),
+      lockProgramEndAt: this.lockProgramEndAtIn.bind(this, database),
+      createSubmission: this.createSubmissionIn.bind(this, database),
+      findChecklistApplication: this.findChecklistApplicationIn.bind(
+        this,
+        database,
+      ),
+      listChecklistMilestones: this.listChecklistMilestonesIn.bind(
+        this,
+        database,
+      ),
+      findSubmissionForParticipant: this.findSubmissionForParticipantIn.bind(
+        this,
+        database,
+      ),
+      submissionExists: this.submissionExistsIn.bind(this, database),
+      createSubmissionRevision: this.createSubmissionRevisionIn.bind(
+        this,
+        database,
+      ),
+    };
+  }
+
+  private async findActiveStudentByGithubIdIn(
+    database: SubmissionsDatabase,
+    githubId: bigint,
+  ): Promise<SubmissionActor | null> {
+    return database.user.findFirst({
+      where: {
+        githubId,
+        accountStatus: AccountStatus.ACTIVE,
+        ...STUDENT_MEMBER_WHERE,
+      },
+      select: { id: true },
+    });
+  }
+
+  private async findMilestoneByProgramIn(
+    database: SubmissionsDatabase,
+    programId: string,
+    milestoneId: string,
+  ): Promise<SubmissionMilestone | null> {
+    const milestone = await database.milestone.findFirst({
+      where: { id: milestoneId, programId },
+      select: MILESTONE_SELECT,
+    });
+    return milestone ? toSubmissionMilestone(milestone) : null;
+  }
+
+  private async findMilestoneByIdIn(
+    database: SubmissionsDatabase,
+    milestoneId: string,
+  ): Promise<SubmissionMilestone | null> {
+    const milestone = await database.milestone.findUnique({
+      where: { id: milestoneId },
+      select: MILESTONE_SELECT,
+    });
+    return milestone ? toSubmissionMilestone(milestone) : null;
+  }
+
+  private async findParticipantApplicationIn(
+    database: SubmissionsDatabase,
+    programId: string,
+    milestoneId: string,
+    userId: string,
+  ): Promise<SubmissionApplication | null> {
+    const application = await database.application.findFirst({
+      where: {
+        programId,
+        ...this.submissionParticipantWhere(userId),
+      },
+      select: this.submissionApplicationSelect(milestoneId),
+    });
+    return application ? this.toSubmissionApplication(application) : null;
+  }
+
+  private async findApplicationForParticipantIn(
+    database: SubmissionsDatabase,
+    applicationId: string,
+    milestoneId: string,
+    userId: string,
+  ): Promise<SubmissionApplication | null> {
+    const application = await database.application.findFirst({
+      where: {
+        id: applicationId,
+        ...this.submissionParticipantWhere(userId),
+      },
+      select: this.submissionApplicationSelect(milestoneId),
+    });
+    return application ? this.toSubmissionApplication(application) : null;
+  }
+
+  private async lockProgramEndAtIn(
+    database: SubmissionsDatabase,
+    programId: string,
+  ): Promise<Date | null> {
+    const programs = await database.$queryRaw<
+      readonly { endAt: Date }[]
+    >(Prisma.sql`
+      SELECT "endAt"
+      FROM "Program"
+      WHERE "id" = ${programId}
+      FOR UPDATE
+    `);
+    return programs[0]?.endAt ?? null;
+  }
+
+  private async legacySubmissionSlotIdIn(
+    database: SubmissionsDatabase,
+    milestoneId: string,
+  ): Promise<string> {
+    const existing = await this.findLegacySubmissionSlotIn(
+      database,
+      milestoneId,
+    );
+    if (existing !== null) return existing;
+
+    const milestone = await database.milestone.findFirst({
+      where: { id: milestoneId },
+      select: { name: true, createdAt: true, updatedAt: true },
+    });
+    if (milestone === null) throw new LegacySubmissionSlotMissingError();
+
+    await database.$queryRaw(Prisma.sql`
+      INSERT INTO "MilestoneDocument" (
+        "id", "milestoneId", "name", "required", "sortOrder", "kind",
+        "createdAt", "updatedAt"
+      )
+      VALUES (
+        ${legacySubmissionSlotIdFor(milestoneId)},
+        ${milestoneId},
+        ${milestone.name},
+        TRUE,
+        ${LEGACY_SUBMISSION_SLOT_SORT_ORDER},
+        ${MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION}::"MilestoneDocumentKind",
+        ${milestone.createdAt},
+        ${milestone.updatedAt}
+      )
+      ON CONFLICT DO NOTHING
+    `);
+
+    const created = await this.findLegacySubmissionSlotIn(
+      database,
+      milestoneId,
+    );
+    if (created === null) throw new LegacySubmissionSlotMissingError();
+    return created;
+  }
+
+  private async findLegacySubmissionSlotIn(
+    database: SubmissionsDatabase,
+    milestoneId: string,
+  ): Promise<string | null> {
+    const document = await database.milestoneDocument.findFirst({
+      where: {
+        milestoneId,
+        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+      },
+      select: { id: true },
+    });
+    return document?.id ?? null;
+  }
+
+  private async lockCurrentMembershipIn(
+    database: SubmissionsDatabase,
+    applicationId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const stillMember = await this.platformRepository.lockSubmissionMembership(
+      database,
+      applicationId,
+      actorUserId,
+    );
+    if (!stillMember) {
+      throw new SubmissionMembershipChangedError(applicationId, actorUserId);
+    }
+  }
+
+  private async createSubmissionIn(
+    database: SubmissionsDatabase,
+    input: CreateSubmissionInput,
+    submittedById: string,
+    now: Date,
+    fileExpiresAt: Date | null,
+  ): Promise<CreatedSubmission> {
+    await this.lockCurrentMembershipIn(
+      database,
+      input.applicationId,
+      submittedById,
+    );
+    try {
+      const documentId = await this.legacySubmissionSlotIdIn(
+        database,
+        input.milestoneId,
+      );
+
+      const submission = await database.milestoneDocumentSubmission.create({
+        data: {
+          milestoneDocumentId: documentId,
+          applicationId: input.applicationId,
+          status: SubmissionStatus.SUBMITTED,
+          content: submissionContentJson(input.content),
+          revision: 1,
+          submittedById,
+          submittedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+        select: { id: true, status: true, submittedAt: true },
+      });
+      const history = await database.milestoneDocumentSubmissionHistory.create({
+        data: {
+          milestoneDocumentSubmissionId: submission.id,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          content: submissionContentJson(input.content),
+          comment: input.comment,
+          actorId: submittedById,
+          createdAt: now,
+        },
+        select: { id: true },
+      });
+
+      if (input.content.type === 'FILE') {
+        if (fileExpiresAt === null) throw new SubmissionFileUnavailableError();
+        const attached = await database.submissionFile.updateMany({
+          where: {
+            id: input.content.fileId,
+            uploaderId: submittedById,
+            applicationId: input.applicationId,
+            milestoneId: input.milestoneId,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            milestoneDocumentSubmissionId: null,
+            milestoneDocumentSubmissionHistoryId: null,
+            pendingExpiresAt: { gt: now },
+          },
+          data: {
+            milestoneDocumentSubmissionId: submission.id,
+            milestoneDocumentSubmissionHistoryId: history.id,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+            expiresAt: fileExpiresAt,
+          },
+        });
+        if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+      }
+
+      return submission;
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SubmissionAlreadyExistsError();
+      }
+      throw error;
+    }
+  }
+
+  private findChecklistApplicationIn(
+    database: SubmissionsDatabase,
+    programId: string,
+    userId: string,
+  ): Promise<ChecklistApplication | null> {
+    return database.application
+      .findFirst({
+        where: {
+          programId,
+          ...this.submissionParticipantWhere(userId),
+        },
+        select: {
+          id: true,
+          teamId: true,
+          team: { select: { _count: { select: { members: true } } } },
+          status: true,
+        },
+      })
+      .then((row) =>
+        row === null
+          ? null
+          : {
+              id: row.id,
+              teamId: row.teamId,
+              teamMemberCount: row.team?._count.members ?? 0,
+              status: row.status,
+            },
+      );
+  }
+
+  private async listChecklistMilestonesIn(
+    database: SubmissionsDatabase,
+    programId: string,
+    applicationId: string,
+    now: Date,
+  ): Promise<readonly ChecklistMilestone[]> {
+    const milestones = await database.milestone.findMany({
+      where: { programId },
+      orderBy: this.checklistMilestoneOrderBy,
+      select: this.checklistMilestoneSelect(applicationId, now),
+    });
+    return milestones.flatMap((milestone) => {
+      const item = this.toChecklistMilestone(milestone);
+      return item === null ? [] : [item];
+    });
+  }
+
+  private async findSubmissionForParticipantIn(
+    database: SubmissionsDatabase,
+    submissionId: string,
+    userId: string,
+  ): Promise<ResubmissionTarget | null> {
+    const submissions = await database.milestoneDocumentSubmission.findMany({
+      where: {
+        ...this.submissionPublicIdWhere(submissionId),
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+        application: this.submissionParticipantWhere(userId),
+      },
+      take: 2,
+      select: {
+        id: true,
+        legacySubmissionId: true,
+        applicationId: true,
+        status: true,
+        revision: true,
+        milestoneDocument: {
+          select: {
+            milestoneId: true,
+            milestone: {
+              select: {
+                programId: true,
+                submissionType: true,
+                dueAt: true,
+              },
+            },
+          },
+        },
+        application: { select: { status: true } },
+      },
+    });
+    const submission = this.exactSubmissionByPublicId(submissions);
+    if (submission === null) return null;
+    if (submission.milestoneDocument.milestone.submissionType === null) {
+      return null;
+    }
+    return {
+      id: submission.legacySubmissionId ?? submission.id,
+      submissionRecordId: submission.id,
+      applicationId: submission.applicationId,
+      milestoneId: submission.milestoneDocument.milestoneId,
+      programId: submission.milestoneDocument.milestone.programId,
+      status: submission.status,
+      currentRevision: submission.revision,
+      submissionType: submission.milestoneDocument.milestone.submissionType,
+      applicationStatus: submission.application.status,
+      dueAt: submission.milestoneDocument.milestone.dueAt,
+    };
+  }
+
+  private async submissionExistsIn(
+    database: SubmissionsDatabase,
+    submissionId: string,
+  ): Promise<boolean> {
+    const submission = await database.milestoneDocumentSubmission.findFirst({
+      where: {
+        ...this.submissionPublicIdWhere(submissionId),
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      select: { id: true },
+    });
+    return submission !== null;
+  }
+
+  private async createSubmissionRevisionIn(
+    database: SubmissionsDatabase,
+    input: CreateSubmissionRevisionInput,
+  ): Promise<{ readonly revision: number }> {
+    await this.lockCurrentMembershipIn(
+      database,
+      input.applicationId,
+      input.submittedById,
+    );
+    const nextRevision = input.baseRevision + 1;
+    const updated = await database.milestoneDocumentSubmission.updateMany({
+      where: {
+        id: input.submissionId,
+        status: input.baseStatus,
+        revision: input.baseRevision,
+      },
+      data: {
+        status: SubmissionStatus.SUBMITTED,
+        revision: nextRevision,
+        content: submissionContentJson(input.content),
+        submittedById: input.submittedById,
+        submittedAt: input.now,
+        updatedAt: input.now,
+      },
+    });
+    if (updated.count === 0) throw new StaleSubmissionRevisionError();
+
+    const history = await database.milestoneDocumentSubmissionHistory.create({
+      data: {
+        milestoneDocumentSubmissionId: input.submissionId,
+        event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+        revision: nextRevision,
+        content: submissionContentJson(input.content),
+        comment: input.comment,
+        actorId: input.submittedById,
+        createdAt: input.now,
+      },
+      select: { id: true, revision: true },
+    });
+
+    if (input.content.type === 'FILE') {
+      if (input.fileExpiresAt === null) {
+        throw new SubmissionFileUnavailableError();
+      }
+      const attached = await database.submissionFile.updateMany({
+        where: {
+          id: input.content.fileId,
+          uploaderId: input.submittedById,
+          applicationId: input.applicationId,
+          milestoneId: input.milestoneId,
+          lifecycle: SubmissionFileLifecycle.PENDING,
+          milestoneDocumentSubmissionId: null,
+          milestoneDocumentSubmissionHistoryId: null,
+          pendingExpiresAt: { gt: input.now },
+        },
+        data: {
+          milestoneDocumentSubmissionId: input.submissionId,
+          milestoneDocumentSubmissionHistoryId: history.id,
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          expiresAt: input.fileExpiresAt,
+        },
+      });
+      if (attached.count !== 1) throw new SubmissionFileUnavailableError();
+    }
+    return { revision: nextRevision };
+  }
 }
 
 type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{

@@ -66,44 +66,83 @@ type PrismaAdminProfileTarget = Prisma.UserGetPayload<{
   select: typeof ADMIN_PROFILE_TARGET_SELECT;
 }>;
 
-class PrismaAdminProfileTransactionRepository implements AdminProfileTransactionStore {
+@Injectable()
+export class AdminProfileRepository implements AdminProfileRepositoryPort {
   constructor(
-    private readonly transaction: Prisma.TransactionClient,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessRepository: AdminAccessRepository,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
     private readonly platformRepository: PlatformRepository,
   ) {}
 
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
+  withTransaction<T>(
+    operation: (store: AdminProfileTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prismaSerializationRetryRepository.withSerializationRetry(
+      () =>
+        this.prisma.$transaction(
+          (transaction) =>
+            operation(this.adminProfileTransactionStore(transaction)),
+          { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+        ),
+      {
+        onExhausted: () =>
+          new DomainException(
+            USERS_ERROR_CODES[UsersErrorCode.PROFILE_UPDATE_CONFLICT],
+          ),
+      },
+    );
   }
 
-  async lockActiveAdmins(): Promise<void> {
-    await this.adminAccessRepository.lockActiveAdminRows(this.transaction);
+  private adminProfileTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): AdminProfileTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
+      findActor: this.findActorIn.bind(this, transaction),
+      findTarget: this.findTargetIn.bind(this, transaction),
+      applyProfile: this.applyProfileIn.bind(this, transaction),
+      applyLegacyFields: this.applyLegacyFieldsIn.bind(this, transaction),
+    };
   }
 
-  findActor(githubId: bigint): Promise<AdminAccessActor | null> {
+  private async lockActiveAdminsIn(
+    transaction: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.adminAccessRepository.lockActiveAdminRows(transaction);
+  }
+
+  private findActorIn(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
     return this.adminAccessRepository.findAdminActorByGithubId(
-      this.transaction,
+      transaction,
       githubId,
     );
   }
 
-  async findTarget(userId: string): Promise<AdminProfileTargetRecord | null> {
-    const user = await this.transaction.user.findUnique({
+  private async findTargetIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<AdminProfileTargetRecord | null> {
+    const user = await transaction.user.findUnique({
       where: { id: userId },
       select: ADMIN_PROFILE_TARGET_SELECT,
     });
     return user ? toAdminProfileTargetRecord(user) : null;
   }
 
-  async applyProfile(
+  private async applyProfileIn(
+    transaction: Prisma.TransactionClient,
     userId: string,
     fields: AdminProfileWriteFields,
     changedFields: Partial<AdminProfileWriteFields>,
   ): Promise<AdminProfileApplyOutcome> {
     try {
       await this.platformRepository.upsertUserProfile(
-        this.transaction,
+        transaction,
         userId,
         {
           ...fields,
@@ -126,52 +165,18 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
     }
   }
 
-  async applyLegacyFields(
+  private async applyLegacyFieldsIn(
+    transaction: Prisma.TransactionClient,
     userId: string,
     fields: AdminProfileLegacyFields,
   ): Promise<void> {
     if (Object.keys(fields).length === 0) {
       return;
     }
-    await this.transaction.userProfile.updateMany({
+    await transaction.userProfile.updateMany({
       where: { userId },
       data: withAffiliationName(fields),
     });
-  }
-}
-
-@Injectable()
-export class AdminProfileRepository implements AdminProfileRepositoryPort {
-  constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    private readonly adminAccessRepository: AdminAccessRepository,
-    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
-    private readonly platformRepository: PlatformRepository,
-  ) {}
-
-  withTransaction<T>(
-    operation: (store: AdminProfileTransactionStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prismaSerializationRetryRepository.withSerializationRetry(
-      () =>
-        this.prisma.$transaction(
-          (transaction) =>
-            operation(
-              new PrismaAdminProfileTransactionRepository(
-                transaction,
-                this.adminAccessRepository,
-                this.platformRepository,
-              ),
-            ),
-          { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-        ),
-      {
-        onExhausted: () =>
-          new DomainException(
-            USERS_ERROR_CODES[UsersErrorCode.PROFILE_UPDATE_CONFLICT],
-          ),
-      },
-    );
   }
 }
 

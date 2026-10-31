@@ -18,19 +18,6 @@ import {
 } from './student-application-management.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
-class StudentResubmissionRepository {
-  constructor(
-    private readonly transaction: Prisma.TransactionClient,
-    private readonly reviewHistory: ReviewHistoryWriterRepository,
-  ) {}
-
-  appendReviewHistory(
-    input: AppendReviewHistoryInput,
-  ): Promise<AppendedReviewHistory> {
-    return this.reviewHistory.appendReviewHistory(this.transaction, input);
-  }
-}
-
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -190,10 +177,7 @@ export class StudentApplicationManagementRepository {
         select: APPLICATION_SELECT,
       });
       if (resubmitted) {
-        await new StudentResubmissionRepository(
-          transaction,
-          this.reviewHistory,
-        ).appendReviewHistory({
+        await this.appendReviewHistoryIn(transaction, {
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.RESUBMITTED,
           actorId: input.studentId,
@@ -304,5 +288,12 @@ export class StudentApplicationManagementRepository {
       return { kind: 'period-closed' };
     }
     return null;
+  }
+
+  private appendReviewHistoryIn(
+    transaction: Prisma.TransactionClient,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return this.reviewHistory.appendReviewHistory(transaction, input);
   }
 }

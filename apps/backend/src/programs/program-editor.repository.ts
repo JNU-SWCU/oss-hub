@@ -239,17 +239,77 @@ type ProgramRecord = PrismaTypes.ProgramGetPayload<{
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
 
-class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
+@Injectable()
+export class ProgramEditorRepository {
   constructor(
-    private readonly transaction: PrismaTypes.TransactionClient,
+    private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
     private readonly programDeletionScope: ProgramDeletionScopeRepository,
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
     private readonly programCoverRepository: ProgramCoverRepository,
   ) {}
 
-  findUserAuthorityByGithubId(githubId: bigint) {
-    return this.transaction.user.findUnique({
+  withTransaction<T>(
+    operation: (store: ProgramEditorTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(this.programEditorStore(transaction)),
+    );
+  }
+
+  private programEditorStore(
+    transaction: PrismaTypes.TransactionClient,
+  ): ProgramEditorTransactionStore {
+    return {
+      findUserAuthorityByGithubId: this.findUserAuthorityByGithubIdIn.bind(
+        this,
+        transaction,
+      ),
+      findEditableProgramById: this.findEditableProgramByIdIn.bind(
+        this,
+        transaction,
+      ),
+      findEditableProgramForUpdate: this.findEditableProgramForUpdateIn.bind(
+        this,
+        transaction,
+      ),
+      updateProgram: this.updateProgramIn.bind(this, transaction),
+      findProgramScheduleForMilestoneCreate:
+        this.findProgramScheduleForMilestoneCreateIn.bind(this, transaction),
+      createMilestone: this.createMilestoneIn.bind(this, transaction),
+      findMilestoneForUpdate: this.findMilestoneForUpdateIn.bind(
+        this,
+        transaction,
+      ),
+      findLatestDocumentGraceDueAt: this.findLatestDocumentGraceDueAtIn.bind(
+        this,
+        transaction,
+      ),
+      findEarliestDocumentGraceDueAt:
+        this.findEarliestDocumentGraceDueAtIn.bind(this, transaction),
+      updateMilestone: this.updateMilestoneIn.bind(this, transaction),
+      lockMilestoneEdit: this.lockMilestoneEditIn.bind(this, transaction),
+      readMilestoneEdit: this.readMilestoneEditIn.bind(this, transaction),
+      countSubmissionHistoriesForDocuments:
+        this.countSubmissionHistoriesForDocumentsIn.bind(this, transaction),
+      lockAttachableUploads: this.lockAttachableUploadsIn.bind(
+        this,
+        transaction,
+      ),
+      applyMilestoneEdit: this.applyMilestoneEditIn.bind(this, transaction),
+      findMilestoneForDelete: this.findMilestoneForDeleteIn.bind(
+        this,
+        transaction,
+      ),
+      deleteMilestone: this.deleteMilestoneIn.bind(this, transaction),
+    };
+  }
+
+  private findUserAuthorityByGithubIdIn(
+    transaction: PrismaTypes.TransactionClient,
+    githubId: bigint,
+  ) {
+    return transaction.user.findUnique({
       where: { githubId },
       select: {
         id: true,
@@ -265,38 +325,45 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     });
   }
 
-  async findEditableProgramById(
+  private async findEditableProgramByIdIn(
+    transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
-      this.transaction.program.findUnique({
+      transaction.program.findUnique({
         where: { id: programId },
         include: editableProgramInclude,
       }),
-      this.readDeletionScopeCounts(programId),
+      this.readDeletionScopeCountsIn(transaction, programId),
     ]);
     return program ? toEditableProgramView(program, deletionScopeCounts) : null;
   }
 
-  async findEditableProgramForUpdate(
+  private async findEditableProgramForUpdateIn(
+    transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<EditableProgramRow | null> {
-    const locked = await this.locks.lockProgramTree(this.transaction, {
+    const locked = await this.locks.lockProgramTree(transaction, {
       stage: 'program',
       programId,
     });
-    return locked ? this.findEditableProgramById(programId) : null;
+    return locked
+      ? this.findEditableProgramByIdIn(transaction, programId)
+      : null;
   }
 
-  async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramRow> {
+  private async updateProgramIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: ProgramUpdateInput,
+  ): Promise<EditableProgramRow> {
     if (input.coverChange !== undefined) {
-      await this.programCoverRepository.replaceProgramCover(this.transaction, {
+      await this.programCoverRepository.replaceProgramCover(transaction, {
         programId: input.programId,
         ...input.coverChange,
       });
     }
     if (input.liveFileExpiresAt !== null) {
-      await this.transaction.submissionFile.updateMany({
+      await transaction.submissionFile.updateMany({
         where: {
           application: { programId: input.programId },
           lifecycle: {
@@ -310,7 +377,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
         data: { expiresAt: input.liveFileExpiresAt },
       });
     }
-    const program = await this.transaction.program.update({
+    const program = await transaction.program.update({
       where: { id: input.programId },
       data: {
         name: input.name,
@@ -332,37 +399,40 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     });
     return toEditableProgramView(
       program,
-      await this.readDeletionScopeCounts(input.programId),
+      await this.readDeletionScopeCountsIn(transaction, input.programId),
     );
   }
 
-  private readDeletionScopeCounts(
+  private readDeletionScopeCountsIn(
+    transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {
     return this.programDeletionScope.readProgramDeletionScopeCounts(
-      this.transaction,
+      transaction,
       programId,
     );
   }
 
-  async findProgramScheduleForMilestoneCreate(
+  private async findProgramScheduleForMilestoneCreateIn(
+    transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<ProgramSchedule | null> {
-    const locked = await this.locks.lockProgramTree(this.transaction, {
+    const locked = await this.locks.lockProgramTree(transaction, {
       stage: 'program',
       programId,
     });
     if (!locked) return null;
-    return this.transaction.program.findUnique({
+    return transaction.program.findUnique({
       where: { id: programId },
       select: { id: true, startAt: true, endAt: true },
     });
   }
 
-  async createMilestone(
+  private async createMilestoneIn(
+    transaction: PrismaTypes.TransactionClient,
     input: ProgramMilestoneCreateInput,
   ): Promise<ProgramMilestoneView> {
-    const milestone = await this.transaction.milestone.create({
+    const milestone = await transaction.milestone.create({
       data: {
         ...input,
         documents: {
@@ -377,17 +447,21 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     return toMilestoneView(milestone);
   }
 
-  async findMilestoneForUpdate(
+  private async findMilestoneForUpdateIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null> {
-    const programId = await this.findMilestoneProgramId(milestoneId);
+    const programId = await this.findMilestoneProgramIdIn(
+      transaction,
+      milestoneId,
+    );
     if (programId === null) return null;
-    const programLocked = await this.locks.lockProgramTree(this.transaction, {
+    const programLocked = await this.locks.lockProgramTree(transaction, {
       stage: 'program',
       programId,
     });
     if (!programLocked) return null;
-    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+    const lockedMilestone = await this.locks.lockProgramTree(transaction, {
       stage: 'milestone',
       milestoneId,
       after: programLocked,
@@ -395,7 +469,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
-    const milestone = await this.transaction.milestone.findUnique({
+    const milestone = await transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
         program: { select: { startAt: true, endAt: true } },
@@ -410,19 +484,23 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     };
   }
 
-  async findLatestDocumentGraceDueAt(programId: string): Promise<Date | null> {
-    const result = await this.transaction.milestoneDocument.aggregate({
+  private async findLatestDocumentGraceDueAtIn(
+    transaction: PrismaTypes.TransactionClient,
+    programId: string,
+  ): Promise<Date | null> {
+    const result = await transaction.milestoneDocument.aggregate({
       where: { milestone: { programId }, kind: MilestoneDocumentKind.DOCUMENT },
       _max: { graceDueAt: true },
     });
     return result._max.graceDueAt;
   }
 
-  async findEarliestDocumentGraceDueAt(
+  private async findEarliestDocumentGraceDueAtIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
     excludedDocumentIds: readonly string[] = [],
   ): Promise<Date | null> {
-    const result = await this.transaction.milestoneDocument.aggregate({
+    const result = await transaction.milestoneDocument.aggregate({
       where: {
         milestoneId,
         kind: MilestoneDocumentKind.DOCUMENT,
@@ -433,10 +511,11 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     return result._min.graceDueAt;
   }
 
-  async updateMilestone(
+  private async updateMilestoneIn(
+    transaction: PrismaTypes.TransactionClient,
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView> {
-    const milestone = await this.transaction.milestone.update({
+    const milestone = await transaction.milestone.update({
       where: { id: input.milestoneId },
       data: {
         name: input.name,
@@ -449,45 +528,59 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     return toMilestoneView(milestone);
   }
 
-  async lockMilestoneEdit(
+  private async lockMilestoneEditIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<LockedProgramMilestoneEdit | null> {
-    const programId = await this.findMilestoneProgramId(milestoneId);
+    const programId = await this.findMilestoneProgramIdIn(
+      transaction,
+      milestoneId,
+    );
     if (programId === null) return null;
-    const program = await this.locks.lockProgramTree(this.transaction, {
+    const program = await this.locks.lockProgramTree(transaction, {
       stage: 'program',
       programId,
     });
     if (program === null) return null;
-    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+    const lockedMilestone = await this.locks.lockProgramTree(transaction, {
       stage: 'milestone',
       milestoneId,
       after: program,
     });
     if (lockedMilestone === null) return null;
-    return this.readMilestoneEditWith(milestoneId, programId, async () => {
-      await this.locks.lockProgramTree(this.transaction, {
-        stage: 'documents',
-        after: lockedMilestone,
-        documentKind: 'DOCUMENT',
-      });
-    });
+    return this.readMilestoneEditWithIn(
+      transaction,
+      milestoneId,
+      programId,
+      async () => {
+        await this.locks.lockProgramTree(transaction, {
+          stage: 'documents',
+          after: lockedMilestone,
+          documentKind: 'DOCUMENT',
+        });
+      },
+    );
   }
 
-  async readMilestoneEdit(
+  private async readMilestoneEditIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<LockedProgramMilestoneEdit | null> {
-    const programId = await this.findMilestoneProgramId(milestoneId);
+    const programId = await this.findMilestoneProgramIdIn(
+      transaction,
+      milestoneId,
+    );
     if (programId === null) return null;
-    return this.readMilestoneEditWith(milestoneId, programId);
+    return this.readMilestoneEditWithIn(transaction, milestoneId, programId);
   }
 
-  private async readMilestoneEditWith(
+  private async readMilestoneEditWithIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
     programId: string,
     lockDocuments?: () => Promise<void>,
   ): Promise<LockedProgramMilestoneEdit | null> {
-    const milestone = await this.transaction.milestone.findUnique({
+    const milestone = await transaction.milestone.findUnique({
       where: { id: milestoneId },
       select: {
         id: true,
@@ -503,7 +596,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     });
     if (milestone === null || milestone.programId !== programId) return null;
     await lockDocuments?.();
-    const documents = await this.transaction.milestoneDocument.findMany({
+    const documents = await transaction.milestoneDocument.findMany({
       where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       orderBy: { id: 'asc' },
       select: {
@@ -552,11 +645,12 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     };
   }
 
-  async countSubmissionHistoriesForDocuments(
+  private async countSubmissionHistoriesForDocumentsIn(
+    transaction: PrismaTypes.TransactionClient,
     documentIds: readonly string[],
   ): Promise<number> {
     if (documentIds.length === 0) return 0;
-    return this.transaction.milestoneDocumentSubmissionHistory.count({
+    return transaction.milestoneDocumentSubmissionHistory.count({
       where: {
         submission: {
           milestoneDocumentId: { in: [...documentIds] },
@@ -565,21 +659,26 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     });
   }
 
-  lockAttachableUploads(actorId: string, tokenIds: readonly string[]) {
+  private lockAttachableUploadsIn(
+    transaction: PrismaTypes.TransactionClient,
+    actorId: string,
+    tokenIds: readonly string[],
+  ) {
     return this.programAuthoringUploadTransactionRepository.lockAttachableProgramAuthoringUploads(
-      this.transaction,
+      transaction,
       actorId,
       tokenIds,
     );
   }
 
-  async applyMilestoneEdit(
+  private async applyMilestoneEditIn(
+    transaction: PrismaTypes.TransactionClient,
     input: ApplyProgramMilestoneEditInput,
   ): Promise<void> {
     const requestedExistingIds = input.documents.flatMap((document) =>
       document.id === null ? [] : [document.id],
     );
-    await this.transaction.milestone.update({
+    await transaction.milestone.update({
       where: { id: input.milestoneId },
       data: {
         name: input.name,
@@ -588,7 +687,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
         instructions: input.instructions,
       },
     });
-    const existing = await this.transaction.milestoneDocument.findMany({
+    const existing = await transaction.milestoneDocument.findMany({
       where: {
         milestoneId: input.milestoneId,
         kind: MilestoneDocumentKind.DOCUMENT,
@@ -599,10 +698,10 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
       .map((document) => document.id)
       .filter((id) => !requestedExistingIds.includes(id));
     if (deletedIds.length > 0) {
-      await this.transaction.milestoneDocumentTemplateFile.deleteMany({
+      await transaction.milestoneDocumentTemplateFile.deleteMany({
         where: { milestoneDocumentId: { in: deletedIds } },
       });
-      await this.transaction.milestoneDocument.deleteMany({
+      await transaction.milestoneDocument.deleteMany({
         where: { id: { in: deletedIds }, kind: MilestoneDocumentKind.DOCUMENT },
       });
     }
@@ -611,7 +710,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
       const milestoneDocumentId =
         document.id ??
         (
-          await this.transaction.milestoneDocument.create({
+          await transaction.milestoneDocument.create({
             data: {
               milestoneId: input.milestoneId,
               name: document.name,
@@ -623,7 +722,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
           })
         ).id;
       if (document.id !== null) {
-        await this.transaction.milestoneDocument.update({
+        await transaction.milestoneDocument.update({
           where: {
             id: milestoneDocumentId,
             kind: MilestoneDocumentKind.DOCUMENT,
@@ -646,23 +745,27 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
       }
     }
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
-      this.transaction,
+      transaction,
       input.actorId,
       consumptions,
     );
   }
 
-  async findMilestoneForDelete(
+  private async findMilestoneForDeleteIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<ProgramMilestoneDeleteTarget | null> {
-    const programId = await this.findMilestoneProgramId(milestoneId);
+    const programId = await this.findMilestoneProgramIdIn(
+      transaction,
+      milestoneId,
+    );
     if (programId === null) return null;
-    const programLocked = await this.locks.lockProgramTree(this.transaction, {
+    const programLocked = await this.locks.lockProgramTree(transaction, {
       stage: 'program',
       programId,
     });
     if (!programLocked) return null;
-    const lockedMilestone = await this.locks.lockProgramTree(this.transaction, {
+    const lockedMilestone = await this.locks.lockProgramTree(transaction, {
       stage: 'milestone',
       milestoneId,
       after: programLocked,
@@ -671,12 +774,12 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
       return null;
     }
 
-    await this.locks.lockProgramTree(this.transaction, {
+    await this.locks.lockProgramTree(transaction, {
       stage: 'documents',
       after: lockedMilestone,
       documentKind: 'ALL',
     });
-    const milestone = await this.transaction.milestone.findUnique({
+    const milestone = await transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
         program: { include: { _count: { select: { milestones: true } } } },
@@ -685,7 +788,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     if (milestone === null || milestone.programId !== programId) return null;
 
     const documentSubmissionCount =
-      await this.transaction.milestoneDocumentSubmission.count({
+      await transaction.milestoneDocumentSubmission.count({
         where: { milestoneDocument: { milestoneId } },
       });
     return {
@@ -698,51 +801,28 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     };
   }
 
-  async deleteMilestone(milestoneId: string): Promise<void> {
-    await this.transaction.milestoneDocumentTemplateFile.deleteMany({
+  private async deleteMilestoneIn(
+    transaction: PrismaTypes.TransactionClient,
+    milestoneId: string,
+  ): Promise<void> {
+    await transaction.milestoneDocumentTemplateFile.deleteMany({
       where: { milestoneDocument: { milestoneId } },
     });
-    await this.transaction.milestoneDocument.deleteMany({
+    await transaction.milestoneDocument.deleteMany({
       where: { milestoneId },
     });
-    await this.transaction.milestone.delete({ where: { id: milestoneId } });
+    await transaction.milestone.delete({ where: { id: milestoneId } });
   }
 
-  private async findMilestoneProgramId(
+  private async findMilestoneProgramIdIn(
+    transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<string | null> {
-    const milestone = await this.transaction.milestone.findUnique({
+    const milestone = await transaction.milestone.findUnique({
       where: { id: milestoneId },
       select: { programId: true },
     });
     return milestone?.programId ?? null;
-  }
-}
-
-@Injectable()
-export class ProgramEditorRepository {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly locks: LockProgramTreeRepository,
-    private readonly programDeletionScope: ProgramDeletionScopeRepository,
-    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
-    private readonly programCoverRepository: ProgramCoverRepository,
-  ) {}
-
-  withTransaction<T>(
-    operation: (store: ProgramEditorTransactionStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaProgramEditorRepository(
-          transaction,
-          this.locks,
-          this.programDeletionScope,
-          this.programAuthoringUploadTransactionRepository,
-          this.programCoverRepository,
-        ),
-      ),
-    );
   }
 }
 

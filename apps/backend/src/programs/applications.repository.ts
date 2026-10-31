@@ -531,424 +531,6 @@ export interface ApplicationCreateStore {
   ): Promise<CreatedApplication>;
 }
 
-class PrismaApplicationsTransactionRepository implements ApplicationsTransactionStore {
-  constructor(
-    private readonly transaction: PrismaTypes.TransactionClient,
-    private readonly reviewHistory: ReviewHistoryWriterRepository,
-    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
-  ) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
-  }
-
-  appendReviewHistory(
-    input: AppendReviewHistoryInput,
-  ): Promise<AppendedReviewHistory> {
-    return this.reviewHistory.appendReviewHistory(this.transaction, input);
-  }
-
-  async findApplicationById(
-    applicationId: string,
-  ): Promise<ApplicationDecisionTarget | null> {
-    const application = await this.transaction.application.findUnique({
-      where: { id: applicationId },
-      include: {
-        program: {
-          select: { repositoryProvisioningEnabled: true, name: true },
-        },
-        applicant: { select: { id: true, nickname: true } },
-        team: {
-          select: {
-            leader: { select: { id: true, nickname: true } },
-            members: {
-              select: { user: { select: { id: true, nickname: true } } },
-            },
-          },
-        },
-      },
-    });
-    return application ? toApplicationDecisionTarget(application) : null;
-  }
-
-  async isCurrentTeamMember(teamId: string, userId: string): Promise<boolean> {
-    await this.transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
-    );
-    return (
-      (await this.transaction.teamMember.findUnique({
-        where: { teamId_userId: { teamId, userId } },
-        select: { id: true },
-      })) !== null
-    );
-  }
-
-  async findRepositoryProvisionJob(
-    applicationId: string,
-  ): Promise<RepositoryProvisionJobSnapshot | null> {
-    const job = await this.transaction.repositoryProvisionJob.findUnique({
-      where: { applicationId },
-      select: { status: true, repositoryId: true },
-    });
-    return job;
-  }
-
-  async findRepositoryProvisionEvent(
-    idempotencyKey: string,
-  ): Promise<RepositoryProvisionEvent | null> {
-    const event = await this.transaction.outboxEvent.findUnique({
-      where: { idempotencyKey },
-    });
-    return event ? toRepositoryProvisionEvent(event) : null;
-  }
-
-  async discardRepositoryProvisionRequest(
-    applicationId: string,
-    discardedAt: Date,
-    parsePayload: RepositoryProvisionHistoryPayloadParser,
-  ): Promise<void> {
-    const job = (
-      await this.transaction.$queryRaw<
-        readonly {
-          readonly currentEventId: string | null;
-          readonly repositoryId: string | null;
-          readonly repositorySource: RepositorySource | null;
-        }[]
-      >(Prisma.sql`
-        SELECT
-          job."currentEventId",
-          job."repositoryId",
-          (
-            SELECT repository."source"
-            FROM "GithubRepository" AS repository
-            WHERE repository."id" = job."repositoryId"
-          ) AS "repositorySource"
-        FROM "RepositoryProvisionJob" AS job
-        WHERE job."applicationId" = ${applicationId}
-        FOR UPDATE
-      `)
-    )[0];
-    const event = await this.transaction.outboxEvent.findUnique({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
-      select: { id: true },
-    });
-    if (event !== null) {
-      const ownsJob = job?.currentEventId === event.id;
-      await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
-        this.transaction,
-        {
-          requestId: event.id,
-          applicationId,
-          repositoryId: ownsJob ? job.repositoryId : null,
-          source: ownsJob ? job.repositorySource : null,
-          outcome: RepositoryIssuanceOutcome.DISCARDED,
-          closedAt: discardedAt,
-        },
-        parsePayload,
-      );
-    }
-
-    await this.transaction.outboxEvent.deleteMany({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
-    });
-    await this.transaction.repositoryProvisionJob.deleteMany({
-      where: { applicationId },
-    });
-  }
-
-  async transitionApplication(input: ApplicationTransition): Promise<boolean> {
-    const data: {
-      status: ApplicationStatus;
-      rejectionReason: string | null;
-      processedById?: string;
-      processedAt?: Date;
-    } = {
-      status: input.nextStatus,
-      rejectionReason: input.rejectionReason,
-    };
-    if (input.processedBy !== 'preserve') {
-      data.processedById = input.processedBy.id;
-      data.processedAt = input.processedBy.at;
-    }
-    const result = await this.transaction.application.updateMany({
-      where: {
-        id: input.applicationId,
-        status: input.expectedStatus,
-      },
-      data,
-    });
-    return result.count === 1;
-  }
-
-  async createApplicationDecisionNotifications(
-    input: ApplicationDecisionNotificationInput,
-  ): Promise<void> {
-    if (input.recipientUserIds.length === 0) return;
-    const decidedAt = input.decidedAt.toISOString();
-    await this.transaction.notification.createMany({
-      data: input.recipientUserIds.map((userId) => ({
-        userId,
-        type: 'APPLICATION_DECISION',
-        channel: 'IN_APP',
-        status: 'UNREAD',
-        idempotencyKey: [
-          'application-decision',
-          input.applicationId,
-          input.decision,
-          decidedAt,
-          userId,
-        ].join(':'),
-        payload: {
-          schemaVersion: 1,
-          applicationId: input.applicationId,
-          programId: input.programId,
-          programName: input.programName,
-          decision: input.decision,
-          decidedAt,
-        },
-      })),
-    });
-  }
-
-  async createRepositoryProvisionEvent(
-    input: RepositoryProvisionEventInput,
-    parsePayload: RepositoryProvisionHistoryPayloadParser,
-  ): Promise<RepositoryProvisionEvent> {
-    try {
-      const event = await this.transaction.outboxEvent.create({
-        data: {
-          type: 'REPOSITORY_PROVISION_REQUESTED',
-          aggregateType: 'Application',
-          aggregateId: input.applicationId,
-          idempotencyKey: input.idempotencyKey,
-          payload: {
-            applicationId: input.applicationId,
-            programId: input.programId,
-            teamId: input.teamId,
-            requestedAt: input.requestedAt.toISOString(),
-            collaboratorGithubLogins: input.collaboratorGithubLogins,
-            repositoryConnectionMode: input.repositoryConnectionMode,
-            repositoryUrl: input.repositoryUrl,
-          },
-        },
-      });
-      await this.repositoryProvisionGenerationRepository.transferProvisionGeneration(
-        this.transaction,
-        {
-          applicationId: input.applicationId,
-          newEventId: event.id,
-          now: input.requestedAt,
-        },
-        parsePayload,
-      );
-      return toRepositoryProvisionEvent(event);
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new RepositoryEventAlreadyExistsError();
-      }
-      throw error;
-    }
-  }
-}
-
-class PrismaApplicationCreateRepository implements ApplicationCreateStore {
-  constructor(
-    private readonly database: ApplicationDatabase,
-    private readonly reviewHistory: ReviewHistoryWriterRepository,
-  ) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.database;
-  }
-
-  appendReviewHistory(
-    input: AppendReviewHistoryInput,
-  ): Promise<AppendedReviewHistory> {
-    return this.reviewHistory.appendReviewHistory(this.database, input);
-  }
-
-  async lockProgramForApply(
-    programId: string,
-  ): Promise<LockedProgramPolicy | null> {
-    const rows = await this.database.$queryRaw<readonly LockedProgramPolicy[]>(
-      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
-    );
-    return rows[0] ?? null;
-  }
-
-  async findTeamMinSize(programId: string): Promise<number | null> {
-    const program = await this.database.program.findUnique({
-      where: { id: programId },
-      select: { teamMinSize: true },
-    });
-    return program?.teamMinSize ?? null;
-  }
-
-  async findExistingTeamMembership(
-    programId: string,
-    userId: string,
-  ): Promise<CreatedTeamForApplication | null> {
-    const membership = await this.database.teamMember.findUnique({
-      where: { programId_userId: { programId, userId } },
-      select: { team: { select: { id: true, name: true } } },
-    });
-    return membership?.team ?? null;
-  }
-
-  async findPreparationForApply(programId: string, userId: string) {
-    const preparation = await this.database.applicationPreparation.findFirst({
-      where: {
-        programId,
-        participants: { some: { userId, status: 'ACCEPTED' } },
-      },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        program: { select: { teamMaxSize: true } },
-        participants: {
-          where: { status: 'ACCEPTED' },
-          select: { userId: true },
-        },
-      },
-    });
-    if (preparation === null) return null;
-    const memberIds = preparation.participants
-      .map((participant) => participant.userId)
-      .sort();
-    await this.database.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(memberIds)}) ORDER BY "id" FOR UPDATE`,
-    );
-    const eligible = await this.database.user.count({
-      where: {
-        id: { in: memberIds },
-        accountStatus: AccountStatus.ACTIVE,
-        ...STUDENT_MEMBER_WHERE,
-        teamMemberships: { none: { programId } },
-      },
-    });
-    if (
-      eligible !== memberIds.length ||
-      memberIds.length > preparation.program.teamMaxSize
-    )
-      throw new ApplicationPreparationConflictError();
-    return {
-      id: preparation.id,
-      name: preparation.name,
-      leaderId: preparation.leaderId,
-      memberIds,
-    };
-  }
-
-  async deletePreparation(preparationId: string): Promise<void> {
-    await this.database.applicationPreparation.delete({
-      where: { id: preparationId },
-    });
-  }
-
-  async countTeamMembers(teamId: string): Promise<number> {
-    return this.database.teamMember.count({ where: { teamId } });
-  }
-
-  async lockTeamForApply(teamId: string, userId: string): Promise<boolean> {
-    const rows = await this.database.$queryRaw<readonly LockedTeamRow[]>(
-      Prisma.sql`SELECT "id", "leaderId" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
-    );
-    const locked = rows[0];
-    if (!locked || locked.leaderId !== userId) {
-      return false;
-    }
-
-    const membership = await this.database.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
-      select: { id: true },
-    });
-    return membership !== null;
-  }
-
-  async createTeamWithLeader(
-    input: CreateTeamForApplicationInput,
-  ): Promise<CreatedTeamForApplication> {
-    try {
-      const team = await this.database.team.create({
-        data: {
-          programId: input.programId,
-          name: input.name,
-          joinCodeDigest: input.joinCodeDigest,
-          leaderId: input.leaderId,
-        },
-        select: { id: true, name: true },
-      });
-      await this.database.teamMember.createMany({
-        data: (input.memberIds ?? [input.leaderId]).map((userId) => ({
-          teamId: team.id,
-          programId: input.programId,
-          userId,
-        })),
-      });
-      return team;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target)
-          ? target.map(String)
-          : typeof target === 'string'
-            ? [target]
-            : [];
-        if (fields.some((field) => field.includes('joinCodeDigest'))) {
-          throw new ApplicationJoinCodeDigestConflictError();
-        }
-        throw new ApplicationTeamMembershipConflictError();
-      }
-      throw error;
-    }
-  }
-
-  async createApplication(
-    input: CreateApplicationRecordInput,
-  ): Promise<CreatedApplication> {
-    try {
-      return await this.database.application.create({
-        data: {
-          programId: input.programId,
-          applicantId: input.applicantId,
-          teamId: input.teamId,
-          answers: input.answers,
-          applicationTemplateVersion: input.applicationTemplateVersion,
-          isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: input.repositoryConnectionMode,
-          repositoryUrl: input.repositoryUrl,
-          status: ApplicationStatus.SUBMITTED,
-        },
-        select: {
-          id: true,
-          programId: true,
-          status: true,
-          teamId: true,
-          submittedAt: true,
-          isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: true,
-          repositoryUrl: true,
-        },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ApplicationDuplicateError();
-      }
-      throw error;
-    }
-  }
-}
-
 @Injectable()
 export class ApplicationsRepository {
   constructor(
@@ -962,13 +544,7 @@ export class ApplicationsRepository {
     operation: (store: ApplicationsTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaApplicationsTransactionRepository(
-          transaction,
-          this.reviewHistory,
-          this.repositoryProvisionGenerationRepository,
-        ),
-      ),
+      operation(this.applicationsTransactionStore(transaction)),
     );
   }
 
@@ -976,9 +552,7 @@ export class ApplicationsRepository {
     operation: (store: ApplicationCreateStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaApplicationCreateRepository(transaction, this.reviewHistory),
-      ),
+      operation(this.applicationCreateStore(transaction)),
     );
   }
 
@@ -1319,6 +893,493 @@ export class ApplicationsRepository {
         };
       }),
     };
+  }
+
+  private applicationsTransactionStore(
+    transaction: PrismaTypes.TransactionClient,
+  ): ApplicationsTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      appendReviewHistory: this.appendReviewHistoryIn.bind(this, transaction),
+      findApplicationById: this.findApplicationByIdIn.bind(this, transaction),
+      isCurrentTeamMember: this.isCurrentTeamMemberIn.bind(this, transaction),
+      findRepositoryProvisionJob: this.findRepositoryProvisionJobIn.bind(
+        this,
+        transaction,
+      ),
+      findRepositoryProvisionEvent: this.findRepositoryProvisionEventIn.bind(
+        this,
+        transaction,
+      ),
+      discardRepositoryProvisionRequest:
+        this.discardRepositoryProvisionRequestIn.bind(this, transaction),
+      transitionApplication: this.transitionApplicationIn.bind(
+        this,
+        transaction,
+      ),
+      createApplicationDecisionNotifications:
+        this.createApplicationDecisionNotificationsIn.bind(this, transaction),
+      createRepositoryProvisionEvent:
+        this.createRepositoryProvisionEventIn.bind(this, transaction),
+    };
+  }
+
+  private appendReviewHistoryIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return this.reviewHistory.appendReviewHistory(transaction, input);
+  }
+
+  private async findApplicationByIdIn(
+    transaction: PrismaTypes.TransactionClient,
+    applicationId: string,
+  ): Promise<ApplicationDecisionTarget | null> {
+    const application = await transaction.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        program: {
+          select: { repositoryProvisioningEnabled: true, name: true },
+        },
+        applicant: { select: { id: true, nickname: true } },
+        team: {
+          select: {
+            leader: { select: { id: true, nickname: true } },
+            members: {
+              select: { user: { select: { id: true, nickname: true } } },
+            },
+          },
+        },
+      },
+    });
+    return application ? toApplicationDecisionTarget(application) : null;
+  }
+
+  private async isCurrentTeamMemberIn(
+    transaction: PrismaTypes.TransactionClient,
+    teamId: string,
+    userId: string,
+  ): Promise<boolean> {
+    await transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
+    return (
+      (await transaction.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId } },
+        select: { id: true },
+      })) !== null
+    );
+  }
+
+  private async findRepositoryProvisionJobIn(
+    transaction: PrismaTypes.TransactionClient,
+    applicationId: string,
+  ): Promise<RepositoryProvisionJobSnapshot | null> {
+    const job = await transaction.repositoryProvisionJob.findUnique({
+      where: { applicationId },
+      select: { status: true, repositoryId: true },
+    });
+    return job;
+  }
+
+  private async findRepositoryProvisionEventIn(
+    transaction: PrismaTypes.TransactionClient,
+    idempotencyKey: string,
+  ): Promise<RepositoryProvisionEvent | null> {
+    const event = await transaction.outboxEvent.findUnique({
+      where: { idempotencyKey },
+    });
+    return event ? toRepositoryProvisionEvent(event) : null;
+  }
+
+  private async discardRepositoryProvisionRequestIn(
+    transaction: PrismaTypes.TransactionClient,
+    applicationId: string,
+    discardedAt: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<void> {
+    const job = (
+      await transaction.$queryRaw<
+        readonly {
+          readonly currentEventId: string | null;
+          readonly repositoryId: string | null;
+          readonly repositorySource: RepositorySource | null;
+        }[]
+      >(Prisma.sql`
+        SELECT
+          job."currentEventId",
+          job."repositoryId",
+          (
+            SELECT repository."source"
+            FROM "GithubRepository" AS repository
+            WHERE repository."id" = job."repositoryId"
+          ) AS "repositorySource"
+        FROM "RepositoryProvisionJob" AS job
+        WHERE job."applicationId" = ${applicationId}
+        FOR UPDATE
+      `)
+    )[0];
+    const event = await transaction.outboxEvent.findUnique({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      select: { id: true },
+    });
+    if (event !== null) {
+      const ownsJob = job?.currentEventId === event.id;
+      await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+        transaction,
+        {
+          requestId: event.id,
+          applicationId,
+          repositoryId: ownsJob ? job.repositoryId : null,
+          source: ownsJob ? job.repositorySource : null,
+          outcome: RepositoryIssuanceOutcome.DISCARDED,
+          closedAt: discardedAt,
+        },
+        parsePayload,
+      );
+    }
+
+    await transaction.outboxEvent.deleteMany({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
+    await transaction.repositoryProvisionJob.deleteMany({
+      where: { applicationId },
+    });
+  }
+
+  private async transitionApplicationIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: ApplicationTransition,
+  ): Promise<boolean> {
+    const data: {
+      status: ApplicationStatus;
+      rejectionReason: string | null;
+      processedById?: string;
+      processedAt?: Date;
+    } = {
+      status: input.nextStatus,
+      rejectionReason: input.rejectionReason,
+    };
+    if (input.processedBy !== 'preserve') {
+      data.processedById = input.processedBy.id;
+      data.processedAt = input.processedBy.at;
+    }
+    const result = await transaction.application.updateMany({
+      where: {
+        id: input.applicationId,
+        status: input.expectedStatus,
+      },
+      data,
+    });
+    return result.count === 1;
+  }
+
+  private async createApplicationDecisionNotificationsIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: ApplicationDecisionNotificationInput,
+  ): Promise<void> {
+    if (input.recipientUserIds.length === 0) return;
+    const decidedAt = input.decidedAt.toISOString();
+    await transaction.notification.createMany({
+      data: input.recipientUserIds.map((userId) => ({
+        userId,
+        type: 'APPLICATION_DECISION',
+        channel: 'IN_APP',
+        status: 'UNREAD',
+        idempotencyKey: [
+          'application-decision',
+          input.applicationId,
+          input.decision,
+          decidedAt,
+          userId,
+        ].join(':'),
+        payload: {
+          schemaVersion: 1,
+          applicationId: input.applicationId,
+          programId: input.programId,
+          programName: input.programName,
+          decision: input.decision,
+          decidedAt,
+        },
+      })),
+    });
+  }
+
+  private async createRepositoryProvisionEventIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: RepositoryProvisionEventInput,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<RepositoryProvisionEvent> {
+    try {
+      const event = await transaction.outboxEvent.create({
+        data: {
+          type: 'REPOSITORY_PROVISION_REQUESTED',
+          aggregateType: 'Application',
+          aggregateId: input.applicationId,
+          idempotencyKey: input.idempotencyKey,
+          payload: {
+            applicationId: input.applicationId,
+            programId: input.programId,
+            teamId: input.teamId,
+            requestedAt: input.requestedAt.toISOString(),
+            collaboratorGithubLogins: input.collaboratorGithubLogins,
+            repositoryConnectionMode: input.repositoryConnectionMode,
+            repositoryUrl: input.repositoryUrl,
+          },
+        },
+      });
+      await this.repositoryProvisionGenerationRepository.transferProvisionGeneration(
+        transaction,
+        {
+          applicationId: input.applicationId,
+          newEventId: event.id,
+          now: input.requestedAt,
+        },
+        parsePayload,
+      );
+      return toRepositoryProvisionEvent(event);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new RepositoryEventAlreadyExistsError();
+      }
+      throw error;
+    }
+  }
+
+  private applicationCreateStore(
+    database: ApplicationDatabase,
+  ): ApplicationCreateStore {
+    return {
+      auditLogWriter: database,
+      appendReviewHistory: this.appendCreateReviewHistoryIn.bind(
+        this,
+        database,
+      ),
+      lockProgramForApply: this.lockProgramForApplyIn.bind(this, database),
+      findTeamMinSize: this.findTeamMinSizeIn.bind(this, database),
+      findExistingTeamMembership: this.findExistingTeamMembershipIn.bind(
+        this,
+        database,
+      ),
+      findPreparationForApply: this.findPreparationForApplyIn.bind(
+        this,
+        database,
+      ),
+      deletePreparation: this.deletePreparationIn.bind(this, database),
+      countTeamMembers: this.countTeamMembersIn.bind(this, database),
+      lockTeamForApply: this.lockTeamForApplyIn.bind(this, database),
+      createTeamWithLeader: this.createTeamWithLeaderIn.bind(this, database),
+      createApplication: this.createApplicationIn.bind(this, database),
+    };
+  }
+
+  private appendCreateReviewHistoryIn(
+    database: ApplicationDatabase,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return this.reviewHistory.appendReviewHistory(database, input);
+  }
+
+  private async lockProgramForApplyIn(
+    database: ApplicationDatabase,
+    programId: string,
+  ): Promise<LockedProgramPolicy | null> {
+    const rows = await database.$queryRaw<readonly LockedProgramPolicy[]>(
+      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+    );
+    return rows[0] ?? null;
+  }
+
+  private async findTeamMinSizeIn(
+    database: ApplicationDatabase,
+    programId: string,
+  ): Promise<number | null> {
+    const program = await database.program.findUnique({
+      where: { id: programId },
+      select: { teamMinSize: true },
+    });
+    return program?.teamMinSize ?? null;
+  }
+
+  private async findExistingTeamMembershipIn(
+    database: ApplicationDatabase,
+    programId: string,
+    userId: string,
+  ): Promise<CreatedTeamForApplication | null> {
+    const membership = await database.teamMember.findUnique({
+      where: { programId_userId: { programId, userId } },
+      select: { team: { select: { id: true, name: true } } },
+    });
+    return membership?.team ?? null;
+  }
+
+  private async findPreparationForApplyIn(
+    database: ApplicationDatabase,
+    programId: string,
+    userId: string,
+  ) {
+    const preparation = await database.applicationPreparation.findFirst({
+      where: {
+        programId,
+        participants: { some: { userId, status: 'ACCEPTED' } },
+      },
+      select: {
+        id: true,
+        name: true,
+        leaderId: true,
+        program: { select: { teamMaxSize: true } },
+        participants: {
+          where: { status: 'ACCEPTED' },
+          select: { userId: true },
+        },
+      },
+    });
+    if (preparation === null) return null;
+    const memberIds = preparation.participants
+      .map((participant) => participant.userId)
+      .sort();
+    await database.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(memberIds)}) ORDER BY "id" FOR UPDATE`,
+    );
+    const eligible = await database.user.count({
+      where: {
+        id: { in: memberIds },
+        accountStatus: AccountStatus.ACTIVE,
+        ...STUDENT_MEMBER_WHERE,
+        teamMemberships: { none: { programId } },
+      },
+    });
+    if (
+      eligible !== memberIds.length ||
+      memberIds.length > preparation.program.teamMaxSize
+    )
+      throw new ApplicationPreparationConflictError();
+    return {
+      id: preparation.id,
+      name: preparation.name,
+      leaderId: preparation.leaderId,
+      memberIds,
+    };
+  }
+
+  private async deletePreparationIn(
+    database: ApplicationDatabase,
+    preparationId: string,
+  ): Promise<void> {
+    await database.applicationPreparation.delete({
+      where: { id: preparationId },
+    });
+  }
+
+  private async countTeamMembersIn(
+    database: ApplicationDatabase,
+    teamId: string,
+  ): Promise<number> {
+    return database.teamMember.count({ where: { teamId } });
+  }
+
+  private async lockTeamForApplyIn(
+    database: ApplicationDatabase,
+    teamId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const rows = await database.$queryRaw<readonly LockedTeamRow[]>(
+      Prisma.sql`SELECT "id", "leaderId" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
+    const locked = rows[0];
+    if (!locked || locked.leaderId !== userId) {
+      return false;
+    }
+
+    const membership = await database.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+      select: { id: true },
+    });
+    return membership !== null;
+  }
+
+  private async createTeamWithLeaderIn(
+    database: ApplicationDatabase,
+    input: CreateTeamForApplicationInput,
+  ): Promise<CreatedTeamForApplication> {
+    try {
+      const team = await database.team.create({
+        data: {
+          programId: input.programId,
+          name: input.name,
+          joinCodeDigest: input.joinCodeDigest,
+          leaderId: input.leaderId,
+        },
+        select: { id: true, name: true },
+      });
+      await database.teamMember.createMany({
+        data: (input.memberIds ?? [input.leaderId]).map((userId) => ({
+          teamId: team.id,
+          programId: input.programId,
+          userId,
+        })),
+      });
+      return team;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const target = error.meta?.target;
+        const fields = Array.isArray(target)
+          ? target.map(String)
+          : typeof target === 'string'
+            ? [target]
+            : [];
+        if (fields.some((field) => field.includes('joinCodeDigest'))) {
+          throw new ApplicationJoinCodeDigestConflictError();
+        }
+        throw new ApplicationTeamMembershipConflictError();
+      }
+      throw error;
+    }
+  }
+
+  private async createApplicationIn(
+    database: ApplicationDatabase,
+    input: CreateApplicationRecordInput,
+  ): Promise<CreatedApplication> {
+    try {
+      return await database.application.create({
+        data: {
+          programId: input.programId,
+          applicantId: input.applicantId,
+          teamId: input.teamId,
+          answers: input.answers,
+          applicationTemplateVersion: input.applicationTemplateVersion,
+          isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
+          repositoryConnectionMode: input.repositoryConnectionMode,
+          repositoryUrl: input.repositoryUrl,
+          status: ApplicationStatus.SUBMITTED,
+        },
+        select: {
+          id: true,
+          programId: true,
+          status: true,
+          teamId: true,
+          submittedAt: true,
+          isRepositoryPublicationPlanned: true,
+          repositoryConnectionMode: true,
+          repositoryUrl: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ApplicationDuplicateError();
+      }
+      throw error;
+    }
   }
 }
 

@@ -742,11 +742,6 @@ for (const [name, filename, code] of [
     repositoryFile,
     '@Injectable() export class ThingRepository { constructor(private readonly prisma: PrismaService) {} }',
   ],
-  [
-    'a local helper class',
-    serviceFile,
-    'class Parser { parse() { return 1; } }',
-  ],
 ] as const) {
   valid('injectable-role-class', `allows ${name}`, filename, code);
 }
@@ -773,6 +768,24 @@ for (const [name, filename, code, errors] of [
     'a different decorator',
     serviceFile,
     '@Controller() export class ThingService {}',
+    ['notInjectable'],
+  ],
+  [
+    'a non-exported repository of static helpers',
+    repositoryFile,
+    'class ThingRepository { static run() { return 1; } }',
+    ['notInjectable', 'staticMember'],
+  ],
+  [
+    'a non-exported transaction store class',
+    repositoryFile,
+    'class ThingTransactionStore { constructor(private readonly transaction: unknown) {} }',
+    ['notInjectable'],
+  ],
+  [
+    'a local helper class without a role suffix',
+    serviceFile,
+    'class Parser { parse() { return 1; } }',
     ['notInjectable'],
   ],
 ] as const) {

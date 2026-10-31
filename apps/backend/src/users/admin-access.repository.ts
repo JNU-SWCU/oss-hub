@@ -5,7 +5,6 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
@@ -42,86 +41,6 @@ type PrismaAdminActor = Prisma.UserGetPayload<{
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionStore {
-  constructor(
-    private readonly transaction: Prisma.TransactionClient,
-    private readonly adminAccessReadRepository: AdminAccessReadRepository,
-    private readonly adminAccessRepository: AdminAccessRepository,
-  ) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
-  }
-
-  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return this.adminAccessRepository.findAdminActorByGithubId(
-      this.transaction,
-      githubId,
-    );
-  }
-
-  lockActiveAdmins(): Promise<number> {
-    return this.adminAccessRepository.lockActiveAdminRows(this.transaction);
-  }
-
-  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
-    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
-    );
-    if (rows.length !== 1) {
-      return null;
-    }
-    const user = await this.transaction.user.findUnique({
-      where: { id: userId },
-      select: this.adminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
-    });
-    return user
-      ? this.adminAccessReadRepository.toAdminAccessUserRow(user)
-      : null;
-  }
-
-  async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
-    const result = await this.transaction.user.updateMany({
-      where: {
-        id: input.userId,
-        hasStaffAccess: input.expectedHasStaffAccess,
-        hasAdminAccess: input.expectedHasAdminAccess,
-        accountStatus: input.expectedAccountStatus,
-      },
-      data: {
-        accountStatus: input.desiredAccountStatus,
-        hasStaffAccess: input.desiredHasStaffAccess,
-        hasAdminAccess: input.desiredHasAdminAccess,
-      },
-    });
-    return result.count === 1;
-  }
-
-  async decidePendingRequest(
-    input: AdminAccessPendingDecisionUpdate,
-  ): Promise<boolean> {
-    const result = await this.transaction.staffAccessRequest.updateMany({
-      where: { id: input.requestId, status: StaffAccessRequestStatus.PENDING },
-      data: {
-        status: input.nextStatus,
-        rejectionReason: input.rejectionReason,
-        decidedById: input.actorId,
-        decidedAt: input.decidedAt,
-      },
-    });
-    return result.count === 1;
-  }
-
-  insertRevokedRequest(
-    input: AdminAccessRevokedRequestInsert,
-  ): Promise<AdminAccessInsertedRequest> {
-    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
-      this.transaction,
-      input,
-    );
-  }
-}
-
 @Injectable()
 export class AdminAccessRepository implements AdminAccessRepositoryPort {
   constructor(
@@ -134,13 +53,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaAdminAccessTransactionRepository(
-          transaction,
-          this.adminAccessReadRepository,
-          this,
-        ),
-      ),
+      operation(this.adminAccessTransactionStore(transaction)),
     );
   }
 
@@ -248,5 +161,94 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       select: { id: true },
     });
     return { id: created.id };
+  }
+
+  private adminAccessTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): AdminAccessTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
+      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
+      findUserForUpdate: this.findUserForUpdateIn.bind(this, transaction),
+      compareAndSwapAccess: this.compareAndSwapAccessIn.bind(this, transaction),
+      decidePendingRequest: this.decidePendingRequestIn.bind(this, transaction),
+      insertRevokedRequest: this.insertRevokedRequestIn.bind(this, transaction),
+    };
+  }
+
+  private findActorByGithubIdIn(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    return this.findAdminActorByGithubId(transaction, githubId);
+  }
+
+  private lockActiveAdminsIn(
+    transaction: Prisma.TransactionClient,
+  ): Promise<number> {
+    return this.lockActiveAdminRows(transaction);
+  }
+
+  private async findUserForUpdateIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<AdminAccessUserRow | null> {
+    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
+      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
+    );
+    if (rows.length !== 1) {
+      return null;
+    }
+    const user = await transaction.user.findUnique({
+      where: { id: userId },
+      select: this.adminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
+    });
+    return user
+      ? this.adminAccessReadRepository.toAdminAccessUserRow(user)
+      : null;
+  }
+
+  private async compareAndSwapAccessIn(
+    transaction: Prisma.TransactionClient,
+    input: AdminAccessUserUpdate,
+  ): Promise<boolean> {
+    const result = await transaction.user.updateMany({
+      where: {
+        id: input.userId,
+        hasStaffAccess: input.expectedHasStaffAccess,
+        hasAdminAccess: input.expectedHasAdminAccess,
+        accountStatus: input.expectedAccountStatus,
+      },
+      data: {
+        accountStatus: input.desiredAccountStatus,
+        hasStaffAccess: input.desiredHasStaffAccess,
+        hasAdminAccess: input.desiredHasAdminAccess,
+      },
+    });
+    return result.count === 1;
+  }
+
+  private async decidePendingRequestIn(
+    transaction: Prisma.TransactionClient,
+    input: AdminAccessPendingDecisionUpdate,
+  ): Promise<boolean> {
+    const result = await transaction.staffAccessRequest.updateMany({
+      where: { id: input.requestId, status: StaffAccessRequestStatus.PENDING },
+      data: {
+        status: input.nextStatus,
+        rejectionReason: input.rejectionReason,
+        decidedById: input.actorId,
+        decidedAt: input.decidedAt,
+      },
+    });
+    return result.count === 1;
+  }
+
+  private insertRevokedRequestIn(
+    transaction: Prisma.TransactionClient,
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return this.insertRevokedStaffAccessRequest(transaction, input);
   }
 }

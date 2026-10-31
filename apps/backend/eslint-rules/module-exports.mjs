@@ -103,8 +103,6 @@ export const configExports = exportedFunctionRule(
   (name) => CONFIG_FACTORY_NAME.test(name),
 );
 
-const ROLE_CLASS_NAME = /(Service|Repository|Client|Guard|Interceptor)$/;
-
 function isInjectableDecorator(decorator) {
   const { expression } = decorator;
   return (
@@ -128,9 +126,7 @@ export const injectableRoleClass = {
   create(context) {
     return {
       ClassDeclaration(node) {
-        const name = node.id?.name ?? '';
-        if (!ROLE_CLASS_NAME.test(name)) return;
-        if (!node.parent.type.startsWith('Export')) return;
+        const name = node.id?.name ?? 'default';
         if (!(node.decorators ?? []).some(isInjectableDecorator))
           context.report({
             node: node.id,

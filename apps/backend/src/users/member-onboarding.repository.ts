@@ -147,69 +147,6 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
   select: typeof MEMBER_USER_SELECT;
 }>;
 
-class PrismaOnboardingTransactionRepository implements OnboardingTransactionStore {
-  constructor(
-    private readonly transaction: Prisma.TransactionClient,
-    private readonly platformRepository: PlatformRepository,
-  ) {}
-
-  requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome> {
-    return this.platformRepository.requestStaffAccess(this.transaction, userId);
-  }
-
-  async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {
-    await this.transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
-    );
-    const user = await this.transaction.user.findUnique({
-      where: { githubId },
-      select: MEMBER_USER_SELECT,
-    });
-    return user ? toMemberUser(user) : null;
-  }
-
-  async updateSelectedMemberKind(
-    userId: string,
-    memberKind: MemberKind,
-  ): Promise<MemberUser> {
-    const user = await this.transaction.user.update({
-      where: { id: userId },
-      data: { selectedMemberKind: memberKind },
-      select: MEMBER_USER_SELECT,
-    });
-    return toMemberUser(user);
-  }
-
-  async findPendingRequest(
-    userId: string,
-  ): Promise<StaffAccessRequestRecord | null> {
-    const request = await this.transaction.staffAccessRequest.findFirst({
-      where: { userId, status: StaffAccessRequestStatus.PENDING },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-    return request ? toStaffAccessRequest(request) : null;
-  }
-
-  async findLatestRequest(
-    userId: string,
-  ): Promise<StaffAccessRequestRecord | null> {
-    const request = await this.transaction.staffAccessRequest.findFirst({
-      where: { userId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-    return request ? toStaffAccessRequest(request) : null;
-  }
-
-  async createPendingRequest(
-    userId: string,
-  ): Promise<StaffAccessRequestRecord> {
-    const request = await this.transaction.staffAccessRequest.create({
-      data: { userId },
-    });
-    return toStaffAccessRequest(request);
-  }
-}
-
 @Injectable()
 export class MemberOnboardingRepository {
   constructor(
@@ -221,12 +158,7 @@ export class MemberOnboardingRepository {
     operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaOnboardingTransactionRepository(
-          transaction,
-          this.platformRepository,
-        ),
-      ),
+      operation(this.onboardingTransactionStore(transaction)),
     );
   }
 
@@ -246,6 +178,88 @@ export class MemberOnboardingRepository {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
     return request ? toStaffAccessRequest(request) : null;
+  }
+
+  private onboardingTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): OnboardingTransactionStore {
+    return {
+      requestStaffAccess: this.requestStaffAccessIn.bind(this, transaction),
+      findUserByGithubId: this.findUserByGithubIdIn.bind(this, transaction),
+      updateSelectedMemberKind: this.updateSelectedMemberKindIn.bind(
+        this,
+        transaction,
+      ),
+      findPendingRequest: this.findPendingRequestIn.bind(this, transaction),
+      findLatestRequest: this.findLatestRequestIn.bind(this, transaction),
+      createPendingRequest: this.createPendingRequestIn.bind(this, transaction),
+    };
+  }
+
+  private requestStaffAccessIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<StaffAccessRequestOutcome> {
+    return this.platformRepository.requestStaffAccess(transaction, userId);
+  }
+
+  private async findUserByGithubIdIn(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<MemberUser | null> {
+    await transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+    );
+    const user = await transaction.user.findUnique({
+      where: { githubId },
+      select: MEMBER_USER_SELECT,
+    });
+    return user ? toMemberUser(user) : null;
+  }
+
+  private async updateSelectedMemberKindIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+    memberKind: MemberKind,
+  ): Promise<MemberUser> {
+    const user = await transaction.user.update({
+      where: { id: userId },
+      data: { selectedMemberKind: memberKind },
+      select: MEMBER_USER_SELECT,
+    });
+    return toMemberUser(user);
+  }
+
+  private async findPendingRequestIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<StaffAccessRequestRecord | null> {
+    const request = await transaction.staffAccessRequest.findFirst({
+      where: { userId, status: StaffAccessRequestStatus.PENDING },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return request ? toStaffAccessRequest(request) : null;
+  }
+
+  private async findLatestRequestIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<StaffAccessRequestRecord | null> {
+    const request = await transaction.staffAccessRequest.findFirst({
+      where: { userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return request ? toStaffAccessRequest(request) : null;
+  }
+
+  private async createPendingRequestIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<StaffAccessRequestRecord> {
+    const request = await transaction.staffAccessRequest.create({
+      data: { userId },
+    });
+    return toStaffAccessRequest(request);
   }
 }
 

@@ -129,226 +129,6 @@ type LockedProvisionJobRow = {
   readonly currentEventId: string | null;
 };
 
-class PrismaRepositoriesTransactionRepository implements RepositoriesTransactionStore {
-  constructor(
-    private readonly transaction: Prisma.TransactionClient,
-    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
-  ) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
-  }
-
-  async findPublishTarget(
-    repositoryId: string,
-  ): Promise<RepositoryPublishTargetRow | null> {
-    return this.transaction.githubRepository.findUnique({
-      where: { id: repositoryId },
-      select: {
-        id: true,
-        githubRepositoryId: true,
-        nameWithOwner: true,
-        visibility: true,
-        publishedAt: true,
-      },
-    });
-  }
-
-  async publishRepositoryIfPrivate(
-    repositoryId: string,
-    githubRepositoryId: bigint,
-    now: Date,
-  ): Promise<boolean> {
-    const updated = await this.transaction.githubRepository.updateMany({
-      where: {
-        id: repositoryId,
-        githubRepositoryId,
-        visibility: RepositoryVisibility.PRIVATE,
-      },
-      data: {
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: now,
-      },
-    });
-    return updated.count === 1;
-  }
-
-  async claimProvisionEvent(
-    input: ClaimProvisionEventInput,
-  ): Promise<ClaimedProvisionEvent | null> {
-    const leaseCutoff = new Date(input.now.getTime() - input.leaseMs);
-    const events = await this.transaction.$queryRaw<
-      ClaimedProvisionEventRow[]
-    >(Prisma.sql`
-      WITH candidate AS (
-        SELECT "id"
-        FROM "OutboxEvent"
-        WHERE "type" IN (
-            ${REPOSITORY_PROVISION_EVENT_TYPE},
-            ${REPOSITORY_ACCESS_SYNC_EVENT_TYPE}
-          )
-          AND "aggregateType" = 'Application'
-          AND "availableAt" <= ${input.now}
-          AND (
-            "status" = CAST(${OutboxEventStatus.PENDING} AS "OutboxEventStatus")
-            OR (
-              "status" = CAST(${OutboxEventStatus.PROCESSING} AS "OutboxEventStatus")
-              AND "lockedAt" < ${leaseCutoff}
-            )
-          )
-        ORDER BY "createdAt", "id"
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
-      )
-      UPDATE "OutboxEvent" AS event
-      SET "status" = CAST(${OutboxEventStatus.PROCESSING} AS "OutboxEventStatus"),
-          "attemptCount" = event."attemptCount" + 1,
-          "lockedAt" = ${input.now},
-          "lockedBy" = ${input.workerId},
-          "updatedAt" = ${input.now}
-      FROM candidate
-      WHERE event."id" = candidate."id"
-      RETURNING event."id", event."aggregateId", event."type", event."payload"
-    `);
-    return events[0] ?? null;
-  }
-
-  async upsertProvisionJob(
-    applicationId: string,
-    now: Date,
-  ): Promise<ProvisionJobReference> {
-    const locked = await this.transaction.$queryRaw<LockedProvisionJobRow[]>(
-      Prisma.sql`
-        SELECT "id", "status", "nextAttemptAt", "currentEventId"
-        FROM "RepositoryProvisionJob"
-        WHERE "applicationId" = ${applicationId}
-        FOR UPDATE
-      `,
-    );
-    const existing = locked[0];
-    if (existing === undefined) {
-      return this.transaction.repositoryProvisionJob.upsert({
-        where: { applicationId },
-        update: {},
-        create: {
-          applicationId,
-          status: RepositoryProvisionJobStatus.PENDING,
-          nextAttemptAt: now,
-        },
-        select: { id: true, currentEventId: true },
-      });
-    }
-
-    if (
-      existing.status === RepositoryProvisionJobStatus.SUCCEEDED ||
-      existing.status === RepositoryProvisionJobStatus.FAILED_FINAL
-    ) {
-      await this.transaction.repositoryProvisionJob.update({
-        where: { id: existing.id },
-        data: {
-          status: RepositoryProvisionJobStatus.PENDING,
-          nextAttemptAt: now,
-          attemptCount: 0,
-          lastErrorCode: null,
-          lastErrorMessage: null,
-          finishedAt: null,
-        },
-      });
-      return {
-        id: existing.id,
-        currentEventId: existing.currentEventId,
-      };
-    }
-
-    if (
-      existing.status === RepositoryProvisionJobStatus.PENDING ||
-      existing.status === RepositoryProvisionJobStatus.FAILED_RETRYABLE
-    ) {
-      if (existing.nextAttemptAt.getTime() > now.getTime()) {
-        await this.transaction.repositoryProvisionJob.update({
-          where: { id: existing.id },
-          data: { nextAttemptAt: now },
-        });
-      }
-      return {
-        id: existing.id,
-        currentEventId: existing.currentEventId,
-      };
-    }
-
-    return {
-      id: existing.id,
-      currentEventId: existing.currentEventId,
-    };
-  }
-
-  async findProvisionJob(
-    applicationId: string,
-  ): Promise<ProvisionJobReference | null> {
-    return this.transaction.repositoryProvisionJob.findUnique({
-      where: { applicationId },
-      select: { id: true, currentEventId: true },
-    });
-  }
-
-  async confirmSupersededProvisionEvent(
-    eventId: string,
-    applicationId: string,
-    now: Date,
-    parsePayload: RepositoryProvisionHistoryPayloadParser,
-  ): Promise<void> {
-    await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
-      this.transaction,
-      {
-        requestId: eventId,
-        applicationId,
-        repositoryId: null,
-        source: null,
-        outcome: RepositoryIssuanceOutcome.SUPERSEDED,
-        closedAt: now,
-      },
-      parsePayload,
-    );
-  }
-
-  async completeProvisionEvent(
-    eventId: string,
-    workerId: string,
-    now: Date,
-  ): Promise<void> {
-    await this.transaction.outboxEvent.updateMany({
-      where: {
-        id: eventId,
-        status: OutboxEventStatus.PROCESSING,
-        lockedBy: workerId,
-      },
-      data: {
-        status: OutboxEventStatus.PROCESSED,
-        lockedAt: null,
-        lockedBy: null,
-        processedAt: now,
-        lastError: null,
-      },
-    });
-  }
-
-  async failProvisionEvent(eventId: string, workerId: string): Promise<void> {
-    await this.transaction.outboxEvent.updateMany({
-      where: {
-        id: eventId,
-        status: OutboxEventStatus.PROCESSING,
-        lockedBy: workerId,
-      },
-      data: {
-        status: OutboxEventStatus.FAILED,
-        lockedAt: null,
-        lockedBy: null,
-        lastError: 'INVALID_REPOSITORY_PROVISION_EVENT',
-      },
-    });
-  }
-}
-
 @Injectable()
 export class RepositoriesRepository {
   constructor(
@@ -360,12 +140,7 @@ export class RepositoriesRepository {
     operation: (store: RepositoriesTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaRepositoriesTransactionRepository(
-          transaction,
-          this.repositoryProvisionGenerationRepository,
-        ),
-      ),
+      operation(this.repositoriesTransactionStore(transaction)),
     );
   }
   async listOwnedProvisionJobs(
@@ -446,6 +221,249 @@ export class RepositoriesRepository {
         nameWithOwner: true,
         visibility: true,
         publishedAt: true,
+      },
+    });
+  }
+
+  private repositoriesTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): RepositoriesTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      findPublishTarget: this.findPublishTargetIn.bind(this, transaction),
+      publishRepositoryIfPrivate: this.publishRepositoryIfPrivateIn.bind(
+        this,
+        transaction,
+      ),
+      claimProvisionEvent: this.claimProvisionEventIn.bind(this, transaction),
+      upsertProvisionJob: this.upsertProvisionJobIn.bind(this, transaction),
+      findProvisionJob: this.findProvisionJobIn.bind(this, transaction),
+      confirmSupersededProvisionEvent:
+        this.confirmSupersededProvisionEventIn.bind(this, transaction),
+      completeProvisionEvent: this.completeProvisionEventIn.bind(
+        this,
+        transaction,
+      ),
+      failProvisionEvent: this.failProvisionEventIn.bind(this, transaction),
+    };
+  }
+
+  private async findPublishTargetIn(
+    transaction: Prisma.TransactionClient,
+    repositoryId: string,
+  ): Promise<RepositoryPublishTargetRow | null> {
+    return transaction.githubRepository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        id: true,
+        githubRepositoryId: true,
+        nameWithOwner: true,
+        visibility: true,
+        publishedAt: true,
+      },
+    });
+  }
+
+  private async publishRepositoryIfPrivateIn(
+    transaction: Prisma.TransactionClient,
+    repositoryId: string,
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<boolean> {
+    const updated = await transaction.githubRepository.updateMany({
+      where: {
+        id: repositoryId,
+        githubRepositoryId,
+        visibility: RepositoryVisibility.PRIVATE,
+      },
+      data: {
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: now,
+      },
+    });
+    return updated.count === 1;
+  }
+
+  private async claimProvisionEventIn(
+    transaction: Prisma.TransactionClient,
+    input: ClaimProvisionEventInput,
+  ): Promise<ClaimedProvisionEvent | null> {
+    const leaseCutoff = new Date(input.now.getTime() - input.leaseMs);
+    const events = await transaction.$queryRaw<
+      ClaimedProvisionEventRow[]
+    >(Prisma.sql`
+      WITH candidate AS (
+        SELECT "id"
+        FROM "OutboxEvent"
+        WHERE "type" IN (
+            ${REPOSITORY_PROVISION_EVENT_TYPE},
+            ${REPOSITORY_ACCESS_SYNC_EVENT_TYPE}
+          )
+          AND "aggregateType" = 'Application'
+          AND "availableAt" <= ${input.now}
+          AND (
+            "status" = CAST(${OutboxEventStatus.PENDING} AS "OutboxEventStatus")
+            OR (
+              "status" = CAST(${OutboxEventStatus.PROCESSING} AS "OutboxEventStatus")
+              AND "lockedAt" < ${leaseCutoff}
+            )
+          )
+        ORDER BY "createdAt", "id"
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+      UPDATE "OutboxEvent" AS event
+      SET "status" = CAST(${OutboxEventStatus.PROCESSING} AS "OutboxEventStatus"),
+          "attemptCount" = event."attemptCount" + 1,
+          "lockedAt" = ${input.now},
+          "lockedBy" = ${input.workerId},
+          "updatedAt" = ${input.now}
+      FROM candidate
+      WHERE event."id" = candidate."id"
+      RETURNING event."id", event."aggregateId", event."type", event."payload"
+    `);
+    return events[0] ?? null;
+  }
+
+  private async upsertProvisionJobIn(
+    transaction: Prisma.TransactionClient,
+    applicationId: string,
+    now: Date,
+  ): Promise<ProvisionJobReference> {
+    const locked = await transaction.$queryRaw<LockedProvisionJobRow[]>(
+      Prisma.sql`
+        SELECT "id", "status", "nextAttemptAt", "currentEventId"
+        FROM "RepositoryProvisionJob"
+        WHERE "applicationId" = ${applicationId}
+        FOR UPDATE
+      `,
+    );
+    const existing = locked[0];
+    if (existing === undefined) {
+      return transaction.repositoryProvisionJob.upsert({
+        where: { applicationId },
+        update: {},
+        create: {
+          applicationId,
+          status: RepositoryProvisionJobStatus.PENDING,
+          nextAttemptAt: now,
+        },
+        select: { id: true, currentEventId: true },
+      });
+    }
+
+    if (
+      existing.status === RepositoryProvisionJobStatus.SUCCEEDED ||
+      existing.status === RepositoryProvisionJobStatus.FAILED_FINAL
+    ) {
+      await transaction.repositoryProvisionJob.update({
+        where: { id: existing.id },
+        data: {
+          status: RepositoryProvisionJobStatus.PENDING,
+          nextAttemptAt: now,
+          attemptCount: 0,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          finishedAt: null,
+        },
+      });
+      return {
+        id: existing.id,
+        currentEventId: existing.currentEventId,
+      };
+    }
+
+    if (
+      existing.status === RepositoryProvisionJobStatus.PENDING ||
+      existing.status === RepositoryProvisionJobStatus.FAILED_RETRYABLE
+    ) {
+      if (existing.nextAttemptAt.getTime() > now.getTime()) {
+        await transaction.repositoryProvisionJob.update({
+          where: { id: existing.id },
+          data: { nextAttemptAt: now },
+        });
+      }
+      return {
+        id: existing.id,
+        currentEventId: existing.currentEventId,
+      };
+    }
+
+    return {
+      id: existing.id,
+      currentEventId: existing.currentEventId,
+    };
+  }
+
+  private async findProvisionJobIn(
+    transaction: Prisma.TransactionClient,
+    applicationId: string,
+  ): Promise<ProvisionJobReference | null> {
+    return transaction.repositoryProvisionJob.findUnique({
+      where: { applicationId },
+      select: { id: true, currentEventId: true },
+    });
+  }
+
+  private async confirmSupersededProvisionEventIn(
+    transaction: Prisma.TransactionClient,
+    eventId: string,
+    applicationId: string,
+    now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<void> {
+    await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+      transaction,
+      {
+        requestId: eventId,
+        applicationId,
+        repositoryId: null,
+        source: null,
+        outcome: RepositoryIssuanceOutcome.SUPERSEDED,
+        closedAt: now,
+      },
+      parsePayload,
+    );
+  }
+
+  private async completeProvisionEventIn(
+    transaction: Prisma.TransactionClient,
+    eventId: string,
+    workerId: string,
+    now: Date,
+  ): Promise<void> {
+    await transaction.outboxEvent.updateMany({
+      where: {
+        id: eventId,
+        status: OutboxEventStatus.PROCESSING,
+        lockedBy: workerId,
+      },
+      data: {
+        status: OutboxEventStatus.PROCESSED,
+        lockedAt: null,
+        lockedBy: null,
+        processedAt: now,
+        lastError: null,
+      },
+    });
+  }
+
+  private async failProvisionEventIn(
+    transaction: Prisma.TransactionClient,
+    eventId: string,
+    workerId: string,
+  ): Promise<void> {
+    await transaction.outboxEvent.updateMany({
+      where: {
+        id: eventId,
+        status: OutboxEventStatus.PROCESSING,
+        lockedBy: workerId,
+      },
+      data: {
+        status: OutboxEventStatus.FAILED,
+        lockedAt: null,
+        lockedBy: null,
+        lastError: 'INVALID_REPOSITORY_PROVISION_EVENT',
       },
     });
   }
