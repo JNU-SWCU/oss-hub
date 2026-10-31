@@ -41,7 +41,7 @@ export function MilestoneDocumentCollectionSummary({
         모든 페이지의 승인된 팀 기준입니다. 서류를 고르면 아래 표에서
         제출·미제출 팀을 확인할 수 있습니다.
       </p>
-      <FilterChipGroup aria-label="서류 선택" className="flex-col">
+      <FilterChipGroup aria-label="서류 선택">
         {data.documents.map((document) => {
           const total = collectionDocumentTotalFor(
             data.documentTotals,
@@ -54,22 +54,8 @@ export function MilestoneDocumentCollectionSummary({
               onClick={() =>
                 onSelectionChange({ id: document.id, submissionState: 'ALL' })
               }
-              className="h-auto min-h-control w-full flex-wrap justify-between gap-2 px-4 py-3 text-left whitespace-normal"
             >
-              <span className="min-w-0 break-words">
-                {document.name}
-                <span className="ml-2 text-small text-muted-foreground">
-                  {document.isRequired ? '필수' : '선택'}
-                </span>
-              </span>
-              <span className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
-                <span>
-                  제출 {total.submitted} / {total.total}팀
-                </span>
-                <span className="text-muted-foreground">
-                  미제출 {total.total - total.submitted}팀
-                </span>
-              </span>
+              {`${document.name} ${document.isRequired ? '필수' : '선택'} 제출 ${total.submitted} / ${total.total}`}
             </FilterChip>
           );
         })}
@@ -86,14 +72,14 @@ export function MilestoneDocumentCollectionSummary({
               모든 서류 보기
             </Button>
           </div>
-          <FilterChipGroup aria-label={`${selected.name} 제출 여부`}>
+          <FilterChipGroup aria-label={`${selected.name} 팀별 제출 여부`}>
             {[
-              ['ALL', `전체 ${selectedTotal.total}팀`],
+              ['ALL', `전체 ${selectedTotal.total}`],
               [
                 'MISSING',
-                `미제출 ${selectedTotal.total - selectedTotal.submitted}팀`,
+                `미제출 ${selectedTotal.total - selectedTotal.submitted}`,
               ],
-              ['SUBMITTED', `제출 ${selectedTotal.submitted}팀`],
+              ['SUBMITTED', `제출 ${selectedTotal.submitted}`],
             ].map(([submissionState, label]) => (
               <FilterChip
                 key={submissionState}
