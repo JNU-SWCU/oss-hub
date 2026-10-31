@@ -40,14 +40,12 @@ function completionRows(
   }[],
 ) {
   return {
-    findProgramApplications: jest
-      .fn()
-      .mockResolvedValue(
-        teams.map((_, index) => ({
-          id: `app-${index}`,
-          teamId: `team-${index}`,
-        })),
-      ),
+    findProgramApplications: jest.fn().mockResolvedValue(
+      teams.map((_, index) => ({
+        id: `app-${index}`,
+        teamId: `team-${index}`,
+      })),
+    ),
     findSubmittedDocumentPairs: jest.fn(
       (_applicationIds: readonly string[], documentIds: readonly string[]) =>
         Promise.resolve(
