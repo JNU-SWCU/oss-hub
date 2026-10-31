@@ -6,6 +6,9 @@ import {
 } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BoardPostDetail, BoardPostsPage } from '../types';
+import { ApiError } from '@/lib/api-client';
+import { boardPostKey } from '../queries';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
 
 const mocks = vi.hoisted(() => {
   const push = vi.fn();
@@ -137,6 +140,85 @@ describe('게시글 삭제 후 목록 복귀', () => {
     await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+  });
+
+  it('삭제 후 상세로 돌아오면 캐시를 제거하고 BRD_002 안내를 보여준다', async () => {
+    mocks.getBoardPost.mockResolvedValueOnce(post).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not found',
+        status: 404,
+        detail: 'Deleted post',
+        instance: '/board/post-1',
+        code: 'BRD_002',
+      }),
+    );
+    mocks.deleteBoardPost.mockResolvedValue({ deleted: true });
+    const view = await renderWithQuery(
+      <BoardDetailScreen
+        programId="program-1"
+        postId="post-1"
+        isStaff={false}
+      />,
+    );
+    view.queryClient.setDefaultOptions({
+      queries: { retry: false, gcTime: Infinity },
+    });
+    try {
+      const button = [...view.container.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === '삭제',
+      );
+      if (!button) throw new TypeError('게시글 삭제 버튼을 찾지 못했습니다.');
+      await act(async () => button.click());
+      expect(mocks.push).toHaveBeenCalledWith('/programs/program-1/board');
+      expect(
+        view.queryClient.getQueryData(boardPostKey('program-1', 'post-1')),
+      ).toBeUndefined();
+      await view.rerender(null);
+      await view.rerender(
+        <BoardDetailScreen
+          programId="program-1"
+          postId="post-1"
+          isStaff={false}
+        />,
+      );
+      expect(mocks.getBoardPost).toHaveBeenCalledTimes(2);
+      expect(view.container.textContent).toContain('게시글을 찾을 수 없습니다');
+      expect(view.container.textContent).not.toContain(post.title);
+    } finally {
+      await view.unmount();
+    }
+  });
+
+  it('캐시된 글이 있어도 BRD_002 응답은 not-found 상태가 우선한다', async () => {
+    mocks.getBoardPost.mockResolvedValueOnce(post).mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Not found',
+        status: 404,
+        detail: 'Deleted post',
+        instance: '/board/post-1',
+        code: 'BRD_002',
+      }),
+    );
+    const view = await renderWithQuery(
+      <BoardDetailScreen
+        programId="program-1"
+        postId="post-1"
+        isStaff={false}
+      />,
+    );
+    try {
+      await act(async () => {
+        await view.queryClient.invalidateQueries({
+          queryKey: boardPostKey('program-1', 'post-1'),
+        });
+      });
+      expect(view.container.textContent).toContain('게시글을 찾을 수 없습니다');
+      expect(view.container.textContent).not.toContain(post.title);
+    } finally {
+      await view.unmount();
+    }
   });
 
   it('삭제 성공 시 캐시된 목록을 다시 조회해 삭제된 글과 총 개수를 즉시 갱신한다', async () => {
