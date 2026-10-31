@@ -22,6 +22,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  push: vi.fn(),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
@@ -33,6 +34,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({
   usePathname: mocks.usePathname,
   useSearchParams: mocks.useSearchParams,
+  useRouter: () => ({ push: mocks.push }),
 }));
 vi.mock('next/link', () => ({
   default: ({
@@ -176,6 +178,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     await act(async () => root.unmount());
     container.remove();
     document.body.style.overflow = '';
+    sessionStorage.clear();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       writable: true,
@@ -436,6 +439,22 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
       'milestoneId=milestone-mid',
     );
 
+    expect(dialog()).toBeNull();
+  });
+
+  it('프로그램 개요에서 화면을 전환하면 주소가 그대로여도 시트가 닫힌다', async () => {
+    mockSession({ ...STUDENT_SESSION, hasStaffAccess: true });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
+    await renderFrame('/programs/prog-1');
+    await openSheet();
+    const viewSwitch = dialog()?.querySelector('button[data-view-switch]');
+    if (!(viewSwitch instanceof HTMLButtonElement))
+      throw new Error('화면 전환 버튼을 찾지 못했습니다');
+
+    await act(async () => viewSwitch.click());
+
+    expect(mocks.push).toHaveBeenCalledWith('/programs/prog-1');
     expect(dialog()).toBeNull();
   });
 
