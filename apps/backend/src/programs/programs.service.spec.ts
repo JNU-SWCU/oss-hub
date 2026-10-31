@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -12,11 +14,10 @@ import type { PrismaService } from '../platform/prisma.service';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
-import { ProgramRulesService } from './program-rules.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 
-const programRulesService = new ProgramRulesService();
+const programScheduleService = new ProgramScheduleService();
 
 const publicProgram = {
   id: 'program-1',
@@ -72,7 +73,8 @@ function createService() {
       ),
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     ),
     findUnique,
@@ -457,7 +459,7 @@ function programWithRequiredDocuments() {
 describe('programDeadline', () => {
   it('Asia/Seoul 달력 날짜를 기준으로 D-day를 계산한다', () => {
     expect(
-      programRulesService.programDeadline(
+      programScheduleService.programDeadline(
         new Date('2026-07-22T00:01:00+09:00'),
         new Date('2026-07-21T23:59:00+09:00'),
       ),
@@ -467,11 +469,11 @@ describe('programDeadline', () => {
   it('마감 시각과 정확히 같을 때는 아직 마감 후가 아니다', () => {
     const dueAt = new Date('2026-07-21T14:59:59.000Z');
 
-    expect(programRulesService.hasProgramDeadlinePassed(dueAt, dueAt)).toBe(
+    expect(programScheduleService.hasProgramDeadlinePassed(dueAt, dueAt)).toBe(
       false,
     );
     expect(
-      programRulesService.hasProgramDeadlinePassed(
+      programScheduleService.hasProgramDeadlinePassed(
         dueAt,
         new Date('2026-07-21T14:59:59.001Z'),
       ),

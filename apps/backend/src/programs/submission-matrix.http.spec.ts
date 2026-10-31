@@ -1,3 +1,4 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
@@ -98,6 +99,10 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       SubmissionMatrixService,
+      {
+        provide: MilestoneDocumentCollectionService,
+        useValue: new MilestoneDocumentCollectionService({} as never),
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {
         provide: AuthConfig,

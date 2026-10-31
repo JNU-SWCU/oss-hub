@@ -35,8 +35,9 @@ import {
 } from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 
 const MAX_MILESTONES = 50;
 
@@ -149,8 +150,9 @@ export class ProgramAuthoringService {
     private readonly repository: ProgramAuthoringStore,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
-    private readonly programRulesService: ProgramRulesService,
-    private readonly programUploadRulesService: ProgramUploadRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
+    private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
   ) {}
 
@@ -230,8 +232,9 @@ export class ProgramAuthoringService {
     );
     for (const upload of uploads) {
       if (upload.id === plan.coverUploadId)
-        this.programUploadRulesService.assertProgramCoverUpload(upload);
-      else this.programUploadRulesService.assertProgramTemplateUpload(upload);
+        this.programAuthoringUploadService.assertProgramCoverUpload(upload);
+      else
+        this.programAuthoringUploadService.assertProgramTemplateUpload(upload);
     }
     const cover = uploads.find(({ id }) => id === plan.coverUploadId);
     const program =
@@ -344,7 +347,7 @@ export class ProgramAuthoringService {
     request: ProgramAuthoringRequest,
   ): ProgramAuthoringPlan {
     const externalCover =
-      this.programUploadRulesService.validateProgramCoverChoice(request);
+      this.programAuthoringUploadService.validateProgramCoverChoice(request);
     const issues: ProgramAuthoringValidationIssue[] = [];
     const name = requiredString(request.name, 'name', issues);
     const organizer = requiredString(request.organizer, 'organizer', issues);
@@ -372,7 +375,7 @@ export class ProgramAuthoringService {
 
     if (
       endAt !== null &&
-      this.programRulesService.isProgramEndAtUndecided(endAt)
+      this.programScheduleService.isProgramEndAtUndecided(endAt)
     ) {
       issues.push({ path: 'endAt', code: 'INVALID_DATE' });
       endAt = null;
@@ -402,7 +405,7 @@ export class ProgramAuthoringService {
       issues.push({ path: 'endAt', code: 'INVALID_PROGRAM_SCHEDULE' });
     }
 
-    const template = this.programRulesService.getProgramTemplate(
+    const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
     );
     const teamMinSize = request.teamMinSize ?? template.teamSize.defaultMin;

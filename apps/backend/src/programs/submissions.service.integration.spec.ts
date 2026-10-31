@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { DownloadResponseService } from './download-response.service';
 import { SubmissionInputService } from './submission-input.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -31,10 +33,8 @@ import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
-const submissionFileRulesService = new SubmissionFileRulesService();
+const programScheduleService = new ProgramScheduleService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -44,8 +44,8 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new SubmissionsService(
   new SubmissionsRepository(prisma, new PlatformRepository()),
-  new ProgramRulesService(),
-  new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new SubmissionFileAdmissionService(),
   new SubmissionInputService(),
 );
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
@@ -595,8 +595,8 @@ describe('SubmissionsService integration', () => {
         new SubmissionsRepository(prisma, new PlatformRepository()),
       ),
       storage,
-      new ProgramRulesService(),
-      new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
     );
 
@@ -624,7 +624,7 @@ describe('SubmissionsService integration', () => {
       expect(row.lifecycle).toBe(SubmissionFileLifecycle.PENDING);
       expect(row.pendingExpiresAt).not.toBeNull();
       expect(row.expiresAt).toEqual(
-        submissionFileRulesService.addOneCalendarYear(programEndAt),
+        programScheduleService.addOneCalendarYear(programEndAt),
       );
     } finally {
       await prisma.submissionFile.deleteMany({
@@ -679,8 +679,8 @@ describe('SubmissionsService integration', () => {
         new SubmissionsRepository(prisma, new PlatformRepository()),
       ),
       storage,
-      new ProgramRulesService(),
-      new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
     );
 
@@ -775,7 +775,7 @@ describe('SubmissionsService integration', () => {
       lifecycle: SubmissionFileLifecycle.ATTACHED,
       pendingExpiresAt: null,
       expiresAt:
-        submissionFileRulesService.addOneCalendarYear(FILE_RETENTION_START),
+        programScheduleService.addOneCalendarYear(FILE_RETENTION_START),
     });
   });
 
@@ -959,7 +959,7 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt:
-          submissionFileRulesService.addOneCalendarYear(FILE_RETENTION_START),
+          programScheduleService.addOneCalendarYear(FILE_RETENTION_START),
         milestoneDocumentSubmissionId: targetSubmissionId,
         milestoneDocumentSubmissionHistoryId: targetHistoryId,
       },
@@ -975,7 +975,7 @@ async function seedFileResubmissionFixture(suffix: string): Promise<{
         lifecycle: SubmissionFileLifecycle.PENDING,
         pendingExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
         expiresAt:
-          submissionFileRulesService.addOneCalendarYear(FILE_RETENTION_START),
+          programScheduleService.addOneCalendarYear(FILE_RETENTION_START),
       },
     ],
   });

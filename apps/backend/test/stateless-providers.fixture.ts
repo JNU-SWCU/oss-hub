@@ -15,16 +15,16 @@ import { JoinCodeSecretService } from '../src/platform/join-code-secret.service'
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryPublishService } from '../src/github/repository-publish.service';
-import { RepositoryProvisionRulesService } from '../src/github/repository-provision-rules.service';
 import { AuthSessionService } from '../src/platform/auth-session.service';
 import { ApplicationAnswersService } from '../src/programs/application-answers.service';
 import { DownloadResponseService } from '../src/programs/download-response.service';
 import { MilestoneCompletionService } from '../src/programs/milestone-completion.service';
-import { MilestoneDocumentRulesService } from '../src/programs/milestone-document-rules.service';
+import { MilestoneDocumentFileNameService } from '../src/programs/milestone-document-file-name.service';
+import { MilestoneDocumentSubmissionWindowService } from '../src/programs/milestone-document-submission-window.service';
 import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
-import { ProgramRulesService } from '../src/programs/program-rules.service';
-import { ProgramUploadRulesService } from '../src/programs/program-upload-rules.service';
-import { SubmissionFileRulesService } from '../src/programs/submission-file-rules.service';
+import { ProgramScheduleService } from '../src/programs/program-schedule.service';
+import { ProgramTemplatesService } from '../src/programs/program-templates.service';
+import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
 import { SubmissionInputService } from '../src/programs/submission-input.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { StaffInsightsQueryService } from '../src/staff/staff-insights-query.service';
@@ -49,16 +49,16 @@ export const STATELESS_PROVIDERS = [
   RepositoryUrlService,
   RepositoryProvisionEventService,
   RepositoryPublishService,
-  RepositoryProvisionRulesService,
   AuthSessionService,
   ApplicationAnswersService,
   DownloadResponseService,
   MilestoneCompletionService,
-  MilestoneDocumentRulesService,
+  MilestoneDocumentFileNameService,
+  MilestoneDocumentSubmissionWindowService,
   ProgramCoverUrlService,
-  ProgramRulesService,
-  ProgramUploadRulesService,
-  SubmissionFileRulesService,
+  ProgramScheduleService,
+  ProgramTemplatesService,
+  SubmissionFileAdmissionService,
   SubmissionInputService,
   RankingYearService,
   StaffInsightsQueryService,

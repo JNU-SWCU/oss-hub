@@ -19,7 +19,8 @@ import {
   ProgramErrorCode,
 } from './program-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 
 export type CreatedProgram = {
   readonly id: string;
@@ -97,7 +98,8 @@ export class ProgramCreationService {
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
-    private readonly programRulesService: ProgramRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
@@ -108,7 +110,7 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = this.programRulesService.getProgramTemplate(
+    const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
     );
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
@@ -143,7 +145,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      this.programRulesService.isProgramEndAtUndecided(endAt) ||
+      this.programScheduleService.isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(

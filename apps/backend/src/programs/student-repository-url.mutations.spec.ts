@@ -14,7 +14,6 @@ import type {
   StudentRepositoryUrlContext,
   TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
-import { ProgramRulesService } from './program-rules.service';
 
 const context: StudentRepositoryUrlContext = {
   id: 'application',
@@ -106,7 +105,6 @@ function fixture(
     consents,
     audit,
     collection,
-    new ProgramRulesService(),
     new RepositoryProvisionEventService(),
   );
   return {

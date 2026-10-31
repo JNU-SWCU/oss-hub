@@ -26,8 +26,8 @@ import {
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 export interface SubmissionFileUpload {
   readonly buffer: Buffer;
@@ -60,8 +60,8 @@ export class SubmissionFilesService {
     private readonly repository: SubmissionFilesRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
-    private readonly programRulesService: ProgramRulesService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
     private readonly downloadResponseService: DownloadResponseService,
   ) {}
 
@@ -81,7 +81,7 @@ export class SubmissionFilesService {
     return this.repository.createPending({
       ...input,
       resolveExpiresAt: (programEndAt) =>
-        this.submissionFileRulesService.addOneCalendarYear(programEndAt),
+        this.programScheduleService.addOneCalendarYear(programEndAt),
     });
   }
 
@@ -129,7 +129,7 @@ export class SubmissionFilesService {
       const status = authorization.resubmissionStatus;
       const replaceableBeforeDue =
         status === SubmissionStatus.SUBMITTED &&
-        !this.programRulesService.hasProgramDeadlinePassed(
+        !this.programScheduleService.hasProgramDeadlinePassed(
           authorization.dueAt,
           now,
         );
@@ -146,7 +146,7 @@ export class SubmissionFilesService {
 
     if (
       resubmissionContext === null &&
-      this.programRulesService.hasProgramDeadlinePassed(
+      this.programScheduleService.hasProgramDeadlinePassed(
         authorization.dueAt,
         now,
       )
@@ -154,9 +154,9 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
     const objectKey =
-      this.submissionFileRulesService.createSubmissionFileObjectKey();
+      this.submissionFileAdmissionService.createSubmissionFileObjectKey();
     const originalName =
-      this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
+      this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
         normalizedFileName,
       );
     const pendingInput: Omit<
@@ -221,14 +221,14 @@ export class SubmissionFilesService {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
     }
     const normalizedFileName =
-      this.submissionFileRulesService.normalizeMultipartFileName(
+      this.submissionFileAdmissionService.normalizeMultipartFileName(
         file.originalname,
       );
     if (
-      !this.submissionFileRulesService.isAllowedSubmissionFileType(
+      !this.submissionFileAdmissionService.isAllowedSubmissionFileType(
         normalizedFileName,
       ) ||
-      !this.submissionFileRulesService.hasValidSubmissionFileSignature(
+      !this.submissionFileAdmissionService.hasValidSubmissionFileSignature(
         file.buffer,
         normalizedFileName,
       )
@@ -238,7 +238,7 @@ export class SubmissionFilesService {
 
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
       const zipRejection =
-        await this.submissionFileRulesService.inspectSubmissionZipMetadata(
+        await this.submissionFileAdmissionService.inspectSubmissionZipMetadata(
           file.buffer,
         );
       if (zipRejection !== null) {
@@ -282,7 +282,7 @@ export class SubmissionFilesService {
       body,
       fileName: file.originalFileName,
       contentType:
-        this.submissionFileRulesService.safeSubmissionFileContentType(
+        this.submissionFileAdmissionService.safeSubmissionFileContentType(
           file.originalFileName,
         ),
       contentLength: file.sizeBytes,

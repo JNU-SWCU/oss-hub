@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
@@ -24,7 +26,6 @@ import {
 } from './program-cover.integration-fixtures';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -113,7 +114,8 @@ it('creates and replays an external cover with public projections and no storage
     ),
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
-    new ProgramRulesService(),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
     Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({

@@ -1,7 +1,15 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ApplicationStatus } from '@prisma/client';
-import { ProgramRulesService } from './program-rules.service';
 
-const programRulesService = new ProgramRulesService();
+const studentRepositoryUrlService = new StudentRepositoryUrlService(
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+);
 
 describe('program-participant', () => {
   describe('student repository URL edit permission', () => {
@@ -21,7 +29,7 @@ describe('program-participant', () => {
       'checks status %s manager %s at %s',
       (status, isManager, now, expected) => {
         const context = { status, endAt, isManager };
-        const result = programRulesService.canEditStudentRepositoryUrl(
+        const result = studentRepositoryUrlService.canEditStudentRepositoryUrl(
           context,
           now,
         );

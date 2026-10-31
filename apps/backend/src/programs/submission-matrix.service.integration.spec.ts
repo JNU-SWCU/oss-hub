@@ -1,3 +1,4 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
@@ -24,8 +25,6 @@ import {
   type MatrixRowResult,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,7 +34,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
   new SubmissionMatrixRepository(prisma, new PlatformRepository()),
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentCollectionService({} as never),
 );
 
 const PROGRAM_ID = seedId('milestones', 'program');

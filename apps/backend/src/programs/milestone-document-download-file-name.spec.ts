@@ -1,9 +1,5 @@
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-
-const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
-  new ProgramRulesService(),
-);
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+const milestoneDocumentFileNameService = new MilestoneDocumentFileNameService();
 
 describe('milestoneDocumentDownloadFileName', () => {
   it('학생이 올린 원본 이름과 무관하게 `팀명_서류명.확장자`로 다시 붙인다', () => {
@@ -14,7 +10,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_개인정보 수집·이용 동의서.hwp');
   });
@@ -27,7 +23,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.pdf');
   });
@@ -40,7 +36,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -53,7 +49,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -66,7 +62,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -79,7 +75,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('.._.._etc_a_b_c.pdf');
     expect(result).not.toContain('/');
@@ -94,7 +90,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성__팀_동의서__ x=1.pdf');
     expect(result).not.toContain('"');
@@ -111,7 +107,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('가나다팀_팀 구성 확인서.png');
   });
@@ -124,7 +120,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('file_file.pdf');
   });
@@ -137,7 +133,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.pd_f');
   });
@@ -160,7 +156,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe(`${'가'.repeat(100)}_${'나'.repeat(100)}.pdf`);
     expect(result.length).toBe(205);
@@ -169,7 +165,7 @@ describe('이름 한 칸의 길이 자르기', () => {
 
   it('글 제출의 .txt 이름도 같은 길이로 자른다', () => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentTextEntryFileName({
+      milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName({
         teamName: '가'.repeat(100),
         documentName: '나'.repeat(200),
       });
@@ -180,7 +176,7 @@ describe('이름 한 칸의 길이 자르기', () => {
 
   it('ZIP 안 폴더 한 칸도 100자로 자른다', () => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         '가'.repeat(150),
       );
 
@@ -192,7 +188,9 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(98)}😀${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe(`${'가'.repeat(98)}😀`);
     expect(result.length).toBe(100);
@@ -201,7 +199,7 @@ describe('이름 한 칸의 길이 자르기', () => {
 
   it('세는 단위가 글자 수가 아니라 UTF-16 코드 단위다 — 이모지는 둘을 먹는다', () => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName({
         teamName: '😀'.repeat(50),
         documentName: '😀'.repeat(100),
         originalFileName: 'a.pdf',
@@ -217,7 +215,9 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)}😀나`;
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe('가'.repeat(99));
     expect(hasLoneSurrogate(result)).toBe(false);
@@ -227,7 +227,9 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)}...${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe('가'.repeat(99));
     expect(result.endsWith('.')).toBe(false);
@@ -237,7 +239,9 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)} ${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe('가'.repeat(99));
     expect(result.endsWith(' ')).toBe(false);
@@ -245,29 +249,37 @@ describe('이름 한 칸의 길이 자르기', () => {
 
   it('위첨자 숫자로 적은 장치 이름도 비켜 간다', () => {
     expect(
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName('COM¹'),
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        'COM¹',
+      ),
     ).toBe('COM¹_');
     expect(
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName('lpt²'),
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        'lpt²',
+      ),
     ).toBe('lpt²_');
     expect(
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         'COM³.txt',
       ),
     ).toBe('COM³.txt_');
 
     expect(
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName('COM¹'),
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        'COM¹',
+      ),
     ).toContain('¹');
 
     expect(
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName('가¹팀'),
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        '가¹팀',
+      ),
     ).toBe('가¹팀');
   });
 
   it('100자 이하는 그대로 둔다 — 필요 없는 자르기는 하지 않는다', () => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         '가'.repeat(100),
       );
 
@@ -297,7 +309,9 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     ['CON.', 'CON_'],
   ])('예약 이름 %p은 `%s`로 비껴간다', (value, expected) => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe(expected);
   });
@@ -316,7 +330,9 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     ['team-CON'],
   ])('예약이 아닌 이름 %p은 그대로 둔다', (value) => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe(value);
   });
@@ -329,7 +345,7 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('CON_NUL.pdf');
   });
@@ -352,7 +368,7 @@ describe('보이지 않는 서식 문자', () => {
     ['BOM(U+FEFF)', '\ufeff'],
   ])('%s는 `_`로 바꾼다', (_name, invisible) => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         `가나${invisible}다팀`,
       );
 
@@ -368,7 +384,7 @@ describe('보이지 않는 서식 문자', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서_gpj.pdf');
     expect(result).not.toContain(RTL_OVERRIDE);
@@ -382,7 +398,7 @@ describe('보이지 않는 서식 문자', () => {
     };
 
     const result =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName(input);
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.p_df');
   });
@@ -396,7 +412,9 @@ describe('보이지 않는 서식 문자', () => {
     ['emoji 😀 팀'],
   ])('한글·영문·숫자·공백이 섞인 %p은 그대로 살아남는다', (value) => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe(value);
     expect(result).not.toContain('_');
@@ -415,7 +433,7 @@ describe('milestoneDocumentTextEntryFileName', () => {
     '팀명 %p · 서류명 %p은 `%s`로 담는다 — 원본 파일이 없으므로 확장자는 .txt로 고정한다',
     (teamName, documentName, expected) => {
       const result =
-        milestoneDocumentRulesService.milestoneDocumentTextEntryFileName({
+        milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName({
           teamName,
           documentName,
         });
@@ -428,9 +446,11 @@ describe('milestoneDocumentTextEntryFileName', () => {
     const names = { teamName: '가나다팀', documentName: '계획서' };
 
     const textEntry =
-      milestoneDocumentRulesService.milestoneDocumentTextEntryFileName(names);
+      milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName(
+        names,
+      );
     const fileEntry =
-      milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
+      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName({
         ...names,
         originalFileName: 'plan.pdf',
       });
@@ -459,7 +479,9 @@ describe('milestoneDocumentArchiveFolderName', () => {
     ['팀  이름', '팀 이름'],
   ])('폴더 이름 %p은 `%s`가 된다', (value, expected) => {
     const result =
-      milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(value);
+      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
+        value,
+      );
 
     expect(result).toBe(expected);
     expect(result).not.toContain('/');

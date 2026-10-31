@@ -1,3 +1,9 @@
+import {
+  type MilestoneDocumentCollectionQuery,
+  MilestoneDocumentCollectionService,
+} from './milestone-document-collection.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -7,10 +13,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,8 +37,9 @@ const repository = new MilestoneDocumentsRepository(
 );
 const service = new MilestoneDocumentsService(
   repository,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-  new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 

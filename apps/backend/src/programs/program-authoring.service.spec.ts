@@ -1,3 +1,7 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
@@ -27,18 +31,18 @@ import {
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(
-    new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
@@ -213,9 +217,12 @@ function setup() {
       repository,
       auditLog,
       new AuditLogMetadataService(),
-      new ProgramRulesService(),
-      new ProgramUploadRulesService(
-        new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
+      new ProgramAuthoringUploadService(
+        {} as never,
+        {} as never,
+        new SubmissionFileAdmissionService(),
         new ProgramNoticeFetchClient(),
       ),
       new ProgramAuthoringUploadTransactionRepository(),
@@ -281,7 +288,17 @@ describe('ProgramAuthoringService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ...STATELESS_PROVIDERS,
-        ProgramRulesService,
+        ProgramScheduleService,
+        ProgramTemplatesService,
+        {
+          provide: ProgramAuthoringUploadService,
+          useValue: new ProgramAuthoringUploadService(
+            {} as never,
+            {} as never,
+            new SubmissionFileAdmissionService(),
+            new ProgramNoticeFetchClient(),
+          ),
+        },
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
         AuditLogMetadataService,

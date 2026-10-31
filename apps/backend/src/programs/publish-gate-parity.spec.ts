@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -25,7 +26,6 @@ import {
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -233,7 +233,7 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     ),
   };
 }

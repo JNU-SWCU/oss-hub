@@ -8,7 +8,7 @@ import type {
   DocumentDeliveryStatus,
   MilestoneDocumentSubmittedContent,
 } from '../milestone-document-collection-read.repository';
-import type { MilestoneDocumentCollectionCell } from '../milestone-document-rules.service';
+import type { MilestoneDocumentCollectionCell } from '../milestone-document-collection.service';
 
 export class MilestoneDocumentCollectionMilestoneResponseDto {
   declare readonly id: string;

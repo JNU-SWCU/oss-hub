@@ -1,3 +1,6 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
@@ -10,9 +13,6 @@ import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9_101_000_001n;
@@ -31,12 +31,13 @@ export const editor = new ProgramEditorService(
     ),
   ),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(
-    new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
-  new SubmissionFileRulesService(),
 );
 
 export async function runTogether<T, U>(

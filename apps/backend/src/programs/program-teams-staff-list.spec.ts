@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramCategory, AccountStatus } from '@prisma/client';
@@ -15,7 +16,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
 
@@ -71,7 +71,15 @@ function buildService(overrides: {
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
-    new ProgramRulesService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
   );
   return { service, findProgramById, listStaffTeams, findActorByGithubId };
 }

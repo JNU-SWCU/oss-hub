@@ -30,6 +30,7 @@ const rules = {
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
   'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
+  'no-generic-role-file-names': await load('no-generic-role-file-names.mjs', 'noGenericRoleFileNames'),
   'thin-controller': await load('thin-controller.mjs', 'thinController'),
   'no-passthrough-factory': await load(
     'no-passthrough-factory.mjs',
@@ -1140,6 +1141,55 @@ for (const [name, code] of [
     moduleFile,
     moduleDeclarations + code,
     ['passThrough'],
+  );
+}
+
+for (const word of [
+  'rules',
+  'rule',
+  'helpers',
+  'helper',
+  'utils',
+  'util',
+  'common',
+  'policy',
+  'misc',
+  'shared',
+]) {
+  for (const role of [
+    'service',
+    'repository',
+    'client',
+    'guard',
+    'interceptor',
+  ]) {
+    invalid(
+      'no-generic-role-file-names',
+      `rejects ${word} in a .${role} file stem`,
+      `src/programs/program-${word}-case.${role}.ts`,
+      'export const value = 1;',
+      ['generic'],
+    );
+  }
+}
+for (const [name, filename] of [
+  ['a concept-named service', 'src/programs/program-schedule.service.ts'],
+  [
+    'a generic word inside a longer word',
+    'src/programs/program-ruleset-sharedness.service.ts',
+  ],
+  [
+    'a DTO named after an API concept',
+    'src/programs/dto/program-authoring-upload-policy-response.dto.ts',
+  ],
+  ['a spec helper file', 'src/ranking/ranking.service.spec.helpers.ts'],
+  ['an error file', 'src/programs/program-rules-case.error.ts'],
+] as const) {
+  valid(
+    'no-generic-role-file-names',
+    `allows ${name}`,
+    filename,
+    'export const value = 1;',
   );
 }
 

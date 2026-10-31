@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -8,7 +10,6 @@ import { ProgramsService } from './programs.service';
 import { ProgramsRepository } from './programs.repository';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,7 +29,8 @@ const service = new ProgramsService(
   repository,
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
   Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 

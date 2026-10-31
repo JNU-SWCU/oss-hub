@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { ProgramViewer } from './program-viewer.service';
@@ -21,7 +23,6 @@ import {
 import { ProgramsService } from './programs.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -571,7 +572,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -602,7 +604,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -636,7 +639,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -683,7 +687,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -724,7 +729,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -761,7 +767,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -805,7 +812,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -839,7 +847,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -875,7 +884,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 

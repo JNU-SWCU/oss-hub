@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -17,7 +19,6 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
@@ -69,7 +70,8 @@ describe('ProgramsService', () => {
     ),
     auditLog,
     new AuditLogMetadataService(),
-    new ProgramRulesService(),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
   );
 
   beforeEach(() => {

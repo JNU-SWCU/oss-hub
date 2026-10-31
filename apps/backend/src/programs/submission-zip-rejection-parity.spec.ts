@@ -1,3 +1,7 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -20,9 +24,6 @@ import {
   SubmissionZipRejection,
   type SubmissionZipRejection as SubmissionZipRejectionType,
 } from './submission-zip.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
@@ -99,8 +100,8 @@ function submissionService() {
   return new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
     storage,
-    new ProgramRulesService(),
-    new SubmissionFileRulesService(),
+    new ProgramScheduleService(),
+    new SubmissionFileAdmissionService(),
     new DownloadResponseService(),
   );
 }
@@ -134,8 +135,9 @@ function milestoneDocumentService() {
     repository as unknown as MilestoneDocumentsRepository,
     storage,
     submissionFiles as unknown as SubmissionFilesService,
-    new MilestoneDocumentRulesService(new ProgramRulesService()),
-    new SubmissionFileRulesService(),
+    new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+    new MilestoneDocumentFileNameService(),
+    new SubmissionFileAdmissionService(),
     new DownloadResponseService(),
   );
 }

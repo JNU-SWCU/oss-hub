@@ -122,11 +122,12 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionInputService } from './submission-input.service';
 
 @Module({
@@ -170,10 +171,11 @@ import { SubmissionInputService } from './submission-input.service';
     ApplicationAnswersService,
     DownloadResponseService,
     MilestoneCompletionService,
-    MilestoneDocumentRulesService,
-    ProgramRulesService,
-    ProgramUploadRulesService,
-    SubmissionFileRulesService,
+    MilestoneDocumentFileNameService,
+    MilestoneDocumentSubmissionWindowService,
+    ProgramScheduleService,
+    ProgramTemplatesService,
+    SubmissionFileAdmissionService,
     SubmissionInputService,
     ProgramsService,
     ProgramsRepository,
@@ -255,7 +257,7 @@ import { SubmissionInputService } from './submission-input.service';
   ],
   exports: [
     MilestoneCompletionService,
-    MilestoneDocumentRulesService,
+    MilestoneDocumentSubmissionWindowService,
     ProgramCoverUrlService,
     ProgramActivityService,
     ProgramViewerService,

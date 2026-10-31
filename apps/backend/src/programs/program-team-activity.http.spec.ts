@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -88,6 +89,18 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       RepositoryPublishService,
+      {
+        provide: StudentRepositoryUrlService,
+        useValue: new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
+      },
       ProgramTeamsService,
       ProgramTeamsRepository,
       ProgramTeamRepositoryEvidenceRepository,

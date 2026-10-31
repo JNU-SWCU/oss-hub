@@ -1,3 +1,4 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -11,8 +12,6 @@ import {
   createMatrixDeliveryHttp,
   matrixSessionHeaders,
 } from './submission-matrix-delivery.http-fixture';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -25,7 +24,7 @@ const repository = new SubmissionMatrixRepository(
 );
 const service = new SubmissionMatrixService(
   repository,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentCollectionService({} as never),
 );
 const first = new Date(fixture.dueSoon.getTime() - 1);
 const late = new Date(fixture.dueSoon.getTime() + 1);

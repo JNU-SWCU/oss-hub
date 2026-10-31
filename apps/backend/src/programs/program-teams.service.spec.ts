@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
@@ -29,7 +30,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
@@ -137,7 +137,15 @@ function buildService(overrides: {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new ProgramRulesService(),
+      new StudentRepositoryUrlService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
     ),
     repository,
     deletionRepository,
@@ -565,7 +573,15 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new ProgramRulesService(),
+        new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
       ),
       accessed,
       leave,

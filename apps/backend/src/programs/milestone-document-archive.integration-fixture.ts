@@ -1,3 +1,5 @@
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
@@ -10,8 +12,6 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const prefix = 'qa152-program-archive';
 export const archiveId = (suffix: string) => `${prefix}-${suffix}`;
@@ -31,7 +31,8 @@ export class ProgramArchiveIntegrationFixture {
     ),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
-    new MilestoneDocumentRulesService(new ProgramRulesService()),
+    new MilestoneDocumentCollectionService({} as never),
+    new MilestoneDocumentFileNameService(),
     new DownloadResponseService(),
   );
 

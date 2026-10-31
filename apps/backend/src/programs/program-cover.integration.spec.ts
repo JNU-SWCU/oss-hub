@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
@@ -24,7 +26,6 @@ import {
 } from './program-cover.integration-fixtures';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
 
@@ -63,7 +64,8 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     ),
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
-    new ProgramRulesService(),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
     Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({

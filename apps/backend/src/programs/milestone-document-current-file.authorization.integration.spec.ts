@@ -1,3 +1,8 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
@@ -32,9 +37,6 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -139,8 +141,9 @@ const documentsRepository = new MilestoneDocumentsRepository(
 );
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-  new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
@@ -158,7 +161,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
     >[0],
   ),
   storage,
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
   new DownloadResponseService(),
 );
 
@@ -375,8 +378,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         SubmissionsRepository,
         SubmissionFilesService,
         SubmissionFilesRepository,
-        ProgramRulesService,
-        SubmissionFileRulesService,
+        ProgramScheduleService,
+        SubmissionFileAdmissionService,
       ],
     })
       .overrideProvider(RUNTIME_CONFIG)
@@ -398,8 +401,11 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       documentsRepository,
       storage,
       submissionsModule.get(SubmissionFilesService),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
     );
 

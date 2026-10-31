@@ -1,3 +1,4 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -15,8 +16,6 @@ import {
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const PROGRAM_ID = 'synthetic-matrix-program';
@@ -91,7 +90,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     await expect(
@@ -151,7 +150,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -244,7 +243,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -260,7 +259,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(

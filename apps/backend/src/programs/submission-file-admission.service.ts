@@ -14,7 +14,7 @@ const LATIN1_MAX_CODE_POINT = 0xff;
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
 @Injectable()
-export class SubmissionFileRulesService {
+export class SubmissionFileAdmissionService {
   normalizeMultipartFileName(fileName: string): string {
     if (
       [...fileName].some(
@@ -38,16 +38,6 @@ export class SubmissionFileRulesService {
     return extension === null
       ? 'application/octet-stream'
       : (CANONICAL_CONTENT_TYPES[extension] ?? 'application/octet-stream');
-  }
-
-  addOneCalendarYear(value: Date): Date {
-    const result = new Date(value);
-    const month = result.getUTCMonth();
-    result.setUTCFullYear(result.getUTCFullYear() + 1);
-    if (month === 1 && result.getUTCMonth() !== month) {
-      result.setUTCDate(0);
-    }
-    return result;
   }
 
   isAllowedSubmissionFileType(fileName: string): boolean {

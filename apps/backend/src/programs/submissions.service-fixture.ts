@@ -1,8 +1,8 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionInputService } from './submission-input.service';
 import type { SubmissionsStore } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 type SubmissionStoreMocks = {
   readonly [Method in keyof SubmissionsStore]: jest.Mock<
@@ -57,8 +57,8 @@ export function createSubmissionsServiceHarness(): {
   return {
     service: new SubmissionsService(
       repository,
-      new ProgramRulesService(),
-      new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new SubmissionFileAdmissionService(),
       new SubmissionInputService(),
     ),
     store,

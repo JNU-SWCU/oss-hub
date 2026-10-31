@@ -1,6 +1,6 @@
 import { DownloadResponseService } from './download-response.service';
-import { ProgramRulesService } from './program-rules.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { ProgramScheduleService } from './program-schedule.service';
 import {
   type INestApplication,
   Logger,
@@ -370,9 +370,10 @@ beforeAll(async () => {
             listForViewer,
             collectForStaff,
             submit,
-            milestoneDocumentRulesService: new MilestoneDocumentRulesService(
-              new ProgramRulesService(),
-            ),
+            milestoneDocumentSubmissionWindowService:
+              new MilestoneDocumentSubmissionWindowService(
+                new ProgramScheduleService(),
+              ),
           },
         ),
       },
