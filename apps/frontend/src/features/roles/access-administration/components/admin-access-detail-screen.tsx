@@ -57,6 +57,14 @@ function AdminAccessDetailScreenForUser({
           : { kind: 'error' }
         : { kind: 'loading' };
   const retry = () => void query.refetch();
+  useEffect(
+    () => () => {
+      void client.cancelQueries({
+        queryKey: featureKey('admin-access', 'history', userId),
+      });
+    },
+    [client, userId],
+  );
   const historyMutation = useMutation({
     mutationFn: async ({
       kind,
@@ -75,16 +83,20 @@ function AdminAccessDetailScreenForUser({
         loginPage: kind === 'login' ? page : state.history.loginHistory.page,
         loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
       };
-      const history = await client.fetchQuery({
+      await client.fetchQuery({
         queryKey: featureKey('admin-access', 'history', userId, params),
-        queryFn: ({ signal }) =>
-          fetchAdminAccessHistory(userId, params, signal),
+        queryFn: async ({ signal }) => {
+          const history = await fetchAdminAccessHistory(userId, params, signal);
+          if (!signal.aborted) {
+            client.setQueryData<AdminAccessDetailData>(
+              adminAccessDetailKey(userId),
+              (current) => (current ? { ...current, history } : current),
+            );
+          }
+          return history;
+        },
         staleTime: 0,
       });
-      client.setQueryData<AdminAccessDetailData>(
-        adminAccessDetailKey(userId),
-        (current) => (current ? { ...current, history } : current),
-      );
     },
   });
   const historyLoading = historyMutation.isPending;

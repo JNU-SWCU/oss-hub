@@ -44,8 +44,7 @@ it('포커스 복귀와 60초 주기로 받은 초대를 갱신한다', async ()
   expect(listReceivedInvitations).toHaveBeenCalledTimes(1);
 
   await act(async () => {
-    focusManager.setFocused(false);
-    focusManager.setFocused(true);
+    window.dispatchEvent(new Event('focus'));
   });
   expect(listReceivedInvitations).toHaveBeenCalledTimes(2);
 
