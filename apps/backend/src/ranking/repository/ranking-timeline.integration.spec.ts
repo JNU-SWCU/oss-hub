@@ -62,7 +62,16 @@ const STUDENTS: readonly SyntheticStudent[] = [
   },
 ];
 
-const GITHUB_IDS = STUDENTS.map((student) => student.githubId);
+const IDLE_STUDENT: SyntheticStudent = {
+  key: 'u5',
+  githubId: 8_962_000_000_005n,
+  studentId: '209905',
+  yearCommitCount: 0,
+};
+
+const ALL_STUDENTS: readonly SyntheticStudent[] = [...STUDENTS, IDLE_STUDENT];
+
+const GITHUB_IDS = ALL_STUDENTS.map((student) => student.githubId);
 
 function login(student: SyntheticStudent): string {
   return `${PREFIX}-${student.key}`;
@@ -100,10 +109,16 @@ const SNAPSHOTS: readonly SyntheticSnapshot[] = [
     commitCount: 60 + index,
     starEstimated: false,
   })),
+  ...['2099-01-31', '2099-02-28', '2099-03-31'].map((date) => ({
+    student: IDLE_STUDENT,
+    date,
+    commitCount: 0,
+    starEstimated: false,
+  })),
 ];
 
 async function seed(): Promise<void> {
-  for (const student of STUDENTS) {
+  for (const student of ALL_STUDENTS) {
     const department = `${PREFIX}-학부`;
     await prisma.user.create({
       data: {
@@ -186,7 +201,7 @@ describe('RankingRepository.findMonthlySnapshots (실 Postgres)', () => {
       GITHUB_IDS.includes(row.githubId),
     );
 
-    expect(rows).toHaveLength(STUDENTS.length * 3);
+    expect(rows).toHaveLength(ALL_STUDENTS.length * 3);
     const userMonths = rows.map(
       (row) =>
         `${row.githubId.toString()}:${row.snapshotDate.getUTCMonth() + 1}`,
@@ -245,14 +260,52 @@ describe('RankingService.findTimeline (실 Postgres)', () => {
     const page = await service.findPage(YEAR, 1, 100, null);
 
     const lastIndex = timeline.points.length - 1;
+    const remaining = new Set(
+      timeline.series.map((series) => series.githubLogin),
+    );
     expect(
       timeline.series
         .filter((series) => series.githubLogin.startsWith(PREFIX))
         .map((series) => [series.githubLogin, series.ranks.at(lastIndex)]),
     ).toEqual(
       page.items
-        .filter((item) => item.githubLogin.startsWith(PREFIX))
+        .filter(
+          (item) =>
+            item.githubLogin.startsWith(PREFIX) &&
+            remaining.has(item.githubLogin),
+        )
         .map((item) => [item.githubLogin, item.rank]),
+    );
+  });
+
+  it('기여 합계가 0인 학생은 계열에서 배제되지만 표에는 남는다', async () => {
+    const service = new RankingService(repository);
+
+    const timeline = await service.findTimeline(YEAR, null);
+    const page = await service.findPage(YEAR, 1, 100, null);
+
+    expect(timeline.series.map((series) => series.githubLogin)).not.toContain(
+      login(IDLE_STUDENT),
+    );
+    expect(page.items.map((item) => item.githubLogin)).toContain(
+      login(IDLE_STUDENT),
+    );
+  });
+
+  it('기여 합계가 0인 학생 자신이 보면 자기 계열은 표 순위로 남는다', async () => {
+    const service = new RankingService(repository);
+
+    const timeline = await service.findTimeline(YEAR, IDLE_STUDENT.githubId);
+    const page = await service.findPage(YEAR, 1, 100, IDLE_STUDENT.githubId);
+
+    expect(timeline.viewerClass).toBe('member');
+    expect(timeline.viewerGithubLogin).toBe(login(IDLE_STUDENT));
+    const idleSeries = timeline.series.find(
+      (series) => series.githubLogin === login(IDLE_STUDENT),
+    );
+    expect(typeof idleSeries?.ranks.at(-1)).toBe('number');
+    expect(idleSeries?.ranks.at(-1)).toBe(
+      page.items.find((item) => item.githubLogin === login(IDLE_STUDENT))?.rank,
     );
   });
 });

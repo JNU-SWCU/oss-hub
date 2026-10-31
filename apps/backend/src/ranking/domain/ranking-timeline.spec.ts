@@ -1,7 +1,9 @@
 import {
   buildRankingTimeline,
   RANKING_TIMELINE_MIN_YEAR,
+  withoutZeroTotalSeries,
   type RankingTimelineMetric,
+  type RankingTimelineSeries,
   type RankingTimelineSnapshot,
 } from './ranking-timeline';
 
@@ -207,6 +209,23 @@ describe('buildRankingTimeline', () => {
     ).toEqual({ points: [], series: [] });
   });
 
+  it('마지막 지점 합계가 0인 계열은 열람자 자신만 남는다', () => {
+    const timeline = buildRankingTimeline({
+      year: 2026,
+      metrics: [metric(1n, 'alpha', 10), metric(2n, 'idle', 0)],
+      snapshots: [snapshot(1n, '2026-01-31', 3), snapshot(2n, '2026-01-31', 0)],
+      dataAsOf: DATA_AS_OF,
+      now: NOW,
+    });
+
+    expect(withoutZeroTotalSeries(timeline.series, null)).toEqual([
+      { githubLogin: 'alpha', ranks: [1, 1], totals: [3, 10] },
+    ]);
+    expect(withoutZeroTotalSeries(timeline.series, 'idle')).toEqual(
+      timeline.series,
+    );
+  });
+
   it('동점이면 표와 같은 타이브레이크로 정렬한다', () => {
     const timeline = buildRankingTimeline({
       year: 2026,
@@ -220,5 +239,44 @@ describe('buildRankingTimeline', () => {
       'alpha',
       'Zulu',
     ]);
+  });
+});
+
+describe('withoutZeroTotalSeries', () => {
+  const contributor: RankingTimelineSeries = {
+    githubLogin: 'alpha',
+    ranks: [1, 1],
+    totals: [5, 100],
+  };
+  const idle: RankingTimelineSeries = {
+    githubLogin: 'idle',
+    ranks: [2, 2],
+    totals: [0, 0],
+  };
+  const idleViewer: RankingTimelineSeries = {
+    githubLogin: 'idle-viewer',
+    ranks: [null, 3],
+    totals: [null, 0],
+  };
+
+  it('마지막 지점 합계가 0인 계열을 모두 뺀다', () => {
+    expect(
+      withoutZeroTotalSeries([contributor, idle, idleViewer], null),
+    ).toEqual([contributor]);
+  });
+
+  it('열람자 자신의 계열은 0점이어도 남기고 순위를 다시 매기지 않는다', () => {
+    expect(
+      withoutZeroTotalSeries([contributor, idle, idleViewer], 'idle-viewer'),
+    ).toEqual([contributor, idleViewer]);
+  });
+
+  it('모두 0점이면 열람자 계열만 남고 익명에게는 빈 배열이다', () => {
+    expect(withoutZeroTotalSeries([idle, idleViewer], null)).toEqual([]);
+    expect(withoutZeroTotalSeries([idle, idleViewer], 'idle')).toEqual([idle]);
+  });
+
+  it('합계가 양수인 계열만 있으면 그대로 돌려준다', () => {
+    expect(withoutZeroTotalSeries([contributor], null)).toEqual([contributor]);
   });
 });

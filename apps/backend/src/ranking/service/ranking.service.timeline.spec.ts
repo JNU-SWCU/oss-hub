@@ -151,6 +151,124 @@ describe('RankingService.findTimeline', () => {
     expect(harness.findMonthlySnapshots).toHaveBeenCalledWith(2026);
   });
 
+  it('기여 0 계정을 빼도 남은 학생의 지점과 지점별 순위는 그대로다', async () => {
+    const contributors = [
+      activity(1n, 'alpha', { commitCount: 100 }),
+      activity(2n, 'bravo', { commitCount: 50 }),
+    ];
+    const contributorSnapshots = [
+      snapshot(1n, '2026-01-31', { commitCount: 5 }),
+      snapshot(2n, '2026-01-31', { commitCount: 9 }),
+      snapshot(1n, '2026-03-31', { commitCount: 30 }),
+    ];
+
+    harness.findMetrics.mockResolvedValue([
+      ...contributors,
+      activity(3n, 'idle', {}),
+    ]);
+    harness.findMonthlySnapshots.mockResolvedValue([
+      ...contributorSnapshots,
+      snapshot(3n, '2026-01-31', {}),
+      snapshot(3n, '2026-03-31', {}),
+    ]);
+    const withIdle = await harness.service.findTimeline(2026, null);
+
+    harness.findMetrics.mockResolvedValue(contributors);
+    harness.findMonthlySnapshots.mockResolvedValue(contributorSnapshots);
+    const withoutIdle = await harness.service.findTimeline(2026, null);
+
+    expect(withIdle.series.map((series) => series.githubLogin)).toEqual([
+      'alpha',
+      'bravo',
+    ]);
+    expect(withIdle.points).toEqual(withoutIdle.points);
+    expect(withIdle.series).toEqual(withoutIdle.series);
+  });
+
+  it('0점 계정을 뺀 뒤에도 남은 학생의 마지막 지점 순위는 표 순위와 같다', async () => {
+    harness.findMetrics.mockResolvedValue([
+      activity(1n, 'alpha', { commitCount: 100 }),
+      activity(2n, 'idle-two', {}),
+      activity(3n, 'bravo', { commitCount: 50 }),
+      activity(4n, 'idle-one', {}),
+    ]);
+    harness.findMonthlySnapshots.mockResolvedValue([
+      snapshot(1n, '2026-01-31', { commitCount: 5 }),
+      snapshot(3n, '2026-01-31', { commitCount: 9 }),
+    ]);
+
+    const timeline = await harness.service.findTimeline(2026, null);
+    const page = await harness.service.findPage(2026, 1, 100, null);
+
+    const lastIndex = timeline.points.length - 1;
+    const remaining = new Set(
+      timeline.series.map((series) => series.githubLogin),
+    );
+    expect([...remaining]).toEqual(['alpha', 'bravo']);
+    expect(
+      timeline.series.map((series) => [
+        series.githubLogin,
+        series.ranks[lastIndex],
+      ]),
+    ).toEqual(
+      page.items
+        .filter((item) => remaining.has(item.githubLogin))
+        .map((item) => [item.githubLogin, item.rank]),
+    );
+    expect(page.items.map((item) => item.githubLogin)).toEqual([
+      'alpha',
+      'bravo',
+      'idle-one',
+      'idle-two',
+    ]);
+  });
+
+  it('열람자 자신의 0점 계열만 남기고 그 순위는 표 순위를 지킨다', async () => {
+    harness.findViewerClass.mockResolvedValue('member');
+    harness.findViewerGithubLogin.mockResolvedValue('idle-viewer');
+    harness.findMetrics.mockResolvedValue([
+      activity(1n, 'alpha', { commitCount: 100 }),
+      activity(2n, 'idle-other', {}),
+      activity(3n, 'idle-viewer', {}),
+    ]);
+    harness.findMonthlySnapshots.mockResolvedValue([
+      snapshot(1n, '2026-01-31', { commitCount: 5 }),
+    ]);
+
+    const timeline = await harness.service.findTimeline(2026, 3n);
+    const page = await harness.service.findPage(2026, 1, 100, 3n);
+
+    expect(timeline.series).toEqual([
+      { githubLogin: 'alpha', ranks: [1, 1], totals: [5, 100] },
+      { githubLogin: 'idle-viewer', ranks: [null, 3], totals: [null, 0] },
+    ]);
+    expect(
+      page.items.find((item) => item.githubLogin === 'idle-viewer')?.rank,
+    ).toBe(3);
+  });
+
+  it('모든 계정이 0점이면 익명은 빈 계열을, 로그인한 열람자는 자기 계열을 받는다', async () => {
+    harness.findMetrics.mockResolvedValue([
+      activity(1n, 'idle-one', {}),
+      activity(2n, 'idle-two', {}),
+    ]);
+
+    const anonymous = await harness.service.findTimeline(2026, null);
+
+    expect(anonymous.series).toEqual([]);
+    expect(anonymous.points).toEqual([
+      { date: '2026-10-31', starEstimated: false },
+    ]);
+
+    harness.findViewerClass.mockResolvedValue('member');
+    harness.findViewerGithubLogin.mockResolvedValue('idle-two');
+    const member = await harness.service.findTimeline(2026, 2n);
+
+    expect(member.series).toEqual([
+      { githubLogin: 'idle-two', ranks: [2], totals: [0] },
+    ]);
+  });
+
   it('같은 연도를 동시에 물으면 빌드를 한 번만 수행한다', async () => {
     harness.findMetrics.mockResolvedValue([
       activity(1n, 'alpha', { commitCount: 1 }),

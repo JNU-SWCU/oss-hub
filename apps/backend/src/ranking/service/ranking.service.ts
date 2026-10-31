@@ -13,6 +13,7 @@ import { compareRankingCandidates } from '../domain/ranking-order';
 import {
   buildRankingTimeline,
   RANKING_TIMELINE_MIN_YEAR,
+  withoutZeroTotalSeries,
   type RankingTimeline,
   type RankingTimelineBuild,
 } from '../domain/ranking-timeline';
@@ -117,7 +118,7 @@ export class RankingService {
       viewerGithubLogin: viewer.githubLogin,
       dataAsOf: build.dataAsOf,
       points: build.points,
-      series: build.series,
+      series: withoutZeroTotalSeries(build.series, viewer.githubLogin),
     };
   }
 

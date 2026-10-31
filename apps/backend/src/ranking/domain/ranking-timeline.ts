@@ -122,6 +122,16 @@ export function buildRankingTimeline(
   };
 }
 
+export function withoutZeroTotalSeries(
+  series: readonly RankingTimelineSeries[],
+  viewerGithubLogin: string | null,
+): readonly RankingTimelineSeries[] {
+  return series.filter(
+    (entry) =>
+      entry.totals.at(-1) !== 0 || entry.githubLogin === viewerGithubLogin,
+  );
+}
+
 function appendSnapshotPoint(
   rows: readonly SeriesRow[],
   bucket: MonthlyBucket,
