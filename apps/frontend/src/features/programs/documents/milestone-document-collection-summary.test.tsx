@@ -40,12 +40,14 @@ it('uses milestone totals even on an empty filtered page and names optional omis
       onSelectionChange={() => {}}
     />,
   );
-  expect(html).toContain('제출 30 / 47팀');
-  expect(html).toContain('미제출 17팀');
+  expect(html).toContain('제출 30 / 47');
+  expect(html).not.toContain('/ 47팀');
+  expect(html).toContain('미제출 17');
+  expect(html).not.toContain('17팀');
   expect(html).toContain(
     '선택 서류의 미제출은 필수 서류 제출 상태에 영향을 주지 않습니다.',
   );
-  expect(html).toContain('aria-label="활동 사진 제출 여부"');
+  expect(html).toContain('aria-label="활동 사진 팀별 제출 여부"');
   expect(html).toContain('aria-pressed="true"');
   expect(html).toContain('모든 서류 보기');
 });
@@ -58,7 +60,7 @@ it('reports zero approved teams without claiming full submission', () => {
       onSelectionChange={() => {}}
     />,
   );
-  expect(html).toContain('제출 0 / 0팀');
+  expect(html).toContain('제출 0 / 0');
   expect(html).toContain('전체 0팀');
   expect(html).not.toContain('완료');
 });
