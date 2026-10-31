@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthUser } from './http-auth.types';
+import type { AuthUser } from '../auth/http-auth.types';
 import { AuthConfig } from './auth.config';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';

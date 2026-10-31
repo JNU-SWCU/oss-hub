@@ -2,9 +2,8 @@ import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -16,10 +15,11 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { ProgramRulesService } from './program-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -78,7 +78,7 @@ describe('authenticated milestone document list filename contract', () => {
         ProgramRulesService,
         SubmissionFileRulesService,
         AuthSessionService,
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },
         { provide: MilestoneDocumentArchiveService, useValue: {} },

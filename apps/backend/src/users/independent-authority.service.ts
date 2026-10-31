@@ -32,7 +32,7 @@ import {
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 export type IndependentAuthorityCommand =
   StaffAccessMutationCommand | AdminAuthorityMutationCommand;

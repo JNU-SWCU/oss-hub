@@ -9,9 +9,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { UploadedMilestoneDocumentFileResponseDto } from './dto/uploaded-milestone-document-file-response.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -22,6 +21,7 @@ import {
   MilestoneDocumentFilesService,
 } from './milestone-document-files.service';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
+import { Protected } from '../auth/authentication.guard';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -55,7 +55,8 @@ export class MilestoneDocumentFilesController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
   async upload(
     @Req() request: ViewerRequest,
@@ -75,7 +76,8 @@ export class MilestoneDocumentFilesController {
 
   @Post('checks')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
   check(
     @UploadedFile() file: MilestoneDocumentFileUpload | undefined,

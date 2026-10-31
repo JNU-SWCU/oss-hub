@@ -123,7 +123,7 @@ milestones[]{id, name, dueAt, dDay, deadlineLabel, description,
 ### 정적 점검으로 놓치는 경로
 
 프로그램 생성·편집, 팀, 신청 생성, 제출·재제출, activity timeline, submission matrix, 파일 업·다운로드, 관리자 access, 감사, 시스템 상태는 guard가 아니라 **service에서** 역할을 검사한다.
-`@UseGuards(SessionGuard)`만 스캔하면 실제 403 경로를 누락한다.
+`@Protected()` 라우트(전역 인증 가드의 401)만 스캔하면 실제 403 경로를 누락한다.
 
 ### 관찰
 

@@ -1,5 +1,4 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { SessionGuard } from '../auth/session.guard';
 import type {
   ProgramActivityRepository,
   ProgramRepositoryActivity,
@@ -58,7 +57,7 @@ function activityReads(
 }
 
 describe('ProgramActivityService canonical activity', () => {
-  it('exposes the current-student timeline at the dashboard route behind SessionGuard', () => {
+  it('exposes the current-student timeline at the dashboard route behind the global authentication guard', () => {
     const method: unknown = Object.getOwnPropertyDescriptor(
       StudentDashboardController.prototype,
       'activityTimeline',
@@ -73,9 +72,7 @@ describe('ProgramActivityService canonical activity', () => {
     expect(Reflect.getMetadata(PATH_METADATA, method)).toBe(
       'activity-timeline',
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, method)).toEqual([
-      SessionGuard,
-    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, method)).toBeUndefined();
   });
 
   it('buckets commits, pull requests, releases, and issues by Seoul month from the latest observed activity, keeping issues out of the total', async () => {

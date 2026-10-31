@@ -13,7 +13,7 @@ import {
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 export interface AccountDeactivationResult {
   readonly accountStatus: typeof AccountStatus.DEACTIVATED;

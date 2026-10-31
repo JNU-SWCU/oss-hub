@@ -2,7 +2,7 @@ import { AffiliationKind, MemberKind } from '@prisma/client';
 import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const usersService = new UsersService(
   undefined as never,

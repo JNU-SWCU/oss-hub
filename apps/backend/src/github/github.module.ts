@@ -1,7 +1,6 @@
 import { CollectionScheduleService } from './collection-schedule.service';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AuthModule } from '../auth/auth.module';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PlatformModule } from '../platform/platform.module';
 import { ConsentsService } from '../users/consents.service';
@@ -37,7 +36,7 @@ import { RepositoryProvisionRulesService } from './repository-provision-rules.se
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
+  imports: [ScheduleModule.forRoot(), PlatformModule, UsersModule],
   providers: [
     CollectionScheduleService,
     CollectionAdminService,

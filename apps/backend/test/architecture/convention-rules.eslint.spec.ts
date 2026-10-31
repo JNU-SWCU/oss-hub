@@ -28,6 +28,7 @@ const rules = {
   'file-class-match': await load('file-class-match.mjs', 'fileClassMatch'),
   'config-exports': await load('module-exports.mjs', 'configExports'),
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
+  'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
 };
 let current;
 RuleTester.describe = (_name, fn) => fn();
@@ -688,6 +689,43 @@ for (const [name, code] of [
     'forbidden',
   ]);
 }
+
+valid(
+  'no-session-guard',
+  'accepts a protected route that only adds OriginGuard',
+  'src/programs/rule-case.controller.ts',
+  `import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Protected } from '../auth/authentication.guard';
+import { OriginGuard } from '../platform/origin.guard';
+@Controller('things')
+export class ThingsController {
+  @Post()
+  @Protected()
+  @UseGuards(OriginGuard)
+  create(): void {}
+}`,
+);
+invalid(
+  'no-session-guard',
+  'rejects a SessionGuard declaration',
+  'src/auth/rule-case.guard.ts',
+  'export class SessionGuard {}',
+  ['forbidden'],
+);
+invalid(
+  'no-session-guard',
+  'rejects an import from a session.guard file',
+  'src/programs/rule-case.controller.ts',
+  "import { Guard } from '../auth/session.guard';",
+  ['forbidden'],
+);
+invalid(
+  'no-session-guard',
+  'rejects a session.guard file',
+  'src/auth/session.guard.ts',
+  'export const guard = 1;',
+  ['forbidden'],
+);
 
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];

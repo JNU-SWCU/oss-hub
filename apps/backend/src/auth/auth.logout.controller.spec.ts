@@ -1,10 +1,10 @@
 import { AccountStatus } from '@prisma/client';
 import type { Response } from 'express';
 import { LoginHistoryService, AuthService } from './auth.service';
-import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import { type AuthUser, type OptionalSessionRequest } from './http-auth.types';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',

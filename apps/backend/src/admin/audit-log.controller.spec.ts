@@ -5,13 +5,12 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
-import { SessionGuard } from '../auth/session.guard';
 import { AuditLogController } from './audit-log.controller';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 
 describe('AuditLogController', () => {
-  it('GET /audit-logs를 SessionGuard로 보호한다', () => {
+  it('GET /audit-logs를 전역 인증 가드로 보호한다', () => {
     expect(Reflect.getMetadata(PATH_METADATA, AuditLogController)).toBe(
       'audit-logs',
     );
@@ -24,9 +23,7 @@ describe('AuditLogController', () => {
     expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(
       RequestMethod.GET,
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-      SessionGuard,
-    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
   });
 
   it('세션 행위자와 필터를 서비스에 전달한다', async () => {

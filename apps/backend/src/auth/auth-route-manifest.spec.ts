@@ -12,11 +12,8 @@ import {
   DuplicateMetadataController,
   DynamicController,
   ForwardRefRootModule,
-  GuardFallbackController,
-  GuardMigrationController,
   MaskedClassDuplicateController,
   MaskedClassInvalidController,
-  MethodOverrideMigrationController,
   MissingMetadataController,
   UnsupportedRootModule,
 } from '../../test/auth-route-manifest-validation.fixture';
@@ -48,35 +45,6 @@ describe('authentication route metadata manifest', () => {
     expect(() =>
       createAuthRouteManifest([MaskedClassInvalidController]),
     ).toThrow(/invalid authentication metadata.*class/i);
-  });
-
-  it('keeps transitional SessionGuard enforcement separate from declared access', () => {
-    expect(createAuthRouteManifest([GuardMigrationController])).toEqual([
-      {
-        access: 'PUBLIC',
-        method: 'GET',
-        path: '/api/v1/fixture/guard-migration',
-      },
-    ]);
-    expect(
-      createAuthRouteManifest([MethodOverrideMigrationController]),
-    ).toEqual([
-      {
-        access: 'PROTECTED',
-        method: 'GET',
-        path: '/api/v1/fixture/method-override-migration',
-      },
-    ]);
-  });
-
-  it('classifies a route with only the current SessionGuard as protected', () => {
-    expect(createAuthRouteManifest([GuardFallbackController])).toEqual([
-      {
-        access: 'PROTECTED',
-        method: 'GET',
-        path: '/api/v1/fixture/guard-fallback',
-      },
-    ]);
   });
 
   it('fails closed on unsupported module import shapes', () => {
@@ -115,12 +83,12 @@ describe('authentication route metadata manifest', () => {
     expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toEqual(
       EXPECTED_PUBLIC_AUTH_ROUTES,
     );
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(12);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PUBLIC]).toHaveLength(11);
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toEqual(
       EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
     );
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(5);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(127);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(128);
     expect(manifest).toHaveLength(144);
     expect(
       manifest.filter(
@@ -171,12 +139,12 @@ describe('authentication route metadata manifest', () => {
       },
     );
 
-    it('declares overview teams PUBLIC while its local guard keeps 401/200/401', async () => {
+    it('declares overview teams PROTECTED so the global guard keeps 401/200/401', async () => {
       const path = '/api/v1/programs/synthetic-program/overview/teams';
       expect(
         createAuthRouteManifest([ProgramOverviewController]),
       ).toContainEqual({
-        access: 'PUBLIC',
+        access: 'PROTECTED',
         method: 'GET',
         path: '/api/v1/programs/:programId/overview/teams',
       });

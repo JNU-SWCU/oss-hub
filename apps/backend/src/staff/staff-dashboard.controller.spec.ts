@@ -4,7 +4,6 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import { SessionGuard } from '../auth/session.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
@@ -42,9 +41,9 @@ describe('StaffDashboardController', () => {
       name: 'Cache-Control',
       value: 'private, no-store',
     });
-    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
-      SessionGuard,
-    ]);
+    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual(
+      [],
+    );
   });
 
   it.each([null, 'https://sojoong.kr/wp-content/uploads/synthetic.jpg'])(
@@ -184,7 +183,7 @@ describe('StaffDashboardController', () => {
     expect(summarize).toHaveBeenCalledWith(SESSION_GITHUB_ID, { kind: 'all' });
     expect(
       readGuards(StaffDashboardController.prototype, 'insightsSummary'),
-    ).toEqual([SessionGuard]);
+    ).toEqual([]);
     expect(Reflect.getMetadata(PATH_METADATA, insightsSummary)).toBe(
       'insights',
     );

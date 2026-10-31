@@ -9,8 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
 import {
   CreateSubmissionReviewResponseDto,
@@ -27,6 +26,7 @@ import {
 } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import { SubmissionInputService } from './submission-input.service';
+import { Protected } from '../auth/authentication.guard';
 
 type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -42,7 +42,8 @@ export class SubmissionsController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   create(
     @Req() request: SubmissionRequest,
     @Body() body: CreateSubmissionRequestDto,
@@ -57,7 +58,8 @@ export class SubmissionsController {
 
   @Post(':submissionId/resubmissions')
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   resubmit(
     @Req() request: SubmissionRequest,
     @Param('submissionId') submissionId: string,
@@ -73,7 +75,7 @@ export class SubmissionsController {
   }
 
   @Get(':submissionId/review-context')
-  @UseGuards(SessionGuard)
+  @Protected()
   async context(
     @Req() request: ReviewActorRequest,
     @Param('submissionId') submissionId: string,
@@ -85,7 +87,8 @@ export class SubmissionsController {
 
   @Post(':submissionId/reviews')
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async review(
     @Req() request: ReviewActorRequest,
     @Param('submissionId') submissionId: string,

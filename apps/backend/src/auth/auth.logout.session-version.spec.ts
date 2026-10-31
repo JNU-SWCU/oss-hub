@@ -9,10 +9,10 @@ import {
   AuthenticationGuard,
   OPTIONAL_SESSION_ROUTE_METADATA,
 } from './authentication.guard';
-import type { AuthConfig } from './auth.config';
+import type { AuthConfig } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import type { AuthUser, OptionalSessionRequest } from './http-auth.types';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

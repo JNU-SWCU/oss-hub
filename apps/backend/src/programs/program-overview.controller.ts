@@ -1,14 +1,13 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-response.dto';
 import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
-import { Public } from '../auth/authentication.guard';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('programs/:programId/overview')
-@UseGuards(SessionGuard)
+@Protected()
 export class ProgramOverviewController {
   constructor(private readonly service: ProgramOverviewService) {}
 
@@ -27,7 +26,6 @@ export class ProgramOverviewController {
   }
 
   @Get('teams')
-  @Public()
   async listTeams(
     @Param('programId') programId: string,
   ): Promise<ProgramOverviewTeamResponseDto[]> {

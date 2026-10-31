@@ -1,5 +1,4 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AuthModule } from '../auth/auth.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { UsersModule } from '../users/users.module';
 import { AccessRequestsController } from './access-requests.controller';
@@ -20,7 +19,6 @@ describe('StaffModule', () => {
 
   it('도메인 모듈은 exports로만 가져온다', () => {
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toEqual([
-      AuthModule,
       ProgramsModule,
       RankingModule,
       UsersModule,

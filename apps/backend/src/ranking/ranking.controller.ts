@@ -6,7 +6,7 @@ import {
   OptionalSession,
   Public,
 } from '../auth/authentication.guard';
-import { HTTP_AUTH_KINDS } from '../auth/auth.config';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { RankingRequestDto } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,

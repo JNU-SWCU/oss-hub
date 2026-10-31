@@ -1,8 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { AuthConfig } from '../platform/auth.config';
+import { OriginGuard } from '../platform/origin.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ApplicationTemplatesController } from './application-templates.controller';
@@ -15,6 +14,7 @@ import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { V1_APPLICATION_FIELDS } from './program-rules.service';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -27,6 +27,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ApplicationTemplatesController, ProgramsController],
     providers: [
+      protectedRouteGuardStub({ canActivate: () => true }),
       ...STATELESS_PROVIDERS,
       {
         provide: ProgramCreationService,
@@ -65,8 +66,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({ canActivate: () => true })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();

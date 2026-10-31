@@ -5,8 +5,7 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
@@ -95,12 +94,12 @@ describe('ProgramTeamsController', () => {
     expect(registeredPaths).not.toContain('join');
   });
 
-  it('me 에 SessionGuard 를 적용한다', () => {
-    expect(readGuards('me')).toEqual([SessionGuard]);
+  it('me 에 로컬 가드를 두지 않는다', () => {
+    expect(readGuards('me')).toEqual([]);
   });
 
-  it('list(교직원 팀 목록) 에 SessionGuard 만 적용한다', () => {
-    expect(readGuards('list')).toEqual([SessionGuard]);
+  it('list(교직원 팀 목록) 에 로컬 가드를 두지 않는다', () => {
+    expect(readGuards('list')).toEqual([]);
   });
 
   it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
@@ -121,8 +120,8 @@ describe('ProgramTeamsController', () => {
       );
     });
 
-    it('SessionGuard·OriginGuard 를 적용한다 — 세션과 동일 출처 둘 다 필요하다', () => {
-      expect(readGuards('removeMember')).toEqual([SessionGuard, OriginGuard]);
+    it('OriginGuard 를 적용한다 — 세션과 동일 출처 둘 다 필요하다', () => {
+      expect(readGuards('removeMember')).toEqual([OriginGuard]);
     });
 
     it('교직원 동적 경로(:teamId) 보다 먼저 선언한다', () => {
@@ -164,8 +163,8 @@ describe('ProgramTeamsController', () => {
   });
 
   describe('DELETE me (본인 탈퇴)', () => {
-    it('SessionGuard·OriginGuard 와 204 로 등록한다', () => {
-      expect(readGuards('leave')).toEqual([SessionGuard, OriginGuard]);
+    it('OriginGuard 와 204 로 등록한다', () => {
+      expect(readGuards('leave')).toEqual([OriginGuard]);
       expect(readPath('leave')).toBe('me');
       expect(
         Reflect.getMetadata(HTTP_CODE_METADATA, methodOf('leave') as object),
@@ -329,8 +328,8 @@ describe('ProgramTeamsController', () => {
     });
   });
 
-  it('detail(교직원 팀 상세) 에 SessionGuard 만 적용한다', () => {
-    expect(readGuards('detail')).toEqual([SessionGuard]);
+  it('detail(교직원 팀 상세) 에 로컬 가드를 두지 않는다', () => {
+    expect(readGuards('detail')).toEqual([]);
   });
 
   it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
@@ -381,8 +380,8 @@ describe('ProgramTeamsController', () => {
     });
   });
 
-  it('activity 는 :teamId/activity 이고 SessionGuard 만 적용한다 — 팀원도 이 문을 지난다', () => {
-    expect(readGuards('activity')).toEqual([SessionGuard]);
+  it('activity 는 :teamId/activity 이고 로컬 가드를 두지 않는다 — 팀원도 이 문을 지난다', () => {
+    expect(readGuards('activity')).toEqual([]);
     expect(readPath('activity')).toBe(':teamId/activity');
   });
 
@@ -413,8 +412,8 @@ describe('ProgramTeamsController', () => {
     expect(response).toEqual(view);
   });
 
-  it('repositoryUrlHistory 는 SessionGuard 만 적용한다 — activity 와 같은 문이다', () => {
-    expect(readGuards('repositoryUrlHistory')).toEqual([SessionGuard]);
+  it('repositoryUrlHistory 는 로컬 가드를 두지 않는다 — activity 와 같은 문이다', () => {
+    expect(readGuards('repositoryUrlHistory')).toEqual([]);
   });
 
   it('repositoryUrlHistory 를 detail(:teamId) 보다 뒤에 선언한다', () => {
@@ -462,14 +461,14 @@ describe('ProgramTeamsController', () => {
 });
 
 describe('ProgramTeamsController.rename', () => {
-  it('PATCH :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+  it('PATCH :teamId 이고 OriginGuard 만 적용한다', () => {
     const method = methodOf('rename');
 
     expect(readPath('rename')).toBe(':teamId');
     expect(
       method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
     ).toBe(RequestMethod.PATCH);
-    expect(readGuards('rename')).toEqual([SessionGuard, OriginGuard]);
+    expect(readGuards('rename')).toEqual([OriginGuard]);
   });
 
   it('service 결과를 RenameTeamResponseDto 로 반환한다', async () => {
@@ -494,14 +493,14 @@ describe('ProgramTeamsController.rename', () => {
 });
 
 describe('ProgramTeamsController.remove', () => {
-  it('DELETE :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+  it('DELETE :teamId 이고 OriginGuard 만 적용한다', () => {
     const method = methodOf('remove');
 
     expect(readPath('remove')).toBe(':teamId');
     expect(
       method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
     ).toBe(RequestMethod.DELETE);
-    expect(readGuards('remove')).toEqual([SessionGuard, OriginGuard]);
+    expect(readGuards('remove')).toEqual([OriginGuard]);
   });
 
   it('정적 `me` 경로를 가로채지 않도록 뒤에 선언된다', () => {
