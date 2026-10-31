@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Prisma } from '@prisma/client';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -63,6 +64,7 @@ it.each([
         operation(tx),
     } as unknown as PrismaService,
     new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
   );
   const result = await repository.withTransaction<unknown>((store) =>
     store[method]('m'),
@@ -100,6 +102,7 @@ it.each([
         operation(tx),
     } as unknown as PrismaService,
     new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
   );
   if (method === 'findEditableProgramForUpdate') {
     tx.$queryRaw.mockResolvedValue([]);

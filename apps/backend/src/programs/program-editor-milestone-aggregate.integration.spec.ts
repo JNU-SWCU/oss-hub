@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MemberKind,
@@ -1187,6 +1188,7 @@ function createFaultingEditor(
   const actual = new ProgramEditorRepository(
     prisma,
     new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
   );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
@@ -1256,6 +1258,7 @@ function pausingAggregateEditorAt(
   const actual = new ProgramEditorRepository(
     prisma,
     new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
   );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>

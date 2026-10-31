@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
@@ -21,7 +22,11 @@ export const GITHUB_ID = 9_126_600_001n;
 export const COVER_ACTOR = { id: ACTOR, githubId: GITHUB_ID };
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma, new LockProgramTreeRepository()),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
   new ProgramUploadRulesService(new SubmissionFileRulesService()),

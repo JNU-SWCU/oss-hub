@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -47,6 +48,7 @@ describe('ProgramEditorRepository updates', () => {
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
     );
 
     await repository.withTransaction((store) =>

@@ -243,6 +243,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   constructor(
     private readonly transaction: PrismaTypes.TransactionClient,
     private readonly locks: LockProgramTreeRepository,
+    private readonly programDeletionScope: ProgramDeletionScopeRepository,
   ) {}
 
   findUserAuthorityByGithubId(githubId: bigint) {
@@ -336,7 +337,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   private readDeletionScopeCounts(
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {
-    return ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+    return this.programDeletionScope.readProgramDeletionScopeCounts(
       this.transaction,
       programId,
     );
@@ -721,13 +722,20 @@ export class ProgramEditorRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
+    private readonly programDeletionScope: ProgramDeletionScopeRepository,
   ) {}
 
   withTransaction<T>(
     operation: (store: ProgramEditorTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaProgramEditorRepository(transaction, this.locks)),
+      operation(
+        new PrismaProgramEditorRepository(
+          transaction,
+          this.locks,
+          this.programDeletionScope,
+        ),
+      ),
     );
   }
 }

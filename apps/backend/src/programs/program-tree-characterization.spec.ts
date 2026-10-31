@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -50,6 +51,7 @@ describe('program tree early returns', () => {
             ) => operation(transaction),
           } as unknown as PrismaService,
           new LockProgramTreeRepository(),
+          new ProgramDeletionScopeRepository(),
         );
         await expect(
           repository.withTransaction<unknown>((store) => store[method]('m')),

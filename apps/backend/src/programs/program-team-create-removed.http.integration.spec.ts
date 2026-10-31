@@ -1,3 +1,4 @@
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -58,7 +59,10 @@ beforeAll(async () => {
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),
     ),
-    new ProgramTeamDeletionRepository(prisma),
+    new ProgramTeamDeletionRepository(
+      prisma,
+      new TeamDeletionScopeRepository(),
+    ),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),

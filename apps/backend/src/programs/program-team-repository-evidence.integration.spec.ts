@@ -1,3 +1,4 @@
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -33,7 +34,7 @@ const teamsService = new ProgramTeamsService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new ProgramTeamDeletionRepository(prisma),
+  new ProgramTeamDeletionRepository(prisma, new TeamDeletionScopeRepository()),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),

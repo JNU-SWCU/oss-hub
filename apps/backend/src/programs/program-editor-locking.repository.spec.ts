@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -45,6 +46,7 @@ describe('ProgramEditorRepository locking', () => {
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -86,6 +88,7 @@ describe('ProgramEditorRepository locking', () => {
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -133,6 +136,7 @@ describe('ProgramEditorRepository locking', () => {
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
     );
 
     const result = await repository.withTransaction((store) =>

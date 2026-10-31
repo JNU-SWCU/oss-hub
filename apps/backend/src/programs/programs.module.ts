@@ -1,3 +1,5 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramsController } from './programs.controller';
@@ -188,10 +190,12 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     ProgramEditorRepository,
     ProgramLifecycleService,
     ProgramLifecycleRepository,
+    ProgramDeletionScopeRepository,
     ProgramTeamsService,
     ProgramTeamsRepository,
     ProgramTeamRepositoryEvidenceRepository,
     ProgramTeamDeletionRepository,
+    TeamDeletionScopeRepository,
     BoardService,
     BoardRepository,
     TeamInvitationsService,

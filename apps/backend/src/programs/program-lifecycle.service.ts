@@ -170,8 +170,7 @@ export class ProgramLifecycleService {
     } catch (error) {
       const serializationFailure =
         PrismaSerializationRetryRepository.isSerializationFailure(error);
-      const foreignKeyConflict =
-        ProgramLifecycleRepository.isForeignKeyConflict(error);
+      const foreignKeyConflict = this.repository.isForeignKeyConflict(error);
       const deletedScopeMismatch =
         error instanceof ProgramPurgeDeletedScopeMismatchError;
       if (

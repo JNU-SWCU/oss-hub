@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -24,6 +25,7 @@ describe('ProgramEditorRepository milestone create', () => {
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
     );
 
     await repository.withTransaction((store) =>

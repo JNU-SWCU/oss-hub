@@ -1,3 +1,4 @@
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
@@ -65,7 +66,10 @@ const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
-const deletionRepository = new ProgramTeamDeletionRepository(prisma);
+const deletionRepository = new ProgramTeamDeletionRepository(
+  prisma,
+  new TeamDeletionScopeRepository(),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),

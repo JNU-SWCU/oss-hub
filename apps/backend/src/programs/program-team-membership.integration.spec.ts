@@ -1,3 +1,4 @@
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
@@ -78,7 +79,7 @@ const auditLog = new AuditLogService(
 const service = new ProgramTeamsService(
   repository,
   auditLog,
-  new ProgramTeamDeletionRepository(prisma),
+  new ProgramTeamDeletionRepository(prisma, new TeamDeletionScopeRepository()),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),

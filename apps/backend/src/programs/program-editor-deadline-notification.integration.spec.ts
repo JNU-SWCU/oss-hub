@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ApplicationStatus,
@@ -43,7 +44,11 @@ const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
 
 const prisma = new PrismaService();
 const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma, new LockProgramTreeRepository()),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
   new ProgramUploadRulesService(new SubmissionFileRulesService()),

@@ -1,3 +1,4 @@
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +17,11 @@ const PROGRAM_NAME = 'Issue 101 Same Name Program';
 
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma, new LockProgramTreeRepository()),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
   new ProgramUploadRulesService(new SubmissionFileRulesService()),

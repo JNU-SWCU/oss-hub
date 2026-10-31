@@ -66,7 +66,7 @@ const auditLog = new AuditLogService(
   new AuditLogMetadataService(),
 );
 const lifecycle = new ProgramLifecycleService(
-  new ProgramLifecycleRepository(prisma),
+  new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
   auditLog,
   new AuditLogMetadataService(),
 );
@@ -894,7 +894,7 @@ async function seedStandaloneProgram(label: string): Promise<string> {
 
 async function currentDeletionScopeCounts(programId: string) {
   return prisma.$transaction((transaction) =>
-    ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+    new ProgramDeletionScopeRepository().readProgramDeletionScopeCounts(
       transaction,
       programId,
     ),
@@ -1776,7 +1776,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
       record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
     } as unknown as AuditLogService;
     const failingLifecycle = new ProgramLifecycleService(
-      new ProgramLifecycleRepository(prisma),
+      new ProgramLifecycleRepository(
+        prisma,
+        new ProgramDeletionScopeRepository(),
+      ),
       failingAuditLog,
       new AuditLogMetadataService(),
     );
@@ -2052,6 +2055,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
               requestedOptions = options;
             },
           ),
+          new ProgramDeletionScopeRepository(),
         ),
         auditLog,
         new AuditLogMetadataService(),
