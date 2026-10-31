@@ -16,6 +16,11 @@ import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
 } from './platform/object-storage.config';
+import type { StorageReferenceRepository } from './programs/prisma-storage-reference.repository';
+import type {
+  StorageObjectInventory,
+  StorageOrphanReconciliationMode,
+} from './programs/storage-orphan-reconciliation.service';
 import { PROCESS_RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from './platform/runtime-config.config';
 
@@ -55,20 +60,65 @@ export async function retrySubmissionFileCleanup(
   }
 }
 
+function parseStorageOrphanReconciliationMode(
+  args: readonly string[],
+): StorageOrphanReconciliationMode {
+  if (args.length === 0 || (args.length === 1 && args[0] === '--report')) {
+    return 'report';
+  }
+  if (args.length === 1 && args[0] === '--delete') return 'delete';
+  throw new Error('Exactly one mode is allowed: --report or --delete');
+}
+
+async function runStorageOrphanReconciliation(
+  mode: StorageOrphanReconciliationMode,
+  references: StorageReferenceRepository,
+  objectStorage: ObjectStoragePort,
+  objectInventory: ObjectInventoryPort,
+): Promise<void> {
+  const { KNOWN_STORAGE_PREFIXES, StorageOrphanReconciliationService } =
+    await import('./programs/storage-orphan-reconciliation.service');
+  const inventory: StorageObjectInventory = {
+    listObjects: () => objectInventory.listObjects(KNOWN_STORAGE_PREFIXES),
+    delete: (key) => objectStorage.delete(key),
+  };
+  const reconciliation = new StorageOrphanReconciliationService(
+    references,
+    inventory,
+  );
+
+  const result = await reconciliation.reconcile({
+    mode,
+    onDeletePlan: (keys) => {
+      process.stdout.write(
+        `${JSON.stringify({ event: 'storage-orphan.delete-plan', keys })}\n`,
+      );
+    },
+  });
+  process.stdout.write(
+    `${JSON.stringify({
+      event: 'storage-orphan.result',
+      mode: result.mode,
+      runStartedAt: result.runStartedAt.toISOString(),
+      cutoffAt: result.cutoffAt.toISOString(),
+      orphanKeys: result.orphanKeys,
+      recentObjectCount: result.recentObjectKeys.length,
+      deletedKeys: result.deletedKeys,
+      skippedReferencedKeys: result.skippedReferencedKeys,
+    })}\n`,
+  );
+}
+
 export async function reconcileStorageOrphans(
   args: readonly string[],
 ): Promise<void> {
-  const { StorageOrphanReconciliationService } =
-    await import('./programs/storage-orphan-reconciliation.service');
-  const mode =
-    StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode(
-      args,
-    );
+  const mode = parseStorageOrphanReconciliationMode(args);
+  const { PrismaService } = await import('./platform/prisma.service');
   const { PrismaStorageReferenceRepository } =
     await import('./programs/prisma-storage-reference.repository');
   const { PlatformModule } = await import('./platform/platform.module');
-  const { references, disconnect } =
-    PrismaStorageReferenceRepository.createStorageReferenceRepository();
+  const prisma = new PrismaService();
+  const references = new PrismaStorageReferenceRepository(prisma);
   let context: INestApplicationContext | undefined;
 
   try {
@@ -76,7 +126,7 @@ export async function reconcileStorageOrphans(
       logger: false,
       abortOnError: false,
     });
-    await StorageOrphanReconciliationService.runStorageOrphanReconciliation(
+    await runStorageOrphanReconciliation(
       mode,
       references,
       context.get<ObjectStoragePort>(OBJECT_STORAGE),
@@ -84,7 +134,7 @@ export async function reconcileStorageOrphans(
     );
   } finally {
     try {
-      await disconnect();
+      await prisma.$disconnect();
     } finally {
       await context?.close();
     }
