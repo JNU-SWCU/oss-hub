@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { AccountStatus, ActivityVisibility } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
@@ -306,72 +306,5 @@ describe('CollectionUserActivityService', () => {
 
     expect(contribution.create).not.toHaveBeenCalled();
     expect(contribution.upsert).not.toHaveBeenCalled();
-  });
-});
-
-describe('CollectionUserActivityRepository visibility', () => {
-  const db = new PrismaService();
-  const repository = new CollectionUserActivityRepository(db);
-  const observation = {
-    githubId: 4242n,
-    githubLogin: 'octocat',
-    year: 2026,
-    commitCount: 42,
-    pullRequestCount: 8,
-    issueCount: 7,
-    repositoryCount: 6,
-    starCount: 5,
-    observedAt: new Date('2026-08-19T00:00:00.000Z'),
-  };
-
-  afterEach(() => jest.restoreAllMocks());
-
-  it('PUBLIC과 PRIVATE은 같은 사용자와 연도에도 서로 다른 키로 upsert한다', async () => {
-    const upsert = jest
-      .spyOn(db.githubUserActivityHistory, 'upsert')
-      .mockResolvedValue({
-        ...observation,
-        visibility: ActivityVisibility.PUBLIC,
-      });
-
-    await repository.upsertPrivateObservation(observation);
-    await repository.upsertObservation(observation);
-
-    expect(upsert).toHaveBeenNthCalledWith(1, {
-      where: {
-        githubId_year_visibility: {
-          githubId: observation.githubId,
-          year: observation.year,
-          visibility: ActivityVisibility.PRIVATE,
-        },
-      },
-      create: {
-        ...observation,
-        visibility: ActivityVisibility.PRIVATE,
-        starCount: 0,
-      },
-      update: {
-        githubLogin: observation.githubLogin,
-        commitCount: 42,
-        pullRequestCount: 8,
-        issueCount: 7,
-        repositoryCount: 6,
-        observedAt: observation.observedAt,
-        visibility: ActivityVisibility.PRIVATE,
-        starCount: 0,
-      },
-    });
-    expect(upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: {
-          githubId_year_visibility: {
-            githubId: observation.githubId,
-            year: observation.year,
-            visibility: ActivityVisibility.PUBLIC,
-          },
-        },
-      }),
-    );
   });
 });

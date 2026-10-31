@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ActivityVisibility } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
@@ -76,7 +77,10 @@ export class StaffInsightsRepository {
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsActivityRecord[]> {
     const activityRows = await this.prisma.githubUserActivityHistory.findMany({
-      where: query.currentYear === undefined ? {} : { year: query.currentYear },
+      where: {
+        visibility: ActivityVisibility.PUBLIC,
+        ...(query.currentYear === undefined ? {} : { year: query.currentYear }),
+      },
       select: {
         githubId: true,
         year: true,
@@ -137,6 +141,7 @@ export class StaffInsightsRepository {
 
   async listActivityYears(): Promise<readonly number[]> {
     const rows = await this.prisma.githubUserActivityHistory.findMany({
+      where: { visibility: ActivityVisibility.PUBLIC },
       select: { year: true },
       distinct: ['year'],
     });
@@ -145,6 +150,7 @@ export class StaffInsightsRepository {
 
   async findActivityDataAsOf(): Promise<Date | null> {
     const latest = await this.prisma.githubUserActivityHistory.aggregate({
+      where: { visibility: ActivityVisibility.PUBLIC },
       _max: { observedAt: true },
     });
     return latest._max.observedAt ?? null;
