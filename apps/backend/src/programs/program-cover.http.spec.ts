@@ -5,10 +5,8 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
-import {
-  OBJECT_STORAGE,
-  ObjectStorageError,
-} from '../platform/object-storage.types';
+import { ObjectStorageError } from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';

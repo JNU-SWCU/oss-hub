@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import {
-  LOGIN_HISTORY_EVENTS,
   type LoginHistoryPage,
   type ActiveAccountPrincipal,
   type AuthLoginResult,
   type AuthUser,
   type GithubProfile,
 } from './http-auth.types';
+import { LOGIN_HISTORY_EVENTS, AuthConfig } from './auth.config';
 import { LoginHistoryRepository, AuthRepository } from './auth.repository';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { AuthConfig } from './auth.config';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';
 

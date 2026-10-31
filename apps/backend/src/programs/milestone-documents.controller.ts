@@ -20,7 +20,7 @@ import { SessionGuard } from '../auth/session.guard';
 import {
   setDownloadHeaders,
   respondWithDownloadFailure,
-} from '../platform/object-storage.types';
+} from '../platform/download-response.config';
 import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,

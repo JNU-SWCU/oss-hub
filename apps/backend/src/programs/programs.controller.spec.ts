@@ -11,10 +11,8 @@ import { ProgramsModule } from './programs.module';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import {
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from '../auth/http-auth.types';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';

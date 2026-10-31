@@ -223,3 +223,15 @@ function hasRawQueryOrFragment(raw: string): boolean {
     authorityEnd === -1 ? '' : hierarchical.slice(authorityEnd);
   return afterAuthority.includes('?') || afterAuthority.includes('#');
 }
+
+export const LOGIN_HISTORY_EVENTS = {
+  LOGIN: 'LOGIN',
+  LOGOUT: 'LOGOUT',
+} as const;
+
+export const LOGIN_HISTORY_PROVIDER = 'github' as const;
+
+export const HTTP_AUTH_KINDS = {
+  ANONYMOUS: 'ANONYMOUS',
+  AUTHENTICATED: 'AUTHENTICATED',
+} as const;

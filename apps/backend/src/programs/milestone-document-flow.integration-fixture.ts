@@ -12,8 +12,10 @@ import {
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
-import { ObjectStorageConfig } from '../platform/object-storage.config';
-import { OBJECT_STORAGE } from '../platform/object-storage.types';
+import {
+  ObjectStorageConfig,
+  OBJECT_STORAGE,
+} from '../platform/object-storage.config';
 import { ProgramsModule } from './programs.module';
 
 import {

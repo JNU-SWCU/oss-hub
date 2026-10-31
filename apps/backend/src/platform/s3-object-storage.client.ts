@@ -6,12 +6,14 @@ import {
 } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 import {
-  OBJECT_STORAGE_ERROR_CODES,
-  ObjectStorageError,
   type ObjectStoragePort,
   type StoreObjectInput,
   type StoredObject,
 } from './object-storage.types';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from './object-storage.error';
 import {
   ObjectS3Connection,
   ObjectStorageConfig,

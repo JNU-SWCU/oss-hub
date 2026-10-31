@@ -5,11 +5,11 @@ import {
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { type StoredObject } from './object-storage.types';
 import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-  type StoredObject,
-} from './object-storage.types';
+} from './object-storage.error';
 import {
   ObjectStorageConfig,
   type ObjectS3Client,

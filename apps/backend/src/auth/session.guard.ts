@@ -4,7 +4,7 @@ import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
 import { AuthService, resolveSession } from './auth.service';
-import { attachAuthenticatedPrincipal } from './http-auth.types';
+import { attachAuthenticatedPrincipal } from './authentication.guard';
 
 @Injectable()
 export class SessionGuard implements CanActivate {

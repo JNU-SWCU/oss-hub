@@ -7,7 +7,6 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  LOGIN_HISTORY_PROVIDER,
   type LoginHistory,
   type LoginHistoryEvent,
   type LoginHistoryPage,
@@ -15,7 +14,11 @@ import {
   type AuthUser,
   type GithubProfile,
 } from './http-auth.types';
-import { AuthConfig, type InitialAccountSeed } from './auth.config';
+import {
+  LOGIN_HISTORY_PROVIDER,
+  AuthConfig,
+  type InitialAccountSeed,
+} from './auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
 import { isCompleteProfileFields } from '../users/profile-validation.config';
 

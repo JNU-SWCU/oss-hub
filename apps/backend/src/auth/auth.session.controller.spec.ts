@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
-import { AuthConfig } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { AuthController } from './auth.controller';
 import {
   AuthService,
@@ -11,11 +11,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   issueSessionToken,
 } from './auth.service';
-import {
-  AuthUser,
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from './http-auth.types';
+import { AuthUser, type OptionalSessionRequest } from './http-auth.types';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',

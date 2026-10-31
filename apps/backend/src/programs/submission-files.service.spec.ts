@@ -2,11 +2,13 @@ import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import {
-  OBJECT_STORAGE_ERROR_CODES,
-  ObjectStorageError,
   type StoreObjectInput,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from '../platform/object-storage.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,

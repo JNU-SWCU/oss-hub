@@ -260,6 +260,38 @@ const repositoryExports = {
   },
 };
 
+const typesOnly = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      forbidden:
+        '.types.ts에는 타입만 둔다. 런타임 코드는 만드는 쪽 파일로 옮긴다.',
+    },
+  },
+  create(context) {
+    const runtime = new Set([
+      'VariableDeclaration',
+      'FunctionDeclaration',
+      'ClassDeclaration',
+      'TSEnumDeclaration',
+    ]);
+    return {
+      Program(program) {
+        for (const statement of program.body) {
+          const node =
+            statement.type === 'ExportNamedDeclaration' ||
+            statement.type === 'ExportDefaultDeclaration'
+              ? statement.declaration
+              : statement;
+          if (node && runtime.has(node.type))
+            context.report({ node, messageId: 'forbidden' });
+        }
+      },
+    };
+  },
+};
+
 async function cycleRule(rootDir) {
   const tsconfig = path.join(rootDir, 'tsconfig.json');
   const read = ts.readConfigFile(tsconfig, ts.sys.readFile);
@@ -599,6 +631,7 @@ export async function createRailsConfig(rootDir) {
             'no-class-alias': noClassAlias,
             'dto-location': dtoLocation,
             'repository-exports': repositoryExports,
+            'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
             'restricted-imports': builtinRules.get('no-restricted-imports'),
@@ -813,6 +846,11 @@ export async function createRailsConfig(rootDir) {
       files: ['src/**/*.repository.ts'],
       ignores: testFiles,
       rules: { 'architecture/repository-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.types.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/types-only': 'error' },
     },
     {
       files: ['test/**/*.ts'],

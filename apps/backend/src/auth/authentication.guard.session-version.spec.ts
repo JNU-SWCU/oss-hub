@@ -11,10 +11,8 @@ import {
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { type AuthService, sessionCookieName } from './auth.service';
-import {
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from './http-auth.types';
+import { type OptionalSessionRequest } from './http-auth.types';
+import { HTTP_AUTH_KINDS } from './auth.config';
 
 const secret = new Uint8Array(randomBytes(32));
 const githubId = 9_007_199_254_740_993n;

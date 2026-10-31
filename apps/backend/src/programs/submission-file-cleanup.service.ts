@@ -6,10 +6,8 @@ import {
 } from '../platform/audit-log.service';
 import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 
 @Injectable()
 export class SubmissionFileCleanupRetryService {

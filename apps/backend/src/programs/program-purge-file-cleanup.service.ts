@@ -4,10 +4,8 @@ import {
   type ClaimedProgramPurgeFileTombstone,
   ProgramPurgeFileCleanupRepository,
 } from './program-purge-file-cleanup.repository';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
 const DEFAULT_BATCH_SIZE = 100;

@@ -1,10 +1,12 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import {
   assertNeverHttpAuth,
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from '../auth/http-auth.types';
+  OptionalSession,
+  Public,
+} from '../auth/authentication.guard';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { RankingRequestDto } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
@@ -15,7 +17,6 @@ import {
   RANKING_VIEWER_CLASSES,
   resolveRankingQueryYear,
 } from './ranking.service';
-import { OptionalSession, Public } from '../auth/authentication.guard';
 
 @Controller('ranking')
 export class RankingController {

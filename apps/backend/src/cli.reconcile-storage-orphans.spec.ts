@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
-} from './platform/object-storage.types';
+} from './platform/object-storage.config';
 
 import { reconcileStorageOrphans } from './cli';
 import { KNOWN_STORAGE_PREFIXES } from './programs/storage-orphan-reconciliation.service';

@@ -4,11 +4,9 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import {
-  OBJECT_STORAGE,
-  ObjectStorageError,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { ObjectStorageError } from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './program-cover.repository';
 import {
   AccountStatus,

@@ -10,10 +10,8 @@ import {
   SUBMISSION_UPLOAD_MAX_BYTES,
 } from './submission-upload.config';
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
   ProgramAuthoringUploadRepository,
   type ProgramAuthoringUploadDeleteRequestResult,

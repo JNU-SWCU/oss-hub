@@ -5,8 +5,11 @@ import { HealthController } from './health.controller';
 import { HealthRepository } from './health.repository';
 import { HealthService } from './health.service';
 import { S3ObjectStorageClient } from './s3-object-storage.client';
-import { ObjectStorageConfig } from './object-storage.config';
-import { OBJECT_INVENTORY, OBJECT_STORAGE } from './object-storage.types';
+import {
+  ObjectStorageConfig,
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+} from './object-storage.config';
 import { PrismaService } from './prisma.service';
 import {
   PROCESS_RUNTIME_CONFIG,

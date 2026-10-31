@@ -3,16 +3,19 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import {
-  OBJECT_INVENTORY,
-  OBJECT_STORAGE,
   type ObjectInventoryPort,
   type ObjectStoragePort,
   type StoreObjectInput,
   type StoredObject,
 } from './object-storage.types';
+import {
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+  ObjectStorageConfig,
+  S3_OBJECT_CLIENT,
+} from './object-storage.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { S3ObjectStorageClient } from './s3-object-storage.client';
-import { ObjectStorageConfig, S3_OBJECT_CLIENT } from './object-storage.config';
 import { AuditLogService } from './audit-log.service';
 import { PlatformModule } from './platform.module';
 import { PrismaService } from './prisma.service';

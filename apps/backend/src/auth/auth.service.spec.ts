@@ -1,8 +1,5 @@
-import {
-  LOGIN_HISTORY_EVENTS,
-  type LoginHistoryPage,
-  type AuthUser,
-} from './http-auth.types';
+import { type LoginHistoryPage, type AuthUser } from './http-auth.types';
+import { LOGIN_HISTORY_EVENTS, AuthConfig } from './auth.config';
 import {
   LoginHistoryRepository,
   type AuthRepository,
@@ -19,7 +16,6 @@ import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
-import { AuthConfig } from './auth.config';
 
 describe('login-history.service', () => {
   const emptyPage: LoginHistoryPage = {

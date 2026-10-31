@@ -23,17 +23,18 @@ import {
   isSameState,
   SESSION_MAX_AGE_SECONDS,
 } from './auth.service';
-import { AuthConfig } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
 import { OriginGuard } from './origin.guard';
+import { type OptionalSessionRequest } from './http-auth.types';
 import {
   assertNeverHttpAuth,
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from './http-auth.types';
-import { OptionalSession, Protected, Public } from './authentication.guard';
+  OptionalSession,
+  Protected,
+  Public,
+} from './authentication.guard';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 

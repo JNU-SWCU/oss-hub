@@ -761,6 +761,26 @@ for (const [name, code] of [
   );
 }
 files.set('src/programs/other.error.ts', 'export const value = 1;');
+for (const [name, code] of [
+  ['const', 'export const value = 1;'],
+  ['function', 'export function value() { return 1; }'],
+  ['class', 'export class Value {}'],
+  ['enum', 'export enum Value { A }'],
+  ['local const', 'const value = 1; export type Value = typeof value;'],
+] as const) {
+  add(
+    `types file cannot declare a ${name}`,
+    `src/programs/runtime-${name.replace(' ', '-')}.types.ts`,
+    code,
+    'architecture/types-only',
+  );
+}
+add(
+  'types file may declare types',
+  'src/programs/shapes-only.types.ts',
+  'export type Row = { id: string }; export interface Shape { id: string }',
+  null,
+);
 add(
   'repository may export its class and types',
   'src/programs/exports-allowed.repository.ts',

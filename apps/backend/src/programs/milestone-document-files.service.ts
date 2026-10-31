@@ -2,10 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,

@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
-import { setDownloadHeaders } from '../platform/object-storage.types';
+import { setDownloadHeaders } from '../platform/download-response.config';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { UploadedSubmissionFileResponseDto } from './dto/uploaded-submission-file-response.dto';
 import {

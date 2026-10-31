@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
-  OBJECT_STORAGE,
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+} from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,

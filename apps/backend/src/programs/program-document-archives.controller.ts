@@ -18,7 +18,7 @@ import { MilestoneDocumentArchiveService } from './milestone-document-archive.se
 import {
   setDownloadHeaders,
   respondWithDownloadFailure,
-} from '../platform/object-storage.types';
+} from '../platform/download-response.config';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,

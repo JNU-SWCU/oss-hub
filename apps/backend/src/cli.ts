@@ -9,11 +9,13 @@ import {
   InvalidDigestForceToError,
 } from './notifications/deadline-digest-failure.error';
 import {
-  OBJECT_INVENTORY,
-  OBJECT_STORAGE,
   type ObjectInventoryPort,
   type ObjectStoragePort,
 } from './platform/object-storage.types';
+import {
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+} from './platform/object-storage.config';
 import { PROCESS_RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from './platform/runtime-config.config';
 

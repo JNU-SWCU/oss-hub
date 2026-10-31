@@ -9,7 +9,7 @@ import {
 import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-} from './object-storage.types';
+} from './object-storage.error';
 import { loadRuntimeConfig, type RuntimeConfig } from './runtime-config.config';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 
@@ -229,3 +229,7 @@ function isPrivateIPv6(address: string): boolean {
     return true;
   return false;
 }
+
+export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
+
+export const OBJECT_INVENTORY = Symbol('OBJECT_INVENTORY');

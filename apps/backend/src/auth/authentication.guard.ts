@@ -8,12 +8,10 @@ import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { AuthConfig } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { AuthService, resolveSession } from './auth.service';
-import {
-  attachAnonymousAuth,
-  attachAuthenticatedPrincipal,
-} from './http-auth.types';
+
+import type { ActiveAccountPrincipal } from './http-auth.types';
 
 export const AUTH_ROUTE_ACCESS = {
   PUBLIC: 'PUBLIC',
@@ -106,4 +104,36 @@ export class AuthenticationGuard implements CanActivate {
     attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }
+}
+
+export function assertNeverHttpAuth(auth: never): never {
+  throw new TypeError(`Unexpected HTTP authentication kind: ${String(auth)}`);
+}
+
+export function attachAnonymousAuth(
+  request: Request,
+  hasSessionCookie: boolean,
+): void {
+  Object.assign(request, {
+    auth: {
+      kind: HTTP_AUTH_KINDS.ANONYMOUS,
+      hasSessionCookie,
+    },
+  });
+}
+
+export function attachAuthenticatedPrincipal(
+  request: Request,
+  principal: ActiveAccountPrincipal,
+  verifiedGithubId: bigint,
+): void {
+  Object.assign(request, {
+    auth: {
+      kind: HTTP_AUTH_KINDS.AUTHENTICATED,
+      hasSessionCookie: true,
+      principal,
+    },
+    principal,
+    sessionGithubId: verifiedGithubId,
+  });
 }
