@@ -9,8 +9,30 @@ import { fromBufferPromise, type Entry } from 'yauzl';
 import { SUBMISSION_FILE_EXTENSIONS } from './submission-upload.config';
 import { randomUUID } from 'node:crypto';
 
+const LATIN1_MAX_CODE_POINT = 0xff;
+
+const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
+
 @Injectable()
 export class SubmissionFileRulesService {
+  normalizeMultipartFileName(fileName: string): string {
+    if (
+      [...fileName].some(
+        (character) => character.codePointAt(0)! > LATIN1_MAX_CODE_POINT,
+      )
+    ) {
+      return fileName.normalize('NFC');
+    }
+
+    try {
+      return UTF8_DECODER.decode(Buffer.from(fileName, 'latin1')).normalize(
+        'NFC',
+      );
+    } catch {
+      return fileName.normalize('NFC');
+    }
+  }
+
   safeSubmissionFileContentType(fileName: string): string {
     const extension = submissionFileExtension(fileName);
     return extension === null

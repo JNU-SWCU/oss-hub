@@ -15,7 +15,6 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
@@ -366,7 +365,10 @@ export class MilestoneDocumentFilesService {
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
     }
-    const normalizedFileName = normalizeMultipartFileName(file.originalname);
+    const normalizedFileName =
+      this.submissionFileRulesService.normalizeMultipartFileName(
+        file.originalname,
+      );
     const valid =
       purpose === 'TEMPLATE'
         ? this.submissionFileRulesService.hasValidSubmissionTemplateSignature(

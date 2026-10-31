@@ -19,7 +19,6 @@ import { DomainException } from '../platform/error-code.error';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID, createHash } from 'node:crypto';
-import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { extname } from 'node:path';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
@@ -50,7 +49,9 @@ export class ProgramUploadRulesService {
 
     const originalFileName =
       this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
-        normalizeMultipartFileName(file.originalname),
+        this.submissionFileRulesService.normalizeMultipartFileName(
+          file.originalname,
+        ),
       );
     if (
       !this.submissionFileRulesService.hasValidSubmissionTemplateSignature(
@@ -107,7 +108,9 @@ export class ProgramUploadRulesService {
     }
     const originalFileName =
       this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
-        normalizeMultipartFileName(file.originalname),
+        this.submissionFileRulesService.normalizeMultipartFileName(
+          file.originalname,
+        ),
       );
     const extension = extname(originalFileName).toLowerCase();
     const mimeType =

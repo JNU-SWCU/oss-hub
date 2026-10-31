@@ -23,7 +23,6 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { ProgramRulesService } from './program-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
@@ -208,7 +207,10 @@ export class SubmissionFilesService {
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
     }
-    const normalizedFileName = normalizeMultipartFileName(file.originalname);
+    const normalizedFileName =
+      this.submissionFileRulesService.normalizeMultipartFileName(
+        file.originalname,
+      );
     if (
       !this.submissionFileRulesService.isAllowedSubmissionFileType(
         normalizedFileName,
