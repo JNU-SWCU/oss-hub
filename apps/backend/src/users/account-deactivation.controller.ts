@@ -14,7 +14,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
 import { AuthSessionService } from '../platform/auth-session.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

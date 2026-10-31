@@ -702,7 +702,7 @@ export async function createRailsConfig(rootDir) {
             mode: 'full',
           },
           ...Object.entries({
-            controller: '*.{controller,guard,interceptor,filter}.ts',
+            controller: '*.{controller,guard,interceptor,filter,decorator}.ts',
             service: '*.service.ts',
             repository: '*.repository.ts',
             gateway: '*.client.ts',
@@ -725,8 +725,8 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'auth-capability',
             pattern: [
-              'src/auth/{authentication.guard,http-auth.types}.ts',
-              'src/platform/{origin.guard,roles.guard,auth.config}.ts',
+              'src/auth/{authentication.guard,auth-route.decorator,http-auth.types}.ts',
+              'src/platform/{origin.guard,roles.guard,roles.decorator,auth.config}.ts',
             ],
           },
           {
@@ -738,7 +738,7 @@ export async function createRailsConfig(rootDir) {
           },
           {
             category: 'guard',
-            pattern: `${flatModulePattern}/*.{guard,interceptor,filter}.ts`,
+            pattern: `${flatModulePattern}/*.{guard,interceptor,filter,decorator}.ts`,
             capture: ['module'],
           },
           {

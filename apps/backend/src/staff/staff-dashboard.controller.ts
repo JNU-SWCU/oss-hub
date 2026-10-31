@@ -5,8 +5,9 @@ import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsService } from './staff-insights.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,

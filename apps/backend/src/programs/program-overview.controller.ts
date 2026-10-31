@@ -4,7 +4,7 @@ import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-resp
 import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('programs/:programId/overview')
 @Protected()

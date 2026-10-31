@@ -1,11 +1,8 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
-import {
-  assertNeverHttpAuth,
-  OptionalSession,
-  Public,
-} from '../auth/authentication.guard';
+import { assertNeverHttpAuth } from '../auth/authentication.guard';
+import { OptionalSession, Public } from '../auth/auth-route.decorator';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { RankingRequestDto } from './dto/ranking-request.dto';
 import {

@@ -52,8 +52,9 @@ import {
   Public,
   Protected,
   OptionalSession,
-} from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+} from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_ERROR_CODES,

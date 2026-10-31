@@ -16,7 +16,7 @@ import {
 } from './dto/role-selection-response.dto';
 import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -27,7 +27,7 @@ import {
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { DownloadResponseService } from './download-response.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

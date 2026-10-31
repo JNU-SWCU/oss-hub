@@ -18,8 +18,9 @@ import { ApplicationListPageResponseDto } from './dto/application-list-page-resp
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
 import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,

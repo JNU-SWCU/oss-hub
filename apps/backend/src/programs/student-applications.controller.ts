@@ -19,7 +19,7 @@ import {
   StudentApplicationResponseDto,
 } from './dto/student-application-response.dto';
 import { StudentApplicationManagementService } from './student-application-management.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type StudentApplicationRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

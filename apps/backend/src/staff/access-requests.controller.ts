@@ -19,7 +19,7 @@ import {
   AccessRequestsUserPageResponseDto,
 } from './dto/access-requests-user-page-response.dto';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<
   AuthenticatedRequest,

@@ -51,8 +51,9 @@ import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
 } from './program-authoring.error';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'principal'>;
 

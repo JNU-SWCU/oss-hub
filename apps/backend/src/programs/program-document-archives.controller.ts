@@ -16,9 +16,10 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { DownloadResponseService } from './download-response.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 
 const staffOnly = () =>
   new DomainException(

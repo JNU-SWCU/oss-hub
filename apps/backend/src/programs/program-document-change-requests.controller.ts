@@ -18,8 +18,9 @@ import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-progr
 import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,

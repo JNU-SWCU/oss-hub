@@ -49,9 +49,10 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 
 type ViewerRequest = Pick<
   AuthenticatedRequest,

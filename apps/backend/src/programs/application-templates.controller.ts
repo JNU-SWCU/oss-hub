@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApplicationTemplateListResponseDto } from './dto/application-template-response.dto';
-import { Public } from '../auth/authentication.guard';
+import { Public } from '../auth/auth-route.decorator';
 import { ProgramRulesService } from './program-rules.service';
 
 @Controller('programs/application-templates')

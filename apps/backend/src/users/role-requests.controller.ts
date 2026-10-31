@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MyStaffAccessRequestResponseDto } from './dto/my-staff-access-request-response.dto';
 import { RoleRequestResponseDto } from './dto/role-request-response.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

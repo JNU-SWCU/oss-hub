@@ -26,8 +26,9 @@ import {
 } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import { SubmissionInputService } from './submission-input.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,

@@ -5,8 +5,9 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   SUBMISSIONS_ERROR_CODES,

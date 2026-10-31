@@ -29,7 +29,7 @@ import { IndependentAuthorityService } from '../users/independent-authority.serv
 import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
 import { MemberKindService } from '../users/member-kind.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<
   AuthenticatedRequest,

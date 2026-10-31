@@ -30,8 +30,9 @@ import {
   StaffProgramTeamResponseDto,
 } from './dto/program-team-response.dto';
 import { ProgramTeamsService } from './program-teams.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 

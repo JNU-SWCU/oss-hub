@@ -8,7 +8,7 @@ import { ProgramActivityService } from '../programs/program-activity.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { StudentDashboardService } from './student-dashboard.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

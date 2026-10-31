@@ -24,7 +24,7 @@ import {
   ProgramEditorService,
   type MilestoneUpdateCommand,
 } from './program-editor.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

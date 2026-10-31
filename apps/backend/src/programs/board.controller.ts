@@ -26,7 +26,7 @@ import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request
 import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
 import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';
 import { UpdateBoardPostRequestDto } from './dto/update-board-post-request.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type BoardActor = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

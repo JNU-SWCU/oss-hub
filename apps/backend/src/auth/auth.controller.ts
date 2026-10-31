@@ -17,12 +17,8 @@ import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
 import { OriginGuard } from '../platform/origin.guard';
 import { type OptionalSessionRequest } from './http-auth.types';
-import {
-  assertNeverHttpAuth,
-  OptionalSession,
-  Protected,
-  Public,
-} from './authentication.guard';
+import { assertNeverHttpAuth } from './authentication.guard';
+import { OptionalSession, Protected, Public } from './auth-route.decorator';
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
