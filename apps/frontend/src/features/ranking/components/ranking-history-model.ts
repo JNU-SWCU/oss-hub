@@ -145,7 +145,7 @@ function lineOf(
 
 function styleIndexOf(finalRank: number): number {
   return Math.min(
-    Math.floor((finalRank - 1) / SERIES_COLORS.length),
+    Math.floor(finalRank / SERIES_COLORS.length),
     DASH_PATTERNS.length - 1,
   );
 }
