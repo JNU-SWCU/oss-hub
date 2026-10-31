@@ -22,8 +22,16 @@ vi.mock('./admin-access-mutation-execution', () => ({
   executeAdminAccessMutation,
 }));
 
+vi.mock('./admin-access-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./admin-access-api')>()),
+  fetchAdminAccessHistory: vi.fn(),
+}));
+
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import type { AdminAccessHistory } from './admin-access-api';
+import {
+  fetchAdminAccessHistory,
+  type AdminAccessHistory,
+} from './admin-access-api';
 import type { AccessWorkspace } from './admin-access-list-query';
 import { AdminAccessDetailNotFoundError } from './admin-access-detail-api';
 import { adminDetail } from './admin-access-detail-test-fixture';
@@ -260,6 +268,52 @@ describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신�
 });
 
 describe('관리자 명부(directory) 결정 — 재조회로 최신 감사 필드를 읽는다', () => {
+  it('승인 후 최신 이력을 읽으면 승인 전 지연 페이지가 덮어쓰지 않는다', async () => {
+    const oldRequest = Promise.withResolvers<AdminAccessHistory>();
+    const freshHistory = decidedHistory(
+      'APPROVED',
+      '2026-08-22T00:00:00.000Z',
+      'fresh-after-approval',
+    );
+    loadAdminAccessDetail
+      .mockResolvedValueOnce({
+        detail: PENDING_DETAIL,
+        history: {
+          ...PENDING_HISTORY,
+          staffAccessRequests: {
+            ...PENDING_HISTORY.staffAccessRequests,
+            total: 40,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        detail: adminDetail({ pendingRequest: null }),
+        history: freshHistory,
+      });
+    vi.mocked(fetchAdminAccessHistory).mockReturnValue(oldRequest.promise);
+    executeAdminAccessMutation.mockResolvedValue(approvedResponse());
+    await mount('directory');
+    await act(async () => clickButton(container, '다음'));
+    expect(fetchAdminAccessHistory).toHaveBeenCalledTimes(1);
+
+    await approve();
+    expect(container.textContent).toContain('fresh-after-approval');
+    await act(async () => {
+      oldRequest.resolve(
+        decidedHistory(
+          'REJECTED',
+          '2026-08-21T00:00:00.000Z',
+          'stale-before-approval',
+        ),
+      );
+      await oldRequest.promise;
+    });
+
+    expect(loadAdminAccessDetail).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('fresh-after-approval');
+    expect(container.textContent).not.toContain('stale-before-approval');
+  });
+
   it('승인하면 상세를 한 번 더 읽고 두 번째 응답을 그린다', async () => {
     const secondHistory: AdminAccessHistory = decidedHistory(
       'APPROVED',
