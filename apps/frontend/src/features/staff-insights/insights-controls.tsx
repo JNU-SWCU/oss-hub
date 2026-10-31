@@ -49,12 +49,7 @@ function YearLink({
   readonly children: string;
 }): ReactElement {
   return (
-    <Button
-      asChild
-      variant="toggle"
-      size="sm"
-      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-    >
+    <Button asChild variant="toggle" size="sm">
       <Link href={href} aria-current={current ? 'page' : undefined}>
         {children}
       </Link>
@@ -74,11 +69,7 @@ export function CutButton({
   readonly children: string;
 }): ReactElement {
   return (
-    <FilterChip
-      pressed={current === value}
-      onClick={() => onCutChange(value)}
-      className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-    >
+    <FilterChip pressed={current === value} onClick={() => onCutChange(value)}>
       {children}
     </FilterChip>
   );

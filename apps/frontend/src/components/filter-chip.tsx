@@ -48,27 +48,19 @@ function FilterChipGroup({
 
 interface FilterChipProps extends Omit<
   React.ComponentProps<typeof Button>,
-  'variant' | 'size' | 'aria-pressed'
+  'variant' | 'size' | 'aria-pressed' | 'className'
 > {
   readonly pressed: boolean;
 }
 
-function FilterChip({
-  pressed,
-  type = 'button',
-  className,
-  ...props
-}: FilterChipProps) {
+function FilterChip({ pressed, type = 'button', ...props }: FilterChipProps) {
   return (
     <Button
       type={type}
       variant="toggle"
       size="sm"
       aria-pressed={pressed}
-      className={cn(
-        'h-auto min-h-control max-w-full py-1.5 whitespace-normal break-keep [overflow-wrap:anywhere]',
-        className,
-      )}
+      className="h-auto min-h-control max-w-full py-1.5 whitespace-normal break-keep [overflow-wrap:anywhere]"
       {...props}
     />
   );
