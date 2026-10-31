@@ -13,7 +13,7 @@ import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
 } from './repository-provision-state.repository';
-import { parseGithubRepositoryUrl } from './repositories-read.service';
+import { parseGithubRepositoryUrl } from './repository-url.config';
 
 export const GITHUB_REPOSITORY_NAME_MAX_LENGTH = 100;
 

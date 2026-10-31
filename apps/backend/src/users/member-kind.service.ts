@@ -1,13 +1,23 @@
+import { authorityLabel, isValidStudentId } from './users.repository';
 import {
-  authorityLabel,
   isCompleteProfileFields,
   isStoredStudentId,
   isValidDepartment,
-  isValidStudentId,
   normalizeProfileText,
-} from './users.repository';
+  isValidStaffNumber,
+  normalizeStaffNumber,
+} from './profile-validation.config';
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  createIndependentAuthorityAuditMetadata,
+  createUserProfileAuditMetadata,
+} from '../platform/audit-log.service';
+import type { UserProfileAuditFieldChange } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { AffiliationKind, MemberKind } from '@prisma/client';
@@ -21,24 +31,10 @@ import {
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { type IndependentAuthorityMutationResult } from './independent-authority.repository';
 import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
-  createIndependentAuthorityAuditMetadata,
-  createUserProfileAuditMetadata,
-  type UserProfileAuditFieldChange,
-} from '../platform/audit-log.repository';
-import {
   requireActiveAdmin,
   roleError,
   staleAccessError,
 } from './admin-access-mutation.service';
-
-export const MEMBER_KINDS = {
-  STUDENT: 'STUDENT',
-  STAFF: 'STAFF',
-} as const satisfies Record<MemberKind, MemberKind>;
 
 export type MemberKindMutationCommand = {
   readonly memberKind: MemberKind;
@@ -50,16 +46,6 @@ export type MemberKindMutationCommand = {
 };
 
 export type MemberKindMutationResult = IndependentAuthorityMutationResult;
-
-export function normalizeStaffNumber(value: string): string {
-  return value.trim().normalize('NFC');
-}
-
-export function isValidStaffNumber(value: string): boolean {
-  const normalized = normalizeStaffNumber(value);
-  const codePointCount = Array.from(normalized).length;
-  return codePointCount >= 1 && codePointCount <= 100;
-}
 
 @Injectable()
 export class MemberKindService {

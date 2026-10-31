@@ -4,10 +4,8 @@ import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
 } from '../../users/roles-error-code.error';
-import {
-  ADMIN_ACCESS_COMMANDS,
-  type AdminAuthorityMutationCommand,
-} from '../../users/independent-authority.repository';
+import type { AdminAuthorityMutationCommand } from '../../users/independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from '../../users/admin-access-query.config';
 
 export class PatchIndependentAuthorityRequestDto {
   @IsDefined()

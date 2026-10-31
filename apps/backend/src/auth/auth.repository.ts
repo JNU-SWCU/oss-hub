@@ -17,7 +17,7 @@ import {
 } from './http-auth.types';
 import { AuthConfig, type InitialAccountSeed } from './auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
-import { isCompleteProfileFields } from '../users/users.repository';
+import { isCompleteProfileFields } from '../users/profile-validation.config';
 
 @Injectable()
 export class LoginHistoryRepository {

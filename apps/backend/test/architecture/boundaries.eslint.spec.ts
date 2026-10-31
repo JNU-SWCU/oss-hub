@@ -121,21 +121,72 @@ edge(
   false,
 );
 edge(
-  'flat staff service may import programs repository exports',
+  'flat staff service cannot import programs repository values',
   'src/staff/a.service.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'flat staff service may import programs repository types',
+  'src/staff/a-type.service.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository cannot import a foreign repository value',
+  'src/staff/a.repository.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'repository may import a foreign repository type',
+  'src/staff/a-type.repository.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository may import a same-module repository value',
+  'src/programs/same-value.repository.ts',
   'src/programs/c.repository.ts',
   true,
 );
 edge(
-  'request DTO may use validation values from a service',
+  'request DTO may use same-module service values',
   'src/programs/dto/value-request.dto.ts',
   'src/programs/validation.service.ts',
   true,
 );
 edge(
-  'request DTO may use validation values from a foreign repository',
+  'request DTO may use same-module repository values',
+  'src/programs/dto/repository-value-request.dto.ts',
+  'src/programs/validation.repository.ts',
+  true,
+);
+edge(
+  'request DTO cannot use foreign repository values',
   'src/admin/dto/value-request.dto.ts',
   'src/users/validation.repository.ts',
+  false,
+);
+edge(
+  'request DTO cannot use foreign service values',
+  'src/admin/dto/service-value-request.dto.ts',
+  'src/users/validation.service.ts',
+  false,
+);
+edge(
+  'request DTO may use foreign producer types',
+  'src/admin/dto/type-request.dto.ts',
+  'src/users/validation.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'request DTO may use a foreign validation config',
+  'src/admin/dto/config-request.dto.ts',
+  'src/users/validation.config.ts',
   true,
 );
 edge(
@@ -183,10 +234,10 @@ for (const module of [
     true,
   );
   edge(
-    `${module} service may import a foreign repository`,
+    `${module} service cannot import a foreign repository`,
     `src/${module}/foreign-flat.service.ts`,
     `src/${{ ranking: 'programs', github: 'users' }[module] ?? 'ranking'}/foreign.repository.ts`,
-    true,
+    false,
   );
 }
 
@@ -306,7 +357,7 @@ for (const from of layers) {
       const name = `${from}-${to}-${foreign ? 'foreign' : 'own'}`;
       const allowed =
         permitted[from].includes(to) &&
-        !(foreign && (to === 'gateway' || to === 'dto'));
+        !(foreign && (to === 'gateway' || to === 'dto' || to === 'repository'));
       edge(
         name,
         located('programs', from, name),

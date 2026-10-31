@@ -9,7 +9,7 @@ import {
   ProgramDeletionScopeRepository,
   type ProgramDeletionScopeCounts,
 } from './program-deletion-scope.repository';
-import { type ProgramDeletionAuditBlockingCounts } from '../platform/audit-log.repository';
+import type { ProgramDeletionAuditBlockingCounts } from '../platform/audit-log.repository';
 
 export type ProgramPurgeDeletedCounts = {
   readonly applications: number;

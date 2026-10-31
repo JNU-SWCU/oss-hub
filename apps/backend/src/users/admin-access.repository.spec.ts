@@ -14,7 +14,7 @@ import type { PrismaService } from '../platform/prisma.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
-} from './admin-access-read-ordering.repository';
+} from './admin-access-query.config';
 
 describe('admin-actor-locks.repository', () => {
   type ActorRow = Parameters<typeof toAdminActor>[0];

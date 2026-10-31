@@ -4,13 +4,15 @@ import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import {
-  type UserProfileAuditAction,
-  type UserProfileAuditMetadata,
   USER_PROFILE_AUDIT_ACTIONS,
   createUserProfileAuditMetadata,
-  type UserProfileAuditFieldChange,
   USER_PROFILE_AUDIT_FIELDS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log.service';
+import type {
+  UserProfileAuditAction,
+  UserProfileAuditMetadata,
+  UserProfileAuditFieldChange,
+} from '../platform/audit-log.service';
 import {
   type AdminProfileTargetRecord,
   type AdminProfileRepositoryPort,

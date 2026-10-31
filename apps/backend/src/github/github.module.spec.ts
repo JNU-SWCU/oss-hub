@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from './collection-schedule.service';
 import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -140,6 +141,7 @@ describe('GithubModule', () => {
   it('수집 진입과 저장소 서비스만 구체 클래스로 공개하고 별칭을 등록하지 않는다', () => {
     expect(getMetadataArray(MODULE_METADATA.EXPORTS)).toEqual([
       CollectionAdminService,
+      CollectionScheduleService,
       CollectionTriggerService,
       RepositoriesService,
       RepositoriesReadService,

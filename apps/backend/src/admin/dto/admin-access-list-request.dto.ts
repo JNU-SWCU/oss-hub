@@ -9,6 +9,13 @@ import {
   Min,
 } from 'class-validator';
 import { AccountStatus } from '@prisma/client';
+import type {
+  AdminAccessListQuery,
+  AdminAccessPendingFilter,
+  AdminAccessRoleFilter,
+  AdminAccessSortDirection,
+  AdminAccessSortField,
+} from '../../users/admin-access-read-ordering.repository';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
@@ -16,12 +23,7 @@ import {
   ADMIN_ACCESS_ROLE_FILTERS,
   ADMIN_ACCESS_SORT_DIRECTIONS,
   ADMIN_ACCESS_SORT_FIELDS,
-  type AdminAccessListQuery,
-  type AdminAccessPendingFilter,
-  type AdminAccessRoleFilter,
-  type AdminAccessSortDirection,
-  type AdminAccessSortField,
-} from '../../users/admin-access-read-ordering.repository';
+} from '../../users/admin-access-query.config';
 
 const trim = ({ value }: { readonly value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;

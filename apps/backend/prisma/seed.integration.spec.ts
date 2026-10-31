@@ -34,7 +34,7 @@ import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
-import { repositoryUrlFromNameWithOwner } from '../src/github/repositories.repository';
+import { repositoryUrlFromNameWithOwner } from '../src/platform/repository-provision-generation.repository';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
 
 assertIsolatedIntegrationDatabase({

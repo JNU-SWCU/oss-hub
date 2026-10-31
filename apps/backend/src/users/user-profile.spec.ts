@@ -2,13 +2,15 @@ import { MemberKind } from '@prisma/client';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import {
   isCompleteUserProfile,
-  isStoredStudentId,
-  isValidDepartment,
   isValidPhone,
   isValidStudentId,
+} from './users.repository';
+import {
+  isStoredStudentId,
+  isValidDepartment,
   isValidUserName,
   USER_NAME_MAX_LENGTH,
-} from './users.repository';
+} from './profile-validation.config';
 
 it('astral Unicode characters count as one profile character', () => {
   const name = '😀'.repeat(51);

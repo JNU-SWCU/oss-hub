@@ -12,7 +12,7 @@ import {
 import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   repositoryAccessSyncEventData,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticOtherTeamId = 'cuid-synthetic-other-team';

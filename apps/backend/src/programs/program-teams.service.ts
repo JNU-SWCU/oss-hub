@@ -1,5 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createTeamDeletedAuditMetadata,
+  createTeamMembershipAuditMetadata,
+  createTeamRenamedAuditMetadata,
+  TEAM_DELETED_AUDIT_ACTIONS,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_RENAMED_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import {
@@ -31,14 +39,6 @@ import {
 } from './program-team-repository-evidence.repository';
 import { canEditStudentRepositoryUrl } from './student-repository-url.service';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.repository';
-import {
-  createTeamDeletedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-  createTeamRenamedAuditMetadata,
-  TEAM_DELETED_AUDIT_ACTIONS,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
-  TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 

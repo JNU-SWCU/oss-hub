@@ -18,7 +18,11 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  repositoryUrlFromNameWithOwner,
+  parseRepositoryProvisionEvent,
+} from '../platform/repository-provision-generation.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -36,10 +40,6 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationPreparationConflictError,
 } from './applications.error';
-import {
-  repositoryUrlFromNameWithOwner,
-  parseRepositoryProvisionEvent,
-} from '../github/repositories.repository';
 
 export const APPLICATION_DECISION_ACTIONS = {
   APPROVE: 'APPROVE',

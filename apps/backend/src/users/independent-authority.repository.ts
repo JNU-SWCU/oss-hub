@@ -16,15 +16,11 @@ import {
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
 } from './admin-access-user-projection.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 
 export const STAFF_ACCESS_COMMANDS = {
   GRANT: 'GRANT_STAFF_ACCESS',
   REVOKE: 'REVOKE_STAFF_ACCESS',
-} as const;
-
-export const ADMIN_ACCESS_COMMANDS = {
-  GRANT: 'GRANT_ADMIN_ACCESS',
-  REVOKE: 'REVOKE_ADMIN_ACCESS',
 } as const;
 
 type GrantStaffAccessCommand = {

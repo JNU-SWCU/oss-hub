@@ -15,7 +15,7 @@ import { UserAccessController } from '../admin/user-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { ADMIN_ACCESS_COMMANDS } from './independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 
 const githubId = 9_700_500_001n;
 const sessionSecret = new Uint8Array(32).fill(31);

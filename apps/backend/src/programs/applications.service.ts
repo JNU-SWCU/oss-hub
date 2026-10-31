@@ -6,7 +6,15 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  APPLICATION_DECISION_AUDIT_ACTIONS,
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
+  createApplicationDecisionAuditMetadata,
+  createApplicationSubmittedAuditMetadata,
+  createTeamCreatedAuditMetadata,
+  TEAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import {
@@ -41,15 +49,7 @@ import {
   ApplicationTeamMembershipConflictError,
   RepositoryEventAlreadyExistsError,
 } from './applications.error';
-import {
-  APPLICATION_DECISION_AUDIT_ACTIONS,
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
-  createApplicationDecisionAuditMetadata,
-  createApplicationSubmittedAuditMetadata,
-  createTeamCreatedAuditMetadata,
-  TEAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
-import { parseGithubRepositoryUrl } from '../github/repositories-read.service';
+import { parseGithubRepositoryUrl } from '../github/repository-url.config';
 
 const CLIENT_KEYS = new Set(['title']);
 

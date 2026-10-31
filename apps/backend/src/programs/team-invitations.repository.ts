@@ -13,7 +13,7 @@ import {
   USER_PROFILE_NAME_SELECT,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import { repositoryAccessSyncEventData } from '../github/repositories.repository';
+import { repositoryAccessSyncEventData } from '../platform/repository-provision-generation.repository';
 
 interface TeamInvitationRecord {
   id: string;

@@ -28,11 +28,11 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import type { GithubAppClient } from '../github/github-app.client';
 import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
+import { RepositoriesRepository } from '../github/repositories.repository';
 import {
-  RepositoriesRepository,
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';

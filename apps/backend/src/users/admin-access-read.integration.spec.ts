@@ -13,7 +13,7 @@ import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
-} from './admin-access-read-ordering.repository';
+} from './admin-access-query.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

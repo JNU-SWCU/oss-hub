@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createProgramDeletionAuditMetadata,
+  PROGRAM_DELETION_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
@@ -13,10 +17,6 @@ import {
   ProgramPurgeDeletedCounts,
 } from './program-lifecycle.repository';
 import { ProgramPurgeDeletedScopeMismatchError } from './program-lifecycle.error';
-import {
-  createProgramDeletionAuditMetadata,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
 import {
   sameProgramDeletionScopeCountValues,
   sameProgramDeletionScopeCounts,

@@ -10,10 +10,8 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import {
-  type MilestoneLock,
-  LockProgramTreeRepository,
-} from '../platform/lock-program-tree.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
+import type { MilestoneLock } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,

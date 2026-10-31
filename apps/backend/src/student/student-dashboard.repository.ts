@@ -6,11 +6,11 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import {
+  ProgramApplicationParticipantRepository,
   submissionCompletionTargetSelect,
-  type SubmissionCompletionTargetRow,
-} from '../programs/programs.repository';
+} from '../platform/program-application-participant.repository';
+import type { SubmissionCompletionTargetRow } from '../programs/programs.repository';
 
 interface StudentDashboardMilestoneRow {
   readonly id: string;

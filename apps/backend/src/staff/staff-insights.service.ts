@@ -9,7 +9,8 @@ import {
   StaffInsightsRepository,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
-import { activityTotal, type ActivityCounts } from '../ranking/ranking.service';
+import { activityTotal } from '../ranking/ranking.service';
+import type { ActivityCounts } from '../ranking/ranking.service';
 
 export const DEPARTMENT_COHORTS = {
   SW_MAJOR: 'sw-major',

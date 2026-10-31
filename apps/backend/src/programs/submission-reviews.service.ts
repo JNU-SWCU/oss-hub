@@ -21,7 +21,7 @@ import { RepositoryNotFoundError } from '../github/repositories.error';
 import {
   publishBlockedReasons,
   type PublishBlockedReason,
-} from '../github/repositories.repository';
+} from '../github/repositories.service';
 import {
   type CreateSubmissionReviewInput,
   type RepositoryPublishResult,

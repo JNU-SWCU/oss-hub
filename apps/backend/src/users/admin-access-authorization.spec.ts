@@ -3,13 +3,13 @@ import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
 import { adminActor } from './admin-access.service.spec-support';
 import {
-  ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,
   assertAccessMutationAllowed,
   isAdminActor,
   requireActiveAdmin,
   requireActiveStaffOrAdmin,
 } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 const APPROVE_COMMAND: AdminAccessMutationCommand = {
   expectedRole: null,

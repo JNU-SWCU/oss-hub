@@ -12,6 +12,7 @@ import {
   ProgramOverviewRecord,
   type PublicTeamRow,
 } from './program-overview.repository';
+export { programCoverImageUrl } from './program-cover.repository';
 
 export interface ProgramOverviewViewerStats {
   role: AuthorityLabel | null;

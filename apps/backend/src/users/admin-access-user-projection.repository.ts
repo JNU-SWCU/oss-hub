@@ -1,8 +1,5 @@
-import {
-  authorityLabel,
-  isCompleteUserProfile,
-  type UserProfileFields,
-} from './users.repository';
+import { authorityLabel, isCompleteUserProfile } from './users.repository';
+import { type UserProfileFields } from './profile-validation.config';
 import { type AuthorityLabel } from './authority-label.types';
 import {
   LoginHistoryEvent,
@@ -13,9 +10,9 @@ import {
 } from '@prisma/client';
 import {
   USER_PROFILE_SELECT,
-  type UserProfileSource,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
+import type { UserProfileSource } from '../platform/user-profile-read.repository';
 import {
   type AdminAccessUser,
   type AdminAccessUserDetail,

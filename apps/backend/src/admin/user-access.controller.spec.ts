@@ -18,7 +18,7 @@ import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access-reques
 import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import type { IndependentAuthorityService } from '../users/independent-authority.service';
-import { ADMIN_ACCESS_COMMANDS } from '../users/independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
 
 describe('admin-access.controller', () => {
   const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {

@@ -1,7 +1,17 @@
 import { authorityLabel } from './users.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createIndependentAuthorityAuditMetadata,
+} from '../platform/audit-log.service';
+import type {
+  AuditLogRecordInput,
+  IndependentAuthorityAuditAction,
+  IndependentAuthorityAuditMetadata,
+  AuditPersonSnapshot,
+  IndependentAuthorityAuditState,
+} from '../platform/audit-log.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
   IndependentAuthorityRepository,
@@ -14,18 +24,10 @@ import {
   AUTHORITY_TARGETS,
   type StaffAccessMutationCommand,
   type AdminAuthorityMutationCommand,
-  ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
   type IndependentAuthorityMutationResult,
 } from './independent-authority.repository';
-import {
-  type AuditLogRecordInput,
-  type IndependentAuthorityAuditAction,
-  type IndependentAuthorityAuditMetadata,
-  createIndependentAuthorityAuditMetadata,
-  type AuditPersonSnapshot,
-  type IndependentAuthorityAuditState,
-} from '../platform/audit-log.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { type AdminAccessActor } from './admin-access-user-projection.repository';
 import {
   requireActiveAdmin,

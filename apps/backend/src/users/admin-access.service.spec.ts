@@ -18,7 +18,7 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
 } from '../platform/audit-log.repository';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 describe('AdminAccessService mutation', () => {
   it('rejects a stale expected role, account status, or pending request', async () => {

@@ -15,7 +15,7 @@ import {
   pendingRequest,
   storedMember,
 } from './member-authority-compatibility.integration-support';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

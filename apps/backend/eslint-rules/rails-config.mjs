@@ -397,7 +397,7 @@ const policies = [
       to: [
         element('service'),
         element('domain'),
-        element('repository'),
+        element('repository', sameModule),
         element('gateway', sameModule),
         element('runtime-config'),
         category('storage-public'),
@@ -407,8 +407,17 @@ const policies = [
   {
     from: element('repository'),
     allow: {
-      to: [element('domain'), element('prisma'), element('repository')],
+      to: [
+        element('domain'),
+        element('prisma'),
+        element('repository', sameModule),
+      ],
     },
+  },
+  {
+    from: [element('service'), element('repository')],
+    dependency: { kind: 'type' },
+    allow: { to: element('repository') },
   },
   {
     from: element('repository'),
@@ -417,6 +426,13 @@ const policies = [
   },
   {
     from: { file: { path: '**/dto/*-request.dto.ts' } },
+    allow: {
+      to: [element('service', sameModule), element('repository', sameModule)],
+    },
+  },
+  {
+    from: { file: { path: '**/dto/*-request.dto.ts' } },
+    dependency: { kind: 'type' },
     allow: { to: [element('service'), element('repository')] },
   },
   {

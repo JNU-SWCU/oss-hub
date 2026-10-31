@@ -1,5 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  createUserPhoneAuditMetadata,
+  createUserProfileAuditMetadata,
+} from '../platform/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
@@ -10,32 +17,24 @@ import {
   type RecordPhoneAudit,
   type RecordStaffNumberAudit,
   type UsersRepositoryPort,
-  type UserProfileRecord,
   CompleteUserProfileInput,
-  normalizeProfileText,
-  isValidUserName,
   type UpdateProfileFieldsInput,
   isValidPhone,
-  isValidDepartment,
-  isStoredStudentId,
   isValidStudentId,
   isCompleteUserProfile,
   effectiveProfileMemberKind,
-  profileFieldRequirement,
 } from './users.repository';
-import { AffiliationKind, MemberKind } from '@prisma/client';
 import {
+  type UserProfileRecord,
+  normalizeProfileText,
+  isValidUserName,
+  isValidDepartment,
+  isStoredStudentId,
+  profileFieldRequirement,
   normalizeStaffNumber,
   isValidStaffNumber,
-} from './member-kind.service';
-import { ValidateBy } from 'class-validator';
-import {
-  USER_PHONE_AUDIT_TRANSITIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
-  createUserPhoneAuditMetadata,
-  createUserProfileAuditMetadata,
-} from '../platform/audit-log.repository';
+} from './profile-validation.config';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 
 export interface UserProfile {
   readonly name: string;
@@ -277,28 +276,6 @@ function invalidProfile(message: string): DomainException {
     code: SystemErrorCode.VALIDATION_FAILED,
     status: 400,
     message,
-  });
-}
-
-export function transformProfileText({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? normalizeProfileText(value) : value;
-}
-
-export function trimString({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
-export function IsProfileText(
-  name: string,
-  isValid: (value: string) => boolean,
-): PropertyDecorator {
-  return ValidateBy({
-    name,
-    validator: {
-      validate(value: unknown): boolean {
-        return typeof value === 'string' && isValid(value);
-      },
-    },
   });
 }
 

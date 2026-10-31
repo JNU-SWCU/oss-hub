@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsString, MaxLength, ValidateBy } from 'class-validator';
-import { parseGithubRepositoryUrl } from '../../github/repositories-read.service';
+import { parseGithubRepositoryUrl } from '../../github/repository-url.config';
 
 export class UpdateStudentRepositoryUrlRequestDto {
   @Transform(({ value }: { readonly value: unknown }) =>

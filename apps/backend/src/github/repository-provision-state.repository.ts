@@ -29,7 +29,7 @@ import {
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
 import { GithubOperationsError } from './github-app.error';
-import { InvalidRepositoryProvisionEventError } from './repositories.error';
+import { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,

@@ -17,3 +17,10 @@ export class ProgramApplicationParticipantRepository {
     };
   }
 }
+
+export const submissionCompletionTargetSelect = {
+  status: true,
+  milestoneDocument: {
+    select: { id: true, milestoneId: true, kind: true },
+  },
+} as const;

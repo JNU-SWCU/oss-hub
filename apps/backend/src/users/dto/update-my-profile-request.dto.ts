@@ -3,19 +3,17 @@ import { AffiliationKind } from '@prisma/client';
 import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
 import { SystemErrorCode } from '../../platform/system-error-code.error';
-import { isValidStaffNumber } from '../member-kind.service';
 import {
+  isValidStaffNumber,
   isValidDepartment,
   isValidUserName,
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
-} from '../users.repository';
-import {
-  type PatchUserProfileInput,
   IsProfileText,
   transformProfileText,
   trimString,
-} from '../users.service';
+} from '../profile-validation.config';
+import { type PatchUserProfileInput } from '../users.service';
 
 export { USER_DEPARTMENT_MAX_LENGTH, USER_NAME_MAX_LENGTH };
 

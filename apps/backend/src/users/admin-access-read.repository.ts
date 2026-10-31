@@ -8,11 +8,13 @@ import { UserProfileReadRepository } from '../platform/user-profile-read.reposit
 import type { PrismaService } from '../platform/prisma.service';
 import {
   AdminAccessReadOrderingRepository,
-  ADMIN_ACCESS_PENDING_FILTERS,
-  ADMIN_ACCESS_ROLE_FILTERS,
   type AdminAccessFacets,
   type AdminAccessListQuery,
 } from './admin-access-read-ordering.repository';
+import {
+  ADMIN_ACCESS_PENDING_FILTERS,
+  ADMIN_ACCESS_ROLE_FILTERS,
+} from './admin-access-query.config';
 import {
   ADMIN_ACCESS_USER_SELECT,
   AdminAccessUserProjectionRepository,

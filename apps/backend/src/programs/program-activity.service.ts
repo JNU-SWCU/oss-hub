@@ -14,8 +14,7 @@ import {
   type ProgramRepositoryActivity,
 } from './program-activity.repository';
 import { ProgramsRepository } from './programs.repository';
-
-export const ACTIVITY_GRANULARITIES = ['MONTH', 'YEAR'] as const;
+import { ACTIVITY_GRANULARITIES } from './program-activity.config';
 
 export type ActivityGranularity = (typeof ACTIVITY_GRANULARITIES)[number];
 

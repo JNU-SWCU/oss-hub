@@ -19,7 +19,6 @@ import {
 } from './admin-access.repository';
 import { DomainException } from '../platform/error-code.error';
 import {
-  ADMIN_ACCESS_PENDING_FILTERS,
   type AdminAccessFacets,
   type AdminAccessHistoryQuery,
   type AdminAccessListQuery,
@@ -27,6 +26,7 @@ import {
   type AdminAccessUserHistory,
   type AdminAccessUserPage,
 } from './admin-access-read-ordering.repository';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
 
 const USER_ID_PATTERN = /^[A-Za-z0-9:_-]{1,128}$/;
 

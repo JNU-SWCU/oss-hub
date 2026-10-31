@@ -1,15 +1,13 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Matches } from 'class-validator';
-import { type AdminProfileUpdateCommand } from '../../users/admin-profile-mutation.service';
+import type { AdminProfileUpdateCommand } from '../../users/admin-profile-mutation.service';
 import {
   isValidDepartment,
   isValidUserName,
-} from '../../users/users.repository';
-import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from '../../users/users.service';
+} from '../../users/profile-validation.config';
 
 export class PatchAdminUserProfileRequestDto {
   @IsOptional()

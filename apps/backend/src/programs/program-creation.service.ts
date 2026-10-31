@@ -15,17 +15,17 @@ import {
   ProgramCategory,
   type ProgramTrackType,
 } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createProgramCreatedAuditMetadata,
+  PROGRAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import {
-  createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
 import {
   isProgramEndAtUndecided,
   getProgramTemplate,

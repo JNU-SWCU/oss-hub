@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createTeamJoinedAuditMetadata,
+  TEAM_JOINED_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import {
   TEAM_INVITATION_ERROR_CODES,
@@ -12,10 +16,6 @@ import {
   type ReceivedTeamInvitationRecord,
   type SentTeamInvitationRecord,
 } from './team-invitations.repository';
-import {
-  createTeamJoinedAuditMetadata,
-  TEAM_JOINED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
 
 @Injectable()
 export class TeamInvitationsService {

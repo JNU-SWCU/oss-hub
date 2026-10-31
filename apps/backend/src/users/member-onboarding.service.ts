@@ -17,7 +17,7 @@ import {
   type StaffAccessRequestRecord,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
-import { isCompleteProfileFields } from './users.repository';
+import { isCompleteProfileFields } from './profile-validation.config';
 
 @Injectable()
 export class MemberOnboardingService {

@@ -11,7 +11,7 @@ import {
   adminActor,
   auditLogHarness,
 } from './admin-access.service.spec-support';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 describe('AdminAccessService mutation guards', () => {
   it('locks active admins before the target and preserves the final admin', async () => {

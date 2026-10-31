@@ -11,10 +11,8 @@ import { BarrierIndependentAuthorityRepository } from './admin-access.integratio
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { PatchAdminAccessRequestDto } from '../admin/dto/patch-admin-access-request.dto';
-import {
-  IndependentAuthorityRepository,
-  ADMIN_ACCESS_COMMANDS,
-} from './independent-authority.repository';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
 
 assertIsolatedIntegrationDatabase({

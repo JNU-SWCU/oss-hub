@@ -13,11 +13,13 @@ import {
 } from '../platform/user-profile-read.repository';
 import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
 import {
-  type PublishBlockedReason,
   repositoryUrlFromNameWithOwner,
   publishBlockedReasons,
-  type RepositoryPublishEligibility,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
+import type {
+  PublishBlockedReason,
+  RepositoryPublishEligibility,
+} from '../platform/repository-provision-generation.repository';
 import { requiredMilestonesApproved } from './submissions.repository';
 import {
   safeSubmissionFileContentType,

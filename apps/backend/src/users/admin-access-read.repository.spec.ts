@@ -18,9 +18,9 @@ import {
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_PENDING_STATES,
   resolveAdminAccessTransition,
-  ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,
 } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 describe('admin access read profile completeness', () => {
   it('treats a pending staff request without a student id as complete', async () => {

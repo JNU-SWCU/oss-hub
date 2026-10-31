@@ -17,7 +17,7 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repositories.repository';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-provision-generation.repository';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
 
 const INVITATION_ID = 'cuid-invitation';

@@ -1,4 +1,8 @@
-import { authorityLabel } from '../users/users.repository';
+import {
+  authorityLabel,
+  UserProfileReadRepository,
+} from '../platform/user-profile-read.repository';
+import type { UserProfileNameSource } from '../platform/user-profile-read.repository';
 import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
@@ -8,10 +12,6 @@ import {
 } from '@prisma/client';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  type UserProfileNameSource,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
 
 export interface BoardPostSummaryRecord {
   id: string;

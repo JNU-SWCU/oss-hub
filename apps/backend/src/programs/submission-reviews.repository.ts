@@ -17,7 +17,7 @@ import {
   type SubmissionReviewTarget,
 } from './submission-review-context-mapper.repository';
 import { requiredMilestonesApproved } from './submissions.repository';
-import { type RepositoryPublishEligibility } from '../github/repositories.repository';
+import type { RepositoryPublishEligibility } from '../platform/repository-provision-generation.repository';
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,

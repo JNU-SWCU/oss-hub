@@ -15,7 +15,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

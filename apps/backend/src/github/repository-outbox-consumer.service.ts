@@ -9,7 +9,7 @@ import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repositories.repository';
-import { InvalidRepositoryProvisionEventError } from './repositories.error';
+import { InvalidRepositoryProvisionEventError } from './repositories.repository';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 const PROVISION_POLL_INTERVAL_MS = 5_000;

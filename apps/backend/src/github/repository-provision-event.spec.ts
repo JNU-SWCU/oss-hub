@@ -1,4 +1,4 @@
-import { InvalidRepositoryProvisionEventError } from './repositories.error';
+import { InvalidRepositoryProvisionEventError } from '../platform/repository-provision-generation.error';
 import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,

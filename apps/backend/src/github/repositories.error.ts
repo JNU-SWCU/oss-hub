@@ -1,7 +1,3 @@
-export class InvalidRepositoryProvisionEventError extends Error {
-  override readonly name = 'InvalidRepositoryProvisionEventError';
-}
-
 export class RepositoryNotFoundError extends Error {
   override readonly name = 'RepositoryNotFoundError';
 }

@@ -4,7 +4,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 

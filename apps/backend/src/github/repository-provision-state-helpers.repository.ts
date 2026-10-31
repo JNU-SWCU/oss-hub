@@ -18,7 +18,7 @@ import type { GithubRepositoryMetadata } from './github-app.client';
 import {
   createRepositoryConnectionAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
+} from '../platform/repository-provision-generation.repository';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,

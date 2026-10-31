@@ -16,12 +16,12 @@ import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
 } from '../../users/roles-error-code.error';
-import {
-  ADMIN_ACCESS_REQUEST_DECISIONS,
-  type AdminAccessExpectedPendingRequest,
-  type AdminAccessMutationCommand,
-  type AdminAccessRequestDecision,
+import type {
+  AdminAccessExpectedPendingRequest,
+  AdminAccessMutationCommand,
+  AdminAccessRequestDecision,
 } from '../../users/admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from '../../users/admin-access-query.config';
 
 class ExpectedPendingRequestDto {
   @IsString()

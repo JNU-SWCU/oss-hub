@@ -13,7 +13,11 @@ import {
   parseProgramNoticeUrl,
 } from './program-notice-fetch.client';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  createProgramCreatedAuditMetadata,
+  PROGRAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log.service';
 import {
   ProgramAuthoringUploadTransactionRepository,
   type ProgramAuthoringRequest,
@@ -38,10 +42,6 @@ import {
   getProgramTemplate,
 } from './programs.service';
 import { createHash } from 'node:crypto';
-import {
-  createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log.repository';
 import { assertProgramCoverUpload } from './program-cover.repository';
 
 export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

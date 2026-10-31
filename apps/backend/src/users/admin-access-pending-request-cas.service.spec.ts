@@ -8,7 +8,7 @@ import {
   accessUser,
   auditLogHarness,
 } from './admin-access.service.spec-support';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {

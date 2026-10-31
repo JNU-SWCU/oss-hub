@@ -20,11 +20,11 @@ import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import type { GithubAppClient } from '../github/github-app.client';
+import { RepositoriesRepository } from '../github/repositories.repository';
 import {
-  RepositoriesRepository,
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';

@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from './collection-schedule.service';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from '../auth/auth.module';
@@ -31,6 +32,7 @@ import { RepositoryProvisionWorkerService } from './repository-provision-worker.
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
   providers: [
+    CollectionScheduleService,
     CollectionAdminService,
     CollectionTriggerService,
     CollectionIncrementalRepository,
@@ -101,6 +103,7 @@ import { RepositoryProvisionWorkerService } from './repository-provision-worker.
   ],
   exports: [
     CollectionAdminService,
+    CollectionScheduleService,
     CollectionTriggerService,
     RepositoriesService,
     RepositoriesReadService,

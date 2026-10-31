@@ -9,10 +9,10 @@ import {
   type AccountStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  type StaffAccessRequestOutcome,
-  type StaffAccessRequestTarget,
-  PlatformRepository,
+import { PlatformRepository } from '../platform/platform.repository';
+import type {
+  StaffAccessRequestOutcome,
+  StaffAccessRequestTarget,
 } from '../platform/platform.repository';
 
 export interface ConsentUser {

@@ -32,7 +32,7 @@ import {
   publishBlockedReasons,
   repositoryUrlFromNameWithOwner,
   repositoryAccessSyncEventData,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,

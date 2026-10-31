@@ -19,7 +19,11 @@ import {
   ProgramListStatusFilterRepository,
   type ProgramListQuery,
 } from './program-list-status-filter.repository';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+import {
+  ProgramApplicationParticipantRepository,
+  submissionCompletionTargetSelect,
+} from '../platform/program-application-participant.repository';
+export { submissionCompletionTargetSelect } from '../platform/program-application-participant.repository';
 
 export type ProgramListRecord = {
   readonly id: string;
@@ -55,13 +59,6 @@ function emptyProgramStatusCounts(): ProgramStatusCounts {
     ended: 0,
   };
 }
-
-export const submissionCompletionTargetSelect = {
-  status: true,
-  milestoneDocument: {
-    select: { id: true, milestoneId: true, kind: true },
-  },
-} as const;
 
 export interface SubmissionCompletionTargetRow {
   readonly status: SubmissionStatus;

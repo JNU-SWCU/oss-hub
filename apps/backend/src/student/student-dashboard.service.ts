@@ -15,10 +15,10 @@ import {
   collectAxisStatuses,
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
-  type MilestoneCompletionStatus,
-} from '../programs/submissions.repository';
-import { programCoverImageUrl } from '../programs/program-cover.repository';
-import { projectSubmissionCompletionTargets } from '../programs/programs.repository';
+  projectSubmissionCompletionTargets,
+} from '../programs/submission-dashboard-summary.service';
+import type { MilestoneCompletionStatus } from '../programs/submission-dashboard-summary.service';
+import { programCoverImageUrl } from '../programs/program-overview.service';
 
 export interface StudentDashboardMilestone {
   readonly id: string;

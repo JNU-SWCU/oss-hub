@@ -8,7 +8,7 @@ import type {
 } from './github-app.client';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.repository';
-import { parseGithubRepositoryUrl } from './repositories-read.service';
+import { parseGithubRepositoryUrl } from './repository-url.config';
 
 const names = {
   preferred: 'synthetic-program-team',

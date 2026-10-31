@@ -12,7 +12,7 @@ import {
   auditLogHarness,
   staffActor,
 } from './admin-access.service.spec-support';
-import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-read-ordering.repository';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
 
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {

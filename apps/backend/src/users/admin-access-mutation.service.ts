@@ -12,12 +12,14 @@ import type {
   AdminAccessTransactionStore,
 } from './admin-access.repository';
 import {
-  type AccessAuditAction,
-  type AccessAuditMetadata,
   ACCESS_AUDIT_ACTIONS,
   createAccessAuditMetadata,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log.service';
+import type {
+  AccessAuditAction,
+  AccessAuditMetadata,
+} from '../platform/audit-log.service';
 import {
   type AdminAccessActor,
   type AdminAccessUserRecord,
@@ -26,11 +28,7 @@ import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AdminAccessPendingRequest } from './admin-access-read-ordering.repository';
-
-export const ADMIN_ACCESS_REQUEST_DECISIONS = {
-  APPROVE: 'APPROVE',
-  REJECT: 'REJECT',
-} as const;
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 export type AdminAccessRequestDecision =
   | {

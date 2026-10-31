@@ -76,3 +76,23 @@ export class UserProfileReadRepository {
 export const STUDENT_MEMBER_WHERE = {
   profile: { is: { memberKind: 'STUDENT' } },
 } as const satisfies Prisma.UserWhereInput;
+
+export function authorityLabel(
+  source: AuthorityLabelSource,
+): AuthorityLabel | null {
+  if (source.hasAdminAccess) {
+    return 'ADMIN';
+  }
+  if (source.hasStaffAccess) {
+    return 'STAFF';
+  }
+  return source.memberKind === MemberKind.STUDENT ? 'STUDENT' : null;
+}
+
+export type AuthorityLabel = 'STUDENT' | 'STAFF' | 'ADMIN';
+
+export type AuthorityLabelSource = {
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};

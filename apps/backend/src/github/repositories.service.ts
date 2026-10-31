@@ -14,7 +14,11 @@ import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
   deriveRepositoryFullName,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log.service';
+export {
+  publishBlockedReasons,
+  type PublishBlockedReason,
+} from './repositories.repository';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;

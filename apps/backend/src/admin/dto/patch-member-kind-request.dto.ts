@@ -8,18 +8,16 @@ import {
 } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
 import { SystemErrorCode } from '../../platform/system-error-code.error';
+import type { MemberKindMutationCommand } from '../../users/member-kind.service';
 import {
   MEMBER_KINDS,
   normalizeStaffNumber,
-  type MemberKindMutationCommand,
   isValidStaffNumber,
-} from '../../users/member-kind.service';
-import { isValidDepartment } from '../../users/users.repository';
-import {
+  isValidDepartment,
   IsProfileText,
   transformProfileText,
   trimString,
-} from '../../users/users.service';
+} from '../../users/profile-validation.config';
 
 export class PatchMemberKindRequestDto {
   @IsDefined()

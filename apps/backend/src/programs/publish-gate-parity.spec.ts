@@ -21,7 +21,7 @@ import {
   PUBLISH_BLOCKED_REASONS,
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
-} from '../github/repositories.repository';
+} from '../platform/repository-provision-generation.repository';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');

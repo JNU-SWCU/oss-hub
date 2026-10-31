@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import {
+  AuditLogService,
+  APPLICATION_REPOSITORY_URL_CHANGED,
+} from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionTriggerService } from '../github/collection-trigger.service';
@@ -20,7 +23,6 @@ import {
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { ApplicationStatus } from '@prisma/client';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/audit-log.repository';
 import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
 
 export type StudentRepositoryUrlView = {

@@ -7,35 +7,14 @@ import {
   MemberKind,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-
-export const ADMIN_ACCESS_ROLE_FILTERS = {
-  UNASSIGNED: 'UNASSIGNED',
-  STUDENT: 'STUDENT',
-  STAFF: 'STAFF',
-  ADMIN: 'ADMIN',
-} as const;
-
-export const ADMIN_ACCESS_PENDING_FILTERS = {
-  NONE: 'NONE',
-  PENDING: StaffAccessRequestStatus.PENDING,
-} as const;
-
-export const ADMIN_ACCESS_SORT_FIELDS = {
-  NAME: 'name',
-  CREATED_AT: 'createdAt',
-  LAST_LOGIN_AT: 'lastLoginAt',
-  ROLE: 'role',
-  ACCOUNT_STATUS: 'accountStatus',
-} as const;
-
-export const ADMIN_ACCESS_SORT_DIRECTIONS = {
-  ASC: 'asc',
-  DESC: 'desc',
-} as const;
-
-export const ADMIN_ACCESS_DEFAULT_SORT = ADMIN_ACCESS_SORT_FIELDS.NAME;
-
-export const ADMIN_ACCESS_DEFAULT_DIRECTION = ADMIN_ACCESS_SORT_DIRECTIONS.ASC;
+import {
+  ADMIN_ACCESS_SORT_FIELDS,
+  ADMIN_ACCESS_SORT_DIRECTIONS,
+  ADMIN_ACCESS_ROLE_FILTERS,
+  ADMIN_ACCESS_PENDING_FILTERS,
+  ADMIN_ACCESS_DEFAULT_SORT,
+  ADMIN_ACCESS_DEFAULT_DIRECTION,
+} from './admin-access-query.config';
 
 export type AdminAccessPendingRequest = {
   readonly id: string;

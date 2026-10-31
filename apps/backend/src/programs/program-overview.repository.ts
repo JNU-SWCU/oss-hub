@@ -1,4 +1,4 @@
-import { authorityLabel } from '../users/users.repository';
+import { authorityLabel } from '../platform/user-profile-read.repository';
 import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
