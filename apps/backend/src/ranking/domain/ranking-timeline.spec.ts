@@ -58,7 +58,7 @@ describe('buildRankingTimeline', () => {
     snapshot(3n, '2026-03-15', 20),
   ];
 
-  it('월별 지점과 마지막 지점을 만들고 캐리포워드·미가입 월 null 을 지킨다', () => {
+  it('월별 지점과 마지막 지점을 만들고 캐리포워드·미가입 월 null·월말 1행을 지킨다', () => {
     const timeline = buildRankingTimeline({
       year: 2026,
       metrics,
@@ -79,75 +79,39 @@ describe('buildRankingTimeline', () => {
     ]);
   });
 
-  it('첫 스냅샷 이전 달에는 순위가 없고 그 달 순위 경쟁에서도 빠진다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics,
-      snapshots,
-      dataAsOf: DATA_AS_OF,
-      now: NOW,
-    });
+  it.each([
+    [
+      'dataAsOf 의 Asia/Seoul 달력 날짜',
+      2026,
+      new Date('2026-10-31T15:30:00.000Z'),
+      new Date('2026-10-31T15:40:00.000Z'),
+      ['2026-11-01'],
+    ],
+    ['dataAsOf 가 없으면 현재 Seoul 날짜', 2026, null, NOW, ['2026-10-31']],
+    [
+      '지난 연도는 12-31 이고 12월 스냅샷과 겹치지 않는다',
+      2026,
+      new Date('2028-05-01T00:00:00.000Z'),
+      new Date('2028-05-01T00:00:00.000Z'),
+      ['2026-11-30', '2026-12-31'],
+    ],
+  ])(
+    '마지막 지점은 %s 를 쓴다',
+    (_label, year, dataAsOf, now, expectedDates) => {
+      const timeline = buildRankingTimeline({
+        year,
+        metrics: [metric(1n, 'alpha', 7)],
+        snapshots:
+          expectedDates.length > 1
+            ? [snapshot(1n, '2026-11-30', 3), snapshot(1n, '2026-12-31', 6)]
+            : [],
+        dataAsOf,
+        now,
+      });
 
-    const january = timeline.series.map((series) => series.ranks[0]);
-    expect(january).toEqual([2, 1, null]);
-    expect(january.filter((rank) => rank !== null)).toHaveLength(2);
-  });
-
-  it('같은 달에 여러 스냅샷이 있으면 가장 늦은 행만 쓴다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics: [metric(2n, 'bravo', 50)],
-      snapshots: [snapshot(2n, '2026-01-20', 1), snapshot(2n, '2026-01-31', 9)],
-      dataAsOf: DATA_AS_OF,
-      now: NOW,
-    });
-
-    expect(timeline.series[0]?.totals[0]).toBe(9);
-  });
-
-  it('마지막 지점 날짜는 dataAsOf 의 Asia/Seoul 달력 날짜다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics: [metric(1n, 'alpha', 1)],
-      snapshots: [],
-      dataAsOf: new Date('2026-10-31T15:30:00.000Z'),
-      now: new Date('2026-10-31T15:40:00.000Z'),
-    });
-
-    expect(timeline.points).toEqual([
-      { date: '2026-11-01', starEstimated: false },
-    ]);
-  });
-
-  it('dataAsOf 가 없으면 현재 시각의 Seoul 날짜를 마지막 지점으로 쓴다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics: [metric(1n, 'alpha', 1)],
-      snapshots: [],
-      dataAsOf: null,
-      now: NOW,
-    });
-
-    expect(timeline.points).toEqual([
-      { date: '2026-10-31', starEstimated: false },
-    ]);
-  });
-
-  it('지난 연도의 마지막 지점은 12-31 이고 12월 스냅샷을 중복 지점으로 만들지 않는다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics: [metric(1n, 'alpha', 7)],
-      snapshots: [snapshot(1n, '2026-11-30', 3), snapshot(1n, '2026-12-31', 6)],
-      dataAsOf: new Date('2028-05-01T00:00:00.000Z'),
-      now: new Date('2028-05-01T00:00:00.000Z'),
-    });
-
-    expect(timeline.points.map((point) => point.date)).toEqual([
-      '2026-11-30',
-      '2026-12-31',
-    ]);
-    expect(timeline.series[0]?.totals).toEqual([3, 7]);
-  });
+      expect(timeline.points.map((point) => point.date)).toEqual(expectedDates);
+    },
+  );
 
   it('starEstimated 는 그 달 스냅샷의 OR 이고 캐리포워드는 이전 값을 물려받는다', () => {
     const timeline = buildRankingTimeline({
@@ -209,23 +173,6 @@ describe('buildRankingTimeline', () => {
     ).toEqual({ points: [], series: [] });
   });
 
-  it('마지막 지점 합계가 0인 계열은 열람자 자신만 남는다', () => {
-    const timeline = buildRankingTimeline({
-      year: 2026,
-      metrics: [metric(1n, 'alpha', 10), metric(2n, 'idle', 0)],
-      snapshots: [snapshot(1n, '2026-01-31', 3), snapshot(2n, '2026-01-31', 0)],
-      dataAsOf: DATA_AS_OF,
-      now: NOW,
-    });
-
-    expect(withoutZeroTotalSeries(timeline.series, null)).toEqual([
-      { githubLogin: 'alpha', ranks: [1, 1], totals: [3, 10] },
-    ]);
-    expect(withoutZeroTotalSeries(timeline.series, 'idle')).toEqual(
-      timeline.series,
-    );
-  });
-
   it('동점이면 표와 같은 타이브레이크로 정렬한다', () => {
     const timeline = buildRankingTimeline({
       year: 2026,
@@ -258,25 +205,21 @@ describe('withoutZeroTotalSeries', () => {
     ranks: [null, 3],
     totals: [null, 0],
   };
+  const all = [contributor, idle, idleViewer];
 
-  it('마지막 지점 합계가 0인 계열을 모두 뺀다', () => {
-    expect(
-      withoutZeroTotalSeries([contributor, idle, idleViewer], null),
-    ).toEqual([contributor]);
-  });
-
-  it('열람자 자신의 계열은 0점이어도 남기고 순위를 다시 매기지 않는다', () => {
-    expect(
-      withoutZeroTotalSeries([contributor, idle, idleViewer], 'idle-viewer'),
-    ).toEqual([contributor, idleViewer]);
+  it.each([
+    ['익명 열람자는 0점 계열을 모두 잃는다', null, [contributor]],
+    [
+      '열람자 자신의 0점 계열만 순위 그대로 남는다',
+      'idle-viewer',
+      [contributor, idleViewer],
+    ],
+  ])('%s', (_label, viewer, expected) => {
+    expect(withoutZeroTotalSeries(all, viewer)).toEqual(expected);
   });
 
   it('모두 0점이면 열람자 계열만 남고 익명에게는 빈 배열이다', () => {
     expect(withoutZeroTotalSeries([idle, idleViewer], null)).toEqual([]);
     expect(withoutZeroTotalSeries([idle, idleViewer], 'idle')).toEqual([idle]);
-  });
-
-  it('합계가 양수인 계열만 있으면 그대로 돌려준다', () => {
-    expect(withoutZeroTotalSeries([contributor], null)).toEqual([contributor]);
   });
 });

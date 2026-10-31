@@ -216,25 +216,18 @@ describe('RankingScreen', () => {
     });
   });
 
-  it('전기간 보기에선 타임라인을 아예 요구하지 않는다', async () => {
-    route.query = 'year=all';
-    await act(async () =>
-      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
-    );
+  it.each(['year=all', 'year=2025'])(
+    '%s 에서는 타임라인을 아예 요구하지 않는다',
+    async (query) => {
+      route.query = query;
+      await act(async () =>
+        root.render(<RankingScreen onNextCycleAt={() => undefined} />),
+      );
 
-    expect(api.getRankingTimeline).not.toHaveBeenCalled();
-    expect(captured.props?.timeline).toBeUndefined();
-  });
-
-  it('2026보다 이전 해엔 타임라인을 요구하지 않는다', async () => {
-    route.query = 'year=2025';
-    await act(async () =>
-      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
-    );
-
-    expect(api.getRankingTimeline).not.toHaveBeenCalled();
-    expect(captured.props?.timeline).toBeUndefined();
-  });
+      expect(api.getRankingTimeline).not.toHaveBeenCalled();
+      expect(captured.props?.timeline).toBeUndefined();
+    },
+  );
 
   it('타임라인이 실패해도 순위표는 그대로 남는다', async () => {
     api.getRankingTimeline

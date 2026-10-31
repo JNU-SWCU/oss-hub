@@ -69,13 +69,10 @@ describe('RankingTimelineQueryRequestDto year', () => {
 });
 
 describe('resolveRankingTimelineQueryYear', () => {
-  it('year 가 없으면 Asia/Seoul 올해를 쓴다', () => {
+  it('year 가 없으면 Asia/Seoul 올해를, 있으면 그 연도를 정수로 돌려준다', () => {
     expect(
       resolveRankingTimelineQueryYear({}, new Date('2026-12-31T15:30:00.000Z')),
     ).toBe(2027);
-  });
-
-  it('연도 문자열을 정수로 돌려준다', () => {
     expect(resolveRankingTimelineQueryYear({ year: '2026' })).toBe(2026);
   });
 

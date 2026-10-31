@@ -194,60 +194,6 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
-  it('sweep 1회가 당일 Asia/Seoul 날짜 스냅샷 행도 함께 남긴다', async () => {
-    const service = buildService();
-    await service.run();
-
-    const snapshots = await prisma.githubUserActivitySnapshot.findMany({
-      where: { githubId: { in: SEEDED_GITHUB_IDS } },
-      orderBy: { githubId: 'asc' },
-    });
-
-    expect(snapshots.map((row) => row.githubId)).toEqual([
-      ALPHA_GITHUB_ID,
-      BRAVO_GITHUB_ID,
-      CHARLIE_GITHUB_ID,
-    ]);
-    expect(snapshots[0]).toEqual(
-      expect.objectContaining({
-        snapshotDate: new Date('2026-08-19T00:00:00.000Z'),
-        year: CURRENT_YEAR,
-        githubLogin: `${SEED_PREFIX}-alpha`,
-        commitCount: `${SEED_PREFIX}-alpha`.length,
-        pullRequestCount: 2,
-        issueCount: 3,
-        repositoryCount: 4,
-        starCount: 5,
-        source: 'SWEEP',
-        starEstimated: false,
-        observedAt: NOW,
-      }),
-    );
-
-    await service.run();
-
-    await expect(
-      prisma.githubUserActivitySnapshot.count({
-        where: { githubId: { in: SEEDED_GITHUB_IDS } },
-      }),
-    ).resolves.toBe(3);
-  });
-
-  it('과거 연도 sweep은 스냅샷을 남기지 않는다', async () => {
-    await buildService().run([PAST_YEAR]);
-
-    await expect(
-      prisma.githubUserActivityHistory.count({
-        where: { githubId: { in: SEEDED_GITHUB_IDS }, year: PAST_YEAR },
-      }),
-    ).resolves.toBe(3);
-    await expect(
-      prisma.githubUserActivitySnapshot.count({
-        where: { githubId: { in: SEEDED_GITHUB_IDS } },
-      }),
-    ).resolves.toBe(0);
-  });
-
   it('재실행해도 행이 늘지 않고 전량 재계산으로 덮어쓴다', async () => {
     const service = buildService();
     await service.run();

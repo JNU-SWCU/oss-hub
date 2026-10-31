@@ -31,7 +31,7 @@ const CURSOR = {
   stroke: 'var(--muted-foreground)',
   strokeDasharray: '4 4',
 } as const;
-const MARGIN = { top: 8, right: 16, left: -16, bottom: 0 } as const;
+const MARGIN = { top: 8, right: 16, left: 0, bottom: 0 } as const;
 const FADED_OPACITY = 0.28;
 
 function Note(props: { readonly state: string; readonly text: string }) {
@@ -120,7 +120,7 @@ export function RankingHistoryChart({
               interval="preserveStartEnd"
             />
             <YAxis
-              width={48}
+              width={56}
               tick={TICK}
               tickLine={false}
               axisLine={false}

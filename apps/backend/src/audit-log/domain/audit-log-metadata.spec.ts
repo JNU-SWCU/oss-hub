@@ -14,7 +14,6 @@ import {
   createAccessAuditMetadata,
   createApplicationDecisionAuditMetadata,
   createCollectionTriggerAuditMetadata,
-  createCollectionSnapshotBackfillAuditMetadata,
   createApplicationSubmittedAuditMetadata,
   createProgramCreatedAuditMetadata,
   createProgramDeletionAuditMetadata,
@@ -462,28 +461,6 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     });
     expect(JSON.stringify(parseAuditLogMetadata(metadata))).not.toMatch(
       /runId|synthetic-run-id/,
-    );
-  });
-
-  it('스냅샷 백필 metadata는 연도를 그대로 읽어낸다', () => {
-    const metadata = createCollectionSnapshotBackfillAuditMetadata({
-      year: 2026,
-    });
-
-    expect(metadata).toEqual({ schemaVersion: 1, year: 2026 });
-    expect(parseAuditLogMetadata(metadata)).toEqual({
-      legacy: false,
-      metadata: { schemaVersion: 1, year: 2026 },
-    });
-  });
-
-  it.each([
-    { schemaVersion: 1, year: 2026.5 },
-    { schemaVersion: 1, year: '2026' },
-    { schemaVersion: 2, year: 2026 },
-  ])('스냅샷 백필 metadata %j는 거부한다', (malformed) => {
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
     );
   });
 

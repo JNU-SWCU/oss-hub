@@ -59,44 +59,42 @@ const EMPTY_CELL = '-';
 const RANKING_METRIC_DESCRIPTION =
   'Commit · PR · Issue · Repo를 합산합니다. Star는 내 저장소와 그해 직접 커밋·PR한 조직 저장소의 누적입니다.';
 
-const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
-  id: 'rank',
-  header: '순위',
-  cell: (item) => item.rank,
-  headClassName: 'w-8',
-};
-
 type RankChanges = ReadonlyMap<string, RankingRankChange>;
 
 const UNKNOWN_CHANGE: RankingRankChange = { kind: 'unknown' };
 
 const CHANGE_CLASS = {
-  up: 'text-accent',
-  down: 'text-destructive',
-  new: 'text-muted-foreground',
+  up: 'bg-accent/10 text-accent',
+  down: 'bg-destructive/10 text-destructive',
+  new: 'bg-primary/10 text-primary',
   same: 'text-muted-foreground',
-  unknown: 'text-muted-foreground',
+  unknown: 'hidden',
 } as const;
 
-function changeColumn<T extends PublicRankingItem>(
+function rankColumn<T extends PublicRankingItem>(
   changes: RankChanges,
 ): DataTableColumn<T> {
   return {
-    id: 'change',
-    header: '변화',
+    id: 'rank',
+    header: '순위',
     cell: (item) => {
       const change = changes.get(item.githubLogin) ?? UNKNOWN_CHANGE;
       return (
-        <span
-          data-rank-change={change.kind}
-          className={CHANGE_CLASS[change.kind]}
-        >
-          {formatRankChange(change)}
+        <span className="inline-flex items-center gap-2 tabular-nums">
+          <span className="min-w-5">{item.rank}</span>
+          <span
+            data-rank-change={change.kind}
+            className={cn(
+              'rounded-full px-1.5 text-[0.7rem] font-semibold leading-5',
+              CHANGE_CLASS[change.kind],
+            )}
+          >
+            {formatRankChange(change)}
+          </span>
         </span>
       );
     },
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
+    headClassName: 'w-20',
   };
 }
 
@@ -204,8 +202,7 @@ function publicColumns(
   changes: RankChanges,
 ): DataTableColumn<PublicRankingItem>[] {
   return [
-    RANK_COLUMN,
-    changeColumn<PublicRankingItem>(changes),
+    rankColumn<PublicRankingItem>(changes),
     MEMBER_COLUMN,
     ...OPEN_METRIC_COLUMNS,
   ];
@@ -221,8 +218,7 @@ function staffColumns(
   changes: RankChanges,
 ): DataTableColumn<StaffRankingItem>[] {
   return [
-    RANK_COLUMN,
-    changeColumn<StaffRankingItem>(changes),
+    rankColumn<StaffRankingItem>(changes),
     NAME_COLUMN,
     MEMBER_COLUMN,
     DEPARTMENT_COLUMN,

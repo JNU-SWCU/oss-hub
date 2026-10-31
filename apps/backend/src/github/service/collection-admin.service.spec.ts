@@ -24,17 +24,12 @@ const deniedActors = [
   null,
 ];
 
-const guardedMethods = [
-  'trigger',
-  'listRuns',
-  'checkInvariants',
-  'backfillSnapshots',
-] as const;
-
 describe('CollectionAdminService authorization', () => {
   it.each(
     deniedActors.flatMap((actor) =>
-      guardedMethods.map((method) => [actor, method] as const),
+      ['trigger', 'listRuns', 'checkInvariants'].map(
+        (method) => [actor, method] as const,
+      ),
     ),
   )('rejects %s before %s side effects', async (actor, method) => {
     const findActorByGithubId = jest.fn().mockResolvedValue(actor);
@@ -50,18 +45,14 @@ describe('CollectionAdminService authorization', () => {
       { check: work },
       { run: work },
       authority,
-      { run: work, assertSupportedYear: work, assertReady: work },
     );
-    const actions: Record<
-      (typeof guardedMethods)[number],
-      () => Promise<unknown>
-    > = {
-      trigger: () => service.trigger(4242n),
-      listRuns: () => service.listRuns(4242n),
-      checkInvariants: () => service.checkInvariants(4242n),
-      backfillSnapshots: () => service.backfillSnapshots(4242n, 2026),
-    };
-    await expect(actions[method]()).rejects.toMatchObject({
+    const action =
+      method === 'trigger'
+        ? service.trigger(4242n)
+        : method === 'listRuns'
+          ? service.listRuns(4242n)
+          : service.checkInvariants(4242n);
+    await expect(action).rejects.toMatchObject({
       errorCode: {
         status: 403,
         code: 'COL_004',

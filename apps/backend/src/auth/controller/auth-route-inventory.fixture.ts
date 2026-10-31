@@ -214,7 +214,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/users/me/notifications/application-decisions/:notificationId/read',
   'PROTECTED PATCH /api/v1/users/me/notifications/team-deletions/:notificationId/read',
   'PROTECTED PATCH /api/v1/users/me/profile',
-  'PROTECTED POST /api/v1/admin/collection/snapshot-backfill',
   'PROTECTED POST /api/v1/admin/collection/trigger',
   'PROTECTED POST /api/v1/application-preparations/:preparationId/invitations',
   'PROTECTED POST /api/v1/application-preparations/invitations/:invitationId/accept',

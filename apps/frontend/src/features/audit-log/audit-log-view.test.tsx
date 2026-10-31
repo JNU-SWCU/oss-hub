@@ -396,32 +396,6 @@ describe('AuditLogView', () => {
     expect(html).toContain('님이 데이터 수집을 수동 실행했습니다');
   });
 
-  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED 행은 폴백 라벨 대신 백필 라벨과 연도를 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-collection-snapshot-backfill',
-            actor: 'synthetic-admin',
-            action: 'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED',
-            targetType: 'COLLECTION_SNAPSHOT_BACKFILL',
-            targetId: '2026',
-            target: 'COLLECTION_SNAPSHOT_BACKFILL / 2026',
-            occurredAt: '2026-10-31T03:00:00.000Z',
-            snapshotBackfillYear: 2026,
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).not.toContain('기타 작업');
-    expect(html).toContain('스냅샷 백필 실행');
-    expect(html).toContain('님이 2026년 순위 스냅샷 백필을 수동 실행했습니다');
-  });
-
   it('COLLECTION_SYNC 생략은 다른 targetType의 폴백 행으로 번지지 않는다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView

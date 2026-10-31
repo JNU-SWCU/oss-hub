@@ -321,34 +321,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  const SNAPSHOT_BACKFILL_RECORD: AuditLogRecord = {
-    id: 'audit-collection-snapshot-backfill',
-    actor: 'synthetic-admin',
-    action: 'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED',
-    targetType: 'COLLECTION_SNAPSHOT_BACKFILL',
-    targetId: '2026',
-    target: 'COLLECTION_SNAPSHOT_BACKFILL / 2026',
-    occurredAt: '2026-10-31T03:00:00.000Z',
-  };
-
-  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED은 metadata에서 나온 연도를 문장에 넣고 target 조각은 만들지 않는다', () => {
-    const record: AuditLogRecord = {
-      ...SNAPSHOT_BACKFILL_RECORD,
-      snapshotBackfillYear: 2026,
-    };
-
-    const { sentence } = describeAuditLog(record);
-    expect(sentence.some((segment) => segment.kind === 'target')).toBe(false);
-    expect(sentence.some((segment) => segment.kind === 'code')).toBe(false);
-    expect(sentenceText(record)).toContain('2026');
-  });
-
-  it('연도가 없는 COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED도 폴백 문장 없이 서술한다', () => {
-    const { sentence } = describeAuditLog(SNAPSHOT_BACKFILL_RECORD);
-    expect(sentence.some((segment) => segment.kind === 'code')).toBe(false);
-    expect(sentenceText(SNAPSHOT_BACKFILL_RECORD)).not.toMatch(/\d/);
-  });
-
   it('APPLICATION_APPROVED 폴백 target은 존칭 없이 "신청 {id}을(를) 승인했습니다"로 서술한다', () => {
     const record: AuditLogRecord = {
       id: 'audit-application-approved',

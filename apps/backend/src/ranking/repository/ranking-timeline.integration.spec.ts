@@ -35,39 +35,18 @@ interface SyntheticStudent {
   readonly yearCommitCount: number;
 }
 
-const STUDENTS: readonly SyntheticStudent[] = [
-  {
-    key: 'u1',
-    githubId: 8_962_000_000_001n,
-    studentId: '209901',
-    yearCommitCount: 100,
-  },
-  {
-    key: 'u2',
-    githubId: 8_962_000_000_002n,
-    studentId: '209902',
-    yearCommitCount: 80,
-  },
-  {
-    key: 'u3',
-    githubId: 8_962_000_000_003n,
-    studentId: '209903',
-    yearCommitCount: 60,
-  },
-  {
-    key: 'u4',
-    githubId: 8_962_000_000_004n,
-    studentId: '209904',
-    yearCommitCount: 40,
-  },
-];
+const student = (index: number, yearCommitCount: number): SyntheticStudent => ({
+  key: `u${String(index)}`,
+  githubId: 8_962_000_000_000n + BigInt(index),
+  studentId: `20990${String(index)}`,
+  yearCommitCount,
+});
 
-const IDLE_STUDENT: SyntheticStudent = {
-  key: 'u5',
-  githubId: 8_962_000_000_005n,
-  studentId: '209905',
-  yearCommitCount: 0,
-};
+const STUDENTS: readonly SyntheticStudent[] = [100, 80, 60, 40].map(
+  (yearCommitCount, index) => student(index + 1, yearCommitCount),
+);
+
+const IDLE_STUDENT: SyntheticStudent = student(5, 0);
 
 const ALL_STUDENTS: readonly SyntheticStudent[] = [...STUDENTS, IDLE_STUDENT];
 
@@ -196,7 +175,7 @@ afterAll(async () => {
 });
 
 describe('RankingRepository.findMonthlySnapshots (실 Postgres)', () => {
-  it('사용자-월 당 한 행만, 그 달의 가장 늦은 스냅샷으로 돌려준다', async () => {
+  it('사용자-월 당 한 행만, 그 달의 가장 늦은 스냅샷으로, 같은 연도만 돌려준다', async () => {
     const rows = (await repository.findMonthlySnapshots(YEAR)).filter((row) =>
       GITHUB_IDS.includes(row.githubId),
     );
@@ -218,22 +197,20 @@ describe('RankingRepository.findMonthlySnapshots (실 Postgres)', () => {
       commitCount: 50,
       starEstimated: false,
     });
-  });
 
-  it('연도가 다르면 한 행도 돌려주지 않는다', async () => {
-    const rows = (await repository.findMonthlySnapshots(YEAR + 1)).filter(
+    const otherYear = (await repository.findMonthlySnapshots(YEAR + 1)).filter(
       (row) => GITHUB_IDS.includes(row.githubId),
     );
-
-    expect(rows).toEqual([]);
+    expect(otherYear).toEqual([]);
   });
 });
 
 describe('RankingService.findTimeline (실 Postgres)', () => {
-  it('월별 지점과 추정 표시를 실제 스냅샷에서 만든다', async () => {
+  it('월별 지점·추정 표시·지점별 순위를 실제 스냅샷에서 만들고 0점 학생만 계열에서 뺀다', async () => {
     const service = new RankingService(repository);
 
     const timeline = await service.findTimeline(YEAR, null);
+    const page = await service.findPage(YEAR, 1, 100, null);
 
     expect(timeline.points).toEqual([
       { date: '2099-01-31', starEstimated: true },
@@ -241,54 +218,31 @@ describe('RankingService.findTimeline (실 Postgres)', () => {
       { date: '2099-03-31', starEstimated: false },
       { date: `${YEAR}-12-31`, starEstimated: false },
     ]);
-    expect(
-      timeline.series
-        .filter((series) => series.githubLogin.startsWith(PREFIX))
-        .map((series) => [series.githubLogin, series.ranks.at(0)]),
-    ).toEqual([
-      [`${PREFIX}-u1`, 4],
-      [`${PREFIX}-u2`, 3],
-      [`${PREFIX}-u3`, 2],
-      [`${PREFIX}-u4`, 1],
+
+    const seeded = timeline.series.filter((series) =>
+      series.githubLogin.startsWith(PREFIX),
+    );
+    expect(seeded.map((series) => series.ranks)).toEqual([
+      [4, 1, 4, 1],
+      [3, 4, 3, 2],
+      [2, 3, 2, 3],
+      [1, 2, 1, 4],
     ]);
-  });
 
-  it('마지막 지점의 순위가 같은 연도 표의 순위와 같다', async () => {
-    const service = new RankingService(repository);
-
-    const timeline = await service.findTimeline(YEAR, null);
-    const page = await service.findPage(YEAR, 1, 100, null);
-
-    const lastIndex = timeline.points.length - 1;
-    const remaining = new Set(
-      timeline.series.map((series) => series.githubLogin),
+    const ranked = new Set(timeline.series.map((series) => series.githubLogin));
+    expect([...ranked]).not.toContain(login(IDLE_STUDENT));
+    expect(page.items.map((item) => item.githubLogin)).toContain(
+      login(IDLE_STUDENT),
     );
     expect(
-      timeline.series
-        .filter((series) => series.githubLogin.startsWith(PREFIX))
-        .map((series) => [series.githubLogin, series.ranks.at(lastIndex)]),
+      seeded.map((series) => [series.githubLogin, series.ranks.at(-1)]),
     ).toEqual(
       page.items
         .filter(
           (item) =>
-            item.githubLogin.startsWith(PREFIX) &&
-            remaining.has(item.githubLogin),
+            item.githubLogin.startsWith(PREFIX) && ranked.has(item.githubLogin),
         )
         .map((item) => [item.githubLogin, item.rank]),
-    );
-  });
-
-  it('기여 합계가 0인 학생은 계열에서 배제되지만 표에는 남는다', async () => {
-    const service = new RankingService(repository);
-
-    const timeline = await service.findTimeline(YEAR, null);
-    const page = await service.findPage(YEAR, 1, 100, null);
-
-    expect(timeline.series.map((series) => series.githubLogin)).not.toContain(
-      login(IDLE_STUDENT),
-    );
-    expect(page.items.map((item) => item.githubLogin)).toContain(
-      login(IDLE_STUDENT),
     );
   });
 
@@ -345,7 +299,7 @@ describe('GET /api/v1/ranking/timeline (실 Postgres · 익명 HTTP)', () => {
     await application?.close();
   });
 
-  it('익명 호출도 DB 스냅샷에서 만든 지점과 totals 를 싣는다', async () => {
+  it('익명 호출도 DB 스냅샷에서 만든 지점과 totals 를 no-store 로 싣는다', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/ranking/timeline?year=${YEAR}`,
     );
@@ -357,11 +311,9 @@ describe('GET /api/v1/ranking/timeline (실 Postgres · 익명 HTTP)', () => {
       points: readonly { date: string }[];
       series: readonly {
         githubLogin: string;
-        ranks: readonly unknown[];
         totals: readonly unknown[];
       }[];
     };
-    expect(body.points.length).toBeGreaterThanOrEqual(1);
     expect(body.points.map((point) => point.date)).toEqual([
       '2099-01-31',
       '2099-02-28',
@@ -369,15 +321,8 @@ describe('GET /api/v1/ranking/timeline (실 Postgres · 익명 HTTP)', () => {
       '2099-12-31',
     ]);
     expect(
-      body.series
-        .filter((series) => series.githubLogin.startsWith(PREFIX))
-        .map((series) => series.ranks),
-    ).toEqual([
-      [4, 1, 4, 1],
-      [3, 4, 3, 2],
-      [2, 3, 2, 3],
-      [1, 2, 1, 4],
-    ]);
+      body.series.filter((series) => series.githubLogin.startsWith(PREFIX)),
+    ).toHaveLength(STUDENTS.length);
     for (const series of body.series) {
       expect(series.totals).toHaveLength(body.points.length);
     }

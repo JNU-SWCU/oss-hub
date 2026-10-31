@@ -42,25 +42,6 @@ export interface CollectionUserActivityMetrics {
   readonly starCount: number;
 }
 
-export interface CollectionMonthlyContributionWindow {
-  readonly alias: string;
-  readonly from: string;
-  readonly to: string;
-}
-
-interface CollectionMonthlyContributionCounts {
-  readonly alias: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-}
-
-export interface CollectionMonthlyContributionResult {
-  readonly months: readonly CollectionMonthlyContributionCounts[];
-  readonly remaining: number;
-}
-
 const USER_ACTIVITY_QUERY = `
   query CollectionUserActivity($login: String!, $from: DateTime!, $to: DateTime!, $after: String) {
     rateLimit {
@@ -114,49 +95,6 @@ const USER_ACTIVITY_QUERY = `
     }
   }
 `;
-
-const MONTHLY_CONTRIBUTION_FIELDS = `
-        totalCommitContributions
-        totalPullRequestContributions
-        totalIssueContributions
-        totalRepositoryContributions`;
-
-const monthlyContributionQuery = (
-  windows: readonly CollectionMonthlyContributionWindow[],
-): string => `
-  query CollectionUserMonthlyContributions($login: String!, ${windows
-    .flatMap((month) => [
-      `$${month.alias}From: DateTime!`,
-      `$${month.alias}To: DateTime!`,
-    ])
-    .join(', ')}) {
-    rateLimit {
-      cost
-      remaining
-    }
-    user(login: $login) {
-      ${windows
-        .map(
-          (month) =>
-            `${month.alias}: contributionsCollection(from: $${month.alias}From, to: $${month.alias}To) {${MONTHLY_CONTRIBUTION_FIELDS}
-      }`,
-        )
-        .join('\n      ')}
-    }
-  }
-`;
-
-const monthlyContributionVariables = (
-  login: string,
-  windows: readonly CollectionMonthlyContributionWindow[],
-): Record<string, unknown> => {
-  const variables: Record<string, unknown> = { login };
-  for (const month of windows) {
-    variables[`${month.alias}From`] = month.from;
-    variables[`${month.alias}To`] = month.to;
-  }
-  return variables;
-};
 
 const MAX_ACTIVITY_PAGES = 50;
 
@@ -222,37 +160,6 @@ export class CollectionDiscoveryClient {
       after = this.string(pageInfo.endCursor);
     }
     return { ...counts, starCount: ownedStarCount + organizationStarCount };
-  }
-
-  async fetchUserMonthlyContributionCounts(
-    login: string,
-    windows: readonly CollectionMonthlyContributionWindow[],
-  ): Promise<CollectionMonthlyContributionResult> {
-    const body = await this.request({
-      query: monthlyContributionQuery(windows),
-      variables: monthlyContributionVariables(login, windows),
-    });
-    const data = this.record(body.data);
-    const user = data.user;
-    if (user === null || user === undefined) {
-      throw new CollectionDiscoveryClientError('USER_NOT_FOUND');
-    }
-    const record = this.record(user);
-    return {
-      months: windows.map((month) => {
-        const collection = this.record(record[month.alias]);
-        return {
-          alias: month.alias,
-          commitCount: this.count(collection.totalCommitContributions),
-          pullRequestCount: this.count(
-            collection.totalPullRequestContributions,
-          ),
-          issueCount: this.count(collection.totalIssueContributions),
-          repositoryCount: this.count(collection.totalRepositoryContributions),
-        };
-      }),
-      remaining: this.count(this.record(data.rateLimit).remaining),
-    };
   }
 
   private organizationLogins(user: Record<string, unknown>): Set<string> {

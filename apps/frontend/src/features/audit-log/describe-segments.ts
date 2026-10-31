@@ -7,7 +7,6 @@ export const AUDIT_LOG_TARGET_TYPE_LABELS = {
   PROGRAM: '프로그램',
   TEAM: '팀',
   COLLECTION_SYNC: '데이터 수집',
-  COLLECTION_SNAPSHOT_BACKFILL: '스냅샷 백필',
   SUBMISSION_FILE: '제출 파일',
   APPLICATION: '신청',
 } as const satisfies Readonly<Record<string, string>>;
@@ -42,7 +41,6 @@ export function isFallbackTarget(record: AuditLogRecord): boolean {
 
 export const TARGETLESS_FALLBACK_TARGET_TYPES: ReadonlySet<string> = new Set([
   'COLLECTION_SYNC',
-  'COLLECTION_SNAPSHOT_BACKFILL',
 ]);
 
 export function actorSegment(record: AuditLogRecord): AuditLogSentenceSegment {

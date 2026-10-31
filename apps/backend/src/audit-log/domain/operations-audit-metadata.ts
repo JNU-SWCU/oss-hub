@@ -27,37 +27,6 @@ export function parseCollectionTriggerAuditMetadata(
     : null;
 }
 
-const COLLECTION_SNAPSHOT_BACKFILL_AUDIT_SCHEMA_VERSION = 1 as const;
-export const COLLECTION_SNAPSHOT_BACKFILL_AUDIT_ACTIONS = {
-  COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED:
-    'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED',
-} as const;
-export type CollectionSnapshotBackfillAuditMetadata = {
-  readonly schemaVersion: typeof COLLECTION_SNAPSHOT_BACKFILL_AUDIT_SCHEMA_VERSION;
-  readonly year: number;
-};
-export function createCollectionSnapshotBackfillAuditMetadata(
-  input: Omit<CollectionSnapshotBackfillAuditMetadata, 'schemaVersion'>,
-): CollectionSnapshotBackfillAuditMetadata {
-  return {
-    schemaVersion: COLLECTION_SNAPSHOT_BACKFILL_AUDIT_SCHEMA_VERSION,
-    ...input,
-  };
-}
-export function parseCollectionSnapshotBackfillAuditMetadata(
-  value: unknown,
-): CollectionSnapshotBackfillAuditMetadata | null {
-  return isJsonObject(value) &&
-    value.schemaVersion === COLLECTION_SNAPSHOT_BACKFILL_AUDIT_SCHEMA_VERSION &&
-    typeof value.year === 'number' &&
-    Number.isInteger(value.year)
-    ? {
-        schemaVersion: COLLECTION_SNAPSHOT_BACKFILL_AUDIT_SCHEMA_VERSION,
-        year: value.year,
-      }
-    : null;
-}
-
 const SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION = 1 as const;
 export const SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS = {
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'SUBMISSION_FILE_CLEANUP_RETRY_RESET',

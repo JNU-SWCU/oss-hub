@@ -20,12 +20,9 @@ import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import { CollectionSnapshotBackfillService } from '../service/collection-snapshot-backfill.service';
 import { CollectionSyncService } from '../service/collection-sync.service';
 import { CollectionUserActivityService } from '../service/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
-
-const BACKFILL_YEAR = 2026;
 
 const roles = [
   ['ADMIN', true, true, AccountStatus.ACTIVE],
@@ -42,21 +39,7 @@ const routes = [
   ['get', 'invariants', 200],
   ['get', 'runs', 200],
   ['post', 'trigger', 202],
-  ['post', 'snapshot-backfill', 202],
 ] as const;
-
-const successBody = (route: (typeof routes)[number][1]): unknown => {
-  switch (route) {
-    case 'invariants':
-      return { ok: true, results: [] };
-    case 'runs':
-      return { runs: [] };
-    case 'trigger':
-      return { runId: expect.any(String) as unknown, status: 'PENDING' };
-    default:
-      return { accepted: true, year: BACKFILL_YEAR };
-  }
-};
 
 describe('Collection admin authorization HTTP characterization', () => {
   let app: INestApplication;
@@ -113,14 +96,6 @@ describe('Collection admin authorization HTTP characterization', () => {
           useValue: { run: work, runExternal: work },
         },
         { provide: CollectionUserActivityService, useValue: { run: work } },
-        {
-          provide: CollectionSnapshotBackfillService,
-          useValue: {
-            run: work,
-            assertSupportedYear: () => undefined,
-            assertReady: () => Promise.resolve(),
-          },
-        },
         {
           provide: ContributionInvariants,
           useValue: { check: () => ({ ok: true, results: [] }) },
@@ -229,18 +204,20 @@ describe('Collection admin authorization HTTP characterization', () => {
           origin: 'http://localhost:3000',
           connection: 'close',
           ...(actor[0] === 'anonymous' ? {} : { cookie }),
-          ...(route === 'snapshot-backfill'
-            ? { 'content-type': 'application/json' }
-            : {}),
         },
-        ...(route === 'snapshot-backfill'
-          ? { body: JSON.stringify({ year: BACKFILL_YEAR }) }
-          : {}),
       });
       const body: unknown = await response.json();
       if (role[2] && role[3] === AccountStatus.ACTIVE) {
         expect(response.status).toBe(successStatus);
-        expect(body).toEqual(successBody(route));
+        if (route === 'trigger')
+          expect(body).toEqual({
+            runId: expect.any(String) as unknown,
+            status: 'PENDING',
+          });
+        else
+          expect(body).toEqual(
+            route === 'runs' ? { runs: [] } : { ok: true, results: [] },
+          );
         return;
       }
       const anonymous = role[0] === 'anonymous';

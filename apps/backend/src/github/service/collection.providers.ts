@@ -8,7 +8,6 @@ import { CollectionDiscoveryClient } from '../gateway/collection-discovery.clien
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { CollectionUserActivityRepository } from '../repository/collection-user-activity.repository';
-import { CollectionSnapshotBackfillService } from './collection-snapshot-backfill.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
 import {
@@ -39,18 +38,6 @@ export const collectionProviders: Provider[] = [
       discoveryClient: CollectionDiscoveryClient,
     ): CollectionUserActivityService =>
       new CollectionUserActivityService(
-        userActivityRepository,
-        discoveryClient,
-      ),
-  },
-  {
-    provide: CollectionSnapshotBackfillService,
-    inject: [CollectionUserActivityRepository, CollectionDiscoveryClient],
-    useFactory: (
-      userActivityRepository: CollectionUserActivityRepository,
-      discoveryClient: CollectionDiscoveryClient,
-    ): CollectionSnapshotBackfillService =>
-      new CollectionSnapshotBackfillService(
         userActivityRepository,
         discoveryClient,
       ),

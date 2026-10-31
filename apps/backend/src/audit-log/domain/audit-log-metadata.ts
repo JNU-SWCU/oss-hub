@@ -20,10 +20,8 @@ import {
   type ApplicationRepositoryUrlAuditMetadataView,
 } from './application-repository-url-audit-metadata';
 import {
-  parseCollectionSnapshotBackfillAuditMetadata,
   parseCollectionTriggerAuditMetadata,
   parseSubmissionFileCleanupAuditMetadata,
-  type CollectionSnapshotBackfillAuditMetadata,
   type CollectionTriggerAuditMetadata,
   type CollectionTriggerAuditMetadataView,
   type SubmissionFileCleanupAuditMetadata,
@@ -96,7 +94,6 @@ export type AuditLogMetadata =
   | TeamRenamedAuditMetadata
   | ApplicationSubmittedAuditMetadata
   | CollectionTriggerAuditMetadata
-  | CollectionSnapshotBackfillAuditMetadata
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata
   | UserProfileAuditMetadata
@@ -118,7 +115,6 @@ export type AuditLogMetadataView =
   | TeamRenamedAuditMetadataView
   | ApplicationSubmittedAuditMetadataView
   | CollectionTriggerAuditMetadataView
-  | CollectionSnapshotBackfillAuditMetadata
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadataView
   | UserProfileAuditMetadataView;
@@ -168,7 +164,6 @@ function parseKnownAuditLogMetadata(
     parseApplicationSubmittedAuditMetadata(value) ??
     parseProgramCreatedAuditMetadata(value) ??
     parseCollectionTriggerAuditMetadata(value) ??
-    parseCollectionSnapshotBackfillAuditMetadata(value) ??
     parseSubmissionFileCleanupAuditMetadata(value) ??
     parseApplicationDecisionAuditMetadata(value) ??
     parseUserProfileAuditMetadata(value)

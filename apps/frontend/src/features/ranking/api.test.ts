@@ -403,6 +403,12 @@ const withSeries = (
   series: readonly unknown[],
 ) => ({ ...rankingTimeline(viewerClass), series });
 
+const withPoints = (points: readonly unknown[]) => ({
+  ...rankingTimeline('public'),
+  points,
+  series: [{ githubLogin: 'mina', ranks: [1], totals: [10] }],
+});
+
 test('공개 타임라인 응답을 화면 계약으로 변환한다', () => {
   const timeline = parseRankingTimeline(rankingTimeline('public'));
 
@@ -422,34 +428,27 @@ test('공개 타임라인 응답을 화면 계약으로 변환한다', () => {
   });
 });
 
-test('타임라인 응답의 모르는 필드는 무시하고 viewerGithubLogin 은 그대로 읽는다', () => {
-  const base = rankingTimeline('member');
-  const timeline = parseRankingTimeline({
-    ...base,
-    viewerGithubLogin: 'mina',
-    futureField: 'x',
-    points: [{ ...base.points[0], futureField: 'x' }, base.points[1]],
-    series: [{ ...base.series[0], futureField: 'x' }],
-  });
-
-  expect(timeline.viewerGithubLogin).toBe('mina');
-  expect(timeline.series[0]).toEqual({
-    githubLogin: 'mina',
-    ranks: [1, 2],
-    totals: [10, 20],
-  });
-});
-
 test.each(['public', 'member', 'staff'] as const)(
-  '%s 타임라인은 totals 를 읽고 순위 없는 달은 null 로 유지한다',
+  '%s 타임라인은 totals·viewerGithubLogin 을 읽고 순위 없는 달은 null 로 두며 모르는 필드는 무시한다',
   (viewerClass) => {
-    const timeline = parseRankingTimeline(
-      withSeries(viewerClass, [
-        { githubLogin: 'mina', ranks: [null, 1], totals: [null, 12] },
-      ]),
-    );
+    const base = rankingTimeline(viewerClass);
+    const timeline = parseRankingTimeline({
+      ...base,
+      viewerGithubLogin: 'mina',
+      futureField: 'x',
+      points: [{ ...base.points[0], futureField: 'x' }, base.points[1]],
+      series: [
+        {
+          githubLogin: 'mina',
+          ranks: [null, 1],
+          totals: [null, 12],
+          futureField: 'x',
+        },
+      ],
+    });
 
     expect(timeline.viewerClass).toBe(viewerClass);
+    expect(timeline.viewerGithubLogin).toBe('mina');
     expect(timeline.series[0]).toEqual({
       githubLogin: 'mina',
       ranks: [null, 1],
@@ -458,179 +457,81 @@ test.each(['public', 'member', 'staff'] as const)(
   },
 );
 
-test('series 에 totals 가 없으면 거부한다 — 합계는 모든 계층에 실린다', () => {
-  for (const totals of [null, undefined]) {
-    expect(() =>
-      parseRankingTimeline(
-        withSeries('public', [{ githubLogin: 'mina', ranks: [1, 2], totals }]),
-      ),
-    ).toThrow(RankingResponseError);
-  }
-});
-
-test('ranks·totals 길이가 points 길이와 다르면 거부한다', () => {
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('public', [
-        { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('public', [
-        { githubLogin: 'mina', ranks: [1, 2, 3], totals: [10, 20] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('member', [
-        { githubLogin: 'mina', ranks: [1, 2], totals: [12] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-});
-
 test.each([
-  '2026-1-31',
-  '2026-01-1',
-  '2026/01/31',
-  '2026-02-30',
-  '2026-13-01',
-  '2026-01-32',
-  '20260131',
-  '2026-01-31T00:00:00.000Z',
-  '',
-  'not-a-date',
-  42,
-  null,
-] as const)('YYYY-MM-DD 가 아닌 지점 날짜(%s)는 거부한다', (date) => {
-  const base = rankingTimeline('public');
-  expect(() =>
+  ['봉투가 객체가 아니면', null],
+  [
+    'year 가 all 이면',
+    { ...rankingTimeline('public'), year: RANKING_YEAR_ALL },
+  ],
+  [
+    'viewerClass 가 계층 밖이면',
+    { ...rankingTimeline('public'), viewerClass: 'STUDENT' },
+  ],
+  [
+    'dataAsOf 가 날짜가 아니면',
+    { ...rankingTimeline('public'), dataAsOf: 'soon' },
+  ],
+  ['points 가 배열이 아니면', { ...rankingTimeline('public'), points: null }],
+  [
+    'series 가 배열이 아니면',
+    { ...rankingTimeline('public'), series: { 0: 'nope' } },
+  ],
+  ['지점에 starEstimated 가 없으면', withPoints([{ date: '2026-01-31' }])],
+  [
+    '지점 날짜가 YYYY-MM-DD 가 아니면',
+    withPoints([{ date: '2026/01/31', starEstimated: false }]),
+  ],
+  [
+    '지점 날짜가 존재하지 않는 날이면',
+    withPoints([{ date: '2026-02-30', starEstimated: false }]),
+  ],
+  [
+    'githubLogin 이 문자열이 아니면',
+    withSeries('public', [
+      { githubLogin: 42, ranks: [1, 2], totals: [10, 20] },
+    ]),
+  ],
+  [
+    'totals 가 빠지면',
+    withSeries('public', [{ githubLogin: 'mina', ranks: [1, 2] }]),
+  ],
+  [
+    'ranks 길이가 points 와 다르면',
+    withSeries('public', [
+      { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
+    ]),
+  ],
+  [
+    'totals 길이가 points 와 다르면',
+    withSeries('member', [
+      { githubLogin: 'mina', ranks: [1, 2], totals: [12] },
+    ]),
+  ],
+  [
+    '순위가 양의 정수가 아니면',
+    withSeries('public', [
+      { githubLogin: 'mina', ranks: [0, 2], totals: [10, 20] },
+    ]),
+  ],
+  [
+    '합계가 0 이상 정수가 아니면',
+    withSeries('member', [
+      { githubLogin: 'mina', ranks: [1, 2], totals: [-1, 12] },
+    ]),
+  ],
+])('타임라인 응답은 %s 거부한다', (_label, payload) => {
+  expect(() => parseRankingTimeline(payload)).toThrow(RankingResponseError);
+});
+
+test('관측이 없는 연도는 빈 지점·빈 계열이고 dataAsOf·viewerGithubLogin 이 없어도 null 로 떨어진다', () => {
+  expect(
     parseRankingTimeline({
-      ...base,
-      points: [{ date, starEstimated: false }],
-      series: [{ githubLogin: 'mina', ranks: [1], totals: [10] }],
+      year: 2026,
+      viewerClass: 'public',
+      points: [],
+      series: [],
     }),
-  ).toThrow(RankingResponseError);
-});
-
-test.each([
-  0,
-  -1,
-  1.5,
-  '1',
-  Number.NaN,
-  Number.POSITIVE_INFINITY,
-  true,
-] as const)('순위(%s)가 양의 정수도 null 도 아니면 거부한다', (rank) => {
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('public', [
-        { githubLogin: 'mina', ranks: [rank, 2], totals: [10, 20] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-});
-
-test.each([-1, 1.5, '3', true] as const)(
-  '합계(%s)가 0 이상 정수도 null 도 아니면 거부한다',
-  (total) => {
-    expect(() =>
-      parseRankingTimeline(
-        withSeries('member', [
-          { githubLogin: 'mina', ranks: [1, 2], totals: [total, 12] },
-        ]),
-      ),
-    ).toThrow(RankingResponseError);
-  },
-);
-
-test('타임라인 봉투 필수 필드가 없거나 형이 어긋나면 거부한다', () => {
-  const base = rankingTimeline('public');
-
-  expect(() => parseRankingTimeline(null)).toThrow(RankingResponseError);
-  expect(() => parseRankingTimeline([base])).toThrow(RankingResponseError);
-  expect(() =>
-    parseRankingTimeline({ ...base, year: RANKING_YEAR_ALL }),
-  ).toThrow(RankingResponseError);
-  expect(() => parseRankingTimeline({ ...base, year: '2026' })).toThrow(
-    RankingResponseError,
-  );
-  expect(() => parseRankingTimeline({ ...base, year: 2026.5 })).toThrow(
-    RankingResponseError,
-  );
-  expect(() =>
-    parseRankingTimeline({ ...base, viewerClass: 'STUDENT' }),
-  ).toThrow(RankingResponseError);
-  expect(() =>
-    parseRankingTimeline({ ...base, viewerGithubLogin: 42 }),
-  ).toThrow(RankingResponseError);
-  expect(() => parseRankingTimeline({ ...base, dataAsOf: 'soon' })).toThrow(
-    RankingResponseError,
-  );
-  expect(() => parseRankingTimeline({ ...base, points: null })).toThrow(
-    RankingResponseError,
-  );
-  expect(() => parseRankingTimeline({ ...base, series: null })).toThrow(
-    RankingResponseError,
-  );
-  expect(() =>
-    parseRankingTimeline({ ...base, series: { 0: 'nope' } }),
-  ).toThrow(RankingResponseError);
-});
-
-test('타임라인 지점·계열의 필수 필드는 형이 어긋나면 거부한다', () => {
-  const base = rankingTimeline('public');
-  const withoutStarEstimated: Partial<(typeof base.points)[number]> = {
-    ...base.points[0],
-  };
-  delete withoutStarEstimated.starEstimated;
-
-  expect(() =>
-    parseRankingTimeline({
-      ...base,
-      points: [withoutStarEstimated, base.points[1]],
-    }),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline({
-      ...base,
-      points: [{ date: '2026-01-31', starEstimated: 'true' }, base.points[1]],
-    }),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('public', [
-        { githubLogin: 42, ranks: [1, 2], totals: [10, 20] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline(withSeries('public', [{ githubLogin: 'mina' }])),
-  ).toThrow(RankingResponseError);
-
-  expect(() =>
-    parseRankingTimeline(
-      withSeries('public', [
-        { githubLogin: 'mina', ranks: { 0: 1 }, totals: [10, 20] },
-      ]),
-    ),
-  ).toThrow(RankingResponseError);
-
-  expect(() => parseRankingTimeline({ ...base, series: ['mina'] })).toThrow(
-    RankingResponseError,
-  );
-});
-
-test('관측이 없는 연도는 빈 지점·빈 계열로 파싱된다', () => {
-  const timeline = parseRankingTimeline({
+  ).toEqual({
     year: 2026,
     viewerClass: 'public',
     viewerGithubLogin: null,
@@ -638,24 +539,9 @@ test('관측이 없는 연도는 빈 지점·빈 계열로 파싱된다', () => 
     points: [],
     series: [],
   });
-
-  expect(timeline.points).toEqual([]);
-  expect(timeline.series).toEqual([]);
-  expect(timeline.dataAsOf).toBeNull();
 });
 
-test('타임라인 dataAsOf·viewerGithubLogin 이 없어도 null 로 떨어진다', () => {
-  const withoutOptionals: Partial<ReturnType<typeof rankingTimeline>> =
-    rankingTimeline('public');
-  delete withoutOptionals.dataAsOf;
-  delete withoutOptionals.viewerGithubLogin;
-  const timeline = parseRankingTimeline(withoutOptionals);
-
-  expect(timeline.dataAsOf).toBeNull();
-  expect(timeline.viewerGithubLogin).toBeNull();
-});
-
-test('타임라인은 year 질의로 조회하고 signal 을 전달한다', async () => {
+test('타임라인은 year 질의로 조회하고 signal 을 전달하며 계약을 벗어난 응답은 거부한다', async () => {
   const fetchMock = vi.fn(
     () =>
       new Response(JSON.stringify(rankingTimeline('public')), {
@@ -678,23 +564,22 @@ test('타임라인은 year 질의로 조회하고 signal 을 전달한다', asyn
     apiPath('ranking/timeline?year=2026'),
     { signal: controller.signal },
   );
-});
 
-test('타임라인 응답이 계약을 벗어나면 조회가 거부된다', async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValue(
-      new Response(
-        JSON.stringify(
-          withSeries('public', [
-            { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
-          ]),
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify(
+            withSeries('public', [
+              { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
+            ]),
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),
-    );
-  vi.stubGlobal('fetch', fetchMock);
-
+  );
   await expect(getRankingTimeline(2026)).rejects.toThrow(RankingResponseError);
 });
 

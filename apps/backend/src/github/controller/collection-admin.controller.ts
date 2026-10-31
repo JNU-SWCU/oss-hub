@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -12,8 +11,6 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import type { ContributionInvariantReport } from '../domain/contribution-invariants';
 import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
-import { CollectionSnapshotBackfillRequestDto } from '../dto/collection-snapshot-backfill-request.dto';
-import { CollectionSnapshotBackfillResponseDto } from '../dto/collection-snapshot-backfill-response.dto';
 import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
 import { CollectionAdminService } from '../service/collection-admin.service';
 
@@ -37,20 +34,6 @@ export class CollectionAdminController {
   ): Promise<CollectionTriggerResponseDto> {
     const result = await this.admin.trigger(request.sessionGithubId);
     return new CollectionTriggerResponseDto(result.runId);
-  }
-
-  @Post('snapshot-backfill')
-  @HttpCode(202)
-  @UseGuards(SessionGuard, OriginGuard)
-  async backfillSnapshots(
-    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
-    @Body() body: CollectionSnapshotBackfillRequestDto,
-  ): Promise<CollectionSnapshotBackfillResponseDto> {
-    const result = await this.admin.backfillSnapshots(
-      request.sessionGithubId,
-      body.year,
-    );
-    return new CollectionSnapshotBackfillResponseDto(result.year);
   }
 
   @Get('runs')

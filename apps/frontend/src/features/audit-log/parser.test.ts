@@ -426,55 +426,6 @@ describe('parseAuditLogPage', () => {
     expect(item).not.toHaveProperty('teamPreviousName');
   });
 
-  function snapshotBackfillWireRecord(metadata: unknown) {
-    return {
-      id: 'audit-collection-snapshot-backfill',
-      actor: 'synthetic-admin',
-      actorHandle: 'synthetic-admin',
-      action: 'COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED',
-      targetType: 'COLLECTION_SNAPSHOT_BACKFILL',
-      targetId: '2026',
-      target: 'COLLECTION_SNAPSHOT_BACKFILL / 2026',
-      targetHandle: null,
-      occurredAt: '2026-10-31T03:00:00.000Z',
-      legacy: false,
-      metadata,
-    };
-  }
-
-  it('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED 행은 백필 연도만 투영한다', () => {
-    const item = parseOne(
-      snapshotBackfillWireRecord({ schemaVersion: 1, year: 2026 }),
-    );
-
-    expect(item.snapshotBackfillYear).toBe(2026);
-    expect(item).not.toHaveProperty('metadata');
-    expect(item).not.toHaveProperty('legacy');
-  });
-
-  it('백필 연도가 없거나 모양이 어긋나면 행을 버리지 않고 그 값만 비운다', () => {
-    for (const broken of [
-      { schemaVersion: 1 },
-      { schemaVersion: 2, year: 2026 },
-      { schemaVersion: 1, year: 2026.5 },
-      { schemaVersion: 1, year: '2026' },
-    ]) {
-      const item = parseOne(snapshotBackfillWireRecord(broken));
-      expect(item.action).toBe('COLLECTION_SNAPSHOT_BACKFILL_TRIGGERED');
-      expect(item).not.toHaveProperty('snapshotBackfillYear');
-    }
-  });
-
-  it('다른 action의 행에는 백필 연도를 붙이지 않는다', () => {
-    const item = parseOne({
-      ...snapshotBackfillWireRecord({ schemaVersion: 1, year: 2026 }),
-      action: 'COLLECTION_SYNC_TRIGGERED',
-      targetType: 'COLLECTION_SYNC',
-    });
-
-    expect(item).not.toHaveProperty('snapshotBackfillYear');
-  });
-
   it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
     const page = parseAuditLogPage({
       items: [AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE],
