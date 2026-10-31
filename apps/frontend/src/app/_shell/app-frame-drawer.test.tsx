@@ -43,6 +43,7 @@ vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
 }));
 
 import { AppFrame } from './app-frame';
+import { nextFocus } from './drawer-test-signals';
 
 const ITEMS: NavItem[] = [
   { label: '프로그램', href: '/programs' },
@@ -117,7 +118,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   }
 
   function dialog(): HTMLElement | null {
-    return container.querySelector('[role="dialog"]');
+    return document.querySelector('[role="dialog"]');
   }
 
   async function renderFrame(pathname: string, search = ''): Promise<void> {
@@ -237,6 +238,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     await renderFrame('/dashboard');
     await openDrawer();
     expect(dialog()).not.toBeNull();
+    const refocused = nextFocus(trigger());
 
     await act(async () => {
       document.dispatchEvent(
@@ -249,6 +251,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     });
 
     expect(dialog()).toBeNull();
+    await act(() => refocused);
     expect(document.activeElement).toBe(trigger());
   });
 

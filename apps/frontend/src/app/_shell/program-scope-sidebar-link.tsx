@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ShellIcon } from './shell-icons';
 import type { ProgramScopeSidebarItem } from './sidebar-menu';
 import { setProgramOperationsView } from './program-operations-view';
+import { SidebarCountSkeleton } from './sidebar-shell';
 
 function ViewSwitch({
   view,
@@ -43,6 +44,8 @@ interface ScopeSidebarLinkProps {
   readonly pathname: string;
   readonly collapsed: boolean;
   readonly selected: boolean;
+
+  readonly countPending?: boolean;
 }
 
 export function ScopeSidebarLink({
@@ -51,6 +54,7 @@ export function ScopeSidebarLink({
   pathname,
   collapsed,
   selected,
+  countPending = false,
 }: ScopeSidebarLinkProps) {
   const depth = item.depth ?? 0;
 
@@ -83,13 +87,6 @@ export function ScopeSidebarLink({
   };
   const content = (
     <>
-      {current ? (
-        <span
-          aria-hidden
-          data-slot="program-scope-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-        />
-      ) : null}
       {depth === 0 || collapsed ? <ShellIcon name={item.icon} /> : null}
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
@@ -102,11 +99,12 @@ export function ScopeSidebarLink({
           선택됨
         </span>
       ) : null}
-      {showCount ? (
+      {showCount && countPending ? <SidebarCountSkeleton /> : null}
+      {showCount && !countPending ? (
         <span
           data-slot="program-scope-sidebar-count"
           className={cn(
-            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
+            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-badge font-semibold tabular-nums text-secondary-foreground',
             current &&
               'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}

@@ -16,9 +16,9 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+import { ProgramCountdown } from '@/components';
 import { AppSidebar, formatSidebarCount } from './app-sidebar';
 import type { MemberAccess } from './member-access';
-import { RankingCycleProvider } from './ranking-cycle-context';
 import { sidebarBrandTitle, sidebarGroupsFor } from './sidebar-menu';
 
 const STUDENT: MemberAccess = {
@@ -45,7 +45,6 @@ function render(
       pathname={pathname}
       search={search}
       collapsed={collapsed}
-      onToggle={() => {}}
     />,
   );
 }
@@ -68,7 +67,6 @@ function renderWithCounts(collapsed: boolean) {
       pathname="/programs"
       search=""
       collapsed={collapsed}
-      onToggle={() => {}}
     />,
   );
 }
@@ -76,7 +74,9 @@ function renderWithCounts(collapsed: boolean) {
 describe('AppSidebar', () => {
   it('is desktop-only and keeps filters flat with distinct icons', () => {
     const html = render('/programs', false);
-    expect(html).toContain('hidden min-[900px]:flex');
+    expect(html).toMatch(
+      /data-slot="app-sidebar"[^>]*data-breakpoint-visibility="desktop"/,
+    );
     expect(html).toContain('프로그램 메뉴');
     expect(html).not.toContain('data-slot="app-sidebar-depth-children"');
     expect(html).toContain('data-depth="0"');
@@ -114,24 +114,24 @@ describe('AppSidebar', () => {
     expect(html).toContain('aria-label="모집중 3"');
   });
 
-  it('C2: toggle aria-label and aria-expanded for both collapsed states', () => {
-    const open = render('/programs', false);
-    expect(open).toContain('aria-label="사이드바 접기"');
-    expect(open).toMatch(/aria-expanded="?true"?/);
-
-    const closed = render('/programs', true);
-    expect(closed).toContain('aria-label="사이드바 펼치기"');
-    expect(closed).toMatch(/aria-expanded="?false"?/);
+  it('C2: the aside carries no header row and no collapse toggle — the top bar owns it', () => {
+    for (const collapsed of [false, true]) {
+      const html = render('/programs', collapsed);
+      expect(html, String(collapsed)).not.toMatch(/data-slot="[a-z-]+-brand"/);
+      expect(html, String(collapsed)).not.toContain('<button');
+      expect(html, String(collapsed)).not.toContain('사이드바 접기');
+      expect(html, String(collapsed)).not.toContain('사이드바 펼치기');
+    }
   });
 
-  it('C3: collapsed uses chevron toggle, not BrandMark', () => {
+  it('C3: collapsed state is exposed as data-collapsed, not a BrandMark', () => {
     const html = render('/programs', true);
-    expect(html).not.toMatch(
-      /place-items-center rounded-control bg-primary[^>]*>\s*O\s*</,
-    );
-
+    expect(html).toMatch(/data-slot="app-sidebar"[^>]*data-collapsed="true"/);
     expect(html).not.toContain('>O</span>');
-    expect(html).toContain('rotate-180');
+
+    expect(render('/programs', false)).toMatch(
+      /data-slot="app-sidebar"[^>]*data-collapsed="false"/,
+    );
   });
 
   it('C4: collapsed links expose aria-label with label and count', () => {
@@ -159,7 +159,7 @@ describe('AppSidebar', () => {
     );
   });
 
-  it('staff+admin dashboard shows two group labels and keeps brand 대시보드', () => {
+  it('staff+admin dashboard shows two group labels and names the nav 대시보드', () => {
     const groups = sidebarGroupsFor('dashboard', STAFF_ADMIN);
     const html = renderToStaticMarkup(
       <AppSidebar
@@ -167,11 +167,13 @@ describe('AppSidebar', () => {
         pathname="/dashboard"
         search=""
         collapsed={false}
-        onToggle={() => {}}
         brandTitle={sidebarBrandTitle('dashboard', groups)}
       />,
     );
-    expect(html).toContain('>대시보드<');
+    expect(html).toMatch(
+      /data-slot="app-sidebar-nav"[^>]*aria-label="대시보드"/,
+    );
+    expect(html).not.toContain('>대시보드<');
     expect(html).toContain('data-slot="app-sidebar-group-label"');
     expect(html).toContain('>교직원<');
     expect(html).toContain('>관리자<');
@@ -181,6 +183,21 @@ describe('AppSidebar', () => {
     expect(html).toContain('gap-4');
   });
 
+  it('marks the current item with attributes only, never a marker element', () => {
+    for (const collapsed of [false, true]) {
+      const html = render('/programs', collapsed);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const current = doc.querySelector('a[aria-current="page"]');
+      expect(current?.getAttribute('data-current'), String(collapsed)).toBe(
+        'true',
+      );
+      expect(
+        doc.querySelectorAll('[data-slot$="current-marker"]'),
+        String(collapsed),
+      ).toHaveLength(0);
+    }
+  });
+
   it('formatSidebarCount caps above 99', () => {
     expect(formatSidebarCount(0)).toBe('0');
     expect(formatSidebarCount(99)).toBe('99');
@@ -188,61 +205,48 @@ describe('AppSidebar', () => {
     expect(formatSidebarCount(1500)).toBe('99+');
   });
 
-  it('shows ranking countdown only on /ranking when nextCycleAt is set and expanded', () => {
+  it('renders the bottom slot only while expanded', () => {
     const groups = sidebarGroupsFor('ranking', null, {
       rankingYears: [2026],
     });
-    const onRanking = renderToStaticMarkup(
-      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
-        <AppSidebar
-          groups={groups}
-          pathname="/ranking"
-          search=""
-          collapsed={false}
-          onToggle={() => {}}
-        />
-      </RankingCycleProvider>,
+    const countdown = (
+      <ProgramCountdown
+        nextMilestoneLabel="다음 수집"
+        dueAt="2026-08-21T00:00:00.000Z"
+        untilLabel="다음 수집까지"
+      />
     );
-    expect(onRanking).toContain('data-slot="program-countdown"');
+    const expanded = renderToStaticMarkup(
+      <AppSidebar
+        groups={groups}
+        pathname="/ranking"
+        search=""
+        collapsed={false}
+        bottom={countdown}
+      />,
+    );
+    expect(expanded).toContain('data-slot="program-countdown"');
 
     const collapsed = renderToStaticMarkup(
-      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
-        <AppSidebar
-          groups={groups}
-          pathname="/ranking"
-          search=""
-          collapsed={true}
-          onToggle={() => {}}
-        />
-      </RankingCycleProvider>,
+      <AppSidebar
+        groups={groups}
+        pathname="/ranking"
+        search=""
+        collapsed={true}
+        bottom={countdown}
+      />,
     );
     expect(collapsed).not.toContain('data-slot="program-countdown"');
 
-    const dashboard = renderToStaticMarkup(
-      <RankingCycleProvider initialNextCycleAt="2026-08-21T00:00:00.000Z">
-        <AppSidebar
-          groups={sidebarGroupsFor('dashboard', STUDENT)}
-          pathname="/dashboard"
-          search=""
-          collapsed={false}
-          onToggle={() => {}}
-        />
-      </RankingCycleProvider>,
+    const withoutBottom = renderToStaticMarkup(
+      <AppSidebar
+        groups={groups}
+        pathname="/ranking"
+        search=""
+        collapsed={false}
+      />,
     );
-    expect(dashboard).not.toContain('data-slot="program-countdown"');
-
-    const noCycle = renderToStaticMarkup(
-      <RankingCycleProvider initialNextCycleAt={null}>
-        <AppSidebar
-          groups={groups}
-          pathname="/ranking"
-          search=""
-          collapsed={false}
-          onToggle={() => {}}
-        />
-      </RankingCycleProvider>,
-    );
-    expect(noCycle).not.toContain('data-slot="program-countdown"');
+    expect(withoutBottom).not.toContain('data-slot="program-countdown"');
   });
 
   it('collapsed ranking years are icon-only with year in aria-label', () => {
@@ -255,13 +259,16 @@ describe('AppSidebar', () => {
         pathname="/ranking"
         search="?year=2026"
         collapsed={true}
-        onToggle={() => {}}
       />,
     );
     expect(html).not.toContain('data-slot="app-sidebar-count"');
 
-    expect(html).toContain('truncate hidden">2026</span>');
-    expect(html).toContain('aria-label="2026"');
-    expect(html).toContain('aria-label="2025"');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const aside = doc.querySelector('aside[data-slot="app-sidebar"]');
+    expect(aside?.getAttribute('data-collapsed')).toBe('true');
+    const yearLinks = Array.from(
+      aside?.querySelectorAll<HTMLAnchorElement>('a[aria-label]') ?? [],
+    ).map((link) => link.getAttribute('aria-label'));
+    expect(yearLinks).toEqual(expect.arrayContaining(['2026', '2025']));
   });
 });

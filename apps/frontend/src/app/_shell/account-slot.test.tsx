@@ -105,8 +105,10 @@ describe('AccountSlot', () => {
     });
     const html = renderToStaticMarkup(<AccountSlot />);
     expect(html).toContain('권한 3개');
-    expect(html).toContain('min-[900px]:hidden');
-    expect(html.match(/hidden min-\[900px\]:inline-flex/g)).toHaveLength(3);
+    expect(html).toMatch(
+      /data-breakpoint-visibility="mobile"[^>]*aria-label="학생 · 교직원 · 관리자 권한"/,
+    );
+    expect(html.match(/data-breakpoint-visibility="desktop"/g)).toHaveLength(3);
     expect(html).toContain('data-account-roles="학생 · 교직원 · 관리자"');
     expect(html).toContain('aria-label="학생 · 교직원 · 관리자 권한"');
     for (const role of ['학생', '교직원', '관리자'])

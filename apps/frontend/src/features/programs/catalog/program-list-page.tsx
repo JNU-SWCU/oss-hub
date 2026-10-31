@@ -283,7 +283,7 @@ function ProgramListPage({
       ) : null}
 
       <ProgramListStatusChips
-        className="min-[900px]:hidden"
+        className="shell:hidden"
         value={status}
         onChange={goStatus}
       />

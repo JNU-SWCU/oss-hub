@@ -11,6 +11,8 @@ import {
 
 interface RankingCycleContextValue {
   readonly nextCycleAt: string | null;
+
+  readonly reported: boolean;
   readonly setNextCycleAt: (nextCycleAt: string | null) => void;
 }
 
@@ -25,14 +27,18 @@ export function RankingCycleProvider({
   readonly children: ReactNode;
   readonly initialNextCycleAt?: string | null;
 }) {
-  const [nextCycleAt, setNextCycleAtState] = useState<string | null>(
-    initialNextCycleAt === undefined ? null : initialNextCycleAt,
-  );
+  const [nextCycleAt, setNextCycleAtState] = useState<
+    string | null | undefined
+  >(initialNextCycleAt);
   const setNextCycleAt = useCallback((value: string | null) => {
     setNextCycleAtState(value);
   }, []);
   const value = useMemo(
-    () => ({ nextCycleAt, setNextCycleAt }),
+    () => ({
+      nextCycleAt: nextCycleAt ?? null,
+      reported: nextCycleAt !== undefined,
+      setNextCycleAt,
+    }),
     [nextCycleAt, setNextCycleAt],
   );
   return (
@@ -54,4 +60,8 @@ export function useRankingCycle(): RankingCycleContextValue {
 
 export function useOptionalRankingNextCycleAt(): string | null {
   return useContext(RankingCycleContext)?.nextCycleAt ?? null;
+}
+
+export function useOptionalRankingCycleReported(): boolean {
+  return useContext(RankingCycleContext)?.reported ?? true;
 }

@@ -37,7 +37,7 @@ function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
     <div
       className={cn(
         'sticky top-0 z-20 -mx-2 hidden border-y border-border bg-background/95 px-2 py-3',
-        'backdrop-blur min-[561px]:block min-[900px]:hidden',
+        'backdrop-blur min-[561px]:block shell:hidden',
       )}
     >
       <FilterChipGroup
