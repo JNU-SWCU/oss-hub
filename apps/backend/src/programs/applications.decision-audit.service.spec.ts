@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   RepositoryConnectionMode,
@@ -126,6 +127,7 @@ function createHarness(
     new AuditLogMetadataService(),
     new RepositoryUrlService(),
     new ApplicationAnswersService(),
+    new RepositoryProvisionEventService(),
   );
   return {
     service,
@@ -354,6 +356,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
+      expect.any(Function),
     );
 
     await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
@@ -366,6 +369,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
+      expect.any(Function),
     );
   });
 });
@@ -455,6 +459,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -472,6 +477,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -536,6 +542,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -703,6 +710,7 @@ describe('ApplicationsService.decide — REVERT', () => {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
+      expect.any(Function),
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -794,6 +802,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -839,6 +848,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(
@@ -957,6 +967,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -976,6 +987,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
+      expect.any(Function),
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.SUCCEEDED,

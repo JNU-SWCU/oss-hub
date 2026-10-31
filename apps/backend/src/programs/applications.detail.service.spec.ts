@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -130,6 +131,7 @@ function mapItem(source: ApplicationListSource | null | undefined) {
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
       )['toApplicationListItem'](source.row, source.outbox, source.job)
     : undefined;
 }
@@ -158,6 +160,7 @@ describe('ApplicationsService.getForStaff', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -194,6 +197,7 @@ describe('ApplicationsService.getForStaff', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -232,6 +236,7 @@ describe('ApplicationsService.getForStaff', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     jest
@@ -270,6 +275,7 @@ describe('ApplicationsService.getForStaff', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(

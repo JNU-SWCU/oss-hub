@@ -47,6 +47,9 @@ import { RepositoryProvisionGithubService } from './repository-provision-github.
 import { RepositoryUrlService } from './repository-url.service';
 import { RepositoryProvisionStateService } from './repository-provision-state.service';
 
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -422,6 +425,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: r2At },
+        parseProvisionPayload,
       );
     });
     const afterR2 = await prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -1039,6 +1043,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: NOW },
+        parseProvisionPayload,
       );
       return event;
     });
@@ -1638,6 +1643,7 @@ async function createApplicationAndEvent(
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
+      parseProvisionPayload,
     );
   });
 }

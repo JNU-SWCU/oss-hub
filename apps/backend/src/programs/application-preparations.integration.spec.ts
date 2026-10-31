@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -44,6 +45,7 @@ const applications = new ApplicationsService(
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const now = new Date('2026-10-01T00:00:00Z');
 const leader = { id: 'synthetic-preparation-leader', githubId: 8_600_000_001n };

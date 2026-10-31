@@ -1,3 +1,4 @@
+import type { RepositoryProvisionHistoryPayloadParser } from '../platform/repository-provision-generation.repository';
 import type {
   ClaimedProvisionEvent,
   ClaimProvisionEventInput,
@@ -75,11 +76,13 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
     eventId: string,
     applicationId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     return this.store.confirmSupersededProvisionEvent(
       eventId,
       applicationId,
       now,
+      parsePayload,
     );
   }
 

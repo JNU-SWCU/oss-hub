@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import {
   AccountStatus,
@@ -527,6 +528,7 @@ const applicationsService = new ApplicationsService(
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);

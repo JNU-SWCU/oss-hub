@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -218,6 +219,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
         AuditLogMetadataService,
         RepositoryUrlService,
         ApplicationAnswersService,
+        RepositoryProvisionEventService,
       ],
       useFactory: (
         repository: ApplicationsRepository,
@@ -227,6 +229,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
         auditLogMetadata: AuditLogMetadataService,
         repositoryUrl: RepositoryUrlService,
         answers: ApplicationAnswersService,
+        repositoryProvisionEvents: RepositoryProvisionEventService,
       ): ApplicationsService =>
         new ApplicationsService(
           repository,
@@ -236,6 +239,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
           auditLogMetadata,
           repositoryUrl,
           answers,
+          repositoryProvisionEvents,
         ),
     },
     StudentApplicationManagementRepository,

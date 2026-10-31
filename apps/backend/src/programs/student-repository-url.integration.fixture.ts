@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
   AffiliationKind,
@@ -59,6 +60,7 @@ const service = new StudentRepositoryUrlService(
   audit,
   collectionTrigger,
   new ProgramRulesService(),
+  new RepositoryProvisionEventService(),
 );
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',

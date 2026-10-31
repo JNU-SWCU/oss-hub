@@ -11,7 +11,10 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 
 import { PrismaService } from '../platform/prisma.service';
@@ -99,6 +102,7 @@ export interface RepositoriesTransactionStore {
     eventId: string,
     applicationId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void>;
   completeProvisionEvent(
     eventId: string,
@@ -288,6 +292,7 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
     eventId: string,
     applicationId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
       this.transaction,
@@ -299,6 +304,7 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
         outcome: RepositoryIssuanceOutcome.SUPERSEDED,
         closedAt: now,
       },
+      parsePayload,
     );
   }
 

@@ -18,7 +18,10 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -436,6 +439,7 @@ export interface ApplicationsTransactionStore {
   discardRepositoryProvisionRequest(
     applicationId: string,
     discardedAt: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
   createApplicationDecisionNotifications(
@@ -443,6 +447,7 @@ export interface ApplicationsTransactionStore {
   ): Promise<void>;
   createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<RepositoryProvisionEvent>;
 }
 
@@ -595,6 +600,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
   async discardRepositoryProvisionRequest(
     applicationId: string,
     discardedAt: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     const job = (
       await this.transaction.$queryRaw<
@@ -633,6 +639,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
           outcome: RepositoryIssuanceOutcome.DISCARDED,
           closedAt: discardedAt,
         },
+        parsePayload,
       );
     }
 
@@ -700,6 +707,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
 
   async createRepositoryProvisionEvent(
     input: RepositoryProvisionEventInput,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<RepositoryProvisionEvent> {
     try {
       const event = await this.transaction.outboxEvent.create({
@@ -726,6 +734,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
           newEventId: event.id,
           now: input.requestedAt,
         },
+        parsePayload,
       );
       return toRepositoryProvisionEvent(event);
     } catch (error) {

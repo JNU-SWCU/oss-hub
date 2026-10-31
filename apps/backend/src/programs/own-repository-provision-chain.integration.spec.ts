@@ -74,6 +74,7 @@ const service = new ApplicationsService(
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const outbox = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
@@ -770,6 +771,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ),
       { collectRepository: jest.fn() },
       new ProgramRulesService(),
+      new RepositoryProvisionEventService(),
     );
     await relink.updateMine(
       APPLICANT_GITHUB_ID,

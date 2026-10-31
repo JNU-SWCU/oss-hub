@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   AffiliationKind,
   ApplicationReviewEventKind,
@@ -66,6 +67,7 @@ const service = new ApplicationsService(
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const STAFF_GITHUB_ID = 9_410_000_000n;
 

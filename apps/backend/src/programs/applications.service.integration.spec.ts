@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   AffiliationKind,
   ApplicationStatus,
@@ -49,6 +50,7 @@ const service = new ApplicationsService(
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
@@ -381,6 +383,7 @@ describe('ApplicationsService integration', () => {
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
       );
       let releaseEditor!: () => void;
       const editorRelease = new Promise<void>((resolve) => {
@@ -1067,8 +1070,16 @@ describe('ApplicationsService integration', () => {
               await decisionGate;
               return application;
             },
-            discardRepositoryProvisionRequest: (id, discardedAt) =>
-              store.discardRepositoryProvisionRequest(id, discardedAt),
+            discardRepositoryProvisionRequest: (
+              id,
+              discardedAt,
+              parsePayload,
+            ) =>
+              store.discardRepositoryProvisionRequest(
+                id,
+                discardedAt,
+                parsePayload,
+              ),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
@@ -1077,8 +1088,8 @@ describe('ApplicationsService integration', () => {
               store.transitionApplication(input),
             createApplicationDecisionNotifications: (input) =>
               store.createApplicationDecisionNotifications(input),
-            createRepositoryProvisionEvent: (input) =>
-              store.createRepositoryProvisionEvent(input),
+            createRepositoryProvisionEvent: (input, parsePayload) =>
+              store.createRepositoryProvisionEvent(input, parsePayload),
           }),
         ),
       );
@@ -1132,8 +1143,16 @@ describe('ApplicationsService integration', () => {
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
-            discardRepositoryProvisionRequest: (id, discardedAt) =>
-              store.discardRepositoryProvisionRequest(id, discardedAt),
+            discardRepositoryProvisionRequest: (
+              id,
+              discardedAt,
+              parsePayload,
+            ) =>
+              store.discardRepositoryProvisionRequest(
+                id,
+                discardedAt,
+                parsePayload,
+              ),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
@@ -1144,8 +1163,8 @@ describe('ApplicationsService integration', () => {
               await store.createApplicationDecisionNotifications(input);
               throw new Error('synthetic post-notification failure');
             },
-            createRepositoryProvisionEvent: (input) =>
-              store.createRepositoryProvisionEvent(input),
+            createRepositoryProvisionEvent: (input, parsePayload) =>
+              store.createRepositoryProvisionEvent(input, parsePayload),
           }),
         ),
       );

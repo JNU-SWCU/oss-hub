@@ -135,8 +135,18 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
   async recordRepository(
     input: RecordProvisionedRepositoryInput,
   ): Promise<ProvisionedRepository> {
+    const metadataMatchesRepositoryIdentity =
+      this.repositoryUrlService.repositoryNameFromNameWithOwner(
+        input.metadata.nameWithOwner,
+      ) === input.metadata.name &&
+      this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+        input.metadata.nameWithOwner,
+      ) === input.metadata.url;
     return this.toProvisionedRepository(
-      await this.repository.recordRepository(input),
+      await this.repository.recordRepository(
+        input,
+        metadataMatchesRepositoryIdentity,
+      ),
     );
   }
 
@@ -187,6 +197,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       applicationId,
       requestId,
       now,
+      this.parseHistoryPayload,
     );
   }
 
@@ -207,12 +218,16 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       now,
       nextReconciliationAt,
       expectedMembershipFingerprint,
+      this.parseHistoryPayload,
     );
   }
 
   failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
-    return this.repository.failJob(input);
+    return this.repository.failJob(input, this.parseHistoryPayload);
   }
+
+  private readonly parseHistoryPayload = (payload: unknown) =>
+    this.repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
 
   private toProvisionedRepository(
     row: OwnedProvisionedRepositoryRow,

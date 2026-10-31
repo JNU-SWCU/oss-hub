@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
@@ -30,6 +31,9 @@ import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
+
 const auditLogMetadataService = new AuditLogMetadataService();
 const applicationsService = new ApplicationsService(
   applications,
@@ -42,6 +46,7 @@ const applicationsService = new ApplicationsService(
   auditLogMetadataService,
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 
 assertIsolatedIntegrationDatabase({
@@ -195,6 +200,7 @@ it('links a managed organization repository without re-arming provisioning', asy
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
+      parseProvisionPayload,
     );
     return event;
   });

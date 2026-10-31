@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { repositoryUrlError } from './student-repository-url.error';
@@ -101,6 +102,7 @@ function fixture(
     audit,
     collection,
     new ProgramRulesService(),
+    new RepositoryProvisionEventService(),
   );
   return {
     service,
@@ -237,6 +239,7 @@ it('records old and new identities with the actor snapshot in the transaction', 
   expect(relink).toHaveBeenCalledWith(
     expect.objectContaining({ id: 'application' }),
     expect.objectContaining({ kind: 'EXTERNAL' }),
+    expect.any(Function),
   );
   const calls: readonly (readonly unknown[])[] = audit.record.mock.calls;
   const record = calls[0]?.[0];
@@ -268,6 +271,7 @@ it('passes a managed organization private replacement through the transaction wi
   expect(relink).toHaveBeenCalledWith(
     expect.objectContaining({ id: 'application' }),
     expect.objectContaining({ kind: 'ORGANIZATION' }),
+    expect.any(Function),
   );
 });
 

@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -142,7 +143,11 @@ export class ApplicationsService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly applicationAnswersService: ApplicationAnswersService,
+    private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
   ) {}
+
+  private readonly parseProvisionHistoryPayload = (payload: unknown) =>
+    this.repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
 
   async create(
     githubId: bigint,
@@ -534,6 +539,7 @@ export class ApplicationsService {
               await store.discardRepositoryProvisionRequest(
                 applicationId,
                 processedAt,
+                this.parseProvisionHistoryPayload,
               );
             }
             return {
@@ -548,6 +554,7 @@ export class ApplicationsService {
               await store.discardRepositoryProvisionRequest(
                 applicationId,
                 processedAt,
+                this.parseProvisionHistoryPayload,
               );
             }
             return {
@@ -588,18 +595,22 @@ export class ApplicationsService {
             await store.discardRepositoryProvisionRequest(
               applicationId,
               processedAt,
+              this.parseProvisionHistoryPayload,
             );
 
-            const event = await store.createRepositoryProvisionEvent({
-              applicationId,
-              programId: application.programId,
-              teamId: application.teamId,
-              collaboratorGithubLogins: application.collaboratorGithubLogins,
-              repositoryConnectionMode: application.repositoryConnectionMode,
-              repositoryUrl: application.repositoryUrl,
-              idempotencyKey,
-              requestedAt: processedAt,
-            });
+            const event = await store.createRepositoryProvisionEvent(
+              {
+                applicationId,
+                programId: application.programId,
+                teamId: application.teamId,
+                collaboratorGithubLogins: application.collaboratorGithubLogins,
+                repositoryConnectionMode: application.repositoryConnectionMode,
+                repositoryUrl: application.repositoryUrl,
+                idempotencyKey,
+                requestedAt: processedAt,
+              },
+              this.parseProvisionHistoryPayload,
+            );
             return {
               kind: 'APPROVED',
               applicationId,

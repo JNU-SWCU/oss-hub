@@ -7,7 +7,10 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import {
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
@@ -47,6 +50,7 @@ export class StudentRepositoryUrlTransactionRepository {
   async relink(
     context: StudentRepositoryUrlContext,
     resolution: OwnGithubRepositoryResolution,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<string> {
     const tx = this.transaction;
     await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "applicationId" = ${context.id} FOR UPDATE`;
@@ -123,6 +127,7 @@ export class StudentRepositoryUrlTransactionRepository {
     await RepositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },
+      parsePayload,
     );
     return repositoryId;
   }

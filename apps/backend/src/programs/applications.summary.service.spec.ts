@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import type {
   ApplicationsRepository,
@@ -79,6 +80,7 @@ describe('ApplicationsService.staffSummary', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual(
@@ -106,6 +108,7 @@ describe('ApplicationsService.staffSummary', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual({
@@ -134,6 +137,7 @@ describe('ApplicationsService.staffSummary', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).rejects.toMatchObject(

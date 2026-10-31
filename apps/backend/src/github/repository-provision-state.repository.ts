@@ -6,7 +6,10 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import {
   RepositoryProvisionStateHelpersRepository,
   type CompleteRepositoryInvitationInput,
@@ -134,6 +137,7 @@ export class RepositoryProvisionStateRepository {
 
   async recordRepository(
     input: RecordProvisionedRepositoryInput,
+    metadataMatchesRepositoryIdentity: boolean,
   ): Promise<OwnedProvisionedRepositoryRow> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -168,6 +172,7 @@ export class RepositoryProvisionStateRepository {
             repository,
           );
         if (
+          !metadataMatchesRepositoryIdentity ||
           !RepositoryProvisionStateHelpersRepository.matchesProvisionedMetadata(
             provisioned,
             input,
@@ -424,6 +429,7 @@ export class RepositoryProvisionStateRepository {
     applicationId: string,
     requestId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction((transaction) =>
       RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
@@ -437,6 +443,7 @@ export class RepositoryProvisionStateRepository {
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: now,
         },
+        parsePayload,
       ),
     );
   }
@@ -447,8 +454,9 @@ export class RepositoryProvisionStateRepository {
     requestId: string,
     repositoryId: string,
     now: Date,
-    nextReconciliationAt?: Date,
-    expectedMembershipFingerprint?: string,
+    nextReconciliationAt: Date | undefined,
+    expectedMembershipFingerprint: string | undefined,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const { applicationId } =
@@ -503,6 +511,7 @@ export class RepositoryProvisionStateRepository {
             outcome: RepositoryIssuanceOutcome.SUCCEEDED,
             closedAt: now,
           },
+          parsePayload,
         );
       }
     });
@@ -531,7 +540,10 @@ export class RepositoryProvisionStateRepository {
     );
   }
 
-  async failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
+  async failJob(
+    input: FailRepositoryProvisionJobInput,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const { applicationId, repositoryId } =
         await RepositoryProvisionStateHelpersRepository.lockClaimedProvisionJob(
@@ -588,6 +600,7 @@ export class RepositoryProvisionStateRepository {
             lastErrorCode: input.errorCode,
             closedAt: input.now,
           },
+          parsePayload,
         );
       }
     });

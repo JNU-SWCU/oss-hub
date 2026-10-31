@@ -102,6 +102,10 @@ export class RepositoryOutboxConsumerService {
               event.id,
               payload.applicationId,
               now,
+              (stored) =>
+                this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+                  stored,
+                ),
             );
           }
 

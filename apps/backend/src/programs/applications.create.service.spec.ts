@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   ProgramCategory,
@@ -182,6 +183,7 @@ function buildService(overrides: {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     ),
     repository,
     store,

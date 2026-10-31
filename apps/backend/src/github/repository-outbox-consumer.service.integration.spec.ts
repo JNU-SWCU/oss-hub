@@ -17,6 +17,9 @@ import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.se
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -130,6 +133,7 @@ async function createProvisionEvent(
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
+      parseProvisionPayload,
     );
     return event.id;
   });

@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -83,6 +84,7 @@ function mapItem(source: ApplicationListSource | null | undefined) {
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
       )['toApplicationListItem'](source.row, source.outbox, source.job)
     : undefined;
 }
@@ -111,6 +113,7 @@ describe('ApplicationsService.listForProgram', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -147,6 +150,7 @@ describe('ApplicationsService.listForProgram', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -258,6 +262,7 @@ describe('ApplicationsService.listForProgram', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
     const query = {
       page: 2,
@@ -293,6 +298,7 @@ describe('ApplicationsService.listForProgram', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -331,6 +337,7 @@ describe('ApplicationsService.listTeamManagementForProgram', () => {
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(

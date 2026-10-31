@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   StudentRepositoryUrlTransactionRepository,
   StudentRepositoryUrlRepository,
@@ -60,6 +61,7 @@ export class StudentRepositoryUrlService {
       'collectRepository'
     >,
     private readonly programRulesService: ProgramRulesService,
+    private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
   ) {}
 
   async getMine(
@@ -126,7 +128,14 @@ export class StudentRepositoryUrlService {
               },
               relinked: false,
             };
-          const repositoryId = await store.relink(current, resolution);
+          const repositoryId = await store.relink(
+            current,
+            resolution,
+            (stored) =>
+              this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+                stored,
+              ),
+          );
           const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
           await this.audit.record(
             {
