@@ -201,6 +201,12 @@ describe('ProgramsRepository list', () => {
     queryRaw.mockReset();
   });
 
+  it('returns no ended years when the query finds no rows', async () => {
+    queryRaw.mockResolvedValue([]);
+
+    await expect(repository.findEndedYears(NOW)).resolves.toEqual([]);
+  });
+
   it('applies search and recruiting filters before the page boundary', async () => {
     queryRaw.mockResolvedValue([]);
     count.mockResolvedValue(0);
@@ -564,6 +570,21 @@ function listRecord(
 }
 
 describe('ProgramsService list', () => {
+  it('returns no ended years when the repository finds none', async () => {
+    const repository = { findEndedYears: jest.fn().mockResolvedValue([]) };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
+    );
+
+    await expect(service.endedYears(NOW)).resolves.toEqual([]);
+    expect(repository.findEndedYears).toHaveBeenCalledWith(NOW);
+  });
+
   it('returns page metadata from the repository count', async () => {
     const repository = {
       listPrograms: jest.fn().mockResolvedValue([[], 21]),
