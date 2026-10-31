@@ -27,6 +27,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
   const [pending, setPending] = useState<{
     readonly action: InlineAdminAccessMutationAction;
     readonly detail: CanonicalAdminAccessDetail;
+    readonly returnFocusTo: HTMLElement | null;
   } | null>(null);
   const [openingUserId, setOpeningUserId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -53,6 +54,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
   const request = async (
     item: AdminAccessDirectoryItem,
     action: InlineAdminAccessMutationAction,
+    returnFocusTo: HTMLElement | null,
   ) => {
     const controller = lifetime.current;
     if (busy.current || !controller || controller.signal.aborted) return;
@@ -79,7 +81,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
         onChanged();
         return;
       }
-      setPending({ action, detail });
+      setPending({ action, detail, returnFocusTo });
     } catch (error) {
       if (controller.signal.aborted) return;
       busy.current = false;

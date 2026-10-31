@@ -525,6 +525,35 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(renderToStaticMarkup(<AdminAccessView {...baseViewProps} />)).not.toContain('sticky top-0');
   });
 
+  it('사용자 목록의 조회 오류는 sticky 영역 안에 role="alert"와 다시 시도로 표시하고 가입 신청은 기존 위치를 유지한다', () => {
+    const directory = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        errorMessage="목록을 다시 불러오지 못했습니다."
+      />,
+    );
+    expect(directory).toMatch(
+      /sticky top-0[\s\S]*?role="alert"[\s\S]*?목록을 다시 불러오지 못했습니다\.[\s\S]*?다시 시도/,
+    );
+    expect(directory.indexOf('sticky top-0')).toBeGreaterThan(
+      directory.indexOf('</form>'),
+    );
+    expect(directory.match(/다시 시도/g)).toHaveLength(1);
+
+    const queue = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        workspace="queue"
+        items={[]}
+        errorMessage="목록을 다시 불러오지 못했습니다."
+      />,
+    );
+    expect(queue).toMatch(
+      /role="alert"[\s\S]*?목록을 다시 불러오지 못했습니다\.[\s\S]*?다시 시도[\s\S]*?<form/,
+    );
+    expect(queue).not.toContain('sticky top-0');
+  });
+
   it('가입 신청이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView

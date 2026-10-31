@@ -55,7 +55,13 @@ const onChanged = vi.fn();
 function Harness() {
   current = useInlineAdminAccessMutation(onChanged);
   return (
-    <Button onClick={() => void current.request(detail, action)}>변경</Button>
+    <Button
+      onClick={(event) =>
+        void current.request(detail, action, event.currentTarget)
+      }
+    >
+      변경
+    </Button>
   );
 }
 
@@ -76,7 +82,7 @@ afterEach(() => {
 
 async function open() {
   vi.mocked(fetchCanonicalAdminAccessDetail).mockResolvedValueOnce(detail);
-  await act(async () => current.request(detail, action));
+  await act(async () => current.request(detail, action, null));
 }
 
 describe('useInlineAdminAccessMutation', () => {
@@ -88,7 +94,7 @@ describe('useInlineAdminAccessMutation', () => {
 
     act(() => {
       trigger?.click();
-      void current.request(detail, action);
+      void current.request(detail, action, null);
     });
     expect(current.openingUserId).toBe(detail.id);
     expect(current.pending).toBeNull();
@@ -98,9 +104,9 @@ describe('useInlineAdminAccessMutation', () => {
 
     await act(async () => fetchResult.resolve(detail));
     expect(current.openingUserId).toBeNull();
-    expect(current.pending).toEqual({ action, detail });
+    expect(current.pending).toEqual({ action, detail, returnFocusTo: trigger });
     expect(document.activeElement).toBe(trigger);
-    await act(async () => current.request(detail, action));
+    await act(async () => current.request(detail, action, null));
     expect(fetchCanonicalAdminAccessDetail).toHaveBeenCalledTimes(1);
   });
 
@@ -112,7 +118,7 @@ describe('useInlineAdminAccessMutation', () => {
   ])('refreshes without opening a dialog when fresh fields differ: %j', async (change) => {
     vi.mocked(fetchCanonicalAdminAccessDetail).mockResolvedValueOnce({ ...detail, ...change });
 
-    await act(async () => current.request(detail, action));
+    await act(async () => current.request(detail, action, null));
 
     expect(current.pending).toBeNull();
     expect(current.conflictNotice).toBeTruthy();
@@ -124,7 +130,7 @@ describe('useInlineAdminAccessMutation', () => {
   it('reports fetch failure outside the dialog and permits another request', async () => {
     vi.mocked(fetchCanonicalAdminAccessDetail).mockRejectedValueOnce(new TypeError('Network failed'));
 
-    await act(async () => current.request(detail, action));
+    await act(async () => current.request(detail, action, null));
 
     expect(current.actionError).toBeTruthy();
     expect(current.pending).toBeNull();
@@ -155,7 +161,7 @@ describe('useInlineAdminAccessMutation', () => {
     act(() => {
       void current.confirm(fields);
       void current.confirm(fields);
-      void current.request(detail, action);
+      void current.request(detail, action, null);
       current.cancel();
     });
     expect(current.isProcessing).toBe(true);
@@ -201,7 +207,7 @@ describe('useInlineAdminAccessMutation', () => {
 
     await act(async () => current.confirm(fields));
 
-    expect(current.pending).toEqual({ action, detail });
+    expect(current.pending).toEqual({ action, detail, returnFocusTo: null });
     expect(current.dialogError).toBe('synthetic-error');
     expect(current.isProcessing).toBe(false);
     expect(current.successMessage).toBeNull();
@@ -213,7 +219,7 @@ describe('useInlineAdminAccessMutation', () => {
   it.each(['resolve', 'reject'] as const)('aborts fetch and ignores late %s after unmount', async (outcome) => {
     const fetchResult = Promise.withResolvers<CanonicalAdminAccessDetail>();
     vi.mocked(fetchCanonicalAdminAccessDetail).mockReturnValueOnce(fetchResult.promise);
-    act(() => void current.request(detail, action));
+    act(() => void current.request(detail, action, null));
     const signal = vi.mocked(fetchCanonicalAdminAccessDetail).mock.calls[0]?.[1];
 
     act(() => root.unmount());
@@ -228,7 +234,7 @@ describe('useInlineAdminAccessMutation', () => {
     root = createRoot(container);
     act(() => root.render(<Harness />));
     await open();
-    expect(current.pending).toEqual({ action, detail });
+    expect(current.pending).toEqual({ action, detail, returnFocusTo: null });
   });
 
   it('ignores a late mutation completion after unmount', async () => {

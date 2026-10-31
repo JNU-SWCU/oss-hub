@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 import {
   Tooltip,
@@ -35,7 +35,10 @@ export type AdminAccessControlLayout = 'field' | 'cell' | 'stacked';
 export interface AdminAccessControlProps {
   readonly target: AdminAccessDirectoryItem;
   readonly disabled: boolean;
-  readonly onRequestAction: (action: AdminAccessMutationAction) => void;
+  readonly onRequestAction: (
+    action: AdminAccessMutationAction,
+    trigger: HTMLElement | null,
+  ) => void;
   readonly layout: AdminAccessControlLayout;
   readonly idPrefix: string;
 }
@@ -52,6 +55,17 @@ const ACCOUNT_STATUS_CONTROL_LABEL = '계정 상태';
 
 function triggerClassName(layout: AdminAccessControlLayout): string {
   return layout === 'cell' ? 'h-9 w-28' : 'h-11';
+}
+
+function frameClassName(layout: AdminAccessControlLayout): string | undefined {
+  switch (layout) {
+    case 'cell':
+      return undefined;
+    case 'field':
+      return 'grid gap-2';
+    case 'stacked':
+      return 'grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2';
+  }
 }
 
 function ControlFrame({
@@ -96,6 +110,7 @@ export function MemberKindAccessControl({
   idPrefix,
 }: AdminAccessControlProps) {
   const controlId = `${idPrefix}-member-kind-control`;
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const guards = deriveAdminAccessGuards(target);
   const blockedReason =
     guards.controlBlockedReason ??
@@ -107,43 +122,66 @@ export function MemberKindAccessControl({
     blockedReason !== null || disabled || target.memberKind === null;
 
   return (
-    <div className={layout === 'cell' ? undefined : 'grid gap-2'}>
+    <div className={frameClassName(layout)}>
       <ControlFrame
         layout={layout}
         controlId={controlId}
         label={MEMBER_KIND_LABEL}
         target={target}
       >
-        {(triggerProps) => (
-          <Select
-            value={currentValue}
-            disabled={isDisabled}
-            onValueChange={(nextValue) => {
-              if (nextValue === 'STUDENT' && currentValue !== 'STUDENT') {
-                onRequestAction(
-                  ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT,
-                );
-              } else if (nextValue === 'STAFF' && currentValue !== 'STAFF') {
-                onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STAFF);
-              }
-            }}
-          >
+        {(triggerProps) => {
+          const trigger = (
             <SelectTrigger
+              ref={triggerRef}
               id={controlId}
               className={triggerClassName(layout)}
               {...triggerProps}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="UNCONFIRMED" disabled>
-                {UNASSIGNED_ROLE_LABEL}
-              </SelectItem>
-              <SelectItem value="STUDENT">{ROLE_LABEL.STUDENT}</SelectItem>
-              <SelectItem value="STAFF">{ROLE_LABEL.STAFF}</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+          );
+          return (
+            <Select
+              value={currentValue}
+              disabled={isDisabled}
+              onValueChange={(nextValue) => {
+                if (nextValue === 'STUDENT' && currentValue !== 'STUDENT') {
+                  onRequestAction(
+                    ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT,
+                    triggerRef.current,
+                  );
+                } else if (nextValue === 'STAFF' && currentValue !== 'STAFF') {
+                  onRequestAction(
+                    ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STAFF,
+                    triggerRef.current,
+                  );
+                }
+              }}
+            >
+              {layout !== 'field' && blockedReason ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="block" tabIndex={0}>
+                        {trigger}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{blockedReason}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                trigger
+              )}
+              <SelectContent>
+                <SelectItem value="UNCONFIRMED" disabled>
+                  {UNASSIGNED_ROLE_LABEL}
+                </SelectItem>
+                <SelectItem value="STUDENT">{ROLE_LABEL.STUDENT}</SelectItem>
+                <SelectItem value="STAFF">{ROLE_LABEL.STAFF}</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        }}
       </ControlFrame>
       {layout === 'field' && blockedReason ? (
         <p className="text-sm text-muted-foreground">{blockedReason}</p>
@@ -188,11 +226,12 @@ export function AdminAccessStateControl({
             blockedReason: grantedBlockedReason,
           },
         ]}
-        onSelect={(next) =>
+        onSelect={(next, trigger) =>
           onRequestAction(
             next === 'GRANTED'
               ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
               : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS,
+            trigger,
           )
         }
       />
@@ -236,8 +275,8 @@ export function AccountStatusAccessControl({
           blockedReason: guards.deactivationBlockedReason,
         },
       ]}
-      onSelect={(accountStatus) =>
-        onRequestAction(actionForAccountStatus(accountStatus))
+      onSelect={(accountStatus, trigger) =>
+        onRequestAction(actionForAccountStatus(accountStatus), trigger)
       }
     />
   );
@@ -260,8 +299,9 @@ function StateControl<TValue extends string>({
   readonly value: TValue;
   readonly options: readonly StateOption<TValue>[];
   readonly disabled: boolean;
-  readonly onSelect: (value: TValue) => void;
+  readonly onSelect: (value: TValue, trigger: HTMLElement | null) => void;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const blockedReason =
     options.find(
       (option) =>
@@ -271,7 +311,7 @@ function StateControl<TValue extends string>({
     )?.blockedReason ?? null;
 
   return (
-    <div className={layout === 'cell' ? undefined : 'grid gap-2'}>
+    <div className={frameClassName(layout)}>
       <ControlFrame
         layout={layout}
         controlId={controlId}
@@ -281,6 +321,7 @@ function StateControl<TValue extends string>({
         {(triggerProps) => {
           const trigger = (
             <SelectTrigger
+              ref={triggerRef}
               id={controlId}
               className={triggerClassName(layout)}
               {...triggerProps}
@@ -301,7 +342,7 @@ function StateControl<TValue extends string>({
                   selected.value !== value &&
                   selected.blockedReason === null
                 ) {
-                  onSelect(selected.value);
+                  onSelect(selected.value, triggerRef.current);
                 }
               }}
             >

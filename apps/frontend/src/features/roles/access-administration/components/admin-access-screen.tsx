@@ -106,7 +106,8 @@ export function AdminAccessScreen({
     });
   });
   const inlineActions: AdminAccessInlineActions = {
-    onRequestAction: (item, action) => void inline.request(item, action),
+    onRequestAction: (item, action, trigger) =>
+      void inline.request(item, action, trigger),
     successMessage: inline.successMessage,
     conflictNotice: inline.conflictNotice,
     actionError: inline.actionError,
@@ -189,6 +190,7 @@ export function AdminAccessScreen({
           isProcessing={inline.isProcessing}
           errorMessage={inline.dialogError}
           profile={pendingDialog.detail.profile}
+          returnFocusTo={pendingDialog.returnFocusTo}
           onCancel={inline.cancel}
           onConfirm={(fields) => void inline.confirm(fields)}
         />

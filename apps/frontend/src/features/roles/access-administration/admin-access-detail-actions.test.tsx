@@ -237,6 +237,9 @@ describe('독립 접근 컨트롤 통합', () => {
     });
 
     chooseRoleOption('admin-member-kind-control', '교직원');
-    expect(onRequestAction).toHaveBeenCalledWith('SET_MEMBER_STAFF');
+    expect(onRequestAction).toHaveBeenCalledWith(
+      'SET_MEMBER_STAFF',
+      expect.any(HTMLButtonElement),
+    );
   });
 });

@@ -174,6 +174,10 @@ function nextFocus(element: HTMLElement): Promise<void> {
   });
 }
 
+function afterPendingTimers(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe('AdminAccessView — 행 클릭 상호작용', () => {
   it('행을 클릭하면 onRowClick이 해당 아이템으로 호출된다', () => {
     const onRowClick = vi.fn();
@@ -267,6 +271,7 @@ describe('AdminAccessView — 행 안 컨트롤 상호작용', () => {
     expect(onRequestAction).toHaveBeenCalledWith(
       rowItem,
       'SET_STATUS_DEACTIVATED',
+      trigger('합성 사용자 계정 상태'),
     );
     expect(onRowClick).not.toHaveBeenCalled();
   });
@@ -690,6 +695,27 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       expect(navigation.push).not.toHaveBeenCalled();
     });
 
+    it('상세 조회가 셀렉트의 포커스 복귀보다 먼저 끝나도 확인 후 포커스는 그 행의 트리거로 돌아온다', async () => {
+      const { detail, refresh } = await start();
+      const statusTrigger = trigger('합성 사용자 계정 상태');
+      choose('합성 사용자 계정 상태', '비활성');
+      await act(async () => detail.resolve(detailResponse()));
+      expect(dialog()).not.toBeNull();
+
+      const refocused = nextFocus(statusTrigger);
+      await act(async () => dialogButton('비활성화 확정').click());
+      await act(() => Promise.race([refocused, afterPendingTimers()]));
+
+      expect(dialog()).toBeNull();
+      expect(document.activeElement).toBe(statusTrigger);
+      await act(async () =>
+        refresh.resolve(
+          listResponse([directoryItem({ accountStatus: 'DEACTIVATED' })], 2),
+        ),
+      );
+      expect(document.activeElement).toBe(trigger('합성 사용자 계정 상태'));
+    });
+
     it('조용한 갱신이 실패하면 행을 유지하고 다시 시도는 로딩 행이 있는 전체 재조회다', async () => {
       const { detail, refresh, fetch } = await start();
       const retry = Promise.withResolvers<Response>();
@@ -699,7 +725,9 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       await act(async () => refresh.reject(new TypeError('Network failed')));
 
       expect(container.textContent).toContain('합성 사용자');
-      expect(container.querySelector('[role="alert"]')).not.toBeNull();
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert).not.toBeNull();
+      expect(alert?.closest('.sticky.top-0')).not.toBeNull();
       expect(container.textContent).not.toContain('불러오는 중…');
       const retryButton = Array.from(container.querySelectorAll('button')).find(
         (button) => button.textContent === '다시 시도',

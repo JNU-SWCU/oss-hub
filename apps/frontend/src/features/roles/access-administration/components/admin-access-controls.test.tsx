@@ -7,12 +7,19 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
+import { deriveAdminAccessGuards } from '../admin-access-detail-api';
 import type { AdminAccessDirectoryItem } from '../independent-authority-api';
 import {
   AccountStatusAccessControl,
   AdminAccessStateControl,
   MemberKindAccessControl,
 } from './admin-access-controls';
+
+const PENDING_REQUEST = {
+  id: 'req-1',
+  status: 'PENDING',
+  createdAt: '2026-07-30T00:00:00.000Z',
+} as const;
 
 function item(
   overrides: Partial<AdminAccessDirectoryItem> = {},
@@ -115,6 +122,58 @@ function isDisabled(element: HTMLElement): boolean {
   );
 }
 
+function memberKindTrigger(layout: 'cell' | 'stacked'): HTMLButtonElement {
+  return layout === 'cell'
+    ? trigger('합성 사용자 회원 유형')
+    : (container.querySelector(
+        '#row-1-member-kind-control',
+      ) as HTMLButtonElement);
+}
+
+function blockedReasonTooltip(element: HTMLElement): string | null {
+  const wrapper = element.closest<HTMLElement>('[data-slot="tooltip-trigger"]');
+  if (!wrapper) return null;
+  act(() => wrapper.focus());
+  return document.querySelector('[role="tooltip"]')?.textContent ?? null;
+}
+
+function fieldMemberKindReason(target: AdminAccessDirectoryItem): string {
+  act(() => {
+    root.render(
+      <MemberKindAccessControl
+        target={target}
+        disabled={false}
+        onRequestAction={vi.fn()}
+        layout="field"
+        idPrefix="row-1"
+      />,
+    );
+  });
+  const paragraph = container.querySelector('p')?.textContent;
+  if (!paragraph) throw new TypeError('field 레이아웃에 막힘 사유 문단이 없습니다.');
+  return paragraph;
+}
+
+function expectMemberKindReasonTooltips(layout: 'cell' | 'stacked') {
+  const pending = item({ pendingRequest: PENDING_REQUEST });
+  renderAll(pending, layout);
+  expect(memberKindTrigger(layout).disabled).toBe(true);
+  expect(blockedReasonTooltip(memberKindTrigger(layout))).toBe(
+    deriveAdminAccessGuards(pending).controlBlockedReason,
+  );
+
+  const incomplete = item({ isProfileComplete: false });
+  const fieldReason = fieldMemberKindReason(incomplete);
+  renderAll(incomplete, layout);
+  expect(blockedReasonTooltip(memberKindTrigger(layout))).toBe(fieldReason);
+
+  renderAll(item({ memberKind: null }), layout);
+  expect(memberKindTrigger(layout).disabled).toBe(true);
+  expect(
+    memberKindTrigger(layout).closest('[data-slot="tooltip-trigger"]'),
+  ).toBeNull();
+}
+
 describe('cell 레이아웃', () => {
   it('보이는 라벨 없이 표시이름이 들어간 접근성 이름을 쓰고 h-9 w-28이다', () => {
     renderAll(item(), 'cell');
@@ -153,7 +212,9 @@ describe('cell 레이아웃', () => {
       );
     });
 
-    expect(onRequestAction.mock.calls.flat()).toEqual(['SET_MEMBER_STAFF']);
+    expect(onRequestAction.mock.calls).toEqual([
+      ['SET_MEMBER_STAFF', trigger('합성 사용자 회원 유형')],
+    ]);
   });
 
   it('프로필 미완료 행은 허용 항목이 비활성이고 툴팁이 같은 사유를 보인다', () => {
@@ -180,14 +241,13 @@ describe('cell 레이아웃', () => {
     ).toBe(true);
   });
 
+  it('대기 요청과 프로필 미완료 행의 회원 유형 사유는 툴팁으로 읽을 수 있고 memberKind null은 설명이 없다', () => {
+    expectMemberKindReasonTooltips('cell');
+  });
+
   it('대기 요청, 프로필 미완료, memberKind null이면 회원 유형이 비활성이다', () => {
     const cases: Partial<AdminAccessDirectoryItem>[] = [
-      {
-        pendingRequest: {
-          id: 'req-1',
-          createdAt: '2026-07-30T00:00:00.000Z',
-        } as AdminAccessDirectoryItem['pendingRequest'],
-      },
+      { pendingRequest: PENDING_REQUEST },
       { isProfileComplete: false },
       { memberKind: null },
     ];
@@ -229,6 +289,11 @@ describe('stacked 레이아웃', () => {
     expect(
       container.querySelector('#row-1-member-kind-control')?.className,
     ).toContain('h-11');
+  });
+
+  it('대기 요청과 프로필 미완료 행의 회원 유형 사유는 툴팁으로 읽을 수 있고 memberKind null은 설명이 없다', () => {
+    expectMemberKindReasonTooltips('stacked');
+    expect(container.querySelectorAll('p')).toHaveLength(0);
   });
 
   it('프로필 미완료 행의 허용 항목 사유는 툴팁으로만 전달된다', () => {

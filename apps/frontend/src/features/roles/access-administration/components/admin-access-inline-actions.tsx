@@ -4,6 +4,7 @@ import type { ComponentType, MouseEvent } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 import type { AdminAccessMutationAction } from '../admin-access-mutation-policy';
 import type { AdminAccessDirectoryItem } from '../independent-authority-api';
@@ -20,10 +21,16 @@ export interface AdminAccessInlineActions {
   readonly onRequestAction: (
     item: AdminAccessDirectoryItem,
     action: InlineAdminAccessMutationAction,
+    trigger: HTMLElement | null,
   ) => void;
   readonly successMessage: string | null;
   readonly conflictNotice: string | null;
   readonly actionError: string | null;
+}
+
+export interface AdminAccessListError {
+  readonly message: string;
+  readonly onRetry: () => void;
 }
 
 function isInlineAdminAccessMutationAction(
@@ -47,9 +54,9 @@ function inlineControlProps(
     disabled: false,
     layout,
     idPrefix,
-    onRequestAction: (action) => {
+    onRequestAction: (action, trigger) => {
       if (isInlineAdminAccessMutationAction(action)) {
-        inlineActions.onRequestAction(item, action);
+        inlineActions.onRequestAction(item, action, trigger);
       }
     },
   };
@@ -101,16 +108,39 @@ export function AdminAccessInlineControlStack({
   );
 }
 
+export function AdminAccessListErrorAlert({
+  error,
+}: {
+  readonly error: AdminAccessListError;
+}) {
+  return (
+    <Alert variant="destructive">
+      <AlertDescription className="flex items-center justify-between gap-3">
+        <span>{error.message}</span>
+        <Button className="h-11" variant="outline" onClick={error.onRetry}>
+          다시 시도
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function AdminAccessInlineNotices({
   inlineActions,
+  listError = null,
 }: {
   readonly inlineActions: AdminAccessInlineActions;
+
+  readonly listError?: AdminAccessListError | null;
 }) {
   const { successMessage, conflictNotice, actionError } = inlineActions;
-  if (!successMessage && !conflictNotice && !actionError) return null;
+  if (!successMessage && !conflictNotice && !actionError && !listError) {
+    return null;
+  }
 
   return (
     <div className="sticky top-0 z-10 grid gap-3">
+      {listError ? <AdminAccessListErrorAlert error={listError} /> : null}
       {conflictNotice ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />

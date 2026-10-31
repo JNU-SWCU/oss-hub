@@ -247,7 +247,7 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
   });
 
   it('다른 값을 고르면 그 값으로 가는 명령 하나가 나간다', () => {
-    const onRequestAction = vi.fn();
+    const onRequestAction = vi.fn<(action: string) => void>();
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -266,7 +266,7 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
     choose(ADMIN, 'GRANTED');
     choose(STATUS, 'DEACTIVATED');
 
-    expect(onRequestAction.mock.calls.flat()).toEqual([
+    expect(onRequestAction.mock.calls.map(([requested]) => requested)).toEqual([
       'SET_MEMBER_STUDENT',
       'GRANT_ADMIN_ACCESS',
       'SET_STATUS_DEACTIVATED',
@@ -572,7 +572,10 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
       ['허용', false],
     ]);
     choose(ADMIN, 'NONE');
-    expect(onRequestAction).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
+    expect(onRequestAction).toHaveBeenCalledWith(
+      'REVOKE_ADMIN_ACCESS',
+      expect.any(HTMLButtonElement),
+    );
     expect(container.textContent).not.toContain(
       '자기 계정의 관리자 접근은 회수할 수 없습니다.',
     );
