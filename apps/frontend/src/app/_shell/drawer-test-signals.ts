@@ -1,6 +1,6 @@
 const DEFAULT_TIMEOUT_MS = 1000;
 
-export function withTimeout<T>(
+function withTimeout<T>(
   promise: Promise<T>,
   label: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,

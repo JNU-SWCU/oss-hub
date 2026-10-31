@@ -48,10 +48,7 @@ import {
   withoutLoadingCounts,
 } from './program-shell-policy';
 
-export {
-  SidebarDrawerProvider,
-  useSidebarDrawer,
-} from './sidebar-drawer-context';
+export { SidebarDrawerProvider } from './sidebar-drawer-context';
 
 export * from './sidebar-collapsed';
 export { shouldLoadProgramOverview } from './program-shell-policy';

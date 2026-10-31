@@ -72,7 +72,7 @@ export function ProgramScopeSidebar({
   );
 }
 
-export interface ProgramScopeSidebarNavProps {
+interface ProgramScopeSidebarNavProps {
   readonly groups: readonly ProgramScopeSidebarGroup[];
   readonly pathname: string;
   readonly search: string;
@@ -102,7 +102,7 @@ function stageHrefWithCurrentQuery(
   return `${targetPath}${query ? `?${query}` : ''}`;
 }
 
-export function ProgramScopeSidebarNav({
+function ProgramScopeSidebarNav({
   groups,
   pathname,
   search,

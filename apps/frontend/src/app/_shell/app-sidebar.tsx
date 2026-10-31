@@ -82,7 +82,7 @@ export function AppSidebar({
   );
 }
 
-export interface AppSidebarNavProps {
+interface AppSidebarNavProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
   readonly search?: string;
@@ -92,7 +92,7 @@ export interface AppSidebarNavProps {
   readonly countsPending?: boolean;
 }
 
-export function AppSidebarNav({
+function AppSidebarNav({
   groups,
   pathname,
   search = '',

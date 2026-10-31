@@ -24,7 +24,7 @@ import { ShellIcon } from './shell-icons';
 
 export const SIDEBAR_ASIDE_ID = 'app-sidebar-aside';
 
-export type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
+type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
 
 export type SidebarShellVariant = 'aside' | 'drawer';
 
@@ -33,7 +33,7 @@ const FOOT_SLOT: Readonly<Record<SidebarShellKind, string>> = {
   'program-scope-sidebar': 'program-scope-sidebar-foot',
 };
 
-export type SidebarPhase = 'open' | 'collapsing' | 'collapsed' | 'expanding';
+type SidebarPhase = 'open' | 'collapsing' | 'collapsed' | 'expanding';
 
 function cssDurationMs(name: string): number {
   const raw = getComputedStyle(document.documentElement)
