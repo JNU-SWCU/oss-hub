@@ -8,6 +8,7 @@ import {
   roleBadgeVariant,
   roleLabel,
 } from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
 
 import type {
   AdminAccessAccountStatus,
@@ -18,6 +19,11 @@ import {
   accessDetailPath,
   type AccessWorkspace,
 } from '../admin-access-list-query';
+import { isAdminAccessDirectoryItem } from '../independent-authority-api';
+import {
+  AdminAccessInlineControlStack,
+  type AdminAccessInlineActions,
+} from './admin-access-inline-actions';
 
 export function formatAdminAccessDate(value: string | null): string {
   if (!value) return '기록 없음';
@@ -50,14 +56,18 @@ export function AccountStatusBadge({
 export function AdminAccessUserCell({
   item,
   workspace,
+  inlineActions,
   listSearch = '',
 }: {
   readonly item: AdminAccessListItem;
   readonly workspace: AccessWorkspace;
+  readonly inlineActions: AdminAccessInlineActions;
 
   readonly listSearch?: string;
 }) {
   const isQueue = workspace === 'queue';
+  const directoryItem =
+    !isQueue && isAdminAccessDirectoryItem(item) ? item : null;
 
   return (
     <div className="flex min-w-0 flex-col gap-2 lg:min-w-48 lg:gap-1">
@@ -93,9 +103,23 @@ export function AdminAccessUserCell({
             {formatAdminAccessDate(item.pendingRequest?.createdAt ?? null)}
           </span>
         ) : (
-          <div className="flex flex-wrap items-center gap-2 lg:hidden">
-            <RoleBadge role={item.role} />
-            <AccountStatusBadge status={item.accountStatus} />
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-2 lg:hidden',
+              directoryItem && 'basis-full',
+            )}
+          >
+            {directoryItem ? (
+              <AdminAccessInlineControlStack
+                item={directoryItem}
+                inlineActions={inlineActions}
+              />
+            ) : (
+              <>
+                <RoleBadge role={item.role} />
+                <AccountStatusBadge status={item.accountStatus} />
+              </>
+            )}
             <span className="text-muted-foreground">
               가입 일시 {formatAdminAccessDate(item.createdAt)}
             </span>

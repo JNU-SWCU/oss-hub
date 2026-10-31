@@ -28,7 +28,11 @@ import {
   parseAdminAccessSearchParams,
   parseApplicantQueueSearchParams,
 } from '../admin-access-url-state';
+import { adminAccessMutationDialogCopy } from './admin-access-detail-mutation';
+import type { AdminAccessInlineActions } from './admin-access-inline-actions';
+import { AdminAccessMutationConfirmDialog } from './admin-access-mutation-confirm-dialog';
 import { AdminAccessView } from './admin-access-view';
+import { useInlineAdminAccessMutation } from './use-inline-admin-access-mutation';
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError
@@ -121,6 +125,29 @@ export function AdminAccessScreen({
     };
   }, [load]);
 
+  const latestLoad = useRef(load);
+  useEffect(() => {
+    latestLoad.current = load;
+  }, [load]);
+  const inline = useInlineAdminAccessMutation(() => {
+    void latestLoad.current({ quiet: true });
+  });
+  const inlineActions: AdminAccessInlineActions = {
+    onRequestAction: (item, action) => void inline.request(item, action),
+    successMessage: inline.successMessage,
+    conflictNotice: inline.conflictNotice,
+    actionError: inline.actionError,
+  };
+  const pendingDialog = inline.pending
+    ? {
+        ...inline.pending,
+        ...adminAccessMutationDialogCopy(
+          inline.pending.action,
+          inline.pending.detail,
+        ),
+      }
+    : null;
+
   const resetFilters = () => {
     committedQueryRef.current = defaults.query;
     setQueryInput(defaults.query);
@@ -128,51 +155,68 @@ export function AdminAccessScreen({
   };
 
   return (
-    <AdminAccessView
-      {...{ onChanged: () => void load({ quiet: true }) }}
-      workspace={workspace}
-      listSearch={listSearch}
-      items={items}
-      query={queryInput}
-      role={state.role}
-      accountStatus={state.accountStatus}
-      pendingRequest={state.pendingRequest}
-      sort={state.sort}
-      direction={state.direction}
-      page={state.page}
-      limit={ADMIN_ACCESS_LIST_LIMIT}
-      total={total}
-      pendingCount={pendingCount}
-      isLoading={isLoading}
-      errorMessage={error}
-      onQueryChange={setQueryInput}
-      onSearch={() => {
-        const trimmed = queryInput.trim();
-        committedQueryRef.current = trimmed;
-        navigate({ ...state, query: trimmed, page: 1 });
-      }}
-      onRoleChange={(nextRole) => {
-        navigate({ ...state, role: nextRole, page: 1 });
-      }}
-      onAccountStatusChange={(nextStatus) => {
-        navigate({ ...state, accountStatus: nextStatus, page: 1 });
-      }}
-      onPendingRequestChange={(nextPendingRequest) => {
-        navigate({ ...state, pendingRequest: nextPendingRequest, page: 1 });
-      }}
-      onSortToggle={(field: AdminAccessSortField) => {
-        const direction =
-          state.sort === field && state.direction === 'asc' ? 'desc' : 'asc';
-        navigate({ ...state, sort: field, direction, page: 1 });
-      }}
-      onPageChange={(nextPage) => navigate({ ...state, page: nextPage })}
-      onRetry={() => void load()}
-      onResetFilters={resetFilters}
-      onRowClick={(item) =>
-        router.push(accessDetailPath(workspace, item.id, listSearch), {
-          scroll: false,
-        })
-      }
-    />
+    <>
+      <AdminAccessView
+        workspace={workspace}
+        listSearch={listSearch}
+        inlineActions={inlineActions}
+        items={items}
+        query={queryInput}
+        role={state.role}
+        accountStatus={state.accountStatus}
+        pendingRequest={state.pendingRequest}
+        sort={state.sort}
+        direction={state.direction}
+        page={state.page}
+        limit={ADMIN_ACCESS_LIST_LIMIT}
+        total={total}
+        pendingCount={pendingCount}
+        isLoading={isLoading}
+        errorMessage={error}
+        onQueryChange={setQueryInput}
+        onSearch={() => {
+          const trimmed = queryInput.trim();
+          committedQueryRef.current = trimmed;
+          navigate({ ...state, query: trimmed, page: 1 });
+        }}
+        onRoleChange={(nextRole) => {
+          navigate({ ...state, role: nextRole, page: 1 });
+        }}
+        onAccountStatusChange={(nextStatus) => {
+          navigate({ ...state, accountStatus: nextStatus, page: 1 });
+        }}
+        onPendingRequestChange={(nextPendingRequest) => {
+          navigate({ ...state, pendingRequest: nextPendingRequest, page: 1 });
+        }}
+        onSortToggle={(field: AdminAccessSortField) => {
+          const direction =
+            state.sort === field && state.direction === 'asc' ? 'desc' : 'asc';
+          navigate({ ...state, sort: field, direction, page: 1 });
+        }}
+        onPageChange={(nextPage) => navigate({ ...state, page: nextPage })}
+        onRetry={() => void load()}
+        onResetFilters={resetFilters}
+        onRowClick={(item) =>
+          router.push(accessDetailPath(workspace, item.id, listSearch), {
+            scroll: false,
+          })
+        }
+      />
+      {pendingDialog ? (
+        <AdminAccessMutationConfirmDialog
+          key={`${pendingDialog.detail.id}-${pendingDialog.action}`}
+          action={pendingDialog.action}
+          title={pendingDialog.title}
+          description={pendingDialog.description}
+          confirmLabel={pendingDialog.confirmLabel}
+          destructive={pendingDialog.destructive}
+          isProcessing={inline.isProcessing}
+          errorMessage={inline.dialogError}
+          profile={pendingDialog.detail.profile}
+          onCancel={inline.cancel}
+          onConfirm={(fields) => void inline.confirm(fields)}
+        />
+      ) : null}
+    </>
   );
 }

@@ -12,10 +12,15 @@ import type {
 } from '../admin-access-api';
 import type { AccessWorkspace } from '../admin-access-list-query';
 import { AdminAccessFilters } from './admin-access-filters';
+import {
+  AdminAccessInlineNotices,
+  type AdminAccessInlineActions,
+} from './admin-access-inline-actions';
 import { AdminAccessTable } from './admin-access-table';
 
 export interface AdminAccessViewProps {
   readonly workspace: AccessWorkspace;
+  readonly inlineActions: AdminAccessInlineActions;
   readonly items: readonly AdminAccessListItem[];
   readonly query: string;
   readonly role: AdminAccessRoleFilter | '';
@@ -85,9 +90,11 @@ export function AdminAccessView(props: AdminAccessViewProps) {
         onRoleChange={props.onRoleChange}
         onAccountStatusChange={props.onAccountStatusChange}
       />
+      <AdminAccessInlineNotices inlineActions={props.inlineActions} />
       <AdminAccessTable
         workspace={props.workspace}
         listSearch={props.listSearch}
+        inlineActions={props.inlineActions}
         items={props.items}
         sort={props.sort}
         direction={props.direction}
