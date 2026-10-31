@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { AccountStatus } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -191,6 +193,160 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
+  it('마이그레이션은 기존 활동 행과 수치를 PUBLIC으로 보존한다 (stale_state)', async () => {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('CREATE SCHEMA activity_visibility_migration');
+      await tx.$executeRawUnsafe(
+        'SET LOCAL search_path TO activity_visibility_migration',
+      );
+      const migrations = resolve(__dirname, '../../prisma/migrations');
+      const previousSql = readFileSync(
+        resolve(
+          migrations,
+          '20260819090000_add_github_user_activity_history/migration.sql',
+        ),
+        'utf8',
+      );
+      for (const statement of previousSql.split(';').filter((sql) => sql.trim())) {
+        await tx.$executeRawUnsafe(statement);
+      }
+      await tx.$executeRaw`
+        INSERT INTO "GithubUserActivityHistory"
+          ("githubId", "githubLogin", "year", "commitCount", "pullRequestCount",
+           "issueCount", "repositoryCount", "starCount", "observedAt")
+        VALUES (${ALPHA_GITHUB_ID}, 'legacy-login', 2026, 42, 8, 7, 6, 5, ${NOW})
+      `;
+
+      const migrationSql = readFileSync(
+        resolve(migrations, '20261031000000_add_activity_visibility/migration.sql'),
+        'utf8',
+      );
+      for (const statement of migrationSql.split(';').filter((sql) => sql.trim())) {
+        await tx.$executeRawUnsafe(statement);
+      }
+
+      const rows = await tx.$queryRaw`
+        SELECT * FROM "GithubUserActivityHistory"
+      `;
+      expect(rows).toEqual([
+        {
+          githubId: ALPHA_GITHUB_ID,
+          githubLogin: 'legacy-login',
+          year: CURRENT_YEAR,
+          visibility: 'PUBLIC',
+          commitCount: 42,
+          pullRequestCount: 8,
+          issueCount: 7,
+          repositoryCount: 6,
+          starCount: 5,
+          observedAt: NOW,
+        },
+      ]);
+      await tx.$executeRawUnsafe('DROP SCHEMA activity_visibility_migration CASCADE');
+    });
+  });
+
+  it('같은 githubId와 연도에 PUBLIC과 PRIVATE 관측을 함께 보존한다', async () => {
+    await buildService().run();
+    const repository = new CollectionUserActivityRepository(prisma);
+    const privateObservation = {
+      githubId: ALPHA_GITHUB_ID,
+      githubLogin: `${SEED_PREFIX}-alpha`,
+      year: CURRENT_YEAR,
+      commitCount: 42,
+      pullRequestCount: 8,
+      issueCount: 7,
+      repositoryCount: 6,
+      observedAt: NOW,
+    };
+
+    await repository.upsertPrivateObservation(privateObservation);
+
+    const rows = await prisma.githubUserActivityHistory.findMany({
+      where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          visibility: 'PUBLIC',
+          ...metricsFor(`${SEED_PREFIX}-alpha`),
+        }),
+        expect.objectContaining({
+          ...privateObservation,
+          visibility: 'PRIVATE',
+          starCount: 0,
+        }),
+      ]),
+    );
+  });
+
+  it('PUBLIC 재수집은 PRIVATE 행의 수치와 관측 시각을 바꾸지 않는다', async () => {
+    const repository = new CollectionUserActivityRepository(prisma);
+    await repository.upsertPrivateObservation({
+      githubId: ALPHA_GITHUB_ID,
+      githubLogin: `${SEED_PREFIX}-alpha`,
+      year: CURRENT_YEAR,
+      commitCount: 42,
+      pullRequestCount: 8,
+      issueCount: 7,
+      repositoryCount: 6,
+      observedAt: new Date('2026-08-18T00:00:00.000Z'),
+    });
+    const privateBefore = await prisma.githubUserActivityHistory.findFirstOrThrow({
+      where: { githubId: ALPHA_GITHUB_ID },
+    });
+
+    await buildService().run();
+
+    const rows = await prisma.githubUserActivityHistory.findMany({
+      where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows).toContainEqual(privateBefore);
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        visibility: 'PUBLIC',
+        ...metricsFor(`${SEED_PREFIX}-alpha`),
+        observedAt: NOW,
+      }),
+    );
+  });
+
+  it('PRIVATE 재관측은 같은 행을 갱신하고 별은 0으로 유지한다', async () => {
+    const repository = new CollectionUserActivityRepository(prisma);
+    const observation = {
+      githubId: ALPHA_GITHUB_ID,
+      githubLogin: `${SEED_PREFIX}-alpha`,
+      year: CURRENT_YEAR,
+      commitCount: 42,
+      pullRequestCount: 8,
+      issueCount: 7,
+      repositoryCount: 6,
+      observedAt: NOW,
+    };
+    await repository.upsertPrivateObservation(observation);
+
+    await repository.upsertPrivateObservation({
+      ...observation,
+      commitCount: 43,
+      observedAt: new Date('2026-08-19T01:00:00.000Z'),
+    });
+
+    const rows = await prisma.githubUserActivityHistory.findMany({
+      where: { githubId: ALPHA_GITHUB_ID },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        visibility: 'PRIVATE',
+        commitCount: 43,
+        starCount: 0,
+        observedAt: new Date('2026-08-19T01:00:00.000Z'),
+      }),
+    );
+  });
+
   it('재실행해도 행이 늘지 않고 전량 재계산으로 덮어쓴다', async () => {
     const service = buildService();
     await service.run();
@@ -311,7 +467,11 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     expect(seededQueriedLogins()).not.toContain(`${SEED_PREFIX}-alpha`);
     const alpha = await prisma.githubUserActivityHistory.findUnique({
       where: {
-        githubId_year: { githubId: ALPHA_GITHUB_ID, year: PAST_YEAR },
+        githubId_year_visibility: {
+          githubId: ALPHA_GITHUB_ID,
+          year: PAST_YEAR,
+          visibility: 'PUBLIC',
+        },
       },
     });
     expect(alpha).toEqual(

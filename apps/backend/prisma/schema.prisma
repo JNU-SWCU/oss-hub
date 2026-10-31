@@ -973,10 +973,16 @@ model Contribution {
   @@index([date])
 }
 
+enum ActivityVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 model GithubUserActivityHistory {
   githubId    BigInt
   githubLogin String
   year        Int
+  visibility  ActivityVisibility @default(PUBLIC)
 
   commitCount      Int @default(0)
   pullRequestCount Int @default(0)
@@ -986,7 +992,7 @@ model GithubUserActivityHistory {
 
   observedAt DateTime
 
-  @@id([githubId, year])
+  @@id([githubId, year, visibility])
   @@index([year])
 }
 
