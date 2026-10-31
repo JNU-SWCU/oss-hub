@@ -145,10 +145,12 @@ async function sendDeadlineDigest(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
   const { DeadlineDigestService } =
     await import('./notifications/deadline-digest.service');
+  const { DeadlineDigestMailService } =
+    await import('./notifications/deadline-digest-mail.service');
   const forceToValue = PROCESS_RUNTIME_CONFIG.DIGEST_FORCE_TO;
 
   if (forceToValue !== undefined) {
-    await DeadlineDigestService.sendForcedDeadlineDigest(
+    await new DeadlineDigestMailService().sendForcedDeadlineDigest(
       PROCESS_RUNTIME_CONFIG,
       forceToValue,
       logger,

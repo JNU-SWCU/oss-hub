@@ -1,3 +1,4 @@
+import { DeadlineDigestMailService } from '../notifications/deadline-digest-mail.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
@@ -76,6 +77,7 @@ const digest = new DeadlineDigestService(
     },
   },
   { FRONTEND_URL: 'https://oss-hub.invalid' },
+  new DeadlineDigestMailService(),
 );
 
 function updateRequest(notifyOnDeadline: boolean) {
