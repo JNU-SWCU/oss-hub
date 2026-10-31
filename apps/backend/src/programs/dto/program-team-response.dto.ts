@@ -43,12 +43,6 @@ export class StaffProgramTeamResponseDto {
       members: view.members,
     };
   }
-
-  static fromAll(
-    views: readonly StaffTeamView[],
-  ): StaffProgramTeamResponseDto[] {
-    return views.map((view) => StaffProgramTeamResponseDto.from(view));
-  }
 }
 
 export class ProgramTeamResponseDto {

@@ -1100,59 +1100,51 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'MyApplicationPreparationResponseDto leader',
     () =>
-      MyApplicationPreparationResponseDto.from(
-        ApplicationPreparationResponseDto.from({
-          id: 'team-1',
-          name: 'Team A',
-          memberCount: 2,
-          minMembers: 1,
-          maxMembers: 4,
-          isLeader: true,
-          members: [
-            {
-              userId: 'user-1',
-              nickname: 'octo',
-              name: 'Octo',
-              isLeader: true,
-            },
-          ],
-        }),
-      ),
+      MyApplicationPreparationResponseDto.from({
+        id: 'team-1',
+        name: 'Team A',
+        memberCount: 2,
+        minMembers: 1,
+        maxMembers: 4,
+        isLeader: true,
+        members: [
+          {
+            userId: 'user-1',
+            nickname: 'octo',
+            name: 'Octo',
+            isLeader: true,
+          },
+        ],
+      }),
   ],
   [
     'MyApplicationPreparationResponseDto member',
     () =>
-      MyApplicationPreparationResponseDto.from(
-        ApplicationPreparationResponseDto.from({
-          id: 'team-1',
-          name: 'Team A',
-          memberCount: 2,
-          minMembers: 1,
-          maxMembers: 4,
-          isLeader: false,
-          members: [
-            {
-              userId: 'user-1',
-              nickname: 'octo',
-              name: 'Octo',
-              isLeader: false,
-            },
-          ],
-        }),
-      ),
+      MyApplicationPreparationResponseDto.from({
+        id: 'team-1',
+        name: 'Team A',
+        memberCount: 2,
+        minMembers: 1,
+        maxMembers: 4,
+        isLeader: false,
+        members: [
+          {
+            userId: 'user-1',
+            nickname: 'octo',
+            name: 'Octo',
+            isLeader: false,
+          },
+        ],
+      }),
   ],
   ['MyProgramTeamResponseDto none', () => MyProgramTeamResponseDto.from(null)],
   [
     'MyProgramTeamResponseDto leader',
-    () =>
-      MyProgramTeamResponseDto.from(ProgramTeamResponseDto.from(programTeam)),
+    () => MyProgramTeamResponseDto.from(programTeam),
   ],
   [
     'MyProgramTeamResponseDto member',
-    () =>
-      MyProgramTeamResponseDto.from(
-        ProgramTeamResponseDto.from({ ...programTeam, isLeader: false }),
-      ),
+    () => MyProgramTeamResponseDto.from({ ...programTeam, isLeader: false }),
   ],
   [
     'ProgramDetailResponseDto',
@@ -1326,7 +1318,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'StaffProgramTeamResponseDto fromAll',
     () =>
-      StaffProgramTeamResponseDto.fromAll([
+      [
         {
           teamId: 'team-1',
           name: 'Team A',
@@ -1334,7 +1326,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           members: teamMembers,
         },
         { teamId: 'team-2', name: 'Team B', memberCount: 0, members: [] },
-      ]),
+      ].map((view) => StaffProgramTeamResponseDto.from(view)),
   ],
   ['ProgramTeamResponseDto', () => ProgramTeamResponseDto.from(programTeam)],
   [
@@ -1728,21 +1720,19 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'MyStudentApplicationResponseDto application',
     () =>
-      MyStudentApplicationResponseDto.from(
-        StudentApplicationResponseDto.from({
-          id: 'application-1',
-          programId: 'program-1',
-          status: 'SUBMITTED',
-          teamId: 'team-1',
-          answers: { applicantName: 'Octo', title: 'Project' },
-          submittedAt: at('2026-01-02T03:04:05.000Z'),
-          updatedAt: at('2026-01-03T03:04:05.000Z'),
-          isRepositoryPublicationPlanned: true,
-          rejectionReason: null,
-          isManager: true,
-          canManage: true,
-        }),
-      ),
+      MyStudentApplicationResponseDto.from({
+        id: 'application-1',
+        programId: 'program-1',
+        status: 'SUBMITTED',
+        teamId: 'team-1',
+        answers: { applicantName: 'Octo', title: 'Project' },
+        submittedAt: at('2026-01-02T03:04:05.000Z'),
+        updatedAt: at('2026-01-03T03:04:05.000Z'),
+        isRepositoryPublicationPlanned: true,
+        rejectionReason: null,
+        isManager: true,
+        canManage: true,
+      }),
   ],
   [
     'StudentApplicationResponseDto manager',

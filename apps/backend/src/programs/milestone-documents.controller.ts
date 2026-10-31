@@ -86,15 +86,16 @@ export class MilestoneDocumentsController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
-  collection(
+  async collection(
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return this.collectionService
-      .collectForStaffFromRequest(milestoneId, query)
-      .then((result) =>
-        MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-      );
+    return MilestoneDocumentDeliveryCollectionResponseDto.from(
+      await this.collectionService.collectForStaffFromRequest(
+        milestoneId,
+        query,
+      ),
+    );
   }
 
   @Get('collection/archive')
@@ -169,34 +170,39 @@ export class MilestoneDocumentsController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
-  history(
+  async history(
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service
-      .historyForStaff(milestoneId, documentId, applicationId, query)
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+    return MilestoneDocumentHistoryPageResponseDto.from(
+      await this.service.historyForStaff(
+        milestoneId,
+        documentId,
+        applicationId,
+        query,
+      ),
+    );
   }
 
   @Get(':documentId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
-  participantHistory(
+  async participantHistory(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service
-      .historyForParticipant(
+    return MilestoneDocumentHistoryPageResponseDto.from(
+      await this.service.historyForParticipant(
         request.sessionGithubId,
         milestoneId,
         documentId,
         query,
-      )
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      ),
+    );
   }
 
   @Post(':documentId/applications/:applicationId/reviews')
@@ -204,37 +210,42 @@ export class MilestoneDocumentsController {
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
-  review(
+  async review(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
-    return this.reviewsService
-      .reviewFromRequest(
+    return MilestoneDocumentReviewResponseDto.from(
+      await this.reviewsService.reviewFromRequest(
         request.principal.id,
         milestoneId,
         documentId,
         applicationId,
         body,
-      )
-      .then((result) => MilestoneDocumentReviewResponseDto.from(result));
+      ),
+    );
   }
 
   @Post(':documentId/submissions')
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  submit(
+  async submit(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    return this.service
-      .submitFromRequest(request.sessionGithubId, milestoneId, documentId, body)
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+    return MilestoneDocumentSubmissionResponseDto.from(
+      await this.service.submitFromRequest(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        body,
+      ),
+    );
   }
 
   @Get(':documentId/submissions/current/file')

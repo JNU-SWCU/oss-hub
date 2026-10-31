@@ -25,7 +25,6 @@ import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-req
 import { TeamActivityResponseDto } from './dto/team-activity-response.dto';
 import {
   DeleteTeamResponseDto,
-  ProgramTeamResponseDto,
   RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
 } from './dto/program-team-response.dto';
@@ -66,11 +65,9 @@ export class ProgramTeamsController {
   async me(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
-  ): Promise<MyProgramTeamResponseDto<ProgramTeamResponseDto>> {
+  ): Promise<MyProgramTeamResponseDto> {
     const team = await this.service.getMe(request.sessionGithubId, programId);
-    return MyProgramTeamResponseDto.from(
-      team ? ProgramTeamResponseDto.from(team) : null,
-    );
+    return MyProgramTeamResponseDto.from(team);
   }
 
   @Delete('me')
@@ -102,8 +99,8 @@ export class ProgramTeamsController {
   async list(
     @Param('programId') programId: string,
   ): Promise<StaffProgramTeamResponseDto[]> {
-    return StaffProgramTeamResponseDto.fromAll(
-      await this.service.listForStaff(programId),
+    return (await this.service.listForStaff(programId)).map((view) =>
+      StaffProgramTeamResponseDto.from(view),
     );
   }
 

@@ -29,13 +29,13 @@ export class ProgramSubmissionsController {
   @Get('me')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
-  checklist(
+  async checklist(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
   ): Promise<SubmissionChecklistResponseDto> {
-    return this.service
-      .checklist(request.sessionGithubId, programId)
-      .then((result) => SubmissionChecklistResponseDto.from(result));
+    return SubmissionChecklistResponseDto.from(
+      await this.service.checklist(request.sessionGithubId, programId),
+    );
   }
 
   @Get('matrix')

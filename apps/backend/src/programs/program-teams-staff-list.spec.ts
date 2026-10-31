@@ -169,8 +169,8 @@ describe('ProgramTeamsService.listForStaff', () => {
 
     const payload: unknown = JSON.parse(
       JSON.stringify(
-        StaffProgramTeamResponseDto.fromAll(
-          await service.listForStaff(PROGRAM_ID),
+        (await service.listForStaff(PROGRAM_ID)).map((view) =>
+          StaffProgramTeamResponseDto.from(view),
         ),
       ),
     );

@@ -51,11 +51,11 @@ export class StudentDashboardController {
   @Get('feedback')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
-  recentFeedback(
+  async recentFeedback(
     @Req() request: SessionIdentity,
   ): Promise<MilestoneDocumentFeedbackResponseDto> {
-    return this.feedback
-      .recentForParticipant(request.sessionGithubId)
-      .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
+    return MilestoneDocumentFeedbackResponseDto.from(
+      await this.feedback.recentForParticipant(request.sessionGithubId),
+    );
   }
 }

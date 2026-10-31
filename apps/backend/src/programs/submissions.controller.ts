@@ -56,27 +56,31 @@ export class SubmissionsController {
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  create(
+  async create(
     @Req() request: SubmissionRequest,
     @Body() body: CreateSubmissionRequestDto,
   ): Promise<CreatedSubmissionResponseDto> {
-    return this.service
-      .createFromRequest(request.sessionGithubId, body)
-      .then((result) => CreatedSubmissionResponseDto.from(result));
+    return CreatedSubmissionResponseDto.from(
+      await this.service.createFromRequest(request.sessionGithubId, body),
+    );
   }
 
   @Post(':submissionId/resubmissions')
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  resubmit(
+  async resubmit(
     @Req() request: SubmissionRequest,
     @Param('submissionId') submissionId: string,
     @Body() body: CreateResubmissionRequestDto,
   ): Promise<ResubmittedSubmissionResponseDto> {
-    return this.service
-      .resubmitFromRequest(request.sessionGithubId, submissionId, body)
-      .then((result) => ResubmittedSubmissionResponseDto.from(result));
+    return ResubmittedSubmissionResponseDto.from(
+      await this.service.resubmitFromRequest(
+        request.sessionGithubId,
+        submissionId,
+        body,
+      ),
+    );
   }
 
   @Get(':submissionId/review-context')

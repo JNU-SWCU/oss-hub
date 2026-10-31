@@ -22,15 +22,11 @@ export class RoleRequestsController {
   @Protected()
   async getMe(
     @Req() request: SessionIdentity,
-  ): Promise<MyStaffAccessRequestResponseDto<RoleRequestResponseDto>> {
+  ): Promise<MyStaffAccessRequestResponseDto> {
     const staffAccessRequest = await this.rolesService.getMyRequest(
       request.sessionGithubId,
     );
-    return MyStaffAccessRequestResponseDto.from(
-      staffAccessRequest
-        ? RoleRequestResponseDto.from(staffAccessRequest)
-        : null,
-    );
+    return MyStaffAccessRequestResponseDto.from(staffAccessRequest);
   }
 
   @Post()

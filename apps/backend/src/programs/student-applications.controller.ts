@@ -44,9 +44,7 @@ export class StudentApplicationsController {
       request.sessionGithubId,
       programId,
     );
-    return MyStudentApplicationResponseDto.from(
-      application ? StudentApplicationResponseDto.from(application) : null,
-    );
+    return MyStudentApplicationResponseDto.from(application);
   }
 
   @Patch()

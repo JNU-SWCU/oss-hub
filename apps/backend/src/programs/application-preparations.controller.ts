@@ -39,9 +39,7 @@ export class ApplicationPreparationsController {
       request.sessionGithubId,
       programId,
     );
-    return MyApplicationPreparationResponseDto.from(
-      preparation ? ApplicationPreparationResponseDto.from(preparation) : null,
-    );
+    return MyApplicationPreparationResponseDto.from(preparation);
   }
   @Post('programs/:programId')
   @UseGuards(OriginGuard)

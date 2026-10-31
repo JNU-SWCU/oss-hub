@@ -1,15 +1,17 @@
-import type { StudentApplicationResponseDto } from './student-application-response.dto';
+import type { StudentApplicationView } from '../student-application-management.service';
+import { StudentApplicationResponseDto } from './student-application-response.dto';
 
 export class MyStudentApplicationResponseDto {
   declare readonly status: 'NONE' | StudentApplicationResponseDto['status'];
   declare readonly application?: StudentApplicationResponseDto;
 
   static from(
-    application: StudentApplicationResponseDto | null,
+    view: StudentApplicationView | null,
   ): MyStudentApplicationResponseDto {
-    if (application === null) {
+    if (view === null) {
       return { status: 'NONE' };
     }
+    const application = StudentApplicationResponseDto.from(view);
     return { status: application.status, application };
   }
 }

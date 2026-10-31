@@ -880,12 +880,24 @@ export class ThingsController {
 );
 valid(
   'thin-controller',
-  'accepts a conditional expression that only picks the response mapping',
+  'accepts a conditional expression that picks one of two response DTOs for the service result',
   controllerFile(),
   `export class ThingsController {
   async get(id: string) {
-    const thing = await this.service.find(id);
-    return thing ? ThingResponseDto.from(thing) : null;
+    const result = await this.service.find(id);
+    return result.kind === 'full'
+      ? FullThingResponseDto.from(result.thing)
+      : ThingSummaryResponseDto.from(result.thing);
+  }
+}`,
+);
+valid(
+  'thin-controller',
+  'accepts mapping a service result list to response DTOs',
+  controllerFile(),
+  `export class ThingsController {
+  async list() {
+    return (await this.service.list()).map((thing) => ThingResponseDto.from(thing));
   }
 }`,
 );
@@ -919,6 +931,51 @@ for (const [name, body, errors] of [
     'a clock read in a route',
     'get() { return this.service.list(new Date()); }',
     ['clock'],
+  ],
+  [
+    'a business conditional passed to the service',
+    'get(input) { return this.service.run(input.admin ? deleteAll() : retainAll()); }',
+    ['conditional', 'domainCall', 'domainCall'],
+  ],
+  [
+    'a conditional with a non-DTO arm',
+    'async get(id: string) { const thing = await this.service.find(id); return thing ? ThingResponseDto.from(thing) : null; }',
+    ['conditional'],
+  ],
+  [
+    'a response choice that reads request input',
+    'async get(input) { const result = await this.service.find(input.id); return input.full ? FullThingResponseDto.from(result) : ThingSummaryResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a response choice over a non-service value',
+    'get(thing) { return thing.full ? FullThingResponseDto.from(thing) : ThingSummaryResponseDto.from(thing); }',
+    ['conditional'],
+  ],
+  [
+    'a choice between non-response classes',
+    'async get(id: string) { const result = await this.service.find(id); return result.ok ? Thing.from(result) : Other.from(result); }',
+    ['conditional', 'domainCall', 'domainCall'],
+  ],
+  [
+    'domain parsing in a route',
+    'get(input: string) { return this.service.run(JSON.parse(input)); }',
+    ['domainCall'],
+  ],
+  [
+    'a domain calculation without a service call',
+    'get(input) { return calculatePrice(input); }',
+    ['domainCall'],
+  ],
+  [
+    'promise chaining in a route',
+    'get(id: string) { return this.service.get(id).then((thing) => normalize(thing)); }',
+    ['domainCall', 'domainCall'],
+  ],
+  [
+    'constructing a value in a route',
+    'async get(id: string) { return new StreamableFile(await this.service.read(id)); }',
+    ['domainCall'],
   ],
 ] as const) {
   invalid(
