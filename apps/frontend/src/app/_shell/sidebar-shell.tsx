@@ -24,9 +24,7 @@ import { ShellIcon } from './shell-icons';
 
 export const SIDEBAR_ASIDE_ID = 'app-sidebar-aside';
 
-type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
-
-export type SidebarShellVariant = 'aside' | 'drawer';
+export type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
 
 const FOOT_SLOT: Readonly<Record<SidebarShellKind, string>> = {
   'app-sidebar': 'app-sidebar-foot',
@@ -107,7 +105,7 @@ export const SidebarPhaseContext = createContext<SidebarPhaseState | null>(
   null,
 );
 
-function useCurrentItemInView<T extends HTMLElement>() {
+export function useCurrentItemInView<T extends HTMLElement>() {
   const containerRef = useRef<T>(null);
   const lastScrolled = useRef<HTMLElement | null>(null);
 
@@ -126,8 +124,6 @@ function useCurrentItemInView<T extends HTMLElement>() {
 
 export interface SidebarShellProps {
   readonly kind: SidebarShellKind;
-
-  readonly variant?: SidebarShellVariant;
   readonly collapsed: boolean;
   readonly nav: ReactNode;
 
@@ -136,65 +132,33 @@ export interface SidebarShellProps {
   readonly bottom?: ReactNode;
 }
 
+export function SidebarFoot({ kind }: { readonly kind: SidebarShellKind }) {
+  return (
+    <p
+      data-slot={FOOT_SLOT[kind]}
+      className="mt-auto shrink-0 p-4 text-small whitespace-nowrap text-muted-foreground"
+    >
+      전남대학교
+      <br />
+      SW중심대학사업단
+    </p>
+  );
+}
+
 export function SidebarShell({
   kind,
-  variant = 'aside',
   collapsed,
   nav,
   scope,
   bottom,
 }: SidebarShellProps) {
   const phaseState = useContext(SidebarPhaseContext);
-  const drawerRef = useCurrentItemInView<HTMLDivElement>();
   const panelRef = useCurrentItemInView<HTMLDivElement>();
-  const body = (
-    <>
-      {scope ? (
-        <div
-          data-slot="sidebar-shell-scope"
-          className={cn(
-            'shrink-0 px-3 pt-3',
-            collapsed && 'flex justify-center px-2',
-          )}
-        >
-          {scope}
-        </div>
-      ) : null}
-      {nav}
-      {collapsed ? null : bottom}
-      {collapsed ? null : (
-        <p
-          data-slot={FOOT_SLOT[kind]}
-          className="mt-auto shrink-0 p-4 text-small whitespace-nowrap text-muted-foreground"
-        >
-          전남대학교
-          <br />
-          SW중심대학사업단
-        </p>
-      )}
-    </>
-  );
-
-  if (variant === 'drawer') {
-    return (
-      <div
-        ref={drawerRef}
-        data-slot="sidebar-shell"
-        data-variant="drawer"
-        data-kind={kind}
-        data-collapsed={collapsed ? 'true' : 'false'}
-        className="flex h-full min-h-0 flex-col bg-sidebar"
-      >
-        {body}
-      </div>
-    );
-  }
 
   return (
     <aside
       id={SIDEBAR_ASIDE_ID}
       data-slot={kind}
-      data-variant="aside"
       data-breakpoint-visibility="desktop"
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
@@ -209,7 +173,20 @@ export function SidebarShell({
         onTransitionEnd={phaseState?.onPanelTransitionEnd}
         className="flex min-h-0 flex-1 flex-col motion-reduce:transition-none"
       >
-        {body}
+        {scope ? (
+          <div
+            data-slot="sidebar-shell-scope"
+            className={cn(
+              'shrink-0 px-3 pt-3',
+              collapsed && 'flex justify-center px-2',
+            )}
+          >
+            {scope}
+          </div>
+        ) : null}
+        {nav}
+        {collapsed ? null : bottom}
+        {collapsed ? null : <SidebarFoot kind={kind} />}
       </div>
     </aside>
   );
@@ -263,6 +240,8 @@ export interface SidebarScopeRowProps {
 
   readonly titlePending?: boolean;
   readonly collapsed: boolean;
+
+  readonly variant?: 'rail' | 'scope-bar';
 }
 
 export function SidebarScopeRow({
@@ -271,6 +250,7 @@ export function SidebarScopeRow({
   title,
   titlePending = false,
   collapsed,
+  variant = 'rail',
 }: SidebarScopeRowProps) {
   if (collapsed) {
     return (
@@ -302,7 +282,12 @@ export function SidebarScopeRow({
       <Link
         href={backHref}
         data-slot="sidebar-shell-back"
-        className="self-start text-badge font-bold whitespace-nowrap text-primary hover:underline"
+        data-variant={variant === 'scope-bar' ? 'scope-bar' : undefined}
+        className={
+          variant === 'scope-bar'
+            ? 'inline-flex min-h-control items-center self-start text-badge font-bold whitespace-nowrap text-primary hover:underline'
+            : 'self-start text-badge font-bold whitespace-nowrap text-primary hover:underline'
+        }
       >
         {`‹ ${backLabel}`}
       </Link>

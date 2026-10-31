@@ -8,12 +8,19 @@ import { cn } from '@/lib/utils';
 import { SidebarToggle } from './sidebar-toggle';
 
 interface ShellNavProps {
-  items: NavItem[];
+  items: readonly NavItem[];
   brand?: ReactNode;
   actions?: ReactNode;
+
+  compactMenu?: boolean;
 }
 
-export function ShellNav({ items, brand, actions }: ShellNavProps) {
+export function ShellNav({
+  items,
+  brand,
+  actions,
+  compactMenu = true,
+}: ShellNavProps) {
   const pathname = usePathname();
   const overlay = pathname === '/';
 
@@ -28,7 +35,7 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
 
   return (
     <div
-      onClick={closeCollapsedMenu}
+      onClick={compactMenu ? closeCollapsedMenu : undefined}
       className={overlay ? 'fixed inset-x-0 top-0 z-40' : undefined}
     >
       <NavBar
@@ -37,7 +44,8 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         actions={actions}
         leading={<SidebarToggle />}
         currentPath={pathname}
-        menuResetKey={pathname}
+        compactMenu={compactMenu}
+        menuResetKey={compactMenu ? pathname : undefined}
         className={cn(
           'max-[479px]:px-3 [&_a:not([role=menuitem])]:inline-flex',
           '[&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11',

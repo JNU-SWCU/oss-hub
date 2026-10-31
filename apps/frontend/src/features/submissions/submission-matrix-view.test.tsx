@@ -179,14 +179,15 @@ describe('SubmissionMatrixView', () => {
     }
   });
 
-  it('태블릿 탭과 모바일 선택 메뉴에 모든 단계를 제공하고 선택을 접근성 상태로 알린다', () => {
+  it('한 줄 단계 칩에 모든 단계를 제공하고 선택을 접근성 상태로 알린다', () => {
     const html = render({ selectedMilestoneId: 'milestone-mid' });
 
     expect(html).toContain('aria-label="볼 제출 단계"');
     expect(html).toContain('>모든 단계<');
     expect(html).toContain('중간 보고');
     expect(html).not.toContain('선택됨');
-    expect(html).toContain('id="matrix-mobile-stage"');
+    expect(html).toContain('data-slot="matrix-stage-navigation"');
+    expect(html).not.toContain('<select');
   });
 
   it('집중 보기에서는 선택한 단계의 필수 서류 상태를 센다', () => {

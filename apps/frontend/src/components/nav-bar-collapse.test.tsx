@@ -122,3 +122,47 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(first).toContain('data-slot="nav-bar-menu"');
   });
 });
+
+describe('NavBar compactMenu={false} — 접힌 메뉴 없이 셸 분기점부터 한 줄 메뉴', () => {
+  function renderFlat() {
+    return renderToStaticMarkup(
+      <NavBar
+        brand={<span>OSS Hub</span>}
+        items={ITEMS}
+        actions={<a href="/login">GitHub으로 로그인</a>}
+        compactMenu={false}
+      />,
+    );
+  }
+
+  it('<details> 접힌 메뉴와 트리거를 그리지 않는다', () => {
+    const html = renderFlat();
+    expect(html).not.toContain('<details');
+    expect(html).not.toContain('data-slot="nav-bar-menu"');
+    expect(html).not.toContain('data-slot="nav-bar-menu-trigger"');
+    expect(html).not.toContain('aria-label="메뉴"');
+  });
+
+  it('한 줄 메뉴는 데스크톱(셸 분기점) 전용으로 모든 항목을 담는다', () => {
+    const html = renderFlat();
+    expect(html).toMatch(
+      /data-slot="nav-bar-items"[^>]*data-breakpoint-visibility="desktop"/,
+    );
+    const inlineList = html.match(
+      /data-slot="nav-bar-items"[\s\S]*?<\/ul>/,
+    )?.[0];
+    const hrefs = Array.from(
+      inlineList?.matchAll(/href="([^"]*)"/g) ?? [],
+      (match) => match[1],
+    );
+    expect(hrefs).toEqual(ITEMS.map((item) => item.href));
+  });
+
+  it('기본값(compactMenu 생략)은 여전히 접힌 메뉴를 그린다', () => {
+    const html = render();
+    expect(html).toContain('<details');
+    expect(html).toMatch(
+      /data-slot="nav-bar-items"[^>]*data-breakpoint-visibility="wide"/,
+    );
+  });
+});

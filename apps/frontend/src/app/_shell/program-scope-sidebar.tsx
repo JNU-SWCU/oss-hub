@@ -8,11 +8,7 @@ import type {
   ProgramScopeSidebarItem,
 } from './sidebar-menu';
 import { ScopeSidebarLink } from './program-scope-sidebar-link';
-import {
-  SidebarScopeRow,
-  SidebarShell,
-  type SidebarShellVariant,
-} from './sidebar-shell';
+import { SidebarScopeRow, SidebarShell } from './sidebar-shell';
 
 export interface ProgramScopeSidebarProps {
   readonly programName: string;
@@ -27,8 +23,6 @@ export interface ProgramScopeSidebarProps {
   readonly backHref: string;
 
   readonly bottom?: ReactNode;
-
-  readonly variant?: SidebarShellVariant;
 }
 
 export function ProgramScopeSidebar({
@@ -41,12 +35,10 @@ export function ProgramScopeSidebar({
   collapsed,
   backHref,
   bottom,
-  variant = 'aside',
 }: ProgramScopeSidebarProps) {
   return (
     <SidebarShell
       kind="program-scope-sidebar"
-      variant={variant}
       collapsed={collapsed}
       bottom={bottom}
       scope={
@@ -102,7 +94,7 @@ function stageHrefWithCurrentQuery(
   return `${targetPath}${query ? `?${query}` : ''}`;
 }
 
-function ProgramScopeSidebarNav({
+export function ProgramScopeSidebarNav({
   groups,
   pathname,
   search,

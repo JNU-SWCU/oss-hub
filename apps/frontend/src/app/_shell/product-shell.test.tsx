@@ -326,3 +326,117 @@ describe('ProductShell — 탭 상태가 결정된 프로그램 상세 스코프
     expect(html).not.toContain('data-slot="program-scope-sidebar"');
   });
 });
+
+describe('ProductShell — 모바일 스코프 바와 메뉴 시트 배선', () => {
+  const SCOPE_BAR = /<div[^>]*data-slot="scope-bar"[^>]*data-scope="([a-z]+)"/;
+  const TRIGGER =
+    /<button[^>]*data-slot="scope-bar-menu-trigger"[^>]*>.*?<\/button>/;
+
+  it('프로그램 상세는 프로그램 스코프 바를 그리고 버튼이 시트 dialog를 가리킨다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+
+    expect(html.match(SCOPE_BAR)?.[1]).toBe('program');
+    const trigger = html.match(TRIGGER)?.[0];
+    expect(trigger).toBeDefined();
+    expect(trigger).toContain('aria-haspopup="dialog"');
+    expect(trigger).toContain('aria-expanded="false"');
+    expect(trigger).toContain('aria-controls="shell-menu-sheet"');
+    expect(trigger).toContain('프로그램 개요');
+
+    expect(html.match(/data-slot="sidebar-shell-back"/g)).toHaveLength(2);
+  });
+
+  it('스코프 바 버튼은 현재 메뉴 라벨을 쓴다(/teams → 참여 팀)', () => {
+    mockSession();
+    const trigger = render('/programs/prog-1/teams').match(TRIGGER)?.[0];
+    expect(trigger).toContain('참여 팀');
+    expect(trigger).not.toContain('프로그램 개요');
+  });
+
+  it('프로그램 이름이 오기 전에는 스코프 바도 스켈레톤을 쓰고, 비회원은 id를 그대로 쓴다', () => {
+    mockSession();
+    expect(
+      render('/programs/prog-1').match(
+        /data-slot="sidebar-scope-title-skeleton"/g,
+      ),
+    ).toHaveLength(2);
+
+    mockSession({ status: 'anonymous', role: null, isProfileComplete: false });
+    const guest = render('/programs/prog-1');
+    expect(guest.match(SCOPE_BAR)?.[1]).toBe('program');
+    expect(
+      guest.match(
+        /<p[^>]*data-slot="sidebar-shell-scope-title"[^>]*>prog-1<\/p>/g,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('/dashboard는 브랜드 제목이 있는 대시보드 스코프 바를 그린다', () => {
+    mockSession({
+      status: 'assigned',
+      role: 'STUDENT',
+      isProfileComplete: true,
+    });
+    const html = render('/dashboard');
+
+    expect(html.match(SCOPE_BAR)?.[1]).toBe('dashboard');
+    expect(html).toMatch(
+      /<p[^>]*data-slot="scope-bar-title"[^>]*>대시보드<\/p>/,
+    );
+    expect(html).toContain('aria-controls="shell-menu-sheet"');
+  });
+
+  it('필터 칩 섹션(/programs, /ranking)에는 스코프 바가 없다', () => {
+    mockSession();
+    for (const pathname of ['/programs', '/ranking']) {
+      const html = render(pathname);
+      expect(html, pathname).toContain('data-slot="app-sidebar"');
+      expect(html, pathname).not.toContain('data-slot="scope-bar"');
+      expect(html, pathname).not.toContain('aria-controls="shell-menu-sheet"');
+    }
+  });
+
+  it('시트는 닫힌 채 SSR되어 메뉴 nav가 중복되지 않고 dialog도 없다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+
+    expect(html.match(/data-slot="program-scope-sidebar-nav"/g)).toHaveLength(
+      1,
+    );
+    expect(html).not.toContain('role="dialog"');
+    expect(html).not.toContain('data-slot="shell-menu-sheet"');
+  });
+
+  it('스코프 바는 본문 스크롤러(#main-content) 바깥, 그 앞에 선다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+    const scopeBarAt = html.indexOf('data-slot="scope-bar"');
+    const mainAt = html.indexOf('id="main-content"');
+    expect(scopeBarAt).toBeGreaterThan(-1);
+    expect(scopeBarAt).toBeLessThan(mainAt);
+    const between = html.slice(
+      html.lastIndexOf('<div', scopeBarAt),
+      html.lastIndexOf('<', mainAt),
+    );
+    const opened = between.match(/<div[\s>]/g)?.length ?? 0;
+    const closed = between.match(/<\/div>/g)?.length ?? 0;
+    expect(closed).toBeGreaterThanOrEqual(opened);
+  });
+
+  it('스코프 바의 뒤로 가기 링크는 모바일 터치 변형이고, 데스크톱 레일은 변형이 없다', () => {
+    mockSession();
+    const html = render('/programs/prog-1');
+    const scopeBarAt = html.indexOf('data-slot="scope-bar"');
+    const backLinks = [
+      ...html.matchAll(/<a[^>]*data-slot="sidebar-shell-back"[^>]*>/g),
+    ];
+    const inScopeBar = backLinks.filter((m) => (m.index ?? 0) > scopeBarAt);
+    const inRail = backLinks.filter((m) => (m.index ?? 0) < scopeBarAt);
+
+    expect(inScopeBar).toHaveLength(1);
+    expect(inScopeBar[0][0]).toContain('data-variant="scope-bar"');
+    expect(inRail.length).toBeGreaterThan(0);
+    for (const m of inRail) expect(m[0]).not.toContain('data-variant');
+  });
+});

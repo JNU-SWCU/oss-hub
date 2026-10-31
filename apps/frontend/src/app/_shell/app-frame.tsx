@@ -7,24 +7,19 @@ import {
 } from '@/features/auth/login-destination';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import type { NavItem } from '@/components';
-import { PUBLIC_MENU } from './public-menus';
-import { ProductShell, SidebarDrawerProvider } from './product-shell';
+import { BottomTabBar } from './bottom-tab-bar';
+import { ProductShell, ShellMenuProvider } from './product-shell';
+import { ProgramNameReportProvider } from './program-name-report-context';
+import { sectionItemsFor } from './section-list';
 import { ShellNav } from './shell-nav';
-import { hasShellSidebar } from './sidebar-presence';
+import { hasShellSidebar, shellSheetKind } from './sidebar-presence';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 import { SkipLink } from './skip-link';
 
-const DASHBOARD_NAV_ITEM: NavItem = {
-  label: '대시보드',
-  href: '/dashboard',
-};
-
 type AppFrameProps = {
   readonly brand?: ReactNode;
-  readonly items?: readonly NavItem[];
   readonly actions?: ReactNode;
   readonly children: ReactNode;
   readonly initialSidebarCollapsed?: boolean;
@@ -46,7 +41,6 @@ export function AppFrame(props: AppFrameProps) {
 
 function SessionAppFrame({
   brand,
-  items = PUBLIC_MENU,
   actions,
   children,
   initialSidebarCollapsed = false,
@@ -65,15 +59,10 @@ function SessionAppFrame({
   const onCosmosGround = COSMOS_GROUND_PATHS.has(pathname);
   const preMember = PRE_MEMBER_PATHS.has(pathname);
 
-  const navItems = useMemo(() => {
-    const base = [...items];
-    if (status === 'assigned' && isProfileComplete) {
-      if (!base.some((item) => item.href === DASHBOARD_NAV_ITEM.href)) {
-        base.push(DASHBOARD_NAV_ITEM);
-      }
-    }
-    return base;
-  }, [items, status, isProfileComplete]);
+  const navItems = useMemo(
+    () => sectionItemsFor({ status, isProfileComplete }),
+    [status, isProfileComplete],
+  );
 
   if (preMember) {
     return (
@@ -104,15 +93,24 @@ function SessionAppFrame({
 
   return (
     <SessionRoleProvider value={session}>
-      <SidebarDrawerProvider
+      <ShellMenuProvider
         initialCollapsed={initialSidebarCollapsed}
         sidebarAvailable={hasShellSidebar(pathname, session)}
+        sheetAvailable={shellSheetKind(pathname, session) !== null}
       >
-        <div className="flex h-dvh flex-col overflow-hidden">
-          <ShellNav brand={brand} items={navItems} actions={actions} />
-          <ProductShell>{children}</ProductShell>
-        </div>
-      </SidebarDrawerProvider>
+        <ProgramNameReportProvider>
+          <div className="flex h-dvh flex-col overflow-hidden">
+            <ShellNav
+              brand={brand}
+              items={navItems}
+              actions={actions}
+              compactMenu={false}
+            />
+            <ProductShell>{children}</ProductShell>
+            <BottomTabBar items={navItems} pathname={pathname} />
+          </div>
+        </ProgramNameReportProvider>
+      </ShellMenuProvider>
     </SessionRoleProvider>
   );
 }

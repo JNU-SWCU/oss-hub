@@ -2,7 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { ProgramCard, ProgramCardSkeleton } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -25,29 +32,25 @@ import {
   parseProgramListDirection,
   parseProgramListSort,
   parseProgramListYear,
+  parseProgramListStatus,
 } from './program-list-sort';
 import { ProgramListPagination } from './program-list-pagination';
-import { ProgramListStatusChips } from './program-list-status-nav';
 import { PROGRAM_TRACK_TYPE_LABELS } from '../program-contract';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
 } from './dto';
-import type {
-  ProgramListSort,
-  ProgramListStatus,
-} from './program-list-options';
+import type { ProgramListSort } from './program-list-options';
 import type { ViewerRole } from '../program-contract';
 import { PROGRAM_LIST_SORT_LABELS } from './program-list-labels';
-import {
-  PROGRAM_LIST_SORTS,
-  PROGRAM_LIST_STATUSES,
-} from './program-list-options';
+import { PROGRAM_LIST_SORTS } from './program-list-options';
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
 
   readonly viewerRole: ViewerRole;
+
+  readonly filters?: ReactNode;
 }
 
 type LoadState =
@@ -70,23 +73,14 @@ function formatApplicationPeriod(program: ProgramListItem): string {
   return `${formatter.format(new Date(program.applicationStartAt))} ~ ${formatter.format(new Date(program.applicationEndAt))}`;
 }
 
-function parseStatus(value: string | null): ProgramListStatus {
-  if (
-    value !== null &&
-    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
-  ) {
-    return value as ProgramListStatus;
-  }
-  return 'all';
-}
-
 function ProgramListPage({
   canCreateProgram,
   viewerRole,
+  filters,
 }: ProgramListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const status = parseStatus(searchParams.get('status'));
+  const status = parseProgramListStatus(searchParams.get('status'));
   const sort = parseProgramListSort(searchParams.get('sort'));
   const direction = parseProgramListDirection(searchParams.get('direction'));
   const notices = useNavigationNotices();
@@ -162,10 +156,6 @@ function ProgramListPage({
   }, [status, sort, direction, year]);
 
   const now = useMemo(() => new Date(), []);
-
-  const goStatus = (next: ProgramListStatus) => {
-    router.push(buildProgramListHref({ status: next, sort, direction }));
-  };
 
   const goSort = (nextSort: ProgramListSort | undefined) => {
     router.push(
@@ -282,11 +272,7 @@ function ProgramListPage({
         </Alert>
       ) : null}
 
-      <ProgramListStatusChips
-        className="shell:hidden"
-        value={status}
-        onChange={goStatus}
-      />
+      {filters}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         {ended && yearOptions.length > 0 ? (
           <label className="grid gap-1 text-sm">

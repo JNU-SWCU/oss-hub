@@ -11,11 +11,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
-import {
-  SidebarCountSkeleton,
-  SidebarShell,
-  type SidebarShellVariant,
-} from './sidebar-shell';
+import { SidebarCountSkeleton, SidebarShell } from './sidebar-shell';
 
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
@@ -28,8 +24,6 @@ interface AppSidebarProps {
   readonly bottom?: ReactNode;
 
   readonly countsPending?: boolean;
-
-  readonly variant?: SidebarShellVariant;
 }
 
 export function formatSidebarCount(n: number): string {
@@ -58,14 +52,12 @@ export function AppSidebar({
   brandTitle,
   bottom,
   countsPending = false,
-  variant = 'aside',
 }: AppSidebarProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
 
   return (
     <SidebarShell
       kind="app-sidebar"
-      variant={variant}
       collapsed={collapsed}
       bottom={bottom}
       nav={
@@ -92,7 +84,7 @@ interface AppSidebarNavProps {
   readonly countsPending?: boolean;
 }
 
-function AppSidebarNav({
+export function AppSidebarNav({
   groups,
   pathname,
   search = '',

@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getRanking } from '../api';
 import {
@@ -16,9 +22,11 @@ const PAGE_SIZE = 100;
 
 interface RankingScreenProps {
   readonly onNextCycleAt: (nextCycleAt: string | null) => void;
+
+  readonly filters?: ReactNode;
 }
 
-export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
+export function RankingScreen({ onNextCycleAt, filters }: RankingScreenProps) {
   const searchParams = useSearchParams();
   const year = useMemo(
     () => parseRankingYearSearchParam(searchParams.get('year')),
@@ -103,6 +111,7 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
   return (
     <RankingView
       page={page}
+      filters={filters}
       state={state}
       onPageChange={setPage}
       onRetry={retryLoad}
