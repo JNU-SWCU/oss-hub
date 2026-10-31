@@ -11,10 +11,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-  userProfileNameWhere,
 } from '../platform/user-profile-read.config';
-import { repositoryAccessSyncEventData } from '../github/repository-provision-event.config';
 
 interface TeamInvitationRecord {
   id: string;
@@ -156,7 +153,7 @@ function toSentTeamInvitationRecord(
     invitee: {
       id: invitation.invitee.id,
       nickname: invitation.invitee.nickname,
-      name: resolveUserProfileName(invitation.invitee),
+      name: invitation.invitee.profile?.name ?? null,
       avatarUrl: invitation.invitee.avatarUrl,
     },
   };
@@ -220,7 +217,7 @@ export class TeamInvitationsRepository {
       programName: invitation.team.program.name,
 
       invitedByDisplayName:
-        resolveUserProfileName(invitation.invitedBy)?.trim() ||
+        invitation.invitedBy.profile?.name?.trim() ||
         invitation.invitedBy.nickname,
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
@@ -269,7 +266,7 @@ export class TeamInvitationsRepository {
         teamName: row.preparation.name,
         programName: row.preparation.program.name,
         invitedByDisplayName:
-          resolveUserProfileName(row.preparation.leader)?.trim() ||
+          row.preparation.leader.profile?.name?.trim() ||
           row.preparation.leader.nickname,
         memberCount: row.preparation._count.participants,
         teamMaxSize: row.preparation.program.teamMaxSize,
@@ -506,7 +503,7 @@ export class TeamInvitationsRepository {
         accountStatus: AccountStatus.ACTIVE,
         OR: [
           { nickname: { contains: query, mode: 'insensitive' } },
-          userProfileNameWhere(query),
+          PlatformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
       },
@@ -522,7 +519,7 @@ export class TeamInvitationsRepository {
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
-      name: resolveUserProfileName(user),
+      name: user.profile?.name ?? null,
       avatarUrl: user.avatarUrl,
     }));
   }
@@ -715,7 +712,11 @@ async function enqueueRepositoryAccessSyncEvents(
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      repositoryAccessSyncEventData(application.id, teamId, now),
+      PlatformRepository.repositoryAccessSyncEventData(
+        application.id,
+        teamId,
+        now,
+      ),
     ),
     skipDuplicates: true,
   });

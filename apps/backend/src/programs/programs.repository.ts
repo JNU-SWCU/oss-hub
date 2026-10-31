@@ -10,20 +10,17 @@ import {
   type ProgramLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramListStatusFilterRepository,
   type ProgramListQuery,
 } from './program-list-status-filter.repository';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
   projectSubmissionCompletionTargets,
 } from './submission-completion.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export type ProgramListRecord = {
   readonly id: string;
@@ -216,7 +213,7 @@ export class ProgramsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -249,7 +246,7 @@ export class ProgramsRepository {
     const applications = await this.prisma.application.findMany({
       where: {
         programId: { in: [...programIds] },
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { programId: true, status: true },
     });
@@ -292,7 +289,9 @@ export class ProgramsRepository {
         ...(studentUserId
           ? {
               application: {
-                ...programApplicationParticipantWhere(studentUserId),
+                ...PlatformRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                ),
               },
             }
           : {}),
@@ -330,7 +329,7 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: resolveUserProfileName(repository.application!.applicant),
+            name: repository.application!.applicant.profile?.name ?? null,
           },
           team: repository.application!.team,
         },
@@ -341,7 +340,7 @@ export class ProgramsRepository {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         teamId: true,

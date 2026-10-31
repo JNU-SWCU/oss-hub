@@ -4,14 +4,7 @@ import {
   ApplicationStatus,
   type Prisma,
 } from '@prisma/client';
-import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../platform/user-profile-read.config';
-import {
-  programApplicationParticipantWhere,
-  programApplicationManagerWhere,
-} from '../platform/program-application-participant.config';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ReviewHistoryWriterRepository,
@@ -23,6 +16,7 @@ import {
   RESUBMITTABLE_STATUSES,
   CANCELLABLE_STATUSES,
 } from './student-application-management.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 class StudentResubmissionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -119,7 +113,7 @@ function toOwnedStudentApplication(
     teamLeaderId: team.leaderId,
     applicant: {
       id: row.applicant.id,
-      name: resolveUserProfileName(row.applicant),
+      name: row.applicant.profile?.name ?? null,
       nickname: row.applicant.nickname,
     },
   };
@@ -143,7 +137,7 @@ export class StudentApplicationManagementRepository {
     const row = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(studentId),
+        ...PlatformRepository.programApplicationParticipantWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });
@@ -272,7 +266,7 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...programApplicationManagerWhere(studentId),
+        ...PlatformRepository.programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
@@ -285,7 +279,7 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...programApplicationManagerWhere(studentId),
+        ...PlatformRepository.programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });

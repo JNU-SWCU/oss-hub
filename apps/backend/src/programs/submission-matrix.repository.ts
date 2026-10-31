@@ -7,13 +7,10 @@ import {
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  USER_PROFILE_NAME_SELECT,
-  userProfileNameWhere,
-  resolveUserProfileName,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { publicSubmissionId } from './submission-file.config';
 import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
 
@@ -159,7 +156,7 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: resolveUserProfileName(application.applicant),
+      name: application.applicant.profile?.name ?? null,
       nickname: application.applicant.nickname,
     },
     team: application.team
@@ -317,7 +314,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };
       where.OR = [
-        { applicant: userProfileNameWhere(filter.q) },
+        { applicant: PlatformRepository.userProfileNameWhere(filter.q) },
         { applicant: { nickname: contains } },
         { team: { name: contains } },
         { team: { members: { some: { user: { nickname: contains } } } } },

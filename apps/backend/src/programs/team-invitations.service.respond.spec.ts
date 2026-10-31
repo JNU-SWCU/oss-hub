@@ -18,8 +18,8 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.config';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 
 const INVITATION_ID = 'cuid-invitation';
 const syntheticSuccessorLeaderId = 'cuid-synthetic-successor-leader';

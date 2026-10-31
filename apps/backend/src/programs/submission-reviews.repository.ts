@@ -12,16 +12,12 @@ import {
   RepositoryVisibility,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { requiredMilestonesApproved } from './milestone-completion.config';
 import type {
   RepositoryPublishEligibility,
   PublishBlockedReason,
 } from '../github/repository-publish.config';
-import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
 import { publishBlockedReasons } from '../github/repository-publish.config';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
@@ -253,7 +249,8 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
       await this.transaction.milestoneDocumentSubmission.findFirst({
         where: {
           id: submissionId,
-          application: programApplicationParticipantWhere(userId),
+          application:
+            PlatformRepository.programApplicationParticipantWhere(userId),
         },
         select: { id: true },
       });
@@ -494,7 +491,8 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             : APPLICATION_MODES.TEAM,
         displayName:
           row.application.team?.name ??
-          resolveUserProfileName(row.application.applicant) ??
+          row.application.applicant.profile?.name ??
+          null ??
           row.application.applicant.nickname,
       },
       milestone: row.milestoneDocument.milestone,

@@ -24,8 +24,6 @@ import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config'
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-  userProfileNameWhere,
 } from '../platform/user-profile-read.config';
 import {
   type AppendReviewHistoryInput,
@@ -44,6 +42,7 @@ import {
   APPLICATION_LIST_STATUSES,
   APPLICATION_LIST_VIEWS,
 } from './applications.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export type ApplicationDecisionAction =
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.APPROVE }
@@ -921,7 +920,7 @@ export class ApplicationsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveUserProfileName(user),
+          name: user.profile?.name ?? null,
         }
       : null;
   }
@@ -1087,7 +1086,7 @@ export class ApplicationsRepository {
       occurredAt: row.occurredAt,
       rejectionReason: row.rejectionReason,
       actor: {
-        name: resolveUserProfileName(row.actor),
+        name: row.actor.profile?.name ?? null,
         nickname: row.actor.nickname,
       },
     }));
@@ -1248,7 +1247,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: userProfileNameWhere(search),
+            applicant: PlatformRepository.userProfileNameWhere(search),
           },
           {
             applicant: {
@@ -1299,7 +1298,7 @@ function buildTeamManagementListWhere(
             some: {
               OR: [
                 {
-                  user: userProfileNameWhere(query.search),
+                  user: PlatformRepository.userProfileNameWhere(query.search),
                 },
                 {
                   user: {
@@ -1364,7 +1363,7 @@ function toTeamManagementListItem(
     rejectionReason: row.rejectionReason,
     applicant: {
       id: row.applicant.id,
-      name: resolveUserProfileName(row.applicant),
+      name: row.applicant.profile?.name ?? null,
       nickname: row.applicant.nickname,
     },
     team:
@@ -1376,7 +1375,7 @@ function toTeamManagementListItem(
             memberCount: row.team._count.members,
             members: row.team.members.map((member) => ({
               id: member.user.id,
-              name: resolveUserProfileName(member.user),
+              name: member.user.profile?.name ?? null,
               nickname: member.user.nickname,
             })),
           },
@@ -1515,7 +1514,7 @@ function toApplicationListItem(
     applicant: {
       id: row.applicant.id,
       nickname: row.applicant.nickname,
-      name: resolveUserProfileName(row.applicant),
+      name: row.applicant.profile?.name ?? null,
     },
     team,
     answers: parseListAnswers(row.answers),

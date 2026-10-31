@@ -27,9 +27,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
 } from '../platform/user-profile-read.config';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
@@ -361,7 +359,7 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
     const application = await this.transaction.application.findFirst({
       where: {
         id: applicationId,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -789,7 +787,7 @@ class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocume
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: application.applicant.profile?.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -991,7 +989,7 @@ export class MilestoneDocumentsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -1232,7 +1230,7 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: resolveUserProfileName(application.applicant),
+      applicantName: application.applicant.profile?.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

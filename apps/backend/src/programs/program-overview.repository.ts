@@ -7,8 +7,8 @@ import {
   MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export interface ProgramOverviewRecord {
   programId: string;
@@ -240,7 +240,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

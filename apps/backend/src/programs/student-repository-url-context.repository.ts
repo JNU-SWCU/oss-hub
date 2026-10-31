@@ -1,6 +1,6 @@
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
-import { programApplicationManagerWhere } from '../platform/program-application-participant.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export type StudentRepositoryUrlContext = {
   readonly id: string;
@@ -53,7 +53,7 @@ export class StudentRepositoryUrlContextRepository {
       where: {
         id: context.id,
         AND: [
-          programApplicationManagerWhere(actor.id),
+          PlatformRepository.programApplicationManagerWhere(actor.id),
           { team: { leader: STUDENT_MEMBER_WHERE } },
         ],
       },

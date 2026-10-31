@@ -25,10 +25,8 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
 } from '../platform/user-profile-read.config';
 import { requiredMilestonesApproved } from './milestone-completion.config';
-import { repositoryAccessSyncEventData } from '../github/repository-provision-event.config';
 import { publishBlockedReasons } from '../github/repository-publish.config';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import {
@@ -170,7 +168,7 @@ export class ProgramTeamsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: resolveUserProfileName(user),
+          name: user.profile?.name ?? null,
         }
       : null;
   }
@@ -294,7 +292,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: member.user.profile?.name ?? null,
       })),
     };
   }
@@ -328,7 +326,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: member.user.profile?.name ?? null,
       })),
     }));
   }
@@ -487,7 +485,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: resolveUserProfileName(member.user),
+        name: member.user.profile?.name ?? null,
       })),
       application: applicationView,
       repositoryContributions: application
@@ -913,7 +911,11 @@ async function enqueueRepositoryAccessSyncEvents(
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      repositoryAccessSyncEventData(application.id, teamId, now),
+      PlatformRepository.repositoryAccessSyncEventData(
+        application.id,
+        teamId,
+        now,
+      ),
     ),
     skipDuplicates: true,
   });

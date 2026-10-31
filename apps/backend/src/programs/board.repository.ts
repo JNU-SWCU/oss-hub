@@ -1,4 +1,3 @@
-import { resolveUserProfileName } from '../platform/user-profile-read.config';
 import { authorityLabel } from '../users/authority-label.config';
 import type { AuthorityLabel } from '../users/authority-label.types';
 import type { UserProfileNameSource } from '../platform/user-profile-read.config';
@@ -8,8 +7,8 @@ import {
   BoardPostCategory,
   type MemberKind,
 } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export interface BoardPostSummaryRecord {
   id: string;
@@ -148,7 +147,7 @@ export class BoardRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...programApplicationParticipantWhere(userId),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -358,5 +357,5 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
 function resolveAuthorName(
   author: UserProfileNameSource & { nickname: string },
 ): string {
-  return resolveUserProfileName(author) ?? author.nickname;
+  return author.profile?.name ?? author.nickname;
 }

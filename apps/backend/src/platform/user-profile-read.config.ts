@@ -45,35 +45,6 @@ export type UserProfileNameSource = {
 export type UserProfileDepartmentSource = {
   readonly profile: { readonly department: string } | null;
 };
-export function resolveUserProfile(source: UserProfileSource): UserProfileView {
-  const profile = source.profile;
-  return {
-    name: profile?.name ?? null,
-    studentId: profile?.studentId ?? null,
-    department: profile?.department ?? null,
-  };
-}
-
-export function resolveUserProfileName(
-  source: UserProfileNameSource,
-): string | null {
-  return source.profile?.name ?? null;
-}
-
-export function resolveUserProfileDepartment(
-  source: UserProfileDepartmentSource,
-): string | null {
-  return source.profile?.department ?? null;
-}
-
-export function userProfileNameWhere(query: string) {
-  return {
-    profile: {
-      is: { name: { contains: query, mode: 'insensitive' as const } },
-    },
-  };
-}
-
 export const STUDENT_MEMBER_WHERE = {
   profile: { is: { memberKind: 'STUDENT' } },
 } as const;

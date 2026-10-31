@@ -5,10 +5,7 @@ import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import {
-  USER_PROFILE_SELECT,
-  resolveUserProfile,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
@@ -166,7 +163,11 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
 function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
-  const profile = resolveUserProfile(user);
+  const profile = {
+    name: user.profile?.name ?? null,
+    studentId: user.profile?.studentId ?? null,
+    department: user.profile?.department ?? null,
+  };
   return {
     id: user.id,
     githubLogin: user.nickname,

@@ -1,5 +1,4 @@
 import { AdminAccessRepository } from './admin-access.repository';
-import { resolveUserProfileName } from '../platform/user-profile-read.config';
 import { authorityLabel } from './authority-label.config';
 import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
@@ -116,7 +115,7 @@ function toAccountDeactivationTarget(
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    displayName: resolveUserProfileName(user),
+    displayName: user.profile?.name ?? null,
     role: authorityLabel({
       memberKind: user.profile?.memberKind ?? null,
       hasStaffAccess: user.hasStaffAccess,

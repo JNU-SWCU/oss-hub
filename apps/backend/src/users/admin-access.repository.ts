@@ -1,7 +1,4 @@
-import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { authorityLabel } from './authority-label.config';
 import {
   AccountStatus,
@@ -219,7 +216,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       id: user.id,
       githubId: user.githubId,
       githubLogin: user.nickname,
-      name: resolveUserProfileName(user),
+      name: user.profile?.name ?? null,
       role: authorityLabel({
         memberKind: user.selectedMemberKind,
         hasStaffAccess: user.hasStaffAccess,

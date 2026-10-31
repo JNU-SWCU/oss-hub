@@ -5,11 +5,7 @@ import {
   StaffAccessRequestStatus,
   Prisma,
 } from '@prisma/client';
-import {
-  resolveUserProfile,
-  USER_PROFILE_SELECT,
-  userProfileNameWhere,
-} from '../platform/user-profile-read.config';
+import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
 import { authorityLabel } from './authority-label.config';
 import type { PrismaService } from '../platform/prisma.service';
 import {
@@ -33,6 +29,7 @@ import {
 } from './profile-validation.config';
 import type { AuthorityLabel } from './authority-label.types';
 import type { UserProfileSource } from '../platform/user-profile-read.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export class AdminAccessReadRepository {
   static async listAdminAccessUsers(
@@ -166,7 +163,11 @@ export class AdminAccessReadRepository {
   static toAdminAccessUserRecord(
     user: AdminAccessUserSource,
   ): AdminAccessUserRecord {
-    const profile = resolveUserProfile(user);
+    const profile = {
+      name: user.profile?.name ?? null,
+      studentId: user.profile?.studentId ?? null,
+      department: user.profile?.department ?? null,
+    };
     const memberKind = user.profile?.memberKind ?? null;
     const pendingRequest = user.staffAccessRequests[0];
     return {
@@ -195,7 +196,11 @@ export class AdminAccessReadRepository {
   static toAdminAccessUserDetailRecord(
     user: AdminAccessUserDetailSource,
   ): AdminAccessUserDetailRecord {
-    const profile = resolveUserProfile(user);
+    const profile = {
+      name: user.profile?.name ?? null,
+      studentId: user.profile?.studentId ?? null,
+      department: user.profile?.department ?? null,
+    };
     return {
       ...AdminAccessReadRepository.toAdminAccessUserRecord(user),
       profile: {
@@ -247,7 +252,7 @@ function adminAccessWhere(
   if (query.query) {
     clauses.push({
       OR: [
-        userProfileNameWhere(query.query),
+        PlatformRepository.userProfileNameWhere(query.query),
         {
           nickname: {
             contains: query.query,

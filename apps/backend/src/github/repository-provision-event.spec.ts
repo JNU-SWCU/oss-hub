@@ -2,10 +2,10 @@ import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryAccessSyncEvent,
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryProvisionEvent,
-  repositoryAccessSyncEventData,
 } from './repository-provision-event.config';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 describe('parseRepositoryProvisionEvent', () => {
   it('승인 시점 collaborator snapshot을 typed event로 파싱한다', () => {
@@ -131,7 +131,7 @@ const SYNC_REQUESTED_AT = '2026-09-01T12:34:56.789Z';
 
 describe('repositoryAccessSyncEventData', () => {
   it('세 인자만으로 outbox row 전체를 결정한다', () => {
-    const row = repositoryAccessSyncEventData(
+    const row = PlatformRepository.repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
@@ -156,7 +156,7 @@ describe('repositoryAccessSyncEventData', () => {
   it('호출 시점 wall clock 이 아니라 넘겨받은 시각에만 묶인다', () => {
     jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
     try {
-      const row = repositoryAccessSyncEventData(
+      const row = PlatformRepository.repositoryAccessSyncEventData(
         SYNC_APPLICATION_ID,
         SYNC_TEAM_ID,
         SYNC_NOW,
@@ -175,22 +175,23 @@ describe('repositoryAccessSyncEventData', () => {
   });
 
   it('같은 신청·같은 시각만 한 key 로 합치고 이후 변경은 새 row 가 된다', () => {
-    const first = repositoryAccessSyncEventData(
+    const first = PlatformRepository.repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
     );
-    const sameInstant = repositoryAccessSyncEventData(
+    const sameInstant = PlatformRepository.repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       new Date(SYNC_NOW.getTime()),
     );
-    const oneMillisecondLater = repositoryAccessSyncEventData(
-      SYNC_APPLICATION_ID,
-      SYNC_TEAM_ID,
-      new Date(SYNC_NOW.getTime() + 1),
-    );
-    const otherApplication = repositoryAccessSyncEventData(
+    const oneMillisecondLater =
+      PlatformRepository.repositoryAccessSyncEventData(
+        SYNC_APPLICATION_ID,
+        SYNC_TEAM_ID,
+        new Date(SYNC_NOW.getTime() + 1),
+      );
+    const otherApplication = PlatformRepository.repositoryAccessSyncEventData(
       'other-application-id',
       SYNC_TEAM_ID,
       SYNC_NOW,
@@ -204,7 +205,7 @@ describe('repositoryAccessSyncEventData', () => {
 
 describe('parseRepositoryAccessSyncEvent', () => {
   it('factory 가 만든 payload 를 그대로 왕복한다', () => {
-    const { payload } = repositoryAccessSyncEventData(
+    const { payload } = PlatformRepository.repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
@@ -293,11 +294,12 @@ describe('parseRepositoryAccessSyncEvent', () => {
       requestedAt: SYNC_REQUESTED_AT,
       collaboratorGithubLogins: ['student-a'],
     };
-    const { payload: accessSyncPayload } = repositoryAccessSyncEventData(
-      SYNC_APPLICATION_ID,
-      SYNC_TEAM_ID,
-      SYNC_NOW,
-    );
+    const { payload: accessSyncPayload } =
+      PlatformRepository.repositoryAccessSyncEventData(
+        SYNC_APPLICATION_ID,
+        SYNC_TEAM_ID,
+        SYNC_NOW,
+      );
 
     expect(() => parseRepositoryAccessSyncEvent(provisionPayload)).toThrow(
       InvalidRepositoryProvisionEventError,

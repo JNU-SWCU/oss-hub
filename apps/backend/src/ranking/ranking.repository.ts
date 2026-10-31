@@ -4,8 +4,6 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
   USER_PROFILE_NAME_SELECT,
-  resolveUserProfileDepartment,
-  resolveUserProfileName,
 } from '../platform/user-profile-read.config';
 
 export type RankingRepositoryViewerClass = 'public' | 'member' | 'staff';
@@ -125,7 +123,7 @@ export class RankingRepository {
         return {
           githubId: user.githubId,
           githubLogin: user.nickname,
-          department: resolveUserProfileDepartment(user),
+          department: user.profile?.department ?? null,
           commitCount: totals?.commitCount ?? 0,
           pullRequestCount: totals?.pullRequestCount ?? 0,
           issueCount: totals?.issueCount ?? 0,
@@ -150,7 +148,7 @@ export class RankingRepository {
       },
     });
     return new Map(
-      users.map((user) => [user.githubId, resolveUserProfileName(user)]),
+      users.map((user) => [user.githubId, user.profile?.name ?? null]),
     );
   }
 

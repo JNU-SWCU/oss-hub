@@ -26,7 +26,6 @@ import {
   LegacySubmissionSlotMissingError,
   SubmissionPublicIdCollisionError,
 } from './submissions.error';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 
 export interface SubmissionApplication {
   readonly id: string;
@@ -738,7 +737,7 @@ export class SubmissionsRepository implements SubmissionsStore {
   static submissionParticipantWhere(
     userId: string,
   ): Prisma.ApplicationWhereInput {
-    return programApplicationParticipantWhere(userId);
+    return PlatformRepository.programApplicationParticipantWhere(userId);
   }
 
   static toSubmissionApplication(

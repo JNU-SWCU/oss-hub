@@ -13,7 +13,6 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repository-provision-event.config';
@@ -23,6 +22,7 @@ import {
 } from './repository-url.config';
 
 import { PrismaService } from '../platform/prisma.service';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;

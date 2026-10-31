@@ -16,8 +16,8 @@ import {
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export class StudentRepositoryUrlTransactionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -148,7 +148,7 @@ export class StudentRepositoryUrlRepository {
     return this.prisma.application.findFirst({
       where: {
         programId,
-        ...programApplicationParticipantWhere(studentId),
+        ...PlatformRepository.programApplicationParticipantWhere(studentId),
       },
       select:
         StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,

@@ -13,11 +13,11 @@ import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   parseRepositoryProvisionEvent,
-  repositoryAccessSyncEventData,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repository-provision-event.config';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -142,7 +142,7 @@ async function createAccessSyncEvent(
   requestedAt: Date = NOW,
   payloadOverride?: Prisma.InputJsonValue,
 ): Promise<string> {
-  const data = repositoryAccessSyncEventData(
+  const data = PlatformRepository.repositoryAccessSyncEventData(
     applicationId,
     teamIdFor(applicationId),
     requestedAt,

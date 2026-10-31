@@ -15,9 +15,6 @@ export interface RepositoryProvisionEventPayload {
   readonly requestedByGithubId?: string | null;
 }
 
-export const REPOSITORY_ACCESS_SYNC_EVENT_TYPE =
-  'REPOSITORY_ACCESS_SYNC_REQUESTED' as const;
-
 export function parseRepositoryProvisionEvent(
   value: unknown,
 ): RepositoryProvisionEventPayload {
@@ -109,22 +106,6 @@ export function parseRepositoryProvisionEvent(
     repositoryConnectionMode,
     repositoryUrl,
     ...(requestedByGithubId === undefined ? {} : { requestedByGithubId }),
-  };
-}
-
-export function repositoryAccessSyncEventData(
-  applicationId: string,
-  teamId: string,
-  now: Date,
-) {
-  const requestedAt = now.toISOString();
-  return {
-    type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-    aggregateType: 'Application',
-    aggregateId: applicationId,
-    idempotencyKey: `repository-access-sync:${applicationId}:${requestedAt}`,
-    payload: { applicationId, teamId, requestedAt },
-    availableAt: now,
   };
 }
 

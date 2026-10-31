@@ -7,9 +7,9 @@ import {
   parseRepositoryAccessSyncEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
   parseRepositoryProvisionEvent,
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
 } from './repository-provision-event.config';
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 const PROVISION_POLL_INTERVAL_MS = 5_000;

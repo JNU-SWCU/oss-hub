@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { programApplicationParticipantWhere } from '../platform/program-application-participant.config';
 
 export interface ProgramRepositoryLink {
   readonly programId: string;
@@ -86,7 +85,11 @@ export class ProgramActivityRepository {
             ],
           },
           ...(studentUserId
-            ? [programApplicationParticipantWhere(studentUserId)]
+            ? [
+                PlatformRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                ),
+              ]
             : []),
         ],
       },
