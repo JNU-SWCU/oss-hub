@@ -41,7 +41,7 @@ const happyDomTests = [
   'src/features/reviews/components/repository-publish-card.test.tsx',
   'src/features/roles/access-administration/{admin-access-authority-actions.test.tsx,admin-access-detail-actions.test.tsx,admin-access-detail-dialogs.test.tsx,admin-access-detail-history.test.tsx,admin-access-detail-layout.test.tsx,admin-access-detail-post-decision.test.tsx,admin-access-detail-view.test.tsx,admin-access-list-interactive.test.tsx,admin-access-mutation-actions.test.tsx,admin-access-revocation-contract.test.tsx}',
   'src/features/roles/onboarding/role-request-retry.test.tsx',
-  'src/features/roles/access-administration/components/{admin-access-controls.test.tsx,admin-access-overlay.test.tsx,admin-access-profile-section.test.tsx}',
+  'src/features/roles/access-administration/components/{admin-access-controls.test.tsx,admin-access-overlay.test.tsx,admin-access-profile-section.test.tsx,use-inline-admin-access-mutation.test.tsx}',
   'src/features/submissions/{milestone-document-current-files.test.tsx,submission-checklist-clock.test.tsx,submission-dialog.test.tsx,submission-input.test.tsx,submission-matrix-controls.test.tsx,submission-matrix-stage-navigation.test.tsx,submission-submit-feedback.test.tsx}',
   'src/features/system-status/components/{collection-activity-feed.test.tsx,collection-streams-table.test.tsx,external-collection-section.test.tsx,system-status-screen.test.tsx}',
   'src/lib/{use-debounced-value.test.tsx,use-file-check.test.tsx}',

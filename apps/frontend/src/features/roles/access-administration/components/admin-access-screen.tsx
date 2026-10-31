@@ -89,9 +89,9 @@ export function AdminAccessScreen({
     [isQueue, pathname, router],
   );
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ quiet = false } = {}) => {
     const requestId = ++latestRequestId.current;
-    setIsLoading(true);
+    if (!quiet) setIsLoading(true);
     setError(null);
     try {
       const params = buildAdminAccessListParams(state);
@@ -99,6 +99,10 @@ export function AdminAccessScreen({
         ? await fetchAdminAccessRequests(params)
         : await fetchAdminAccessList(params);
       if (requestId !== latestRequestId.current) return;
+      if (quiet && result.items.length === 0 && state.page > 1) {
+        navigate({ ...state, page: state.page - 1 });
+        return;
+      }
       setItems(result.items);
       setTotal(result.total);
       setPendingCount(result.facets.pendingRequests.pending);
@@ -106,9 +110,9 @@ export function AdminAccessScreen({
       if (requestId !== latestRequestId.current) return;
       setError(errorMessage(loadError));
     } finally {
-      if (requestId === latestRequestId.current) setIsLoading(false);
+      if (!quiet && requestId === latestRequestId.current) setIsLoading(false);
     }
-  }, [isQueue, state]);
+  }, [isQueue, navigate, state]);
 
   useEffect(() => {
     void load();
@@ -125,6 +129,7 @@ export function AdminAccessScreen({
 
   return (
     <AdminAccessView
+      {...{ onChanged: () => void load({ quiet: true }) }}
       workspace={workspace}
       listSearch={listSearch}
       items={items}

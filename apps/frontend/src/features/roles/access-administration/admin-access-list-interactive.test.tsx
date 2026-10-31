@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Button } from '@/components/ui/button';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -12,13 +13,28 @@ import { AdminAccessScreen } from './components/admin-access-screen';
 import type { AdminAccessListItem } from './admin-access-api';
 import { ADMIN_ACCESS_LIST_LIMIT } from './admin-access-list-query';
 
+vi.mock('./components/admin-access-view', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./components/admin-access-view')>();
+  return {
+    ...actual,
+    AdminAccessView: (props: Parameters<typeof actual.AdminAccessView>[0] & {
+      readonly onChanged?: () => void;
+    }) => (
+      <>
+        <Button data-testid="quiet-reload" onClick={props.onChanged}>quiet reload</Button>
+        <actual.AdminAccessView {...props} />
+      </>
+    ),
+  };
+});
+
 const navigation = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
   push: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => navigation,
   usePathname: () => '/dashboard/users',
   useSearchParams: () => navigation.searchParams,
 }));
@@ -354,3 +370,87 @@ describe.each(['directory', 'queue'] as const)(
     });
   },
 );
+
+describe('AdminAccessScreen — 조용한 갱신', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function response(items: readonly AdminAccessListItem[]) {
+    return new Response(JSON.stringify({
+      items, page: 2, limit: 20, total: items.length ? 21 : 20,
+      facets: {
+        roles: { unassigned: 0, student: 0, staff: 21, admin: 0 },
+        accountStatuses: { active: 21, deactivated: 0 },
+        pendingRequests: { none: 21, pending: 0 },
+      },
+    }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  async function start(page = 2) {
+    const initial = Promise.withResolvers<Response>();
+    const refresh = Promise.withResolvers<Response>();
+    const fetch = vi.fn().mockReturnValueOnce(initial.promise).mockReturnValueOnce(refresh.promise);
+    vi.stubGlobal('fetch', fetch);
+    navigation.push.mockClear();
+    navigation.searchParams = new URLSearchParams({ page: String(page), role: 'STAFF' });
+    await act(async () => root.render(<AdminAccessScreen workspace="directory" />));
+    await act(async () => initial.resolve(response([item()])));
+    return { refresh, fetch };
+  }
+
+  function reload() {
+    act(() => container.querySelector<HTMLButtonElement>('[data-testid="quiet-reload"]')?.click());
+  }
+
+  it('keeps the existing row and focus instead of showing a loading row during quiet reload', async () => {
+    const { refresh, fetch } = await start();
+    const trigger = container.querySelector<HTMLButtonElement>('[data-testid="quiet-reload"]');
+    trigger?.focus();
+    const row = container.querySelector('tbody tr');
+
+    reload();
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('tbody tr')).toBe(row);
+    expect(container.textContent).not.toContain('불러오는 중…');
+    expect(document.activeElement).toBe(trigger);
+    await act(async () => refresh.resolve(response([item({ name: '갱신 결과' })])));
+    expect(container.textContent).toContain('갱신 결과');
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it('keeps rows on quiet failure and uses full loading for retry', async () => {
+    const { refresh, fetch } = await start();
+    const retry = Promise.withResolvers<Response>();
+    fetch.mockReturnValueOnce(retry.promise);
+    reload();
+
+    await act(async () => refresh.reject(new TypeError('Network failed')));
+
+    expect(container.textContent).toContain('합성 사용자');
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('불러오는 중…');
+    const retryButton = Array.from(container.querySelectorAll('button')).find(button => button.textContent === '다시 시도');
+    act(() => retryButton?.click());
+    expect(container.textContent).toContain('불러오는 중…');
+    await act(async () => retry.resolve(response([item()])));
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it.each([1, 2, 3])('moves back one page only when quiet results are empty on page %i', async (page) => {
+    const { refresh } = await start(page);
+    reload();
+
+    await act(async () => refresh.resolve(response([])));
+
+    if (page > 1) {
+      const destination: unknown = navigation.push.mock.calls[0]?.[0];
+      expect(typeof destination).toBe('string');
+      const url = new URL(String(destination), 'https://example.test');
+      expect(Number(url.searchParams.get('page') ?? '1')).toBe(page - 1);
+      expect(url.searchParams.get('role')).toBe('STAFF');
+      expect(navigation.push).toHaveBeenCalledTimes(1);
+    } else {
+      expect(navigation.push).not.toHaveBeenCalled();
+    }
+  });
+});
