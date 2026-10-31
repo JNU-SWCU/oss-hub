@@ -7,19 +7,17 @@ import {
 import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
 import type { PrismaService } from '../platform/prisma.service';
 import {
+  AdminAccessReadOrderingRepository,
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
   type AdminAccessFacets,
   type AdminAccessListQuery,
-} from './admin-access.types';
-import type {
-  AdminAccessUserDetailRecord,
-  AdminAccessUserPageRecord,
-} from './admin-access-repository.types';
-import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+} from './admin-access-read-ordering.repository';
 import {
   ADMIN_ACCESS_USER_SELECT,
   AdminAccessUserProjectionRepository,
+  type AdminAccessUserDetailRecord,
+  type AdminAccessUserPageRecord,
 } from './admin-access-user-projection.repository';
 
 export class AdminAccessReadRepository {

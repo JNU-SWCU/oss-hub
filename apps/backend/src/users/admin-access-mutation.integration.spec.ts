@@ -7,15 +7,15 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
+  AuditLogRepository,
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+} from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

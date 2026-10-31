@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   type ClaimedProgramPurgeFileTombstone,
   ProgramPurgeFileCleanupRepository,
@@ -26,6 +27,10 @@ type ProgramPurgeFileCleanupStore = Pick<
 @Injectable()
 export class ProgramPurgeFileCleanupService {
   private readonly logger = new Logger(ProgramPurgeFileCleanupService.name);
+  private readonly schedulerLogger = new Logger(
+    'ProgramPurgeFileCleanupScheduler',
+  );
+  private running = false;
 
   constructor(
     @Inject(ProgramPurgeFileCleanupRepository)
@@ -35,6 +40,22 @@ export class ProgramPurgeFileCleanupService {
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  @Cron(CronExpression.EVERY_HOUR, { name: 'program-purge-file-cleanup' })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.runDue();
+    } catch {
+      this.schedulerLogger.error({
+        event: 'program-purge-file.cleanup.run.failed',
+        error: 'MAINTENANCE_RUN_FAILED',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
 
   async runDue(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
     let claimedCount = 0;

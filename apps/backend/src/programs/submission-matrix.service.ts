@@ -1,23 +1,58 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import { documentDeliveryStatus } from './milestone-document.policy';
-import type {
-  SubmissionMatrixQuery,
-  MatrixCellResult,
-  MatrixRowResult,
-  SubmissionMatrixResult,
-} from './submission.types';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
+  SubmissionMatrixFilter,
+  MatrixApplicationMode,
 } from './submission-matrix.repository';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
+import { type SubmissionStatus } from '@prisma/client';
+import { type DocumentDeliveryStatus } from './milestone-document-collection-read.repository';
+import { documentDeliveryStatus } from './milestone-documents.service';
+
+export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
+  readonly page: number;
+  readonly pageSize: number;
+}
+
+export type MatrixCellStatus = SubmissionStatus | 'NOT_SUBMITTED';
+
+interface MatrixCellResult {
+  readonly milestoneId: string;
+  readonly submissionId: string | null;
+  readonly revision: number | null;
+  readonly status: MatrixCellStatus;
+  readonly submittedAt: Date | null;
+  readonly deliveryStatus: DocumentDeliveryStatus;
+  readonly changesRequestedCount: number;
+}
+
+export interface MatrixRowResult {
+  readonly applicationId: string;
+  readonly applicationMode: MatrixApplicationMode;
+  readonly displayName: string;
+  readonly githubLogins: readonly string[];
+  readonly cells: readonly MatrixCellResult[];
+}
+
+export interface SubmissionMatrixResult {
+  readonly milestones: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly dueAt: Date;
+  }[];
+  readonly rows: readonly MatrixRowResult[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+}
 
 @Injectable()
 export class SubmissionMatrixService {

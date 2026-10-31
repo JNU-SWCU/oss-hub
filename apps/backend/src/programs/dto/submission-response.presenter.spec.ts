@@ -1,13 +1,13 @@
-import type {
-  SubmissionChecklistResult,
-  SubmissionFormResult,
-} from '../submission-result.policy';
 import {
   CreatedSubmissionResponseDto,
   ResubmittedSubmissionResponseDto,
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from './submission-form-response.dto';
+import {
+  type SubmissionChecklistResult,
+  type SubmissionFormResult,
+} from '../submissions.service';
 
 const dueAt = new Date('2026-09-01T14:59:59.123Z');
 const form: SubmissionFormResult = {

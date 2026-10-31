@@ -3,10 +3,10 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from './prisma.service';
 import { AuditLogErrorCode } from './audit-log-error-code.error';
 import {
+  AuditLogRepository,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from './audit-log-metadata.policy';
-import { AuditLogRepository } from './audit-log.repository';
+} from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
 assertIsolatedIntegrationDatabase({

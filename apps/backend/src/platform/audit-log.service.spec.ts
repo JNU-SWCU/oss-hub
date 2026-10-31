@@ -1,11 +1,11 @@
 import { AccountStatus } from '@prisma/client';
+import { AuditLogErrorCode } from './audit-log-error-code.error';
 import {
+  type AuditLogRepository,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from './audit-log-metadata.policy';
-import { AuditLogErrorCode } from './audit-log-error-code.error';
-import type { AuditLogRecordInput } from './audit-log-record-input.types';
-import type { AuditLogRepository } from './audit-log.repository';
+  type AuditLogRecordInput,
+} from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];

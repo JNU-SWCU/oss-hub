@@ -1,19 +1,16 @@
 import { createHash } from 'node:crypto';
 import {
-  canonicalProgramAuthoringPayload,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringUploadTokenError,
-  type ProgramAuthoringDocumentRequest,
-} from './program-authoring.policy';
-import { buildProgramAuthoringPlan } from './program-authoring-plan.policy';
-import {
   ProgramTrackType,
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
+import {
+  ProgramAuthoringService,
+  canonicalProgramAuthoringPayload,
+  buildProgramAuthoringPlan,
+} from './program-authoring.service';
 import {
   AUTHORING_TEST_PREFIX,
   ProgramAuthoringIntegrationHarness,
@@ -21,6 +18,11 @@ import {
   authoringMilestone,
   authoringRequest,
 } from './program-authoring.integration-support';
+import {
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringUploadTokenError,
+} from './program-authoring.error';
+import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();

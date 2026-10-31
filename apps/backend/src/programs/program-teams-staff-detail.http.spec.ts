@@ -3,10 +3,12 @@ import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';

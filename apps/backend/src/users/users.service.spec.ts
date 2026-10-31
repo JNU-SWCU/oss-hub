@@ -1,23 +1,22 @@
 import { MemberKind } from '@prisma/client';
-import {
-  USER_PHONE_AUDIT_TRANSITIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
-  USER_PROFILE_AUDIT_SCHEMA_VERSION,
-  type UserPhoneAuditTransition,
-} from '../platform/audit-log-metadata.policy';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import type { PatchUserProfileInput } from './user-profile-record.policy';
 import { UsersErrorCode } from './users-error-code.error';
 import type {
   ProfileCompletionOutcome,
   UsersRepositoryPort,
 } from './users.repository';
 import { profileRecord } from './member-authority-test-fixtures';
-import { UsersService } from './users.service';
+import { UsersService, type PatchUserProfileInput } from './users.service';
+import {
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  USER_PROFILE_AUDIT_SCHEMA_VERSION,
+  type UserPhoneAuditTransition,
+} from '../platform/audit-log.repository';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>

@@ -1,14 +1,10 @@
 import { type ProgramTrackType } from '@prisma/client';
-import {
-  applicationMode,
-  displayNameOf,
-  type PublicProjectApplicationMode,
-} from '../public-projects.policy';
+import type { PublicProjectApplicationMode } from '../public-projects.repository';
 import type {
   PublicProjectMetrics,
   PublicUserProfileProjectResult,
   PublicUserProfileResult,
-} from '../programs.types';
+} from '../public-projects.service';
 
 class PublicUserProfileMetricsResponseDto {
   declare readonly commitCount: number;
@@ -50,8 +46,8 @@ class PublicUserProfileProjectResponseDto {
       programId: row.programId,
       programName: row.programName,
       trackType: row.trackType,
-      applicationMode: applicationMode(row.teamMemberCount),
-      displayName: displayNameOf(row),
+      applicationMode: row.applicationMode,
+      displayName: row.displayName,
       repositoryName: row.repositoryName,
       githubUrl: row.githubUrl,
       publishedAt: row.publishedAt.toISOString(),

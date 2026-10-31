@@ -10,7 +10,7 @@ import { AdminAccessReadRepository } from './admin-access-read.repository';
 import {
   ADMIN_ACCESS_DEFAULT_DIRECTION,
   ADMIN_ACCESS_DEFAULT_SORT,
-} from './admin-access.types';
+} from './admin-access-read-ordering.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

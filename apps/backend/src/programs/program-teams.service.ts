@@ -1,26 +1,4 @@
-import type {
-  RepositoryUrlHistoryCursor,
-  RepositoryUrlHistoryPage,
-  TeamActivityView,
-  DeletedTeamView,
-  ProgramTeamView,
-  RenamedTeamView,
-  StaffTeamDetailView,
-  StaffTeamView,
-} from './program-teams.types';
-import {
-  canEditStudentRepositoryUrl,
-  type TeamDeletionScopeCounts,
-} from './programs.policy';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  createTeamDeletedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-  createTeamRenamedAuditMetadata,
-  TEAM_DELETED_AUDIT_ACTIONS,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
-  TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -41,6 +19,26 @@ import {
   type TeamDeletionNotificationStore,
 } from './program-team-deletion.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
+import {
+  type RepositoryUrlHistoryCursor,
+  type RepositoryUrlHistoryPage,
+  type TeamActivityView,
+  type DeletedTeamView,
+  type ProgramTeamView,
+  type RenamedTeamView,
+  type StaffTeamDetailView,
+  type StaffTeamView,
+} from './program-team-repository-evidence.repository';
+import { canEditStudentRepositoryUrl } from './student-repository-url.service';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.repository';
+import {
+  createTeamDeletedAuditMetadata,
+  createTeamMembershipAuditMetadata,
+  createTeamRenamedAuditMetadata,
+  TEAM_DELETED_AUDIT_ACTIONS,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_RENAMED_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 

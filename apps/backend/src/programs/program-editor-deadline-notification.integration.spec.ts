@@ -9,11 +9,11 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { DomainException } from '../platform/error-code.error';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
 import { DeadlineDigestService } from '../notifications/deadline-digest.service';
-import type { DeadlineDigestMail } from '../notifications/notifications.types';
 import { NotificationsErrorCode } from '../notifications/notifications-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

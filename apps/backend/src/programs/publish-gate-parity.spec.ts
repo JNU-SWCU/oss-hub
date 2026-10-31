@@ -6,11 +6,6 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { RepositoriesService } from '../github/repositories.service';
-import {
-  PUBLISH_BLOCKED_REASONS,
-  type PublishBlockedReason,
-  type RepositoryPublishEligibility,
-} from './submission-review.types';
 import type { PrismaService } from '../platform/prisma.service';
 import {
   SubmissionReviewsRepository,
@@ -22,6 +17,11 @@ import {
   type ReviewContextRow,
   SubmissionReviewContextMapperRepository,
 } from './submission-review-context-mapper.repository';
+import {
+  PUBLISH_BLOCKED_REASONS,
+  type PublishBlockedReason,
+  type RepositoryPublishEligibility,
+} from '../github/repositories.repository';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');

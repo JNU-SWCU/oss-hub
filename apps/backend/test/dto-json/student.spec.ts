@@ -3,7 +3,7 @@ import { MilestoneDocumentFeedbackResponseDto } from '../../src/student/dto/mile
 import { MyRepositoriesResponseDto } from '../../src/student/dto/my-repositories-response.dto';
 import { StudentDashboardResponseDto } from '../../src/student/dto/student-dashboard-response.dto';
 import type { MyRepositoryResult } from '../../src/github/repositories-read.types';
-import type { StudentDashboardItem } from '../../src/student/student-dashboard.types';
+import { type StudentDashboardItem } from '../../src/student/student-dashboard.service';
 
 const at = (iso: string): Date => new Date(iso);
 

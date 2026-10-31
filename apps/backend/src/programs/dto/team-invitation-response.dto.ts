@@ -2,7 +2,7 @@ import { TeamInvitationStatus } from '@prisma/client';
 import type {
   SentTeamInvitationRecord,
   TeamInvitationInvitee,
-} from '../team-invitation.types';
+} from '../team-invitations.repository';
 
 export class TeamInvitationInviteeResponseDto {
   declare readonly id: string;

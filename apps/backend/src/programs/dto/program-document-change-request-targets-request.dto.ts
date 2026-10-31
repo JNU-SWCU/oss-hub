@@ -5,10 +5,8 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import {
-  type ProgramDocumentChangeRequestScope,
-  toProgramDocumentChangeRequestScope,
-} from '../milestone-document.policy';
+import { type ProgramDocumentChangeRequestScope } from '../milestone-document-collection-read.repository';
+import { toProgramDocumentChangeRequestScope } from '../milestone-documents.service';
 
 export class ProgramDocumentChangeRequestTargetsRequestDto {
   @IsIn(['PROGRAM', 'TEAM'])

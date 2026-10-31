@@ -8,8 +8,10 @@ import {
   DIGEST_FIXTURE as fixture,
 } from '../notifications/deadline-digest.integration-support';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { buildMilestoneDocumentDeliveryPage } from './milestone-document-delivery-page.policy';
+import {
+  MilestoneDocumentCollectionService,
+  buildMilestoneDocumentDeliveryPage,
+} from './milestone-document-collection.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityService } from '../users/users-authority.service';

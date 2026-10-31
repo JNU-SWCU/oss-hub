@@ -1,6 +1,5 @@
 import { AccountStatus } from '@prisma/client';
 import { RolesErrorCode } from './roles-error-code.error';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -9,6 +8,7 @@ import {
   accessUser,
   auditLogHarness,
 } from './admin-access.service.spec-support';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {

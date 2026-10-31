@@ -2,7 +2,6 @@ import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
 import { UsersErrorCode } from './users-error-code.error';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -12,6 +11,7 @@ import {
   adminActor,
   auditLogHarness,
 } from './admin-access.service.spec-support';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
 
 describe('AdminAccessService mutation guards', () => {
   it('locks active admins before the target and preserves the final admin', async () => {

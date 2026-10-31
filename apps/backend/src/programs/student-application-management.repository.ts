@@ -10,10 +10,10 @@ import {
 } from '../platform/user-profile-read.repository';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
-import type {
-  AppendReviewHistoryInput,
-  AppendedReviewHistory,
+import {
+  ReviewHistoryWriterRepository,
+  type AppendReviewHistoryInput,
+  type AppendedReviewHistory,
 } from './review-history-writer.repository';
 
 class StudentResubmissionRepository {

@@ -1,3 +1,5 @@
+import { authorityLabel } from './users.repository';
+import { type AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AffiliationKind,
@@ -10,14 +12,13 @@ import type { AuditLogTransactionWriter } from '../platform/audit-log-transactio
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,
   insertRevokedStaffAccessRequest,
 } from './admin-access.repository';
-import type { AdminAccessActor } from './admin-access-repository.types';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { type AdminAccessActor } from './admin-access-user-projection.repository';
 
 type MemberKindTargetProfile = {
   readonly name: string;

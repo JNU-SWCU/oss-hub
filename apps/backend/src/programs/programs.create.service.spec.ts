@@ -4,7 +4,6 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
@@ -14,6 +13,7 @@ import {
 } from './program-error-code.error';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',

@@ -1,14 +1,27 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MilestoneDocumentKind } from '@prisma/client';
-import { isChangeRequestResubmissionOpen } from '../programs/milestone-document-submission-window.policy';
-import type {
-  MilestoneDocumentFeedbackItemResult,
-  MilestoneDocumentFeedbackResult,
-} from '../programs/milestone-document-result.types';
+import { MilestoneDocumentKind, type ReviewDecision } from '@prisma/client';
 import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
 } from './milestone-document-feedback.repository';
+import { isChangeRequestResubmissionOpen } from '../programs/milestone-documents.service';
+
+interface MilestoneDocumentFeedbackItemResult {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+  readonly resubmissionDueAt: Date | null;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly milestoneId: string;
+  readonly milestoneName: string;
+  readonly itemName: string;
+}
+
+export interface MilestoneDocumentFeedbackResult {
+  readonly items: readonly MilestoneDocumentFeedbackItemResult[];
+}
 
 export const MILESTONE_DOCUMENT_FEEDBACK_CLOCK = Symbol(
   'MILESTONE_DOCUMENT_FEEDBACK_CLOCK',

@@ -1,4 +1,4 @@
-import { ConsentGrant } from '../users.types';
+import type { ConsentGrant } from '../consents.service';
 
 export class ConsentResponseDto {
   declare readonly policyVersion: string;

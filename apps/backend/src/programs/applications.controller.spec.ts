@@ -11,10 +11,12 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import type { ApplicationsService } from './applications.service';
-import type { ApplicationListItem } from './application-records.types';
+import {
+  type ApplicationsService,
+  applicationDecisionAction,
+} from './applications.service';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
-import { applicationDecisionAction } from './application-decision.policy';
+import { type ApplicationListItem } from './applications.repository';
 
 type ControllerService = Pick<ApplicationsService, 'decide' | 'getForStaff'>;
 

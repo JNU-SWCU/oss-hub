@@ -1,7 +1,8 @@
 import type {
   SystemStatusResult,
   SystemStatusCollectionActivityResult,
-} from '../system-status.types';
+} from '../system-status.service';
+
 export type CollectionHealthResponseDto =
   'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
 

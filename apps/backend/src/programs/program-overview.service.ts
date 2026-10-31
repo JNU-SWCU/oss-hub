@@ -1,21 +1,43 @@
+import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,
   ProgramOverviewErrorCode,
 } from './program-overview-error-code.error';
-import type {
-  ProgramOverviewMilestoneDocument,
-  ProgramOverviewRemainingMilestone,
-  ProgramOverviewView,
-  ProgramOverviewViewerStats,
-  PublicTeamRow,
-} from './programs.types';
 import {
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,
   ProgramOverviewRepository,
+  ProgramOverviewRecord,
+  type PublicTeamRow,
 } from './program-overview.repository';
+
+export interface ProgramOverviewViewerStats {
+  role: AuthorityLabel | null;
+  myDocumentsCompleted: number | null;
+  myDocumentsTotal: number | null;
+  fullySubmittedParticipantCount: number | null;
+
+  milestoneDocuments: ProgramOverviewMilestoneDocument[];
+}
+
+export interface ProgramOverviewMilestoneDocument {
+  milestoneId: string;
+  title: string;
+  completed: number;
+  total: number;
+}
+
+export interface ProgramOverviewRemainingMilestone {
+  readonly label: string;
+  readonly dueAt: Date;
+}
+
+export interface ProgramOverviewView extends ProgramOverviewRecord {
+  viewer: ProgramOverviewViewerStats;
+  remainingMilestones: readonly ProgramOverviewRemainingMilestone[];
+}
 
 const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   role: null,

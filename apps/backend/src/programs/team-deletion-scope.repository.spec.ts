@@ -1,11 +1,11 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { TEAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix.policy';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import {
+  TeamDeletionScopeRepository,
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,
   type TeamDeletionScopeCounts,
-} from './programs.policy';
+} from './team-deletion-scope.repository';
+import { TEAM_PURGE_DELETION_ORDER } from './program-lifecycle.repository';
 
 const SCOPE: TeamDeletionScopeCounts = {
   applications: 1,

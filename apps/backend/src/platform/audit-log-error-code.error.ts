@@ -1,5 +1,12 @@
 import type { ErrorCode } from './error-code.error';
 
+export class InvalidAuditLogMetadataError extends Error {
+  constructor() {
+    super('Audit log metadata does not match a known audit schema version.');
+    this.name = 'InvalidAuditLogMetadataError';
+  }
+}
+
 export enum AuditLogErrorCode {
   ADMIN_ONLY = 'AUD_001',
   INVALID_DATE_RANGE = 'AUD_002',

@@ -10,8 +10,8 @@ import {
 import {
   ApplicationsRepository,
   type ApplyProgramRecord,
+  type ApplicationListPage,
 } from './applications.repository';
-import type { ApplicationListPage } from './application-records.types';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';

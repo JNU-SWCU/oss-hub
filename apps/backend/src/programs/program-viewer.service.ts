@@ -1,8 +1,10 @@
+import { authorityLabel } from '../users/users.repository';
+import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import type { ProgramViewerRole } from './programs.types';
-import { authorityLabel } from '../users/authority-label.policy';
 import { ProgramsRepository } from './programs.repository';
+
+export type ProgramViewerRole = AuthorityLabel | 'PENDING' | null;
 
 export interface ProgramViewer {
   readonly githubId: bigint | null;

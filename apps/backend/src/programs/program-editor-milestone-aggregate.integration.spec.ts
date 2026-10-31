@@ -8,7 +8,10 @@ import { Readable } from 'node:stream';
 import type { UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './program-error-code.error';
-import { ProgramEditorRepository } from './program-editor.repository';
+import {
+  ProgramEditorRepository,
+  type ProgramEditorTransactionStore,
+} from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -20,7 +23,6 @@ import { MilestoneDocumentSubmissionRepository } from './milestone-document-subm
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
   cleanup,
   createMilestone,

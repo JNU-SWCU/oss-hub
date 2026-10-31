@@ -5,8 +5,6 @@ import {
   RepositoryConnectionMode,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.policy';
-import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { acceptTeamInvitationTransaction } from './team-invitations.repository';
@@ -19,6 +17,8 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repositories.repository';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
 
 const INVITATION_ID = 'cuid-invitation';
 const syntheticSuccessorLeaderId = 'cuid-synthetic-successor-leader';

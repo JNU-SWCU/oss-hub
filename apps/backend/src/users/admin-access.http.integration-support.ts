@@ -5,10 +5,12 @@ import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';

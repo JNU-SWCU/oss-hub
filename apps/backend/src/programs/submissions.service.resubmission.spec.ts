@@ -3,19 +3,17 @@ import {
   MilestoneSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
-import type {
-  CreateSubmissionInput,
-  ResubmitSubmissionInput,
-} from './submission.policy';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import type { SubmissionApplication } from './submission.types';
-import {
-  type ResubmissionTarget,
-  type SubmissionMilestone,
+import type {
+  ResubmissionTarget,
+  SubmissionMilestone,
+  CreateSubmissionInput,
+  ResubmitSubmissionInput,
 } from './submissions.repository';
 import { createSubmissionsServiceHarness } from './submissions.service-fixture';
 import { StaleSubmissionRevisionError } from './submissions.error';
+import { type SubmissionApplication } from './submission-checklist-record.repository';
 
 const githubId = 4242n;
 const submissionId = 'submission-1';

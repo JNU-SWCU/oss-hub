@@ -3,11 +3,6 @@ import type { ConsentsService } from '../users/consents.service';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryVisibility } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import {
-  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
-  createRepositoryPublishAuditMetadata,
-  deriveRepositoryFullName,
-} from '../platform/audit-log-metadata.policy';
 import type { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
@@ -15,6 +10,11 @@ import {
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
+import {
+  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
+  createRepositoryPublishAuditMetadata,
+  deriveRepositoryFullName,
+} from '../platform/audit-log.repository';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;

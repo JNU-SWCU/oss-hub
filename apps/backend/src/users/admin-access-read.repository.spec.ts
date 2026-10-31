@@ -7,20 +7,20 @@ import {
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import type { PrismaService } from '../platform/prisma.service';
-import { AdminAccessUserProjectionRepository } from './admin-access-user-projection.repository';
-import { AdminAccessReadRepository } from './admin-access-read.repository';
-import { enforceAdminAccessGuards } from './admin-access-mutation.policy';
 import {
+  AdminAccessUserProjectionRepository,
+  type AdminAccessActor,
+} from './admin-access-user-projection.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { UsersErrorCode } from './users-error-code.error';
+import {
+  enforceAdminAccessGuards,
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_PENDING_STATES,
   resolveAdminAccessTransition,
-} from './admin-access-transition-table.policy';
-import type { AdminAccessActor } from './admin-access-repository.types';
-import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,
-} from './admin-access.types';
-import { UsersErrorCode } from './users-error-code.error';
+} from './admin-access-mutation.service';
 
 describe('admin access read profile completeness', () => {
   it('treats a pending staff request without a student id as complete', async () => {

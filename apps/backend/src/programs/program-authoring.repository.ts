@@ -1,16 +1,4 @@
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import type {
-  ProgramExternalCover,
-  ProgramAuthoringProgramPlan,
-  ProgramAuthoringUploadToken,
-  ProgramAuthoringProgram,
-  ProgramAuthoringCreateRequestInput,
-  ProgramAuthoringMilestonePlan,
-  ProgramAuthoringDocumentPlan,
-  ProgramAuthoringTemplateInput,
-  ProgramAuthoringReplay,
-} from './program-authoring.policy';
-import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.types';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -18,12 +6,54 @@ import {
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  type ProgramAuthoringProgramPlan,
+  type ProgramAuthoringUploadToken,
+  type ProgramExternalCover,
+  type ProgramAuthoringProgram,
+  type ProgramAuthoringCreateRequestInput,
+  type ProgramAuthoringMilestonePlan,
+  type ProgramAuthoringDocumentPlan,
+  type ProgramAuthoringTemplateInput,
+  type ProgramAuthoringReplay,
+} from './program-authoring-upload-transaction.repository';
 import {
   createProgramCover,
   createExternalProgramCover,
 } from './program-cover.repository';
 import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
+
+export interface ProgramAuthoringTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+  createProgram(
+    plan: ProgramAuthoringProgramPlan,
+    cover?:
+      | {
+          readonly actorId: string;
+          readonly upload: ProgramAuthoringUploadToken;
+        }
+      | { readonly externalCover: ProgramExternalCover },
+  ): Promise<ProgramAuthoringProgram>;
+  createRequest(input: ProgramAuthoringCreateRequestInput): Promise<string>;
+  lockUploads(
+    tokenIds: readonly string[],
+  ): Promise<readonly ProgramAuthoringUploadToken[]>;
+  createMilestone(
+    programId: string,
+    plan: ProgramAuthoringMilestonePlan,
+  ): Promise<string>;
+  createDocument(
+    milestoneId: string,
+    plan: ProgramAuthoringDocumentPlan,
+  ): Promise<string>;
+  createTemplate(input: ProgramAuthoringTemplateInput): Promise<void>;
+  attachUploads(
+    actorId: string,
+    requestId: string,
+    tokenIds: readonly string[],
+  ): Promise<void>;
+}
 
 type AuthoringActor = {
   readonly id: string;

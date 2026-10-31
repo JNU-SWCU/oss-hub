@@ -1,11 +1,11 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { RolesErrorCode } from './roles-error-code.error';
+import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
-import { RolesErrorCode } from './roles-error-code.error';
-import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
+} from '../platform/audit-log.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

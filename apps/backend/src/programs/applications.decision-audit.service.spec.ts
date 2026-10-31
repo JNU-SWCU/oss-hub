@@ -6,12 +6,10 @@ import {
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import {
+  type ApplicationsRepository,
+  type ApplicationsTransactionStore,
   APPLICATION_DECISION_ACTIONS,
   type ApplicationDecisionNotificationInput,
-} from './application-decision.policy';
-import type {
-  ApplicationsRepository,
-  ApplicationsTransactionStore,
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';

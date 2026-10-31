@@ -5,11 +5,15 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { AuthService, LoginHistoryService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
+import {
+  AuthService,
+  LoginHistoryService,
+  sessionCookieName,
+  issueSessionToken,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth.service';
 import type { AuthUser } from './http-auth.types';
 import { OriginGuard } from './origin.guard';
-import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 

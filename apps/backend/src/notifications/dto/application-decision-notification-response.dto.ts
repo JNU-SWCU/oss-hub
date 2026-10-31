@@ -1,5 +1,5 @@
 import type { ApplicationStatus } from '@prisma/client';
-import type { ApplicationDecisionNotification } from '../notifications.types';
+import type { ApplicationDecisionNotification } from '../application-decision-notifications.repository';
 
 export class ApplicationDecisionNotificationResponseDto {
   declare readonly id: string;

@@ -1,30 +1,121 @@
+import { authorityLabel } from './users.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import { requireActiveAdmin } from './admin-access-authorization.policy';
-import {
-  createIndependentAuthorityAudit,
-  type IndependentAuthorityCommand,
-  AUTHORITY_TARGETS,
-  resolveIndependentAuthorityTransition,
-  type AuthorityTarget,
-  type IndependentAuthorityTransition,
-} from './independent-authority.policy';
-import { roleError, staleAccessError } from './admin-access-mutation.policy';
-import {
-  ADMIN_ACCESS_COMMANDS,
-  STAFF_ACCESS_COMMANDS,
-  type AdminAuthorityMutationCommand,
-  type IndependentAuthorityMutationResult,
-  type StaffAccessMutationCommand,
-} from './independent-authority.types';
 import {
   IndependentAuthorityRepository,
   type IndependentAuthorityRepositoryPort,
   type IndependentAuthorityTransactionStore,
   type IndependentAuthorityUserRecord,
+  IndependentAuthorityState,
+  AuthorityTarget,
+  IndependentAuthorityTransition,
+  AUTHORITY_TARGETS,
+  type StaffAccessMutationCommand,
+  type AdminAuthorityMutationCommand,
+  ADMIN_ACCESS_COMMANDS,
+  STAFF_ACCESS_COMMANDS,
+  type IndependentAuthorityMutationResult,
 } from './independent-authority.repository';
+import {
+  type AuditLogRecordInput,
+  type IndependentAuthorityAuditAction,
+  type IndependentAuthorityAuditMetadata,
+  createIndependentAuthorityAuditMetadata,
+  type AuditPersonSnapshot,
+  type IndependentAuthorityAuditState,
+} from '../platform/audit-log.repository';
+import { type AdminAccessActor } from './admin-access-user-projection.repository';
+import {
+  requireActiveAdmin,
+  roleError,
+  staleAccessError,
+} from './admin-access-mutation.service';
+
+export function resolveIndependentAuthorityTransition(
+  before: IndependentAuthorityState,
+  target: AuthorityTarget,
+  enabled: boolean,
+): IndependentAuthorityTransition {
+  const hasStaffAccess =
+    target === AUTHORITY_TARGETS.STAFF ? enabled : before.hasStaffAccess;
+  const hasAdminAccess =
+    target === AUTHORITY_TARGETS.ADMIN ? enabled : before.hasAdminAccess;
+  return {
+    memberKind: before.memberKind,
+    selectedMemberKind: before.memberKind ?? before.selectedMemberKind,
+    hasStaffAccess,
+    hasAdminAccess,
+    role: authorityLabel({
+      memberKind: before.memberKind,
+      hasStaffAccess,
+      hasAdminAccess,
+    }),
+  };
+}
+
+export type IndependentAuthorityCommand =
+  StaffAccessMutationCommand | AdminAuthorityMutationCommand;
+
+export type IndependentAuthorityAuditRecordInput = Omit<
+  AuditLogRecordInput,
+  'action' | 'metadata'
+> & {
+  readonly action: IndependentAuthorityAuditAction;
+  readonly metadata: IndependentAuthorityAuditMetadata;
+};
+
+export function createIndependentAuthorityAudit(input: {
+  readonly actorGithubId: bigint;
+  readonly actor: AdminAccessActor;
+  readonly before: IndependentAuthorityUserRecord;
+  readonly after: IndependentAuthorityTransition;
+  readonly command: IndependentAuthorityCommand;
+}): IndependentAuthorityAuditRecordInput {
+  const { actor, actorGithubId, before: target, after, command } = input;
+  const action: IndependentAuthorityAuditAction = command.command;
+
+  return {
+    actorGithubId,
+    action,
+    targetType: 'USER',
+    targetId: target.id,
+    metadata: createIndependentAuthorityAuditMetadata({
+      command: command.command,
+      actor: personSnapshot(actor),
+      target: personSnapshot(target),
+      before: authorityState(target, target.accountStatus),
+      after: authorityState(after, target.accountStatus),
+    }),
+  };
+}
+
+function personSnapshot(person: {
+  readonly name: string | null;
+  readonly githubLogin: string;
+}): AuditPersonSnapshot {
+  return {
+    displayName: person.name,
+    githubLogin: person.githubLogin,
+  };
+}
+
+function authorityState(
+  authority: Pick<
+    IndependentAuthorityUserRecord,
+    'memberKind' | 'hasStaffAccess' | 'hasAdminAccess' | 'role'
+  >,
+  accountStatus: IndependentAuthorityUserRecord['accountStatus'],
+): IndependentAuthorityAuditState {
+  return {
+    memberKind: authority.memberKind,
+    hasStaffAccess: authority.hasStaffAccess,
+    hasAdminAccess: authority.hasAdminAccess,
+    role: authority.role,
+    accountStatus,
+  };
+}
 
 @Injectable()
 export class IndependentAuthorityService {

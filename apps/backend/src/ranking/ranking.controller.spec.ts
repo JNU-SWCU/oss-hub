@@ -4,9 +4,8 @@ import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
-import { RANKING_YEAR_ALL } from './ranking.policy';
 import { RankingController } from './ranking.controller';
-import { RankingService } from './ranking.service';
+import { RankingService, RANKING_YEAR_ALL } from './ranking.service';
 
 describe('RankingController', () => {
   const findPage = jest.fn();

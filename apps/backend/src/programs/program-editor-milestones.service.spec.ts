@@ -8,7 +8,7 @@ import {
   createProgramEditorServiceHarness,
   milestoneInput,
 } from '../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from './program-milestone-edit.policy';
+import { fingerprintProgramMilestoneEdit } from './program-editor.service';
 
 describe('ProgramEditorService milestones', () => {
   it('updates the selected milestone by canonical id through the aggregate edit contract', async () => {

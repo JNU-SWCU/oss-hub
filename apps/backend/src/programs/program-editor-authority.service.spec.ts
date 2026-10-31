@@ -12,8 +12,8 @@ import {
   createProgramEditorServiceHarness,
   editableProgram,
 } from '../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from './program-milestone-edit.policy';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.policy';
+import { fingerprintProgramMilestoneEdit } from './program-editor.service';
+import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 
 describe('ProgramEditorService authority', () => {
   it('loads edit data by canonical program id inside one repository transaction', async () => {

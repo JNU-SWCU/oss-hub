@@ -3,13 +3,15 @@ import {
   MilestoneSubmissionType,
   ProgramTrackType,
 } from '@prisma/client';
+import {
+  ProgramEditorService,
+  type UpdateProgramCommand,
+  type UpsertMilestoneCommand,
+} from '../src/programs/program-editor.service';
 import type {
-  UpdateProgramCommand,
-  UpsertMilestoneCommand,
-} from '../src/programs/programs.types';
-import { ProgramEditorService } from '../src/programs/program-editor.service';
-import type { ProgramEditorRepository } from '../src/programs/program-editor.repository';
-import type { ProgramEditorTransactionStore } from '../src/programs/program-editor.types';
+  ProgramEditorRepository,
+  ProgramEditorTransactionStore,
+} from '../src/programs/program-editor.repository';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',

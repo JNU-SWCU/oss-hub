@@ -6,14 +6,16 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { PROGRAM_LIST_QUERY_STATUSES } from './programs.policy';
 import {
   type ProgramListDerivedStatus,
   type ProgramListStatusInput,
   ProgramListStatusFilterRepository,
+  PROGRAM_LIST_QUERY_STATUSES,
 } from './program-list-status-filter.repository';
-import { ProgramsRepository } from './programs.repository';
-import type { ProgramListRecord } from './programs.types';
+import {
+  ProgramsRepository,
+  type ProgramListRecord,
+} from './programs.repository';
 import { ProgramsService } from './programs.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
@@ -572,7 +574,9 @@ describe('ProgramsService list', () => {
       anonymousViewer,
     );
 
-    expect(page.items).toEqual(items);
+    expect(page.items).toEqual(
+      items.map((item) => ({ ...item, coverImageUrl: null })),
+    );
     expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
     expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });
@@ -614,7 +618,7 @@ describe('ProgramsService list', () => {
       viewerApplicationStatus: ApplicationStatus.SUBMITTED,
       note: { text: '지원서 제출됨 · 교직원 승인을 기다립니다' },
     });
-    expect(page.items[1]).toEqual(items[1]);
+    expect(page.items[1]).toEqual({ ...items[1], coverImageUrl: null });
     expect((page.items[1] as { note?: unknown }).note).toBeUndefined();
     expect(
       (page.items[1] as { viewerApplicationStatus?: unknown })
@@ -788,7 +792,9 @@ describe('ProgramsService list', () => {
       viewer,
     );
 
-    expect(page.items).toEqual(items);
+    expect(page.items).toEqual(
+      items.map((item) => ({ ...item, coverImageUrl: null })),
+    );
     expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
     expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });

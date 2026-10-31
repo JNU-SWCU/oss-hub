@@ -10,12 +10,22 @@ import {
 } from './github-app.client';
 import type { RepositoryOwnEnrollmentService } from './repositories.service';
 import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import type {
-  ProvisionedRepository,
-  RepositoryInvitationWork,
-  RepositoryProvisionContext,
-  RepositoryProvisionStateStore,
-} from './repository-provision-contract.types';
+import {
+  RepositoryProvisionGithubService,
+  buildRepositoryNames,
+  buildRepositoryOwnershipMarker,
+} from './repository-provision-github.service';
+import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
+import {
+  RepositoryProvisionLeaseLostError,
+  RepositoryProvisionSupersededError,
+} from './repository-provision-state.error';
+import {
+  type ProvisionedRepository,
+  type RepositoryInvitationWork,
+  type RepositoryProvisionContext,
+  type RepositoryProvisionStateStore,
+} from './repository-provision-state-helpers.repository';
 import {
   DEFAULT_PROVISION_OPTIONS,
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
@@ -24,17 +34,7 @@ import {
   PROVISION_ERROR_CODES,
   provisionRetryAt,
   type RepositoryProvisionWorkerOptions,
-} from './repository-provision-failure.policy';
-import { RepositoryProvisionGithubService } from './repository-provision-github.service';
-import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
-import {
-  buildRepositoryNames,
-  buildRepositoryOwnershipMarker,
-} from './repository-name.policy';
-import {
-  RepositoryProvisionLeaseLostError,
-  RepositoryProvisionSupersededError,
-} from './repository-provision-state.error';
+} from './repository-provision-state.repository';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }

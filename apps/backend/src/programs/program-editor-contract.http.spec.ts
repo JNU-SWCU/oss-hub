@@ -10,14 +10,16 @@ import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramsController } from './programs.controller';
 import { MilestonesController } from './milestones.controller';
-import { ProgramEditorRepository } from './program-editor.repository';
+import {
+  ProgramEditorRepository,
+  type ProgramEditorTransactionStore,
+} from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
   editableProgram,
   updateInput,
 } from '../../test/program-editor-service-fixtures';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.policy';
+import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 
 let application: INestApplication | undefined;
 let baseUrl = '';

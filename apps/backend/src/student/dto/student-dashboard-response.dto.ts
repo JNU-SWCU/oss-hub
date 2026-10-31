@@ -1,8 +1,8 @@
-import type { StudentDashboardItem } from '../student-dashboard.types';
 import type {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
+import type { StudentDashboardItem } from '../student-dashboard.service';
 
 export class StudentDashboardMilestoneResponseDto {
   declare readonly id: string;

@@ -1,10 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { GithubAppClient } from './github-app.client';
-import {
-  PROVISION_ERROR_CODES,
-  RepositoryProvisionFailure,
-} from './repository-provision-failure.policy';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.repository';
+import { RepositoryProvisionFailure } from './repository-provision-state.error';
 
 export type OwnRepositoryUrlValidationResult =
   | { readonly kind: 'VALID' }

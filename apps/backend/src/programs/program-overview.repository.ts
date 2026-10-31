@@ -1,7 +1,5 @@
-import {
-  authorityLabel,
-  type AuthorityLabel,
-} from '../users/authority-label.policy';
+import { authorityLabel } from '../users/users.repository';
+import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -11,7 +9,32 @@ import {
 } from '@prisma/client';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
+
+export interface ProgramOverviewRecord {
+  programId: string;
+  name: string;
+  trackType: string | null;
+  lifecycle: string;
+  milestoneCount: number;
+  boardPostCount: number;
+
+  participantCount: number;
+  teamCount: number;
+  connectedRepositoryCount: number;
+}
+
+interface PublicTeamMemberRow {
+  userId: string;
+
+  displayName: string;
+  isLeader: boolean;
+}
+
+export interface PublicTeamRow {
+  teamId: string;
+  name: string;
+  members: PublicTeamMemberRow[];
+}
 
 export interface CurrentSubmissionMilestone {
   milestoneId: string;

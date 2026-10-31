@@ -1,9 +1,3 @@
-import {
-  StudentDashboardMilestone,
-  StudentDashboardItem,
-  StudentDashboardProgress,
-  StudentDashboardRepositoryItem,
-} from './student-dashboard.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -12,19 +6,62 @@ import {
   RepositoryProvisionJobStatus,
   SubmissionStatus,
 } from '@prisma/client';
+import { RepositoriesReadService } from '../github/repositories-read.service';
+import {
+  StudentDashboardRepository,
+  type StudentDashboardApplicationRow,
+} from './student-dashboard.repository';
 import {
   collectAxisStatuses,
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
-} from '../programs/milestone-completion.policy';
-import { programCoverImageUrl } from '../programs/program-cover.policy';
-import { RepositoriesReadService } from '../github/repositories-read.service';
-import { projectSubmissionCompletionTargets } from '../programs/submission-completion-projection.policy';
-import {
-  StudentDashboardRepository,
-  type StudentDashboardApplicationRow,
-} from './student-dashboard.repository';
+} from '../programs/submissions.repository';
+import { programCoverImageUrl } from '../programs/program-cover.repository';
+import { projectSubmissionCompletionTargets } from '../programs/programs.repository';
+
+export interface StudentDashboardMilestone {
+  readonly id: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly lateSubmissionDueAt: Date | null;
+  readonly submissionStatus:
+    | 'NOT_SUBMITTED'
+    | 'SUBMITTED'
+    | 'APPROVED'
+    | 'CHANGES_REQUESTED'
+    | 'REJECTED';
+  readonly requiredItemCount: number;
+  readonly remainingItemCount: number;
+}
+
+interface StudentDashboardProgress {
+  readonly approvedCount: number;
+  readonly inReviewCount: number;
+  readonly totalCount: number;
+}
+
+export interface StudentDashboardItem {
+  readonly coverImageUrl?: string | null;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly teamName: string;
+  readonly teamUrl: string;
+  readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  readonly nextMilestone: StudentDashboardMilestone | null;
+  readonly progress: StudentDashboardProgress | null;
+  readonly detailUrl: string;
+  readonly checklistUrl: string;
+  readonly repository: StudentDashboardRepositoryItem | null;
+}
+
+export interface StudentDashboardRepositoryItem {
+  readonly repositoryName: string | null;
+  readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
+  readonly invitationStatus: RepositoryInvitationStatus | null;
+  readonly githubUrl: string | null;
+}
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;

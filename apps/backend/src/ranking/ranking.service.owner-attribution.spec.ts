@@ -1,5 +1,5 @@
-import { RANKING_YEAR_ALL } from './ranking.policy';
 import { activity, setupRankingService } from './ranking.service.spec.helpers';
+import { RANKING_YEAR_ALL } from './ranking.service';
 
 describe('RankingService canonical actor attribution', () => {
   let harness: ReturnType<typeof setupRankingService>;

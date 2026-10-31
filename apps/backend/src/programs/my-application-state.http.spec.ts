@@ -1,9 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { issueSessionToken } from '../auth/auth.policy';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
+import {
+  AuthService,
+  issueSessionToken,
+  sessionCookieName,
+} from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ApplicationPreparationsController } from './application-preparations.controller';

@@ -10,14 +10,6 @@ import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
 import {
-  publishBlockedReasons,
-  type CreateSubmissionReviewInput,
-  type PublishBlockedReason,
-  type RepositoryPublishResult,
-  type SubmissionReviewContext,
-  type SubmissionReviewResult,
-} from './submission-review.types';
-import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
 } from './submission-reviews.repository';
@@ -26,6 +18,16 @@ import {
   SubmissionReviewsErrorCode,
 } from './submission-reviews-error-code.error';
 import { RepositoryNotFoundError } from '../github/repositories.error';
+import {
+  publishBlockedReasons,
+  type PublishBlockedReason,
+} from '../github/repositories.repository';
+import {
+  type CreateSubmissionReviewInput,
+  type RepositoryPublishResult,
+  type SubmissionReviewContext,
+  type SubmissionReviewResult,
+} from './submission-review-context-mapper.repository';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,

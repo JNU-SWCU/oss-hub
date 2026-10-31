@@ -5,9 +5,12 @@ import {
   AUDIT_LOG_ERROR_CODES,
   AuditLogErrorCode,
 } from './audit-log-error-code.error';
-import { AuditLogRepository } from './audit-log.repository';
-import type { AuditLogPage, AuditLogRecord } from './audit-log.types';
-import type { AuditLogRecordInput } from './audit-log-record-input.types';
+import {
+  AuditLogRepository,
+  type AuditLogPage,
+  type AuditLogRecord,
+  type AuditLogRecordInput,
+} from './audit-log.repository';
 import type { AuditLogListQuery } from './audit-log-query.types';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];

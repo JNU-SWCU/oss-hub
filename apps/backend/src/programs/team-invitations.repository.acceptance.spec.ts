@@ -5,12 +5,12 @@ import {
   Prisma,
   RepositoryConnectionMode,
 } from '@prisma/client';
-import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repository-provision-event.policy';
 import { PrismaService } from '../platform/prisma.service';
 import {
   type AcceptInvitationOnOk,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../github/repositories.repository';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticTeamId = 'cuid-synthetic-team';

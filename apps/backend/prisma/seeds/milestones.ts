@@ -17,8 +17,10 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/programs/application-decision.policy';
-import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
+import {
+  resolveJoinCodeSecret,
+  computeJoinCodeDigest,
+} from '../../src/platform/join-code-secret.config';
 
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');

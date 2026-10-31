@@ -1,11 +1,11 @@
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { Public } from '../auth/auth-route-metadata.policy';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-response.dto';
 import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
+import { Public } from '../auth/authentication.guard';
 
 @Controller('programs/:programId/overview')
 @UseGuards(SessionGuard)

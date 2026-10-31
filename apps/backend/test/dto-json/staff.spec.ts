@@ -19,17 +19,17 @@ import {
   StaffInsightsResponseDto,
   StaffInsightsScopeResponseDto,
 } from '../../src/staff/dto/staff-insights-response.dto';
-import type {
-  StaffDashboardComposedProgramSummary,
-  StaffInsightsMetrics,
-  StaffInsightsSummary,
-} from '../../src/staff/staff.types';
-import type {
-  AdminAccessFacets,
-  AdminAccessUser,
-  AdminAccessUserDetail,
-  AdminAccessUserHistory,
-} from '../../src/users/admin-access.types';
+import { type StaffDashboardComposedProgramSummary } from '../../src/staff/staff-dashboard.service';
+import {
+  type StaffInsightsMetrics,
+  type StaffInsightsSummary,
+} from '../../src/staff/staff-insights.service';
+import {
+  type AdminAccessFacets,
+  type AdminAccessUser,
+  type AdminAccessUserDetail,
+  type AdminAccessUserHistory,
+} from '../../src/users/admin-access-read-ordering.repository';
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -115,6 +115,7 @@ const program: StaffDashboardComposedProgramSummary = {
   name: 'Program A',
   coverId: 'cover-1',
   coverExternalImageUrl: null,
+  coverImageUrl: '/programs/program-1/cover/cover-1',
   trackType: 'EXTRACURRICULAR',
   applicationPeriod: {
     startsAt: at('2026-01-01T00:00:00.000Z'),
@@ -248,6 +249,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             id: 'program-2',
             coverId: null,
             coverExternalImageUrl: 'https://images.example/cover.png',
+            coverImageUrl: 'https://images.example/cover.png',
             trackType: null,
           },
         ],

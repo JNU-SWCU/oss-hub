@@ -10,21 +10,47 @@ import {
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
-  createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
+  AccountStatus,
+  ProgramCategory,
+  type ProgramTrackType,
+} from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import type { CreateProgramCommand } from './programs.types';
 import { ProgramsRepository } from './programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import { isProgramEndAtUndecided } from './programs.policy';
-import { getProgramTemplate } from './program-template-registry.policy';
+import {
+  createProgramCreatedAuditMetadata,
+  PROGRAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
+import {
+  isProgramEndAtUndecided,
+  getProgramTemplate,
+} from './programs.service';
+
+export type CreatedProgram = {
+  readonly id: string;
+  readonly category: ProgramCategory;
+  readonly applicationTemplateKey: string;
+  readonly applicationTemplateVersion: number;
+  readonly endAt: Date;
+};
+
+export type CreateProgramCommand = {
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType;
+  readonly applicationStartAt: string;
+  readonly applicationEndAt: string;
+  readonly startAt?: string;
+  readonly endAt: string;
+  readonly teamMinSize?: number | null;
+  readonly teamMaxSize?: number | null;
+  readonly description: string;
+};
 
 @Injectable()
 export class ProgramCoverService {

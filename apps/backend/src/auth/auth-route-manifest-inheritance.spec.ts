@@ -11,16 +11,18 @@ import { PATH_METADATA } from '@nestjs/common/constants';
 import { MetadataScanner } from '@nestjs/core/metadata-scanner';
 import { PathsExplorer } from '@nestjs/core/router/paths-explorer';
 import { Test } from '@nestjs/testing';
-import { discoverModuleControllers } from '../app-controller-discovery';
-import { compareStringsByCodeUnit } from '../platform/platform.policy';
+import {
+  discoverModuleControllers,
+  compareStringsByCodeUnit,
+} from '../app-controller-discovery';
+import { createAuthRouteManifest } from './auth-route-manifest.fixture';
+import { SessionGuard } from './session.guard';
 import {
   OptionalSession,
   Protected,
   Public,
   PUBLIC_ROUTE_METADATA,
-} from './auth-route-metadata.policy';
-import { createAuthRouteManifest } from './auth-route-manifest.fixture';
-import { SessionGuard } from './session.guard';
+} from './authentication.guard';
 
 @Public()
 @Controller()

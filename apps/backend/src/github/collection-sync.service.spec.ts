@@ -2,31 +2,31 @@ import { Logger } from '@nestjs/common';
 import {
   CollectionIncrementalRepository,
   CollectionIncrementalStoreRepository,
+  type CollectionSyncRuntime,
 } from './collection-incremental.repository';
-import type { CollectionSyncRuntime } from './collection-incremental.types';
 import {
   CollectionSyncService,
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../platform/prisma.service';
-import {
-  type CollectionAppClient,
-  type CollectionCommit,
-  type CollectionIssue,
-  type CollectionPullRequest,
-  type CollectionRelease,
-  type CollectionRepository as ProviderRepository,
-  type CommitHeadProbeResult,
-  type CommitTraversalResult,
-  type IssueIncrementalResult,
-  type PullRequestIncrementalResult,
-  type ReleaseListingResult,
-  type ReleaseProbeResult,
+import type {
+  CollectionAppClient,
+  CollectionCommit,
+  CollectionIssue,
+  CollectionPullRequest,
+  CollectionRelease,
+  CollectionRepository as ProviderRepository,
+  CommitHeadProbeResult,
+  CommitTraversalResult,
+  IssueIncrementalResult,
+  PullRequestIncrementalResult,
+  ReleaseListingResult,
+  ReleaseProbeResult,
+  RequestFingerprint,
 } from './collection-app.client';
 import type { CollectionAppTokenClient } from './collection-app-token.client';
-import type { RequestFingerprint } from './github.policy';
 import { CollectionAppClientError } from './collection-app.error';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
 
 type Row = Record<string, unknown>;
 
@@ -723,7 +723,7 @@ const runtimeFor = (client: ClientMock): CollectionSyncRuntime => ({
   organizationLogin: 'synthetic-org',
   tokens: {} as CollectionAppTokenClient,
   client: client as unknown as CollectionAppClient,
-  queue: new ProviderRequestQueue(),
+  queue: new ProviderRequestQueueClient(),
 });
 
 const GITHUB_ORG_ID = 900n;
@@ -1452,7 +1452,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
     }
 
     let currentClient = budgetedClient();
-    const queue = new ProviderRequestQueue();
+    const queue = new ProviderRequestQueueClient();
     const originalShouldStop = queue.shouldStop.bind(queue);
     jest.spyOn(queue, 'shouldStop').mockImplementation(() => {
       if (processedThisRun >= stopAfter) return true;

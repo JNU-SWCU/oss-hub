@@ -7,10 +7,10 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
+  AuditLogRepository,
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+} from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { MemberKindRepository } from './member-kind.repository';

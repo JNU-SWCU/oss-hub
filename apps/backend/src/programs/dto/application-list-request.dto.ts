@@ -8,14 +8,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
 import {
   APPLICATION_LIST_STATUSES,
   APPLICATION_LIST_VIEWS,
   type ApplicationListQuery,
   type ApplicationListStatus,
   type ApplicationListView,
-} from '../application-records.types';
+} from '../applications.repository';
 
 export class ApplicationListRequestDto {
   @Type(() => Number)

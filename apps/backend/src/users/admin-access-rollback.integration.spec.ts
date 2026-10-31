@@ -13,7 +13,7 @@ import { RolesErrorCode } from './roles-error-code.error';
 import { FailingDecisionAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

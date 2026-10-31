@@ -1,11 +1,6 @@
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
 import { DomainException } from '../platform/error-code.error';
-import type { AdminAccessActor } from './admin-access-repository.types';
 import type {
   MemberKindProfileUpdate,
   MemberKindRepositoryPort,
@@ -13,6 +8,11 @@ import type {
   MemberKindTransactionStore,
 } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
+import {
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
+import { type AdminAccessActor } from './admin-access-user-projection.repository';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;
 const TARGET_GITHUB_ID = 9_700_500_002n;

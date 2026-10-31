@@ -1,15 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SubmissionStatus } from '@prisma/client';
 import {
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-  type MilestoneCompletionStatus,
-} from './milestone-completion.policy';
-import {
   SubmissionDashboardSummaryRepository,
   type SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
 import { UnexpectedSubmissionStatusError } from './submission-dashboard-summary.error';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  milestoneCompletionStatus,
+  type MilestoneCompletionStatus,
+} from './submissions.repository';
 
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;

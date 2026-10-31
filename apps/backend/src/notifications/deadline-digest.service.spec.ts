@@ -10,18 +10,23 @@ import {
   type RuntimeConfig,
 } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { GmailMailClient, LogMailClient } from './gmail-mail.client';
-import { MAIL_SENDER, type MailSender } from './notifications.types';
+import {
+  GmailMailClient,
+  LogMailClient,
+  MAIL_SENDER,
+  type MailSender,
+} from './gmail-mail.client';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import type { DeadlineProgramSource } from './deadline-digest-eligibility.policy';
-import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
-import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
+import type {
+  DeadlineDigestRepositoryPort,
+  DeadlineProgramSource,
+} from './deadline-digest.repository';
 
-describe('deadline-digest.scheduler', () => {
-  describe('DeadlineDigestScheduler', () => {
+describe('deadline digest cron', () => {
+  describe('DeadlineDigestService.run', () => {
     let testingModule: TestingModule;
-    let scheduler: DeadlineDigestScheduler;
+    let scheduler: DeadlineDigestService;
     const sendDeadlineDigests = jest.fn<Promise<void>, []>();
 
     const registeredJobs = () => [
@@ -40,15 +45,17 @@ describe('deadline-digest.scheduler', () => {
     beforeEach(async () => {
       sendDeadlineDigests.mockReset();
       sendDeadlineDigests.mockResolvedValue(undefined);
+      scheduler = new DeadlineDigestService(
+        {} as DeadlineDigestRepositoryPort,
+        {} as MailSender,
+        { FRONTEND_URL: 'https://oss.example' },
+      );
+      scheduler.sendDeadlineDigests = sendDeadlineDigests;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
-        providers: [
-          DeadlineDigestScheduler,
-          { provide: DeadlineDigestService, useValue: { sendDeadlineDigests } },
-        ],
+        providers: [{ provide: DeadlineDigestService, useValue: scheduler }],
       }).compile();
       await testingModule.init();
-      scheduler = testingModule.get(DeadlineDigestScheduler);
     });
 
     afterEach(async () => {

@@ -1,11 +1,13 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import type { PatchUserProfileInput } from './user-profile-record.policy';
 import { profileRecord } from './member-authority-test-fixtures';
-import { buildProfileCompletion } from './member-profile-completion.policy';
 import type { UsersRepositoryPort } from './users.repository';
-import { UsersService } from './users.service';
+import {
+  UsersService,
+  type PatchUserProfileInput,
+  buildProfileCompletion,
+} from './users.service';
 
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {

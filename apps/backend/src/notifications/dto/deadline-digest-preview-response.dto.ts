@@ -1,6 +1,8 @@
-import type { BuiltDeadlineMail } from '../deadline-digest-mail-template.policy';
-import type { PersonalizedDeadlinePreview } from '../deadline-digest-preview.policy';
-import type { DeadlineDigestPreview } from '../notifications.types';
+import type {
+  BuiltDeadlineMail,
+  PersonalizedDeadlinePreview,
+  DeadlineDigestPreview,
+} from '../deadline-digest.service';
 
 export class DeadlineDigestPreviewResponseDto {
   declare readonly applicationCount: number;

@@ -1,4 +1,3 @@
-import type { EditMilestoneCommand } from '../programs.types';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -12,6 +11,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { type EditMilestoneCommand } from '../program-editor.service';
 
 function trimString(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;

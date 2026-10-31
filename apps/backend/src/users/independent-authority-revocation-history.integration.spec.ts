@@ -7,8 +7,10 @@ import { PrismaService } from '../platform/prisma.service';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { MemberOnboardingService } from './member-onboarding.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { STAFF_ACCESS_COMMANDS } from './independent-authority.types';
-import { IndependentAuthorityRepository } from './independent-authority.repository';
+import {
+  IndependentAuthorityRepository,
+  STAFF_ACCESS_COMMANDS,
+} from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 
 assertIsolatedIntegrationDatabase({

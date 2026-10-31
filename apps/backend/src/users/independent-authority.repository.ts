@@ -1,6 +1,7 @@
+import { type AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, MemberKind } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import {
   findAdminActorByGithubId,
@@ -10,14 +11,74 @@ import {
 import {
   ADMIN_ACCESS_USER_SELECT,
   AdminAccessUserProjectionRepository,
+  type AdminAccessUserRecord,
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
 } from './admin-access-user-projection.repository';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-} from './admin-access-repository.types';
-import type { IndependentAuthorityTransition } from './independent-authority.policy';
-import type { IndependentAuthorityUserRecord } from './independent-authority.types';
+
+export const STAFF_ACCESS_COMMANDS = {
+  GRANT: 'GRANT_STAFF_ACCESS',
+  REVOKE: 'REVOKE_STAFF_ACCESS',
+} as const;
+
+export const ADMIN_ACCESS_COMMANDS = {
+  GRANT: 'GRANT_ADMIN_ACCESS',
+  REVOKE: 'REVOKE_ADMIN_ACCESS',
+} as const;
+
+type GrantStaffAccessCommand = {
+  readonly command: typeof STAFF_ACCESS_COMMANDS.GRANT;
+};
+
+type RevokeStaffAccessCommand = {
+  readonly command: typeof STAFF_ACCESS_COMMANDS.REVOKE;
+};
+
+export type StaffAccessMutationCommand =
+  GrantStaffAccessCommand | RevokeStaffAccessCommand;
+
+type GrantAdminAccessCommand = {
+  readonly command: typeof ADMIN_ACCESS_COMMANDS.GRANT;
+};
+
+type RevokeAdminAccessCommand = {
+  readonly command: typeof ADMIN_ACCESS_COMMANDS.REVOKE;
+};
+
+export type AdminAuthorityMutationCommand =
+  GrantAdminAccessCommand | RevokeAdminAccessCommand;
+
+export type IndependentAuthorityMutationResult = {
+  readonly id: string;
+  readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type IndependentAuthorityUserRecord = AdminAccessUserRecord & {
+  readonly selectedMemberKind: MemberKind | null;
+};
+
+export const AUTHORITY_TARGETS = {
+  STAFF: 'STAFF',
+  ADMIN: 'ADMIN',
+} as const;
+
+export type AuthorityTarget =
+  (typeof AUTHORITY_TARGETS)[keyof typeof AUTHORITY_TARGETS];
+
+export type IndependentAuthorityState = {
+  readonly memberKind: MemberKind | null;
+  readonly selectedMemberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type IndependentAuthorityTransition = IndependentAuthorityState & {
+  readonly role: AuthorityLabel | null;
+};
 
 @Injectable()
 export class UsersAuthorityRepository {
@@ -38,8 +99,6 @@ export class UsersAuthorityRepository {
     });
   }
 }
-
-export type { IndependentAuthorityUserRecord };
 
 export interface IndependentAuthorityTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;

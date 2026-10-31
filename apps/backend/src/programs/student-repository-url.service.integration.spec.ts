@@ -5,11 +5,6 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/application-repository-url-audit-metadata.policy';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../github/repository-provision-event.policy';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
@@ -27,6 +22,12 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
+import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/audit-log.repository';
+import {
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from '../github/repositories.repository';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

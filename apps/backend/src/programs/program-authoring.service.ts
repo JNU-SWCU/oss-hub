@@ -1,36 +1,332 @@
+import { validateProgramCoverChoice } from './program-authoring-upload.service';
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.types';
+import {
+  ProgramAuthoringRepository,
+  type ProgramAuthoringTransactionStore,
+} from './program-authoring.repository';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
+  ProgramNoticeFetchClient,
   extractProgramNotice,
   type ProgramNoticePreview,
   parseProgramNoticeUrl,
-} from './program-notice.policy';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { AccountStatus } from '@prisma/client';
+} from './program-notice-fetch.client';
+import { AccountStatus, ProgramCategory } from '@prisma/client';
+import { AuditLogService } from '../platform/audit-log.service';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  type ProgramAuthoringRequest,
+  ProgramAuthoringPlan,
+  type ProgramAuthoringMilestonePlan,
+  type ProgramAuthoringDocumentPlan,
+  type ProgramAuthoringProgram,
+  assertProgramTemplateUpload,
+} from './program-authoring-upload-transaction.repository';
+import {
+  ProgramAuthoringAttachmentRaceError,
+  ProgramAuthoringForbiddenError,
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringIdempotencyRaceError,
+} from './program-authoring.error';
+import {
+  type ProgramAuthoringValidationIssue,
+  ProgramAuthoringValidationError,
+} from './program-authoring-validation.error';
+import {
+  isProgramEndAtUndecided,
+  getProgramTemplate,
+} from './programs.service';
+import { createHash } from 'node:crypto';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogService } from '../platform/audit-log.service';
-import { buildProgramAuthoringPlan } from './program-authoring-plan.policy';
-import {
-  hashProgramAuthoringPayload,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringIdempotencyRaceError,
-  type ProgramAuthoringPlan,
-  type ProgramAuthoringProgram,
-  type ProgramAuthoringRequest,
-} from './program-authoring.policy';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import {
-  assertProgramCoverUpload,
-  assertProgramTemplateUpload,
-} from './program-cover.policy';
-import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
-import { ProgramAuthoringForbiddenError } from './program-authoring.error';
+} from '../platform/audit-log.repository';
+import { assertProgramCoverUpload } from './program-cover.repository';
+
+export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
+  return {
+    schemaVersion: 2,
+    ...(plan.coverUploadId ? { coverUploadId: plan.coverUploadId } : {}),
+    ...(plan.externalCover ? { externalCover: plan.externalCover } : {}),
+    program: {
+      name: plan.program.name,
+      organizer: plan.program.organizer,
+      trackType: plan.program.trackType,
+      category: plan.program.category,
+      applicationTemplateKey: plan.program.applicationTemplateKey,
+      applicationTemplateVersion: plan.program.applicationTemplateVersion,
+      applicationStartAt: plan.program.applicationStartAt.toISOString(),
+      applicationEndAt: plan.program.applicationEndAt.toISOString(),
+      startAt: plan.program.startAt.toISOString(),
+      endAt: plan.program.endAt.toISOString(),
+      teamMinSize: plan.program.teamMinSize,
+      teamMaxSize: plan.program.teamMaxSize,
+      description: plan.program.description,
+      repositoryProvisioningEnabled: plan.program.repositoryProvisioningEnabled,
+      notifyOnDeadline: plan.program.notifyOnDeadline,
+    },
+    milestones: plan.milestones.map((milestone) => ({
+      name: milestone.name,
+      startAt: milestone.startAt.toISOString(),
+      dueAt: milestone.dueAt.toISOString(),
+      submissionType: milestone.submissionType,
+      instructions: milestone.instructions,
+      documents: milestone.documents.map((document) => ({
+        name: document.name,
+        required: document.required,
+        sortOrder: document.sortOrder,
+        templateUploadId: document.templateUploadId,
+      })),
+    })),
+  } as const;
+}
+
+export function hashProgramAuthoringPayload(
+  plan: ProgramAuthoringPlan,
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalProgramAuthoringPayload(plan)), 'utf8')
+    .digest('hex');
+}
+
+const MAX_MILESTONES = 50;
+
+const MAX_DOCUMENTS_PER_MILESTONE = 20;
+
+const MAX_DOCUMENTS_PER_PROGRAM = 100;
+
+export function buildProgramAuthoringPlan(
+  request: ProgramAuthoringRequest,
+): ProgramAuthoringPlan {
+  const externalCover = validateProgramCoverChoice(request);
+  const issues: ProgramAuthoringValidationIssue[] = [];
+  const name = requiredString(request.name, 'name', issues);
+  const organizer = requiredString(request.organizer, 'organizer', issues);
+  const description = requiredString(
+    request.description,
+    'description',
+    issues,
+  );
+  const applicationStartAt = isoDate(
+    request.applicationStartAt,
+    'applicationStartAt',
+    issues,
+  );
+  const applicationEndAt = isoDate(
+    request.applicationEndAt,
+    'applicationEndAt',
+    issues,
+  );
+  const startAt = isoDate(
+    request.startAt ?? request.applicationEndAt,
+    'startAt',
+    issues,
+  );
+  let endAt = isoDate(request.endAt, 'endAt', issues);
+
+  if (endAt !== null && isProgramEndAtUndecided(endAt)) {
+    issues.push({ path: 'endAt', code: 'INVALID_DATE' });
+    endAt = null;
+  }
+  if (
+    applicationStartAt === null ||
+    applicationEndAt === null ||
+    startAt === null ||
+    endAt === null
+  ) {
+    throw new ProgramAuthoringValidationError(issues);
+  }
+
+  if (applicationStartAt > applicationEndAt) {
+    issues.push({
+      path: 'applicationEndAt',
+      code: 'INVALID_APPLICATION_SCHEDULE',
+    });
+  }
+  if (applicationEndAt > endAt) {
+    issues.push({
+      path: 'applicationEndAt',
+      code: 'INVALID_APPLICATION_SCHEDULE',
+    });
+  }
+  if (startAt >= endAt) {
+    issues.push({ path: 'endAt', code: 'INVALID_PROGRAM_SCHEDULE' });
+  }
+
+  const template = getProgramTemplate(ProgramCategory.BASIC);
+  const teamMinSize = request.teamMinSize ?? template.teamSize.defaultMin;
+  const teamMaxSize = request.teamMaxSize ?? template.teamSize.defaultMax;
+  if (
+    !Number.isInteger(teamMinSize) ||
+    !Number.isInteger(teamMaxSize) ||
+    teamMinSize < 1 ||
+    teamMinSize > teamMaxSize
+  ) {
+    issues.push({ path: 'teamMinSize', code: 'INVALID_TEAM_RANGE' });
+  }
+
+  if (request.milestones.length > MAX_MILESTONES) {
+    issues.push({ path: 'milestones', code: 'MILESTONE_LIMIT_EXCEEDED' });
+  }
+  if (request.milestones.length === 0) {
+    issues.push({ path: 'milestones', code: 'MILESTONE_REQUIRED' });
+  }
+
+  const seenUploadIds = new Set<string>();
+  const uploadTokenIds: string[] = [];
+  const coverUploadId = request.coverUploadId ?? null;
+  if (coverUploadId !== null) {
+    if (!/^\S{1,128}$/u.test(coverUploadId)) {
+      issues.push({ path: 'coverUploadId', code: 'INVALID_UPLOAD_TOKEN' });
+    }
+    seenUploadIds.add(coverUploadId);
+    uploadTokenIds.push(coverUploadId);
+  }
+  let totalDocuments = 0;
+  const milestones: ProgramAuthoringMilestonePlan[] = [];
+  request.milestones.forEach((milestone, milestoneIndex) => {
+    const path = `milestones.${milestoneIndex}`;
+    const milestoneName = requiredString(
+      milestone.name,
+      `${path}.name`,
+      issues,
+    );
+    const milestoneStartAt = isoDate(
+      milestone.startAt ?? startAt.toISOString(),
+      `${path}.startAt`,
+      issues,
+    );
+    const dueAt = isoDate(milestone.dueAt, `${path}.dueAt`, issues);
+    totalDocuments += milestone.documents.length;
+    if (milestone.documents.length > MAX_DOCUMENTS_PER_MILESTONE) {
+      issues.push({
+        path: `${path}.documents`,
+        code: 'DOCUMENT_LIMIT_EXCEEDED',
+      });
+    }
+    const documents = milestone.documents.map((document, documentIndex) =>
+      documentPlan(
+        document,
+        `${path}.documents.${documentIndex}`,
+        documentIndex + 1,
+        issues,
+        seenUploadIds,
+        uploadTokenIds,
+      ),
+    );
+    if (milestoneStartAt !== null && dueAt !== null) {
+      if (
+        milestoneStartAt < startAt ||
+        milestoneStartAt >= dueAt ||
+        dueAt > endAt
+      ) {
+        issues.push({
+          path: `${path}.dueAt`,
+          code: 'INVALID_MILESTONE_SCHEDULE',
+        });
+      }
+      milestones.push({
+        name: milestoneName,
+        startAt: milestoneStartAt,
+        dueAt,
+        submissionType: null,
+        instructions: optionalString(milestone.instructions),
+        documents,
+      });
+    }
+  });
+  if (totalDocuments > MAX_DOCUMENTS_PER_PROGRAM) {
+    issues.push({ path: 'milestones', code: 'TOTAL_DOCUMENT_LIMIT_EXCEEDED' });
+  }
+  if (issues.length > 0) throw new ProgramAuthoringValidationError(issues);
+
+  return {
+    program: {
+      name,
+      organizer,
+      category: ProgramCategory.BASIC,
+      trackType: request.trackType,
+      applicationTemplateKey: template.key,
+      applicationTemplateVersion: template.version,
+      applicationStartAt,
+      applicationEndAt,
+      startAt,
+      endAt,
+      teamMinSize,
+      teamMaxSize,
+      description,
+      repositoryProvisioningEnabled:
+        request.repositoryProvisioningEnabled ?? false,
+
+      notifyOnDeadline: request.notifyOnDeadline ?? true,
+    },
+    milestones,
+    ...(coverUploadId === null ? {} : { coverUploadId }),
+    ...(externalCover == null ? {} : { externalCover }),
+    uploadTokenIds: uploadTokenIds.sort(),
+  };
+}
+
+function documentPlan(
+  document: ProgramAuthoringRequest['milestones'][number]['documents'][number],
+  path: string,
+  sortOrder: number,
+  issues: ProgramAuthoringValidationIssue[],
+  seenUploadIds: Set<string>,
+  uploadTokenIds: string[],
+): ProgramAuthoringDocumentPlan {
+  const templateUploadId = requiredString(
+    document.templateUploadId ?? '',
+    `${path}.templateUploadId`,
+    issues,
+  );
+  if (templateUploadId.length > 0) {
+    if (seenUploadIds.has(templateUploadId)) {
+      issues.push({
+        path: `${path}.templateUploadId`,
+        code: 'DUPLICATE_UPLOAD_TOKEN',
+      });
+    } else {
+      seenUploadIds.add(templateUploadId);
+      uploadTokenIds.push(templateUploadId);
+    }
+  }
+  return {
+    name: requiredString(document.name, `${path}.name`, issues),
+    required: document.required,
+    sortOrder,
+    templateUploadId,
+  };
+}
+
+function requiredString(
+  value: string,
+  path: string,
+  issues: ProgramAuthoringValidationIssue[],
+): string {
+  const normalized = value.trim();
+  if (normalized.length === 0) issues.push({ path, code: 'REQUIRED' });
+  return normalized;
+}
+
+function optionalString(value: string | null | undefined): string | null {
+  const normalized = value?.trim() ?? '';
+  return normalized.length > 0 ? normalized : null;
+}
+
+function isoDate(
+  value: string,
+  path: string,
+  issues: ProgramAuthoringValidationIssue[],
+): Date | null {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    issues.push({ path, code: 'INVALID_DATE' });
+    return null;
+  }
+  return parsed;
+}
 
 @Injectable()
 export class ProgramNoticePreviewService {

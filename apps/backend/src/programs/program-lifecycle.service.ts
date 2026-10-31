@@ -1,27 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import {
-  createProgramDeletionAuditMetadata,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
-  sameProgramDeletionScopeCountValues,
-  sameProgramDeletionScopeCounts,
-  type ProgramDeletionScopeCounts,
-} from './programs.policy';
-import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import type { ProgramPurgeResult } from './programs.types';
 import {
   isForeignKeyConflict,
   ProgramLifecycleRepository,
+  ProgramPurgeDeletedCounts,
 } from './program-lifecycle.repository';
 import { ProgramPurgeDeletedScopeMismatchError } from './program-lifecycle.error';
+import {
+  createProgramDeletionAuditMetadata,
+  PROGRAM_DELETION_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
+import {
+  sameProgramDeletionScopeCountValues,
+  sameProgramDeletionScopeCounts,
+  type ProgramDeletionScopeCounts,
+} from './program-deletion-scope.repository';
+
+export type ProgramPurgeResult = {
+  readonly id: string;
+  readonly deleted: true;
+  readonly deletedCounts: ProgramPurgeDeletedCounts;
+};
 
 @Injectable()
 export class ProgramLifecycleService {

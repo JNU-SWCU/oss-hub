@@ -3,16 +3,16 @@ import {
   Prisma,
   RepositoryConnectionMode,
 } from '@prisma/client';
-import {
-  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-  repositoryAccessSyncEventData,
-} from '../github/repository-provision-event.policy';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramTeamsRepository,
   type RecordTeamMembershipAudit,
   type TeamMembershipAuditEvent,
 } from './program-teams.repository';
+import {
+  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+  repositoryAccessSyncEventData,
+} from '../github/repositories.repository';
 
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticOtherTeamId = 'cuid-synthetic-other-team';

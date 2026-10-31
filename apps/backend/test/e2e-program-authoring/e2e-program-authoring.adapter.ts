@@ -7,8 +7,10 @@ import { RepositoryProvisionWorkerService } from '../../src/github/repository-pr
 import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from '../../src/programs/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
-import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
-import type { DeadlineDigestSendRequest } from '../../src/notifications/notifications.types';
+import {
+  DeadlineDigestService,
+  type DeadlineDigestSendRequest,
+} from '../../src/notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
@@ -41,6 +43,7 @@ import type {
   E2eProgramAuthoringPort,
   E2eProgramAuthoringState,
 } from './e2e-program-authoring.types';
+
 export {
   E2E_PROGRAM_AUTHORING_PORT,
   type E2eProgramAuthoringPort,

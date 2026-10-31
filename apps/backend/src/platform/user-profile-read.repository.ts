@@ -1,4 +1,4 @@
-import type { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
+import { type AffiliationKind, MemberKind, type Prisma } from '@prisma/client';
 
 export const USER_PROFILE_SELECT = {
   profile: {

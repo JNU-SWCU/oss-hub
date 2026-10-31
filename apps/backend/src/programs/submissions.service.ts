@@ -1,23 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import { addOneCalendarYear } from '../platform/platform.policy';
+import {
+  ApplicationStatus,
+  SubmissionStatus,
+  MilestoneSubmissionType,
+  type ReviewDecision,
+} from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { programDeadline } from './programs.policy';
-import {
-  type CreateSubmissionInput,
-  type ResubmitSubmissionInput,
-  assertResubmittable,
-  assertSubmittable,
-  requireApprovedApplication,
-  submissionBlockedReason,
-} from './submission.policy';
-import {
-  submissionChecklistItem,
-  type CreatedSubmissionResult,
-  type ResubmittedSubmissionResult,
-  type SubmissionChecklistResult,
-  type SubmissionFormResult,
-} from './submission-result.policy';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SUBMISSIONS_ERROR_CODES,
@@ -26,12 +14,204 @@ import {
 import {
   SubmissionsRepository,
   type SubmissionsStore,
+  SubmissionContentInput,
+  ResubmitSubmissionInput,
+  CreateSubmissionInput,
 } from './submissions.repository';
 import {
   StaleSubmissionRevisionError,
   SubmissionAlreadyExistsError,
   SubmissionFileUnavailableError,
 } from './submissions.error';
+import {
+  type SubmissionApplication,
+  type SubmissionFileMetadata,
+  type ChecklistMilestone,
+} from './submission-checklist-record.repository';
+import { hasProgramDeadlinePassed, programDeadline } from './programs.service';
+import { addOneCalendarYear } from './submission-files.repository';
+
+export type SubmissionBlockedReason =
+  'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';
+
+export interface SubmissionFormResult {
+  readonly applicationId: string;
+  readonly applicationMode: 'PERSONAL' | 'TEAM';
+  readonly milestone: {
+    readonly id: string;
+    readonly name: string;
+    readonly dueAt: Date;
+    readonly dDay: number;
+    readonly deadlineLabel: string;
+    readonly submissionType: MilestoneSubmissionType;
+    readonly instructions: string | null;
+  };
+  readonly existingSubmission: SubmissionApplication['existingSubmission'];
+  readonly canSubmit: boolean;
+  readonly blockedReason: SubmissionBlockedReason | null;
+}
+
+export interface CreatedSubmissionResult {
+  readonly submissionId: string;
+  readonly status: SubmissionStatus;
+  readonly submittedAt: Date;
+}
+
+export interface ResubmittedSubmissionResult {
+  readonly submissionId: string;
+  readonly revision: number;
+  readonly status: SubmissionStatus;
+}
+
+interface SubmissionChecklistItemResult {
+  readonly milestoneId: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType;
+  readonly submission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+    readonly currentRevision: number;
+    readonly decision: ReviewDecision | null;
+    readonly lastReviewedAt: Date | null;
+    readonly reviewComment: string | null;
+    readonly canResubmit: boolean;
+    readonly file: SubmissionFileMetadata | null;
+  } | null;
+}
+
+export interface SubmissionChecklistResult {
+  readonly applicationId: string;
+  readonly applicationMode: 'PERSONAL' | 'TEAM';
+  readonly items: readonly SubmissionChecklistItemResult[];
+}
+
+function submissionChecklistItem(
+  milestone: ChecklistMilestone,
+  now: Date,
+): SubmissionChecklistItemResult {
+  return {
+    milestoneId: milestone.id,
+    name: milestone.name,
+    dueAt: milestone.dueAt,
+    submissionType: milestone.submissionType,
+    submission: milestone.submission
+      ? {
+          id: milestone.submission.id,
+          status: milestone.submission.status,
+          currentRevision: milestone.submission.currentRevision,
+          decision: milestone.submission.latestReview?.decision ?? null,
+          lastReviewedAt: milestone.submission.latestReview?.reviewedAt ?? null,
+          reviewComment: milestone.submission.latestReview?.comment ?? null,
+          canResubmit:
+            milestone.submission.status ===
+              SubmissionStatus.CHANGES_REQUESTED ||
+            (milestone.submission.status === SubmissionStatus.SUBMITTED &&
+              !hasProgramDeadlinePassed(milestone.dueAt, now)),
+          file: milestone.submission.file,
+        }
+      : null,
+  };
+}
+
+export function parseSubmissionContent(input: {
+  readonly type: string;
+  readonly fileId?: string;
+  readonly text?: string;
+}): SubmissionContentInput {
+  switch (input.type) {
+    case MilestoneSubmissionType.FILE: {
+      const fileId = input.fileId?.trim();
+      if (!fileId) throw contentRequired();
+      return { type: MilestoneSubmissionType.FILE, fileId };
+    }
+    case MilestoneSubmissionType.TEXT: {
+      const text = input.text?.trim();
+      if (!text) throw contentRequired();
+      return { type: MilestoneSubmissionType.TEXT, text };
+    }
+    default:
+      throw new DomainException(
+        SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.CONTENT_TYPE_MISMATCH],
+      );
+  }
+}
+
+function contentRequired(): DomainException {
+  return new DomainException(
+    SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.CONTENT_REQUIRED],
+  );
+}
+
+interface SubmissionMilestone {
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType;
+}
+
+interface SubmissionRevisionState extends SubmissionMilestone {
+  readonly currentRevision: number;
+  readonly status: SubmissionStatus;
+}
+
+function assertResubmittable(
+  target: SubmissionRevisionState,
+  input: ResubmitSubmissionInput,
+  now: Date,
+): void {
+  if (input.baseRevision !== target.currentRevision)
+    throw submissionError(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
+  if (
+    target.status === SubmissionStatus.REJECTED ||
+    target.status === SubmissionStatus.APPROVED
+  )
+    throw submissionError(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
+  if (
+    target.status !== SubmissionStatus.CHANGES_REQUESTED &&
+    hasProgramDeadlinePassed(target.dueAt, now)
+  ) {
+    throw submissionError(SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED);
+  }
+  if (input.content.type !== target.submissionType)
+    throw submissionError(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
+}
+
+function submissionBlockedReason(
+  application: SubmissionApplication,
+  milestone: SubmissionMilestone,
+  now: Date,
+): SubmissionBlockedReason | null {
+  if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
+  if (hasProgramDeadlinePassed(milestone.dueAt, now)) return 'MILESTONE_CLOSED';
+  return null;
+}
+
+function assertSubmittable(
+  application: SubmissionApplication,
+  milestone: SubmissionMilestone,
+  input: CreateSubmissionInput,
+  now: Date,
+): void {
+  if (application.existingSubmission)
+    throw submissionError(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
+  if (hasProgramDeadlinePassed(milestone.dueAt, now))
+    throw submissionError(SubmissionsErrorCode.MILESTONE_CLOSED);
+  if (input.content.type !== milestone.submissionType)
+    throw submissionError(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);
+}
+
+function requireApprovedApplication<
+  T extends Pick<SubmissionApplication, 'status'>,
+>(application: T | null): asserts application is T {
+  if (!application)
+    throw submissionError(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
+  if (application.status !== ApplicationStatus.APPROVED) {
+    throw submissionError(SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED);
+  }
+}
+
+function submissionError(code: SubmissionsErrorCode): DomainException {
+  return new DomainException(SUBMISSIONS_ERROR_CODES[code]);
+}
 
 @Injectable()
 export class SubmissionsService {

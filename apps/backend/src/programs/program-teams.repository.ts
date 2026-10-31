@@ -2,16 +2,14 @@ import { Injectable } from '@nestjs/common';
 import {
   ProgramTeamRepositoryEvidenceRepository,
   type TeamActivityScope,
+  type TeamActivityView,
+  type TeamRepositoryEvidenceView,
+  type RepositoryUrlHistoryCursor,
+  type RepositoryUrlHistoryPage,
+  type TeamApplicationView,
+  type TeamRepositoryProvisioningJobStatus,
+  type TeamRepositoryProvisioningSafeErrorClass,
 } from './program-team-repository-evidence.repository';
-import type {
-  TeamActivityView,
-  TeamRepositoryEvidenceView,
-  RepositoryUrlHistoryCursor,
-  RepositoryUrlHistoryPage,
-  TeamApplicationView,
-  TeamRepositoryProvisioningJobStatus,
-  TeamRepositoryProvisioningSafeErrorClass,
-} from './program-teams.types';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -23,20 +21,22 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
-import { requiredMilestonesApproved } from './milestone-completion.policy';
-import { publishBlockedReasons } from '../github/github.policy';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
-import { repositoryAccessSyncEventData } from '../github/repository-provision-event.policy';
 import { PlatformRepository } from '../platform/platform.repository';
-import {
-  projectSubmissionCompletionTargets,
-  submissionCompletionTargetSelect,
-} from './submission-completion-projection.policy';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
+import { requiredMilestonesApproved } from './submissions.repository';
+import {
+  publishBlockedReasons,
+  repositoryUrlFromNameWithOwner,
+  repositoryAccessSyncEventData,
+} from '../github/repositories.repository';
+import {
+  projectSubmissionCompletionTargets,
+  submissionCompletionTargetSelect,
+} from './programs.repository';
 
 export interface TeamStudentActor {
   readonly id: string;

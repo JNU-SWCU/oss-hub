@@ -6,10 +6,8 @@ import {
   PrismaClient,
   User,
 } from '@prisma/client';
-import {
-  CONSENT_POLICY_VERSION,
-  isValidUserName,
-} from '../../src/users/user-profile.policy';
+import { CONSENT_POLICY_VERSION } from '../../src/users/consents.service';
+import { isValidUserName } from '../../src/users/users.repository';
 
 export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 

@@ -245,7 +245,7 @@ valid(
 valid(
   'file-class-match',
   'ignores suffixes without a class contract',
-  'src/programs/foo.policy.ts',
+  'src/programs/foo.types.ts',
   'export const value = 1;',
 );
 invalid(
@@ -258,7 +258,7 @@ invalid(
 invalid(
   'file-class-match',
   'rejects a role file without a class',
-  'src/programs/foo.scheduler.ts',
+  'src/programs/foo.guard.ts',
   'export const value = 1;',
   ['missing'],
 );
@@ -323,6 +323,9 @@ for (const file of [
   valid('file-name-convention', `accepts ${file}`, file, 'export {};');
 }
 for (const file of [
+  'src/programs/foo.policy.ts',
+  'src/programs/foo.scheduler.ts',
+  'src/programs/foo.job.ts',
   'src/programs/fooBar.service.ts',
   'src/programs/foo.helpers.ts',
   'src/programs/foo_bar.service.ts',

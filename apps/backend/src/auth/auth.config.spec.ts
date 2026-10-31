@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 
-describe('initial-roles.policy', () => {
+describe('initial-roles', () => {
   describe('parseInitialRoles', () => {
     it('유효한 githubId와 설정 값을 canonical 사실로 펼친다', () => {
       expect(parseInitialRoles('101:ADMIN,202:STAFF,303:STUDENT')).toEqual(

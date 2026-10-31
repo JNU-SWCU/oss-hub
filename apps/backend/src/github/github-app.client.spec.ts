@@ -3,10 +3,10 @@ import {
   GithubOperationsError,
 } from './github-app.error';
 import { COLLABORATOR_OUTCOMES, GithubAppClient } from './github-app.client';
-import type {
-  GithubAppFetcher,
-  GithubInstallationTokenProvider,
-} from './repository-provision-contract.types';
+import {
+  type GithubAppFetcher,
+  type GithubInstallationTokenProvider,
+} from './github-app-token.client';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const OWNERSHIP_MARKER = `oss-hub:${'a'.repeat(64)}`;

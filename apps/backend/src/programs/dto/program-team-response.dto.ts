@@ -4,7 +4,7 @@ import type {
   RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
-} from '../program-teams.types';
+} from '../program-team-repository-evidence.repository';
 
 export class RenameTeamResponseDto {
   declare readonly teamId: string;

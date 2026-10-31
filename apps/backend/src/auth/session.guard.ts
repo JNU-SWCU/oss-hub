@@ -3,9 +3,8 @@ import type { Request, Response } from 'express';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
+import { AuthService, resolveSession } from './auth.service';
 import { attachAuthenticatedPrincipal } from './http-auth.types';
-import { resolveSession } from './auth.policy';
 
 @Injectable()
 export class SessionGuard implements CanActivate {

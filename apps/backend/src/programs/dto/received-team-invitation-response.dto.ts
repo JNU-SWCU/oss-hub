@@ -1,5 +1,5 @@
 import { TeamInvitationStatus } from '@prisma/client';
-import type { ReceivedTeamInvitationRecord } from '../team-invitation.types';
+import type { ReceivedTeamInvitationRecord } from '../team-invitations.repository';
 
 export class ReceivedTeamInvitationResponseDto {
   declare readonly preparation?: true;

@@ -1,7 +1,7 @@
 import type {
   ProgramNoticePreview,
   ProgramNoticeWarning,
-} from '../program-notice.policy';
+} from '../program-notice-fetch.client';
 
 export class ProgramNoticePreviewResponseDto implements ProgramNoticePreview {
   declare readonly sourceUrl: string;

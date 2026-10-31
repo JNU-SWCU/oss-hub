@@ -1,14 +1,10 @@
-import type { StudentRepositoryUrlView } from './programs.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/application-repository-url-audit-metadata.policy';
 import { DomainException } from '../platform/error-code.error';
-import { canEditStudentRepositoryUrl } from './programs.policy';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionTriggerService } from '../github/collection-trigger.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
-import { RepositoryProvisionFailure } from '../github/repository-provision-failure.policy';
 import { ApplicationsRepository } from './applications.repository';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -23,6 +19,29 @@ import {
   type TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
+import { ApplicationStatus } from '@prisma/client';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/audit-log.repository';
+import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
+
+export type StudentRepositoryUrlView = {
+  readonly repositoryUrl: string | null;
+  readonly canEditRepositoryUrl: boolean;
+};
+
+export function canEditStudentRepositoryUrl(
+  context: {
+    readonly status: ApplicationStatus;
+    readonly endAt: Date;
+    readonly isManager: boolean;
+  },
+  now: Date,
+): boolean {
+  return (
+    context.isManager &&
+    context.status === ApplicationStatus.APPROVED &&
+    now < context.endAt
+  );
+}
 
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;

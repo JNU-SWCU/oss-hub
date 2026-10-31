@@ -9,7 +9,6 @@ import { ProgramsController } from './programs.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
 import { ProgramLifecycleService } from './program-lifecycle.service';
-import type { ProgramDetailResult } from './programs.types';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import {
@@ -19,7 +18,7 @@ import {
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsService } from './programs.service';
+import { ProgramsService, type ProgramDetailResult } from './programs.service';
 
 describe('program-editor.controller', () => {
   const controllerMethod = (name: keyof ProgramsController): object => {

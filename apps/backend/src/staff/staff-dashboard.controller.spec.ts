@@ -54,6 +54,7 @@ describe('StaffDashboardController', () => {
           {
             coverId: 'cover:1',
             coverExternalImageUrl: imageUrl,
+            coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
             id: 'program:1',
             name: 'Synthetic program',
             trackType: ProgramTrackType.EXTRACURRICULAR,

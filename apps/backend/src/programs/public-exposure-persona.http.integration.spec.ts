@@ -11,12 +11,12 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
-import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
+} from '../platform/audit-log.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

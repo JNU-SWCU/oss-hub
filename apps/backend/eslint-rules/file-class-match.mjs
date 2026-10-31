@@ -9,8 +9,6 @@ const roleSuffixes = {
   interceptor: 'Interceptor',
   filter: 'Filter',
   client: 'Client',
-  job: 'Job',
-  scheduler: 'Scheduler',
 };
 
 const pascalCase = (stem) =>

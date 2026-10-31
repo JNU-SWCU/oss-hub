@@ -27,18 +27,20 @@ import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/users-authority.service';
-import type { GithubAppClient } from '../github/github-app.client';
 import type {
+  GithubAppClient,
   GithubPublicRepositoryMetadata,
   GithubRepositoryMetadata,
-} from '../github/github-app-response.policy';
+} from '../github/github-app.client';
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoryProvisionJobRepository } from '../github/repository-provision-job.repository';
-import { RepositoryProvisionStateRepository } from '../github/repository-provision-state.repository';
+import {
+  RepositoryProvisionStateRepository,
+  PROVISION_ERROR_CODES,
+} from '../github/repository-provision-state.repository';
 import { RepositoryOutboxConsumerService } from '../github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../github/repository-provision-worker.service';
-import { PROVISION_ERROR_CODES } from '../github/repository-provision-failure.policy';
 import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 
@@ -59,6 +61,7 @@ const service = new ApplicationsService(
 );
 const outbox = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
+  { runNext: () => Promise.reject(new Error('worker is not used here')) },
 );
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);

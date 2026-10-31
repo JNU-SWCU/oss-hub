@@ -7,18 +7,20 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import {
-  changeRequestTargetStatuses,
-  changeRequestTargetsVersion,
-  type ProgramDocumentChangeRequestInput,
-  type ProgramDocumentChangeRequestPreview,
-  type ProgramDocumentChangeRequestScope,
-} from './milestone-document.policy';
-import {
   MilestoneDocumentArchiveRepository,
   type ProgramArchiveReader,
 } from './milestone-document-archive.repository';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
+import {
+  nextMilestoneDocumentHistoryCreatedAt,
+  type ProgramDocumentChangeRequestInput,
+  type ProgramDocumentChangeRequestPreview,
+  type ProgramDocumentChangeRequestScope,
+} from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import {
+  changeRequestTargetStatuses,
+  changeRequestTargetsVersion,
+} from './milestone-documents.service';
 
 @Injectable()
 export class ProgramDocumentChangeRequestsService {

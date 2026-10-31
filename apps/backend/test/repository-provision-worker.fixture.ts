@@ -5,13 +5,13 @@ import {
 } from '@prisma/client';
 import type { GithubAppClient } from '../src/github/github-app.client';
 import type { RepositoryProvisionJobRepository } from '../src/github/repository-provision-job.repository';
-import type {
-  ProvisionedRepository,
-  RepositoryInvitationWork,
-  RepositoryProvisionContext,
-  RepositoryProvisionStateStore,
-} from '../src/github/repository-provision-contract.types';
-import { buildRepositoryOwnershipMarker } from '../src/github/repository-name.policy';
+import {
+  type ProvisionedRepository,
+  type RepositoryInvitationWork,
+  type RepositoryProvisionContext,
+  type RepositoryProvisionStateStore,
+} from '../src/github/repository-provision-state-helpers.repository';
+import { buildRepositoryOwnershipMarker } from '../src/github/repository-provision-github.service';
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 

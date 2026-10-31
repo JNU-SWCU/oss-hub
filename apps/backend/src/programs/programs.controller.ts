@@ -14,11 +14,6 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  Public,
-  Protected,
-  OptionalSession,
-} from '../auth/auth-route-metadata.policy';
-import {
   ProgramCoverService,
   ProgramCreationService,
 } from './program-creation.service';
@@ -54,6 +49,11 @@ import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-resp
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
+import {
+  Public,
+  Protected,
+  OptionalSession,
+} from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

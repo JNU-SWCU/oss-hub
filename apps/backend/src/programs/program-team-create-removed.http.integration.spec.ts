@@ -7,9 +7,11 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
-import { AuthService } from '../auth/auth.service';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';

@@ -1,22 +1,20 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-} from './admin-access-repository.types';
 import {
+  type IndependentAuthorityRepositoryPort,
+  type IndependentAuthorityTransactionStore,
+  type IndependentAuthorityUserRecord,
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
-} from './independent-authority.types';
-import type {
-  IndependentAuthorityRepositoryPort,
-  IndependentAuthorityTransactionStore,
-  IndependentAuthorityUserRecord,
+  type IndependentAuthorityTransition,
 } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import type { IndependentAuthorityTransition } from './independent-authority.policy';
+import {
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+} from './admin-access-user-projection.repository';
 
 const actorGithubId = 9_700_100_001n;
 

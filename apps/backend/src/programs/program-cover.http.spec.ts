@@ -1,3 +1,4 @@
+import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -19,7 +20,6 @@ import {
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverService } from './program-creation.service';
-import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXuoAAAAASUVORK5CYII=',

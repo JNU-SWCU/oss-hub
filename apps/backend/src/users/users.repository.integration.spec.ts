@@ -9,8 +9,8 @@ import {
   UsersRepository,
   type ProfileCompletionOutcome,
   type UsersRepositoryPort,
+  isCompleteUserProfile,
 } from './users.repository';
-import { isCompleteUserProfile } from './user-profile.policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

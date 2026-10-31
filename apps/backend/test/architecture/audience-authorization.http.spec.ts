@@ -14,9 +14,11 @@ import { StaffInsightsService } from '../../src/staff/staff-insights.service';
 import { AuthConfig } from '../../src/auth/auth.config';
 import { OriginGuard } from '../../src/auth/origin.guard';
 import { SessionGuard } from '../../src/auth/session.guard';
-import { sessionCookieName } from '../../src/auth/cookies.policy';
-import { issueSessionToken } from '../../src/auth/auth.policy';
-import { AuthService } from '../../src/auth/auth.service';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/platform/configure-http-app.config';
 import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';

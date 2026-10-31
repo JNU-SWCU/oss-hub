@@ -1,3 +1,5 @@
+import { authorityLabel } from '../users/users.repository';
+import { type AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -6,10 +8,6 @@ import {
 } from '@prisma/client';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  authorityLabel,
-  type AuthorityLabel,
-} from '../users/authority-label.policy';
 import {
   type UserProfileNameSource,
   UserProfileReadRepository,

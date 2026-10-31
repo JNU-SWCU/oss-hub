@@ -1,4 +1,25 @@
+import {
+  authorityLabel,
+  isCompleteProfileFields,
+  isStoredStudentId,
+  isValidDepartment,
+  isValidStudentId,
+  normalizeProfileText,
+} from './users.repository';
 import { Inject, Injectable } from '@nestjs/common';
+import { AuditLogService } from '../platform/audit-log.service';
+import { DomainException } from '../platform/error-code.error';
+import { SystemErrorCode } from '../platform/system-error-code.error';
+import { AffiliationKind, MemberKind } from '@prisma/client';
+import { RolesErrorCode } from './roles-error-code.error';
+import {
+  MemberKindRepository,
+  type MemberKindProfileUpdate,
+  type MemberKindRepositoryPort,
+  type MemberKindTargetRecord,
+} from './member-kind.repository';
+import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { type IndependentAuthorityMutationResult } from './independent-authority.repository';
 import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
@@ -7,35 +28,38 @@ import {
   createIndependentAuthorityAuditMetadata,
   createUserProfileAuditMetadata,
   type UserProfileAuditFieldChange,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogService } from '../platform/audit-log.service';
-import { DomainException } from '../platform/error-code.error';
-import { SystemErrorCode } from '../platform/system-error-code.error';
-import { AffiliationKind, MemberKind } from '@prisma/client';
-import { requireActiveAdmin } from './admin-access-authorization.policy';
-import { roleError, staleAccessError } from './admin-access-mutation.policy';
-import { RolesErrorCode } from './roles-error-code.error';
-import { authorityLabel } from './authority-label.policy';
+} from '../platform/audit-log.repository';
 import {
-  isCompleteProfileFields,
-  isStoredStudentId,
-  isValidDepartment,
-  isValidStudentId,
-  normalizeProfileText,
-} from './user-profile.policy';
-import {
-  isValidStaffNumber,
-  normalizeStaffNumber,
-  type MemberKindMutationCommand,
-  type MemberKindMutationResult,
-} from './member-kind.policy';
-import {
-  MemberKindRepository,
-  type MemberKindProfileUpdate,
-  type MemberKindRepositoryPort,
-  type MemberKindTargetRecord,
-} from './member-kind.repository';
-import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+  requireActiveAdmin,
+  roleError,
+  staleAccessError,
+} from './admin-access-mutation.service';
+
+export const MEMBER_KINDS = {
+  STUDENT: 'STUDENT',
+  STAFF: 'STAFF',
+} as const satisfies Record<MemberKind, MemberKind>;
+
+export type MemberKindMutationCommand = {
+  readonly memberKind: MemberKind;
+  readonly expectedMemberKind: MemberKind;
+  readonly expectedHasStaffAccess: boolean;
+  readonly studentId?: string;
+  readonly department?: string;
+  readonly staffNumber?: string | null;
+};
+
+export type MemberKindMutationResult = IndependentAuthorityMutationResult;
+
+export function normalizeStaffNumber(value: string): string {
+  return value.trim().normalize('NFC');
+}
+
+export function isValidStaffNumber(value: string): boolean {
+  const normalized = normalizeStaffNumber(value);
+  const codePointCount = Array.from(normalized).length;
+  return codePointCount >= 1 && codePointCount <= 100;
+}
 
 @Injectable()
 export class MemberKindService {

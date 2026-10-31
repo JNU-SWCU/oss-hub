@@ -13,8 +13,10 @@ import {
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import { requireValidUserId } from '../users/user-id.policy';
-import { AdminAccessService } from '../users/admin-access.service';
+import {
+  AdminAccessService,
+  requireValidUserId,
+} from '../users/admin-access.service';
 import { AdminProfileService } from '../users/admin-profile.service';
 import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';

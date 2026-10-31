@@ -2,22 +2,47 @@ import {
   type CanActivate,
   type ExecutionContext,
   Injectable,
+  SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import {
-  OPTIONAL_SESSION_ROUTE_METADATA,
-  PUBLIC_ROUTE_METADATA,
-} from './auth-route-metadata.policy';
 import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
+import { AuthService, resolveSession } from './auth.service';
 import {
   attachAnonymousAuth,
   attachAuthenticatedPrincipal,
 } from './http-auth.types';
-import { resolveSession } from './auth.policy';
+
+export const AUTH_ROUTE_ACCESS = {
+  PUBLIC: 'PUBLIC',
+  OPTIONAL_SESSION: 'OPTIONAL_SESSION',
+  PROTECTED: 'PROTECTED',
+} as const;
+
+export type AuthRouteAccess =
+  (typeof AUTH_ROUTE_ACCESS)[keyof typeof AUTH_ROUTE_ACCESS];
+
+export const PUBLIC_ROUTE_METADATA = Symbol('public-route');
+
+export const OPTIONAL_SESSION_ROUTE_METADATA = Symbol('optional-session-route');
+
+export const PROTECTED_ROUTE_METADATA = Symbol('protected-route');
+
+type AuthRouteDecorator = ClassDecorator & MethodDecorator;
+
+export function Public(): AuthRouteDecorator {
+  return SetMetadata(PUBLIC_ROUTE_METADATA, true);
+}
+
+export function OptionalSession(): AuthRouteDecorator {
+  return SetMetadata(OPTIONAL_SESSION_ROUTE_METADATA, true);
+}
+
+export function Protected(): AuthRouteDecorator {
+  return SetMetadata(PROTECTED_ROUTE_METADATA, true);
+}
 
 @Injectable()
 export class AuthenticationGuard implements CanActivate {

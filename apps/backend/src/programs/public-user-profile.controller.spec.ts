@@ -1,7 +1,7 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import type { PublicProjectRow } from './public-projects.policy';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import type { PublicProjectsService } from './public-projects.service';
+import { type PublicProjectRow } from './public-projects.repository';
 
 describe('PublicUserProfileController', () => {
   it('공개 프로필은 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {

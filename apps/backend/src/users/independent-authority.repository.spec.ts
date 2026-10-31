@@ -9,7 +9,7 @@ import {
   UsersAuthorityRepository,
   IndependentAuthorityRepository,
 } from './independent-authority.repository';
-import { resolveIndependentAuthorityTransition } from './independent-authority.policy';
+import { resolveIndependentAuthorityTransition } from './independent-authority.service';
 
 describe('authority.repository', () => {
   const actors = [

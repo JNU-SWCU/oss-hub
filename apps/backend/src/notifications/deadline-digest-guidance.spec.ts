@@ -1,7 +1,7 @@
 import {
   buildStudentDeadlineMail,
   buildStaffDeadlineMail,
-} from './deadline-digest-mail-template.policy';
+} from './deadline-digest.service';
 
 const context = {
   now: new Date('2026-08-14T00:00:00Z'),

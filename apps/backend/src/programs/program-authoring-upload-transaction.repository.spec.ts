@@ -1,10 +1,12 @@
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  type ProgramAuthoringUploadToken,
+} from './program-authoring-upload-transaction.repository';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   ProgramAuthoringUploadTokenError,
-  type ProgramAuthoringUploadToken,
-} from './program-authoring.policy';
+} from './program-authoring.error';
 
 const ACTOR_ID = 'staff-id';
 

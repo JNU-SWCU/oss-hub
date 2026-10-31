@@ -8,8 +8,8 @@ import {
   RoleSelectionResponseDto,
 } from '../../src/users/dto/role-selection-response.dto';
 import { UserProfileResponseDto } from '../../src/users/dto/user-profile-response.dto';
-import { CURRENT_CONSENT_POLICY } from '../../src/users/user-profile.policy';
-import type { StaffAccessRequestRecord } from '../../src/users/users.types';
+import { CURRENT_CONSENT_POLICY } from '../../src/users/consents.service';
+import { type StaffAccessRequestRecord } from '../../src/users/member-onboarding.repository';
 
 const at = (iso: string): Date => new Date(iso);
 

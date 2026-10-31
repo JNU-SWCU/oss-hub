@@ -2,15 +2,14 @@ import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
-import { ProgramsScheduler } from './programs.scheduler';
 
-describe('programs.scheduler', () => {
+describe('ProgramPurgeFileCleanupService cron', () => {
   const CRON_JOB_NAME = 'program-purge-file-cleanup';
 
   const settleRun = (): Promise<void> =>
     new Promise((resolve) => setImmediate(resolve));
 
-  describe('ProgramsScheduler', () => {
+  describe('run', () => {
     let testingModule: TestingModule;
     const runDue = jest.fn<Promise<number>, []>();
     let releasePendingRun: (() => void) | undefined;
@@ -22,11 +21,19 @@ describe('programs.scheduler', () => {
       releasePendingRun = undefined;
       runDue.mockReset();
       runDue.mockResolvedValue(0);
+      const service = new ProgramPurgeFileCleanupService(
+        {
+          claimNextForDeletion: jest.fn(),
+          markDeleted: jest.fn(),
+          recordDeleteFailure: jest.fn(),
+        },
+        { delete: jest.fn() },
+      );
+      service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          ProgramsScheduler,
-          { provide: ProgramPurgeFileCleanupService, useValue: { runDue } },
+          { provide: ProgramPurgeFileCleanupService, useValue: service },
         ],
       }).compile();
       await testingModule.init();

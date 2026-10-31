@@ -7,6 +7,9 @@ import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
   PublicProjectsService,
+  decodePublicProjectCursor,
+  encodePublicProjectCursor,
+  resolvePublicProjectCursorKey,
 } from './public-projects.service';
 import { DomainException } from '../platform/error-code.error';
 import type {
@@ -16,15 +19,20 @@ import type {
 } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import {
-  decodePublicProjectCursor,
-  encodePublicProjectCursor,
-  resolvePublicProjectCursorKey,
-} from './public-project-cursor.policy';
-import type {
-  PublicProjectRow,
-  PublicUserIdentity,
-} from './public-projects.policy';
-import type { PublicProjectsRepository } from './public-projects.repository';
+  applicationMode,
+  displayNameOf,
+  type PublicProjectsRepository,
+  type PublicProjectRow,
+  type PublicUserIdentity,
+} from './public-projects.repository';
+
+function expectedListItem(row: PublicProjectRow) {
+  return {
+    ...row,
+    applicationMode: applicationMode(row.teamMemberCount),
+    displayName: displayNameOf(row),
+  };
+}
 
 describe('public-eligibility.service', () => {
   const publishedAt = new Date('2026-07-15T00:00:00.000Z');
@@ -771,7 +779,7 @@ describe('PublicProjectsService', () => {
 
       expect(profile.projects).toEqual([
         {
-          row: found,
+          row: expectedListItem(found),
           observed: false,
           hasCollectedData: false,
           dataAsOf: null,
@@ -863,14 +871,14 @@ describe('PublicProjectsService', () => {
 
       expect(profile.projects).toEqual([
         {
-          row: projectA,
+          row: expectedListItem(projectA),
           observed: true,
           hasCollectedData: true,
           dataAsOf: dataAsOfA,
           metrics: { commitCount: 5, pullRequestCount: 1, releaseCount: 0 },
         },
         {
-          row: projectB,
+          row: expectedListItem(projectB),
           observed: true,
           hasCollectedData: true,
           dataAsOf: dataAsOfB,
@@ -930,14 +938,14 @@ describe('PublicProjectsService', () => {
 
       expect(profile.projects).toEqual([
         {
-          row: observedZero,
+          row: expectedListItem(observedZero),
           observed: true,
           hasCollectedData: true,
           dataAsOf,
           metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
         },
         {
-          row: unobserved,
+          row: expectedListItem(unobserved),
           observed: false,
           hasCollectedData: false,
           dataAsOf: null,
@@ -986,7 +994,7 @@ describe('PublicProjectsService', () => {
 
       expect(profile.projects).toEqual([
         {
-          row: preSweep,
+          row: expectedListItem(preSweep),
           observed: true,
           hasCollectedData: false,
           dataAsOf,

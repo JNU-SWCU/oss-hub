@@ -10,13 +10,11 @@ import {
   ApplicationDecisionNotificationsRepository,
   type ApplicationDecisionNotificationsRepositoryPort,
   type StoredApplicationDecisionNotification,
+  type NotificationSettings,
+  type UpdateNotificationEmailInput,
+  type ApplicationDecisionNotification,
+  type TeamDeletionNotification,
 } from './application-decision-notifications.repository';
-import type {
-  NotificationSettings,
-  UpdateNotificationEmailInput,
-  ApplicationDecisionNotification,
-  TeamDeletionNotification,
-} from './notifications.types';
 import { ApplicationStatus } from '@prisma/client';
 
 @Injectable()

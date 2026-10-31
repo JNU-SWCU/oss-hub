@@ -1,14 +1,15 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
-import {
-  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
-  createSubmissionFileCleanupAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
+import {
+  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
+  createSubmissionFileCleanupAuditMetadata,
+} from '../platform/audit-log.repository';
 
 @Injectable()
 export class SubmissionFileCleanupRetryService {
@@ -56,6 +57,10 @@ const DEFAULT_BATCH_SIZE = 100;
 @Injectable()
 export class SubmissionFileCleanupService {
   private readonly logger = new Logger(SubmissionFileCleanupService.name);
+  private readonly schedulerLogger = new Logger(
+    'SubmissionFileCleanupScheduler',
+  );
+  private running = false;
 
   constructor(
     private readonly files: SubmissionFilesRepository,
@@ -64,6 +69,24 @@ export class SubmissionFileCleanupService {
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'submission-file-cleanup',
+  })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.runDue();
+    } catch (error) {
+      this.schedulerLogger.error({
+        event: 'submission-file.cleanup.run.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
 
   async runDue(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
     let claimedCount = 0;

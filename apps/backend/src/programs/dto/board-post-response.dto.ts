@@ -1,11 +1,11 @@
+import type { AuthorityLabel } from '../../users/authority-label.types';
 import { BoardPostCategory } from '@prisma/client';
-import type { AuthorityLabel } from '../../users/authority-label.policy';
 import type {
   BoardPostSummaryResult,
   BoardPostDetailResult,
   BoardCommentResult,
   BoardPostsPageResult,
-} from '../programs.types';
+} from '../board.service';
 
 export class BoardPostResponseDto {
   declare readonly id: string;

@@ -1,15 +1,13 @@
 import type {
-  ProgramDetailResult,
-  ProgramActivityResult,
-  ProgramViewerRole,
-} from '../programs.types';
-import type {
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramTrackType,
   ProgramLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
+import type { ProgramDetailResult } from '../programs.service';
+import type { ProgramActivityResult } from '../program-activity.service';
+import type { ProgramViewerRole } from '../program-viewer.service';
 
 type ProgramViewerRoleResponseDto = ProgramViewerRole;
 type ViewerSubmissionStatusResponseDto =

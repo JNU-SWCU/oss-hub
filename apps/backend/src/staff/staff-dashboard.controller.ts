@@ -13,8 +13,10 @@ import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-
 import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
-import { parseInsightsYearQuery } from './staff.policy';
-import { StaffInsightsService } from './staff-insights.service';
+import {
+  StaffInsightsService,
+  parseInsightsYearQuery,
+} from './staff-insights.service';
 
 @Controller('dashboard/staff')
 export class StaffDashboardController {

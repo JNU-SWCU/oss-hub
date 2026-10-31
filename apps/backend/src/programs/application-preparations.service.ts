@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import { computeJoinCodeDigest } from './application-decision.policy';
-import { resolveJoinCodeSecretFromConfig } from '../platform/join-code-secret.config';
+import {
+  resolveJoinCodeSecretFromConfig,
+  computeJoinCodeDigest,
+} from '../platform/join-code-secret.config';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { DomainException, type ErrorCode } from '../platform/error-code.error';

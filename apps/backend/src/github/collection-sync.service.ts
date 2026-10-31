@@ -1,18 +1,17 @@
 import {
   CollectionInventoryService,
   type SweepInventory,
-} from './collection-inventory.service';
-import {
-  CollectionSyncDeadline,
   splitNameWithOwner,
-  requestFingerprintKey,
-} from './github.policy';
+} from './collection-inventory.service';
 import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { CollectionCommit } from './collection-app.client';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
+import {
+  CollectionCommit,
+  requestFingerprintKey,
+} from './collection-app.client';
 import type {
+  CollectionIncrementalRepository,
   CollectionRepositoryRow,
   CollectionStreamType,
   CollectionSyncRuntime,
@@ -22,9 +21,10 @@ import type {
   RepositorySource,
   RepositoryTeamMemberAccount,
   SyncLeaseToken,
-} from './collection-incremental.types';
+} from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
+import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
@@ -184,7 +184,7 @@ export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
   private readonly checkpoints: CollectionStreamCheckpointService;
   private readonly inventory: CollectionInventoryService;
-  private readonly deadline: CollectionSyncDeadline;
+  private readonly deadline: CollectionSyncDeadlineService;
 
   constructor(
     private readonly incrementalRepository: SyncRepository,
@@ -195,7 +195,7 @@ export class CollectionSyncService {
 
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {
-    this.deadline = new CollectionSyncDeadline(now);
+    this.deadline = new CollectionSyncDeadlineService(now);
     this.inventory = new CollectionInventoryService(
       incrementalRepository,
       this.deadline,

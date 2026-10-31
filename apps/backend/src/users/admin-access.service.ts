@@ -1,13 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
-import { RolesErrorCode } from './roles-error-code.error';
+import { RolesErrorCode, ROLES_ERROR_CODES } from './roles-error-code.error';
 import {
+  AdminAccessMutationService,
   isAdminActor,
   requireActiveAdmin,
   requireActiveStaffOrAdmin,
-} from './admin-access-authorization.policy';
-import { roleError } from './admin-access-mutation.policy';
-import { AdminAccessMutationService } from './admin-access-mutation.service';
+  roleError,
+  type AdminAccessMutationCommand,
+  type AdminAccessMutationResult,
+} from './admin-access-mutation.service';
 import {
   AdminAccessRepository,
   type AdminAccessActor,
@@ -15,17 +17,26 @@ import {
   type AdminAccessUserDetailRecord,
   type AdminAccessUserRecord,
 } from './admin-access.repository';
+import { DomainException } from '../platform/error-code.error';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   type AdminAccessFacets,
   type AdminAccessHistoryQuery,
   type AdminAccessListQuery,
-  type AdminAccessMutationCommand,
-  type AdminAccessMutationResult,
   type AdminAccessUserDetail,
   type AdminAccessUserHistory,
   type AdminAccessUserPage,
-} from './admin-access.types';
+} from './admin-access-read-ordering.repository';
+
+const USER_ID_PATTERN = /^[A-Za-z0-9:_-]{1,128}$/;
+
+export function requireValidUserId(id: string): void {
+  if (id === 'me' || !USER_ID_PATTERN.test(id)) {
+    throw new DomainException(
+      ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ID],
+    );
+  }
+}
 
 @Injectable()
 export class AdminAccessService {

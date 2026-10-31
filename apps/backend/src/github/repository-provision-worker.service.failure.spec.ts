@@ -19,10 +19,10 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import { PROVISION_ERROR_CODES } from './repository-provision-failure.policy';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
-import { buildRepositoryOwnershipMarker } from './repository-name.policy';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.repository';
+import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 

@@ -1,7 +1,9 @@
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsErrorCode } from '../programs/applications-error-code.error';
-import { DEPARTMENT_COHORTS } from './staff.policy';
-import { StaffInsightsService } from './staff-insights.service';
+import {
+  StaffInsightsService,
+  DEPARTMENT_COHORTS,
+} from './staff-insights.service';
 import type { StaffInsightsRepository } from './staff-insights.repository';
 
 const STAFF_GITHUB_ID = 4242n;

@@ -1,14 +1,14 @@
+import type { AuthorityLabel } from '../../users/authority-label.types';
 import type { AccountStatus, MemberKind } from '@prisma/client';
-import type { AuthorityLabel } from '../../users/authority-label.policy';
 import type {
   AdminAccessFacets,
-  AdminAccessMutationResult,
   AdminAccessPendingRequest,
   AdminAccessUser,
   AdminAccessUserPage,
-} from '../../users/admin-access.types';
-import type { AdminProfileUpdateResult } from '../../users/admin-profile.types';
-import type { IndependentAuthorityMutationResult } from '../../users/independent-authority.types';
+} from '../../users/admin-access-read-ordering.repository';
+import type { AdminAccessMutationResult } from '../../users/admin-access-mutation.service';
+import type { AdminProfileUpdateResult } from '../../users/admin-profile-mutation.service';
+import type { IndependentAuthorityMutationResult } from '../../users/independent-authority.repository';
 
 class PendingRequestResponseDto {
   declare readonly id: string;

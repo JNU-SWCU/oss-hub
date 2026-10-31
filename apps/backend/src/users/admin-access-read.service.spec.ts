@@ -1,7 +1,6 @@
 import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
-import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -13,6 +12,7 @@ import {
   auditLogHarness,
   staffActor,
 } from './admin-access.service.spec-support';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-read-ordering.repository';
 
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {

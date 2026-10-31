@@ -1,4 +1,3 @@
-import { ProgramListRecord } from './programs.types';
 import { Injectable } from '@nestjs/common';
 import {
   type Program,
@@ -7,6 +6,9 @@ import {
   Prisma,
   ProgramCategory,
   StaffAccessRequestStatus,
+  type ProgramTrackType,
+  type ProgramLifecycle,
+  type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -14,17 +16,105 @@ import {
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import {
-  projectSubmissionCompletionTargets,
-  submissionCompletionTargetSelect,
-  type SubmissionCompletionTargetRow,
-} from './submission-completion-projection.policy';
-import {
+  ProgramListStatusFilterRepository,
   type ProgramListQuery,
-  emptyProgramStatusCounts,
-  type ProgramStatusCounts,
-} from './programs.policy';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+} from './program-list-status-filter.repository';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
+
+export type ProgramListRecord = {
+  readonly id: string;
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationTemplateKey: string;
+  readonly lifecycle: ProgramLifecycle;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly endAt: Date;
+  readonly description: string;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
+  readonly coverId?: string | null;
+  readonly coverExternalImageUrl?: string | null;
+};
+
+export type ProgramStatusCounts = {
+  readonly all: number;
+  readonly recruiting: number;
+  readonly in_progress: number;
+  readonly upcoming: number;
+  readonly ended: number;
+};
+
+function emptyProgramStatusCounts(): ProgramStatusCounts {
+  return {
+    all: 0,
+    recruiting: 0,
+    in_progress: 0,
+    upcoming: 0,
+    ended: 0,
+  };
+}
+
+export const submissionCompletionTargetSelect = {
+  status: true,
+  milestoneDocument: {
+    select: { id: true, milestoneId: true, kind: true },
+  },
+} as const;
+
+export interface SubmissionCompletionTargetRow {
+  readonly status: SubmissionStatus;
+  readonly milestoneDocument: {
+    readonly id: string;
+    readonly milestoneId: string;
+    readonly kind: MilestoneDocumentKind;
+  };
+}
+
+export interface SubmissionCompletionProjections {
+  readonly submissions: readonly {
+    readonly milestoneId: string;
+    readonly status: SubmissionStatus;
+  }[];
+
+  readonly documentSubmissions: readonly {
+    readonly milestoneDocumentId: string;
+    readonly status: SubmissionStatus;
+  }[];
+}
+
+export function projectSubmissionCompletionTargets(
+  targetRows: readonly SubmissionCompletionTargetRow[],
+): SubmissionCompletionProjections {
+  const submissions: {
+    milestoneId: string;
+    status: SubmissionStatus;
+  }[] = [];
+  const documentSubmissions: {
+    milestoneDocumentId: string;
+    status: SubmissionStatus;
+  }[] = [];
+
+  for (const targetRow of targetRows) {
+    switch (targetRow.milestoneDocument.kind) {
+      case MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION:
+        submissions.push({
+          milestoneId: targetRow.milestoneDocument.milestoneId,
+          status: targetRow.status,
+        });
+        break;
+      case MilestoneDocumentKind.DOCUMENT:
+        documentSubmissions.push({
+          milestoneDocumentId: targetRow.milestoneDocument.id,
+          status: targetRow.status,
+        });
+        break;
+    }
+  }
+
+  return { submissions, documentSubmissions };
+}
 
 export interface ProgramApplicationCounts {
   readonly total: number;

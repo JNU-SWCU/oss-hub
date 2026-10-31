@@ -21,21 +21,17 @@ import {
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
-import type {
-  MilestoneDocumentReviewRecord,
-  ProgramDocumentChangeRequestCandidate,
-} from './milestone-document.policy';
-import type {
-  MilestoneDocumentRecord,
-  MilestoneContext,
-  MilestoneDocumentCollectionApplication,
-  MilestoneDocumentCollectionSubmission,
-  CreatedMilestoneDocumentReview,
-  MilestoneDocumentSubmissionDetail,
-} from './milestone-document-result.types';
 import {
   boundedReviewHistoryQuery,
   milestoneDocumentHistoryDescendingOrderBy,
+  type MilestoneDocumentReviewRecord,
+  type ProgramDocumentChangeRequestCandidate,
+  type MilestoneDocumentRecord,
+  type MilestoneContext,
+  type MilestoneDocumentCollectionApplication,
+  type MilestoneDocumentCollectionSubmission,
+  type CreatedMilestoneDocumentReview,
+  type MilestoneDocumentSubmissionDetail,
 } from './milestone-document-collection-read.repository';
 import {
   type UpsertMilestoneDocumentSubmissionInput,

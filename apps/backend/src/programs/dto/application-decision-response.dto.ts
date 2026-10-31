@@ -2,7 +2,7 @@ import type {
   ApplicationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import type { ApplicationDecisionResult } from '../application-decision.policy';
+import type { ApplicationDecisionResult } from '../applications.repository';
 
 export class ApplicationDecisionResponseDto {
   declare readonly applicationId: string;

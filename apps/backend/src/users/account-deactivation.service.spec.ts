@@ -1,14 +1,14 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import {
-  ACCESS_AUDIT_ACTIONS,
-  ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
   AccountDeactivationService,
   type AccountDeactivationRepositoryPort,
 } from './account-deactivation.service';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+} from '../platform/audit-log.repository';
 
 describe('AccountDeactivationService', () => {
   const account = {

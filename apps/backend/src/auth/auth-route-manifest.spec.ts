@@ -1,8 +1,8 @@
 import {
   discoverAppModuleControllers,
   discoverModuleControllers,
+  compareStringsByCodeUnit,
 } from '../app-controller-discovery';
-import { compareStringsByCodeUnit } from '../platform/platform.policy';
 import { ProgramOverviewController } from '../programs/program-overview.controller';
 import {
   collectRuntimeRouteKeys,
@@ -24,7 +24,6 @@ import {
   AUTH_ROUTE_STATUS_CASES,
   AuthRouteStatusHarness,
 } from '../../test/auth-route-status-matrix.fixture';
-import { AUTH_ROUTE_ACCESS } from './auth-route-metadata.policy';
 import {
   EXPECTED_APP_CONTROLLER_NAMES,
   EXPECTED_AUTH_ROUTE_INVENTORY,
@@ -33,6 +32,7 @@ import {
   EXPECTED_PUBLIC_AUTH_ROUTES,
 } from './auth-route-inventory.fixture';
 import { createAuthRouteManifest } from './auth-route-manifest.fixture';
+import { AUTH_ROUTE_ACCESS } from './authentication.guard';
 
 describe('authentication route metadata manifest', () => {
   it('rejects missing or duplicate metadata', () => {

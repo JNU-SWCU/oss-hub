@@ -9,8 +9,10 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/programs/application-decision.policy';
-import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
+import {
+  resolveJoinCodeSecret,
+  computeJoinCodeDigest,
+} from '../../src/platform/join-code-secret.config';
 import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
 import {
   offsetDays,

@@ -1,6 +1,8 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
-import type { CompleteUserProfileInput } from './user-profile-record.policy';
-import type { UserProfileRecord } from './user-profile.policy';
+import {
+  type CompleteUserProfileInput,
+  type UserProfileRecord,
+} from './users.repository';
 
 type LegacyProfileWrite = {
   readonly name: string;

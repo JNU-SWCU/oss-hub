@@ -1,3 +1,4 @@
+import { type AuthorityLabel } from '../../users/authority-label.types';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -10,18 +11,17 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuthorityLabel } from '../../users/authority-label.policy';
 import { DomainException } from '../../platform/error-code.error';
+import {
+  ROLES_ERROR_CODES,
+  RolesErrorCode,
+} from '../../users/roles-error-code.error';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessExpectedPendingRequest,
   type AdminAccessMutationCommand,
   type AdminAccessRequestDecision,
-} from '../../users/admin-access.types';
-import {
-  ROLES_ERROR_CODES,
-  RolesErrorCode,
-} from '../../users/roles-error-code.error';
+} from '../../users/admin-access-mutation.service';
 
 class ExpectedPendingRequestDto {
   @IsString()

@@ -4,9 +4,11 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringRepository } from './program-authoring.repository';

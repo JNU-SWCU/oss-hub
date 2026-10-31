@@ -12,9 +12,11 @@ import {
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -32,8 +34,10 @@ import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
-import type { MilestoneDocumentArchive } from './milestone-document-result.types';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  MilestoneDocumentArchiveService,
+  type MilestoneDocumentArchive,
+} from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';

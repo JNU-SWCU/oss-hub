@@ -21,22 +21,22 @@ import {
 import {
   COLLABORATOR_OUTCOMES,
   type GithubAppClient,
+  type GithubRepositoryMetadata,
 } from './github-app.client';
-import { type GithubRepositoryMetadata } from './github-app-response.policy';
-import { RepositoriesRepository } from './repositories.repository';
-import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import {
+  RepositoriesRepository,
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repository-provision-event.policy';
+} from './repositories.repository';
+import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
-import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import {
+  RepositoryProvisionStateRepository,
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
   PROVISION_ERROR_CODES,
-} from './repository-provision-failure.policy';
+} from './repository-provision-state.repository';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
 import { ConsentsRepository } from '../users/member-onboarding.repository';
 import { ConsentsService } from '../users/consents.service';
@@ -52,6 +52,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const outbox = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
+  { runNext: () => Promise.reject(new Error('worker is not used here')) },
 );
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);

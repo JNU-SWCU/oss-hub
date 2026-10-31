@@ -1,10 +1,9 @@
 import { MemberKind } from '@prisma/client';
-import type { PatchUserProfileInput } from './user-profile-record.policy';
 import type {
   ProfileCompletionOutcome,
   UsersRepositoryPort,
 } from './users.repository';
-import { UsersService } from './users.service';
+import { UsersService, type PatchUserProfileInput } from './users.service';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>

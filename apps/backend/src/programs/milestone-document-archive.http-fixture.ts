@@ -1,17 +1,21 @@
 import { ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   archiveId,
   type ProgramArchiveIntegrationFixture,
 } from './milestone-document-archive.integration-fixture';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import type { ProgramDocumentArchiveScope } from './milestone-document-result.types';
+import {
+  MilestoneDocumentArchiveService,
+  type ProgramDocumentArchiveScope,
+} from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 
 export async function startArchiveHttp(

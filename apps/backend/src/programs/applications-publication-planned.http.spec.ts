@@ -10,24 +10,26 @@ import {
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
+import {
+  AuthService,
+  issueSessionToken,
+  sessionCookieName,
+} from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsController } from './applications.controller';
-import type { ApplicationsRepository } from './applications.repository';
 import type {
+  ApplicationsRepository,
   ApplicationListItem,
   ApplicationListPage,
   ApplicationReviewHistoryEntry,
   StaffDashboardSummary,
   TeamManagementListPage,
-} from './application-records.types';
+  ApplicationDecisionTarget,
+} from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import type { ApplicationDecisionTarget } from './application-decision.policy';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';

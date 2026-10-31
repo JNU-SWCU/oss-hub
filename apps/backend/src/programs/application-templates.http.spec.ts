@@ -12,8 +12,7 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
-import { ProgramsService } from './programs.service';
-import { V1_APPLICATION_FIELDS } from './program-template-registry.policy';
+import { ProgramsService, V1_APPLICATION_FIELDS } from './programs.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';

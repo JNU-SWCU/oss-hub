@@ -17,15 +17,17 @@ import { OriginGuard } from '../auth/origin.guard';
 import { setDownloadHeaders } from '../platform/object-storage.types';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { UploadedSubmissionFileResponseDto } from './dto/uploaded-submission-file-response.dto';
-import { SubmissionFilesService } from './submission-files.service';
-import type { SubmissionFileUpload } from './submission.types';
+import {
+  SubmissionFilesService,
+  type SubmissionFileUpload,
+} from './submission-files.service';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

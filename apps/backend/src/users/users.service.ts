@@ -1,38 +1,306 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  USER_PHONE_AUDIT_TRANSITIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
-  createUserPhoneAuditMetadata,
-  createUserProfileAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { ConsentsService } from './consents.service';
-import {
-  type PatchUserProfileInput,
-  type UserProfile,
-  type UserProfileRecord,
-  effectiveProfileMemberKind,
-  isCompleteUserProfile,
-  isValidStudentId,
-  nextProfileRecord,
-  profileFieldRequirement,
-  toUserProfile,
-} from './user-profile-record.policy';
-import {
-  buildProfileCompletion,
-  buildProfileUpdate,
-} from './member-profile-completion.policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import {
   UsersRepository,
   type RecordPhoneAudit,
   type RecordStaffNumberAudit,
   type UsersRepositoryPort,
+  type UserProfileRecord,
+  CompleteUserProfileInput,
+  normalizeProfileText,
+  isValidUserName,
+  type UpdateProfileFieldsInput,
+  isValidPhone,
+  isValidDepartment,
+  isStoredStudentId,
+  isValidStudentId,
+  isCompleteUserProfile,
+  effectiveProfileMemberKind,
+  profileFieldRequirement,
 } from './users.repository';
+import { AffiliationKind, MemberKind } from '@prisma/client';
+import {
+  normalizeStaffNumber,
+  isValidStaffNumber,
+} from './member-kind.service';
+import { ValidateBy } from 'class-validator';
+import {
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  createUserPhoneAuditMetadata,
+  createUserProfileAuditMetadata,
+} from '../platform/audit-log.repository';
+
+export interface UserProfile {
+  readonly name: string;
+  readonly studentId: string | null;
+  readonly department: string | null;
+  readonly phone: string | null;
+  readonly staffNumber: string | null;
+  readonly isComplete: boolean;
+}
+
+export interface PatchUserProfileInput {
+  readonly name: string;
+  readonly studentId?: string;
+  readonly department?: string;
+  readonly phone?: string;
+  readonly staffNumber?: string | null;
+  readonly affiliationKind?: AffiliationKind;
+  readonly affiliationName?: string;
+}
+
+function toUserProfile(record: UserProfileRecord): UserProfile {
+  return {
+    name: record.name ?? '',
+    studentId: record.studentId,
+    department: record.department,
+    phone: record.phone ?? null,
+    staffNumber: record.staffNumber ?? null,
+    isComplete: isCompleteUserProfile(record),
+  };
+}
+
+type NormalizedProfileRecord = Omit<
+  UserProfileRecord,
+  'name' | 'department'
+> & {
+  readonly name: string;
+  readonly department: string;
+};
+
+function nextProfileRecord(
+  user: UserProfileRecord,
+  input: CompleteUserProfileInput,
+): NormalizedProfileRecord {
+  return {
+    ...user,
+    name: input.name,
+    studentId: input.studentId,
+    department: input.department,
+    phone: input.phone ?? user.phone,
+    memberKind: input.memberKind,
+    affiliationKind: input.affiliationKind,
+    affiliationName: input.affiliationName,
+    hasStaffAccess: input.hasStaffAccess,
+    hasAdminAccess: input.hasAdminAccess,
+  };
+}
+
+type Affiliation = {
+  readonly kind: AffiliationKind;
+  readonly name: string;
+};
+
+export function buildProfileCompletion(
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): CompleteUserProfileInput {
+  if (input.staffNumber !== undefined) {
+    throw invalidProfile('교직원 번호는 가입 완료 후 수정할 수 있습니다.');
+  }
+  const memberKind = user.selectedMemberKind ?? user.memberKind ?? null;
+  if (memberKind === null) {
+    throw invalidProfile('회원 유형을 먼저 선택해 주세요.');
+  }
+  const name = normalizeProfileText(input.name);
+  if (!isValidUserName(name)) {
+    throw invalidProfile('이름 형식이 올바르지 않습니다.');
+  }
+  const affiliation = resolveAffiliation(user, input);
+  requireAllowedAffiliation(memberKind, affiliation.kind);
+
+  return {
+    name,
+    studentId: completionStudentId(memberKind, user, input),
+    department: affiliation.name,
+    ...completionPhone(memberKind, user, input),
+    memberKind,
+    affiliationKind: affiliation.kind,
+    affiliationName: affiliation.name,
+    hasStaffAccess:
+      memberKind === MemberKind.STAFF ? (user.hasStaffAccess ?? false) : false,
+    hasAdminAccess: user.hasAdminAccess ?? false,
+  };
+}
+
+function buildProfileUpdate(
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): UpdateProfileFieldsInput {
+  if (input.staffNumber !== undefined && user.memberKind !== MemberKind.STAFF) {
+    throw invalidProfile('교직원 번호는 교직원만 수정할 수 있습니다.');
+  }
+  const name = normalizeProfileText(input.name);
+  if (!isValidUserName(name)) {
+    throw invalidProfile('이름 형식이 올바르지 않습니다.');
+  }
+  const affiliation = resolveAffiliation(user, input);
+  const memberKind = user.memberKind ?? user.selectedMemberKind ?? null;
+  if (memberKind !== null) {
+    requireAllowedAffiliation(memberKind, affiliation.kind);
+  }
+  return {
+    name,
+    department: affiliation.name,
+    ...patchPhone(input),
+    ...patchStaffNumber(input),
+    ...(memberKind === null
+      ? {}
+      : {
+          affiliationKind: affiliation.kind,
+          affiliationName: affiliation.name,
+        }),
+  };
+}
+
+function completionPhone(
+  memberKind: MemberKind,
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): { readonly phone?: string } {
+  const phone = patchPhone(input);
+  if (
+    memberKind === MemberKind.STUDENT &&
+    phone.phone === undefined &&
+    (user.phone === null || user.phone === undefined)
+  ) {
+    throw invalidProfile('학생 가입에는 연락처가 필요합니다.');
+  }
+  return phone;
+}
+
+function patchPhone(input: PatchUserProfileInput): { readonly phone?: string } {
+  if (input.phone === undefined) {
+    return {};
+  }
+  if (!isValidPhone(input.phone)) {
+    throw invalidProfile('연락처 형식이 올바르지 않습니다.');
+  }
+  return { phone: input.phone };
+}
+
+function patchStaffNumber(input: PatchUserProfileInput): {
+  readonly staffNumber?: string | null;
+} {
+  if (input.staffNumber === undefined) {
+    return {};
+  }
+  if (input.staffNumber === null) {
+    return { staffNumber: null };
+  }
+  if (typeof input.staffNumber !== 'string') {
+    throw invalidProfile('교직원 번호 형식이 올바르지 않습니다.');
+  }
+  const normalized = normalizeStaffNumber(input.staffNumber);
+  if (normalized === '') {
+    return { staffNumber: null };
+  }
+  if (!isValidStaffNumber(normalized)) {
+    throw invalidProfile('교직원 번호 형식이 올바르지 않습니다.');
+  }
+  return { staffNumber: normalized };
+}
+
+function resolveAffiliation(
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): Affiliation {
+  const hasKind = input.affiliationKind !== undefined;
+  const hasName = input.affiliationName !== undefined;
+  if (hasKind !== hasName || (hasKind && input.department !== undefined)) {
+    throw invalidProfile('소속 유형과 이름을 하나의 형식으로 보내 주세요.');
+  }
+  const kind = hasKind
+    ? input.affiliationKind
+    : (user.affiliationKind ?? AffiliationKind.DEPARTMENT);
+  const rawName = hasName ? input.affiliationName : input.department;
+  if (kind === undefined || rawName === undefined) {
+    throw invalidProfile('소속을 입력해 주세요.');
+  }
+  const name = normalizeProfileText(rawName);
+  if (!isValidDepartment(name)) {
+    throw invalidProfile('소속 형식이 올바르지 않습니다.');
+  }
+  return { kind, name };
+}
+
+function completionStudentId(
+  memberKind: MemberKind,
+  user: UserProfileRecord,
+  input: PatchUserProfileInput,
+): string | null {
+  switch (memberKind) {
+    case MemberKind.STUDENT: {
+      const studentId = input.studentId ?? user.studentId;
+      const valid =
+        studentId !== null &&
+        (input.studentId === undefined
+          ? isStoredStudentId(studentId)
+          : isValidStudentId(studentId));
+      if (!valid) {
+        throw invalidProfile('학생 가입에는 학번이 필요합니다.');
+      }
+      return studentId;
+    }
+    case MemberKind.STAFF:
+      if (input.studentId !== undefined) {
+        throw invalidProfile('학번은 학생만 저장할 수 있습니다.');
+      }
+      return null;
+  }
+}
+
+function requireAllowedAffiliation(
+  memberKind: MemberKind,
+  affiliationKind: AffiliationKind,
+): void {
+  switch (memberKind) {
+    case MemberKind.STUDENT:
+      if (affiliationKind !== AffiliationKind.DEPARTMENT) {
+        throw invalidProfile('학생 소속은 학과여야 합니다.');
+      }
+      return;
+    case MemberKind.STAFF:
+      return;
+  }
+}
+
+function invalidProfile(message: string): DomainException {
+  return new DomainException({
+    code: SystemErrorCode.VALIDATION_FAILED,
+    status: 400,
+    message,
+  });
+}
+
+export function transformProfileText({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? normalizeProfileText(value) : value;
+}
+
+export function trimString({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+export function IsProfileText(
+  name: string,
+  isValid: (value: string) => boolean,
+): PropertyDecorator {
+  return ValidateBy({
+    name,
+    validator: {
+      validate(value: unknown): boolean {
+        return typeof value === 'string' && isValid(value);
+      },
+    },
+  });
+}
 
 @Injectable()
 export class UsersService {

@@ -11,8 +11,16 @@ import {
   USER_PROFILE_NAME_SELECT,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import type { SubmissionMatrixFilter } from './submission.types';
-import { publicSubmissionId } from './submission.policy';
+import { publicSubmissionId } from './submission-checklist-record.repository';
+
+export const MATRIX_APPLICATION_MODES = ['PERSONAL', 'TEAM'] as const;
+
+export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
+
+export interface SubmissionMatrixFilter {
+  readonly q: string;
+  readonly applicationMode: MatrixApplicationMode | null;
+}
 
 export interface MatrixDocumentFirstSubmission {
   readonly applicationId: string;

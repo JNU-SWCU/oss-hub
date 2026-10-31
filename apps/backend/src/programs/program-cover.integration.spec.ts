@@ -3,8 +3,10 @@ import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { replaceProgramCover } from './program-cover.repository';
-import { programCoverImageUrl } from './program-cover.policy';
+import {
+  replaceProgramCover,
+  programCoverImageUrl,
+} from './program-cover.repository';
 import {
   ACTOR,
   GITHUB_ID,

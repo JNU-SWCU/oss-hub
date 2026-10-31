@@ -10,10 +10,10 @@ import type {
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository as ProviderRepository,
+  RequestFingerprint,
 } from './collection-app.client';
 import type { CollectionAppTokenClient } from './collection-app-token.client';
-import type { RequestFingerprint } from './github.policy';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -161,7 +161,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         organizationLogin: ORG_LOGIN,
         tokens: {} as CollectionAppTokenClient,
         client,
-        queue: new ProviderRequestQueue(),
+        queue: new ProviderRequestQueueClient(),
       }),
       () => Promise.resolve(GITHUB_ORGANIZATION_ID),
       () => new Date('2026-08-01T12:00:00.000Z'),

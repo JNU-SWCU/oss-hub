@@ -2,10 +2,10 @@ import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from '../../src/ranking/dto/ranking-page-response.dto';
-import type {
-  RankingEntry,
-  RankingPage,
-} from '../../src/ranking/ranking.policy';
+import {
+  type RankingEntry,
+  type RankingPage,
+} from '../../src/ranking/ranking.service';
 
 const at = (iso: string): Date => new Date(iso);
 

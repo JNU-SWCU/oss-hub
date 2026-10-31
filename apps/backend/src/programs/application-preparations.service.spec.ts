@@ -1,5 +1,7 @@
-import { computeJoinCodeDigest } from './application-decision.policy';
-import { JoinCodeSecretError } from '../platform/join-code-secret.config';
+import {
+  JoinCodeSecretError,
+  computeJoinCodeDigest,
+} from '../platform/join-code-secret.config';
 import {
   ApplicationJoinCodeService,
   ApplicationPreparationsService,

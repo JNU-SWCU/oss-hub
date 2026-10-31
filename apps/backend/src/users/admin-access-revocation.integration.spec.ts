@@ -2,10 +2,10 @@ import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
+  AuditLogRepository,
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+} from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthRepository } from '../auth/auth.repository';

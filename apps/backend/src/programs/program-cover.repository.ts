@@ -1,3 +1,4 @@
+import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Injectable } from '@nestjs/common';
 import {
   ProgramLifecycle,
@@ -6,17 +7,50 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  PROGRAM_COVER_MAX_BYTES,
-  PROGRAM_COVER_STORAGE_PREFIX,
-  assertProgramCoverUpload,
-} from './program-cover.policy';
-import { ProgramCoverChange } from './programs.types';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import {
-  ProgramAuthoringUploadConsumptionRaceError,
+  ProgramAuthoringUploadTransactionRepository,
   type ProgramAuthoringUploadToken,
   type ProgramExternalCover,
-} from './program-authoring.policy';
+} from './program-authoring-upload-transaction.repository';
+import {
+  ProgramAuthoringUploadTokenError,
+  ProgramAuthoringUploadConsumptionRaceError,
+} from './program-authoring.error';
+
+export type ProgramCoverChange = {
+  readonly actorId: string;
+} & (
+  | { readonly uploadId: string | null; readonly externalCover?: never }
+  | {
+      readonly externalCover: ProgramExternalCover | null;
+      readonly uploadId?: never;
+    }
+);
+
+export const PROGRAM_COVER_STORAGE_PREFIX = 'program-covers/';
+
+export function programCoverImageUrl(
+  programId: string,
+  coverId: string | null | undefined,
+  externalImageUrl?: string | null,
+): string | null {
+  if (externalImageUrl != null) return externalImageUrl;
+  return coverId
+    ? `/programs/${encodeURIComponent(programId)}/cover/${encodeURIComponent(coverId)}`
+    : null;
+}
+
+export function assertProgramCoverUpload(
+  upload: ProgramAuthoringUploadToken,
+): void {
+  if (
+    !upload.storageKey.startsWith(PROGRAM_COVER_STORAGE_PREFIX) ||
+    !['image/jpeg', 'image/png'].includes(upload.mimeType) ||
+    upload.sizeBytes < 1 ||
+    upload.sizeBytes > PROGRAM_COVER_MAX_BYTES
+  ) {
+    throw new ProgramAuthoringUploadTokenError('WRONG_PURPOSE', [upload.id]);
+  }
+}
 
 @Injectable()
 export class ProgramCoverRepository {

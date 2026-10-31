@@ -8,22 +8,26 @@ import {
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
+  buildProgramAuthoringPlan,
+  canonicalProgramAuthoringPayload,
+  hashProgramAuthoringPayload,
 } from './program-authoring.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
-import { buildProgramAuthoringPlan } from './program-authoring-plan.policy';
 import {
-  canonicalProgramAuthoringPayload,
-  hashProgramAuthoringPayload,
+  ProgramAuthoringRepository,
+  type ProgramAuthoringTransactionStore,
+} from './program-authoring.repository';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log.repository';
+import {
   ProgramAuthoringIdempotencyRaceError,
   ProgramAuthoringIdempotencyConflictError,
+} from './program-authoring.error';
+import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
-} from './program-authoring.policy';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import type { ProgramAuthoringTransactionStore } from './program-authoring-transaction.types';
+} from './program-authoring-upload-transaction.repository';
 
 describe('program-notice-preview.service', () => {
   const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';

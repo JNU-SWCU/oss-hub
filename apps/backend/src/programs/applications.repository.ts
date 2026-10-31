@@ -13,40 +13,17 @@ import {
   type ProgramCategory,
   type OutboxEvent as PrismaOutboxEvent,
   type Prisma as PrismaTypes,
+  type ApplicationReviewEventKind,
+  type ProgramTrackType,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import type {
-  ApplicationListQuery,
-  CreatedApplication,
-  ApplicationListAnswers,
-  ApplicationListItem,
-  ApplicationListPage,
-  ApplicationRepositoryProvisioning,
-  ApplicationReviewHistoryEntry,
-  RepositoryProvisioningJobStatus,
-  RepositoryProvisioningSafeErrorClass,
-  StaffDashboardApplicationCounts,
-  StaffDashboardSummary,
-  TeamManagementListItem,
-  TeamManagementListPage,
-} from './application-records.types';
-import type {
-  ApplicationDecisionTarget,
-  ApplicationDecisionNotificationInput,
-  ApplicationTransition,
-  RepositoryProvisionEvent,
-  RepositoryProvisionEventInput,
-  RepositoryProvisionJobSnapshot,
-} from './application-decision.policy';
 import {
   type AppendReviewHistoryInput,
   type AppendedReviewHistory,
@@ -59,6 +36,302 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationPreparationConflictError,
 } from './applications.error';
+import {
+  repositoryUrlFromNameWithOwner,
+  parseRepositoryProvisionEvent,
+} from '../github/repositories.repository';
+
+export const APPLICATION_DECISION_ACTIONS = {
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  REVERT: 'REVERT',
+} as const;
+
+export type ApplicationDecisionAction =
+  | { readonly action: typeof APPLICATION_DECISION_ACTIONS.APPROVE }
+  | {
+      readonly action: typeof APPLICATION_DECISION_ACTIONS.REJECT;
+      readonly reason: string;
+    }
+  | { readonly action: typeof APPLICATION_DECISION_ACTIONS.REVERT };
+
+export interface ApplicationDecisionTarget {
+  readonly id: string;
+  readonly programId: string;
+  readonly programName: string;
+
+  readonly applicantGithubLogin: string;
+  readonly teamId: string | null;
+  readonly status: ApplicationStatus;
+  readonly repositoryProvisioningEnabled: boolean;
+  readonly collaboratorGithubLogins: readonly string[];
+  readonly notificationRecipientIds: readonly string[];
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly processedById: string | null;
+  readonly processedAt: Date | null;
+}
+
+export interface ApplicationDecisionNotificationInput {
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly recipientUserIds: readonly string[];
+
+  readonly decision: ApplicationStatus;
+  readonly decidedAt: Date;
+}
+
+export interface ApplicationTransition {
+  readonly applicationId: string;
+
+  readonly expectedStatus: ApplicationStatus;
+  readonly nextStatus: ApplicationStatus;
+  readonly rejectionReason: string | null;
+
+  readonly processedBy: { readonly id: string; readonly at: Date } | 'preserve';
+}
+
+interface RepositoryProvisionEventInput {
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly teamId: string | null;
+  readonly collaboratorGithubLogins: readonly string[];
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly idempotencyKey: string;
+  readonly requestedAt: Date;
+}
+
+export interface RepositoryProvisionEvent {
+  readonly id: string;
+}
+
+export interface RepositoryProvisionJobSnapshot {
+  readonly status: RepositoryProvisionJobStatus;
+  readonly repositoryId: string | null;
+}
+
+export type ApplicationDecisionResult =
+  | {
+      readonly kind: 'APPROVED';
+      readonly applicationId: string;
+      readonly status: ApplicationStatus;
+      readonly repositoryProvisioning: {
+        readonly enabled: boolean;
+        readonly eventId: string | null;
+        readonly jobStatus: RepositoryProvisionJobStatus | null;
+      };
+    }
+  | {
+      readonly kind: 'REJECTED';
+      readonly applicationId: string;
+      readonly status: ApplicationStatus;
+      readonly rejectionReason: string;
+    }
+  | {
+      readonly kind: 'REVERTED';
+      readonly applicationId: string;
+      readonly status: ApplicationStatus;
+    };
+
+export type ApplicationDecisionCommand = {
+  readonly action: string;
+  readonly reason?: string;
+};
+
+export const APPLICATION_LIST_STATUSES = [
+  'all',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+] as const;
+
+export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
+
+export const APPLICATION_LIST_VIEWS = ['default', 'team-management'] as const;
+
+export type ApplicationListView = (typeof APPLICATION_LIST_VIEWS)[number];
+
+export interface ApplicationListQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ApplicationListStatus;
+  readonly view: ApplicationListView;
+}
+
+type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
+
+export interface CreateApplicationInput {
+  readonly answers: CreateApplicationAnswersInput;
+
+  readonly teamName: string | null;
+  readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
+}
+
+export interface UpdateStudentApplicationInput {
+  readonly answers: Readonly<Record<string, unknown>>;
+  readonly applicationTemplateVersion: number;
+}
+
+export interface CreatedApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string;
+  readonly submittedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+}
+
+interface ApplicationListAnswers {
+  readonly applicantName: string;
+  readonly title: string;
+  readonly summary: string;
+}
+
+export type RepositoryProvisioningJobStatus =
+  | 'NOT_REQUESTED'
+  | 'DISABLED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'RETRYABLE_FAILED'
+  | 'FAILED'
+  | 'ANOMALOUS';
+
+export type RepositoryProvisioningSafeErrorClass =
+  'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
+
+interface ApplicationRepositoryProvisioning {
+  readonly enabled: boolean;
+  readonly jobStatus: RepositoryProvisioningJobStatus;
+  readonly updatedAt: Date;
+  readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
+}
+
+export interface ApplicationListRepository {
+  readonly url: string;
+  readonly visibility: RepositoryVisibility;
+}
+
+export interface ApplicationListItem {
+  readonly id: string;
+
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly rejectionReason: string | null;
+  readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
+
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+
+  readonly repositoryUrl: string | null;
+  readonly repository: ApplicationListRepository | null;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly participation: 'INDIVIDUAL' | 'TEAM';
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+  } | null;
+  readonly answers: ApplicationListAnswers;
+}
+
+export interface ApplicationListPage {
+  readonly items: readonly ApplicationListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export interface TeamManagementMember {
+  readonly id: string;
+  readonly name: string | null;
+  readonly nickname: string;
+}
+
+export interface TeamManagementListItem {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly rejectionReason: string | null;
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+    readonly members: readonly TeamManagementMember[];
+  } | null;
+}
+
+export interface TeamManagementListPage {
+  readonly items: readonly TeamManagementListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export interface ApplicationReviewHistoryEntry {
+  readonly id: string;
+  readonly eventKind: ApplicationReviewEventKind;
+  readonly revision: number;
+  readonly actor: {
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly occurredAt: Date;
+  readonly rejectionReason: string | null;
+}
+
+export interface StaffApplicationDetail {
+  readonly application: ApplicationListItem;
+  readonly reviewHistory: readonly ApplicationReviewHistoryEntry[];
+}
+
+export interface StaffDashboardApplicationCounts {
+  readonly total: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly rejected: number;
+}
+
+export interface StaffDashboardProgramSummary {
+  readonly coverId?: string | null;
+  readonly coverExternalImageUrl?: string | null;
+  readonly id: string;
+  readonly name: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+
+  readonly endAt: Date;
+
+  readonly lifecycle: ProgramLifecycle;
+  readonly applications: StaffDashboardApplicationCounts;
+  readonly teamManagementPath: string;
+}
+
+export interface StaffDashboardSummary {
+  readonly programs: readonly StaffDashboardProgramSummary[];
+}
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {

@@ -10,20 +10,18 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
-import { requiredMilestonesApproved } from './milestone-completion.policy';
-import type {
-  RepositoryPublishEligibility,
-  SubmissionReviewContext,
-  SubmissionReviewTarget,
-} from './submission-review.types';
-import {
-  exactSubmissionByPublicId,
-  submissionPublicIdWhere,
-} from './submission.policy';
 import {
   REVIEW_CONTEXT_SELECT,
   SubmissionReviewContextMapperRepository,
+  type SubmissionReviewContext,
+  type SubmissionReviewTarget,
 } from './submission-review-context-mapper.repository';
+import { requiredMilestonesApproved } from './submissions.repository';
+import { type RepositoryPublishEligibility } from '../github/repositories.repository';
+import {
+  exactSubmissionByPublicId,
+  submissionPublicIdWhere,
+} from './submission-checklist-record.repository';
 
 interface CreateReviewRecordInput {
   readonly submissionHistoryId: string;

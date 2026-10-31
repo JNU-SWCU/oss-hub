@@ -5,7 +5,11 @@ import {
   ProgramPurgeFileTombstoneLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import type { StorageReferenceRepository } from './storage-orphan-reconciliation.policy';
+
+export interface StorageReferenceRepository {
+  readonly loadLiveKeys: () => Promise<ReadonlySet<string>>;
+  readonly isLiveKey: (key: string) => Promise<boolean>;
+}
 
 type StorageKey = { readonly storageKey: string | null };
 type StorageId = { readonly id: string };

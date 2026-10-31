@@ -9,16 +9,16 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import type { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
-import {
-  SubmissionZipRejection,
-  type SubmissionZipRejection as SubmissionZipRejectionType,
-} from './submission-zip-admission.policy';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
+import {
+  SubmissionZipRejection,
+  type SubmissionZipRejection as SubmissionZipRejectionType,
+} from './submission-zip.error';
 
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;

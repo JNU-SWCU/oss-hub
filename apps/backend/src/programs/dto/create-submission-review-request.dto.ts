@@ -1,11 +1,11 @@
 import { ReviewDecision } from '@prisma/client';
 import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
-import type { CreateSubmissionReviewInput } from '../submission-review.types';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
 } from '../submission-reviews-error-code.error';
+import { type CreateSubmissionReviewInput } from '../submission-review-context-mapper.repository';
 
 export class CreateSubmissionReviewRequestDto {
   @IsInt()

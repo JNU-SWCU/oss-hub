@@ -10,8 +10,10 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import { AdminAccessService } from '../users/admin-access.service';
-import { requireValidUserId } from '../users/user-id.policy';
+import {
+  AdminAccessService,
+  requireValidUserId,
+} from '../users/admin-access.service';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,

@@ -15,13 +15,15 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
-import { OptionalSession, Public } from './auth-route-metadata.policy';
 import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from './auth.service';
 import type { AuthUser } from './http-auth.types';
-import { issueSessionToken } from './auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import { OptionalSession, Public } from './authentication.guard';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;

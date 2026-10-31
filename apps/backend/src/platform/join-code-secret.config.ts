@@ -1,5 +1,13 @@
 import { loadRuntimeConfig, type RuntimeConfig } from './runtime-config.config';
 import { PROCESS_RUNTIME_CONFIG } from './runtime-config-instance.config';
+import { createHmac } from 'node:crypto';
+
+export function computeJoinCodeDigest(
+  joinCode: string,
+  secret: string,
+): string {
+  return createHmac('sha256', secret).update(joinCode).digest('hex');
+}
 
 export class JoinCodeSecretError extends Error {
   readonly envName = 'TEAM_JOIN_CODE_SECRET';

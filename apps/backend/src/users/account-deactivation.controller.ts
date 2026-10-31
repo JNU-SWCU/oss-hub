@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthConfig } from '../auth/auth.config';
-import { serializeClearedSessionCookie } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
+import { serializeClearedSessionCookie } from '../auth/auth.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

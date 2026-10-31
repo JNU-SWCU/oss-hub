@@ -1,5 +1,3 @@
-import { createFlowState, encodeFlowCookie } from './auth.policy';
-import { flowCookieName, sessionCookieName } from './cookies.policy';
 import {
   createController,
   createResponse,
@@ -8,6 +6,12 @@ import {
   syntheticOnboardedUser,
   syntheticUser,
 } from './auth.controller.spec.helpers';
+import {
+  createFlowState,
+  encodeFlowCookie,
+  flowCookieName,
+  sessionCookieName,
+} from './auth.service';
 
 describe('AuthController github callback', () => {
   beforeEach(() => {

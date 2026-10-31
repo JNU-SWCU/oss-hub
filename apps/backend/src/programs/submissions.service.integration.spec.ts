@@ -19,12 +19,14 @@ import {
 } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { addOneCalendarYear } from '../platform/platform.policy';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import {
+  SubmissionFilesRepository,
+  addOneCalendarYear,
+} from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { SubmissionsRepository } from './submissions.repository';

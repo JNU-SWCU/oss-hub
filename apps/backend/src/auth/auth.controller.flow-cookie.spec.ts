@@ -1,17 +1,18 @@
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import {
-  flowCookieName,
-  serializeCookie,
-  sessionCookieName,
-} from './cookies.policy';
-import { createFlowState, encodeFlowCookie } from './auth.policy';
-import {
   createController,
   createResponse,
   recordLogin,
   requestWithCookie,
 } from './auth.controller.spec.helpers';
+import {
+  flowCookieName,
+  serializeCookie,
+  sessionCookieName,
+  createFlowState,
+  encodeFlowCookie,
+} from './auth.service';
 
 describe('AuthController github callback flow cookie contract', () => {
   beforeEach(() => {

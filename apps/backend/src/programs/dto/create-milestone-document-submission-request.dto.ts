@@ -7,10 +7,8 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import {
-  type MilestoneDocumentContentInput,
-  parseMilestoneDocumentContent,
-} from '../milestone-document.policy';
+import { type MilestoneDocumentContentInput } from '../milestone-document-collection-read.repository';
+import { parseMilestoneDocumentContent } from '../milestone-documents.service';
 
 export class MilestoneDocumentSubmissionContentRequestDto {
   @IsOptional()

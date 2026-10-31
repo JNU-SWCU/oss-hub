@@ -3,8 +3,8 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import {
   type AcceptInvitationOnOk,
   TeamInvitationsRepository,
+  type SentTeamInvitationRecord,
 } from './team-invitations.repository';
-import type { SentTeamInvitationRecord } from './team-invitation.types';
 import { TeamInvitationsService } from './team-invitations.service';
 
 export const syntheticGithubId = 424242n;

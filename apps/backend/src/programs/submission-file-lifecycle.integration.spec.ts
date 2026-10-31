@@ -15,11 +15,13 @@ import { runProfile } from '../../prisma/seed';
 import { seedGithubId, seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { addOneCalendarYear } from '../platform/platform.policy';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import {
+  SubmissionFilesRepository,
+  addOneCalendarYear,
+} from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 

@@ -56,7 +56,7 @@ describe('workspace runtime entrypoint contracts', () => {
   ])('retains the %s CLI without executing it', (name) => {
     const command = requiredString(scripts[name], `retained script ${name}`);
     const targets = tsNodeTargets(command);
-    expect(targets).toHaveLength(1);
+    expect(targets).toEqual(['src/cli.ts']);
     for (const target of targets) expectSourceFile(target);
   });
 
@@ -89,6 +89,7 @@ describe('workspace runtime entrypoint contracts', () => {
     );
     for (const target of [
       'src/main.ts',
+      'src/cli.ts',
       'test/e2e-program-authoring/main.ts',
       'prisma/seed.ts',
     ]) {

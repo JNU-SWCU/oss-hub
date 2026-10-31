@@ -7,7 +7,7 @@ import {
 import {
   ADMIN_ACCESS_COMMANDS,
   type AdminAuthorityMutationCommand,
-} from '../../users/independent-authority.types';
+} from '../../users/independent-authority.repository';
 
 export class PatchIndependentAuthorityRequestDto {
   @IsDefined()

@@ -2,15 +2,15 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
+  RankingRequestDto,
+  resolveRankingQueryYear,
+} from './ranking-request.dto';
+import {
   LEGACY_RANKING_PERIODS,
   RANKING_YEAR_ALL,
   RANKING_YEAR_MAX,
   RANKING_YEAR_MIN,
-} from '../ranking.policy';
-import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from './ranking-request.dto';
+} from '../ranking.service';
 
 async function validateYear(year: string | undefined) {
   const query = plainToInstance(RankingRequestDto, {

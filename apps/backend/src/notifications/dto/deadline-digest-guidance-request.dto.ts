@@ -1,5 +1,5 @@
 import { IsString, MaxLength, ValidateIf } from 'class-validator';
-import type { DeadlineDigestGuidance } from '../deadline-digest-preview.policy';
+import { type DeadlineDigestGuidance } from '../deadline-digest.service';
 
 export class DeadlineDigestGuidanceRequestDto implements DeadlineDigestGuidance {
   @ValidateIf((_object: unknown, value: unknown) => value !== undefined)

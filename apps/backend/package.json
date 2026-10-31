@@ -13,14 +13,14 @@
     "test": "pnpm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
-    "test:storage-reconcile": "jest --runInBand --testPathPattern='(storage-orphan-reconciliation(-runner\\.service)?|s3-object.storage|s3-object-inventory|object-storage.config|storage.module)\\.spec\\.ts$' && BACKEND_INTEGRATION_TEST_PATTERN='storage-orphan-reconciliation\\.integration\\.spec\\.ts$' bash ../../scripts/run-backend-integration.sh",
+    "test:storage-reconcile": "jest --runInBand --testPathPattern='(storage-orphan-reconciliation|cli\\.reconcile-storage-orphans|s3-object-storage\\.client|s3-object-inventory\\.client|object-storage\\.config|platform\\.module)\\.spec\\.ts$' && BACKEND_INTEGRATION_TEST_PATTERN='storage-orphan-reconciliation\\.integration\\.spec\\.ts$' bash ../../scripts/run-backend-integration.sh",
     "db:guard": "bash ../../scripts/check-host-db-url.sh",
     "db:migrate:dev": "pnpm run db:guard && prisma migrate dev",
     "db:reset": "pnpm run db:guard && prisma migrate reset --force",
     "db:seed": "pnpm run db:guard && prisma db seed",
-    "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/send-deadline-digest.job.ts",
-    "submissions:retry-file-cleanup": "ts-node src/programs/retry-submission-file-cleanup.job.ts",
-    "storage:reconcile": "ts-node src/programs/reconcile-storage-orphans.job.ts"
+    "notifications:send-digest": "pnpm run db:guard && ts-node src/cli.ts send-deadline-digest",
+    "submissions:retry-file-cleanup": "ts-node src/cli.ts retry-submission-file-cleanup",
+    "storage:reconcile": "ts-node src/cli.ts reconcile-storage-orphans"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1094.0",

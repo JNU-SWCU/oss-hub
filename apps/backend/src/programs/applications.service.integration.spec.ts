@@ -10,9 +10,11 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { APPLICATION_DECISION_ACTIONS } from './application-decision.policy';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './applications.repository';
+import {
+  ApplicationsRepository,
+  APPLICATION_DECISION_ACTIONS,
+} from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';

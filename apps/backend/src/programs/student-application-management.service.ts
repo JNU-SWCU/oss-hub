@@ -2,21 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
-  checkApplicationTemplateVersion,
-  applicationAnswerTooLongMessage,
-  normalizeAndValidateApplicationAnswers,
-} from './application-answers-validator.policy';
-import { isProgramApplicationManager } from './programs.policy';
-import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
 import {
   ApplicationsRepository,
   type ApplyProgramRecord,
+  type UpdateStudentApplicationInput,
 } from './applications.repository';
-import type { UpdateStudentApplicationInput } from './application-records.types';
-import type { StudentApplicationView } from './programs.types';
 import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,
@@ -24,6 +17,35 @@ import {
   type OwnedStudentApplication,
   type StudentApplicationMutationFailure,
 } from './student-application-management.repository';
+import {
+  type ApplicationAnswers,
+  checkApplicationTemplateVersion,
+  applicationAnswerTooLongMessage,
+  normalizeAndValidateApplicationAnswers,
+} from './applications.service';
+
+export interface StudentApplicationView {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly answers: ApplicationAnswers;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+
+  readonly rejectionReason: string | null;
+
+  readonly isManager: boolean;
+  readonly canManage: boolean;
+}
+
+function isProgramApplicationManager(
+  userId: string,
+  application: { readonly teamLeaderId: string },
+): boolean {
+  return application.teamLeaderId === userId;
+}
 
 interface StudentApplicationContext {
   readonly studentId: string;

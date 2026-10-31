@@ -1,7 +1,7 @@
 import type {
   GithubRepositoryMetadata,
   GithubPublicRepositoryMetadata,
-} from './github-app-response.policy';
+} from './github-app.client';
 
 export type OwnGithubRepositoryResolution =
   | {

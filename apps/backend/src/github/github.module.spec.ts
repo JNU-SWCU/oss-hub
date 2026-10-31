@@ -10,10 +10,12 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import {
+  CollectionIncrementalRepository,
+  type CollectionSyncRuntime,
+} from './collection-incremental.repository';
 import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import type { CollectionSyncRuntime } from './collection-incremental.types';
 import { CollectionSyncService } from './collection-sync.service';
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
@@ -23,8 +25,7 @@ import {
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
 import { CollectionPublicTokenService } from './collection-providers.service';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
-import { GithubScheduler } from './github.scheduler';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
@@ -93,7 +94,6 @@ describe('GithubModule', () => {
     expect(providers).toEqual(
       expect.arrayContaining([
         CollectionAdminService,
-        GithubScheduler,
         CollectionTriggerService,
         expect.objectContaining({ provide: CollectionSyncService }),
       ]),
@@ -261,7 +261,7 @@ describe('GithubModule', () => {
       (await externalRuntimeFactory?.()) as CollectionSyncRuntime;
 
     expect(externalRuntime.tokens).toBe(fakePublicTokens);
-    expect(externalRuntime.queue).toBeInstanceOf(ProviderRequestQueue);
+    expect(externalRuntime.queue).toBeInstanceOf(ProviderRequestQueueClient);
     expect(externalRuntime.queue).not.toBe(orgRuntime.queue);
   });
 });

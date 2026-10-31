@@ -1,7 +1,3 @@
-import {
-  PUBLIC_PROJECT_YEAR_MIN,
-  PUBLIC_PROJECT_YEAR_MAX,
-} from '../public-projects.policy';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -11,6 +7,10 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import {
+  PUBLIC_PROJECT_YEAR_MIN,
+  PUBLIC_PROJECT_YEAR_MAX,
+} from '../public-projects.repository';
 
 export class PublicProjectRequestDto {
   @IsOptional()

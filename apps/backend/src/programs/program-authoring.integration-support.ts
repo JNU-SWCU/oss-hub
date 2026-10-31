@@ -11,11 +11,11 @@ import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import type {
-  ProgramAuthoringDocumentRequest,
-  ProgramAuthoringMilestoneRequest,
-  ProgramAuthoringRequest,
-} from './program-authoring.policy';
+import {
+  type ProgramAuthoringDocumentRequest,
+  type ProgramAuthoringMilestoneRequest,
+  type ProgramAuthoringRequest,
+} from './program-authoring-upload-transaction.repository';
 
 export const AUTHORING_TEST_PREFIX = 'test:p5:authoring:';
 const AUTHORING_OBJECT_PREFIX = 'program-authoring/test-p5-authoring';

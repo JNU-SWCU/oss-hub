@@ -1,9 +1,9 @@
-import type { AuthorityLabel } from '../../users/authority-label.policy';
-import {
+import type { AuthorityLabel } from '../../users/authority-label.types';
+import type {
   ProgramOverviewMilestoneDocument,
   ProgramOverviewRemainingMilestone,
   ProgramOverviewView,
-} from '../programs.types';
+} from '../program-overview.service';
 
 export class RemainingMilestoneResponseDto {
   declare readonly label: string;

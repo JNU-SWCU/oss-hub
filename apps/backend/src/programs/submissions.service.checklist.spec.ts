@@ -5,12 +5,12 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import type { ChecklistMilestone } from './submission.types';
 import type {
   ChecklistApplication,
   SubmissionsRepository,
 } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
+import { type ChecklistMilestone } from './submission-checklist-record.repository';
 
 const githubId = 4242n;
 

@@ -1,10 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import {
-  ACCESS_AUDIT_ACTIONS,
-  ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
@@ -13,10 +8,17 @@ import {
   type AccountDeactivationRepositoryPort,
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  createAccessAuditMetadata,
+} from '../platform/audit-log.repository';
+
+export interface AccountDeactivationResult {
+  readonly accountStatus: typeof AccountStatus.DEACTIVATED;
+}
 
 export type { AccountDeactivationRepositoryPort } from './account-deactivation.repository';
-
-import type { AccountDeactivationResult } from './users.types';
 
 @Injectable()
 export class AccountDeactivationService {

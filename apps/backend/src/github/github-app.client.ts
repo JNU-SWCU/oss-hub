@@ -2,21 +2,136 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import type {
-  GithubAppFetcher,
-  GithubInstallationTokenProvider,
-} from './repository-provision-contract.types';
 import {
-  invalidGithubResponseError,
-  parseGithubPublicRepository,
-  parseGithubRepository,
-  parseRepositoryInvitations,
-  readGithubJson,
+  isRecord,
+  type GithubAppFetcher,
+  type GithubInstallationTokenProvider,
   throwForGithubErrorResponse,
-  type GithubPublicRepositoryMetadata,
-  type GithubRepositoryInvitation,
-  type GithubRepositoryMetadata,
-} from './github-app-response.policy';
+} from './github-app-token.client';
+
+export type GithubRepositoryMetadata = {
+  readonly githubRepositoryId: bigint;
+  readonly name: string;
+  readonly url: string;
+  readonly nameWithOwner: string;
+  readonly visibility: 'PRIVATE' | 'PUBLIC';
+  readonly description: string | null;
+};
+
+export type GithubPublicRepositoryMetadata = GithubRepositoryMetadata & {
+  readonly defaultBranch: string | null;
+  readonly archived: boolean;
+};
+
+export type GithubRepositoryInvitation = {
+  readonly invitationId: number;
+  readonly login: string;
+};
+
+function parseGithubRepository(value: unknown): GithubRepositoryMetadata {
+  if (!isRecord(value)) {
+    throw invalidGithubResponseError();
+  }
+  const id = value.id;
+  const name = value.name;
+  const url = value.html_url;
+  const nameWithOwner = value.full_name;
+  const visibility = value.visibility;
+  const description = value.description;
+  if (
+    typeof id !== 'number' ||
+    !Number.isSafeInteger(id) ||
+    typeof name !== 'string' ||
+    typeof url !== 'string' ||
+    !URL.canParse(url) ||
+    typeof nameWithOwner !== 'string' ||
+    !isGithubNameWithOwner(nameWithOwner) ||
+    (visibility !== 'private' && visibility !== 'public') ||
+    (description !== null && typeof description !== 'string')
+  ) {
+    throw invalidGithubResponseError();
+  }
+  return {
+    githubRepositoryId: BigInt(id),
+    name,
+    url,
+    nameWithOwner,
+    visibility: visibility === 'private' ? 'PRIVATE' : 'PUBLIC',
+    description,
+  };
+}
+
+function parseGithubPublicRepository(
+  value: unknown,
+): GithubPublicRepositoryMetadata {
+  const repository = parseGithubRepository(value);
+  if (!isRecord(value)) {
+    throw invalidGithubResponseError();
+  }
+  const defaultBranch = value.default_branch;
+  const archived = value.archived;
+  if (
+    (defaultBranch !== null &&
+      (typeof defaultBranch !== 'string' || defaultBranch.length === 0)) ||
+    typeof archived !== 'boolean'
+  ) {
+    throw invalidGithubResponseError();
+  }
+  return {
+    ...repository,
+    defaultBranch,
+    archived,
+  };
+}
+
+export function parseRepositoryInvitations(
+  value: unknown,
+): readonly GithubRepositoryInvitation[] {
+  if (!Array.isArray(value)) {
+    throw invalidGithubResponseError();
+  }
+  return value.map((invitation) => {
+    if (!isRecord(invitation) || !isRecord(invitation.invitee)) {
+      throw invalidGithubResponseError();
+    }
+    const invitationId = invitation.id;
+    const login = invitation.invitee.login;
+    if (
+      typeof invitationId !== 'number' ||
+      !Number.isSafeInteger(invitationId) ||
+      invitationId <= 0 ||
+      typeof login !== 'string' ||
+      login.length === 0
+    ) {
+      throw invalidGithubResponseError();
+    }
+    return { invitationId, login };
+  });
+}
+
+async function readGithubJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw invalidGithubResponseError();
+    }
+    throw error;
+  }
+}
+
+function invalidGithubResponseError(): GithubOperationsError {
+  return new GithubOperationsError(
+    GITHUB_OPERATIONS_ERROR_CODES.INVALID_RESPONSE,
+    false,
+  );
+}
+
+function isGithubNameWithOwner(value: string): boolean {
+  return /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(
+    value,
+  );
+}
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const GITHUB_API_VERSION = '2022-11-28';

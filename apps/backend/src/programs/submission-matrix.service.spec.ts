@@ -1,8 +1,4 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import type {
-  SubmissionMatrixFilter,
-  SubmissionMatrixQuery,
-} from './submission.types';
 import {
   submissionMatrixApplicationWhere,
   type MatrixApplicationRecord,
@@ -10,8 +6,12 @@ import {
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
+  type SubmissionMatrixFilter,
 } from './submission-matrix.repository';
-import { SubmissionMatrixService } from './submission-matrix.service';
+import {
+  SubmissionMatrixService,
+  type SubmissionMatrixQuery,
+} from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;

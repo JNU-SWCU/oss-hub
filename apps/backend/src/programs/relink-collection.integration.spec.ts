@@ -16,7 +16,7 @@ import {
 import { CollectionAppClient } from '../github/collection-app.client';
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
-import { ProviderRequestQueue } from '../github/provider-request-queue.policy';
+import { ProviderRequestQueueClient } from '../github/provider-request-queue.client';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -114,7 +114,7 @@ it('collects new facts only on the replacement when an external application repo
     organizationLogin: 'synthetic',
     tokens,
     client,
-    queue: new ProviderRequestQueue(),
+    queue: new ProviderRequestQueueClient(),
   });
   const sync = new CollectionSyncService(
     new FixtureCollectionRepository(prisma),
@@ -307,7 +307,7 @@ function syntheticProvider() {
     organizationLogin: 'synthetic',
     tokens,
     client,
-    queue: new ProviderRequestQueue(),
+    queue: new ProviderRequestQueueClient(),
   });
   return {
     client,

@@ -12,9 +12,9 @@ import {
 } from 'class-validator';
 import {
   type CreateSubmissionInput,
-  parseSubmissionContent,
   type ResubmitSubmissionInput,
-} from '../submission.policy';
+} from '../submissions.repository';
+import { parseSubmissionContent } from '../submissions.service';
 
 class SubmissionContentRequestDto {
   @IsString()

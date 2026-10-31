@@ -7,7 +7,6 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   type StudentRepositoryUrlContext,
@@ -19,6 +18,7 @@ import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { parseRepositoryProvisionEvent } from '../github/repositories.repository';
 
 export class StudentRepositoryUrlTransactionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}

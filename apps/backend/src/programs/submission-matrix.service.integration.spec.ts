@@ -16,12 +16,12 @@ import {
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  SubmissionMatrixQuery,
-  MatrixRowResult,
-} from './submission.types';
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
-import { SubmissionMatrixService } from './submission-matrix.service';
+import {
+  SubmissionMatrixService,
+  type SubmissionMatrixQuery,
+  type MatrixRowResult,
+} from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 
 assertIsolatedIntegrationDatabase({

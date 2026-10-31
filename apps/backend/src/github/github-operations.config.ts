@@ -3,7 +3,6 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import type { GithubAppCredentials } from './repository-provision-contract.types';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
@@ -69,4 +68,10 @@ export class GithubOperationsConfig {
 function configValue(raw: string | undefined): string | null {
   const value = raw?.trim();
   return value && value.length > 0 ? value : null;
+}
+
+export interface GithubAppCredentials {
+  readonly organization: string;
+  readonly appId: string;
+  readonly privateKey: string;
 }

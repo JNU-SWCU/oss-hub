@@ -4,13 +4,13 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import type { CreateSubmissionInput } from './submission.policy';
 import { SubmissionChecklistRecordRepository } from './submission-checklist-record.repository';
 import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   type CreateSubmissionRevisionInput,
   SubmissionsRepository,
+  type CreateSubmissionInput,
 } from './submissions.repository';
 import { StaleSubmissionRevisionError } from './submissions.error';
 

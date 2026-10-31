@@ -10,12 +10,12 @@ import {
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoriesReadService } from '../github/repositories-read.service';
-import { submissionCompletionTargetSelect } from '../programs/submission-completion-projection.policy';
 import {
   StudentDashboardRepository,
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
+import { submissionCompletionTargetSelect } from '../programs/programs.repository';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');

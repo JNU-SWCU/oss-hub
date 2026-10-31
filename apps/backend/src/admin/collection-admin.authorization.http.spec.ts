@@ -3,9 +3,11 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { CollectionAdminService } from '../github/collection-admin.service';

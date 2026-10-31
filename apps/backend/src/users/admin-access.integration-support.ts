@@ -11,15 +11,15 @@ import type {
   AdminAccessPendingDecisionUpdate,
 } from './admin-access.repository';
 import type {
-  AdminAccessFacets,
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
-import type {
   IndependentAuthorityRepositoryPort,
   IndependentAuthorityTransactionStore,
 } from './independent-authority.repository';
+import {
+  type AdminAccessFacets,
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 class TwoPartyBarrier {
   private arrivals = 0;

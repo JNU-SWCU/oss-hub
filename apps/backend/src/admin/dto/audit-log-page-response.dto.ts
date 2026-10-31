@@ -1,7 +1,7 @@
 import type {
   AuditLogPage,
   AuditLogRecord,
-} from '../../platform/audit-log.types';
+} from '../../platform/audit-log.repository';
 
 export class AuditLogPageResponseDto {
   declare readonly items: readonly AuditLogRecord[];

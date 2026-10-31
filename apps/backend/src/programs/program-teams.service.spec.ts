@@ -1,10 +1,5 @@
 import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
-import {
-  TEAM_DELETED_AUDIT_ACTIONS,
-  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
-  TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import type {
@@ -26,6 +21,11 @@ import {
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
+import {
+  TEAM_DELETED_AUDIT_ACTIONS,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_RENAMED_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';

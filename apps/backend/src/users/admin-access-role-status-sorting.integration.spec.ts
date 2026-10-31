@@ -5,7 +5,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import type { AdminAccessSortDirection } from './admin-access.types';
+import { type AdminAccessSortDirection } from './admin-access-read-ordering.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

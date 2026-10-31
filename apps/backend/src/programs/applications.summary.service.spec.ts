@@ -1,6 +1,8 @@
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import type { ApplicationsRepository } from './applications.repository';
-import type { StaffDashboardSummary } from './application-records.types';
+import type {
+  ApplicationsRepository,
+  StaffDashboardSummary,
+} from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';

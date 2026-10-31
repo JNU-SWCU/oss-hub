@@ -1,4 +1,4 @@
-import type { AcceptedInvitationResult } from '../team-invitation.types';
+import type { AcceptedInvitationResult } from '../team-invitations.repository';
 
 export class AcceptTeamInvitationResponseDto {
   declare readonly teamId: string;

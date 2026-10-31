@@ -1,5 +1,5 @@
-import type { MilestoneDocumentFeedbackResult } from '../../programs/milestone-document-result.types';
 import type { ReviewDecision } from '@prisma/client';
+import type { MilestoneDocumentFeedbackResult } from '../milestone-document-feedback.service';
 
 export class MilestoneDocumentFeedbackItemResponseDto {
   declare readonly id: string;

@@ -1,8 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  activityTotal,
-  type ActivityCounts,
-} from '../platform/platform.policy';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import {
@@ -10,23 +6,115 @@ import {
   ApplicationsErrorCode,
 } from '../programs/applications-error-code.error';
 import {
-  classifyDepartment,
-  DEPARTMENT_COHORTS,
-  type DepartmentCohort,
-  rankingYearFilter,
-  type InsightsYearScope,
-} from './staff.policy';
-import type {
-  StaffInsightsCohortRow,
-  StaffInsightsDepartmentRow,
-  StaffInsightsMetrics,
-  StaffInsightsProgramRow,
-  StaffInsightsSummary,
-} from './staff.types';
-import {
   StaffInsightsRepository,
   type StaffInsightsStudentRecord,
 } from './staff-insights.repository';
+import { activityTotal, type ActivityCounts } from '../ranking/ranking.service';
+
+export const DEPARTMENT_COHORTS = {
+  SW_MAJOR: 'sw-major',
+  NON_SW: 'non-sw',
+  UNREGISTERED: 'unregistered',
+} as const;
+
+export type DepartmentCohort =
+  (typeof DEPARTMENT_COHORTS)[keyof typeof DEPARTMENT_COHORTS];
+
+const SW_MAJOR_DEPARTMENTS: readonly string[] = [
+  '인공지능학부',
+  '소프트웨어공학과',
+  '컴퓨터정보통신공학과',
+  '전자컴퓨터공학부(컴퓨터공학전공)',
+];
+
+const SW_MAJOR_DEPARTMENT_SET = new Set(SW_MAJOR_DEPARTMENTS);
+
+export function classifyDepartment(
+  department: string | null,
+): DepartmentCohort {
+  if (department === null || department.trim() === '') {
+    return DEPARTMENT_COHORTS.UNREGISTERED;
+  }
+  return SW_MAJOR_DEPARTMENT_SET.has(department)
+    ? DEPARTMENT_COHORTS.SW_MAJOR
+    : DEPARTMENT_COHORTS.NON_SW;
+}
+
+export const INSIGHTS_YEAR_MIN = 2000;
+
+export const INSIGHTS_YEAR_MAX = 2100;
+
+export type InsightsYearScope =
+  | { readonly kind: 'all' }
+  | { readonly kind: 'calendar'; readonly year: number };
+
+const CALENDAR_YEAR_PATTERN = /^(20\d{2}|2100)$/;
+
+export function parseInsightsYearQuery(
+  raw: string | undefined,
+): InsightsYearScope {
+  if (raw === undefined || raw === '') {
+    return { kind: 'all' };
+  }
+  if (raw.toLowerCase() === 'all') {
+    return { kind: 'all' };
+  }
+  if (!CALENDAR_YEAR_PATTERN.test(raw)) {
+    throw new BadRequestException(
+      `year must be omitted, "all", or a calendar year between ${INSIGHTS_YEAR_MIN} and ${INSIGHTS_YEAR_MAX}`,
+    );
+  }
+
+  return { kind: 'calendar', year: Number(raw) };
+}
+
+export function rankingYearFilter(
+  scope: InsightsYearScope,
+): { readonly currentYear: number } | Record<string, never> {
+  if (scope.kind === 'all') {
+    return {};
+  }
+  return { currentYear: scope.year };
+}
+
+export interface StaffInsightsMetrics {
+  readonly studentCount: number;
+  readonly activeStudentCount: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+  readonly total: number;
+  readonly participantCount: number;
+}
+
+export interface StaffInsightsCohortRow extends StaffInsightsMetrics {
+  readonly cohort: DepartmentCohort;
+}
+
+export interface StaffInsightsDepartmentRow extends StaffInsightsMetrics {
+  readonly department: string;
+  readonly cohort: DepartmentCohort;
+}
+
+export interface StaffInsightsProgramRow {
+  readonly programId: string;
+  readonly name: string;
+  readonly swMajorCount: number;
+  readonly nonSwCount: number;
+  readonly unregisteredCount: number;
+  readonly participantCount: number;
+}
+
+export interface StaffInsightsSummary {
+  readonly scope: InsightsYearScope;
+  readonly dataAsOf: Date | null;
+  readonly years: readonly number[];
+  readonly cohorts: readonly StaffInsightsCohortRow[];
+  readonly departments: readonly StaffInsightsDepartmentRow[];
+  readonly programs: readonly StaffInsightsProgramRow[];
+}
 
 const EMPTY_ACTIVITY: ActivityCounts = {
   commitCount: 0,

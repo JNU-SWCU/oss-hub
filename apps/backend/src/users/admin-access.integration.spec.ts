@@ -10,9 +10,11 @@ import { UserAccessController } from '../admin/user-access.controller';
 import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
 import { PatchAdminAccessRequestDto } from '../admin/dto/patch-admin-access-request.dto';
-import { IndependentAuthorityRepository } from './independent-authority.repository';
+import {
+  IndependentAuthorityRepository,
+  ADMIN_ACCESS_COMMANDS,
+} from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 
 assertIsolatedIntegrationDatabase({

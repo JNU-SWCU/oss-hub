@@ -8,14 +8,18 @@ import {
   type AuthRepository,
   type AuthTransactionStore,
 } from './auth.repository';
-import { LoginHistoryService, AuthService } from './auth.service';
+import {
+  LoginHistoryService,
+  AuthService,
+  createFlowState,
+  encodeFlowCookie,
+} from './auth.service';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
-import { createFlowState, encodeFlowCookie } from './auth.policy';
 
 describe('login-history.service', () => {
   const emptyPage: LoginHistoryPage = {

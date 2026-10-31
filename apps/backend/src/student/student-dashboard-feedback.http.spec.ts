@@ -3,9 +3,11 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
-import { AuthService } from '../auth/auth.service';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { ProgramActivityService } from '../programs/program-activity.service';

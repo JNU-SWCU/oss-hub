@@ -91,6 +91,7 @@ describe('StaffDashboardService', () => {
     expect(applicationSummary).toHaveBeenCalledWith(4242n);
 
     expect(summary.programs[0]).toEqual({
+      coverImageUrl: null,
       id: 'program:1',
       name: 'Synthetic program',
       trackType: ProgramTrackType.EXTRACURRICULAR,

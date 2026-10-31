@@ -2,18 +2,20 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  issueSessionToken,
+} from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { AccessRequestsController } from '../staff/access-requests.controller';
 import { UserAccessController } from '../admin/user-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
-import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { ADMIN_ACCESS_COMMANDS } from './independent-authority.repository';
 
 const githubId = 9_700_500_001n;
 const sessionSecret = new Uint8Array(32).fill(31);

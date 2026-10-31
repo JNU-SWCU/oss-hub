@@ -1,5 +1,4 @@
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import type { Type } from '@nestjs/common';
+import { BadRequestException, ValidationPipe, type Type } from '@nestjs/common';
 import { CreateBoardPostRequestDto } from '../../src/programs/dto/create-board-post-request.dto';
 import { UpdateBoardPostRequestDto } from '../../src/programs/dto/update-board-post-request.dto';
 

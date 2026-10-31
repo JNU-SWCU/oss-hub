@@ -3,12 +3,12 @@ import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import {
+  TeamDeletionScopeRepository,
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,
   type TeamDeletionScopeCounts,
-} from './programs.policy';
+} from './team-deletion-scope.repository';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;

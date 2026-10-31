@@ -16,8 +16,10 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { TEAM_DELETED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+import {
+  AuditLogRepository,
+  TEAM_DELETED_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';

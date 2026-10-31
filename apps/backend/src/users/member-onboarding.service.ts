@@ -7,19 +7,17 @@ import {
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentsService } from './consents.service';
-import { isCompleteProfileFields } from './user-profile.policy';
-import type {
-  MemberKindSelectionResult,
-  MemberKindSelectionState,
-  MemberUser,
-  SelectableMemberKind,
-  StaffAccessRequestRecord,
-} from './users.types';
 import {
   MemberOnboardingRepository,
   type OnboardingTransactionStore,
+  type MemberKindSelectionResult,
+  type MemberKindSelectionState,
+  type MemberUser,
+  type SelectableMemberKind,
+  type StaffAccessRequestRecord,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
+import { isCompleteProfileFields } from './users.repository';
 
 @Injectable()
 export class MemberOnboardingService {

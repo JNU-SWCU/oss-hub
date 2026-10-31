@@ -5,9 +5,12 @@ import { SignJWT } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
-import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './auth.policy';
+import {
+  AuthService,
+  sessionCookieName,
+  SESSION_MAX_AGE_SECONDS,
+  issueSessionToken,
+} from './auth.service';
 import type { AuthenticatedRequest } from './http-auth.types';
 import { SessionGuard } from './session.guard';
 

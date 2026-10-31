@@ -1,4 +1,4 @@
-import type { PublicTeamRow } from '../programs.types';
+import type { PublicTeamRow } from '../program-overview.repository';
 
 export class ProgramOverviewTeamMemberResponseDto {
   declare readonly userId: string;

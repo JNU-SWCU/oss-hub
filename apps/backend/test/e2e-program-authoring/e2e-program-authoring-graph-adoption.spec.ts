@@ -1,11 +1,11 @@
 import { ProgramTrackType } from '@prisma/client';
-import { buildProgramAuthoringPlan } from '../../src/programs/program-authoring-plan.policy';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
   adoptPersistedE2eProgramGraph,
   inspectE2eProgramAdoption,
   type E2eProgramAdoptionCandidate,
 } from './e2e-program-authoring-graph-adoption';
+import { buildProgramAuthoringPlan } from '../../src/programs/program-authoring.service';
 
 const PREFIX = 'e2e:program-authoring:';
 const PROGRAM_ID = 'generated-program-id';

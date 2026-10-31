@@ -1,4 +1,4 @@
-import { ConsentStatus } from '../users.types';
+import type { ConsentStatus } from '../consents.service';
 
 export class ConsentRequiredItemResponseDto {
   declare readonly key: string;

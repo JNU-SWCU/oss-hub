@@ -11,18 +11,20 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-identity.policy';
+  AuditLogRepository,
+  REPOSITORY_PUBLISH_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
+import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import type { GithubAppClient } from '../github/github-app.client';
-import { RepositoriesRepository } from '../github/repositories.repository';
+import {
+  RepositoriesRepository,
+  repositoryNameFromNameWithOwner,
+  repositoryUrlFromNameWithOwner,
+} from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';

@@ -1,12 +1,22 @@
 import type {
+  CollectionIncrementalRepository,
   CollectionRepositoryRow,
   CollectionSyncRuntime,
   SyncLeaseToken,
-} from './collection-incremental.types';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionSyncDeadline, splitNameWithOwner } from './github.policy';
+} from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
+import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
+
+export const splitNameWithOwner = (nameWithOwner: string): [string, string] => {
+  const index = nameWithOwner.indexOf('/');
+  if (index < 0) {
+    throw new Error(
+      `invalid collection repository nameWithOwner: ${nameWithOwner}`,
+    );
+  }
+  return [nameWithOwner.slice(0, index), nameWithOwner.slice(index + 1)];
+};
 
 export interface SweepInventory {
   readonly complete: boolean;
@@ -21,7 +31,7 @@ export class CollectionInventoryService {
       | 'listPresentRepositories'
       | 'listExternalRepositories'
     >,
-    private readonly deadline: CollectionSyncDeadline,
+    private readonly deadline: CollectionSyncDeadlineService,
     private readonly now: () => Date,
   ) {}
 

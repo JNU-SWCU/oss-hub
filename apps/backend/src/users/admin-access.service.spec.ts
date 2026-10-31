@@ -1,12 +1,6 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import {
-  ACCESS_AUDIT_ACTIONS,
-  ACCESS_AUDIT_EVENT_KINDS,
-  ACCESS_AUDIT_SCHEMA_VERSION,
-} from '../platform/audit-log-metadata.policy';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -19,6 +13,12 @@ import {
   auditLogHarness,
   staffActor,
 } from './admin-access.service.spec-support';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+  ACCESS_AUDIT_SCHEMA_VERSION,
+} from '../platform/audit-log.repository';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-mutation.service';
 
 describe('AdminAccessService mutation', () => {
   it('rejects a stale expected role, account status, or pending request', async () => {

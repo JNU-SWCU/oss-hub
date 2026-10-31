@@ -2,16 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import { normalizeMultipartFileName } from '../platform/platform.policy';
-import { hasProgramDeadlinePassed } from './programs.policy';
-import {
-  createSubmissionFileObjectKey,
-  sanitizeSubmissionFileOriginalName,
-  isAllowedSubmissionFileType,
-  safeSubmissionFileContentType,
-  hasValidSubmissionFileSignature,
-  SUBMISSION_UPLOAD_MAX_BYTES,
-} from './submission-file.policy';
 import {
   OBJECT_STORAGE,
   OBJECT_STORAGE_ERROR_CODES,
@@ -27,18 +17,132 @@ import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
   SubmissionFilesRepository,
+  createSubmissionFileObjectKey,
+  sanitizeSubmissionFileOriginalName,
+  isAllowedSubmissionFileType,
+  hasValidSubmissionFileSignature,
 } from './submission-files.repository';
 import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { inspectSubmissionZipMetadata } from './submission-zip-admission.policy';
-import type {
-  DownloadedSubmissionFile,
-  SubmissionFileUpload,
-  UploadedSubmissionFileResponse,
-} from './submission.types';
+import {
+  SubmissionZipRejection,
+  MAX_ENTRY_COUNT,
+  MAX_TOTAL_UNCOMPRESSED_BYTES,
+  MAX_ENTRY_UNCOMPRESSED_BYTES,
+} from './submission-zip.error';
+import { fromBufferPromise, type Entry } from 'yauzl';
+import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
+import { hasProgramDeadlinePassed } from './programs.service';
+import { safeSubmissionFileContentType } from './submission-checklist-record.repository';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
+
+const MAX_COMPRESSION_RATIO = 100;
+
+const UNIX_HOST_SYSTEM = 3;
+
+const UNIX_FILE_TYPE_MASK = 0xf000;
+
+const UNIX_SYMLINK_TYPE = 0xa000;
+
+export async function inspectSubmissionZipMetadata(
+  buffer: Buffer,
+): Promise<SubmissionZipRejection | null> {
+  try {
+    const zipFile = await fromBufferPromise(buffer, {
+      decodeStrings: true,
+      strictFileNames: true,
+      validateEntrySizes: true,
+    });
+    if (zipFile.entryCount > MAX_ENTRY_COUNT) {
+      return SubmissionZipRejection.TOO_MANY_ENTRIES;
+    }
+
+    let entryCount = 0;
+    let totalCompressedBytes = 0;
+    let totalUncompressedBytes = 0;
+    for await (const entry of zipFile.eachEntry()) {
+      entryCount += 1;
+      const entryRejection = inspectEntry(entry);
+      if (entryRejection !== null) return entryRejection;
+
+      totalCompressedBytes += entry.compressedSize;
+      totalUncompressedBytes += entry.uncompressedSize;
+      if (totalUncompressedBytes > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+        return SubmissionZipRejection.CONTENT_TOO_LARGE;
+      }
+      if (
+        exceedsCompressionRatio(totalUncompressedBytes, totalCompressedBytes)
+      ) {
+        return SubmissionZipRejection.EXPANDS_TOO_MUCH;
+      }
+    }
+
+    return entryCount === zipFile.entryCount
+      ? null
+      : SubmissionZipRejection.UNREADABLE;
+  } catch {
+    return SubmissionZipRejection.UNREADABLE;
+  }
+}
+
+function inspectEntry(entry: Entry): SubmissionZipRejection | null {
+  const fileName = entry.fileName.toLowerCase();
+  if (entry.fileName.includes('\u0000')) {
+    return SubmissionZipRejection.ENTRY_NOT_ALLOWED;
+  }
+  if (fileName.endsWith('.zip')) return SubmissionZipRejection.NESTED_ARCHIVE;
+  if (isUnixSymlink(entry)) return SubmissionZipRejection.ENTRY_NOT_ALLOWED;
+  if (entry.isEncrypted()) return SubmissionZipRejection.PASSWORD_PROTECTED;
+  if (entry.compressionMethod !== 0 && entry.compressionMethod !== 8) {
+    return SubmissionZipRejection.UNSUPPORTED_COMPRESSION;
+  }
+  if (entry.uncompressedSize > MAX_ENTRY_UNCOMPRESSED_BYTES) {
+    return SubmissionZipRejection.CONTENT_TOO_LARGE;
+  }
+  if (exceedsCompressionRatio(entry.uncompressedSize, entry.compressedSize)) {
+    return SubmissionZipRejection.EXPANDS_TOO_MUCH;
+  }
+  return null;
+}
+
+function isUnixSymlink(entry: Entry): boolean {
+  const hostSystem = entry.versionMadeBy >>> 8;
+  const unixFileType =
+    (entry.externalFileAttributes >>> 16) & UNIX_FILE_TYPE_MASK;
+  return hostSystem === UNIX_HOST_SYSTEM && unixFileType === UNIX_SYMLINK_TYPE;
+}
+
+function exceedsCompressionRatio(
+  uncompressedBytes: number,
+  compressedBytes: number,
+): boolean {
+  return uncompressedBytes > compressedBytes * MAX_COMPRESSION_RATIO;
+}
+
+export interface SubmissionFileUpload {
+  readonly buffer: Buffer;
+  readonly originalname: string;
+  readonly mimetype: string;
+  readonly size: number;
+}
+
+export interface UploadedSubmissionFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
+
+export interface DownloadedSubmissionFile {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
+}
 
 export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;

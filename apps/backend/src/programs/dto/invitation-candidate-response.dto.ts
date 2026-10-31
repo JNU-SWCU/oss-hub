@@ -1,4 +1,4 @@
-import type { InvitationCandidateRecord } from '../team-invitation.types';
+import type { InvitationCandidateRecord } from '../team-invitations.repository';
 
 export class InvitationCandidateResponseDto {
   declare readonly id: string;

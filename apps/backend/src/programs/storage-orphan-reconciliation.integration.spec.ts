@@ -3,11 +3,11 @@ import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { S3ObjectInventoryClient } from '../platform/s3-object-inventory.client';
-import { StorageOrphanReconciliationService } from './storage-orphan-reconciliation.service';
 import {
+  StorageOrphanReconciliationService,
   KNOWN_STORAGE_PREFIXES,
   type StorageObjectInventory,
-} from './storage-orphan-reconciliation.policy';
+} from './storage-orphan-reconciliation.service';
 import {
   PrismaStorageReferenceRepository,
   type StorageReferencePrisma,

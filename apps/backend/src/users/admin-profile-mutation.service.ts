@@ -2,17 +2,107 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
-import { createAdminProfileAudit } from './admin-profile-audit.policy';
-import { requireActiveAdmin } from './admin-access-authorization.policy';
-import { roleError } from './admin-access-mutation.policy';
-import { isValidStudentId } from './user-profile.policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import type {
-  AdminProfileFields,
-  AdminProfileUpdateCommand,
-  AdminProfileUpdateResult,
-} from './admin-profile.types';
-import type { AdminProfileRepositoryPort } from './users.types';
+import {
+  type UserProfileAuditAction,
+  type UserProfileAuditMetadata,
+  USER_PROFILE_AUDIT_ACTIONS,
+  createUserProfileAuditMetadata,
+  type UserProfileAuditFieldChange,
+  USER_PROFILE_AUDIT_FIELDS,
+} from '../platform/audit-log.repository';
+import {
+  type AdminProfileTargetRecord,
+  type AdminProfileRepositoryPort,
+} from './admin-profile.repository';
+import { requireActiveAdmin, roleError } from './admin-access-mutation.service';
+import { isValidStudentId } from './users.repository';
+
+type AdminProfileFields = {
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+export type AdminProfileUpdateCommand = {
+  readonly name?: string;
+  readonly studentId?: string;
+  readonly department?: string;
+};
+
+export type AdminProfileUpdateResult = AdminProfileFields & {
+  readonly id: string;
+};
+
+type AdminProfileActor = {
+  readonly name: string | null;
+  readonly githubLogin: string;
+};
+
+type AdminProfileAudit = {
+  readonly action: UserProfileAuditAction;
+  readonly targetType: 'USER';
+  readonly targetId: string;
+  readonly metadata: UserProfileAuditMetadata;
+};
+
+function createAdminProfileAudit(input: {
+  readonly actor: AdminProfileActor;
+  readonly target: AdminProfileTargetRecord;
+  readonly before: AdminProfileFields;
+  readonly after: AdminProfileFields;
+}): AdminProfileAudit | null {
+  const changes = diffAdminProfileFields(input.before, input.after);
+  if (changes.length === 0) {
+    return null;
+  }
+  return {
+    action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+    targetType: 'USER',
+    targetId: input.target.id,
+    metadata: createUserProfileAuditMetadata({
+      actor: {
+        displayName: input.actor.name,
+        githubLogin: input.actor.githubLogin,
+      },
+
+      target: {
+        displayName: input.target.name,
+        githubLogin: input.target.githubLogin,
+      },
+      changes,
+    }),
+  };
+}
+
+function diffAdminProfileFields(
+  before: AdminProfileFields,
+  after: AdminProfileFields,
+): UserProfileAuditFieldChange[] {
+  const changes: UserProfileAuditFieldChange[] = [];
+  if (before.name !== after.name) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.NAME,
+      before: before.name,
+      after: after.name,
+    });
+  }
+  if (before.studentId !== after.studentId) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.STUDENT_ID,
+      before: before.studentId,
+      after: after.studentId,
+    });
+  }
+  if (before.department !== after.department) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.DEPARTMENT,
+      before: before.department,
+      after: after.department,
+    });
+  }
+  return changes;
+}
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;

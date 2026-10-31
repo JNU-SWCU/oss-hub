@@ -1,12 +1,19 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import type { PublicProjectRow } from './public-projects.policy';
 import { PublicProjectsController } from './public-projects.controller';
-import type { PublicProjectsService } from './public-projects.service';
+import type {
+  PublicProjectListItem,
+  PublicProjectsService,
+} from './public-projects.service';
+import {
+  applicationMode,
+  displayNameOf,
+  type PublicProjectRow,
+} from './public-projects.repository';
 
 function row(
   overrides: Partial<PublicProjectRow> & { id: string },
-): PublicProjectRow {
-  return {
+): PublicProjectListItem {
+  const base: PublicProjectRow = {
     projectId: '9001',
     githubRepositoryId: 9001n,
     repositoryName: 'synthetic-repo',
@@ -19,6 +26,11 @@ function row(
     teamMemberCount: 1,
     applicantNickname: 'synthetic-applicant',
     ...overrides,
+  };
+  return {
+    ...base,
+    applicationMode: applicationMode(base.teamMemberCount),
+    displayName: displayNameOf(base),
   };
 }
 

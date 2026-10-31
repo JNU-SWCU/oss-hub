@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import { DomainException } from '../platform/error-code.error';
@@ -34,6 +35,15 @@ export class CollectionTriggerService {
       this.logger,
       'collection.scheduler',
     );
+  }
+
+  @Cron(COLLECTION_CRON_EXPRESSION, {
+    name: COLLECTION_CRON_JOB_NAME,
+    timeZone: 'Asia/Seoul',
+    waitForCompletion: true,
+  })
+  handleCron(): Promise<void> {
+    return this.runScheduled();
   }
 
   async runScheduled(): Promise<void> {

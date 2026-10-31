@@ -14,16 +14,18 @@ import {
   provisionStateMock,
   revokeInvitationWork,
 } from '../../test/repository-provision-worker.fixture';
+import { COLLABORATOR_OUTCOMES } from './github-app.client';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
+import { PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE } from './repository-provision-state-helpers.repository';
+import {
+  RepositoryProvisionSupersededError,
+  RepositoryProvisionFailure,
+} from './repository-provision-state.error';
 import {
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   PROVISION_ERROR_CODES,
-  RepositoryProvisionFailure,
-} from './repository-provision-failure.policy';
-import { COLLABORATOR_OUTCOMES } from './github-app.client';
-import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
-import { buildRepositoryOwnershipMarker } from './repository-name.policy';
-import { PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE } from './repository-provision-state-helpers.repository';
-import { RepositoryProvisionSupersededError } from './repository-provision-state.error';
+} from './repository-provision-state.repository';
+import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 
 describe('RepositoryProvisionWorkerService success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {

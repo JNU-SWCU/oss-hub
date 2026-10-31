@@ -1,11 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import type { ProgramActivityResult } from './programs.types';
-import type {
-  ActivityPointResult,
-  ActivityTimelineResult,
-} from './activity-timeline.types';
-import type { ActivityGranularity } from './program-activity-granularity.policy';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import {
   ProgramErrorCode,
@@ -20,6 +14,53 @@ import {
   type ProgramRepositoryActivity,
 } from './program-activity.repository';
 import { ProgramsRepository } from './programs.repository';
+
+export const ACTIVITY_GRANULARITIES = ['MONTH', 'YEAR'] as const;
+
+export type ActivityGranularity = (typeof ACTIVITY_GRANULARITIES)[number];
+
+interface ActivityProgramResult {
+  readonly programId: string;
+  readonly programName: string;
+  readonly year: number;
+  readonly applicationMode: 'PERSONAL' | 'TEAM';
+}
+
+interface ActivityPointResult {
+  readonly period: string;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly issueCount: number;
+  readonly total: number;
+}
+
+export interface ActivityTimelineResult {
+  readonly dataAsOf: Date | null;
+  readonly programs: readonly ActivityProgramResult[];
+  readonly series: {
+    readonly granularity: ActivityGranularity;
+    readonly points: readonly ActivityPointResult[];
+  };
+}
+
+export interface ProgramActivityResult {
+  readonly applicationId: string;
+  readonly label: string;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly lastActivityAt: Date | null;
+  readonly dataAsOf: Date | null;
+  readonly collectionStatus: 'NOT_CONNECTED' | 'EMPTY' | 'FAILED' | 'READY';
+  readonly members: readonly {
+    readonly githubLogin: string;
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
+  }[];
+  readonly hasIncompleteContributions: boolean;
+}
 
 export type ProgramActivityProgramStore = Pick<
   ProgramsRepository,

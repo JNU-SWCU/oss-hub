@@ -1,13 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
+import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import {
-  InvalidRepositoryProvisionEventError,
+  RepositoriesRepository,
   parseRepositoryAccessSyncEvent,
   parseRepositoryProvisionEvent,
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repository-provision-event.policy';
-import { RepositoriesRepository } from './repositories.repository';
+} from './repositories.repository';
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
+
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
+const PROVISION_POLL_INTERVAL_MS = 5_000;
+const PROVISION_BATCH_SIZE = 10;
 
 export type RepositoryOutboxConsumeResult =
   | { readonly kind: 'EMPTY' }
@@ -21,8 +27,50 @@ export type RepositoryOutboxConsumeResult =
 @Injectable()
 export class RepositoryOutboxConsumerService {
   private readonly logger = new Logger(RepositoryOutboxConsumerService.name);
+  private readonly schedulerLogger = new Logger('RepositoryProvisionScheduler');
+  private readonly workerId = `repository-${randomUUID()}`;
+  private running = false;
 
-  constructor(private readonly repository: RepositoriesRepository) {}
+  constructor(
+    private readonly repository: RepositoriesRepository,
+    @Inject(RepositoryProvisionWorkerService)
+    private readonly worker: Pick<RepositoryProvisionWorkerService, 'runNext'>,
+    @Optional()
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  @Interval('repository-provision', PROVISION_POLL_INTERVAL_MS)
+  async poll(): Promise<void> {
+    if (this.running) {
+      return;
+    }
+    this.running = true;
+    try {
+      await this.runBatch();
+    } catch (error) {
+      this.schedulerLogger.error({
+        event: 'repositories.provision.poll.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
+
+  async runBatch(): Promise<void> {
+    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
+      const result = await this.consumeNext(this.workerId, this.now());
+      if (result.kind === 'EMPTY') {
+        break;
+      }
+    }
+    for (let index = 0; index < PROVISION_BATCH_SIZE; index += 1) {
+      const result = await this.worker.runNext(this.workerId);
+      if (result.kind === 'EMPTY') {
+        break;
+      }
+    }
+  }
 
   async consumeNext(
     workerId: string,
@@ -92,6 +140,3 @@ function parseEventPayload(
   }
   throw new InvalidRepositoryProvisionEventError();
 }
-
-export const PROVISION_POLL_INTERVAL_MS = 5_000;
-export const PROVISION_BATCH_SIZE = 10;

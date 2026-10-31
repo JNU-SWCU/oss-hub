@@ -1,17 +1,17 @@
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import {
-  changeRequestTargetsVersion,
-  type ProgramDocumentChangeRequestCandidate,
-  type ProgramDocumentChangeRequestInput,
-} from './milestone-document.policy';
 import type { ProgramArchiveReader } from './milestone-document-archive.repository';
 import type {
   MilestoneDocumentsRepository,
   MilestoneDocumentWriteStore,
 } from './milestone-documents.repository';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
+import { changeRequestTargetsVersion } from './milestone-documents.service';
+import {
+  type ProgramDocumentChangeRequestCandidate,
+  type ProgramDocumentChangeRequestInput,
+} from './milestone-document-collection-read.repository';
 
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');

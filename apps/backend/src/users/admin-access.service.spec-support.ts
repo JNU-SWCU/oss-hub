@@ -17,11 +17,11 @@ import type {
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
 } from './admin-access.repository';
-import type {
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+import {
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 export const ADMIN_GITHUB_ID = 9_131_300_001n;
 const TARGET_GITHUB_ID = 9_131_300_002n;

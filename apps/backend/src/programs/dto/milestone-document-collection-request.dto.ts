@@ -12,9 +12,9 @@ import {
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   type MilestoneDocumentCollectionFilter,
-} from '../programs.types';
-import type { DocumentDeliveryStatus } from '../milestone-document.policy';
-import type { MilestoneDocumentDeliveryQuery } from '../milestone-document-delivery-page.policy';
+} from '../milestone-documents.service';
+import { type DocumentDeliveryStatus } from '../milestone-document-collection-read.repository';
+import { type MilestoneDocumentDeliveryQuery } from '../milestone-document-collection.service';
 
 const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;

@@ -9,8 +9,10 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+import {
+  AuditLogRepository,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+} from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';

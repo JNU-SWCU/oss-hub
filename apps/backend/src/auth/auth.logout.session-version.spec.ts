@@ -4,12 +4,17 @@ import type { Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { SignJWT } from 'jose';
-import type { LoginHistoryService, AuthService } from './auth.service';
-import { AuthenticationGuard } from './authentication.guard';
-import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata.policy';
+import {
+  type LoginHistoryService,
+  type AuthService,
+  sessionCookieName,
+} from './auth.service';
+import {
+  AuthenticationGuard,
+  OPTIONAL_SESSION_ROUTE_METADATA,
+} from './authentication.guard';
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { sessionCookieName } from './cookies.policy';
 import type { AuthUser, OptionalSessionRequest } from './http-auth.types';
 
 const sessionSecret = new Uint8Array(randomBytes(32));

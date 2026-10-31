@@ -1,3 +1,4 @@
+import { authorityLabel } from './users.repository';
 import {
   AccountStatus,
   Prisma,
@@ -7,17 +8,6 @@ import {
   USER_PROFILE_NAME_SELECT,
   UserProfileReadRepository,
 } from '../platform/user-profile-read.repository';
-import { authorityLabel } from './authority-label.policy';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-  AdminAccessPendingDecisionUpdate,
-  AdminAccessRepositoryPort,
-  AdminAccessTransactionStore,
-  AdminAccessUserRecord,
-  AdminAccessUserUpdate,
-} from './admin-access-repository.types';
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
@@ -25,13 +15,21 @@ import { AdminAccessHistoryRepository } from './admin-access-history.repository'
 import {
   ADMIN_ACCESS_USER_SELECT,
   AdminAccessUserProjectionRepository,
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+  type AdminAccessPendingDecisionUpdate,
+  type AdminAccessRepositoryPort,
+  type AdminAccessTransactionStore,
+  type AdminAccessUserRecord,
+  type AdminAccessUserUpdate,
 } from './admin-access-user-projection.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
-import type {
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+import {
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 const ADMIN_ACTOR_SELECT = {
   id: true,
@@ -109,8 +107,7 @@ export async function insertRevokedStaffAccessRequest(
   });
   return { id: created.id };
 }
-
-export type {
+export {
   AdminAccessActor,
   AdminAccessInsertedRequest,
   AdminAccessPendingDecisionUpdate,
@@ -121,7 +118,7 @@ export type {
   AdminAccessUserPageRecord,
   AdminAccessUserRecord,
   AdminAccessUserUpdate,
-} from './admin-access-repository.types';
+} from './admin-access-user-projection.repository';
 
 class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}

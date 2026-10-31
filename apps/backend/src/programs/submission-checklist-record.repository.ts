@@ -3,15 +3,98 @@ import {
   Prisma,
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
+  type ApplicationStatus,
+  type SubmissionStatus,
+  type ReviewDecision,
+  type MilestoneSubmissionType,
 } from '@prisma/client';
 import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
-import type {
-  SubmissionApplication,
-  ChecklistMilestone,
-  SubmissionFileMetadata,
-} from './submission.types';
-import { publicSubmissionId } from './submission.policy';
-import { safeSubmissionFileContentType } from './submission-file.policy';
+import { SubmissionPublicIdCollisionError } from './submissions.error';
+
+const CANONICAL_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  '.pdf': 'application/pdf',
+  '.hwp': 'application/x-hwp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.zip': 'application/zip',
+};
+
+export function submissionFileExtension(fileName: string): string | null {
+  const dot = fileName.lastIndexOf('.');
+  if (dot <= 0) return null;
+  return fileName.slice(dot).toLowerCase();
+}
+
+export function safeSubmissionFileContentType(fileName: string): string {
+  const extension = submissionFileExtension(fileName);
+  return extension === null
+    ? 'application/octet-stream'
+    : (CANONICAL_CONTENT_TYPES[extension] ?? 'application/octet-stream');
+}
+
+export interface SubmissionApplication {
+  readonly id: string;
+  readonly programId: string;
+  readonly teamId: string | null;
+
+  readonly teamMemberCount: number;
+  readonly status: ApplicationStatus;
+  readonly existingSubmission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+  } | null;
+}
+
+interface ChecklistLatestReview {
+  readonly decision: ReviewDecision;
+  readonly reviewedAt: Date;
+  readonly comment: string | null;
+}
+
+export interface SubmissionFileMetadata {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: Date;
+}
+
+export interface ChecklistMilestone {
+  readonly id: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType;
+  readonly submission: {
+    readonly id: string;
+    readonly status: SubmissionStatus;
+    readonly currentRevision: number;
+    readonly latestReview: ChecklistLatestReview | null;
+    readonly file: SubmissionFileMetadata | null;
+  } | null;
+}
+
+export interface SubmissionPublicIdentity {
+  readonly id: string;
+  readonly legacySubmissionId: string | null;
+}
+
+export function publicSubmissionId(identity: SubmissionPublicIdentity): string {
+  return identity.legacySubmissionId ?? identity.id;
+}
+
+export function submissionPublicIdWhere(publicId: string) {
+  return { OR: [{ id: publicId }, { legacySubmissionId: publicId }] };
+}
+
+export function exactSubmissionByPublicId<T>(rows: readonly T[]): T | null {
+  if (rows.length > 1) {
+    throw new SubmissionPublicIdCollisionError(
+      'Ambiguous submission public id',
+    );
+  }
+  return rows[0] ?? null;
+}
 
 export class SubmissionChecklistRecordRepository {
   static submissionParticipantWhere(

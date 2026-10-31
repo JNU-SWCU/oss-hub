@@ -1,35 +1,234 @@
-import {
-  ProgramListItemNote,
-  PersonalizedProgramListItem,
-  ProgramListPage,
-  type ApplicationSubmissionSummaryResult,
-  type ProgramDetailResult,
-  type ProgramListRecord,
-} from './programs.types';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   type MilestoneSubmissionType,
   SubmissionStatus,
+  ProgramCategory,
+  type ProgramTrackType,
+  type ProgramLifecycle,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
+import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
+import {
+  type ProgramViewer,
+  ProgramViewerRole,
+} from './program-viewer.service';
+import {
+  ProgramsRepository,
+  ProgramListRecord,
+  type ProgramStatusCounts,
+} from './programs.repository';
 import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
-} from './milestone-completion.policy';
-import {
-  programDeadline,
-  type ProgramListQuery,
-  type ProgramStatusCounts,
-} from './programs.policy';
-import { programCoverImageUrl } from './program-cover.policy';
-import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
-import {
-  getTemplateByKey,
-  PROGRAM_PARTICIPATION,
-} from './program-template-registry.policy';
-import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+} from './submissions.repository';
+import { type ProgramListQuery } from './program-list-status-filter.repository';
+import { programCoverImageUrl } from './program-cover.repository';
+
+export interface ProgramListItemNote {
+  readonly text: string;
+  readonly icon?: 'team';
+}
+
+export interface ProgramListPageItem extends PersonalizedProgramListItem {
+  readonly coverImageUrl: string | null;
+}
+
+export interface PersonalizedProgramListItem extends ProgramListRecord {
+  readonly note?: ProgramListItemNote;
+
+  readonly viewerApplicationStatus?: ApplicationStatus;
+
+  readonly applicationCount?: number;
+
+  readonly pendingApplicationCount?: number;
+}
+
+export interface ProgramListPage {
+  readonly items: readonly ProgramListPageItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+type ViewerSubmissionStatusResult = SubmissionStatus | 'NOT_SUBMITTED' | null;
+
+export interface ApplicationSubmissionSummaryResult {
+  readonly notSubmitted: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly rejected: number;
+  readonly total: number;
+}
+
+interface ProgramMilestoneResult {
+  readonly id: string;
+  readonly name: string;
+  readonly startAt: Date;
+  readonly dueAt: Date;
+  readonly dDay: number;
+  readonly deadlineLabel: string;
+  readonly description: string | null;
+  readonly submissionType: MilestoneSubmissionType | null;
+
+  readonly submissionItemCount: number;
+  readonly viewerSubmissionStatus: ViewerSubmissionStatusResult;
+  readonly applicationSubmissionSummary: ApplicationSubmissionSummaryResult | null;
+}
+
+export interface ProgramDetailResult {
+  readonly coverImageUrl: string | null;
+  readonly id: string;
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationTemplateKey: string;
+
+  readonly lifecycle: ProgramLifecycle;
+  readonly description: string;
+  readonly repositoryProvisioningEnabled: boolean;
+  readonly applicationPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+  readonly operatingPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+  readonly viewer: {
+    readonly role: ProgramViewerRole;
+    readonly applicationStatus: ApplicationStatus | null;
+  };
+  readonly milestones: readonly ProgramMilestoneResult[];
+}
+
+const SEOUL_TIME_ZONE = 'Asia/Seoul';
+
+function calendarDayNumber(value: Date): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SEOUL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+export function programDeadline(
+  dueAt: Date,
+  now: Date,
+): {
+  readonly dDay: number;
+  readonly label: string;
+} {
+  const dDay = calendarDayNumber(dueAt) - calendarDayNumber(now);
+  const label = dDay < 0 ? '마감 지남' : dDay === 0 ? '오늘 마감' : `D-${dDay}`;
+  return { dDay, label };
+}
+
+export function hasProgramDeadlinePassed(dueAt: Date, now: Date): boolean {
+  return now.getTime() > dueAt.getTime();
+}
+
+const PROGRAM_END_AT_UNDECIDED_TIME = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
+
+export function isProgramEndAtUndecided(value: Date): boolean {
+  return value.getTime() === PROGRAM_END_AT_UNDECIDED_TIME;
+}
+
+const PROGRAM_PARTICIPATION = {
+  TEAM: 'TEAM',
+} as const;
+
+export type ProgramParticipation =
+  (typeof PROGRAM_PARTICIPATION)[keyof typeof PROGRAM_PARTICIPATION];
+
+const APPLICATION_FIELD_TYPES = {
+  AUTO: 'auto',
+  TEXT: 'text',
+  TEXTAREA: 'textarea',
+} as const;
+
+type ApplicationFieldType =
+  (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
+
+type ApplicationFieldKey = 'applicantName';
+
+export interface FieldDef {
+  readonly key: ApplicationFieldKey;
+  readonly type: ApplicationFieldType;
+  readonly label: string;
+  readonly required: boolean;
+}
+
+export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
+  {
+    key: 'applicantName',
+    type: APPLICATION_FIELD_TYPES.AUTO,
+    label: '신청자',
+    required: true,
+  },
+] as const;
+
+export interface ProgramTemplate {
+  readonly key: string;
+  readonly version: number;
+  readonly name: string;
+  readonly participation: ProgramParticipation;
+  readonly teamSize: {
+    readonly defaultMin: number;
+    readonly defaultMax: number;
+    readonly editable: boolean;
+  };
+  readonly fields: readonly FieldDef[];
+}
+
+function template(key: string, name: string): ProgramTemplate {
+  return {
+    key,
+    version: 1,
+    name,
+    participation: PROGRAM_PARTICIPATION.TEAM,
+    teamSize: { defaultMin: 1, defaultMax: 1, editable: true },
+    fields: V1_APPLICATION_FIELDS,
+  };
+}
+
+const PROGRAM_TEMPLATES: Readonly<Record<ProgramCategory, ProgramTemplate>> = {
+  [ProgramCategory.BASIC]: template('basic', '기본 신청서'),
+  [ProgramCategory.SW_VALUE_SPREAD]: template(
+    'sw-value-spread',
+    'SW가치확산 신청서',
+  ),
+  [ProgramCategory.OSS_CONTEST]: template('oss-contest', 'OSS경진대회 신청서'),
+  [ProgramCategory.CAPSTONE]: template('capstone', '캡스톤 신청서'),
+  [ProgramCategory.SW_CONVERGENCE]: template('sw-convergence', 'SW융합 신청서'),
+  [ProgramCategory.GLOBAL_MAKERTHON]: template(
+    'global-makerthon',
+    '글로벌메이커톤 신청서',
+  ),
+  [ProgramCategory.CORPORATE_INTERNSHIP]: template(
+    'corporate-internship',
+    '기업인턴십 신청서',
+  ),
+};
+
+export function getProgramTemplate(category: ProgramCategory): ProgramTemplate {
+  return PROGRAM_TEMPLATES[category];
+}
+
+export function listProgramTemplates(): readonly ProgramTemplate[] {
+  return Object.values(PROGRAM_TEMPLATES);
+}
+
+export function getTemplateByKey(key: string): ProgramTemplate | undefined {
+  return listProgramTemplates().find((item) => item.key === key);
+}
 
 type SubmissionRecord = {
   readonly milestoneId: string;
@@ -113,7 +312,14 @@ export class ProgramsService {
       now,
     );
     return {
-      items: await this.personalize(rawItems, viewer),
+      items: (await this.personalize(rawItems, viewer)).map((item) => ({
+        ...item,
+        coverImageUrl: programCoverImageUrl(
+          item.id,
+          item.coverId,
+          item.coverExternalImageUrl,
+        ),
+      })),
       page: query.page,
       pageSize: query.pageSize,
       totalItems,

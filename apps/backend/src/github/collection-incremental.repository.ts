@@ -2,27 +2,217 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type {
-  CollectionRepositoryRow,
-  CollectionSyncRunRow,
-  CollectionSyncRunTrigger,
-  CollectionSyncStreamSummary,
-  CommitFactInput,
-  IssueFactInput,
-  PullRequestFactInput,
-  RecordFactsResult,
-  RecordRepositoryObservationInput,
-  RecordSweepHistoryInput,
-  RegisteredGithubIdSet,
-  ReleaseFactInput,
-  RepositorySource,
-  RepositoryTeamMemberAccount,
-  StreamFrontierInput,
-  StreamFrontierRow,
-  SyncCursorInput,
-  SyncCursorRow,
-  AcquireSyncLeaseInput,
-  SyncLeaseToken,
-} from './collection-incremental.types';
+  CollectionAppClientTokenProvider,
+  CollectionAppClient,
+} from './collection-app.client';
+import type { ProviderRequestQueueClient } from './provider-request-queue.client';
+
+export interface CollectionSyncRuntime {
+  appId: string;
+  organizationLogin: string;
+
+  tokens: CollectionAppClientTokenProvider;
+  client: CollectionAppClient;
+  queue: ProviderRequestQueueClient;
+}
+
+export type CollectionSyncRuntimeFactory = () =>
+  CollectionSyncRuntime | Promise<CollectionSyncRuntime>;
+
+interface SyncLeaseKey {
+  appId: bigint;
+  scope: string;
+}
+
+export interface SyncLeaseToken extends SyncLeaseKey {
+  ownerId: string;
+  epoch: bigint;
+  runId: string;
+  expiresAt: Date;
+}
+
+export interface AcquireSyncLeaseInput extends SyncLeaseKey {
+  ownerId: string;
+  runId: string;
+  now: Date;
+  expiresAt: Date;
+}
+
+export type RepositorySource = 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
+
+export type CollectionStreamType =
+  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
+
+type CollectionRunKind = 'SWEEP' | 'REPOSITORY_LINK';
+
+type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
+
+type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
+
+type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+
+export interface RecordRepositoryObservationInput {
+  githubOrganizationId: bigint | null;
+  githubRepositoryId: bigint;
+  nameWithOwner: string;
+  defaultBranch: string | null;
+  archived: boolean;
+  visibility: CollectionRepositoryVisibility;
+  presence: CollectionRepositoryPresence;
+  source: RepositorySource;
+  observedAt: Date;
+}
+
+export interface CollectionRepositoryRow {
+  id: string;
+  githubOrganizationId: bigint | null;
+  githubRepositoryId: bigint;
+  nameWithOwner: string;
+  defaultBranch: string | null;
+  archived: boolean;
+  visibility: CollectionRepositoryVisibility;
+  presence: CollectionRepositoryPresence;
+  source: RepositorySource;
+  lastCompleteInventoryObservedAt: Date | null;
+
+  nextRunAt?: Date | null;
+
+  failureCount?: number;
+
+  applicationId?: string | null;
+  programId?: string | null;
+  teamId?: string | null;
+}
+
+export interface RepositoryTeamMemberAccount {
+  githubId: bigint;
+  nickname: string;
+}
+
+export interface CommitFactInput {
+  sha: string;
+  committedAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export interface PullRequestFactInput {
+  githubPullRequestId: bigint;
+  state: string;
+  createdAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export interface ReleaseFactInput {
+  githubReleaseId: bigint;
+  publishedAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export interface IssueFactInput {
+  githubIssueId: bigint;
+  state: string;
+  createdAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export type RegisteredGithubIdSet = ReadonlySet<bigint>;
+
+export interface RecordFactsResult {
+  readonly acceptedCount: number;
+  readonly insertedCount: number;
+}
+
+export interface StreamFrontierInput {
+  repositoryId: string;
+  streamType: CollectionStreamType;
+  status?: CollectionStreamStatus;
+  frontierSha?: string | null;
+  frontierCreatedAt?: Date | null;
+  frontierEntityId?: bigint | null;
+  requestFingerprint?: string | null;
+  etag?: string | null;
+  lastRunAt?: Date;
+  lastErrorAt?: Date | null;
+  lastErrorCode?: string | null;
+}
+
+export interface StreamFrontierRow {
+  repositoryId: string;
+  streamType: CollectionStreamType;
+  status: CollectionStreamStatus;
+  frontierSha: string | null;
+  frontierCreatedAt: Date | null;
+  frontierEntityId: bigint | null;
+  requestFingerprint: string | null;
+  etag: string | null;
+  lastRunAt: Date | null;
+  lastErrorAt: Date | null;
+  lastErrorCode: string | null;
+}
+
+export interface SyncCursorInput {
+  appId: bigint;
+  scope: string;
+  lastGithubRepositoryId?: bigint | null;
+  cycleStartedAt?: Date | null;
+  cycleCompletedAt?: Date | null;
+}
+
+export interface SyncCursorRow {
+  appId: bigint;
+  scope: string;
+  lastGithubRepositoryId: bigint | null;
+  cycleStartedAt: Date | null;
+  cycleCompletedAt: Date | null;
+}
+
+export interface RecordSweepHistoryInput {
+  appId: bigint;
+  scope: string;
+  kind: CollectionRunKind;
+  sweepFinishedAt: Date;
+  cycleStartedAt: Date | null;
+  insertedCommitCount: number;
+  insertedPullRequestCount: number;
+  insertedReleaseCount: number;
+  insertedIssueCount: number;
+  attemptedRepositoryCount: number;
+  processedRepositoryCount: number;
+  failedRepositoryCount: number;
+  cycleCompleted: boolean;
+  stoppedForBudget: boolean;
+}
+
+type CollectionSyncRunTrigger = 'CRON' | 'MANUAL' | 'CLI' | 'UNKNOWN';
+
+type CollectionSyncRunStatusProjection = 'RUNNING' | 'FAILED' | 'COMPLETED';
+
+export interface CollectionSyncStreamSummary {
+  readyCount: number;
+  backfillingCount: number;
+  pendingCount: number;
+  verifyingCount: number;
+  failedCount: number;
+}
+
+export interface CollectionSyncRunRow {
+  runId: string;
+  scope: string;
+  trigger: CollectionSyncRunTrigger;
+  status: CollectionSyncRunStatusProjection;
+
+  startedAt: Date | null;
+
+  lastObservedAt: Date;
+  cycleCompletedAt: Date | null;
+  streams: CollectionSyncStreamSummary;
+
+  errorCodes: readonly string[];
+}
 
 export const asiaSeoulYear = (at: Date): number =>
   new Date(at.getTime() + 9 * 60 * 60 * 1000).getUTCFullYear();

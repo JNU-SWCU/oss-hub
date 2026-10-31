@@ -4,12 +4,13 @@ import type { Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { SignJWT } from 'jose';
-import { AuthenticationGuard } from './authentication.guard';
-import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata.policy';
+import {
+  AuthenticationGuard,
+  OPTIONAL_SESSION_ROUTE_METADATA,
+} from './authentication.guard';
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import type { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
+import { type AuthService, sessionCookieName } from './auth.service';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,

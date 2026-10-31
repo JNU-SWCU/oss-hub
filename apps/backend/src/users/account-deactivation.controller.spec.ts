@@ -2,10 +2,10 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { AccountStatus } from '@prisma/client';
 import type { AuthConfig } from '../auth/auth.config';
-import { serializeClearedSessionCookie } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationController } from './account-deactivation.controller';
+import { serializeClearedSessionCookie } from '../auth/auth.service';
 
 describe('AccountDeactivationController', () => {
   it('requires a live session and same-origin mutation', () => {

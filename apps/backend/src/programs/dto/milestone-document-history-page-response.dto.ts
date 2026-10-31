@@ -1,6 +1,6 @@
-import type { MilestoneDocumentHistoryResult } from '../milestone-document-result.types';
 import type { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
-import type { MilestoneDocumentSubmittedContent } from '../milestone-document.policy';
+import type { MilestoneDocumentHistoryResult } from '../milestone-documents.service';
+import type { MilestoneDocumentSubmittedContent } from '../milestone-document-collection-read.repository';
 
 export class MilestoneDocumentHistoryItemResponseDto {
   declare readonly event: MilestoneDocumentSubmissionHistoryEvent;

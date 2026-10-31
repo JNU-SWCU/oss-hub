@@ -11,7 +11,6 @@ import {
 } from './consent-error-code.error';
 import type { ConsentsService } from './consents.service';
 import type { UserProfileView } from '../platform/user-profile-read.repository';
-import type { StaffAccessRequestRecord, MemberUser } from './users.types';
 import {
   type StaffAccessRequestOutcome,
   type StaffAccessRequestTarget,
@@ -20,6 +19,8 @@ import {
 import type {
   OnboardingTransactionStore,
   MemberOnboardingRepository,
+  StaffAccessRequestRecord,
+  MemberUser,
 } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import { MemberOnboardingService } from './member-onboarding.service';

@@ -15,7 +15,6 @@ const layers = [
   'service',
   'repository',
   'gateway',
-  'job',
   'dto',
   'domain',
 ];
@@ -34,6 +33,7 @@ export const testFiles = [
 ];
 export const bootstrapFiles = [
   'src/main.ts',
+  'src/cli.ts',
   'src/app.module.ts',
   'src/app-controller-discovery.ts',
 ];
@@ -392,25 +392,12 @@ const policies = [
     },
   },
   {
-    from: element('job'),
-    allow: {
-      to: [
-        element('service'),
-        element('dto', sameModule),
-        element('domain'),
-        element('runtime-config'),
-        category('auth-capability'),
-        category('bootstrap'),
-      ],
-    },
-  },
-  {
     from: element('service'),
     allow: {
       to: [
         element('service'),
         element('domain'),
-        element('repository', sameModule),
+        element('repository'),
         element('gateway', sameModule),
         element('runtime-config'),
         category('storage-public'),
@@ -420,16 +407,32 @@ const policies = [
   {
     from: element('repository'),
     allow: {
-      to: [
-        element('domain'),
-        element('prisma'),
-        element('repository', sameModule),
-      ],
+      to: [element('domain'), element('prisma'), element('repository')],
+    },
+  },
+  {
+    from: element('repository'),
+    dependency: { kind: 'type' },
+    allow: { to: element('gateway', sameModule) },
+  },
+  {
+    from: { file: { path: '**/dto/*-request.dto.ts' } },
+    allow: { to: [element('service'), element('repository')] },
+  },
+  {
+    from: { file: { path: '**/dto/*-response.dto.ts' } },
+    dependency: { kind: 'type' },
+    allow: {
+      to: [element('service'), element('repository'), element('gateway')],
     },
   },
   {
     from: [element('gateway'), element('dto'), element('domain')],
     allow: { to: element('domain') },
+  },
+  {
+    from: element('gateway'),
+    allow: { to: element('gateway', sameModule) },
   },
   {
     from: element('dto'),
@@ -587,7 +590,7 @@ export async function createRailsConfig(rootDir) {
             pattern: [
               'src/platform/configure-http-app.config.ts',
               'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,prisma-serialization-retry.repository}.ts',
-              'src/platform/{system-error-code,error-code,platform}.{policy,error,types}.ts',
+              'src/platform/{system-error-code,error-code}.error.ts',
             ],
             mode: 'full',
           },
@@ -596,9 +599,8 @@ export async function createRailsConfig(rootDir) {
             service: '*.service.ts',
             repository: '*.repository.ts',
             gateway: '*.client.ts',
-            job: '*.{job,scheduler}.ts',
             dto: 'dto/*.dto.ts',
-            domain: '*.{policy,error,types,config}.ts',
+            domain: '*.{error,types,config}.ts',
           }).map(([type, suffix]) => ({
             type,
             pattern: `${flatModulePattern}/${suffix}`,
@@ -616,7 +618,7 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'auth-capability',
             pattern: [
-              'src/auth/{authentication.guard,origin.guard,session.guard,http-auth.types,auth-route-metadata.policy}.ts',
+              'src/auth/{authentication.guard,origin.guard,session.guard,http-auth.types}.ts',
               'src/auth/auth.config.ts',
             ],
           },

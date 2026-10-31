@@ -16,8 +16,8 @@ import {
 import {
   type ProgramDocumentChangeRequestInput,
   type ProgramDocumentChangeRequestScope,
-  toProgramDocumentChangeRequestScope,
-} from '../milestone-document.policy';
+} from '../milestone-document-collection-read.repository';
+import { toProgramDocumentChangeRequestScope } from '../milestone-documents.service';
 
 export class CreateProgramDocumentChangeRequestRequestDto {
   @IsIn(['PROGRAM', 'TEAM'])

@@ -1,3 +1,5 @@
+import { authorityLabel } from './users.repository';
+import { type AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -7,7 +9,6 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
 import { lockActiveAdminRows } from './admin-access.repository';
 
 interface AccountDeactivationTarget {

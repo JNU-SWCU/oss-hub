@@ -15,9 +15,9 @@ import {
   type AuthUser,
   type GithubProfile,
 } from './http-auth.types';
-import { isCompleteProfileFields } from '../users/user-profile.policy';
 import { AuthConfig, type InitialAccountSeed } from './auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
+import { isCompleteProfileFields } from '../users/users.repository';
 
 @Injectable()
 export class LoginHistoryRepository {
