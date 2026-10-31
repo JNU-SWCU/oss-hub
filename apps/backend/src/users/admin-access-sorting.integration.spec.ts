@@ -68,6 +68,12 @@ const expectedLastLoginAtById: ReadonlyMap<string, Date | null> = new Map([
   [ids.unnamedWithoutLogin, null],
 ]);
 let actorGithubId: bigint;
+const adminPrincipal = () => ({
+  githubId: actorGithubId,
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+});
 
 async function cleanup(): Promise<void> {
   await prisma.loginHistory.deleteMany({
@@ -166,7 +172,7 @@ it.each([
 
     const pages = await Promise.all(
       [1, 2, 3].map((page) =>
-        service.list(actorGithubId, {
+        service.list(adminPrincipal(), {
           query: queryFragment,
           page,
           limit: 2,

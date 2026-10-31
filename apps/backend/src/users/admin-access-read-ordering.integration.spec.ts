@@ -51,6 +51,12 @@ const expectedUserIds = [
   orderingUserIds.profileZulu,
 ] as const;
 let actorGithubId: bigint;
+const adminPrincipal = () => ({
+  githubId: actorGithubId,
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+});
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -135,7 +141,7 @@ afterAll(async () => {
 it('orders profile and legacy display names across bounded pages without gaps or duplicates', async () => {
   const pages = await Promise.all(
     [1, 2, 3, 4].map((page) =>
-      service.list(actorGithubId, {
+      service.list(adminPrincipal(), {
         query: queryFragment,
         page,
         limit: pageLimit,
@@ -186,7 +192,7 @@ it('orders the pending request queue by request creation time, not account creat
     ],
   });
 
-  const page = await service.listRequests(actorGithubId, {
+  const page = await service.listRequests(adminPrincipal(), {
     query: requestSortFragment,
     sort: 'createdAt',
     direction: 'desc',

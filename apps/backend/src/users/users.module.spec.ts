@@ -5,17 +5,13 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
-import {
-  IndependentAuthorityRepository,
-  UsersAuthorityRepository,
-} from './independent-authority.repository';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { MemberKindService } from './member-kind.service';
 import { UserProfileService } from './user-profile.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
 import { UsersService } from './users.service';
-import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import { ConsentsService } from './consents.service';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
@@ -36,8 +32,6 @@ describe('UsersModule admin access wiring', () => {
         AdminAccessService,
         IndependentAuthorityRepository,
         IndependentAuthorityService,
-        UsersAuthorityRepository,
-        UsersAuthorityService,
       ]),
     );
   });
@@ -50,7 +44,6 @@ describe('UsersModule admin access wiring', () => {
 
     expect(exports).toEqual([
       UsersService,
-      UsersAuthorityService,
       ConsentsService,
       AdminAccessMutationService,
       AdminAccessService,
