@@ -1,7 +1,8 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClient = createTestQueryClient();
@@ -14,7 +15,7 @@ afterEach(() => {
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
-import { programFeatureKey } from '@/lib/query-keys';
+import { milestoneDocumentsKey, programFeatureKey } from '@/lib/query-keys';
 import {
   MilestoneDocumentSection,
   MilestoneDocumentSectionBody,
@@ -129,6 +130,110 @@ describe('MilestoneDocumentSection response recovery', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('같은 마일스톤의 두 화면은 한 요청을 공유하고 무효화 뒤 함께 갱신된다', async () => {
+    const initial = Promise.withResolvers<Response>();
+    const fetchMock = vi.fn().mockReturnValueOnce(initial.promise);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          {[0, 1].map((key) => (
+            <MilestoneDocumentSection
+              key={key}
+              programId="program-1"
+              milestoneId="milestone-1"
+              viewerRole="STAFF"
+              closed={false}
+              submissionAccess={access('STAFF')}
+            />
+          ))}
+        </QueryClientProvider>,
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      initial.resolve(jsonResponse(documentListBody([milestoneDocument])));
+    });
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        documentListBody([{ ...milestoneDocument, name: '새 서류' }]),
+      ),
+    );
+
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['program', 'program-1'],
+      });
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(
+      container.querySelectorAll('[data-testid="milestone-document-row"]'),
+    ).toHaveLength(2);
+    expect(container.textContent?.match(/새 서류/g)).toHaveLength(2);
+  });
+
+  it('업로드 실패는 기존 목록과 프로그램 캐시를 바꾸지 않는다', async () => {
+    const overviewKey = programFeatureKey('program-1', 'overview', false);
+    queryClient.setQueryDefaults(['program'], { gcTime: Infinity });
+    queryClient.setQueryData(overviewKey, { viewerDocumentsCompleted: 0 });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(documentListBody([milestoneDocument])),
+      )
+      .mockResolvedValueOnce(problemResponse(503, 'COM_002'));
+    vi.stubGlobal('fetch', fetchMock);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MilestoneDocumentSection
+            programId="program-1"
+            milestoneId="milestone-1"
+            viewerRole="STUDENT"
+            closed={false}
+            submissionAccess={access('STUDENT', 'APPROVED')}
+          />
+        </QueryClientProvider>,
+      );
+    });
+    const upload = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '올리기',
+    );
+    if (upload === undefined) throw new TypeError('Missing upload button');
+    await act(async () => upload.click());
+    const input =
+      container.querySelector<HTMLInputElement>('input[type="file"]');
+    if (input === null) throw new TypeError('Missing file input');
+    const file = new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+    const form = container.querySelector('form');
+    if (form === null) throw new TypeError('Missing submission form');
+
+    await act(async () =>
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true }),
+      ),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    expect(container.textContent).toContain('기획서');
+    expect(queryClient.getQueryState(overviewKey)?.isInvalidated).toBe(false);
+    expect(
+      queryClient.getQueryData(
+        milestoneDocumentsKey('program-1', 'milestone-1'),
+      ),
+    ).toEqual(documentListBody([milestoneDocument]));
   });
 });
 
@@ -475,7 +580,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
-    expect(submittedEvents).toEqual([{ milestoneId: 'milestone-1' }]);
+    expect(submittedEvents).toEqual([]);
     expect(queryClient.getQueryState(currentKey)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
   });
@@ -699,6 +804,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     await act(async () => {
       root.render(
         <MilestoneDocumentSectionBody
+          programId="program-1"
           onSubmitted={vi.fn()}
           key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
           state={{
@@ -1332,6 +1438,7 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     act(() => {
       root.render(
         <MilestoneDocumentSectionBody
+          programId="program-1"
           onSubmitted={vi.fn()}
           state={{
             kind: 'ready',
@@ -1560,6 +1667,7 @@ describe('문서 유예 설정과 학생 표시', () => {
     await act(async () =>
       root.render(
         <MilestoneDocumentSectionBody
+          programId="program-1"
           onSubmitted={vi.fn()}
           state={{
             kind: 'ready',

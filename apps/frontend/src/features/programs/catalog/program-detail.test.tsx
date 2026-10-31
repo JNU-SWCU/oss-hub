@@ -1,6 +1,11 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
+  );
+}
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClient = createTestQueryClient();
@@ -841,6 +846,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('로딩 중에는 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{ kind: 'loading' }}
         viewerRole="STUDENT"
@@ -858,6 +864,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('조회 실패 시 재시도 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{ kind: 'failed' }}
         viewerRole="STUDENT"
@@ -876,6 +883,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('서류가 없으면 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
@@ -897,6 +905,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('교직원에게는 팀 제출 카운트를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
@@ -929,6 +938,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('학생에게는 기존 양식 다운로드를 유지한다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
@@ -952,6 +962,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
@@ -989,6 +1000,7 @@ describe('MilestoneDocumentSectionBody', () => {
   it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',

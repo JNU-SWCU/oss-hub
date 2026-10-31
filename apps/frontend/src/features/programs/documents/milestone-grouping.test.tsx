@@ -2,7 +2,12 @@ import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
+  );
+}
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClient = createTestQueryClient();
@@ -223,6 +228,7 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
   function bodyMarkup(state: 'ready' | 'failed'): string {
     return renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
         onSubmitted={vi.fn()}
         state={
           state === 'ready'

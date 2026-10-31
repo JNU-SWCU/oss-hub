@@ -13,3 +13,7 @@ export function programFeatureKey(
 export function featureKey(feature: string, ...parameters: readonly unknown[]) {
   return [feature, ...parameters] as const;
 }
+
+export function milestoneDocumentsKey(programId: string, milestoneId: string) {
+  return programFeatureKey(programId, 'documents', milestoneId);
+}
