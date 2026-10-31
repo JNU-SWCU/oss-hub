@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -70,10 +71,8 @@ import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
 import { ProgramApplicationsController } from './program-applications.controller';
-import {
-  StudentApplicationManagementRepository,
-  STUDENT_APPLICATION_MANAGEMENT_CLOCK,
-} from './student-application-management.repository';
+import { StudentApplicationManagementRepository } from './student-application-management.repository';
+import { STUDENT_APPLICATION_MANAGEMENT_CLOCK } from './student-application-management.config';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
@@ -115,11 +114,18 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import {
-  ProgramAuthoringUploadMaintenanceScheduler,
-  ProgramsScheduler,
-  SubmissionFileCleanupScheduler,
-} from './programs.scheduler';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ApplicationAnswersService } from './application-answers.service';
+import { DownloadResponseService } from './download-response.service';
+import { GithubRepositoryUrlConstraintService } from './github-repository-url-constraint.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { SubmissionInputService } from './submission-input.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
 
 @Module({
   imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
@@ -150,6 +156,16 @@ import {
     MilestoneDocumentFilesController,
   ],
   providers: [
+    ProgramCoverUrlService,
+    ApplicationAnswersService,
+    DownloadResponseService,
+    GithubRepositoryUrlConstraintService,
+    MilestoneCompletionService,
+    MilestoneDocumentRulesService,
+    ProgramRulesService,
+    ProgramUploadRulesService,
+    SubmissionFileRulesService,
+    SubmissionInputService,
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
@@ -162,10 +178,8 @@ import {
     ProgramCoverService,
     ProgramCoverRepository,
     ProgramAuthoringUploadMaintenanceService,
-    ProgramAuthoringUploadMaintenanceScheduler,
     ProgramPurgeFileCleanupRepository,
     ProgramPurgeFileCleanupService,
-    ProgramsScheduler,
     ProgramActivityRepository,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,
@@ -202,14 +216,31 @@ import {
         AuditLogService,
         UsersAuthorityService,
         ApplicationJoinCodeService,
+        AuditLogMetadataService,
+        RepositoryUrlService,
+        ApplicationAnswersService,
+        RepositoryProvisionEventService,
       ],
       useFactory: (
         repository: ApplicationsRepository,
         auditLog: AuditLogService,
         authority: UsersAuthorityService,
         joinCodes: ApplicationJoinCodeService,
+        auditLogMetadata: AuditLogMetadataService,
+        repositoryUrl: RepositoryUrlService,
+        answers: ApplicationAnswersService,
+        repositoryProvisionEvents: RepositoryProvisionEventService,
       ): ApplicationsService =>
-        new ApplicationsService(repository, auditLog, authority, joinCodes),
+        new ApplicationsService(
+          repository,
+          auditLog,
+          authority,
+          joinCodes,
+          auditLogMetadata,
+          repositoryUrl,
+          answers,
+          repositoryProvisionEvents,
+        ),
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,
@@ -222,7 +253,6 @@ import {
     SubmissionFilesService,
     SubmissionFileCleanupService,
     SubmissionFileCleanupRetryService,
-    SubmissionFileCleanupScheduler,
     SubmissionsService,
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
@@ -243,6 +273,9 @@ import {
     MilestoneDocumentArchiveRepository,
   ],
   exports: [
+    MilestoneCompletionService,
+    MilestoneDocumentRulesService,
+    ProgramCoverUrlService,
     ProgramActivityService,
     ProgramViewerService,
     ProgramActivitySummaryService,

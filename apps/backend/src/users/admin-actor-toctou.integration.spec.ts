@@ -13,6 +13,10 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,7 +30,10 @@ const BLOCKING_OBSERVATION_TIMEOUT_MS = 20_000;
 const GITHUB_ID_BASE = 9_006_871_000n;
 
 const prisma = new PrismaService();
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 let sequence = 0;
 
 beforeAll(async () => {
@@ -49,6 +56,10 @@ it(
     const service = new AdminAccessService(
       new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
       auditLog,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const mutation = service.patchAccess(actor.githubId, target.id, {
@@ -101,6 +112,10 @@ it(
         },
       ),
       auditLog,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const mutation = service.patchAccess(actor.githubId, target.id, {
@@ -152,6 +167,14 @@ it(
         },
       ),
       auditLog,
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ),
     );
 
     const mutation = service.patchProfile(actor.githubId, target.id, {
@@ -198,6 +221,14 @@ it(
     const service = new AdminProfileService(
       new AdminProfileRepository(pidCapturingPrisma(mutationBackend.capture)),
       auditLog,
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ),
     );
 
     const mutation = service.patchProfile(actor.githubId, target.id, {

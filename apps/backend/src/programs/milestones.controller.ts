@@ -19,10 +19,12 @@ import {
   ProgramMilestoneResponseDto,
 } from './dto/editable-program-response.dto';
 import { DeletedResponseDto } from './dto/deleted-response.dto';
-import type { MilestoneUpdateCommand } from './programs.types';
 import { UpdateMilestoneRequestDto } from './dto/update-milestone-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
-import { ProgramEditorService } from './program-editor.service';
+import {
+  ProgramEditorService,
+  type MilestoneUpdateCommand,
+} from './program-editor.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

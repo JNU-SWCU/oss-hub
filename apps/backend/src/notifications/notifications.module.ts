@@ -16,7 +16,6 @@ import {
   ApplicationDecisionNotificationsService,
 } from './application-decision-notifications.service';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
-import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
 
 @Module({
   imports: [AuthModule],
@@ -32,7 +31,6 @@ import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
     NotificationSettingsService,
     DeadlineDigestRepository,
     DeadlineDigestService,
-    DeadlineDigestScheduler,
     mailSenderProvider,
   ],
   exports: [DeadlineDigestService],

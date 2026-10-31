@@ -31,6 +31,7 @@
     "apps/backend": {
       "entry": [
         "src/main.ts",
+        "src/cli.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
         "{src,test,prisma}/**/*.spec.ts"

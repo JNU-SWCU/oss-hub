@@ -1,7 +1,3 @@
-import {
-  authorityLabel,
-  type AuthorityLabel,
-} from '../users/authority-label.policy';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -9,9 +5,34 @@ import {
   MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
+import { PlatformRepository } from '../platform/platform.repository';
+
+export interface ProgramOverviewRecord {
+  programId: string;
+  name: string;
+  trackType: string | null;
+  lifecycle: string;
+  milestoneCount: number;
+  boardPostCount: number;
+
+  participantCount: number;
+  teamCount: number;
+  connectedRepositoryCount: number;
+}
+
+interface PublicTeamMemberRow {
+  userId: string;
+
+  displayName: string;
+  isLeader: boolean;
+}
+
+export interface PublicTeamRow {
+  teamId: string;
+  name: string;
+  members: PublicTeamMemberRow[];
+}
 
 export interface CurrentSubmissionMilestone {
   milestoneId: string;
@@ -22,7 +43,8 @@ export interface CurrentSubmissionMilestone {
 export interface ViewerIdentity {
   userId: string;
   memberKind: MemberKind | null;
-  role: AuthorityLabel | null;
+  hasStaffAccess: boolean;
+  hasAdminAccess: boolean;
 }
 
 export interface MilestoneSchedule {
@@ -134,11 +156,8 @@ export class ProgramOverviewRepository {
     return {
       userId: user.id,
       memberKind: user.profile?.memberKind ?? null,
-      role: authorityLabel({
-        memberKind: user.profile?.memberKind ?? null,
-        hasStaffAccess: user.hasStaffAccess,
-        hasAdminAccess: user.hasAdminAccess,
-      }),
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
     };
   }
 
@@ -217,9 +236,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

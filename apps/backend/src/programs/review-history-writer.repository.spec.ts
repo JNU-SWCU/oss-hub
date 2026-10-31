@@ -1,6 +1,8 @@
 import { ApplicationReviewEventKind } from '@prisma/client';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
-import type { ReviewHistoryWriterClient } from './review-history-writer.repository';
+import {
+  ReviewHistoryWriterRepository,
+  type ReviewHistoryWriterClient,
+} from './review-history-writer.repository';
 import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
 const APPLICATION_ID = 'synthetic-application';

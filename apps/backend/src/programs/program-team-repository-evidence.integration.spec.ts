@@ -7,6 +7,15 @@ import {
 } from './program-activity.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
+import { ProgramTeamsService } from './program-teams.service';
+import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
+import { AuditLogRepository } from '../platform/audit-log.repository';
+import { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -14,6 +23,20 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
+const teamsService = new ProgramTeamsService(
+  new ProgramTeamsRepository(prisma),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new ProgramTeamDeletionRepository(prisma),
+  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
+);
 const prefix = `staff-evidence-${randomUUID()}`;
 const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const memberId = `${prefix}-member`;
@@ -176,8 +199,10 @@ it('projects only linked repository facts inside the program window while retain
   ]);
 
   expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
-  expect(detail?.repositoryUrlHistory.items).toHaveLength(1);
-  expect(detail?.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
+  expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
+  const view = await teamsService.getForStaff(githubId, programId, teamId);
+  expect(view.repositoryUrlHistory.items).toHaveLength(1);
+  expect(view.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
     'actor-before-rename',
   );
   expect(

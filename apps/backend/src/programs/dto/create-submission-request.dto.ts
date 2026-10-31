@@ -10,11 +10,6 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import {
-  type CreateSubmissionInput,
-  parseSubmissionContent,
-  type ResubmitSubmissionInput,
-} from '../submission.policy';
 
 class SubmissionContentRequestDto {
   @IsString()
@@ -49,15 +44,6 @@ export class CreateSubmissionRequestDto {
   @IsString()
   @MaxLength(2000)
   declare readonly comment?: string;
-
-  toInput(): CreateSubmissionInput {
-    return {
-      applicationId: this.applicationId,
-      milestoneId: this.milestoneId,
-      content: parseSubmissionContent(this.content),
-      comment: this.comment?.trim() || null,
-    };
-  }
 }
 
 export class CreateResubmissionRequestDto {
@@ -75,12 +61,4 @@ export class CreateResubmissionRequestDto {
   @IsString()
   @MaxLength(2000)
   declare readonly comment?: string;
-
-  toInput(): ResubmitSubmissionInput {
-    return {
-      baseRevision: this.baseRevision,
-      content: parseSubmissionContent(this.content),
-      comment: this.comment?.trim() || null,
-    };
-  }
 }

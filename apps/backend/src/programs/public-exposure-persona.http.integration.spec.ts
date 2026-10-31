@@ -11,12 +11,14 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
-import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
+} from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -821,7 +823,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
         targetType: 'ROLE_REQUEST',
         targetId: FOREIGN_SUITE_ROLE_REQUEST_ID,
-        metadata: createAccessAuditMetadata({
+        metadata: auditLogMetadataService.createAccessAuditMetadata({
           eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
           rejectionReason: 'synthetic-foreign-suite-rejection-reason',
           actor: {

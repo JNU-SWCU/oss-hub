@@ -11,13 +11,14 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
-import {
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  parseRepositoryProvisionEvent,
-  repositoryAccessSyncEventData,
-} from './repository-provision-event.policy';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -27,6 +28,8 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const consumer = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
+  { runNext: () => Promise.reject(new Error('worker is not used here')) },
+  new RepositoryProvisionEventService(),
 );
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-provision-applicant';
@@ -130,7 +133,7 @@ async function createProvisionEvent(
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
-      parseRepositoryProvisionEvent,
+      parseProvisionPayload,
     );
     return event.id;
   });
@@ -141,7 +144,7 @@ async function createAccessSyncEvent(
   requestedAt: Date = NOW,
   payloadOverride?: Prisma.InputJsonValue,
 ): Promise<string> {
-  const data = repositoryAccessSyncEventData(
+  const data = PlatformRepository.repositoryAccessSyncEventData(
     applicationId,
     teamIdFor(applicationId),
     requestedAt,

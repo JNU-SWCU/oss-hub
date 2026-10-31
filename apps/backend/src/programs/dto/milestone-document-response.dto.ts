@@ -1,11 +1,11 @@
-import type { MilestoneDocumentViewerResult } from '../milestone-document-result.types';
 import { SubmissionStatus } from '@prisma/client';
+import type { MilestoneDocumentViewerResult } from '../milestone-documents.service';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
   SUBMISSION_UPLOAD_FORMAT_LABEL,
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../submission-file.policy';
+} from '../submission-upload.config';
 
 export class MilestoneDocumentViewerReviewResponseDto {
   declare readonly comment: string | null;

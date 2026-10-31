@@ -21,7 +21,7 @@ import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
 } from './milestone-document-files.service';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

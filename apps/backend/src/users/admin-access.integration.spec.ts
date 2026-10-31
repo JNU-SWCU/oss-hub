@@ -10,10 +10,13 @@ import { UserAccessController } from '../admin/user-access.controller';
 import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
 import { PatchAdminAccessRequestDto } from '../admin/dto/patch-admin-access-request.dto';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,8 +25,18 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
-const service = new AdminAccessService(repository, auditLog);
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
+const service = new AdminAccessService(
+  repository,
+  auditLog,
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+);
 const AUDIT_FAILURE_FUNCTION = 'fail_admin_access_audit_insert';
 const AUDIT_FAILURE_TRIGGER = 'fail_admin_access_audit_insert_trigger';
 const AUDIT_FAILURE_MESSAGE = 'synthetic admin access audit failure';
@@ -57,6 +70,12 @@ describe('Admin access real PostgreSQL transactions', () => {
         new IndependentAuthorityRepository(prisma),
       ),
       auditLog,
+      new AuditLogMetadataService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      new UserProfileService(),
     );
 
     const demote = (actorGithubId: bigint, targetId: string) =>
@@ -138,6 +157,10 @@ describe('Admin access real PostgreSQL transactions', () => {
       profileService,
       { patchAdminAccess: jest.fn() },
       { patchMemberKind: jest.fn() },
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
     const request = {
       sessionGithubId: actor.githubId,

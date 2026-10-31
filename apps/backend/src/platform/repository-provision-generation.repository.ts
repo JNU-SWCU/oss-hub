@@ -2,8 +2,8 @@ import {
   Prisma,
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
-  type RepositoryConnectionMode,
   type RepositorySource,
+  type RepositoryConnectionMode,
 } from '@prisma/client';
 import { InvalidRepositoryProvisionHistoryEventError } from './repository-provision-generation.error';
 
@@ -160,7 +160,7 @@ export class RepositoryProvisionGenerationRepository {
       readonly repositoryId: string;
       readonly now: Date;
     },
-    parseEvent: RepositoryProvisionHistoryPayloadParser,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     const existing = (
       await transaction.$queryRaw<readonly SynchronousProvisionGenerationRow[]>(
@@ -188,7 +188,7 @@ export class RepositoryProvisionGenerationRepository {
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: input.now,
         },
-        parseEvent,
+        parsePayload,
       );
     }
     if (

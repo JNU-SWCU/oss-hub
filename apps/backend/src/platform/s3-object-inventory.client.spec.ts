@@ -1,9 +1,9 @@
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { type ObjectInventoryEntry } from './object-storage.types';
 import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-  type ObjectInventoryEntry,
-} from './object-storage.types';
+} from './object-storage.error';
 import {
   ObjectStorageConfig,
   type ObjectS3Client,

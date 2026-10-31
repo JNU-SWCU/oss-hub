@@ -2,22 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import { normalizeMultipartFileName } from '../platform/platform.policy';
-import { hasProgramDeadlinePassed } from './programs.policy';
+import type { ObjectStoragePort } from '../platform/object-storage.types';
 import {
-  createSubmissionFileObjectKey,
-  sanitizeSubmissionFileOriginalName,
-  isAllowedSubmissionFileType,
-  safeSubmissionFileContentType,
-  hasValidSubmissionFileSignature,
-  SUBMISSION_UPLOAD_MAX_BYTES,
-} from './submission-file.policy';
-import {
-  OBJECT_STORAGE,
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+} from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
@@ -33,12 +23,32 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { inspectSubmissionZipMetadata } from './submission-zip-admission.policy';
-import type {
-  DownloadedSubmissionFile,
-  SubmissionFileUpload,
-  UploadedSubmissionFileResponse,
-} from './submission.types';
+import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+export interface SubmissionFileUpload {
+  readonly buffer: Buffer;
+  readonly originalname: string;
+  readonly mimetype: string;
+  readonly size: number;
+}
+
+export interface UploadedSubmissionFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
+
+export interface DownloadedSubmissionFile {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
+}
 
 export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
@@ -49,10 +59,18 @@ export class SubmissionFilesService {
     private readonly repository: SubmissionFilesRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
+    private readonly programRulesService: ProgramRulesService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
-  createPending(input: CreatePendingSubmissionFileInput) {
-    return this.repository.createPending(input);
+  createPending(
+    input: Omit<CreatePendingSubmissionFileInput, 'resolveExpiresAt'>,
+  ) {
+    return this.repository.createPending({
+      ...input,
+      resolveExpiresAt: (programEndAt) =>
+        this.submissionFileRulesService.addOneCalendarYear(programEndAt),
+    });
   }
 
   async upload(
@@ -99,7 +117,10 @@ export class SubmissionFilesService {
       const status = authorization.resubmissionStatus;
       const replaceableBeforeDue =
         status === SubmissionStatus.SUBMITTED &&
-        !hasProgramDeadlinePassed(authorization.dueAt, now);
+        !this.programRulesService.hasProgramDeadlinePassed(
+          authorization.dueAt,
+          now,
+        );
       if (
         status !== SubmissionStatus.CHANGES_REQUESTED &&
         !replaceableBeforeDue
@@ -113,13 +134,23 @@ export class SubmissionFilesService {
 
     if (
       resubmissionContext === null &&
-      hasProgramDeadlinePassed(authorization.dueAt, now)
+      this.programRulesService.hasProgramDeadlinePassed(
+        authorization.dueAt,
+        now,
+      )
     ) {
       throw this.error(SubmissionsErrorCode.MILESTONE_CLOSED);
     }
-    const objectKey = createSubmissionFileObjectKey();
-    const originalName = sanitizeSubmissionFileOriginalName(normalizedFileName);
-    const pendingInput: CreatePendingSubmissionFileInput = {
+    const objectKey =
+      this.submissionFileRulesService.createSubmissionFileObjectKey();
+    const originalName =
+      this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
+        normalizedFileName,
+      );
+    const pendingInput: Omit<
+      CreatePendingSubmissionFileInput,
+      'resolveExpiresAt'
+    > = {
       uploaderId,
       applicationId: normalizedApplicationId,
       milestoneId: normalizedMilestoneId,
@@ -179,14 +210,22 @@ export class SubmissionFilesService {
     }
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     if (
-      !isAllowedSubmissionFileType(normalizedFileName) ||
-      !hasValidSubmissionFileSignature(file.buffer, normalizedFileName)
+      !this.submissionFileRulesService.isAllowedSubmissionFileType(
+        normalizedFileName,
+      ) ||
+      !this.submissionFileRulesService.hasValidSubmissionFileSignature(
+        file.buffer,
+        normalizedFileName,
+      )
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
 
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
-      const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
+      const zipRejection =
+        await this.submissionFileRulesService.inspectSubmissionZipMetadata(
+          file.buffer,
+        );
       if (zipRejection !== null) {
         throw this.error(SUBMISSION_ZIP_REJECTION_ERROR_CODES[zipRejection]);
       }
@@ -227,7 +266,10 @@ export class SubmissionFilesService {
     return {
       body,
       fileName: file.originalFileName,
-      contentType: safeSubmissionFileContentType(file.originalFileName),
+      contentType:
+        this.submissionFileRulesService.safeSubmissionFileContentType(
+          file.originalFileName,
+        ),
       contentLength: file.sizeBytes,
     };
   }

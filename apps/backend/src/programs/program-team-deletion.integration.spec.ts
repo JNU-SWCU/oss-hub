@@ -16,8 +16,8 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { TEAM_DELETED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import { AuditLogRepository } from '../platform/audit-log.repository';
+import { TEAM_DELETED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
@@ -28,6 +28,11 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -62,12 +67,20 @@ const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
   auditLog,
   deletionRepository,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 
 let teamSequence = 0;

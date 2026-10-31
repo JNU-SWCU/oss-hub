@@ -1,5 +1,4 @@
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
-import type { CreateInvitationOutcome } from './team-invitation.types';
 import {
   buildService,
   type MockRepository,
@@ -10,6 +9,7 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
+import { type CreateInvitationOutcome } from './team-invitations.repository';
 
 function leaderService(overrides: Partial<MockRepository> = {}) {
   return buildService({

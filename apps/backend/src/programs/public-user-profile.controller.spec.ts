@@ -1,7 +1,10 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import type { PublicProjectRow } from './public-projects.policy';
 import { PublicUserProfileController } from './public-user-profile.controller';
-import type { PublicProjectsService } from './public-projects.service';
+import type {
+  PublicProjectsService,
+  PublicProjectListItem,
+} from './public-projects.service';
+import { PublicProjectApplicationMode } from './public-projects.config';
 
 describe('PublicUserProfileController', () => {
   it('공개 프로필은 저장소 공개 회수 뒤 이전 응답을 저장하지 않는다', () => {
@@ -16,7 +19,7 @@ describe('PublicUserProfileController', () => {
   });
 
   it('GET /:userId/public-profile — 서비스 결과를 프로필 응답 DTO로 매핑하며 userId를 그대로 전달한다', async () => {
-    const project: PublicProjectRow = {
+    const project: PublicProjectListItem = {
       id: 'synthetic-repository-1',
       projectId: '9001',
       githubRepositoryId: 9001n,
@@ -29,6 +32,8 @@ describe('PublicUserProfileController', () => {
       teamName: null,
       teamMemberCount: 1,
       applicantNickname: 'synthetic-applicant',
+      applicationMode: PublicProjectApplicationMode.PERSONAL,
+      displayName: 'synthetic-applicant',
     };
     const findProfile = jest.fn().mockResolvedValue({
       identity: {

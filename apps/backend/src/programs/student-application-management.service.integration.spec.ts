@@ -6,6 +6,7 @@ import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,6 +20,7 @@ const repository = new StudentApplicationManagementRepository(prisma, now);
 const service = new StudentApplicationManagementService(
   repository,
   applicationsRepository,
+  new ApplicationAnswersService(),
 );
 const STUDENT_ID = 'student-application-race-student';
 const GITHUB_ID = 8_000_000_000_101n;

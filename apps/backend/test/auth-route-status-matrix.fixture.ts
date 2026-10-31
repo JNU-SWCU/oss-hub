@@ -6,14 +6,9 @@ import { AuthenticationGuard } from '../src/auth/authentication.guard';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthController } from '../src/auth/auth.controller';
 import { AuthService, LoginHistoryService } from '../src/auth/auth.service';
-import { sessionCookieName } from '../src/auth/cookies.policy';
 import type { AuthUser } from '../src/auth/http-auth.types';
 import { OriginGuard } from '../src/auth/origin.guard';
 import { SessionGuard } from '../src/auth/session.guard';
-import {
-  issueSessionToken,
-  SESSION_MAX_AGE_SECONDS,
-} from '../src/auth/auth.policy';
 import { ProblemDetailFilter } from '../src/platform/problem-detail.filter';
 import { HealthController } from '../src/platform/health.controller';
 import { HealthService } from '../src/platform/health.service';
@@ -31,6 +26,13 @@ import { ProgramsService } from '../src/programs/programs.service';
 import { ProgramViewerService } from '../src/programs/program-viewer.service';
 import { RankingController } from '../src/ranking/ranking.controller';
 import { RankingService } from '../src/ranking/ranking.service';
+import {
+  AuthSessionService,
+  SESSION_MAX_AGE_SECONDS,
+} from '../src/auth/auth-session.service';
+import { STATELESS_PROVIDERS } from './stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const syntheticGithubId = 424242n;
@@ -144,6 +146,7 @@ export class AuthRouteStatusHarness {
         RankingController,
       ],
       providers: [
+        ...STATELESS_PROVIDERS,
         AuthenticationGuard,
         SessionGuard,
         OriginGuard,
@@ -237,14 +240,14 @@ export class AuthRouteStatusHarness {
     this.application.useGlobalFilters(new ProblemDetailFilter());
     await this.application.listen(0, '127.0.0.1');
     this.baseUrl = await this.application.getUrl();
-    this.sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    this.sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       syntheticGithubId,
       0,
     )}`;
-    this.expiredSessionCookie = `${sessionCookieName(
+    this.expiredSessionCookie = `${authSessionService.sessionCookieName(
       false,
-    )}=${await issueSessionToken(
+    )}=${await authSessionService.issueSessionToken(
       sessionSecret,
       syntheticGithubId,
       0,

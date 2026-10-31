@@ -1,11 +1,9 @@
 import {
   COLLABORATOR_OUTCOMES,
   type CollaboratorOutcome,
-} from '../../src/github/github-app.client';
-import {
   type GithubPublicRepositoryMetadata,
   type GithubRepositoryMetadata,
-} from '../../src/github/github-app-response.policy';
+} from '../../src/github/github-app.client';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,

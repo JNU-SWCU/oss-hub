@@ -11,9 +11,10 @@ import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
-jest.mock('./submission-file.policy', () => ({
-  ...jest.requireActual<Record<string, unknown>>('./submission-file.policy'),
+jest.mock('./submission-upload.config', () => ({
+  ...jest.requireActual<Record<string, unknown>>('./submission-upload.config'),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,
   SUBMISSION_UPLOAD_MAX_LABEL: '2 MB',
 }));
@@ -31,6 +32,7 @@ beforeAll(async () => {
       ProgramSubmissionsController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
       SubmissionsService,
       ProgramAuthoringService,
       { provide: AuditLogService, useValue: { record: jest.fn() } },

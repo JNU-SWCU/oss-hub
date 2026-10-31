@@ -1,35 +1,110 @@
-import {
-  ProgramListItemNote,
-  PersonalizedProgramListItem,
-  ProgramListPage,
-  type ApplicationSubmissionSummaryResult,
-  type ProgramDetailResult,
-  type ProgramListRecord,
-} from './programs.types';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   type MilestoneSubmissionType,
   SubmissionStatus,
+  type ProgramTrackType,
+  type ProgramLifecycle,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import {
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-} from './milestone-completion.policy';
-import {
-  programDeadline,
-  type ProgramListQuery,
-  type ProgramStatusCounts,
-} from './programs.policy';
-import { programCoverImageUrl } from './program-cover.policy';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import {
-  getTemplateByKey,
+  type ProgramViewer,
+  ProgramViewerRole,
+} from './program-viewer.service';
+import {
+  ProgramsRepository,
+  ProgramListRecord,
+  type ProgramStatusCounts,
+} from './programs.repository';
+import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
+import type { ProgramListQuery } from './program-list-status-filter.repository';
+import type { SubmissionCompletionTargetRow } from './submission-completion.config';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import {
+  ProgramRulesService,
   PROGRAM_PARTICIPATION,
-} from './program-template-registry.policy';
-import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
+} from './program-rules.service';
+
+export interface ProgramListItemNote {
+  readonly text: string;
+  readonly icon?: 'team';
+}
+
+export interface ProgramListPageItem extends PersonalizedProgramListItem {
+  readonly coverImageUrl: string | null;
+}
+
+export interface PersonalizedProgramListItem extends ProgramListRecord {
+  readonly note?: ProgramListItemNote;
+
+  readonly viewerApplicationStatus?: ApplicationStatus;
+
+  readonly applicationCount?: number;
+
+  readonly pendingApplicationCount?: number;
+}
+
+export interface ProgramListPage {
+  readonly items: readonly ProgramListPageItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+type ViewerSubmissionStatusResult = SubmissionStatus | 'NOT_SUBMITTED' | null;
+
+export interface ApplicationSubmissionSummaryResult {
+  readonly notSubmitted: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly rejected: number;
+  readonly total: number;
+}
+
+interface ProgramMilestoneResult {
+  readonly id: string;
+  readonly name: string;
+  readonly startAt: Date;
+  readonly dueAt: Date;
+  readonly dDay: number;
+  readonly deadlineLabel: string;
+  readonly description: string | null;
+  readonly submissionType: MilestoneSubmissionType | null;
+
+  readonly submissionItemCount: number;
+  readonly viewerSubmissionStatus: ViewerSubmissionStatusResult;
+  readonly applicationSubmissionSummary: ApplicationSubmissionSummaryResult | null;
+}
+
+export interface ProgramDetailResult {
+  readonly coverImageUrl: string | null;
+  readonly id: string;
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly applicationTemplateKey: string;
+
+  readonly lifecycle: ProgramLifecycle;
+  readonly description: string;
+  readonly repositoryProvisioningEnabled: boolean;
+  readonly applicationPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+  readonly operatingPeriod: {
+    readonly startsAt: Date;
+    readonly endsAt: Date;
+  };
+  readonly viewer: {
+    readonly role: ProgramViewerRole;
+    readonly applicationStatus: ApplicationStatus | null;
+  };
+  readonly milestones: readonly ProgramMilestoneResult[];
+}
 
 type SubmissionRecord = {
   readonly milestoneId: string;
@@ -40,29 +115,6 @@ type DocumentSubmissionRecord = {
   readonly milestoneDocumentId: string;
   readonly status: SubmissionStatus;
 };
-
-function milestoneStatusFor(
-  milestone: {
-    readonly id: string;
-    readonly submissionType: MilestoneSubmissionType | null;
-    readonly documents: readonly { readonly id: string }[];
-  },
-  submissions: readonly SubmissionRecord[],
-  documentSubmissions: readonly DocumentSubmissionRecord[],
-) {
-  return milestoneCompletionStatus({
-    submissionAxisInUse: milestone.submissionType !== null,
-    requiredDocumentStatuses: milestone.documents.map(
-      (document) =>
-        documentSubmissions.find(
-          (submission) => submission.milestoneDocumentId === document.id,
-        )?.status ?? null,
-    ),
-    submissionStatus:
-      submissions.find((submission) => submission.milestoneId === milestone.id)
-        ?.status ?? null,
-  });
-}
 
 const ANONYMOUS_VIEWER: ProgramViewer = {
   githubId: null,
@@ -78,18 +130,6 @@ const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
   REJECTED: '아쉽지만 이번에는 함께하지 못합니다',
 };
 
-function isTeamProgram(item: ProgramListRecord): boolean {
-  const template = getTemplateByKey(item.applicationTemplateKey);
-  return template?.participation === PROGRAM_PARTICIPATION.TEAM;
-}
-
-function noteWithTeamIcon(
-  text: string,
-  item: ProgramListRecord,
-): ProgramListItemNote {
-  return isTeamProgram(item) ? { text, icon: 'team' } : { text };
-}
-
 const EMPTY_SUMMARY = {
   notSubmitted: 0,
   submitted: 0,
@@ -101,7 +141,36 @@ const EMPTY_SUMMARY = {
 
 @Injectable()
 export class ProgramsService {
-  constructor(private readonly repository: ProgramsRepository) {}
+  constructor(
+    private readonly repository: ProgramsRepository,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
+    private readonly programRulesService: ProgramRulesService,
+  ) {}
+
+  private async findStudentApplicationAxes(programId: string, userId: string) {
+    const application = await this.repository.findStudentApplication(
+      programId,
+      userId,
+    );
+    return application && this.toTargetSubmissionAxes(application);
+  }
+
+  private toTargetSubmissionAxes<
+    T extends {
+      readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+    },
+  >(application: T) {
+    const { submissions, documentSubmissions } =
+      this.milestoneCompletionService.projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
+    return {
+      ...application,
+      submissions,
+      milestoneDocumentSubmissions: documentSubmissions,
+    };
+  }
 
   async list(
     query: ProgramListQuery,
@@ -113,7 +182,14 @@ export class ProgramsService {
       now,
     );
     return {
-      items: await this.personalize(rawItems, viewer),
+      items: (await this.personalize(rawItems, viewer)).map((item) => ({
+        ...item,
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
+          item.id,
+          item.coverId,
+          item.coverExternalImageUrl,
+        ),
+      })),
       page: query.page,
       pageSize: query.pageSize,
       totalItems,
@@ -139,7 +215,10 @@ export class ProgramsService {
         return {
           ...item,
           viewerApplicationStatus: status,
-          note: noteWithTeamIcon(STUDENT_APPLICATION_STATUS_NOTE[status], item),
+          note: this.noteWithTeamIcon(
+            STUDENT_APPLICATION_STATUS_NOTE[status],
+            item,
+          ),
         };
       });
     }
@@ -158,7 +237,7 @@ export class ProgramsService {
           ...item,
           applicationCount: bucket.total,
           pendingApplicationCount: bucket.pending,
-          note: noteWithTeamIcon(text, item),
+          note: this.noteWithTeamIcon(text, item),
         };
       });
     }
@@ -186,19 +265,18 @@ export class ProgramsService {
 
       const studentApplication =
         viewer.role === 'STUDENT' && viewer.userId
-          ? await this.repository.findStudentApplication(
-              programId,
-              viewer.userId,
-            )
+          ? await this.findStudentApplicationAxes(programId, viewer.userId)
           : null;
       const staffApplications =
         viewer.role === 'STAFF' || viewer.role === 'ADMIN'
-          ? await this.repository.findApprovedApplications(programId)
+          ? (await this.repository.findApprovedApplications(programId)).map(
+              (application) => this.toTargetSubmissionAxes(application),
+            )
           : null;
 
       return {
         id: program.id,
-        coverImageUrl: programCoverImageUrl(
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           program.id,
           program.cover?.id,
           program.cover?.imageUrl,
@@ -223,7 +301,10 @@ export class ProgramsService {
           applicationStatus: studentApplication?.status ?? null,
         },
         milestones: program.milestones.map((milestone) => {
-          const deadline = programDeadline(milestone.dueAt, now);
+          const deadline = this.programRulesService.programDeadline(
+            milestone.dueAt,
+            now,
+          );
           return {
             id: milestone.id,
             name: milestone.name,
@@ -236,7 +317,7 @@ export class ProgramsService {
             submissionItemCount: milestone._count.documents,
             viewerSubmissionStatus:
               milestone.submissionType !== null && studentApplication
-                ? milestoneStatusFor(
+                ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
                     studentApplication.milestoneDocumentSubmissions,
@@ -268,7 +349,7 @@ export class ProgramsService {
   ): ApplicationSubmissionSummaryResult {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
     for (const application of applications) {
-      const status = milestoneStatusFor(
+      const status = this.milestoneStatusFor(
         milestone,
         application.submissions,
         application.milestoneDocumentSubmissions,
@@ -281,5 +362,43 @@ export class ProgramsService {
       else summary.rejected += 1;
     }
     return summary;
+  }
+
+  private milestoneStatusFor(
+    milestone: {
+      readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
+      readonly documents: readonly { readonly id: string }[];
+    },
+    submissions: readonly SubmissionRecord[],
+    documentSubmissions: readonly DocumentSubmissionRecord[],
+  ) {
+    return this.milestoneCompletionService.milestoneCompletionStatus({
+      submissionAxisInUse: milestone.submissionType !== null,
+      requiredDocumentStatuses: milestone.documents.map(
+        (document) =>
+          documentSubmissions.find(
+            (submission) => submission.milestoneDocumentId === document.id,
+          )?.status ?? null,
+      ),
+      submissionStatus:
+        submissions.find(
+          (submission) => submission.milestoneId === milestone.id,
+        )?.status ?? null,
+    });
+  }
+
+  private isTeamProgram(item: ProgramListRecord): boolean {
+    const template = this.programRulesService.getTemplateByKey(
+      item.applicationTemplateKey,
+    );
+    return template?.participation === PROGRAM_PARTICIPATION.TEAM;
+  }
+
+  private noteWithTeamIcon(
+    text: string,
+    item: ProgramListRecord,
+  ): ProgramListItemNote {
+    return this.isTeamProgram(item) ? { text, icon: 'team' } : { text };
   }
 }

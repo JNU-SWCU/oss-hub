@@ -2,31 +2,32 @@ import { Logger } from '@nestjs/common';
 import {
   CollectionIncrementalRepository,
   CollectionIncrementalStoreRepository,
+  type CollectionSyncRuntime,
 } from './collection-incremental.repository';
-import type { CollectionSyncRuntime } from './collection-incremental.types';
 import {
   CollectionSyncService,
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../platform/prisma.service';
-import {
-  type CollectionAppClient,
-  type CollectionCommit,
-  type CollectionIssue,
-  type CollectionPullRequest,
-  type CollectionRelease,
-  type CollectionRepository as ProviderRepository,
-  type CommitHeadProbeResult,
-  type CommitTraversalResult,
-  type IssueIncrementalResult,
-  type PullRequestIncrementalResult,
-  type ReleaseListingResult,
-  type ReleaseProbeResult,
+import type {
+  CollectionAppClient,
+  CollectionCommit,
+  CollectionIssue,
+  CollectionPullRequest,
+  CollectionRelease,
+  CollectionRepository as ProviderRepository,
+  CommitHeadProbeResult,
+  CommitTraversalResult,
+  IssueIncrementalResult,
+  PullRequestIncrementalResult,
+  ReleaseListingResult,
+  ReleaseProbeResult,
+  RequestFingerprint,
 } from './collection-app.client';
 import type { CollectionAppTokenClient } from './collection-app-token.client';
-import type { RequestFingerprint } from './github.policy';
 import { CollectionAppClientError } from './collection-app.error';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 type Row = Record<string, unknown>;
 
@@ -723,7 +724,7 @@ const runtimeFor = (client: ClientMock): CollectionSyncRuntime => ({
   organizationLogin: 'synthetic-org',
   tokens: {} as CollectionAppTokenClient,
   client: client as unknown as CollectionAppClient,
-  queue: new ProviderRequestQueue(),
+  queue: new ProviderRequestQueueClient(),
 });
 
 const GITHUB_ORG_ID = 900n;
@@ -737,6 +738,7 @@ function createService(
     new CollectionIncrementalRepository(db),
     () => runtimeFor(client),
     () => Promise.resolve(GITHUB_ORG_ID),
+    new RepositoryUrlService(),
     overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
     overrides.createRunId ?? (() => 'run-1'),
   );
@@ -751,6 +753,7 @@ function createServiceWithExternal(
     new CollectionIncrementalRepository(db),
     () => runtimeFor(externalClient),
     () => Promise.resolve(GITHUB_ORG_ID),
+    new RepositoryUrlService(),
     overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
     overrides.createRunId ?? (() => 'run-1'),
     () => runtimeFor(externalClient),
@@ -1452,7 +1455,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
     }
 
     let currentClient = budgetedClient();
-    const queue = new ProviderRequestQueue();
+    const queue = new ProviderRequestQueueClient();
     const originalShouldStop = queue.shouldStop.bind(queue);
     jest.spyOn(queue, 'shouldStop').mockImplementation(() => {
       if (processedThisRun >= stopAfter) return true;
@@ -1469,6 +1472,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
         queue,
       }),
       () => Promise.resolve(GITHUB_ORG_ID),
+      new RepositoryUrlService(),
       () => new Date('2026-08-01T00:00:00.000Z'),
       () => `run-${processedOrder.length}`,
     );
@@ -3394,6 +3398,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       new CollectionIncrementalRepository(db),
       () => runtime,
       () => Promise.resolve(GITHUB_ORG_ID),
+      new RepositoryUrlService(),
       () => NOW,
       () => 'run-1',
     );

@@ -1,8 +1,8 @@
 import { CollectionAppClient } from '../src/github/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
 import { CollectionAppTokenClient } from '../src/github/collection-app-token.client';
-import type { CollectionSyncRuntime } from '../src/github/collection-incremental.types';
-import { ProviderRequestQueue } from '../src/github/provider-request-queue.policy';
+import { type CollectionSyncRuntime } from '../src/github/collection-incremental.repository';
+import { ProviderRequestQueueClient } from '../src/github/provider-request-queue.client';
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
@@ -420,7 +420,7 @@ function createSyntheticTokenProvider(): CollectionAppTokenClient {
 
 export function createSyntheticSyncRuntime(
   provider: SyntheticGithubProvider,
-  queue: ProviderRequestQueue,
+  queue: ProviderRequestQueueClient,
   fetcherMiddleware: Fetcher = (input, init) => provider.fetcher(input, init),
 ): CollectionSyncRuntime {
   const tokens = createSyntheticTokenProvider();

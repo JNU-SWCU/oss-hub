@@ -1,13 +1,12 @@
+import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
-import {
-  OBJECT_STORAGE,
-  ObjectStorageError,
-} from '../platform/object-storage.types';
+import { ObjectStorageError } from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
@@ -19,7 +18,7 @@ import {
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverService } from './program-creation.service';
-import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXuoAAAAASUVORK5CYII=',
@@ -41,6 +40,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       ProgramAuthoringUploadService,
       ProgramCoverService,
       ProgramAuthoringService,

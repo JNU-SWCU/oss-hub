@@ -4,9 +4,11 @@ import {
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,
   ProgramOverviewRepository,
+  ProgramOverviewRecord,
+  PublicTeamRow,
 } from './program-overview.repository';
-import { ProgramOverviewRecord, PublicTeamRow } from './programs.types';
 import { ProgramOverviewService } from './program-overview.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticGithubId = 123456789n;
@@ -61,7 +63,8 @@ describe('ProgramOverviewService', () => {
           findByProgramId: jest.fn().mockResolvedValue(baseOverview),
           findViewerIdentity: jest.fn().mockResolvedValue({
             userId: syntheticUserId,
-            role: 'ADMIN',
+            hasAdminAccess: true,
+            hasStaffAccess: false,
             memberKind: 'STUDENT',
           }),
           findApprovedViewerApplicationId: jest
@@ -85,11 +88,10 @@ describe('ProgramOverviewService', () => {
           countFullySubmittedParticipants: jest.fn().mockResolvedValue(0),
           findMilestoneSchedules: jest.fn().mockResolvedValue([]),
         } as unknown as ProgramOverviewRepository;
-        const result = await new ProgramOverviewService(repository).getOverview(
-          syntheticProgramId,
-          syntheticGithubId,
-          operationsView,
-        );
+        const result = await new ProgramOverviewService(
+          repository,
+          new UserProfileService(),
+        ).getOverview(syntheticProgramId, syntheticGithubId, operationsView);
         expect(result.viewer.role).toBe(operationsView ? 'ADMIN' : 'STUDENT');
         expect(result.viewer.myDocumentsCompleted).toBe(
           operationsView ? null : 1,
@@ -101,7 +103,10 @@ describe('ProgramOverviewService', () => {
       const repository = {
         findByProgramId: jest.fn().mockResolvedValue(null),
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       await expect(
         service.getOverview(syntheticProgramId, syntheticGithubId),
@@ -112,9 +117,12 @@ describe('ProgramOverviewService', () => {
 
     it('학생이면서 서류 걸린 마일스톤이 있으면 프로그램 전체 내 제출 N/M과 마일스톤별 분해를 채운다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -138,7 +146,10 @@ describe('ProgramOverviewService', () => {
         findSubmittedDocumentIds,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -176,9 +187,12 @@ describe('ProgramOverviewService', () => {
 
     it('학생인데 이 프로그램에 신청이 없으면 완료 0으로 떨어진다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -197,7 +211,10 @@ describe('ProgramOverviewService', () => {
         findSubmittedDocumentIds,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -229,9 +246,12 @@ describe('ProgramOverviewService', () => {
 
     it('서류 걸린 마일스톤이 하나도 없으면 학생 viewer 수치는 전부 null/빈 배열이다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: 'STUDENT' });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: 'STUDENT',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      });
       const findCurrentSubmissionMilestone = jest.fn().mockResolvedValue(null);
       const findViewerApplicationId = jest.fn();
       const findMilestoneDocumentCatalog = jest.fn();
@@ -244,7 +264,10 @@ describe('ProgramOverviewService', () => {
         findMilestoneDocumentCatalog,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -264,9 +287,12 @@ describe('ProgramOverviewService', () => {
 
     it('교직원이면 제출률 분자와 마일스톤별 분해(팀 수 기준)를 채운다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: 'STAFF' });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -290,7 +316,10 @@ describe('ProgramOverviewService', () => {
         countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -330,9 +359,12 @@ describe('ProgramOverviewService', () => {
 
     it('ADMIN도 교직원과 같은 제출률·분해 경로를 탄다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: 'ADMIN' });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: null,
+        hasStaffAccess: false,
+        hasAdminAccess: true,
+      });
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
@@ -353,7 +385,10 @@ describe('ProgramOverviewService', () => {
         countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -380,9 +415,12 @@ describe('ProgramOverviewService', () => {
 
     it('역할이 확정되지 않은 뷰어는 viewer 수치가 전부 null/빈 배열이다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
-      const findViewerIdentity = jest
-        .fn()
-        .mockResolvedValue({ userId: syntheticUserId, role: null });
+      const findViewerIdentity = jest.fn().mockResolvedValue({
+        userId: syntheticUserId,
+        memberKind: null,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      });
       const findCurrentSubmissionMilestone = jest.fn();
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
@@ -391,7 +429,10 @@ describe('ProgramOverviewService', () => {
         findCurrentSubmissionMilestone,
         findMilestoneSchedules,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getOverview(
         syntheticProgramId,
@@ -424,9 +465,12 @@ describe('ProgramOverviewService', () => {
       ): ProgramOverviewRepository {
         return {
           findByProgramId: jest.fn().mockResolvedValue(baseOverview),
-          findViewerIdentity: jest
-            .fn()
-            .mockResolvedValue({ userId: syntheticUserId, role: null }),
+          findViewerIdentity: jest.fn().mockResolvedValue({
+            userId: syntheticUserId,
+            memberKind: null,
+            hasStaffAccess: false,
+            hasAdminAccess: false,
+          }),
           findMilestoneSchedules: jest.fn().mockResolvedValue(schedules),
         } as unknown as ProgramOverviewRepository;
       }
@@ -444,6 +488,7 @@ describe('ProgramOverviewService', () => {
         };
         const service = new ProgramOverviewService(
           repositoryWithSchedules([farMilestone, nearMilestone]),
+          new UserProfileService(),
         );
 
         const result = await service.getOverview(
@@ -484,6 +529,7 @@ describe('ProgramOverviewService', () => {
             exactNowMilestone,
             upcomingMilestone,
           ]),
+          new UserProfileService(),
         );
 
         const result = await service.getOverview(
@@ -522,6 +568,7 @@ describe('ProgramOverviewService', () => {
         const schedules = [firstMilestone, secondMilestone, earlierMilestone];
         const service = new ProgramOverviewService(
           repositoryWithSchedules(schedules),
+          new UserProfileService(),
         );
 
         const result = await service.getOverview(
@@ -546,7 +593,10 @@ describe('ProgramOverviewService', () => {
       });
 
       it('다가오는 마일스톤이 없으면 빈 배열이다', async () => {
-        const service = new ProgramOverviewService(repositoryWithSchedules([]));
+        const service = new ProgramOverviewService(
+          repositoryWithSchedules([]),
+          new UserProfileService(),
+        );
 
         const result = await service.getOverview(
           syntheticProgramId,
@@ -567,7 +617,10 @@ describe('ProgramOverviewService', () => {
         programExists: jest.fn().mockResolvedValue(false),
         listPublicTeams,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       await expect(
         service.getPublicTeams(syntheticProgramId),
@@ -601,7 +654,10 @@ describe('ProgramOverviewService', () => {
         programExists: jest.fn().mockResolvedValue(true),
         listPublicTeams,
       } as unknown as ProgramOverviewRepository;
-      const service = new ProgramOverviewService(repository);
+      const service = new ProgramOverviewService(
+        repository,
+        new UserProfileService(),
+      );
 
       const result = await service.getPublicTeams(syntheticProgramId);
 

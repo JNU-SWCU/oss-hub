@@ -13,8 +13,8 @@ import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-
 import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
-import { parseInsightsYearQuery } from './staff.policy';
 import { StaffInsightsService } from './staff-insights.service';
+import { StaffInsightsQueryService } from './staff-insights-query.service';
 
 @Controller('dashboard/staff')
 export class StaffDashboardController {
@@ -23,6 +23,7 @@ export class StaffDashboardController {
     private readonly service: Pick<StaffDashboardService, 'summary'>,
     @Inject(StaffInsightsService)
     private readonly insights: Pick<StaffInsightsService, 'summarize'>,
+    private readonly staffInsightsQueryService: StaffInsightsQueryService,
   ) {}
 
   @Get('summary')
@@ -46,7 +47,7 @@ export class StaffDashboardController {
     return StaffInsightsResponseDto.from(
       await this.insights.summarize(
         request.sessionGithubId,
-        parseInsightsYearQuery(query.year),
+        this.staffInsightsQueryService.parseInsightsYearQuery(query.year),
       ),
     );
   }

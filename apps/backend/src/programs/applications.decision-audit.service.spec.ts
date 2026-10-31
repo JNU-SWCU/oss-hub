@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   RepositoryConnectionMode,
@@ -6,17 +7,19 @@ import {
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import {
-  APPLICATION_DECISION_ACTIONS,
+  type ApplicationsRepository,
+  type ApplicationsTransactionStore,
   type ApplicationDecisionNotificationInput,
-} from './application-decision.policy';
-import type {
-  ApplicationsRepository,
-  ApplicationsTransactionStore,
 } from './applications.repository';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -115,9 +118,16 @@ function createHarness(
     repository,
     { record } as unknown as AuditLogService,
     { assertActiveStaff },
-    new ApplicationJoinCodeService({
-      TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-    }),
+    new ApplicationJoinCodeService(
+      {
+        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+      },
+      new JoinCodeSecretService(),
+    ),
+    new AuditLogMetadataService(),
+    new RepositoryUrlService(),
+    new ApplicationAnswersService(),
+    new RepositoryProvisionEventService(),
   );
   return {
     service,
@@ -358,6 +368,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
         repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
       }),
+      expect.any(Function),
     );
   });
 });
@@ -447,6 +458,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -464,6 +476,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -528,6 +541,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -786,6 +800,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 
@@ -831,6 +846,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(
@@ -838,6 +854,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         applicationId: APPLICATION_ID,
         idempotencyKey: `repository-provision:${APPLICATION_ID}`,
       }),
+      expect.any(Function),
     );
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -949,6 +966,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
+      expect.any(Function),
     );
   });
 

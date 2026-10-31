@@ -1,12 +1,11 @@
 import type { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import { programCoverImageUrl } from '../../programs/program-cover.policy';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedApplicationCounts,
   StaffDashboardComposedProgramSummary,
   StaffDashboardComposedSummary,
   StaffDashboardSubmissionSummary,
-} from '../staff.types';
+} from '../staff-dashboard.service';
 
 export class StaffDashboardApplicationCountsResponseDto {
   declare readonly total: number;
@@ -98,11 +97,7 @@ export class StaffDashboardProgramSummaryResponseDto {
     program: StaffDashboardComposedProgramSummary,
   ): StaffDashboardProgramSummaryResponseDto {
     return {
-      coverImageUrl: programCoverImageUrl(
-        program.id,
-        program.coverId,
-        program.coverExternalImageUrl,
-      ),
+      coverImageUrl: program.coverImageUrl,
       id: program.id,
       name: program.name,
       trackType: program.trackType,

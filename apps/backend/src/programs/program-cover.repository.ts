@@ -1,3 +1,4 @@
+import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Injectable } from '@nestjs/common';
 import {
   ProgramLifecycle,
@@ -6,17 +7,26 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  PROGRAM_COVER_MAX_BYTES,
-  PROGRAM_COVER_STORAGE_PREFIX,
-  assertProgramCoverUpload,
-} from './program-cover.policy';
-import { ProgramCoverChange } from './programs.types';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import {
-  ProgramAuthoringUploadConsumptionRaceError,
-  type ProgramAuthoringUploadToken,
+  ProgramAuthoringUploadTransactionRepository,
   type ProgramExternalCover,
-} from './program-authoring.policy';
+} from './program-authoring-upload-transaction.repository';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import { ProgramAuthoringUploadConsumptionRaceError } from './program-authoring.error';
+import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
+
+export type ProgramCoverChange = {
+  readonly actorId: string;
+} & (
+  | {
+      readonly uploadId: string | null;
+      readonly externalCover?: never;
+      readonly assertUpload: (upload: ProgramAuthoringUploadToken) => void;
+    }
+  | {
+      readonly externalCover: ProgramExternalCover | null;
+      readonly uploadId?: never;
+    }
+);
 
 @Injectable()
 export class ProgramCoverRepository {
@@ -51,94 +61,93 @@ export class ProgramCoverRepository {
       sizeBytes: cover.sizeBytes,
     };
   }
-}
 
-export async function replaceProgramCover(
-  transaction: Prisma.TransactionClient,
-  input: ProgramCoverChange & { readonly programId: string },
-): Promise<void> {
-  let upload: ProgramAuthoringUploadToken | null = null;
-  if (input.uploadId != null) {
-    const uploads =
-      await ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
-        transaction,
+  static async replaceProgramCover(
+    transaction: Prisma.TransactionClient,
+    input: ProgramCoverChange & { readonly programId: string },
+  ): Promise<void> {
+    let upload: ProgramAuthoringUploadToken | null = null;
+    if (input.uploadId != null) {
+      const uploads =
+        await ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+          transaction,
+          [input.uploadId],
+        );
+      ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+        input.actorId,
         [input.uploadId],
+        uploads,
       );
-    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
-      input.actorId,
-      [input.uploadId],
-      uploads,
-    );
-    upload = uploads[0] ?? null;
-    if (upload !== null) assertProgramCoverUpload(upload);
-  }
-  const previous = await transaction.programCover.findUnique({
-    where: { programId: input.programId },
-    select: { storageKey: true },
-  });
-  if (previous !== null) {
-    if (previous.storageKey !== null) {
-      await transaction.programPurgeFileTombstone.create({
-        data: {
-          storageKey: previous.storageKey,
-          nextDeleteAttemptAt: new Date(),
-        },
+      upload = uploads[0] ?? null;
+      if (upload !== null) input.assertUpload(upload);
+    }
+    const previous = await transaction.programCover.findUnique({
+      where: { programId: input.programId },
+      select: { storageKey: true },
+    });
+    if (previous !== null) {
+      if (previous.storageKey !== null) {
+        await transaction.programPurgeFileTombstone.create({
+          data: {
+            storageKey: previous.storageKey,
+            nextDeleteAttemptAt: new Date(),
+          },
+        });
+      }
+      await transaction.programCover.delete({
+        where: { programId: input.programId },
       });
     }
-    await transaction.programCover.delete({
-      where: { programId: input.programId },
+    if (upload !== null) {
+      await ProgramCoverRepository.createProgramCover(transaction, {
+        programId: input.programId,
+        actorId: input.actorId,
+        upload,
+      });
+    } else if (input.externalCover != null) {
+      await ProgramCoverRepository.createExternalProgramCover(
+        transaction,
+        input.programId,
+        input.externalCover,
+      );
+    }
+  }
+
+  static async createExternalProgramCover(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+    externalCover: ProgramExternalCover,
+  ): Promise<void> {
+    await transaction.programCover.create({
+      data: { programId, source: 'EXTERNAL', ...externalCover },
     });
   }
-  if (upload !== null) {
-    await createProgramCover(transaction, {
-      programId: input.programId,
-      actorId: input.actorId,
-      upload,
+
+  static async createProgramCover(
+    transaction: Prisma.TransactionClient,
+    input: {
+      readonly programId: string;
+      readonly actorId: string;
+      readonly upload: ProgramAuthoringUploadToken;
+    },
+  ): Promise<void> {
+    await transaction.programCover.create({
+      data: {
+        programId: input.programId,
+        storageKey: input.upload.storageKey,
+        mimeType: input.upload.mimeType,
+        sizeBytes: input.upload.sizeBytes,
+      },
     });
-  } else if (input.externalCover != null) {
-    await createExternalProgramCover(
-      transaction,
-      input.programId,
-      input.externalCover,
-    );
-  }
-}
-
-export async function createExternalProgramCover(
-  transaction: Prisma.TransactionClient,
-  programId: string,
-  externalCover: ProgramExternalCover,
-): Promise<void> {
-  await transaction.programCover.create({
-    data: { programId, source: 'EXTERNAL', ...externalCover },
-  });
-}
-
-export async function createProgramCover(
-  transaction: Prisma.TransactionClient,
-  input: {
-    readonly programId: string;
-    readonly actorId: string;
-    readonly upload: ProgramAuthoringUploadToken;
-  },
-): Promise<void> {
-  assertProgramCoverUpload(input.upload);
-  await transaction.programCover.create({
-    data: {
-      programId: input.programId,
-      storageKey: input.upload.storageKey,
-      mimeType: input.upload.mimeType,
-      sizeBytes: input.upload.sizeBytes,
-    },
-  });
-  const consumed = await transaction.programAuthoringUpload.deleteMany({
-    where: {
-      id: input.upload.id,
-      actorId: input.actorId,
-      lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
-    },
-  });
-  if (consumed.count !== 1) {
-    throw new ProgramAuthoringUploadConsumptionRaceError(input.upload.id);
+    const consumed = await transaction.programAuthoringUpload.deleteMany({
+      where: {
+        id: input.upload.id,
+        actorId: input.actorId,
+        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+      },
+    });
+    if (consumed.count !== 1) {
+      throw new ProgramAuthoringUploadConsumptionRaceError(input.upload.id);
+    }
   }
 }

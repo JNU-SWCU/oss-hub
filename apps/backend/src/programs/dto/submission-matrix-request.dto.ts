@@ -1,10 +1,8 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import {
-  MATRIX_APPLICATION_MODES,
-  type MatrixApplicationMode,
-  type SubmissionMatrixQuery,
-} from '../submission.types';
+import { type MatrixApplicationMode } from '../submission-matrix.repository';
+import { MATRIX_APPLICATION_MODES } from '../submission-matrix.config';
+import { type SubmissionMatrixQuery } from '../submission-matrix.service';
 
 const MATRIX_DEFAULT_PAGE_SIZE = 20;
 const MATRIX_MAX_PAGE_SIZE = 100;

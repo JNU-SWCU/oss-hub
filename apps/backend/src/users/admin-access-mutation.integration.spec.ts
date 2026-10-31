@@ -6,16 +6,19 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogRepository } from '../platform/audit-log.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,7 +29,14 @@ const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
 const service = new AdminAccessService(
   repository,
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 let sequence = 0;
 

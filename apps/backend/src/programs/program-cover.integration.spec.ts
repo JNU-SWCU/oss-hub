@@ -1,10 +1,10 @@
+import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { replaceProgramCover } from './program-cover.repository';
-import { programCoverImageUrl } from './program-cover.policy';
+
 import {
   ACTOR,
   GITHUB_ID,
@@ -17,6 +17,11 @@ import {
   seedUpload,
   authoring,
 } from './program-cover.integration-fixtures';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const programCoverUrlService = new ProgramCoverUrlService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -43,9 +48,14 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     }),
   ).rejects.toThrow('idempotency key');
   expect((await editor.getProgram(GITHUB_ID, created.id)).coverImageUrl).toBe(
-    programCoverImageUrl(created.id, cover.id),
+    programCoverUrlService.programCoverImageUrl(created.id, cover.id),
   );
-  const programs = new ProgramsService(new ProgramsRepository(prisma));
+  const programs = new ProgramsService(
+    new ProgramsRepository(prisma),
+    new MilestoneCompletionService(),
+    new ProgramCoverUrlService(),
+    new ProgramRulesService(),
+  );
   const listing = await programs.list({
     page: 1,
     pageSize: 20,
@@ -53,14 +63,16 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     status: 'all',
   });
   expect(ProgramListPageResponseDto.from(listing).items[0]?.coverImageUrl).toBe(
-    programCoverImageUrl(created.id, cover.id),
+    programCoverUrlService.programCoverImageUrl(created.id, cover.id),
   );
   const detail = await programs.detail(created.id, {
     githubId: null,
     userId: null,
     role: null,
   });
-  expect(detail.coverImageUrl).toBe(programCoverImageUrl(created.id, cover.id));
+  expect(detail.coverImageUrl).toBe(
+    programCoverUrlService.programCoverImageUrl(created.id, cover.id),
+  );
   expect(detail).not.toHaveProperty('storageKey');
   await expect(
     publicCovers.findPublicCover(created.id, cover.id),
@@ -130,7 +142,7 @@ it('preserves omitted covers, atomically replaces/removes them, and immediately 
     coverUploadId: second.id,
   });
   expect(changed.coverImageUrl).not.toBe(
-    programCoverImageUrl(program.id, oldCover.id),
+    programCoverUrlService.programCoverImageUrl(program.id, oldCover.id),
   );
   expect(
     await publicCovers.findPublicCover(program.id, oldCover.id),
@@ -172,10 +184,11 @@ it.each(['replace', 'remove'])(
     const second = await seedUpload();
     await expect(
       prisma.$transaction(async (transaction) => {
-        await replaceProgramCover(transaction, {
+        await ProgramCoverRepository.replaceProgramCover(transaction, {
           programId: program.id,
           actorId: ACTOR,
           uploadId: operation === 'replace' ? second.id : null,
+          assertUpload: () => undefined,
         });
         throw new Error('synthetic save failure');
       }),

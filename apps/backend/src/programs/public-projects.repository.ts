@@ -1,17 +1,56 @@
-import {
-  PublicProjectRow,
-  PublicProjectCursor,
-  PublicUserIdentity,
-  PUBLIC_PROJECT_YEAR_MAX,
-  PUBLIC_PROJECT_YEAR_MIN,
-} from './public-projects.policy';
 import { Injectable } from '@nestjs/common';
 import type { ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-identity.policy';
+  PUBLIC_PROJECT_YEAR_MIN,
+  PUBLIC_PROJECT_YEAR_MAX,
+} from './public-projects.config';
+
+type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+
+type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
+
+interface PublicEligibilityObservation {
+  readonly visibility: CollectionRepositoryVisibility;
+  readonly presence: CollectionRepositoryPresence;
+  readonly observedAt: Date | null;
+}
+
+export interface PublicEligibilityInput {
+  readonly platformPublic: boolean;
+  readonly publishedAt: Date | null;
+
+  readonly observation: PublicEligibilityObservation | null;
+}
+
+export interface PublicProjectRow {
+  readonly id: string;
+
+  readonly projectId: string;
+  readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
+  readonly publishedAt: Date;
+  readonly programId: string;
+  readonly programName: string;
+  readonly trackType: ProgramTrackType | null;
+  readonly teamName: string | null;
+
+  readonly teamMemberCount: number;
+  readonly applicantNickname: string;
+}
+
+export interface PublicProjectCursor {
+  readonly publishedAt: Date;
+  readonly id: string;
+}
+
+export interface PublicUserIdentity {
+  readonly userId: string;
+  readonly githubNickname: string;
+  readonly avatarUrl: string | null;
+
+  readonly githubId: bigint;
+}
 
 const PROJECT_ROW_SELECT = {
   id: true,
@@ -52,8 +91,7 @@ function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
     id: row.id,
     projectId: row.githubRepositoryId.toString(),
     githubRepositoryId: row.githubRepositoryId,
-    repositoryName: repositoryNameFromNameWithOwner(row.nameWithOwner),
-    githubUrl: repositoryUrlFromNameWithOwner(row.nameWithOwner),
+    nameWithOwner: row.nameWithOwner,
     publishedAt: row.publishedAt!,
     programId: row.programId!,
     programName: row.program!.name,

@@ -1,3 +1,4 @@
+import { AdminAccessRepository } from './admin-access.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -5,10 +6,8 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { authorityLabel, type AuthorityLabel } from './authority-label.policy';
-import { lockActiveAdminRows } from './admin-access.repository';
+import type { MemberKind } from '@prisma/client';
 
 interface AccountDeactivationTarget {
   readonly id: string;
@@ -16,7 +15,7 @@ interface AccountDeactivationTarget {
   readonly githubLogin: string;
   readonly displayName: string | null;
 
-  readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
@@ -81,7 +80,7 @@ class PrismaAccountDeactivationTransactionRepository implements AccountDeactivat
   }
 
   lockActiveAdmins(): Promise<number> {
-    return lockActiveAdminRows(this.transaction);
+    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   async deactivate(userId: string): Promise<boolean> {
@@ -115,12 +114,8 @@ function toAccountDeactivationTarget(
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    displayName: UserProfileReadRepository.resolveUserProfileName(user),
-    role: authorityLabel({
-      memberKind: user.profile?.memberKind ?? null,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
-    }),
+    displayName: user.profile?.name ?? null,
+    memberKind: user.profile?.memberKind ?? null,
     hasStaffAccess: user.hasStaffAccess,
     hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,

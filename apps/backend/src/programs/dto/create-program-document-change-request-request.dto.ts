@@ -8,16 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { DomainException } from '../../platform/error-code.error';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from '../milestone-documents-error-code.error';
-import {
-  type ProgramDocumentChangeRequestInput,
-  type ProgramDocumentChangeRequestScope,
-  toProgramDocumentChangeRequestScope,
-} from '../milestone-document.policy';
+import { type ProgramDocumentChangeRequestScope } from '../milestone-document-collection-read.repository';
 
 export class CreateProgramDocumentChangeRequestRequestDto {
   @IsIn(['PROGRAM', 'TEAM'])
@@ -41,30 +32,4 @@ export class CreateProgramDocumentChangeRequestRequestDto {
 
   @Matches(/^[0-9a-f]{64}$/)
   declare readonly expectedVersion: string;
-
-  toInput(): ProgramDocumentChangeRequestInput {
-    const comment = this.comment.trim();
-    if (comment === '') {
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED
-        ],
-      );
-    }
-    const resubmissionDueAt = new Date(this.resubmissionDueAt);
-    if (Number.isNaN(resubmissionDueAt.getTime())) {
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED
-        ],
-      );
-    }
-    return {
-      scope: toProgramDocumentChangeRequestScope(this.scope, this.teamId),
-      includeFinalDecisions: this.includeFinalDecisions,
-      comment,
-      resubmissionDueAt,
-      expectedVersion: this.expectedVersion,
-    };
-  }
 }

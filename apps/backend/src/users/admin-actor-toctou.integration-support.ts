@@ -5,25 +5,25 @@ import type {
   AdminAccessRepositoryPort,
   AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
-  AdminAccessUserDetailRecord,
+  AdminAccessUserDetailRow,
   AdminAccessUserPageRecord,
-  AdminAccessUserRecord,
+  AdminAccessUserRow,
   AdminAccessUserUpdate,
-} from './admin-access.repository';
-import type {
-  AdminProfileApplyOutcome,
-  AdminProfileLegacyFields,
-  AdminProfileRepositoryPort,
-  AdminProfileTargetRecord,
-  AdminProfileTransactionStore,
-  AdminProfileWriteFields,
-} from './users.types';
-import type {
-  AdminAccessFacets,
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+} from './admin-access-read.repository';
+import {
+  type AdminProfileApplyOutcome,
+  type AdminProfileLegacyFields,
+  type AdminProfileRepositoryPort,
+  type AdminProfileTargetRecord,
+  type AdminProfileTransactionStore,
+  type AdminProfileWriteFields,
+} from './admin-profile.repository';
+import {
+  type AdminAccessFacets,
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 export type ActorReadPause = () => Promise<void>;
 
@@ -55,7 +55,7 @@ class PausingActorReadAccessStore implements AdminAccessTransactionStore {
     return count;
   }
 
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
 
@@ -102,7 +102,7 @@ export class PausingActorReadAdminAccessRepository implements AdminAccessReposit
     return this.repository.facets(query);
   }
 
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
 

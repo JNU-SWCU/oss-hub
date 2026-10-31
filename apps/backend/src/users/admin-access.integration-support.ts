@@ -4,22 +4,22 @@ import type {
   AdminAccessRepositoryPort,
   AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
-  AdminAccessUserDetailRecord,
+  AdminAccessUserDetailRow,
   AdminAccessUserPageRecord,
-  AdminAccessUserRecord,
+  AdminAccessUserRow,
   AdminAccessUserUpdate,
   AdminAccessPendingDecisionUpdate,
-} from './admin-access.repository';
-import type {
-  AdminAccessFacets,
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+} from './admin-access-read.repository';
 import type {
   IndependentAuthorityRepositoryPort,
   IndependentAuthorityTransactionStore,
 } from './independent-authority.repository';
+import {
+  type AdminAccessFacets,
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 class TwoPartyBarrier {
   private arrivals = 0;
@@ -55,7 +55,7 @@ class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
     return this.store.lockActiveAdmins();
   }
 
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
 
@@ -109,7 +109,7 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
     return this.repository.facets(query);
   }
 
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
 
@@ -162,7 +162,7 @@ class PausingActorRevalidationTransactionStore implements AdminAccessTransaction
     return count;
   }
 
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
 
@@ -214,7 +214,7 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
     return this.repository.facets(query);
   }
 
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
 
@@ -248,7 +248,7 @@ class DecisionFailureTransactionStore implements AdminAccessTransactionStore {
     return this.store.lockActiveAdmins();
   }
 
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
 
@@ -290,7 +290,7 @@ export class FailingDecisionAdminAccessRepository implements AdminAccessReposito
     return this.repository.facets(query);
   }
 
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
 

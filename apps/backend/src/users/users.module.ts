@@ -28,6 +28,8 @@ import { ConsentsService } from './consents.service';
 import { MemberOnboardingService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
 import { RoleRequestsController } from './role-requests.controller';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
   imports: [PlatformModule, AuthModule],
@@ -43,12 +45,14 @@ import { RoleRequestsController } from './role-requests.controller';
     AccountDeactivationRepository,
     AccountDeactivationService,
     AdminAccessRepository,
+    AdminAccessMutationService,
     AdminAccessService,
     IndependentAuthorityRepository,
     IndependentAuthorityService,
     MemberKindRepository,
     MemberKindService,
     AdminProfileRepository,
+    AdminProfileMutationService,
     AdminProfileService,
     UsersRepository,
     UsersService,
@@ -63,6 +67,7 @@ import { RoleRequestsController } from './role-requests.controller';
     UsersService,
     UsersAuthorityService,
     ConsentsService,
+    AdminAccessMutationService,
     AdminAccessService,
     AdminProfileService,
     IndependentAuthorityService,

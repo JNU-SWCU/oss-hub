@@ -8,15 +8,16 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionAppClient } from './collection-app.client';
 import { CollectionAppTokenClient } from './collection-app-token.client';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
+import {
+  CollectionIncrementalRepository,
+  type CollectionSyncRuntime,
+  type CollectionSyncRuntimeFactory,
+} from './collection-incremental.repository';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import type {
-  CollectionSyncRuntime,
-  CollectionSyncRuntimeFactory,
-} from './collection-incremental.types';
 import { CollectionSyncService } from './collection-sync.service';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 export class CollectionPublicTokenService {
   private token: string | undefined;
@@ -76,11 +77,13 @@ export class CollectionProvidersService {
         CollectionIncrementalRepository,
         RUNTIME_CONFIG,
         CollectionPublicTokenService,
+        RepositoryUrlService,
       ],
       useFactory: (
         incrementalRepository: CollectionIncrementalRepository,
         runtimeConfig: RuntimeConfig,
         publicTokens: CollectionPublicTokenService,
+        repositoryUrl: RepositoryUrlService,
       ): CollectionSyncService => {
         let orgTokens: CollectionAppTokenClient | undefined;
         let runtime: CollectionSyncRuntime | undefined;
@@ -89,7 +92,7 @@ export class CollectionProvidersService {
 
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
           orgTokens = new CollectionAppTokenClient(config);
-          const queue = new ProviderRequestQueue();
+          const queue = new ProviderRequestQueueClient();
           runtime = {
             appId: config.appId,
             organizationLogin: config.orgLogin.toLowerCase(),
@@ -116,7 +119,7 @@ export class CollectionProvidersService {
         const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
           if (externalRuntime) return externalRuntime;
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-          const queue = new ProviderRequestQueue();
+          const queue = new ProviderRequestQueueClient();
           externalRuntime = {
             appId: config.appId,
             organizationLogin: config.orgLogin.toLowerCase(),
@@ -134,6 +137,7 @@ export class CollectionProvidersService {
           incrementalRepository,
           runtimeFactory,
           resolveGithubOrganizationId,
+          repositoryUrl,
           undefined,
           undefined,
           externalRuntimeFactory,

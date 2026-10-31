@@ -6,12 +6,45 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  DeadlineProgramSource,
-  DeadlineRecipientSource,
-  DeadlineWindow,
-  NotifiableStaffRecipient,
-} from './deadline-digest-eligibility.policy';
+
+export type NotifiableStaffRecipient = {
+  readonly id: string;
+  readonly notificationEmail: string;
+};
+
+export type DeadlineWindow = {
+  readonly from: Date;
+  readonly to: Date;
+};
+
+export type DeadlineRecipientSource = {
+  readonly id: string;
+  readonly nickname: string;
+  readonly notificationEmail: string | null;
+  readonly notifyEnabled: boolean;
+  readonly accountStatus: AccountStatus;
+};
+
+export type DeadlineProgramSource = {
+  readonly id: string;
+  readonly name: string;
+  readonly notifyOnDeadline: boolean;
+  readonly milestones: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly dueAt: Date;
+    readonly documents: readonly {
+      readonly id: string;
+      readonly required: boolean;
+    }[];
+  }[];
+  readonly applications: readonly {
+    readonly id: string;
+    readonly applicant: DeadlineRecipientSource;
+    readonly members: readonly DeadlineRecipientSource[];
+    readonly submittedDocumentIds: readonly string[];
+  }[];
+};
 
 export type DigestNotificationStatus = 'SENT' | 'FAILED';
 

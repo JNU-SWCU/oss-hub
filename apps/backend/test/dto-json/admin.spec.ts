@@ -8,13 +8,13 @@ import {
 } from '../../src/admin/dto/admin-access-user-page-response.dto';
 import { CollectionTriggerResponseDto } from '../../src/admin/dto/collection-trigger-response.dto';
 import { SystemStatusResponseDto } from '../../src/admin/dto/system-status-response.dto';
-import type { SystemStatusResult } from '../../src/admin/system-status.types';
-import type {
-  AdminAccessFacets,
-  AdminAccessMutationResult,
-  AdminAccessUser,
-} from '../../src/users/admin-access.types';
 import { AuditLogPageResponseDto } from '../../src/admin/dto/audit-log-page-response.dto';
+import { type SystemStatusResult } from '../../src/admin/system-status.service';
+import {
+  type AdminAccessFacets,
+  type AdminAccessUser,
+} from '../../src/users/admin-access-read-ordering.repository';
+import { type AdminAccessMutationResult } from '../../src/users/admin-access-mutation.service';
 
 const at = (iso: string): Date => new Date(iso);
 

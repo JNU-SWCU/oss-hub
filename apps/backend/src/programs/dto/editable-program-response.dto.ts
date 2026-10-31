@@ -3,13 +3,13 @@ import type {
   ProgramMilestoneDocumentView,
   ProgramMilestoneEditView,
   ProgramMilestoneView,
-} from '../program-editor.types';
+} from '../program-editor.repository';
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
   SUBMISSION_TEMPLATE_ACCEPT,
   SUBMISSION_TEMPLATE_FORMAT_LABEL,
-} from '../submission-file.policy';
+} from '../submission-upload.config';
 
 export class ProgramMilestoneResponseDto {
   declare readonly id: string;

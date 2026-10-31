@@ -2,12 +2,13 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './program-submissions.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(32).fill(48);
 
@@ -17,6 +18,7 @@ export async function createMatrixDeliveryHttp(
   const module = await Test.createTestingModule({
     controllers: [ProgramSubmissionsController],
     providers: [
+      AuthSessionService,
       SessionGuard,
       { provide: SubmissionMatrixService, useValue: service },
       { provide: AuthConfig, useValue: { sessionSecret } },
@@ -41,6 +43,10 @@ export async function createMatrixDeliveryHttp(
 }
 
 export async function matrixSessionHeaders(githubId: bigint) {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
-  return { cookie: `${sessionCookieName(false)}=${token}` };
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
+  return { cookie: `${authSessionService.sessionCookieName(false)}=${token}` };
 }

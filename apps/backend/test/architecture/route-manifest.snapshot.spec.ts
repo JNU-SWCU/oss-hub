@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { discoverAppModuleControllers } from '../../src/app-controller-discovery';
+import {
+  discoverAppModuleControllers,
+  compareStringsByCodeUnit,
+} from '../../src/app-controller-discovery';
 import { createAuthRouteManifest } from '../../src/auth/auth-route-manifest.fixture';
-import { compareStringsByCodeUnit } from '../../src/platform/platform.policy';
 
 interface RouteSnapshotEntry {
   readonly method: string;

@@ -14,20 +14,15 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  Public,
-  Protected,
-  OptionalSession,
-} from '../auth/auth-route-metadata.policy';
-import {
   ProgramCoverService,
   ProgramCreationService,
 } from './program-creation.service';
 import { OriginGuard } from '../auth/origin.guard';
 import {
   type AuthenticatedRequest,
-  HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
 import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
 import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
@@ -54,6 +49,11 @@ import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-resp
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
+import {
+  Public,
+  Protected,
+  OptionalSession,
+} from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -2,12 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
@@ -15,6 +20,10 @@ export const GITHUB_ID = 9_126_600_001n;
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
   new ProgramEditorRepository(prisma),
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
 );
 export const publicCovers = new ProgramCoverRepository(prisma);
 export const record = jest.fn(() => Promise.resolve());
@@ -87,6 +96,10 @@ beforeAll(async () => {
     providers: [
       ProgramAuthoringService,
       ProgramAuthoringRepository,
+      AuditLogMetadataService,
+      ProgramRulesService,
+      ProgramUploadRulesService,
+      SubmissionFileRulesService,
       { provide: PrismaService, useValue: prisma },
       { provide: AuditLogService, useValue: { record } },
     ],

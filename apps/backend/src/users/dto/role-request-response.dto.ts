@@ -1,5 +1,5 @@
 import type { StaffAccessRequestStatus } from '@prisma/client';
-import type { StaffAccessRequestRecord } from '../users.types';
+import type { StaffAccessRequestRecord } from '../member-onboarding.repository';
 
 export class RoleRequestResponseDto {
   declare readonly requestedRole: 'STAFF';

@@ -1,11 +1,18 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import type { ApplicationsRepository } from './applications.repository';
-import type { StaffDashboardSummary } from './application-records.types';
+import type {
+  ApplicationsRepository,
+  StaffDashboardSummary,
+} from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -64,9 +71,16 @@ describe('ApplicationsService.staffSummary', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual(
@@ -85,9 +99,16 @@ describe('ApplicationsService.staffSummary', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual({
@@ -107,9 +128,16 @@ describe('ApplicationsService.staffSummary', () => {
       {
         assertActiveStaff,
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).rejects.toMatchObject(

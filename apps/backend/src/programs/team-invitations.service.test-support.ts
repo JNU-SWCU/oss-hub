@@ -3,9 +3,10 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import {
   type AcceptInvitationOnOk,
   TeamInvitationsRepository,
+  type SentTeamInvitationRecord,
 } from './team-invitations.repository';
-import type { SentTeamInvitationRecord } from './team-invitation.types';
 import { TeamInvitationsService } from './team-invitations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export const syntheticGithubId = 424242n;
 export const syntheticUserId = 'cuid-synthetic-invitee';
@@ -117,6 +118,7 @@ export function buildService(
     service: new TeamInvitationsService(
       repository,
       resolvedAuditLog as AuditLogService,
+      new AuditLogMetadataService(),
     ),
     repository,
     auditLog: resolvedAuditLog,

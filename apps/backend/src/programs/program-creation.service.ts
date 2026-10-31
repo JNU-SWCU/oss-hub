@@ -4,27 +4,46 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import {
-  OBJECT_STORAGE,
-  ObjectStorageError,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { ObjectStorageError } from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
-  createProgramCreatedAuditMetadata,
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
+  AccountStatus,
+  ProgramCategory,
+  type ProgramTrackType,
+} from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
-import type { CreateProgramCommand } from './programs.types';
 import { ProgramsRepository } from './programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import { isProgramEndAtUndecided } from './programs.policy';
-import { getProgramTemplate } from './program-template-registry.policy';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
+
+export type CreatedProgram = {
+  readonly id: string;
+  readonly category: ProgramCategory;
+  readonly applicationTemplateKey: string;
+  readonly applicationTemplateVersion: number;
+  readonly endAt: Date;
+};
+
+export type CreateProgramCommand = {
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType;
+  readonly applicationStartAt: string;
+  readonly applicationEndAt: string;
+  readonly startAt?: string;
+  readonly endAt: string;
+  readonly teamMinSize?: number | null;
+  readonly teamMaxSize?: number | null;
+  readonly description: string;
+};
 
 @Injectable()
 export class ProgramCoverService {
@@ -68,6 +87,8 @@ export class ProgramCreationService {
   constructor(
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly programRulesService: ProgramRulesService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
@@ -88,7 +109,9 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = getProgramTemplate(ProgramCategory.BASIC);
+    const template = this.programRulesService.getProgramTemplate(
+      ProgramCategory.BASIC,
+    );
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
     const teamMaxSize = input.teamMaxSize ?? template.teamSize.defaultMax;
     const hasValidApplicationPeriod =
@@ -121,7 +144,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      isProgramEndAtUndecided(endAt) ||
+      this.programRulesService.isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(
@@ -155,9 +178,10 @@ export class ProgramCreationService {
           action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
           targetType: 'PROGRAM',
           targetId: program.id,
-          metadata: createProgramCreatedAuditMetadata({
-            programName: program.name,
-          }),
+          metadata:
+            this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+              programName: program.name,
+            }),
         },
         writer,
       );

@@ -2,17 +2,81 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
-import { createAdminProfileAudit } from './admin-profile-audit.policy';
-import { requireActiveAdmin } from './admin-access-authorization.policy';
-import { roleError } from './admin-access-mutation.policy';
-import { isValidStudentId } from './user-profile.policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import {
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+} from '../platform/audit-log-metadata.config';
+import type { UserProfileAuditAction } from '../platform/audit-log.repository';
 import type {
-  AdminProfileFields,
-  AdminProfileUpdateCommand,
-  AdminProfileUpdateResult,
-} from './admin-profile.types';
-import type { AdminProfileRepositoryPort } from './users.types';
+  UserProfileAuditMetadata,
+  UserProfileAuditFieldChange,
+} from '../platform/audit-log-metadata.config';
+import {
+  type AdminProfileTargetRecord,
+  type AdminProfileRepositoryPort,
+} from './admin-profile.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { Injectable } from '@nestjs/common';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+
+type AdminProfileFields = {
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+export type AdminProfileUpdateCommand = {
+  readonly name?: string;
+  readonly studentId?: string;
+  readonly department?: string;
+};
+
+export type AdminProfileUpdateResult = AdminProfileFields & {
+  readonly id: string;
+};
+
+type AdminProfileActor = {
+  readonly name: string | null;
+  readonly githubLogin: string;
+};
+
+type AdminProfileAudit = {
+  readonly action: UserProfileAuditAction;
+  readonly targetType: 'USER';
+  readonly targetId: string;
+  readonly metadata: UserProfileAuditMetadata;
+};
+
+function diffAdminProfileFields(
+  before: AdminProfileFields,
+  after: AdminProfileFields,
+): UserProfileAuditFieldChange[] {
+  const changes: UserProfileAuditFieldChange[] = [];
+  if (before.name !== after.name) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.NAME,
+      before: before.name,
+      after: after.name,
+    });
+  }
+  if (before.studentId !== after.studentId) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.STUDENT_ID,
+      before: before.studentId,
+      after: after.studentId,
+    });
+  }
+  if (before.department !== after.department) {
+    changes.push({
+      field: USER_PROFILE_AUDIT_FIELDS.DEPARTMENT,
+      before: before.department,
+      after: after.department,
+    });
+  }
+  return changes;
+}
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;
@@ -25,24 +89,33 @@ type MutationInput = {
   readonly command: AdminProfileUpdateCommand;
 };
 
+@Injectable()
 export class AdminProfileMutationService {
-  static async mutateAdminUserProfile(
+  constructor(
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
+  ) {}
+
+  async mutateAdminUserProfile(
     dependencies: MutationDependencies,
     input: MutationInput,
   ): Promise<AdminProfileUpdateResult> {
     return dependencies.repository.withTransaction(async (store) => {
       await store.lockActiveAdmins();
-      const actor = requireActiveAdmin(
+      const actor = this.adminAccessMutationService.requireActiveAdmin(
         await store.findActor(input.actorGithubId),
       );
       const before = await store.findTarget(input.userId);
       if (!before) {
-        throw roleError(RolesErrorCode.USER_NOT_FOUND);
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.USER_NOT_FOUND,
+        );
       }
 
       if (
         input.command.studentId !== undefined &&
-        !isValidStudentId(input.command.studentId)
+        !this.userProfileService.isValidStudentId(input.command.studentId)
       ) {
         throw new DomainException({
           code: SystemErrorCode.VALIDATION_FAILED,
@@ -121,7 +194,7 @@ export class AdminProfileMutationService {
         department: nextDepartment,
       };
 
-      const audit = createAdminProfileAudit({
+      const audit = this.createAdminProfileAudit({
         actor: { name: actor.name, githubLogin: actor.githubLogin },
         target: before,
         before,
@@ -142,5 +215,34 @@ export class AdminProfileMutationService {
 
       return { id: input.userId, ...after };
     });
+  }
+
+  private createAdminProfileAudit(input: {
+    readonly actor: AdminProfileActor;
+    readonly target: AdminProfileTargetRecord;
+    readonly before: AdminProfileFields;
+    readonly after: AdminProfileFields;
+  }): AdminProfileAudit | null {
+    const changes = diffAdminProfileFields(input.before, input.after);
+    if (changes.length === 0) {
+      return null;
+    }
+    return {
+      action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+      targetType: 'USER',
+      targetId: input.target.id,
+      metadata: this.auditLogMetadataService.createUserProfileAuditMetadata({
+        actor: {
+          displayName: input.actor.name,
+          githubLogin: input.actor.githubLogin,
+        },
+
+        target: {
+          displayName: input.target.name,
+          githubLogin: input.target.githubLogin,
+        },
+        changes,
+      }),
+    };
   }
 }

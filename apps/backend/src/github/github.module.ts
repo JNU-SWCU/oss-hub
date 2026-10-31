@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from './collection-schedule.service';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from '../auth/auth.module';
@@ -27,16 +28,19 @@ import {
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
-import {
-  GithubScheduler,
-  RepositoryProvisionScheduler,
-} from './github.scheduler';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
+import { RepositoryPublishService } from './repository-publish.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
   providers: [
+    CollectionScheduleService,
     CollectionAdminService,
-    GithubScheduler,
     CollectionTriggerService,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
@@ -56,6 +60,12 @@ import {
     RepositoryOutboxConsumerService,
     RepositoryProvisionJobRepository,
     RepositoryProvisionStateRepository,
+    RepositoryProvisionEventService,
+    RepositoryProvisionStateService,
+    RepositoryPublishService,
+    RepositoryUrlService,
+    RepositoryProvisionRulesService,
+    RepositoryProvisionGithubService,
     {
       provide: GithubAppTokenClient,
       inject: [GithubOperationsConfig],
@@ -72,56 +82,80 @@ import {
       provide: RepositoryProvisionWorkerService,
       inject: [
         RepositoryProvisionJobRepository,
-        RepositoryProvisionStateRepository,
+        RepositoryProvisionStateService,
         GithubAppClient,
         RepositoryOwnEnrollmentService,
+        AuditLogMetadataService,
+        RepositoryProvisionRulesService,
+        RepositoryProvisionGithubService,
       ],
       useFactory: (
         jobs: RepositoryProvisionJobRepository,
-        state: RepositoryProvisionStateRepository,
+        state: RepositoryProvisionStateService,
         github: GithubAppClient,
         enrollment: RepositoryOwnEnrollmentService,
+        auditLogMetadata: AuditLogMetadataService,
+        provisionRules: RepositoryProvisionRulesService,
+        provisionGithub: RepositoryProvisionGithubService,
       ): RepositoryProvisionWorkerService =>
-        new RepositoryProvisionWorkerService(jobs, state, github, enrollment),
+        new RepositoryProvisionWorkerService(
+          jobs,
+          state,
+          github,
+          enrollment,
+          auditLogMetadata,
+          provisionRules,
+          provisionGithub,
+        ),
     },
     {
       provide: RepositoriesService,
-      inject: [RepositoriesRepository, GithubAppClient, AuditLogService],
+      inject: [
+        RepositoriesRepository,
+        GithubAppClient,
+        AuditLogService,
+        AuditLogMetadataService,
+        RepositoryUrlService,
+      ],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
         auditLog: AuditLogService,
+        auditLogMetadata: AuditLogMetadataService,
+        repositoryUrl: RepositoryUrlService,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, auditLog),
+        new RepositoriesService(
+          repository,
+          github,
+          auditLog,
+          auditLogMetadata,
+          repositoryUrl,
+        ),
     },
     {
       provide: OwnRepositoryUrlValidationService,
-      inject: [GithubAppClient],
+      inject: [GithubAppClient, RepositoryProvisionGithubService],
       useFactory: (
         github: GithubAppClient,
+        repositoryProvisionGithub: RepositoryProvisionGithubService,
       ): OwnRepositoryUrlValidationService =>
-        new OwnRepositoryUrlValidationService(github),
+        new OwnRepositoryUrlValidationService(
+          github,
+          repositoryProvisionGithub,
+        ),
     },
     RepositoriesReadService,
-    {
-      provide: RepositoryProvisionScheduler,
-      inject: [
-        RepositoryOutboxConsumerService,
-        RepositoryProvisionWorkerService,
-      ],
-      useFactory: (
-        outbox: RepositoryOutboxConsumerService,
-        worker: RepositoryProvisionWorkerService,
-      ): RepositoryProvisionScheduler =>
-        new RepositoryProvisionScheduler(outbox, worker),
-    },
   ],
   exports: [
     CollectionAdminService,
+    CollectionScheduleService,
     CollectionTriggerService,
     RepositoriesService,
     RepositoriesReadService,
     OwnRepositoryUrlValidationService,
+    RepositoryProvisionEventService,
+    RepositoryPublishService,
+    RepositoryUrlService,
   ],
 })
 export class GithubModule {}

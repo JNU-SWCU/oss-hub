@@ -12,8 +12,8 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.policy';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

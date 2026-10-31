@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   AffiliationKind,
   ApplicationStatus,
@@ -10,9 +11,9 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { APPLICATION_DECISION_ACTIONS } from './application-decision.policy';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -21,6 +22,10 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -31,15 +36,26 @@ const prisma = new PrismaService();
 const repository = new ApplicationsRepository(prisma);
 const service = new ApplicationsService(
   repository,
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
   repository,
+  new ApplicationAnswersService(),
 );
 const ACTOR_ID = 'synthetic-decision-actor';
 const ACTOR_GITHUB_ID = 8_000_000_000_001n;
@@ -351,13 +367,23 @@ describe('ApplicationsService integration', () => {
       });
       const applicantService = new ApplicationsService(
         new ApplicationsRepository(applicantPrisma),
-        new AuditLogService(new AuditLogRepository(applicantPrisma)),
+        new AuditLogService(
+          new AuditLogRepository(applicantPrisma),
+          new AuditLogMetadataService(),
+        ),
         new UsersAuthorityService(
           new UsersAuthorityRepository(applicantPrisma),
         ),
-        new ApplicationJoinCodeService({
-          TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
-        }),
+        new ApplicationJoinCodeService(
+          {
+            TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
+          },
+          new JoinCodeSecretService(),
+        ),
+        new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
       );
       let releaseEditor!: () => void;
       const editorRelease = new Promise<void>((resolve) => {
@@ -1044,8 +1070,16 @@ describe('ApplicationsService integration', () => {
               await decisionGate;
               return application;
             },
-            discardRepositoryProvisionRequest: (id, discardedAt) =>
-              store.discardRepositoryProvisionRequest(id, discardedAt),
+            discardRepositoryProvisionRequest: (
+              id,
+              discardedAt,
+              parsePayload,
+            ) =>
+              store.discardRepositoryProvisionRequest(
+                id,
+                discardedAt,
+                parsePayload,
+              ),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
@@ -1054,8 +1088,8 @@ describe('ApplicationsService integration', () => {
               store.transitionApplication(input),
             createApplicationDecisionNotifications: (input) =>
               store.createApplicationDecisionNotifications(input),
-            createRepositoryProvisionEvent: (input) =>
-              store.createRepositoryProvisionEvent(input),
+            createRepositoryProvisionEvent: (input, parsePayload) =>
+              store.createRepositoryProvisionEvent(input, parsePayload),
           }),
         ),
       );
@@ -1109,8 +1143,16 @@ describe('ApplicationsService integration', () => {
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
-            discardRepositoryProvisionRequest: (id, discardedAt) =>
-              store.discardRepositoryProvisionRequest(id, discardedAt),
+            discardRepositoryProvisionRequest: (
+              id,
+              discardedAt,
+              parsePayload,
+            ) =>
+              store.discardRepositoryProvisionRequest(
+                id,
+                discardedAt,
+                parsePayload,
+              ),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
@@ -1121,8 +1163,8 @@ describe('ApplicationsService integration', () => {
               await store.createApplicationDecisionNotifications(input);
               throw new Error('synthetic post-notification failure');
             },
-            createRepositoryProvisionEvent: (input) =>
-              store.createRepositoryProvisionEvent(input),
+            createRepositoryProvisionEvent: (input, parsePayload) =>
+              store.createRepositoryProvisionEvent(input, parsePayload),
           }),
         ),
       );

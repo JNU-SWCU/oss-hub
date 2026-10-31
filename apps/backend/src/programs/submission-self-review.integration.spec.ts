@@ -15,6 +15,12 @@ import { UsersAuthorityRepository } from '../users/independent-authority.reposit
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,11 +34,16 @@ const authority = new UsersAuthorityService(
 const documentReviews = new MilestoneDocumentReviewsService(
   new MilestoneDocumentsRepository(fixture.prisma),
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyReviews = new SubmissionReviewsService(
   new SubmissionReviewsRepository(fixture.prisma),
   { publish: jest.fn() },
   authority,
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new SubmissionFileRulesService(),
 );
 const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];

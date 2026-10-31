@@ -9,9 +9,19 @@ import {
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
-import { RepositoryProvisionFailure } from './repository-provision-failure.policy';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.policy';
-import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
+import {
+  RepositoryProvisionLeaseLostError,
+  RepositoryProvisionFailure,
+} from './repository-provision-state.error';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
+
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';
@@ -244,6 +254,14 @@ function createDb(): MockDb {
   return db as MockDb;
 }
 
+function serviceFor(db: MockDb): RepositoryProvisionStateService {
+  return new RepositoryProvisionStateService(
+    repositoryFor(db),
+    new RepositoryUrlService(),
+    new RepositoryProvisionEventService(),
+  );
+}
+
 function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
   return new RepositoryProvisionStateRepository(db as unknown as PrismaService);
 }
@@ -299,7 +317,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       }),
     );
 
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -318,7 +336,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
 
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       name: 'RepositoryProvisionFailure',
       retryable: false,
@@ -351,7 +369,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       ),
     );
 
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -375,7 +393,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       ),
     );
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
       retryable: false,
@@ -391,7 +409,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
         RepositorySource.EXTERNAL_PUBLIC,
       ),
     );
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -413,7 +431,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
           : { ...job, repositoryId: 'different-repository' },
       );
 
-      const context = await repositoryFor(db).loadContext(
+      const context = await serviceFor(db).loadContext(
         JOB_ID,
         WORKER_ID,
         REQUEST_ID,
@@ -428,7 +446,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     db.repositoryProvisionJob.findFirst.mockResolvedValue(null);
 
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
 });
@@ -748,6 +766,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       nextAt,
       JSON.stringify(['alpha', 'zeta']),
+      parseProvisionPayload,
     );
 
     expect(
@@ -777,6 +796,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       new Date(NOW.getTime() + 900_000),
       JSON.stringify(['alpha', 'zeta']),
+      parseProvisionPayload,
     );
 
     expect(
@@ -826,6 +846,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       undefined,
       '[]',
+      parseProvisionPayload,
     );
 
     expect(order).toEqual(['lock-job', 'read-application', 'read-members']);
@@ -843,6 +864,9 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       REQUEST_ID,
       REPOSITORY_ID,
       NOW,
+      undefined,
+      undefined,
+      parseProvisionPayload,
     );
 
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
@@ -865,6 +889,9 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
         REQUEST_ID,
         REPOSITORY_ID,
         NOW,
+        undefined,
+        undefined,
+        parseProvisionPayload,
       ),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
     expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
@@ -887,10 +914,13 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
-    await repositoryFor(db).failJob({
-      ...failInput,
-      expectedMembershipFingerprint: JSON.stringify(['alpha', 'zeta']),
-    });
+    await repositoryFor(db).failJob(
+      {
+        ...failInput,
+        expectedMembershipFingerprint: JSON.stringify(['alpha', 'zeta']),
+      },
+      parseProvisionPayload,
+    );
 
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
@@ -911,10 +941,13 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
-    await repositoryFor(db).failJob({
-      ...failInput,
-      expectedMembershipFingerprint: JSON.stringify(['alpha']),
-    });
+    await repositoryFor(db).failJob(
+      {
+        ...failInput,
+        expectedMembershipFingerprint: JSON.stringify(['alpha']),
+      },
+      parseProvisionPayload,
+    );
 
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
@@ -928,7 +961,10 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
   it('지문 없는 실패는 멤버십을 읽지 않고 job 행만 잠그고 기록한다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).failJob({ ...failInput, final: false });
+    await repositoryFor(db).failJob(
+      { ...failInput, final: false },
+      parseProvisionPayload,
+    );
 
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
@@ -944,9 +980,9 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     const db = createDb();
     db.$queryRaw.mockResolvedValue([]);
 
-    await expect(repositoryFor(db).failJob(failInput)).rejects.toBeInstanceOf(
-      RepositoryProvisionLeaseLostError,
-    );
+    await expect(
+      repositoryFor(db).failJob(failInput, parseProvisionPayload),
+    ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
     expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
   });
 });
@@ -956,6 +992,142 @@ it('loadContext 실패는 재시도하지 않는 provision 실패 타입이다',
   db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
 
   await expect(
-    repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+    serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
   ).rejects.toBeInstanceOf(RepositoryProvisionFailure);
+});
+
+describe('RepositoryProvisionStateService.failJob 이력 payload 계약', () => {
+  const failInput = {
+    jobId: JOB_ID,
+    workerId: WORKER_ID,
+    requestId: REQUEST_ID,
+    final: true,
+    errorCode: 'REPOSITORY_PROVISION_INTERNAL',
+    nextAttemptAt: NOW,
+    now: NOW,
+  };
+  const validPayload = {
+    applicationId: 'application-1',
+    programId: 'program-1',
+    teamId: null,
+    requestedAt: NOW.toISOString(),
+    collaboratorGithubLogins: ['synthetic-member'],
+  };
+
+  it.each([
+    ['programId 없음', { ...validPayload, programId: undefined }],
+    [
+      '정규형이 아닌 requestedAt',
+      { ...validPayload, requestedAt: '2026-09-01' },
+    ],
+    [
+      '알 수 없는 연결 방식',
+      { ...validPayload, repositoryConnectionMode: 'BOGUS' },
+    ],
+  ])(
+    '%s인 요청은 최종 실패 이력을 남기지 않고 거절한다',
+    async (_label, payload) => {
+      const db = createDb();
+      db.outboxEvent.findUnique.mockResolvedValue({
+        id: REQUEST_ID,
+        type: REPOSITORY_PROVISION_EVENT_TYPE,
+        aggregateType: 'Application',
+        aggregateId: 'application-1',
+        payload,
+      });
+
+      await expect(serviceFor(db).failJob(failInput)).rejects.toBeInstanceOf(
+        InvalidRepositoryProvisionEventError,
+      );
+      expect(db.repositoryIssuanceHistory.createMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it('유효한 요청은 최종 실패 이력을 남긴다', async () => {
+    const db = createDb();
+
+    await serviceFor(db).failJob(failInput);
+
+    expect(db.repositoryIssuanceHistory.createMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비교', () => {
+  function recordDb() {
+    const db = createDb();
+    db.$queryRaw
+      .mockResolvedValueOnce([{ id: 'application-1' }] as never)
+      .mockResolvedValueOnce([
+        {
+          applicationId: 'application-1',
+          currentEventId: REQUEST_ID,
+          repositoryId: null,
+          status: RepositoryProvisionJobStatus.PROCESSING,
+          lockedBy: WORKER_ID,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    db.githubRepository.findUnique.mockResolvedValue(null);
+    const create = jest.fn().mockResolvedValue({
+      id: REPOSITORY_ID,
+      applicationId: 'application-1',
+      githubRepositoryId: 7n,
+      nameWithOwner: 'synthetic-owner/synthetic-repo',
+      visibility: RepositoryVisibility.PUBLIC,
+    });
+    const update = jest.fn().mockResolvedValue({});
+    Object.assign(db.githubRepository, { create });
+    Object.assign(db.application, { update });
+    return db;
+  }
+
+  function recordInput(url: string) {
+    return {
+      jobId: JOB_ID,
+      workerId: WORKER_ID,
+      requestId: REQUEST_ID,
+      applicationId: 'application-1',
+      programId: 'program-1',
+      teamId: null,
+      connectionMode: RepositoryConnectionMode.OWN,
+      repositoryUrl: url,
+      currentConnectionMode: RepositoryConnectionMode.OWN,
+      currentRepositoryUrl: url,
+      source: RepositorySource.EXTERNAL_PUBLIC,
+      metadata: {
+        githubRepositoryId: 7n,
+        name: 'synthetic-repo',
+        url,
+        nameWithOwner: 'synthetic-owner/synthetic-repo',
+        visibility: RepositoryVisibility.PUBLIC,
+        description: null,
+      },
+    };
+  }
+
+  it.each([
+    'https://github.com/synthetic-owner/synthetic-repo/',
+    'https://github.com/SYNTHETIC-OWNER/synthetic-repo',
+  ])('정규 주소와 다른 철자 %s는 REPOSITORY_MISMATCH로 닫는다', async (url) => {
+    const db = recordDb();
+
+    await expect(
+      serviceFor(db).recordRepository(recordInput(url)),
+    ).rejects.toMatchObject({
+      code: PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+      retryable: false,
+    });
+    expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('정규 주소는 저장소를 job에 붙인다', async () => {
+    const db = recordDb();
+
+    await expect(
+      serviceFor(db).recordRepository(
+        recordInput('https://github.com/synthetic-owner/synthetic-repo'),
+      ),
+    ).resolves.toMatchObject({ id: REPOSITORY_ID, name: 'synthetic-repo' });
+    expect(db.repositoryProvisionJob.updateMany).toHaveBeenCalledTimes(1);
+  });
 });

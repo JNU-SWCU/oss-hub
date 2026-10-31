@@ -5,10 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import {
-  type ProgramDocumentChangeRequestScope,
-  toProgramDocumentChangeRequestScope,
-} from '../milestone-document.policy';
+import { type ProgramDocumentChangeRequestScope } from '../milestone-document-collection-read.repository';
 
 export class ProgramDocumentChangeRequestTargetsRequestDto {
   @IsIn(['PROGRAM', 'TEAM'])
@@ -19,8 +16,4 @@ export class ProgramDocumentChangeRequestTargetsRequestDto {
   @MinLength(1)
   @MaxLength(200)
   declare readonly teamId?: string | null;
-
-  toScope(): ProgramDocumentChangeRequestScope {
-    return toProgramDocumentChangeRequestScope(this.scope, this.teamId);
-  }
 }

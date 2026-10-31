@@ -18,6 +18,7 @@ import { ProgramDocumentChangeRequestCountResponseDto } from './dto/program-docu
 import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-program-document-change-request-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -25,6 +26,7 @@ type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class ProgramDocumentChangeRequestsController {
   constructor(
     private readonly changeRequests: ProgramDocumentChangeRequestsService,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   @Get('targets')
@@ -39,7 +41,10 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.targets(
         request.sessionGithubId,
         programId,
-        query.toScope(),
+        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+          query.scope,
+          query.teamId,
+        ),
       ),
     );
   }
@@ -56,7 +61,9 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.requestChanges(
         request.sessionGithubId,
         programId,
-        body.toInput(),
+        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
+          body,
+        ),
       ),
     );
   }

@@ -1,14 +1,51 @@
 import { Injectable } from '@nestjs/common';
-import { activityTotal } from '../platform/platform.policy';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import {
-  RANKING_VIEWER_CLASSES,
-  RANKING_YEAR_ALL,
-  type RankingEntry,
-  type RankingPage,
-  type RankingYear,
-} from './ranking.policy';
 import { RankingRepository } from './ranking.repository';
+import {
+  RankingYearService,
+  RankingYear,
+  RANKING_YEAR_ALL,
+} from './ranking-year.service';
+
+export const RANKING_VIEWER_CLASSES = {
+  PUBLIC: 'public',
+  MEMBER: 'member',
+  STAFF: 'staff',
+} as const;
+
+export type RankingViewerClass =
+  (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
+
+interface RankingMetrics {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
+export interface RankingEntry extends RankingMetrics {
+  readonly rank: number;
+
+  readonly displayName: string;
+  readonly githubLogin: string;
+  readonly department: string | null;
+
+  readonly name?: string | null;
+  readonly total: number;
+}
+
+export interface RankingPage {
+  readonly year: RankingYear;
+  readonly items: readonly RankingEntry[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+
+  readonly dataAsOf: Date | null;
+  readonly viewerClass: RankingViewerClass;
+  readonly nextCycleAt: Date | null;
+}
 
 interface RankedPublicEntry extends RankingEntry {
   readonly githubId: bigint;
@@ -21,7 +58,10 @@ export class RankingService {
     Promise<readonly RankedPublicEntry[]>
   >();
 
-  constructor(private readonly ranking: RankingRepository) {}
+  constructor(
+    private readonly ranking: RankingRepository,
+    private readonly rankingYearService: RankingYearService,
+  ) {}
 
   async findPage(
     year: RankingYear,
@@ -112,7 +152,7 @@ export class RankingService {
       issueCount: row.issueCount,
       repositoryCount: row.repositoryCount,
       starCount: row.starCount,
-      total: activityTotal(row),
+      total: this.rankingYearService.activityTotal(row),
     }));
 
     return [...candidates]

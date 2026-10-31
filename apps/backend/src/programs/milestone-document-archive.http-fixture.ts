@@ -2,17 +2,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   archiveId,
   type ProgramArchiveIntegrationFixture,
 } from './milestone-document-archive.integration-fixture';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import type { ProgramDocumentArchiveScope } from './milestone-document-result.types';
+import {
+  MilestoneDocumentArchiveService,
+  type ProgramDocumentArchiveScope,
+} from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { DownloadResponseService } from './download-response.service';
+
+const authSessionService = new AuthSessionService();
 
 export async function startArchiveHttp(
   fixture: ProgramArchiveIntegrationFixture,
@@ -25,6 +29,8 @@ export async function startArchiveHttp(
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],
     providers: [
+      AuthSessionService,
+      DownloadResponseService,
       SessionGuard,
       { provide: AuthConfig, useValue: { sessionSecret } },
       {
@@ -40,7 +46,11 @@ export async function startArchiveHttp(
   app.useGlobalFilters(new ProblemDetailFilter());
   await app.listen(0, '127.0.0.1');
   const base = await app.getUrl();
-  const token = await issueSessionToken(sessionSecret, 960000001135099n, 0);
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    960000001135099n,
+    0,
+  );
   return {
     close: () => app.close(),
     request: (
@@ -56,7 +66,9 @@ export async function startArchiveHttp(
         `${base}/api/v1/programs/${programId}/documents/collection/archive?${query}`,
         {
           headers: authenticated
-            ? { cookie: `${sessionCookieName(false)}=${token}` }
+            ? {
+                cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
+              }
             : {},
         },
       );

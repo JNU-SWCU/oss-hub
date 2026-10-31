@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
-import { AdminProfileMutationService } from './admin-profile-mutation.service';
+import {
+  AdminProfileMutationService,
+  type AdminProfileUpdateCommand,
+  type AdminProfileUpdateResult,
+} from './admin-profile-mutation.service';
 import {
   AdminProfileRepository,
   type AdminProfileRepositoryPort,
 } from './admin-profile.repository';
-import type {
-  AdminProfileUpdateCommand,
-  AdminProfileUpdateResult,
-} from './admin-profile.types';
 
 @Injectable()
 export class AdminProfileService {
@@ -16,6 +16,7 @@ export class AdminProfileService {
     @Inject(AdminProfileRepository)
     private readonly profileRepository: AdminProfileRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly adminProfileMutationService: AdminProfileMutationService,
   ) {}
 
   patchProfile(
@@ -23,7 +24,7 @@ export class AdminProfileService {
     userId: string,
     command: AdminProfileUpdateCommand,
   ): Promise<AdminProfileUpdateResult> {
-    return AdminProfileMutationService.mutateAdminUserProfile(
+    return this.adminProfileMutationService.mutateAdminUserProfile(
       { repository: this.profileRepository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );

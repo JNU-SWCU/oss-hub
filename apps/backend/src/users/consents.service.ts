@@ -5,17 +5,70 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from './consent-error-code.error';
-import { ConsentsRepository } from './member-onboarding.repository';
 import {
-  ConsentGrant,
+  ConsentsRepository,
   ConsentRecord,
-  ConsentStatus,
   ConsentUser,
-} from './users.types';
-import {
-  COMPATIBLE_CONSENT_POLICY_VERSIONS,
-  CURRENT_CONSENT_POLICY,
-} from './user-profile.policy';
+} from './member-onboarding.repository';
+
+export const CONSENT_POLICY_VERSION = '2026-10-19';
+
+const COMPATIBLE_CONSENT_POLICY_VERSIONS = ['2026-08-11'] as const;
+
+export const CONSENT_ITEM_KEYS = {
+  PRIVACY_COLLECTION: 'PRIVACY_COLLECTION',
+  GITHUB_ACTIVITY: 'GITHUB_ACTIVITY',
+  ORG_REPOSITORY_TERMS: 'ORG_REPOSITORY_TERMS',
+} as const;
+
+type ConsentItemKey =
+  (typeof CONSENT_ITEM_KEYS)[keyof typeof CONSENT_ITEM_KEYS];
+
+interface ConsentRequiredItem {
+  key: ConsentItemKey;
+  label: string;
+  documentUrl: string;
+}
+
+export interface ConsentPolicy {
+  policyVersion: string;
+  requiredItems: readonly ConsentRequiredItem[];
+  nextUrl: string;
+}
+
+export const CURRENT_CONSENT_POLICY: ConsentPolicy = {
+  policyVersion: CONSENT_POLICY_VERSION,
+  requiredItems: [
+    {
+      key: CONSENT_ITEM_KEYS.PRIVACY_COLLECTION,
+      label: '개인정보 수집·이용',
+      documentUrl: '/policies/privacy',
+    },
+    {
+      key: CONSENT_ITEM_KEYS.GITHUB_ACTIVITY,
+      label: 'GitHub 활동 수집·공개 범위',
+      documentUrl: '/policies/github-activity',
+    },
+    {
+      key: CONSENT_ITEM_KEYS.ORG_REPOSITORY_TERMS,
+      label: 'Org 저장소 운영 약관',
+      documentUrl: '/policies/org-repository-terms',
+    },
+  ],
+
+  nextUrl: '/onboarding/role',
+};
+
+export interface ConsentStatus {
+  policy: ConsentPolicy;
+  consented: boolean;
+}
+
+export interface ConsentGrant {
+  policyVersion: string;
+  consentedAt: Date;
+  nextUrl: string;
+}
 
 export interface AcceptConsentInput {
   policyVersion: string;

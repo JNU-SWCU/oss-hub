@@ -1,14 +1,20 @@
 import { ApplicationStatus, ProgramLifecycle } from '@prisma/client';
-import type { PersonalizedProgramListItem } from '../programs.types';
 import {
   ProgramListPageResponseDto,
   ProgramListResponseDto,
 } from './program-list-response.dto';
+import {
+  type PersonalizedProgramListItem,
+  type ProgramListPageItem,
+} from '../programs.service';
+import { ProgramCoverUrlService } from '../program-cover-url.service';
+
+const programCoverUrlService = new ProgramCoverUrlService();
 
 function baseItem(
-  overrides: Partial<PersonalizedProgramListItem> = {},
-): PersonalizedProgramListItem {
-  return {
+  overrides: Partial<ProgramListPageItem> = {},
+): ProgramListPageItem {
+  const item: PersonalizedProgramListItem = {
     id: 'program-1',
     name: '프로그램',
     organizer: '운영기관',
@@ -22,6 +28,14 @@ function baseItem(
     teamMinSize: 1,
     teamMaxSize: 1,
     ...overrides,
+  };
+  return {
+    ...item,
+    coverImageUrl: programCoverUrlService.programCoverImageUrl(
+      item.id,
+      item.coverId,
+      item.coverExternalImageUrl,
+    ),
   };
 }
 

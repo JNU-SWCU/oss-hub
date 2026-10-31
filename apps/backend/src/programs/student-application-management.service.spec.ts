@@ -5,6 +5,7 @@ import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './applications.repository';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const OPEN_PROGRAM = {
@@ -108,6 +109,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -145,6 +147,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -165,6 +168,7 @@ describe('StudentApplicationManagementService', () => {
       const service = new StudentApplicationManagementService(
         repository,
         applicationsRepository,
+        new ApplicationAnswersService(),
       );
 
       const result = present(
@@ -183,6 +187,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = await service.updateMine(
@@ -217,6 +222,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const beforeUpdate = present(
@@ -258,6 +264,7 @@ describe('StudentApplicationManagementService', () => {
       const service = new StudentApplicationManagementService(
         repository,
         applicationsRepository,
+        new ApplicationAnswersService(),
       );
 
       await expectDomainCode(
@@ -290,6 +297,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -320,6 +328,7 @@ describe('StudentApplicationManagementService', () => {
       const service = new StudentApplicationManagementService(
         repository,
         applicationsRepository,
+        new ApplicationAnswersService(),
       );
 
       await expectDomainCode(
@@ -352,6 +361,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -377,6 +387,7 @@ describe('StudentApplicationManagementService', () => {
       const service = new StudentApplicationManagementService(
         repository,
         applicationsRepository,
+        new ApplicationAnswersService(),
       );
 
       const operations = {
@@ -408,6 +419,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = await service.getMine(4242n, 'program-1', NOW);
@@ -420,6 +432,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -449,6 +462,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     await expectDomainCode(
@@ -472,6 +486,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = await service.cancelMine(4242n, 'program-1', NOW);
@@ -488,6 +503,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     await expectDomainCode(
@@ -528,6 +544,7 @@ describe('StudentApplicationManagementService', () => {
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -555,6 +572,7 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
     const update = () =>
       service.updateMine(
@@ -590,6 +608,7 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     await expectDomainCode(
@@ -615,6 +634,7 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     const result = present(
@@ -639,6 +659,7 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
+      new ApplicationAnswersService(),
     );
 
     await expectDomainCode(

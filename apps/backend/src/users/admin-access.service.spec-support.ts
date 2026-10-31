@@ -12,16 +12,16 @@ import type {
   AdminAccessRepositoryPort,
   AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
-  AdminAccessUserDetailRecord,
+  AdminAccessUserDetailRow,
   AdminAccessUserPageRecord,
-  AdminAccessUserRecord,
+  AdminAccessUserRow,
   AdminAccessUserUpdate,
-} from './admin-access.repository';
-import type {
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+} from './admin-access-read.repository';
+import {
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 export const ADMIN_GITHUB_ID = 9_131_300_001n;
 const TARGET_GITHUB_ID = 9_131_300_002n;
@@ -35,7 +35,6 @@ export function staffActor(
     id: 'staff',
     githubId: STAFF_GITHUB_ID,
     githubLogin: 'synthetic-staff',
-    role: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
     ...overrides,
@@ -50,7 +49,6 @@ export function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasAdminAccess: true,
     hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -58,20 +56,39 @@ export function adminActor(
   };
 }
 
+export function roleFacts(
+  role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+): Pick<
+  AdminAccessUserRow,
+  'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'
+> {
+  return {
+    memberKind:
+      role === 'STUDENT'
+        ? MemberKind.STUDENT
+        : role === 'STAFF'
+          ? MemberKind.STAFF
+          : null,
+    hasStaffAccess: role === 'STAFF',
+    hasAdminAccess: role === 'ADMIN',
+  };
+}
+
 export function accessUser(
-  overrides: Partial<AdminAccessUserRecord> = {},
-): AdminAccessUserRecord {
+  overrides: Partial<AdminAccessUserRow> = {},
+): AdminAccessUserRow {
   return {
     id: 'target',
     githubId: TARGET_GITHUB_ID,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: 'STUDENT',
+    studentId: '123456',
+    department: '소프트웨어공학과',
+    selectedMemberKind: null,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
-    isProfileComplete: true,
     createdAt: ACCOUNT_CREATED_AT,
     pendingRequest: null,
     lastLoginAt: null,
@@ -100,8 +117,8 @@ export class InMemoryAdminAccessRepository
 {
   readonly auditLogWriter = {} as AuditLogTransactionWriter;
   actor: AdminAccessActor | null = adminActor();
-  target: AdminAccessUserRecord | null = accessUser();
-  authoritativeTarget: AdminAccessUserRecord | null = null;
+  target: AdminAccessUserRow | null = accessUser();
+  authoritativeTarget: AdminAccessUserRow | null = null;
   activeAdminCount = 2;
 
   actorAfterLock: AdminAccessActor | null | undefined = undefined;
@@ -145,22 +162,9 @@ export class InMemoryAdminAccessRepository
     return this.list(query).then((page) => page.facets);
   }
 
-  findById(): Promise<AdminAccessUserDetailRecord | null> {
+  findById(): Promise<AdminAccessUserDetailRow | null> {
     const target = this.authoritativeTarget ?? this.target;
-    return Promise.resolve(
-      target
-        ? {
-            ...target,
-            profile: {
-              name: target.name,
-              studentId: '123456',
-              staffNumber: null,
-              department: '소프트웨어공학과',
-              isComplete: target.isProfileComplete,
-            },
-          }
-        : null,
-    );
+    return Promise.resolve(target ? { ...target, staffNumber: null } : null);
   }
 
   listStaffAccessRequestHistory(
@@ -185,7 +189,7 @@ export class InMemoryAdminAccessRepository
     return Promise.resolve(this.activeAdminCount);
   }
 
-  findUserForUpdate(): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(): Promise<AdminAccessUserRow | null> {
     this.operations.push('find-user-for-update');
     return Promise.resolve(this.target);
   }

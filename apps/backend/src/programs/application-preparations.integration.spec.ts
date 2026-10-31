@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -13,6 +14,10 @@ import {
   ApplicationJoinCodeService,
 } from './application-preparations.service';
 import { ApplicationsService } from './applications.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -20,7 +25,10 @@ assertIsolatedIntegrationDatabase({
 });
 const prisma = new PrismaService();
 const inbox = new TeamInvitationsRepository(prisma);
-const audit = new AuditLogService(new AuditLogRepository(prisma));
+const audit = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const preparations = new ApplicationPreparationsService(
   new ApplicationPreparationsRepository(prisma),
 );
@@ -28,9 +36,16 @@ const applications = new ApplicationsService(
   new ApplicationsRepository(prisma),
   audit,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const now = new Date('2026-10-01T00:00:00Z');
 const leader = { id: 'synthetic-preparation-leader', githubId: 8_600_000_001n };

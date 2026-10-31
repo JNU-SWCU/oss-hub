@@ -6,12 +6,12 @@ import type { Linter } from 'eslint';
 
 const backendRoot = path.resolve(__dirname, '../..');
 const dependencyRule = 'boundaries/dependencies';
+const repositoryExportsRule = 'architecture/repository-exports';
 const layers = [
   'controller',
   'service',
   'repository',
   'gateway',
-  'job',
   'dto',
   'domain',
 ] as const;
@@ -58,7 +58,7 @@ function edge(
     value: `import { value } from ${source}; export { value };`,
     type: `import type { Shape } from ${source}; export type Result = Shape;`,
     barrel: `export * from ${source};`,
-    dynamic: `export const load = () => import(${source});`,
+    dynamic: `const load = () => import(${source}); void load;`,
     require: `export const value = require(${source});`,
     sideEffect: `import ${source};`,
     importType: `export type Value = import(${source}).Shape;`,
@@ -82,8 +82,7 @@ const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
   service: ['service', 'repository', 'gateway', 'domain'],
   repository: ['repository', 'domain'],
-  gateway: ['domain'],
-  job: ['service', 'dto', 'domain'],
+  gateway: ['gateway', 'domain'],
   dto: ['dto', 'domain'],
   domain: ['domain'],
 };
@@ -92,9 +91,8 @@ const roleFile: Record<Layer, (stem: string) => string> = {
   service: (stem) => `${stem}.service.ts`,
   repository: (stem) => `${stem}.repository.ts`,
   gateway: (stem) => `${stem}.client.ts`,
-  job: (stem) => `${stem}.job.ts`,
   dto: (stem) => `dto/${stem}.dto.ts`,
-  domain: (stem) => `${stem}.policy.ts`,
+  domain: (stem) => `${stem}.error.ts`,
 };
 const located = (module: string, layer: Layer, stem: string): string =>
   `src/${module}/${roleFile[layer](stem)}`;
@@ -124,9 +122,91 @@ edge(
   false,
 );
 edge(
-  'flat staff service cannot import programs repository',
+  'flat staff service cannot import programs repository values',
   'src/staff/a.service.ts',
   'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'flat staff service may import programs repository types',
+  'src/staff/a-type.service.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository cannot import a foreign repository value',
+  'src/staff/a.repository.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'repository may import a foreign repository type',
+  'src/staff/a-type.repository.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository may import a same-module repository value',
+  'src/programs/same-value.repository.ts',
+  'src/programs/c.repository.ts',
+  true,
+);
+edge(
+  'request DTO may use same-module service values',
+  'src/programs/dto/value-request.dto.ts',
+  'src/programs/validation.service.ts',
+  true,
+);
+edge(
+  'request DTO may use same-module repository values',
+  'src/programs/dto/repository-value-request.dto.ts',
+  'src/programs/validation.repository.ts',
+  true,
+);
+edge(
+  'request DTO cannot use foreign repository values',
+  'src/admin/dto/value-request.dto.ts',
+  'src/users/validation.repository.ts',
+  false,
+);
+edge(
+  'request DTO cannot use foreign service values',
+  'src/admin/dto/service-value-request.dto.ts',
+  'src/users/validation.service.ts',
+  false,
+);
+edge(
+  'request DTO may use foreign producer types',
+  'src/admin/dto/type-request.dto.ts',
+  'src/users/validation.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'request DTO may use a foreign validation config',
+  'src/admin/dto/config-request.dto.ts',
+  'src/users/validation.config.ts',
+  true,
+);
+edge(
+  'response DTO cannot import service values',
+  'src/programs/dto/value-response.dto.ts',
+  'src/programs/computed.service.ts',
+  false,
+);
+edge(
+  'response DTO may import service types',
+  'src/programs/dto/type-response.dto.ts',
+  'src/programs/computed.service.ts',
+  true,
+  'type',
+);
+edge(
+  'response DTO cannot import repository values',
+  'src/programs/dto/repository-value-response.dto.ts',
+  'src/programs/computed.repository.ts',
   false,
 );
 edge(
@@ -157,7 +237,7 @@ for (const module of [
   edge(
     `${module} service cannot import a foreign repository`,
     `src/${module}/foreign-flat.service.ts`,
-    `src/${module === 'ranking' ? 'programs' : 'ranking'}/foreign.repository.ts`,
+    `src/${{ ranking: 'programs', github: 'users' }[module] ?? 'ranking'}/foreign.repository.ts`,
     false,
   );
 }
@@ -170,10 +250,7 @@ for (const [suffix, layer] of [
   ['service', 'service'],
   ['repository', 'repository'],
   ['client', 'gateway'],
-  ['job', 'job'],
-  ['scheduler', 'job'],
   ['dto', 'dto'],
-  ['policy', 'domain'],
   ['error', 'domain'],
   ['types', 'domain'],
   ['config', 'domain'],
@@ -188,9 +265,8 @@ for (const [suffix, layer] of [
           service: 'flat-target.service.ts',
           repository: 'flat-target.repository.ts',
           gateway: 'flat-target.client.ts',
-          job: 'flat-target.job.ts',
           dto: 'dto/flat-target.dto.ts',
-          domain: 'flat-target.policy.ts',
+          domain: 'flat-target.error.ts',
         }[target]
       }`,
       permitted[layer].includes(target),
@@ -229,12 +305,6 @@ edge(
   true,
 );
 edge(
-  'flat common helper cannot import business domain',
-  'src/platform/platform.policy.ts',
-  'src/programs/business.policy.ts',
-  false,
-);
-edge(
   'flat runtime config helper cannot import business service',
   'src/platform/private-key-file.config.ts',
   'src/programs/business.service.ts',
@@ -246,7 +316,6 @@ for (const [target, allowed] of [
   ['runtime-config.config.ts', true],
   ['object-storage.types.ts', true],
   ['s3-object-storage.client.ts', false],
-  ['configure-http-app.config.ts', true],
   ['download-response.types.ts', true],
   ['lock-program-tree.repository.ts', false],
 ] as const) {
@@ -259,7 +328,7 @@ for (const [target, allowed] of [
 }
 for (const target of [
   'prisma.service.ts',
-  'user-profile-read.repository.ts',
+  'user-profile-read.config.ts',
   'lock-program-tree.repository.ts',
 ]) {
   edge(
@@ -288,7 +357,7 @@ for (const from of layers) {
       const name = `${from}-${to}-${foreign ? 'foreign' : 'own'}`;
       const allowed =
         permitted[from].includes(to) &&
-        !(foreign && (to === 'repository' || to === 'gateway' || to === 'dto'));
+        !(foreign && (to === 'gateway' || to === 'dto' || to === 'repository'));
       edge(
         name,
         located('programs', from, name),
@@ -318,7 +387,7 @@ for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
 edge(
   'common cannot import domain',
   'src/platform/system-error-code.error.ts',
-  'src/programs/target.policy.ts',
+  'src/programs/target.error.ts',
   false,
 );
 edge(
@@ -352,20 +421,14 @@ edge(
   true,
 );
 edge(
-  'service cannot import a foreign repository',
+  'service cannot import a foreign client',
   'src/programs/foreign.service.ts',
-  'src/ranking/beta.repository.ts',
+  'src/ranking/beta.client.ts',
   false,
 );
 edge(
-  'job may read runtime config',
-  'src/programs/config.job.ts',
-  'src/platform/runtime-config.config.ts',
-  true,
-);
-edge(
-  'CLI job may bootstrap the application module',
-  'src/programs/cli.job.ts',
+  'CLI may bootstrap the application module',
+  'src/cli.ts',
   'src/app.module.ts',
   true,
 );
@@ -376,14 +439,8 @@ edge(
   false,
 );
 edge(
-  'job cannot use a gateway directly',
-  'src/programs/mail.job.ts',
-  'src/programs/mail.client.ts',
-  false,
-);
-edge(
   'domain cannot read runtime config',
-  'src/programs/config.policy.ts',
+  'src/programs/config.error.ts',
   'src/platform/runtime-config.config.ts',
   false,
 );
@@ -588,7 +645,7 @@ for (const consumer of ['programs', 'ranking', 'student', 'staff', 'admin']) {
   edge(
     `github test cannot import consumer ${consumer}`,
     `src/github/${consumer}.spec.ts`,
-    `src/${consumer}/target.policy.ts`,
+    `src/${consumer}/target.error.ts`,
     false,
   );
   edge(
@@ -617,9 +674,9 @@ edge(
   false,
 );
 edge(
-  'consumer cannot import github repository',
-  'src/ranking/github-repository.service.ts',
-  'src/github/target.repository.ts',
+  'consumer cannot import github client',
+  'src/ranking/github-client.service.ts',
+  'src/github/target.client.ts',
   false,
 );
 edge(
@@ -631,7 +688,7 @@ edge(
 edge(
   'consumer repository may use github domain',
   'src/programs/github-domain.repository.ts',
-  'src/github/target.policy.ts',
+  'src/github/target.error.ts',
   true,
 );
 
@@ -645,25 +702,25 @@ for (const syntax of [
   'importEquals',
 ]) {
   edge(
-    `${syntax} cannot escape foreign repository boundary`,
+    `${syntax} cannot escape foreign client boundary`,
     `src/programs/${syntax}.service.ts`,
-    'src/ranking/target.repository.ts',
+    'src/ranking/target.client.ts',
     false,
     syntax,
   );
   edge(
     `${syntax} may import domain`,
     `src/programs/${syntax}-allowed.service.ts`,
-    'src/ranking/target.policy.ts',
+    'src/ranking/target.error.ts',
     true,
     syntax,
   );
 }
 
 add(
-  'alias cannot escape foreign repository boundary',
+  'alias cannot escape foreign client boundary',
   'src/programs/alias.service.ts',
-  "import { value } from '@fixture/ranking/target.repository'; export { value };",
+  "import { value } from '@fixture/ranking/target.client'; export { value };",
   dependencyRule,
 );
 for (const [name, file] of [
@@ -675,6 +732,9 @@ for (const [name, file] of [
   ['root file outside the closed suffix list', 'src/programs/x.helpers.ts'],
   ['retired enum suffix', 'src/programs/programs-error-code.enum.ts'],
   ['retired token suffix', 'src/platform/object-storage.token.ts'],
+  ['retired policy suffix', 'src/programs/x.policy.ts'],
+  ['retired scheduler suffix', 'src/programs/x.scheduler.ts'],
+  ['retired job suffix', 'src/programs/x.job.ts'],
   ['module folder outside the module map', 'src/legacy/legacy.module.ts'],
   ['legacy root layer folder', 'src/common/value.ts'],
 ] as const) {
@@ -685,6 +745,47 @@ for (const [name, file] of [
     'boundaries/no-unknown-files',
   );
 }
+for (const [name, code] of [
+  ['function', 'export function value() { return 1; }'],
+  ['const', 'export const value = 1;'],
+  ['enum', 'export enum Value { A }'],
+  ['value re-export', "export { value } from './other.error';"],
+  ['star re-export', "export * from './other.error';"],
+] as const) {
+  add(
+    `repository cannot export a ${name}`,
+    `src/programs/export-${name.replace(' ', '-')}.repository.ts`,
+    code,
+    repositoryExportsRule,
+  );
+}
+files.set('src/programs/other.error.ts', 'export const value = 1;');
+for (const [name, code] of [
+  ['const', 'export const value = 1;'],
+  ['function', 'export function value() { return 1; }'],
+  ['class', 'export class Value {}'],
+  ['enum', 'export enum Value { A }'],
+  ['local const', 'const value = 1; export type Value = typeof value;'],
+] as const) {
+  add(
+    `types file cannot declare a ${name}`,
+    `src/programs/runtime-${name.replace(' ', '-')}.types.ts`,
+    code,
+    'architecture/types-only',
+  );
+}
+add(
+  'types file may declare types',
+  'src/programs/shapes-only.types.ts',
+  'export type Row = { id: string }; export interface Shape { id: string }',
+  null,
+);
+add(
+  'repository may export its class and types',
+  'src/programs/exports-allowed.repository.ts',
+  'export class ExportsAllowedRepository {} export type Row = { id: string }; export interface Shape { id: string }',
+  null,
+);
 add(
   'root config remains classified',
   'src/programs/alpha.config.ts',
@@ -706,29 +807,29 @@ add(
 add(
   'test may use import type node',
   'test/import-type.spec.ts',
-  "export type Value = import('../src/programs/target.policy').Shape;",
+  "export type Value = import('../src/programs/target.error').Shape;",
   null,
 );
 add(
   'test may use import equals',
   'test/import-equals.spec.ts',
-  "import Value = require('../src/programs/target.policy'); export { Value };",
+  "import Value = require('../src/programs/target.error'); export { Value };",
   null,
 );
 add(
   'repository cannot use import type node',
   'src/programs/import-type.repository.ts',
-  "export type Value = import('./target.policy').Shape;",
+  "export type Value = import('./target.error').Shape;",
   'no-restricted-syntax',
 );
 add(
   'module cannot use import equals',
   'src/programs/equals.module.ts',
-  "import Value = require('./target.policy'); export { Value };",
+  "import Value = require('./target.error'); export { Value };",
   'no-restricted-syntax',
 );
 for (const file of [
-  'src/programs/marker.policy.ts',
+  'src/programs/marker.error.ts',
   'test/marker.spec.ts',
   'prisma/seeds/marker.ts',
   'eslint-marker.mjs',
@@ -802,7 +903,7 @@ for (const [name, code] of [
 
 add(
   'rejects Prisma model re-export',
-  'src/users/reexport.policy.ts',
+  'src/users/reexport.error.ts',
   "export type { User as PublicUser } from '@prisma/client';",
   'no-restricted-imports',
 );
@@ -814,7 +915,7 @@ add(
 );
 add(
   'allows enum re-export',
-  'src/users/enum-export.policy.ts',
+  'src/users/enum-export.error.ts',
   "export { AccountStatus as Status } from '@prisma/client';",
   null,
 );
@@ -912,7 +1013,7 @@ for (const file of [
   add(`${file} may import @nestjs/testing`, file, nestTesting, null);
 }
 for (const file of [
-  'src/programs/main-import.job.ts',
+  'src/programs/main-import.service.ts',
   'test/main-import.spec.ts',
 ]) {
   add(
@@ -953,7 +1054,7 @@ for (const [name, code] of envAccess) {
 add(
   'NODE_ENV production branch is accepted',
   'src/programs/node-env-production.service.ts',
-  "export const isProduction = (env: { NODE_ENV: string }) => env.NODE_ENV === 'production';",
+  "export class NodeEnvProductionService { isProduction(env: { NODE_ENV: string }) { return env.NODE_ENV === 'production'; } }",
   null,
 );
 add(
@@ -1068,7 +1169,11 @@ describe('backend structural lint rails', () => {
   it.each(fixtures.map((fixture, index) => ({ ...fixture, index })))(
     '$name',
     ({ rule, index }) => {
-      const actual = messages[index];
+      const actual = messages[index]?.filter(
+        (message) =>
+          rule === repositoryExportsRule ||
+          message.ruleId !== repositoryExportsRule,
+      );
       expect(actual).toBeDefined();
       expect(actual?.filter((message) => message.fatal)).toEqual([]);
       if (rule === null) {

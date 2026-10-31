@@ -1,45 +1,145 @@
-import { Prisma } from '@prisma/client';
+import {
+  Prisma,
+  SubmissionStatus,
+  ReviewDecision,
+  MilestoneSubmissionType,
+} from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import type {
-  MilestoneContext,
-  MilestoneDocumentRecord,
-  MilestoneDocumentCollectionApplication,
-  MilestoneDocumentCollectionSubmission,
-} from './milestone-document-result.types';
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 
-export const milestoneDocumentHistoryDescendingOrderBy = [
-  { createdAt: 'desc' },
-  { id: 'desc' },
-] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+export type DocumentDeliveryStatus =
+  'MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS';
 
-export function nextMilestoneDocumentHistoryCreatedAt(
-  requested: Date,
-  latest: Date | null,
-): Date {
-  return latest === null || requested.getTime() > latest.getTime()
-    ? requested
-    : new Date(latest.getTime() + 1);
+export type MilestoneDocumentContentInput = {
+  readonly text: string | null;
+  readonly fileId: string | null;
+};
+
+export type MilestoneDocumentSubmittedContent = {
+  readonly type: typeof MilestoneSubmissionType.TEXT;
+  readonly text: string;
+};
+
+export interface CreateMilestoneDocumentReviewInput {
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+
+  readonly resubmissionDueAt: Date | null;
+
+  readonly expectedRevision: number;
+
+  readonly expectedLatestReviewId: string | null;
 }
 
-export const boundedReviewHistoryQuery = {
-  orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-  take: 50,
-  select: {
-    id: true,
-    decision: true,
-    comment: true,
-    reviewedAt: true,
+export interface MilestoneDocumentReviewRecord {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
 
-    resubmissionDueAt: true,
-    reviewer: { select: { nickname: true } },
-    submissionHistory: { select: { revision: true } },
-  },
-} satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
+  readonly resubmissionDueAt: Date | null;
+}
+
+export type ProgramDocumentChangeRequestScope =
+  | { readonly kind: 'PROGRAM' }
+  | { readonly kind: 'TEAM'; readonly teamId: string };
+
+export interface ProgramDocumentChangeRequestInput {
+  readonly scope: ProgramDocumentChangeRequestScope;
+  readonly includeFinalDecisions: boolean;
+  readonly comment: string;
+  readonly resubmissionDueAt: Date;
+  readonly expectedVersion: string;
+}
+
+export interface ProgramDocumentChangeRequestCandidate {
+  readonly milestoneDocumentId: string;
+  readonly applicationId: string;
+  readonly status: SubmissionStatus;
+}
+
+export interface ProgramDocumentChangeRequestPreview {
+  readonly counts: Readonly<Record<SubmissionStatus, number>>;
+  readonly version: string;
+}
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | { [key: string]: JsonValue | undefined }
+  | JsonValue[]
+  | null;
+
+export interface MilestoneDocumentRecord {
+  id: string;
+  milestoneId: string;
+  name: string;
+  required: boolean;
+  sortOrder: number;
+  graceDueAt: Date | null;
+  templateFileId: string | null;
+  templateFileName: string | null;
+}
+
+export interface MilestoneContext {
+  readonly id: string;
+  readonly programId: string;
+  readonly name: string;
+  readonly dueAt: Date;
+}
+
+export interface MilestoneDocumentCollectionApplication {
+  readonly applicationId: string;
+  readonly teamName: string;
+  readonly applicantName: string | null;
+  readonly memberNicknames: readonly string[];
+}
+
+export interface MilestoneDocumentCollectionSubmission {
+  readonly milestoneDocumentId: string;
+  readonly applicationId: string;
+  readonly submittedAt: Date;
+  readonly revision: number;
+  readonly status: SubmissionStatus;
+  readonly file: {
+    readonly originalFileName: string;
+    readonly sizeBytes: number;
+  } | null;
+  readonly content: JsonValue | null;
+  readonly review: MilestoneDocumentReviewRecord | null;
+}
+
+export interface CreatedMilestoneDocumentReview {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+  readonly resubmissionDueAt: Date | null;
+  readonly reviewerNickname: string;
+}
+
+interface MilestoneDocumentSubmissionFile {
+  readonly id: string;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+}
+
+export interface MilestoneDocumentSubmissionDetail {
+  readonly id: string;
+  readonly status: SubmissionStatus;
+  readonly content: JsonValue | null;
+  readonly submittedAt: Date;
+  readonly files: readonly MilestoneDocumentSubmissionFile[];
+}
+
+export interface UpsertMilestoneDocumentInput {
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+}
 
 export interface DocumentDeliveryCoordinate {
   readonly applicationId: string;
@@ -103,9 +203,7 @@ export class MilestoneDocumentCollectionReadStoreRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: UserProfileReadRepository.resolveUserProfileName(
-        application.applicant,
-      ),
+      applicantName: application.applicant.profile?.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -180,7 +278,10 @@ export class MilestoneDocumentCollectionReadStoreRepository {
               submissionHistory: { select: { revision: true } },
             },
           },
-          reviewHistories: { ...boundedReviewHistoryQuery, take: 1 },
+          reviewHistories: {
+            ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+            take: 1,
+          },
         },
       });
     return submissions.map(({ files, reviewHistories, ...submission }) => {
@@ -227,4 +328,24 @@ export class MilestoneDocumentCollectionReadRepository {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
+
+  static readonly milestoneDocumentHistoryDescendingOrderBy = [
+    { createdAt: 'desc' },
+    { id: 'desc' },
+  ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+
+  static readonly boundedReviewHistoryQuery = {
+    orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+    take: 50,
+    select: {
+      id: true,
+      decision: true,
+      comment: true,
+      reviewedAt: true,
+
+      resubmissionDueAt: true,
+      reviewer: { select: { nickname: true } },
+      submissionHistory: { select: { revision: true } },
+    },
+  } satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
 }

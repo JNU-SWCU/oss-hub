@@ -1,13 +1,13 @@
-import {
-  JoinCodeSecretError,
-  resolveJoinCodeSecret,
-} from './join-code-secret.config';
+import { JoinCodeSecretError } from './join-code-secret.config';
+import { JoinCodeSecretService } from './join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 describe('resolveJoinCodeSecret', () => {
   it('설정된 TEAM_JOIN_CODE_SECRET을 반환한다', () => {
     const env = { TEAM_JOIN_CODE_SECRET: 'synthetic-secret' };
 
-    const secret = resolveJoinCodeSecret(env);
+    const secret = joinCodeSecretService.resolveJoinCodeSecret(env);
 
     expect(secret).toBe('synthetic-secret');
   });
@@ -15,7 +15,7 @@ describe('resolveJoinCodeSecret', () => {
   it('비공백 secret의 원문(앞뒤 공백 포함)을 그대로 반환한다', () => {
     const env = { TEAM_JOIN_CODE_SECRET: '  padded-secret  ' };
 
-    const secret = resolveJoinCodeSecret(env);
+    const secret = joinCodeSecretService.resolveJoinCodeSecret(env);
 
     expect(secret).toBe('  padded-secret  ');
   });
@@ -36,7 +36,7 @@ describe('resolveJoinCodeSecret', () => {
       { NODE_ENV: 'production', TEAM_JOIN_CODE_SECRET: '\t' },
     ],
   ])('TEAM_JOIN_CODE_SECRET 공백/누락을 거부한다 (%s)', (_label, env) => {
-    const resolve = () => resolveJoinCodeSecret(env);
+    const resolve = () => joinCodeSecretService.resolveJoinCodeSecret(env);
 
     expect(resolve).toThrow(JoinCodeSecretError);
   });

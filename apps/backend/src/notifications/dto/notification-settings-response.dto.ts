@@ -1,4 +1,4 @@
-import type { NotificationSettings } from '../notifications.types';
+import type { NotificationSettings } from '../application-decision-notifications.repository';
 
 export class NotificationSettingsResponseDto {
   declare readonly notificationEmail: string | null;

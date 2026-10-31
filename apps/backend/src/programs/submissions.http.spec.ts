@@ -19,6 +19,7 @@ import { SubmissionFilesController } from './submission-files.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionsService } from './submissions.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -97,6 +98,7 @@ beforeAll(async () => {
       SubmissionsController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
       {
         provide: SubmissionsService,
         useValue: { form, create, checklist, resubmit },

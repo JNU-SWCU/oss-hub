@@ -9,8 +9,8 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
 import { AuditLogRepository } from '../platform/audit-log.repository';
+import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -21,6 +21,11 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -64,12 +69,20 @@ const JOINED_SECOND = new Date('2026-08-03T00:00:00.000Z');
 
 const prisma = new PrismaService();
 const repository = new ProgramTeamsRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const service = new ProgramTeamsService(
   repository,
   auditLog,
   new ProgramTeamDeletionRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 const invitations = new TeamInvitationsRepository(prisma);
 

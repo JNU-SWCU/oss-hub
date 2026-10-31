@@ -1,12 +1,134 @@
-import { Prisma, ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import {
+  Prisma,
+  ProgramAuthoringUploadLifecycle,
+  type ProgramTrackType,
+  type ProgramCategory,
+  type MilestoneSubmissionType,
+  type ProgramLifecycle,
+} from '@prisma/client';
+import {
+  ProgramAuthoringUploadTokenError,
   PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
   ProgramAuthoringUploadConsumptionRaceError,
-  ProgramAuthoringUploadTokenError,
-  type ProgramAuthoringPendingUploadConsumption,
-  type ProgramAuthoringUploadToken,
-} from './program-authoring.policy';
-import { assertProgramTemplateUpload } from './program-cover.policy';
+} from './program-authoring.error';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+
+export type ProgramExternalCover = {
+  readonly sourceUrl: string;
+  readonly imageUrl: string;
+};
+
+export type ProgramAuthoringDocumentRequest = {
+  readonly name: string;
+  readonly required: boolean;
+  readonly templateUploadId?: string | null;
+};
+
+export type ProgramAuthoringMilestoneRequest = {
+  readonly name: string;
+  readonly startAt?: string;
+  readonly dueAt: string;
+  readonly instructions?: string | null;
+  readonly documents: readonly ProgramAuthoringDocumentRequest[];
+};
+
+export type ProgramAuthoringRequest = {
+  readonly coverUploadId?: string | null;
+  readonly externalCover?: ProgramExternalCover | null;
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType;
+  readonly applicationStartAt: string;
+  readonly applicationEndAt: string;
+  readonly startAt?: string;
+  readonly endAt: string;
+  readonly teamMinSize?: number | null;
+  readonly teamMaxSize?: number | null;
+  readonly description: string;
+  readonly repositoryProvisioningEnabled?: boolean;
+  readonly notifyOnDeadline?: boolean;
+  readonly milestones: readonly ProgramAuthoringMilestoneRequest[];
+};
+
+export type ProgramAuthoringProgramPlan = {
+  readonly name: string;
+  readonly organizer: string;
+  readonly category: ProgramCategory;
+  readonly trackType: ProgramTrackType;
+  readonly applicationTemplateKey: string;
+  readonly applicationTemplateVersion: number;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly startAt: Date;
+  readonly endAt: Date;
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
+  readonly description: string;
+  readonly repositoryProvisioningEnabled: boolean;
+  readonly notifyOnDeadline: boolean;
+};
+
+export type ProgramAuthoringDocumentPlan = {
+  readonly name: string;
+  readonly required: boolean;
+  readonly sortOrder: number;
+  readonly templateUploadId: string;
+};
+
+export type ProgramAuthoringMilestonePlan = {
+  readonly name: string;
+  readonly startAt: Date;
+  readonly dueAt: Date;
+  readonly submissionType: MilestoneSubmissionType | null;
+  readonly instructions: string | null;
+  readonly documents: readonly ProgramAuthoringDocumentPlan[];
+};
+
+export type ProgramAuthoringPlan = {
+  readonly coverUploadId?: string | null;
+  readonly externalCover?: ProgramExternalCover;
+  readonly program: ProgramAuthoringProgramPlan;
+  readonly milestones: readonly ProgramAuthoringMilestonePlan[];
+  readonly uploadTokenIds: readonly string[];
+};
+
+export type ProgramAuthoringProgram = ProgramAuthoringProgramPlan & {
+  readonly id: string;
+  readonly lifecycle: ProgramLifecycle;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+};
+
+export type ProgramAuthoringReplay = {
+  readonly payloadHash: string;
+  readonly program: ProgramAuthoringProgram;
+};
+
+export type ProgramAuthoringCreateRequestInput = {
+  readonly actorId: string;
+  readonly idempotencyKey: string;
+  readonly payloadHash: string;
+  readonly programId: string;
+};
+
+export type ProgramAuthoringTemplateInput = {
+  readonly milestoneDocumentId: string;
+  readonly actorId: string;
+  readonly upload: ProgramAuthoringUploadToken;
+};
+
+export type ProgramAuthoringPendingUploadConsumption = {
+  readonly milestoneDocumentId: string;
+  readonly upload: ProgramAuthoringUploadToken;
+};
+
+export interface ValidatedProgramAuthoringUpload {
+  readonly body: Buffer;
+  readonly originalFileName: string;
+  readonly mimeType: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
 
 export class ProgramAuthoringUploadTransactionRepository {
   static async lockAttachableProgramAuthoringUploads(
@@ -24,7 +146,6 @@ export class ProgramAuthoringUploadTransactionRepository {
       tokenIds,
       uploads,
     );
-    uploads.forEach(assertProgramTemplateUpload);
     return uploads;
   }
 
@@ -88,7 +209,6 @@ export class ProgramAuthoringUploadTransactionRepository {
     );
     for (const consumption of sortedConsumptions) {
       const { milestoneDocumentId, upload } = consumption;
-      assertProgramTemplateUpload(upload);
       const uploadedAt = new Date();
       await transaction.milestoneDocumentTemplateFile.upsert({
         where: { milestoneDocumentId },

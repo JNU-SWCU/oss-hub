@@ -1,11 +1,7 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { TEAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix.policy';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
-import {
-  sameTeamDeletionScopeCountValues,
-  sameTeamDeletionScopeCounts,
-  type TeamDeletionScopeCounts,
-} from './programs.policy';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { TEAM_PURGE_DELETION_ORDER } from './program-lifecycle.config';
 
 const SCOPE: TeamDeletionScopeCounts = {
   applications: 1,
@@ -151,8 +147,10 @@ describe('readTeamDeletionScopeCounts', () => {
 describe('sameTeamDeletionScopeCounts', () => {
   it('지문이 다르면 수치가 같아도 다른 범위다 — 같은 수의 다른 행일 수 있다', () => {
     const swapped = { ...SCOPE, scopeFingerprint: 'f'.repeat(32) };
-    expect(sameTeamDeletionScopeCounts(SCOPE, swapped)).toBe(false);
-    expect(sameTeamDeletionScopeCountValues(SCOPE, swapped)).toBe(true);
+    expect(TeamDeletionScopeRepository.sameCounts(SCOPE, swapped)).toBe(false);
+    expect(TeamDeletionScopeRepository.sameCountValues(SCOPE, swapped)).toBe(
+      true,
+    );
   });
 
   it('수치가 하나라도 다르면 어긋난 것으로 본다', () => {
@@ -165,12 +163,17 @@ describe('sameTeamDeletionScopeCounts', () => {
       'detachedRepositories',
     ] as const) {
       expect(
-        sameTeamDeletionScopeCounts(SCOPE, { ...SCOPE, [key]: SCOPE[key] + 1 }),
+        TeamDeletionScopeRepository.sameCounts(SCOPE, {
+          ...SCOPE,
+          [key]: SCOPE[key] + 1,
+        }),
       ).toBe(false);
     }
   });
 
   it('같은 스냅샷은 같다', () => {
-    expect(sameTeamDeletionScopeCounts(SCOPE, { ...SCOPE })).toBe(true);
+    expect(TeamDeletionScopeRepository.sameCounts(SCOPE, { ...SCOPE })).toBe(
+      true,
+    );
   });
 });

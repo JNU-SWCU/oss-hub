@@ -1,4 +1,4 @@
-import type { DeadlineDigestSendResult } from '../notifications.types';
+import type { DeadlineDigestSendResult } from '../deadline-digest.service';
 
 export class DeadlineDigestSendResponseDto {
   declare readonly applicationCount: number;

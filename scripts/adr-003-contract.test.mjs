@@ -42,12 +42,11 @@ test('ADR-003 contract lists the planned modules', () => {
       'github',
       'platform',
     ]);
-    assert.equal(contract.rootSuffixes.length, 14);
+    assert.equal(contract.rootSuffixes.length, 11);
     assert.deepEqual(contract.dtoSuffixes, [
       '-request.dto.ts',
       '-response.dto.ts',
     ]);
-    assert.deepEqual(contract.crossAppExceptions, []);
   }
 });
 
@@ -73,6 +72,8 @@ test('every ADR-003 rule id is an error in the backend ESLint config', () => {
     'src/programs/programs.controller.ts',
     'src/programs/dto/x-request.dto.ts',
     'src/programs/dto/x-response.dto.ts',
+    'src/programs/x.config.ts',
+    'src/programs/x.service.ts',
   ]) {
     const config = JSON.parse(
       execFileSync(

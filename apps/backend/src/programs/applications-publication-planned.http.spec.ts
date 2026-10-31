@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import {
   AccountStatus,
@@ -12,28 +13,38 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsController } from './applications.controller';
-import type { ApplicationsRepository } from './applications.repository';
 import type {
+  ApplicationsRepository,
   ApplicationListItem,
-  ApplicationListPage,
   ApplicationReviewHistoryEntry,
   StaffDashboardSummary,
   TeamManagementListPage,
-} from './application-records.types';
+  ApplicationDecisionTarget,
+  ApplicationListSource,
+  ApplicationListSourcePage,
+} from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import type { ApplicationDecisionTarget } from './application-decision.policy';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { StaffInsightsService } from '../staff/staff-insights.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RankingYearService } from '../ranking/ranking-year.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { StaffInsightsQueryService } from '../staff/staff-insights-query.service';
+import { ApplicationAnswersService } from './application-answers.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const allowedOrigin = 'http://frontend.test';
 const foreignOrigin = 'http://foreign.test';
@@ -192,6 +203,30 @@ const listItem: ApplicationListItem = {
     summary: '합성 요약',
   },
 };
+const listItemSource: ApplicationListSource = {
+  row: {
+    id: APPLICATION_ID,
+    programId: PROGRAM_ID,
+    status: ApplicationStatus.SUBMITTED,
+    submittedAt: SUBMITTED_AT,
+    updatedAt: UPDATED_AT,
+    rejectionReason: null,
+    repositoryConnectionMode: RepositoryConnectionMode.NEW,
+    repositoryUrl: null,
+    repository: null,
+    isRepositoryPublicationPlanned: true,
+    program: { repositoryProvisioningEnabled: false },
+    applicant: {
+      id: 'cuid-synthetic-applicant',
+      nickname: 'synthetic-applicant',
+      profile: null,
+    },
+    team: { id: 'synthetic-team', name: '합성 팀', _count: { members: 3 } },
+    answers: listItem.answers,
+  } as unknown as ApplicationListSource['row'],
+  outbox: undefined,
+  job: undefined,
+};
 const reviewHistoryEntry: ApplicationReviewHistoryEntry = {
   id: 'synthetic-review-history',
   eventKind: ApplicationReviewEventKind.SUBMITTED,
@@ -200,8 +235,8 @@ const reviewHistoryEntry: ApplicationReviewHistoryEntry = {
   occurredAt: SUBMITTED_AT,
   rejectionReason: null,
 };
-const listPage: ApplicationListPage = {
-  items: [listItem],
+const listPage: ApplicationListSourcePage = {
+  items: [listItemSource],
   page: 1,
   pageSize: 20,
   totalItems: 1,
@@ -427,7 +462,7 @@ const decisionBody = {
   repositoryProvisioning: { enabled: false, eventId: null, jobStatus: null },
 };
 
-const findApplicationForStaff = jest.fn().mockResolvedValue(listItem);
+const findApplicationForStaff = jest.fn().mockResolvedValue(listItemSource);
 const listReviewHistory = jest.fn().mockResolvedValue([reviewHistoryEntry]);
 const findProgramById = jest.fn().mockResolvedValue(programRecord);
 const listApplicationsForProgram = jest.fn().mockResolvedValue(listPage);
@@ -484,9 +519,16 @@ const applicationsService = new ApplicationsService(
   applicationsRepository,
   { record } as unknown as AuditLogService,
   authority,
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
 );
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);
@@ -494,6 +536,7 @@ const staffDashboardService = new StaffDashboardService(
   applicationsService,
   { summarize: summarizeActivity },
   { listByProgram: listSubmissionsByProgram },
+  new ProgramCoverUrlService(),
 );
 const listStudents = jest.fn().mockResolvedValue([]);
 const listApprovedParticipations = jest.fn().mockResolvedValue([]);
@@ -509,6 +552,8 @@ const staffInsightsService = new StaffInsightsService(
     listActivityYears,
   } as unknown as StaffInsightsRepository,
   authority,
+  new RankingYearService(),
+  new StaffInsightsQueryService(),
 );
 const getMe = jest.fn((githubId: bigint) =>
   Promise.resolve({ id: `cuid-principal-${githubId}`, sessionVersion: 0 }),
@@ -519,8 +564,12 @@ let baseUrl = '';
 const cookies = new Map<string, string>();
 
 async function issueCookie(githubId: bigint): Promise<string> {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
-  return `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
+  return `${authSessionService.sessionCookieName(false)}=${token}`;
 }
 
 function cookieFor(actor: Actor): string | undefined {
@@ -734,6 +783,8 @@ beforeAll(async () => {
       StaffDashboardController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       SessionGuard,
       OriginGuard,
       { provide: ApplicationsService, useValue: applicationsService },
@@ -769,7 +820,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  findApplicationForStaff.mockResolvedValue(listItem);
+  findApplicationForStaff.mockResolvedValue(listItemSource);
   findApplicationById.mockResolvedValue(decisionTarget);
   findProgramById.mockResolvedValue(programRecord);
 });

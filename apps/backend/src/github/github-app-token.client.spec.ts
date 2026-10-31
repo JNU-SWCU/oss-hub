@@ -1,3 +1,4 @@
+import { GithubAppCredentials } from './github-operations.config';
 import { generateKeyPairSync } from 'node:crypto';
 import { jwtVerify } from 'jose';
 import {
@@ -7,11 +8,8 @@ import {
 import {
   createGithubAppJwt,
   GithubAppTokenClient,
-} from './github-app-token.client';
-import {
-  GithubAppCredentials,
   GithubAppFetcher,
-} from './repository-provision-contract.types';
+} from './github-app-token.client';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const credentials: GithubAppCredentials = {

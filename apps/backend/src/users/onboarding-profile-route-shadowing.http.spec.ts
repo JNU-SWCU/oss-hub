@@ -2,9 +2,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { AccessRequestsController } from '../staff/access-requests.controller';
@@ -13,6 +11,13 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);
@@ -58,6 +63,10 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
         AccessRequestsController,
       ],
       providers: [
+        ...STATELESS_PROVIDERS,
+        AdminAccessMutationService,
+        AuditLogMetadataService,
+        UserProfileService,
         SessionGuard,
         OriginGuard,
         { provide: UsersService, useValue: usersService },
@@ -96,7 +105,7 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

@@ -1,7 +1,10 @@
-import {
-  buildStudentDeadlineMail,
-  buildStaffDeadlineMail,
-} from './deadline-digest-mail-template.policy';
+import { DeadlineDigestService } from './deadline-digest.service';
+
+const deadlineDigestService = new DeadlineDigestService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+);
 
 const context = {
   now: new Date('2026-08-14T00:00:00Z'),
@@ -23,9 +26,12 @@ describe('per-send deadline guidance', () => {
       displayName: 'synthetic-student',
       milestones: [milestone] as const,
     };
-    const original = buildStudentDeadlineMail(input);
+    const original = DeadlineDigestService.buildStudentDeadlineMail(input);
 
-    const mail = buildStudentDeadlineMail({ ...input, guidance });
+    const mail = DeadlineDigestService.buildStudentDeadlineMail({
+      ...input,
+      guidance,
+    });
 
     expect(mail.text).toContain(guidance);
     expect(mail.html).toContain('&lt;img');
@@ -43,10 +49,15 @@ describe('per-send deadline guidance', () => {
     };
     const guidance = 'staff-only & <literal>';
 
-    const mail = buildStaffDeadlineMail({ ...input, guidance });
+    const mail = deadlineDigestService.buildStaffDeadlineMail({
+      ...input,
+      guidance,
+    });
 
     expect(mail.text).toContain(guidance);
     expect(mail.html).toContain('staff-only &amp; &lt;literal&gt;');
-    expect(buildStaffDeadlineMail(input).text).not.toContain(guidance);
+    expect(
+      deadlineDigestService.buildStaffDeadlineMail(input).text,
+    ).not.toContain(guidance);
   });
 });

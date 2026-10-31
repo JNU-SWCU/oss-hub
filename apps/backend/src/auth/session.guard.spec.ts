@@ -6,10 +6,14 @@ import { DomainException } from '../platform/error-code.error';
 import { AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
-import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './auth.policy';
 import type { AuthenticatedRequest } from './http-auth.types';
 import { SessionGuard } from './session.guard';
+import {
+  AuthSessionService,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(randomBytes(32));
 const syntheticGithubId = 424242n;
@@ -43,7 +47,11 @@ async function expectUnauthenticated(cookie?: string): Promise<void> {
       .fn()
       .mockResolvedValue({ id: 'synthetic-user', sessionVersion: 0 }),
   } as unknown as AuthService;
-  const guard = new SessionGuard(buildConfig(), authService);
+  const guard = new SessionGuard(
+    buildConfig(),
+    authService,
+    new AuthSessionService(),
+  );
   const { context, response } = contextWithCookie(cookie);
   const act = guard.canActivate(context);
   await expect(act).rejects.toBeInstanceOf(DomainException);
@@ -62,25 +70,35 @@ describe('SessionGuard', () => {
   });
 
   it('malformed 토큰이면 401 AUT_003을 던진다', async () => {
-    await expectUnauthenticated(`${sessionCookieName(true)}=not-a-jwt`);
+    await expectUnauthenticated(
+      `${authSessionService.sessionCookieName(true)}=not-a-jwt`,
+    );
   });
 
   it('서명이 일치하지 않는(변조) 토큰이면 401 AUT_003을 던진다', async () => {
     const otherSecret = new Uint8Array(randomBytes(32));
-    const token = await issueSessionToken(otherSecret, syntheticGithubId, 0);
-    await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
+    const token = await authSessionService.issueSessionToken(
+      otherSecret,
+      syntheticGithubId,
+      0,
+    );
+    await expectUnauthenticated(
+      `${authSessionService.sessionCookieName(true)}=${token}`,
+    );
   });
 
   it('expired 토큰이면 401 AUT_003을 던진다', async () => {
     const issuedAt =
       Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60;
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       secret,
       syntheticGithubId,
       0,
       issuedAt,
     );
-    await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
+    await expectUnauthenticated(
+      `${authSessionService.sessionCookieName(true)}=${token}`,
+    );
   });
 
   it.each([
@@ -99,7 +117,9 @@ describe('SessionGuard', () => {
         .setExpirationTime(now + 60)
         .sign(secret);
 
-      await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
+      await expectUnauthenticated(
+        `${authSessionService.sessionCookieName(true)}=${token}`,
+      );
     },
   );
 
@@ -114,10 +134,18 @@ describe('SessionGuard', () => {
     const authService = {
       getMe,
     } as unknown as AuthService;
-    const guard = new SessionGuard(buildConfig(), authService);
-    const token = await issueSessionToken(secret, syntheticGithubId, 0);
+    const guard = new SessionGuard(
+      buildConfig(),
+      authService,
+      new AuthSessionService(),
+    );
+    const token = await authSessionService.issueSessionToken(
+      secret,
+      syntheticGithubId,
+      0,
+    );
     const { context, request, response } = contextWithCookie(
-      `${sessionCookieName(true)}=${token}`,
+      `${authSessionService.sessionCookieName(true)}=${token}`,
     );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -145,10 +173,18 @@ describe('SessionGuard', () => {
         sessionVersion: 5,
       }),
     } as unknown as AuthService;
-    const guard = new SessionGuard(buildConfig(), authService);
-    const token = await issueSessionToken(secret, syntheticGithubId, 4);
+    const guard = new SessionGuard(
+      buildConfig(),
+      authService,
+      new AuthSessionService(),
+    );
+    const token = await authSessionService.issueSessionToken(
+      secret,
+      syntheticGithubId,
+      4,
+    );
     const { context } = contextWithCookie(
-      `${sessionCookieName(true)}=${token}`,
+      `${authSessionService.sessionCookieName(true)}=${token}`,
     );
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({
@@ -166,10 +202,18 @@ describe('SessionGuard', () => {
         }),
       ),
     } as unknown as AuthService;
-    const guard = new SessionGuard(buildConfig(), authService);
-    const token = await issueSessionToken(secret, syntheticGithubId, 0);
+    const guard = new SessionGuard(
+      buildConfig(),
+      authService,
+      new AuthSessionService(),
+    );
+    const token = await authSessionService.issueSessionToken(
+      secret,
+      syntheticGithubId,
+      0,
+    );
     const { context, response } = contextWithCookie(
-      `${sessionCookieName(true)}=${token}`,
+      `${authSessionService.sessionCookieName(true)}=${token}`,
     );
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({

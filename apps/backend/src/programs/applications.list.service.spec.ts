@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -10,13 +11,18 @@ import {
 import {
   ApplicationsRepository,
   type ApplyProgramRecord,
+  type ApplicationListPage,
+  type ApplicationListSource,
 } from './applications.repository';
-import type { ApplicationListPage } from './application-records.types';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -68,6 +74,21 @@ const EMPTY_PAGE: ApplicationListPage = {
   totalPages: 0,
 };
 
+function mapItem(source: ApplicationListSource | null | undefined) {
+  return source
+    ? new ApplicationsService(
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      )['toApplicationListItem'](source.row, source.outbox, source.job)
+    : undefined;
+}
+
 describe('ApplicationsService.listForProgram', () => {
   it('교직원 권한이 없으면 APP_018 로 막고 프로그램도 목록도 읽지 않는다', async () => {
     const findProgramById = jest.fn();
@@ -83,9 +104,16 @@ describe('ApplicationsService.listForProgram', () => {
       {
         assertActiveStaff,
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -113,9 +141,16 @@ describe('ApplicationsService.listForProgram', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -205,7 +240,9 @@ describe('ApplicationsService.listForProgram', () => {
       totalItems: 12,
       totalPages: 2,
     };
-    const listApplicationsForProgram = jest.fn().mockResolvedValue(page);
+    const listApplicationsForProgram = jest
+      .fn()
+      .mockResolvedValue({ ...page, items: [] });
     const repository = {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
@@ -216,9 +253,16 @@ describe('ApplicationsService.listForProgram', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
     const query = {
       page: 2,
@@ -230,10 +274,8 @@ describe('ApplicationsService.listForProgram', () => {
 
     await expect(
       service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, query),
-    ).resolves.toEqual(page);
+    ).resolves.toEqual({ ...page, items: [] });
     expect(listApplicationsForProgram).toHaveBeenCalledWith(PROGRAM_ID, query);
-    expect(page.items[0]?.team).toBeNull();
-    expect(page.items[1]?.team?.name).toBe('합성 팀');
   });
 
   it('빈 목록도 페이지 메타를 유지한다', async () => {
@@ -247,9 +289,16 @@ describe('ApplicationsService.listForProgram', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -279,9 +328,16 @@ describe('ApplicationsService.listTeamManagementForProgram', () => {
       {
         assertActiveStaff,
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -389,7 +445,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
-    return page.items[0]?.repositoryProvisioning;
+    return mapItem(page.items[0])?.repositoryProvisioning;
   };
 
   it.each([
@@ -636,7 +692,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
         PROGRAM_ID,
         query,
       );
-      return { item: page.items[0], findMany };
+      return { item: mapItem(page.items[0]), findMany };
     };
 
     it.each([RepositoryVisibility.PUBLIC, RepositoryVisibility.PRIVATE])(

@@ -2,30 +2,26 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
-  isAdminActor,
-  requireActiveAdmin,
-  requireActiveStaffOrAdmin,
-} from './admin-access-authorization.policy';
-import { roleError } from './admin-access-mutation.policy';
-import { AdminAccessMutationService } from './admin-access-mutation.service';
+  AdminAccessMutationService,
+  type AdminAccessMutationCommand,
+  type AdminAccessMutationResult,
+} from './admin-access-mutation.service';
+import { AdminAccessRepository } from './admin-access.repository';
 import {
-  AdminAccessRepository,
   type AdminAccessActor,
   type AdminAccessRepositoryPort,
   type AdminAccessUserDetailRecord,
   type AdminAccessUserRecord,
-} from './admin-access.repository';
+} from './admin-access-read.repository';
 import {
-  ADMIN_ACCESS_PENDING_FILTERS,
   type AdminAccessFacets,
   type AdminAccessHistoryQuery,
   type AdminAccessListQuery,
-  type AdminAccessMutationCommand,
-  type AdminAccessMutationResult,
   type AdminAccessUserDetail,
   type AdminAccessUserHistory,
   type AdminAccessUserPage,
-} from './admin-access.types';
+} from './admin-access-read-ordering.repository';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
 
 @Injectable()
 export class AdminAccessService {
@@ -33,19 +29,25 @@ export class AdminAccessService {
     @Inject(AdminAccessRepository)
     private readonly repository: AdminAccessRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   async list(
     actorGithubId: bigint,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessUserPage> {
-    const actor = requireActiveAdmin(
+    const actor = this.adminAccessMutationService.requireActiveAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
     const page = await this.repository.list(query);
     return {
       ...page,
-      items: page.items.map((user) => withSelfState(user, actor)),
+      items: page.items.map((user) =>
+        withSelfState(
+          this.adminAccessMutationService.toAdminAccessUserRecord(user),
+          actor,
+        ),
+      ),
     };
   }
 
@@ -53,7 +55,7 @@ export class AdminAccessService {
     actorGithubId: bigint,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessUserPage> {
-    const actor = requireActiveStaffOrAdmin(
+    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
     const page = await this.repository.list(
@@ -65,7 +67,12 @@ export class AdminAccessService {
     );
     return {
       ...page,
-      items: page.items.map((user) => withSelfState(user, actor)),
+      items: page.items.map((user) =>
+        withSelfState(
+          this.adminAccessMutationService.toAdminAccessUserRecord(user),
+          actor,
+        ),
+      ),
     };
   }
 
@@ -73,7 +80,7 @@ export class AdminAccessService {
     actorGithubId: bigint,
     userId: string,
   ): Promise<AdminAccessUserDetail> {
-    const actor = requireActiveStaffOrAdmin(
+    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
     const target = await this.requireVisibleTarget(actor, userId);
@@ -84,7 +91,7 @@ export class AdminAccessService {
     actorGithubId: bigint,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    requireActiveAdmin(
+    this.adminAccessMutationService.requireActiveAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
     return this.repository.facets(query);
@@ -95,7 +102,7 @@ export class AdminAccessService {
     userId: string,
     query: AdminAccessHistoryQuery,
   ): Promise<AdminAccessUserHistory> {
-    const actor = requireActiveStaffOrAdmin(
+    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
       await this.repository.findActorByGithubId(actorGithubId),
     );
     await this.requireVisibleTarget(actor, userId);
@@ -114,7 +121,7 @@ export class AdminAccessService {
     userId: string,
     command: AdminAccessMutationCommand,
   ): Promise<AdminAccessMutationResult> {
-    return AdminAccessMutationService.mutateAdminAccess(
+    return this.adminAccessMutationService.mutateAdminAccess(
       { repository: this.repository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );
@@ -125,9 +132,13 @@ export class AdminAccessService {
   ): Promise<AdminAccessUserDetailRecord> {
     const target = await this.repository.findById(userId);
     if (!target) {
-      throw roleError(RolesErrorCode.USER_NOT_FOUND);
+      throw this.adminAccessMutationService.roleError(
+        RolesErrorCode.USER_NOT_FOUND,
+      );
     }
-    return target;
+    return this.adminAccessMutationService.toAdminAccessUserDetailRecord(
+      target,
+    );
   }
 
   private async requireVisibleTarget(
@@ -135,10 +146,15 @@ export class AdminAccessService {
     userId: string,
   ): Promise<AdminAccessUserDetailRecord> {
     const target = await this.requireTarget(userId);
-    if (isAdminActor(actor) || target.pendingRequest) {
+    if (
+      this.adminAccessMutationService.isAdminActor(actor) ||
+      target.pendingRequest
+    ) {
       return target;
     }
-    throw roleError(RolesErrorCode.USER_NOT_FOUND);
+    throw this.adminAccessMutationService.roleError(
+      RolesErrorCode.USER_NOT_FOUND,
+    );
   }
 }
 

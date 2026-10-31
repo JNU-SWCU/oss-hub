@@ -9,17 +9,16 @@ import { ProgramsController } from './programs.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
 import { ProgramLifecycleService } from './program-lifecycle.service';
-import type { ProgramDetailResult } from './programs.types';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import {
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from '../auth/http-auth.types';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsService } from './programs.service';
+import { ProgramsService, type ProgramDetailResult } from './programs.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { AuthSessionService } from '../auth/auth-session.service';
 
 describe('program-editor.controller', () => {
   const controllerMethod = (name: keyof ProgramsController): object => {
@@ -48,7 +47,10 @@ describe('program-editor.controller', () => {
       jest.clearAllMocks();
       const module = await Test.createTestingModule({
         controllers: [ProgramsController],
-        providers: [{ provide: ProgramEditorService, useValue: editor }],
+        providers: [
+          ...STATELESS_PROVIDERS,
+          { provide: ProgramEditorService, useValue: editor },
+        ],
       })
         .useMocker((token) => (token === Function ? undefined : {}))
         .overrideGuard(OriginGuard)
@@ -154,7 +156,11 @@ describe('program-lifecycle.controller', () => {
       jest.clearAllMocks();
       moduleRef = await Test.createTestingModule({
         controllers: [ProgramsController],
-        providers: [{ provide: ProgramLifecycleService, useValue: lifecycle }],
+        providers: [
+          AuthSessionService,
+          ...STATELESS_PROVIDERS,
+          { provide: ProgramLifecycleService, useValue: lifecycle },
+        ],
       })
         .useMocker((token) => (token === Function ? undefined : {}))
         .overrideGuard(SessionGuard)
@@ -296,6 +302,8 @@ describe('ProgramsController read boundaries', () => {
     const module = await Test.createTestingModule({
       controllers: [ProgramsController],
       providers: [
+        AuthSessionService,
+        ...STATELESS_PROVIDERS,
         { provide: ProgramCreationService, useValue: creation },
         { provide: ProgramsService, useValue: programs },
         { provide: ProgramActivityService, useValue: activity },

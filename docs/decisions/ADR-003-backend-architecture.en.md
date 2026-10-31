@@ -2,45 +2,41 @@
 
 ## Context
 
-The backend `src/` had more than 20 folders, each split into layer subfolders (controller, service, repository, domain), so reading one feature meant jumping across many places. File names and DTO shapes also differed per module. This ADR fixes a 10-module layout and only the rules a linter can enforce.
+The backend is split into 10 Nest modules and follows the [Nest defaults](https://docs.nestjs.com/modules). Only enforceable rules live here.
 
 ## Decision
 
 ### Module map
 
-| Module | Absorbs old folders |
+| Module | Scope |
 | --- | --- |
-| `auth` | `auth`, `login-history` |
-| `users` | `users`, `roles` (onboarding, role-requests), `consents` |
-| `programs` | `programs` (incl. `public/*`), `board`, `team-invitations`, `applications`, `submissions`, `submission-reviews`, `milestone-documents` |
-| `ranking` | `ranking` |
-| `student` | New. Student dashboard, my repositories |
-| `staff` | New. Staff dashboard, insights, staff menu reads |
-| `admin` | New. Admin users controllers, audit log query, `system-status`, collection admin |
-| `notifications` | `notifications` |
-| `github` | `github` (collection, repositories) |
-| `platform` | `prisma`, `runtime-config`, `storage`, `health`, `common`, audit log write |
+| `auth` | Authentication, login history |
+| `users` | Users, onboarding, role requests, consents |
+| `programs` | Programs and public reads, board, team invitations, applications, submissions, submission reviews, milestone documents |
+| `ranking` | Ranking |
+| `student` | Student dashboard, my repositories |
+| `staff` | Staff dashboard, insights, staff menu reads |
+| `admin` | Admin user management, audit log reads, system status, collection admin |
+| `notifications` | Notifications |
+| `github` | Collection, repositories |
+| `platform` | Prisma, runtime config, storage, health, common, audit log writes |
 
-### Folder rule
+### Folders and files
 
-- A module folder is depth 1. The only subfolder is `dto/`.
-- One folder is one Nest module.
-- A module's public API is what it lists in `exports`, nothing else.
-
-### Naming
-
-- File names are kebab-case. Resources are plural (`programs`), concepts singular (`auth`, `ranking`).
-- Root file suffixes come from a closed list of 14: `.module` `.controller` `.service` `.repository` `.guard` `.interceptor` `.filter` `.client` `.job` `.scheduler` `.policy` `.error` `.types` `.config`.
-- Class name is PascalCase(stem) plus the suffix, e.g. `program-board.service.ts` -> `ProgramBoardService`.
-- DTO files are `dto/*-request.dto.ts` and `dto/*-response.dto.ts`.
-- Exempt: `src/main.ts`, `src/app.module.ts`, `src/app-controller-discovery.ts`, `test/**/*.ts`, `src/**/*.spec.ts`, `src/**/*.integration.spec.ts`, `src/**/*.spec.helpers.ts`, `src/**/*.test.ts`, `src/**/*fixture.ts`, `src/**/*fixtures.ts`, `src/**/*support.ts`.
+- One folder is one Nest module, at depth 1. The only subfolder is `dto/`.
+- A module's public API is the providers in its `exports`.
+- File names are kebab-case: plural for resources, singular for concepts.
+- A class is named PascalCase(stem) plus the suffix. The contract block below defines the suffixes and exempt files.
+- The layers are controller → service → repository. `*.repository.ts` holds only Prisma queries and transactions, returns rows, and exports only its class and types. Services do computation and validation.
+- `*.service.ts` exports only its class and types. Other modules use its functions by injecting the exported service through the constructor.
+- `.config.ts` exports only constants, types, config classes, and `load*Config` factories.
+- Types live next to the code that produces them. `.types.ts` is only for types shared across modules.
 
 ### DTOs
 
-- Request DTOs hold fields plus class-validator decorators only.
-- Request DTO inheritance is allowed only when Create and Update are field-for-field identical, validators included (`UpdateXRequestDto extends CreateXRequestDto`).
-- Response DTOs hold `declare readonly` fields and a `static from()` that returns an object literal in the baseline JSON key order. No mapped-types.
-- Absence is an explicit state field, never null. Nest sends null as an empty 200 body.
+- Request DTOs hold fields and class-validator decorators only. Inherit only when Create and Update match field for field, validators included.
+- Response DTOs hold `declare readonly` fields and a `static from()` returning an object literal in the baseline JSON key order. Services compute derived values and pass them to `from()`.
+- Absence is an explicit state field, never null.
 
 ```ts
 export class ProgramSummaryResponseDto {
@@ -51,27 +47,19 @@ export class ProgramSummaryResponseDto {
 
 ### Placement
 
-- A read endpoint lives in the audience module (`student`, `staff`, `admin`) of the lowest-privilege menu that calls it.
-- Writes stay in the module that owns the data.
-- Direction: one write repository per aggregate. Not executed in this phase.
+- A read endpoint lives in the audience module (`student`, `staff`, `admin`) of the lowest-privilege menu that calls it. Writes stay in the module that owns the data.
+- The direction is one write repository per aggregate.
 - Frontend and backend never reference each other's paths.
+
+### Removed rules
+
+- File size rule: small files are no longer absorbed. A file holds one concept ([Angular style guide](https://angular.dev/style-guide)).
+- Type-only file split: replaced by the `.types.ts` rule above.
+- `.scheduler`, `.job`, and `.policy` roles: `@Cron`/`@Interval` are methods on module services ([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI commands run through one `src/cli.ts` using `createApplicationContext` ([standalone applications](https://docs.nestjs.com/standalone-applications)). Domain-rule functions live in services.
 
 ## Consequences
 
-These checks enforce the rules.
-
-| Rule id | Check |
-| --- | --- |
-| `conventions/controller-explicit-return` | Controller handlers return an explicit response DTO type |
-| `conventions/response-dto-shape` | Response DTOs have only `declare readonly` fields and `static from()` |
-| `conventions/request-dto-decorated` | Every request DTO field has a class-validator decorator |
-| `conventions/file-name-convention` | File names follow kebab-case and the closed suffix list |
-| `conventions/file-class-match` | Class name matches the file stem and suffix |
-| `cross-app/no-cross-app-path` | No path references between frontend and backend |
-| `boundaries/no-unknown-files` | No folders or files outside the module map |
-| `architecture/no-cycle` | No dependency cycles between modules |
-
-Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapped-types, nestjs-zod, nestia.
+The contract block's `rules` enforce the above as lint errors. Nested contexts, vertical slice, `@Expose` serialization, mapped-types, nestjs-zod, and nestia were not adopted.
 
 ```json adr-003-contract
 {
@@ -96,9 +84,6 @@ Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapp
     ".interceptor",
     ".filter",
     ".client",
-    ".job",
-    ".scheduler",
-    ".policy",
     ".error",
     ".types",
     ".config"
@@ -115,12 +100,16 @@ Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapp
     "conventions/file-class-match",
     "cross-app/no-cross-app-path",
     "boundaries/no-unknown-files",
-    "architecture/no-cycle"
+    "architecture/no-cycle",
+    "architecture/config-exports",
+    "architecture/service-exports"
   ],
-  "exemptFiles": [
+  "outOfScopeFiles": [
     "src/main.ts",
+    "src/cli.ts",
     "src/app.module.ts",
     "src/app-controller-discovery.ts",
+    "src/configure-http-app.ts",
     "test/**/*.ts",
     "src/**/*.spec.ts",
     "src/**/*.integration.spec.ts",
@@ -129,7 +118,6 @@ Rejected options: nested contexts, vertical slice, `@Expose` serialization, mapp
     "src/**/*fixture.ts",
     "src/**/*fixtures.ts",
     "src/**/*support.ts"
-  ],
-  "crossAppExceptions": []
+  ]
 }
 ```

@@ -1,7 +1,38 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import type { NotificationSettings } from './notifications.types';
-import { Prisma } from '@prisma/client';
+import { Prisma, type ApplicationStatus } from '@prisma/client';
+
+export interface ApplicationDecisionNotification {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly decision:
+    | typeof ApplicationStatus.APPROVED
+    | typeof ApplicationStatus.REJECTED
+    | typeof ApplicationStatus.SUBMITTED;
+  readonly decidedAt: Date;
+}
+
+export interface NotificationSettings {
+  readonly notificationEmail: string | null;
+  readonly notifyEnabled: boolean;
+}
+
+export interface UpdateNotificationEmailInput {
+  readonly notificationEmail: string;
+  readonly notifyEnabled: boolean;
+}
+
+export interface TeamDeletionNotification {
+  readonly id: string;
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly message: string | null;
+  readonly deletedAt: Date;
+}
 
 export interface UpdateNotificationSettings {
   readonly notificationEmail: string;

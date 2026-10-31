@@ -11,34 +11,22 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { LoginHistoryService, AuthService } from './auth.service';
-import { AuthConfig } from './auth.config';
-import {
-  OptionalSession,
-  Protected,
-  Public,
-} from './auth-route-metadata.policy';
-import {
-  flowCookieName,
-  parseCookies,
-  serializeClearedSessionCookie,
-  serializeCookie,
-  sessionCookieName,
-} from './cookies.policy';
-import {
-  loginLandingUrl,
-  decodeFlowCookie,
-  isSameState,
-  SESSION_MAX_AGE_SECONDS,
-} from './auth.policy';
+import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
 import { OriginGuard } from './origin.guard';
+import { type OptionalSessionRequest } from './http-auth.types';
 import {
   assertNeverHttpAuth,
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from './http-auth.types';
+  OptionalSession,
+  Protected,
+  Public,
+} from './authentication.guard';
+import {
+  AuthSessionService,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth-session.service';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 
@@ -51,6 +39,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly config: AuthConfig,
     private readonly loginHistoryService: LoginHistoryService,
+    private readonly authSessionService: AuthSessionService,
   ) {}
 
   @Get('github')
@@ -62,8 +51,8 @@ export class AuthController {
     const redirect = this.authService.buildAuthorizeRedirect(query.prompt);
     res.setHeader(
       'Set-Cookie',
-      serializeCookie(
-        flowCookieName(this.config.useSecureCookies),
+      this.authSessionService.serializeCookie(
+        this.authSessionService.flowCookieName(this.config.useSecureCookies),
         redirect.flowCookieValue,
         {
           maxAgeSeconds: FLOW_COOKIE_MAX_AGE_SECONDS,
@@ -85,16 +74,23 @@ export class AuthController {
   ): Promise<void> {
     const secure = this.config.useSecureCookies;
     this.setCallbackSecurityHeaders(res);
-    const cookies = parseCookies(req.headers.cookie);
-    const clearFlowCookie = serializeCookie(flowCookieName(secure), '', {
-      maxAgeSeconds: 0,
-      secure,
-    });
+    const cookies = this.authSessionService.parseCookies(req.headers.cookie);
+    const clearFlowCookie = this.authSessionService.serializeCookie(
+      this.authSessionService.flowCookieName(secure),
+      '',
+      {
+        maxAgeSeconds: 0,
+        secure,
+      },
+    );
 
     if (oauthError || !code || !state) {
       this.redirectWithError(
         res,
-        this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
+        this.shouldClearFlowCookie(
+          state,
+          cookies[this.authSessionService.flowCookieName(secure)],
+        )
           ? clearFlowCookie
           : undefined,
       );
@@ -105,18 +101,25 @@ export class AuthController {
       const login = await this.authService.completeLogin({
         code,
         state,
-        flowCookie: cookies[flowCookieName(secure)],
+        flowCookie: cookies[this.authSessionService.flowCookieName(secure)],
       });
       const sessionToken = await this.authService.issueSession(login.user);
       await this.recordLoginHistory(login.user.id);
       res.setHeader('Set-Cookie', [
         clearFlowCookie,
-        serializeCookie(sessionCookieName(secure), sessionToken, {
-          maxAgeSeconds: SESSION_MAX_AGE_SECONDS,
-          secure,
-        }),
+        this.authSessionService.serializeCookie(
+          this.authSessionService.sessionCookieName(secure),
+          sessionToken,
+          {
+            maxAgeSeconds: SESSION_MAX_AGE_SECONDS,
+            secure,
+          },
+        ),
       ]);
-      res.redirect(302, loginLandingUrl(this.config.frontendUrl, login));
+      res.redirect(
+        302,
+        this.authSessionService.loginLandingUrl(this.config.frontendUrl, login),
+      );
     } catch (error) {
       this.logger.warn(
         `GitHub OAuth callback 실패: ${
@@ -126,7 +129,10 @@ export class AuthController {
 
       this.redirectWithError(
         res,
-        this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
+        this.shouldClearFlowCookie(
+          state,
+          cookies[this.authSessionService.flowCookieName(secure)],
+        )
           ? clearFlowCookie
           : undefined,
       );
@@ -205,7 +211,9 @@ export class AuthController {
   private clearSessionCookie(res: Response): void {
     res.setHeader(
       'Set-Cookie',
-      serializeClearedSessionCookie(this.config.useSecureCookies),
+      this.authSessionService.serializeClearedSessionCookie(
+        this.config.useSecureCookies,
+      ),
     );
   }
 
@@ -223,8 +231,11 @@ export class AuthController {
     if (!receivedState) {
       return false;
     }
-    const flow = decodeFlowCookie(flowCookie);
-    return flow !== null && isSameState(flow.state, receivedState);
+    const flow = this.authSessionService.decodeFlowCookie(flowCookie);
+    return (
+      flow !== null &&
+      this.authSessionService.isSameState(flow.state, receivedState)
+    );
   }
 
   private setCallbackSecurityHeaders(res: Response): void {

@@ -5,7 +5,11 @@ import {
   ProgramPurgeFileTombstoneLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import type { StorageReferenceRepository } from './storage-orphan-reconciliation.policy';
+
+export interface StorageReferenceRepository {
+  readonly loadLiveKeys: () => Promise<ReadonlySet<string>>;
+  readonly isLiveKey: (key: string) => Promise<boolean>;
+}
 
 type StorageKey = { readonly storageKey: string | null };
 type StorageId = { readonly id: string };
@@ -51,14 +55,6 @@ interface StorageReferenceRepositoryLifecycle {
   readonly references: StorageReferenceRepository;
   readonly disconnect: () => Promise<void>;
 }
-
-export const STORAGE_KEY_OWNERS = [
-  'SubmissionFile',
-  'ProgramAuthoringUpload',
-  'ProgramCover',
-  'MilestoneDocumentTemplateFile',
-  'ProgramPurgeFileTombstone',
-] as const;
 
 export class PrismaStorageReferenceRepository implements StorageReferenceRepository {
   constructor(private readonly prisma: StorageReferencePrisma) {}
@@ -166,12 +162,12 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
-}
 
-export function createStorageReferenceRepository(): StorageReferenceRepositoryLifecycle {
-  const prisma = new PrismaClient();
-  return {
-    references: new PrismaStorageReferenceRepository(prisma),
-    disconnect: () => prisma.$disconnect(),
-  };
+  static createStorageReferenceRepository(): StorageReferenceRepositoryLifecycle {
+    const prisma = new PrismaClient();
+    return {
+      references: new PrismaStorageReferenceRepository(prisma),
+      disconnect: () => prisma.$disconnect(),
+    };
+  }
 }

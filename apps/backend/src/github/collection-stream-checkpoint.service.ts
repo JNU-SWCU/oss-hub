@@ -5,10 +5,10 @@ import type {
   CollectionIssue,
 } from './collection-app.client';
 import type {
+  CollectionIncrementalRepository,
   RegisteredGithubIdSet,
   SyncLeaseToken,
-} from './collection-incremental.types';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
+} from './collection-incremental.repository';
 
 function bigIntOrNull(value: string | null): bigint | null {
   return value === null ? null : BigInt(value);

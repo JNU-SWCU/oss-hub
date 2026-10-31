@@ -5,14 +5,20 @@ import { HealthController } from './health.controller';
 import { HealthRepository } from './health.repository';
 import { HealthService } from './health.service';
 import { S3ObjectStorageClient } from './s3-object-storage.client';
-import { ObjectStorageConfig } from './object-storage.config';
-import { OBJECT_INVENTORY, OBJECT_STORAGE } from './object-storage.types';
+import {
+  ObjectStorageConfig,
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+} from './object-storage.config';
 import { PrismaService } from './prisma.service';
 import {
   PROCESS_RUNTIME_CONFIG,
   RUNTIME_CONFIG,
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { UserProfileService } from './user-profile.service';
+import { JoinCodeSecretService } from './join-code-secret.service';
 
 @Global()
 @Module({
@@ -29,6 +35,9 @@ import { S3ObjectInventoryClient } from './s3-object-inventory.client';
     HealthRepository,
     HealthService,
     AuditLogRepository,
+    AuditLogMetadataService,
+    UserProfileService,
+    JoinCodeSecretService,
     AuditLogService,
   ],
   exports: [
@@ -36,6 +45,9 @@ import { S3ObjectInventoryClient } from './s3-object-inventory.client';
     PrismaService,
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
+    AuditLogMetadataService,
+    UserProfileService,
+    JoinCodeSecretService,
     AuditLogService,
   ],
 })

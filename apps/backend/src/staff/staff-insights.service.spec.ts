@@ -1,8 +1,12 @@
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsErrorCode } from '../programs/applications-error-code.error';
-import { DEPARTMENT_COHORTS } from './staff.policy';
 import { StaffInsightsService } from './staff-insights.service';
 import type { StaffInsightsRepository } from './staff-insights.repository';
+import { RankingYearService } from '../ranking/ranking-year.service';
+import {
+  StaffInsightsQueryService,
+  DEPARTMENT_COHORTS,
+} from './staff-insights-query.service';
 
 const STAFF_GITHUB_ID = 4242n;
 const DENIED_GITHUB_ID = 909n;
@@ -77,9 +81,14 @@ describe('StaffInsightsService', () => {
   it('splits ranking and participation by department cohort', async () => {
     const store = repository();
     const assertActiveStaff = staffOnlyAuthority();
-    const service = new StaffInsightsService(store as StaffInsightsRepository, {
-      assertActiveStaff,
-    });
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      {
+        assertActiveStaff,
+      },
+      new RankingYearService(),
+      new StaffInsightsQueryService(),
+    );
 
     const summary = await service.summarize(STAFF_GITHUB_ID, { kind: 'all' });
 
@@ -131,9 +140,14 @@ describe('StaffInsightsService', () => {
 
   it('passes only a numeric year into activity totals', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository, {
-      assertActiveStaff: staffOnlyAuthority(),
-    });
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      {
+        assertActiveStaff: staffOnlyAuthority(),
+      },
+      new RankingYearService(),
+      new StaffInsightsQueryService(),
+    );
 
     await service.summarize(STAFF_GITHUB_ID, { kind: 'calendar', year: 2026 });
 
@@ -144,9 +158,14 @@ describe('StaffInsightsService', () => {
 
   it('denies a non-staff session with the staff list read contract', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository, {
-      assertActiveStaff: staffOnlyAuthority(),
-    });
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      {
+        assertActiveStaff: staffOnlyAuthority(),
+      },
+      new RankingYearService(),
+      new StaffInsightsQueryService(),
+    );
 
     const denied = service.summarize(DENIED_GITHUB_ID, { kind: 'all' });
 
@@ -161,9 +180,14 @@ describe('StaffInsightsService', () => {
 
   it('reads nothing when the session is not active staff', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository, {
-      assertActiveStaff: staffOnlyAuthority(),
-    });
+    const service = new StaffInsightsService(
+      store as StaffInsightsRepository,
+      {
+        assertActiveStaff: staffOnlyAuthority(),
+      },
+      new RankingYearService(),
+      new StaffInsightsQueryService(),
+    );
 
     await expect(
       service.summarize(DENIED_GITHUB_ID, { kind: 'calendar', year: 2026 }),

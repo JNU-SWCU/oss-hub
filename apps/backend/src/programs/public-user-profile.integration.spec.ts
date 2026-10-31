@@ -19,6 +19,7 @@ import {
 } from './public-projects.service';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
+import { RepositoryUrlService } from '../github/repository-url.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -39,6 +40,7 @@ const service = new PublicProjectsService(
   eligibilityService,
   metrics,
   loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
+  new RepositoryUrlService(),
 );
 
 const PREFIX = 'synthetic-public-profile';

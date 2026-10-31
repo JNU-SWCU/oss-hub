@@ -1,20 +1,19 @@
 import type {
+  MilestoneSubmissionType,
+  ReviewDecision,
+  SubmissionStatus,
+} from '@prisma/client';
+import type {
   CreatedSubmissionResult,
   ResubmittedSubmissionResult,
   SubmissionBlockedReason,
   SubmissionChecklistResult,
   SubmissionFormResult,
-} from '../submission-result.policy';
+} from '../submissions.service';
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../submission-file.policy';
-
-import type {
-  MilestoneSubmissionType,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+} from '../submission-upload.config';
 
 function fileUploadLimits() {
   return {

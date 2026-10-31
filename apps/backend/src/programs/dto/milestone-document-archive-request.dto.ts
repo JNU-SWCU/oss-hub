@@ -7,14 +7,14 @@ import {
 } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
 import {
-  MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
-  type MilestoneDocumentArchiveGrouping,
-} from '../milestone-document-archive.policy';
-import type { MilestoneDocumentArchiveScope } from '../milestone-document-result.types';
-import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.error';
+import {
+  MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
+  type MilestoneDocumentArchiveGrouping,
+  type MilestoneDocumentArchiveScope,
+} from '../milestone-document-archive.service';
 
 export class MilestoneDocumentArchiveRequestDto {
   @IsOptional()

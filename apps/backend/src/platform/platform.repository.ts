@@ -7,9 +7,45 @@ import {
   type ReviewDecision,
   type AffiliationKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from './program-application-participant.repository';
+import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.config';
 
 export class PlatformRepository {
+  static programApplicationManagerWhere(userId: string) {
+    return {
+      team: { leaderId: userId, members: { some: { userId } } },
+    };
+  }
+
+  static programApplicationParticipantWhere(userId: string) {
+    return {
+      team: { members: { some: { userId } } },
+    };
+  }
+
+  static userProfileNameWhere(query: string) {
+    return {
+      profile: {
+        is: { name: { contains: query, mode: 'insensitive' as const } },
+      },
+    };
+  }
+
+  static repositoryAccessSyncEventData(
+    applicationId: string,
+    teamId: string,
+    now: Date,
+  ) {
+    const requestedAt = now.toISOString();
+    return {
+      type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+      aggregateType: 'Application',
+      aggregateId: applicationId,
+      idempotencyKey: `repository-access-sync:${applicationId}:${requestedAt}`,
+      payload: { applicationId, teamId, requestedAt },
+      availableAt: now,
+    };
+  }
+
   static linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
     return {
       OR: [
@@ -75,9 +111,7 @@ export class PlatformRepository {
     const current = await tx.application.findFirst({
       where: {
         id: applicationId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

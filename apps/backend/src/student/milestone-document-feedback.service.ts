@@ -1,14 +1,27 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MilestoneDocumentKind } from '@prisma/client';
-import { isChangeRequestResubmissionOpen } from '../programs/milestone-document-submission-window.policy';
-import type {
-  MilestoneDocumentFeedbackItemResult,
-  MilestoneDocumentFeedbackResult,
-} from '../programs/milestone-document-result.types';
+import { MilestoneDocumentKind, type ReviewDecision } from '@prisma/client';
 import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
 } from './milestone-document-feedback.repository';
+import { MilestoneDocumentRulesService } from '../programs/milestone-document-rules.service';
+
+interface MilestoneDocumentFeedbackItemResult {
+  readonly id: string;
+  readonly decision: ReviewDecision;
+  readonly comment: string | null;
+  readonly reviewedAt: Date;
+  readonly resubmissionDueAt: Date | null;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly milestoneId: string;
+  readonly milestoneName: string;
+  readonly itemName: string;
+}
+
+export interface MilestoneDocumentFeedbackResult {
+  readonly items: readonly MilestoneDocumentFeedbackItemResult[];
+}
 
 export const MILESTONE_DOCUMENT_FEEDBACK_CLOCK = Symbol(
   'MILESTONE_DOCUMENT_FEEDBACK_CLOCK',
@@ -34,6 +47,7 @@ export class MilestoneDocumentFeedbackService {
     >,
     @Inject(MILESTONE_DOCUMENT_FEEDBACK_CLOCK)
     private readonly clock: MilestoneDocumentFeedbackClock,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async recentForParticipant(
@@ -48,35 +62,36 @@ export class MilestoneDocumentFeedbackService {
       items: reviews.map((review) => {
         const isLatestReview = !reviewedSubmissions.has(review.submissionId);
         reviewedSubmissions.add(review.submissionId);
-        return toFeedbackItem(review, isLatestReview);
+        return this.toFeedbackItem(review, isLatestReview);
       }),
     };
   }
-}
 
-function toFeedbackItem(
-  review: RecentMilestoneDocumentReview,
-  isLatestReview: boolean,
-): MilestoneDocumentFeedbackItemResult {
-  const resubmissionOpen =
-    isLatestReview &&
-    isChangeRequestResubmissionOpen({
-      latestDecision: review.decision,
-      submissionStatus: review.submissionStatus,
-    });
-  return {
-    id: review.id,
-    decision: review.decision,
-    comment: review.comment,
-    reviewedAt: review.reviewedAt,
-    resubmissionDueAt: resubmissionOpen ? review.resubmissionDueAt : null,
-    applicationId: review.applicationId,
-    programId: review.programId,
-    milestoneId: review.milestoneId,
-    milestoneName: review.milestoneName,
-    itemName:
-      review.documentKind === MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
-        ? review.milestoneName
-        : review.documentName,
-  };
+  private toFeedbackItem(
+    review: RecentMilestoneDocumentReview,
+    isLatestReview: boolean,
+  ): MilestoneDocumentFeedbackItemResult {
+    const resubmissionOpen =
+      isLatestReview &&
+      this.milestoneDocumentRulesService.isChangeRequestResubmissionOpen({
+        latestDecision: review.decision,
+        submissionStatus: review.submissionStatus,
+      });
+    return {
+      id: review.id,
+      decision: review.decision,
+      comment: review.comment,
+      reviewedAt: review.reviewedAt,
+      resubmissionDueAt: resubmissionOpen ? review.resubmissionDueAt : null,
+      applicationId: review.applicationId,
+      programId: review.programId,
+      milestoneId: review.milestoneId,
+      milestoneName: review.milestoneName,
+      itemName:
+        review.documentKind ===
+        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
+          ? review.milestoneName
+          : review.documentName,
+    };
+  }
 }

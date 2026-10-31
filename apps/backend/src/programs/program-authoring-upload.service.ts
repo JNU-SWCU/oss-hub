@@ -1,8 +1,7 @@
+import { ValidatedProgramAuthoringUpload } from './program-authoring-upload-transaction.repository';
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import type { ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
   ProgramAuthoringUploadRepository,
   type ProgramAuthoringUploadDeleteRequestResult,
@@ -13,15 +12,7 @@ import {
   type ProgramAuthoringUploadFile,
   type ProgramAuthoringUploadResponse,
 } from './program-authoring-upload.error';
-import {
-  validateProgramAuthoringUpload,
-  type ValidatedProgramAuthoringUpload,
-  createProgramAuthoringObjectKey,
-} from './program-authoring.policy';
-import {
-  validateProgramCoverUpload,
-  createProgramCoverObjectKey,
-} from './program-cover.policy';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
 
 const PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 
@@ -38,6 +29,7 @@ export class ProgramAuthoringUploadService {
     private readonly repository: ProgramAuthoringUploadStore,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ProgramAuthoringUploadStorage,
+    private readonly programUploadRulesService: ProgramUploadRulesService,
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
@@ -51,11 +43,10 @@ export class ProgramAuthoringUploadService {
         PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
       );
     }
-    const validated = await validateProgramAuthoringUpload(file);
-    return this.storeUpload(
-      actorId,
-      validated,
-      createProgramAuthoringObjectKey,
+    const validated =
+      await this.programUploadRulesService.validateProgramAuthoringUpload(file);
+    return this.storeUpload(actorId, validated, () =>
+      this.programUploadRulesService.createProgramAuthoringObjectKey(),
     );
   }
 
@@ -70,8 +61,8 @@ export class ProgramAuthoringUploadService {
     }
     return this.storeUpload(
       actorId,
-      validateProgramCoverUpload(file),
-      createProgramCoverObjectKey,
+      this.programUploadRulesService.validateProgramCoverUpload(file),
+      () => this.programUploadRulesService.createProgramCoverObjectKey(),
     );
   }
 

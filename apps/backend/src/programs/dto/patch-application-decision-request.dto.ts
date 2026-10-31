@@ -1,5 +1,5 @@
 import { IsOptional, IsString } from 'class-validator';
-import type { ApplicationDecisionCommand } from '../application-decision.policy';
+import { type ApplicationDecisionCommand } from '../applications.repository';
 
 export class PatchApplicationDecisionRequestDto implements ApplicationDecisionCommand {
   @IsString()

@@ -15,10 +15,8 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -29,6 +27,9 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -131,6 +132,8 @@ const authority = new UsersAuthorityService(
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
 );
 
 const storage: ObjectStoragePort = {
@@ -147,6 +150,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
     >[0],
   ),
   storage,
+  new SubmissionFileRulesService(),
 );
 
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
@@ -357,7 +361,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
 
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
-      providers: [SubmissionFilesService, SubmissionFilesRepository],
+      providers: [
+        SubmissionFilesService,
+        SubmissionFilesRepository,
+        ProgramRulesService,
+        SubmissionFileRulesService,
+      ],
     })
       .overrideProvider(RUNTIME_CONFIG)
       .useValue(
@@ -379,6 +388,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       storage,
       submissionsModule.get(SubmissionFilesService),
       authority,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
 
     await cleanup();

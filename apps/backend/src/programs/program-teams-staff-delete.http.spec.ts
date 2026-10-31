@@ -5,8 +5,6 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../auth/origin.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
@@ -19,6 +17,15 @@ import type {
 import type { TeamDeletionResult } from './program-team-deletion.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
@@ -128,6 +135,11 @@ const service = new ProgramTeamsService(
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
   { assertActiveStaff: jest.fn() },
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 
 const deleteForStaff = jest.fn(
@@ -225,14 +237,20 @@ async function deleteTeam(
 }
 
 async function sessionCookieFor(githubId: bigint): Promise<string> {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
-  return `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
+  return `${authSessionService.sessionCookieName(false)}=${token}`;
 }
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       { provide: ProgramTeamsService, useValue: { deleteForStaff } },
       SessionGuard,
       OriginGuard,

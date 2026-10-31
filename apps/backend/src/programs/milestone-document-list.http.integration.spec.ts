@@ -4,8 +4,6 @@ import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -18,6 +16,12 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const authSessionService = new AuthSessionService();
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 
@@ -46,10 +50,16 @@ async function cleanup(): Promise<void> {
 }
 
 async function requestList(): Promise<Response> {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
   const url = `${await application.getUrl()}/api/v1/milestones/${milestoneId}/documents`;
   return fetch(url, {
-    headers: { cookie: `${sessionCookieName(false)}=${token}` },
+    headers: {
+      cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
+    },
   });
 }
 
@@ -64,6 +74,10 @@ describe('authenticated milestone document list filename contract', () => {
         MilestoneDocumentsService,
         UsersAuthorityRepository,
         UsersAuthorityService,
+        MilestoneDocumentRulesService,
+        ProgramRulesService,
+        SubmissionFileRulesService,
+        AuthSessionService,
         SessionGuard,
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },

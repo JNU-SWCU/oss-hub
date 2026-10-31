@@ -25,7 +25,7 @@ describe('ProgramEditorService update validation', () => {
         ...updateInput,
         endAt: '2026-08-30T00:00:00.000Z',
       });
-      if (accepted) await expect(update).resolves.toBeUndefined();
+      if (accepted) await expect(update).resolves.toBeDefined();
       else {
         await expect(update).rejects.toMatchObject({
           errorCode: { code: ProgramErrorCode.VALIDATION_ERROR },

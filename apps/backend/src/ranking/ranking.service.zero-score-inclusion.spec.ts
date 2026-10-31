@@ -1,5 +1,5 @@
-import { RANKING_YEAR_ALL } from './ranking.policy';
 import { activity, setupRankingService } from './ranking.service.spec.helpers';
+import { RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingService — 0점 사용자 포함과 동률 tiebreak', () => {
   it('관측이 없는 가입자도 5종 전부 0으로 결과에 포함된다', async () => {

@@ -29,7 +29,10 @@ export class PrivateKeyFileError extends Error {
   }
 }
 
-export function readPrivateKeyFile(envKey: string, filePath: string): string {
+export function loadPrivateKeyFileConfig(
+  envKey: string,
+  filePath: string,
+): string {
   const stats = statFile(envKey, filePath);
 
   if (!stats.isFile()) {

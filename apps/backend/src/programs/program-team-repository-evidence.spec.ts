@@ -9,8 +9,33 @@ import {
 } from './program-team-repository-evidence.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 afterEach(() => jest.clearAllMocks());
+
+function toPage(history: RepositoryUrlHistoryRows | undefined) {
+  return new ProgramTeamsService(
+    undefined as never,
+    undefined as never,
+    undefined as never,
+    undefined as never,
+    new AuditLogMetadataService(),
+    new RepositoryPublishService(),
+    new RepositoryUrlService(),
+    new MilestoneCompletionService(),
+    new ProgramRulesService(),
+  )['toRepositoryUrlHistoryPage'](history!, {
+    programId: 'program',
+    teamId: 'team',
+    applicationId: 'application',
+  });
+}
 
 it('keeps the sentinel window but bounds the query by the last queryable day', async () => {
   givenRepository();
@@ -69,9 +94,20 @@ it('reports an explicit repository relink as succeeded without inventing a provi
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
-  expect(detail?.application?.repositoryProvisioning.jobStatus).toBe(
-    'SUCCEEDED',
-  );
+  expect(
+    new ProgramTeamsService(
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      new AuditLogMetadataService(),
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new ProgramRulesService(),
+    )['toTeamApplicationView'](detail!.application!).repositoryProvisioning
+      .jobStatus,
+  ).toBe('SUCCEEDED');
 });
 
 it('continues history with timestamp and ID tie-breaking inside the same scope', async () => {
@@ -84,7 +120,11 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
     cursor,
   );
 
-  expect(page).toEqual({ items: [], nextCursor: null });
+  expect(page).toEqual({
+    applicationId: 'application',
+    rows: [],
+    hasMore: false,
+  });
   const historyQuery: unknown = auditFindMany.mock.calls[0]?.[0];
   expect(historyQuery).toHaveProperty('where.targetId', 'application');
   expect(historyQuery).toHaveProperty(
@@ -105,7 +145,7 @@ it('returns an explicit empty evidence state when the team has no application', 
 
   expect(detail).toMatchObject({
     repositoryContributions: null,
-    repositoryUrlHistory: { items: [], nextCursor: null },
+    repositoryUrlHistory: { rows: [], hasMore: false },
   });
   expect(contributionGroupBy).not.toHaveBeenCalled();
   expect(auditFindMany).not.toHaveBeenCalled();
@@ -138,19 +178,17 @@ it('returns only application-scoped URL history with the actor snapshot', async 
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
-  expect(detail).toMatchObject({
-    repositoryUrlHistory: {
-      items: [
-        {
-          id: 'change-1',
-          occurredAt: '2026-08-15T00:00:00.000Z',
-          actorGithubLogin: 'actor-at-change',
-          previousRepositoryUrl: 'https://github.com/synthetic/old',
-          newRepositoryUrl: 'https://github.com/synthetic/current',
-        },
-      ],
-      nextCursor: null,
-    },
+  expect(toPage(detail?.repositoryUrlHistory)).toMatchObject({
+    items: [
+      {
+        id: 'change-1',
+        occurredAt: '2026-08-15T00:00:00.000Z',
+        actorGithubLogin: 'actor-at-change',
+        previousRepositoryUrl: 'https://github.com/synthetic/old',
+        newRepositoryUrl: 'https://github.com/synthetic/current',
+      },
+    ],
+    nextCursor: null,
   });
   expect(auditFindMany).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -203,10 +241,11 @@ it('bounds the initial history page and provides a cursor for all remaining hist
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
-  expect(detail?.repositoryUrlHistory).toMatchObject({
+  const page = toPage(detail?.repositoryUrlHistory);
+  expect(page).toMatchObject({
     nextCursor: '2026-08-15T00:00:00.000Z_change-11',
   });
-  expect(detail?.repositoryUrlHistory).toHaveProperty(
+  expect(page).toHaveProperty(
     'items',
     expect.arrayContaining([expect.objectContaining({ id: 'change-11' })]),
   );
@@ -223,7 +262,7 @@ it('matches numeric GitHub identities and preserves members without observations
   expect(detail).toMatchObject({
     repositoryContributions: {
       repositoryId: 'current-repo',
-      repositoryUrl: 'https://github.com/synthetic/current',
+      nameWithOwner: 'synthetic/current',
       window: { from: '2026-08-01', to: '2026-08-31', timeZone: 'Asia/Seoul' },
       collectionStatus: 'COLLECTED',
       members: [

@@ -1,37 +1,29 @@
+import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import {
   AccountStatus,
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import {
-  USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import { authorityLabel } from './authority-label.policy';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-  AdminAccessPendingDecisionUpdate,
-  AdminAccessRepositoryPort,
-  AdminAccessTransactionStore,
-  AdminAccessUserRecord,
-  AdminAccessUserUpdate,
-} from './admin-access-repository.types';
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
-  ADMIN_ACCESS_USER_SELECT,
-  AdminAccessUserProjectionRepository,
-} from './admin-access-user-projection.repository';
-import { AdminAccessReadRepository } from './admin-access-read.repository';
-import type {
-  AdminAccessListQuery,
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+  AdminAccessReadRepository,
+  type AdminAccessActor,
+  type AdminAccessUserUpdate,
+  type AdminAccessPendingDecisionUpdate,
+  type AdminAccessRevokedRequestInsert,
+  type AdminAccessInsertedRequest,
+  type AdminAccessTransactionStore,
+  type AdminAccessRepositoryPort,
+} from './admin-access-read.repository';
+import {
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
+import type { AdminAccessUserRow } from './admin-access-read.repository';
 
 const ADMIN_ACTOR_SELECT = {
   id: true,
@@ -50,79 +42,6 @@ type PrismaAdminActor = Prisma.UserGetPayload<{
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-export async function lockActiveAdminRows(
-  transaction: Prisma.TransactionClient,
-): Promise<number> {
-  const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
-    Prisma.sql`
-        SELECT id
-        FROM "User"
-        WHERE "hasAdminAccess" = TRUE
-          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
-        ORDER BY id
-        FOR UPDATE
-      `,
-  );
-  return rows.length;
-}
-
-export async function findAdminActorByGithubId(
-  transaction: Prisma.TransactionClient,
-  githubId: bigint,
-): Promise<AdminAccessActor | null> {
-  const actor = await transaction.user.findUnique({
-    where: { githubId },
-    select: ADMIN_ACTOR_SELECT,
-  });
-  return actor ? toAdminActor(actor) : null;
-}
-
-export function toAdminActor(user: PrismaAdminActor): AdminAccessActor {
-  return {
-    id: user.id,
-    githubId: user.githubId,
-    githubLogin: user.nickname,
-    name: UserProfileReadRepository.resolveUserProfileName(user),
-    role: authorityLabel({
-      memberKind: user.selectedMemberKind,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
-    }),
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
-    accountStatus: user.accountStatus,
-  };
-}
-
-export async function insertRevokedStaffAccessRequest(
-  transaction: Prisma.TransactionClient,
-  input: AdminAccessRevokedRequestInsert,
-): Promise<AdminAccessInsertedRequest> {
-  const created = await transaction.staffAccessRequest.create({
-    data: {
-      userId: input.userId,
-      status: StaffAccessRequestStatus.REVOKED,
-      decidedById: input.actorId,
-      decidedAt: input.decidedAt,
-    },
-    select: { id: true },
-  });
-  return { id: created.id };
-}
-
-export type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessPendingDecisionUpdate,
-  AdminAccessRepositoryPort,
-  AdminAccessRevokedRequestInsert,
-  AdminAccessTransactionStore,
-  AdminAccessUserDetailRecord,
-  AdminAccessUserPageRecord,
-  AdminAccessUserRecord,
-  AdminAccessUserUpdate,
-} from './admin-access-repository.types';
-
 class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
@@ -131,16 +50,17 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   lockActiveAdmins(): Promise<number> {
-    return lockActiveAdminRows(this.transaction);
+    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
-  async findUserForUpdate(
-    userId: string,
-  ): Promise<AdminAccessUserRecord | null> {
+  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
     );
@@ -149,11 +69,9 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
     }
     const user = await this.transaction.user.findUnique({
       where: { id: userId },
-      select: ADMIN_ACCESS_USER_SELECT,
+      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
-    return user
-      ? AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user)
-      : null;
+    return user ? AdminAccessReadRepository.toAdminAccessUserRow(user) : null;
   }
 
   async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
@@ -191,7 +109,10 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    return insertRevokedStaffAccessRequest(this.transaction, input);
+    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+      this.transaction,
+      input,
+    );
   }
 }
 
@@ -208,7 +129,10 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.prisma, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.prisma,
+      githubId,
+    );
   }
 
   list(
@@ -253,5 +177,60 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       userId,
       page,
     );
+  }
+
+  static async lockActiveAdminRows(
+    transaction: Prisma.TransactionClient,
+  ): Promise<number> {
+    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
+      Prisma.sql`
+        SELECT id
+        FROM "User"
+        WHERE "hasAdminAccess" = TRUE
+          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
+        ORDER BY id
+        FOR UPDATE
+      `,
+    );
+    return rows.length;
+  }
+
+  static async findAdminActorByGithubId(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    const actor = await transaction.user.findUnique({
+      where: { githubId },
+      select: ADMIN_ACTOR_SELECT,
+    });
+    return actor ? AdminAccessRepository.toAdminActor(actor) : null;
+  }
+
+  static toAdminActor(user: PrismaAdminActor): AdminAccessActor {
+    return {
+      id: user.id,
+      githubId: user.githubId,
+      githubLogin: user.nickname,
+      name: user.profile?.name ?? null,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+      accountStatus: user.accountStatus,
+    };
+  }
+
+  static async insertRevokedStaffAccessRequest(
+    transaction: Prisma.TransactionClient,
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    const created = await transaction.staffAccessRequest.create({
+      data: {
+        userId: input.userId,
+        status: StaffAccessRequestStatus.REVOKED,
+        decidedById: input.actorId,
+        decidedAt: input.decidedAt,
+      },
+      select: { id: true },
+    });
+    return { id: created.id };
   }
 }

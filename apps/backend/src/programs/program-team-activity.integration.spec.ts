@@ -8,6 +8,11 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -17,9 +22,17 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
   new ProgramTeamDeletionRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 const prefix = `team-activity-${randomUUID()}`;
 const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);

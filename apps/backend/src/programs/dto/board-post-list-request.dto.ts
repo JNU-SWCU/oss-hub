@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { BoardPostListQuery } from '../programs.types';
+import { BoardPostListQuery } from '../board.service';
 
 export class BoardPostListRequestDto {
   @IsOptional()

@@ -1,12 +1,13 @@
 import type {
+  CollectionIncrementalRepository,
   CollectionRepositoryRow,
   CollectionSyncRuntime,
   SyncLeaseToken,
-} from './collection-incremental.types';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionSyncDeadline, splitNameWithOwner } from './github.policy';
+} from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
+import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
+import { RepositoryUrlService } from './repository-url.service';
 
 export interface SweepInventory {
   readonly complete: boolean;
@@ -21,8 +22,9 @@ export class CollectionInventoryService {
       | 'listPresentRepositories'
       | 'listExternalRepositories'
     >,
-    private readonly deadline: CollectionSyncDeadline,
+    private readonly deadline: CollectionSyncDeadlineService,
     private readonly now: () => Date,
+    private readonly repositoryUrlService: RepositoryUrlService,
   ) {}
 
   async org(
@@ -103,7 +105,9 @@ export class CollectionInventoryService {
         break;
       }
 
-      const [owner, name] = splitNameWithOwner(current.nameWithOwner);
+      const [owner, name] = this.repositoryUrlService.splitNameWithOwner(
+        current.nameWithOwner,
+      );
       const observedAt = this.now();
       let metadata;
       try {

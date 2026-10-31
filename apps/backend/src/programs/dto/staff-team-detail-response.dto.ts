@@ -3,7 +3,7 @@ import type {
   TeamApplicationView,
   TeamMemberView,
   RepositoryUrlHistoryPage,
-} from '../program-teams.types';
+} from '../program-team-repository-evidence.repository';
 
 export class RepositoryUrlHistoryResponseDto {
   declare readonly items: RepositoryUrlHistoryPage['items'];

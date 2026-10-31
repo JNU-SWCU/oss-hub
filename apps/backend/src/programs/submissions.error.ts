@@ -1,3 +1,7 @@
+export class SubmissionPublicIdCollisionError extends Error {
+  override readonly name = 'SubmissionPublicIdCollisionError';
+}
+
 export class SubmissionAlreadyExistsError extends Error {
   override readonly name = 'SubmissionAlreadyExistsError';
 }

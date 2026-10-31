@@ -1,23 +1,70 @@
+import {
+  AdminAccessReadRepository,
+  type AdminAccessUserRecord,
+  type AdminAccessUserRow,
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+} from './admin-access-read.repository';
+import { AdminAccessRepository } from './admin-access.repository';
+import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, MemberKind } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-  insertRevokedStaffAccessRequest,
-} from './admin-access.repository';
-import {
-  ADMIN_ACCESS_USER_SELECT,
-  AdminAccessUserProjectionRepository,
-} from './admin-access-user-projection.repository';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-} from './admin-access-repository.types';
-import type { IndependentAuthorityTransition } from './independent-authority.policy';
-import type { IndependentAuthorityUserRecord } from './independent-authority.types';
+  ADMIN_ACCESS_COMMANDS,
+  STAFF_ACCESS_COMMANDS,
+  AUTHORITY_TARGETS,
+} from './admin-access-query.config';
+
+type GrantStaffAccessCommand = {
+  readonly command: typeof STAFF_ACCESS_COMMANDS.GRANT;
+};
+
+type RevokeStaffAccessCommand = {
+  readonly command: typeof STAFF_ACCESS_COMMANDS.REVOKE;
+};
+
+export type StaffAccessMutationCommand =
+  GrantStaffAccessCommand | RevokeStaffAccessCommand;
+
+type GrantAdminAccessCommand = {
+  readonly command: typeof ADMIN_ACCESS_COMMANDS.GRANT;
+};
+
+type RevokeAdminAccessCommand = {
+  readonly command: typeof ADMIN_ACCESS_COMMANDS.REVOKE;
+};
+
+export type AdminAuthorityMutationCommand =
+  GrantAdminAccessCommand | RevokeAdminAccessCommand;
+
+export type IndependentAuthorityMutationResult = {
+  readonly id: string;
+  readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type IndependentAuthorityUserRecord = AdminAccessUserRecord & {
+  readonly selectedMemberKind: MemberKind | null;
+};
+
+export type AuthorityTarget =
+  (typeof AUTHORITY_TARGETS)[keyof typeof AUTHORITY_TARGETS];
+
+export type IndependentAuthorityState = {
+  readonly memberKind: MemberKind | null;
+  readonly selectedMemberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type IndependentAuthorityTransition = IndependentAuthorityState & {
+  readonly role: AuthorityLabel | null;
+};
 
 @Injectable()
 export class UsersAuthorityRepository {
@@ -39,15 +86,11 @@ export class UsersAuthorityRepository {
   }
 }
 
-export type { IndependentAuthorityUserRecord };
-
 export interface IndependentAuthorityTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
-  findUserForUpdate(
-    userId: string,
-  ): Promise<IndependentAuthorityUserRecord | null>;
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
   updateAuthority(
     userId: string,
     transition: IndependentAuthorityTransition,
@@ -74,16 +117,17 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   lockActiveAdmins(): Promise<number> {
-    return lockActiveAdminRows(this.transaction);
+    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
-  async findUserForUpdate(
-    userId: string,
-  ): Promise<IndependentAuthorityUserRecord | null> {
+  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
     );
@@ -92,9 +136,11 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
     }
     const user = await this.transaction.user.findUnique({
       where: { id: userId },
-      select: ADMIN_ACCESS_USER_SELECT,
+      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
-    return user === null ? null : toIndependentAuthorityUserRecord(user);
+    return user === null
+      ? null
+      : AdminAccessReadRepository.toAdminAccessUserRow(user);
   }
 
   async updateAuthority(
@@ -114,17 +160,11 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    return insertRevokedStaffAccessRequest(this.transaction, input);
+    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+      this.transaction,
+      input,
+    );
   }
-}
-
-function toIndependentAuthorityUserRecord(
-  user: Prisma.UserGetPayload<{ select: typeof ADMIN_ACCESS_USER_SELECT }>,
-): IndependentAuthorityUserRecord {
-  return {
-    ...AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user),
-    selectedMemberKind: user.selectedMemberKind,
-  };
 }
 
 @Injectable()

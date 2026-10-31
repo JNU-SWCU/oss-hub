@@ -1,27 +1,11 @@
-import { addOneCalendarYear } from '../platform/platform.policy';
+import {
+  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionStatus,
+} from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
-import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { buildMilestoneDocumentCollectionPage } from './milestone-document-collection-page.policy';
-import type { MilestoneDocumentCollectionQuery } from './programs.types';
-import {
-  type MilestoneDocumentContentInput,
-  readMilestoneDocumentSubmittedContent,
-} from './milestone-document.policy';
-import {
-  isPostDeadlineResubmissionOpen,
-  milestoneDocumentSubmissionBlock,
-} from './milestone-document-submission-window.policy';
-import type {
-  MilestoneDocumentViewerResult,
-  MilestoneDocumentCollectionResult,
-  MilestoneDocumentHistoryResult,
-  MilestoneDocumentRecord,
-  MilestoneDocumentSubmissionDetail,
-  UpsertMilestoneDocumentInput,
-} from './milestone-document-result.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -42,6 +26,72 @@ import {
   MilestoneDocumentSubmissionChangedError,
 } from './milestone-document-submission.error';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
+import {
+  MilestoneDocumentRecord,
+  MilestoneDocumentCollectionApplication,
+  MilestoneContext,
+  MilestoneDocumentSubmittedContent,
+  MilestoneDocumentContentInput,
+  type MilestoneDocumentSubmissionDetail,
+  type UpsertMilestoneDocumentInput,
+} from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentRulesService,
+  MilestoneDocumentCollectionPage,
+  MilestoneDocumentCollectionCell,
+  MilestoneDocumentCollectionQuery,
+} from './milestone-document-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+interface MilestoneDocumentViewerSubmissionResult {
+  readonly submitted: boolean;
+  readonly submittedAt: Date | null;
+  readonly submittedLate: boolean;
+  readonly revision: number | null;
+  readonly status: SubmissionStatus | null;
+  readonly hasCurrentFile: boolean;
+  readonly currentFileName: string | null;
+  readonly review: {
+    readonly comment: string | null;
+    readonly reviewedAt: Date;
+    readonly resubmissionDueAt: Date | null;
+  } | null;
+  readonly history: {
+    readonly hasHistory: boolean;
+    readonly isComplete: boolean;
+  };
+}
+
+export interface MilestoneDocumentViewerResult extends MilestoneDocumentRecord {
+  readonly viewerSubmission?: MilestoneDocumentViewerSubmissionResult;
+  readonly teamSubmissionCount?: {
+    readonly submitted: number;
+    readonly total: number;
+  };
+}
+
+export interface MilestoneDocumentCollectionResult extends MilestoneDocumentCollectionPage<
+  MilestoneDocumentCollectionApplication,
+  MilestoneDocumentCollectionCell
+> {
+  readonly milestone: MilestoneContext;
+  readonly documents: readonly MilestoneDocumentRecord[];
+}
+
+export interface MilestoneDocumentHistoryResult {
+  readonly items: readonly {
+    readonly event: MilestoneDocumentSubmissionHistoryEvent;
+    readonly revision: number | null;
+    readonly actorNickname: string;
+    readonly comment: string | null;
+    readonly createdAt: Date;
+    readonly fileName: string | null;
+    readonly downloadableFileId: string | null;
+    readonly content: MilestoneDocumentSubmittedContent | null;
+  }[];
+  readonly nextCursor: string | null;
+  readonly isComplete: boolean;
+}
 
 @Injectable()
 export class MilestoneDocumentsService {
@@ -52,6 +102,8 @@ export class MilestoneDocumentsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
   async listByMilestone(
@@ -170,12 +222,13 @@ export class MilestoneDocumentsService {
       const documentIds = documents.map((document) => document.id);
       const coordinates =
         await store.findSubmissionCoordinatesForCollection(documentIds);
-      const coordinatePage = buildMilestoneDocumentCollectionPage(
-        documents,
-        applications,
-        coordinates,
-        query,
-      );
+      const coordinatePage =
+        this.milestoneDocumentRulesService.buildMilestoneDocumentCollectionPage(
+          documents,
+          applications,
+          coordinates,
+          query,
+        );
       const pageApplicationIds = coordinatePage.rows.map(
         (row) => row.application.applicationId,
       );
@@ -187,7 +240,9 @@ export class MilestoneDocumentsService {
       const detailByCell = new Map(
         submissions.map((submission) => [
           `${submission.applicationId}::${submission.milestoneDocumentId}`,
-          submission,
+          this.milestoneDocumentRulesService.toMilestoneDocumentCollectionCell(
+            submission,
+          ),
         ]),
       );
       const collection = {
@@ -235,7 +290,10 @@ export class MilestoneDocumentsService {
         createdAt: item.createdAt,
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
-        content: readMilestoneDocumentSubmittedContent(item.content),
+        content:
+          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+            item.content,
+          ),
       })),
       nextCursor: page.nextCursor,
       isComplete: page.isComplete,
@@ -277,7 +335,10 @@ export class MilestoneDocumentsService {
         createdAt: item.createdAt,
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
-        content: readMilestoneDocumentSubmittedContent(item.content),
+        content:
+          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+            item.content,
+          ),
       })),
       nextCursor: page.nextCursor,
       isComplete: page.isComplete,
@@ -345,7 +406,9 @@ export class MilestoneDocumentsService {
         (!Number.isFinite(graceDueAt.getTime()) ||
           graceDueAt.getTime() <= milestone.dueAt.getTime() ||
           graceDueAt.getTime() >=
-            addOneCalendarYear(milestone.programEndAt).getTime())
+            this.submissionFileRulesService
+              .addOneCalendarYear(milestone.programEndAt)
+              .getTime())
       )
         throw this.error(MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT);
       await store.updateGraceDueAt(documentId, graceDueAt);
@@ -452,15 +515,16 @@ export class MilestoneDocumentsService {
     );
     const latestDecision = latestReview?.decision ?? null;
     const submissionStatus = currentSubmission?.status ?? null;
-    const blocked = milestoneDocumentSubmissionBlock({
-      dueAt: documentContext.dueAt,
-      graceDueAt: documentContext.graceDueAt,
-      now,
-      hasSubmission: currentSubmission !== null,
-      latestDecision,
-      submissionStatus,
-      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-    });
+    const blocked =
+      this.milestoneDocumentRulesService.milestoneDocumentSubmissionBlock({
+        dueAt: documentContext.dueAt,
+        graceDueAt: documentContext.graceDueAt,
+        now,
+        hasSubmission: currentSubmission !== null,
+        latestDecision,
+        submissionStatus,
+        resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+      });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
@@ -487,12 +551,13 @@ export class MilestoneDocumentsService {
         deadline: {
           milestoneId,
 
-          allowAfterDeadline: isPostDeadlineResubmissionOpen({
-            latestDecision,
-            submissionStatus,
-            resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-            now,
-          }),
+          allowAfterDeadline:
+            this.milestoneDocumentRulesService.isPostDeadlineResubmissionOpen({
+              latestDecision,
+              submissionStatus,
+              resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+              now,
+            }),
 
           expectedSubmissionStatus: submissionStatus,
         },

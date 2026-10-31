@@ -4,6 +4,7 @@ import { DomainException } from '../platform/error-code.error';
 import { BoardErrorCode } from './board-error-code.error';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticPostId = 'cuid-synthetic-post';
@@ -91,11 +92,11 @@ describe('BoardService', () => {
         isApprovedParticipant: jest.fn().mockResolvedValue(false),
       });
       await expect(
-        new BoardService(repository, authority).getPostDetail(
-          syntheticProgramId,
-          syntheticPostId,
-          session,
-        ),
+        new BoardService(
+          repository,
+          authority,
+          new UserProfileService(),
+        ).getPostDetail(syntheticProgramId, syntheticPostId, session),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN, status: 403 },
       });
@@ -122,7 +123,11 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         findByProgramId: jest.fn().mockResolvedValue({ items, total: 1 }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       const result = await service.listPosts(
         syntheticProgramId,
@@ -149,7 +154,11 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.getPostDetail(
@@ -178,7 +187,11 @@ describe('BoardService', () => {
           comments: [],
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.getPostDetail(
@@ -206,7 +219,11 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(post),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       const result = await service.getPostDetail(
         syntheticProgramId,
@@ -261,6 +278,7 @@ describe('BoardService', () => {
       const result = await new BoardService(
         repository,
         authority,
+        new UserProfileService(),
       ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
@@ -279,6 +297,7 @@ describe('BoardService', () => {
       const result = await new BoardService(
         repository,
         authority,
+        new UserProfileService(),
       ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
@@ -306,6 +325,7 @@ describe('BoardService', () => {
       const result = await new BoardService(
         repository,
         authority,
+        new UserProfileService(),
       ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
@@ -327,6 +347,7 @@ describe('BoardService', () => {
       const result = await new BoardService(
         repository,
         authority,
+        new UserProfileService(),
       ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
@@ -346,7 +367,11 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.createPost(
         syntheticProgramId,
@@ -370,7 +395,11 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.createPost(
         syntheticProgramId,
@@ -440,12 +469,14 @@ describe('BoardService', () => {
           update: jest.fn().mockResolvedValue(post),
         });
 
-        const result = await new BoardService(repository, authority).updatePost(
-          syntheticProgramId,
-          syntheticPostId,
-          session,
-          { title: '수정 제목', body: '수정 본문' },
-        );
+        const result = await new BoardService(
+          repository,
+          authority,
+          new UserProfileService(),
+        ).updatePost(syntheticProgramId, syntheticPostId, session, {
+          title: '수정 제목',
+          body: '수정 본문',
+        });
 
         expect(result.comments).toEqual([
           expect.objectContaining({
@@ -465,7 +496,11 @@ describe('BoardService', () => {
         }),
         update: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.updatePost(
         syntheticProgramId,
@@ -488,7 +523,11 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.updatePost(
@@ -507,7 +546,11 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.updatePost(
@@ -531,7 +574,11 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.deletePost(
         syntheticProgramId,
@@ -550,7 +597,11 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.deletePost(
         syntheticProgramId,
@@ -569,7 +620,11 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.deletePost(
@@ -593,7 +648,11 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.setPinned(
         syntheticProgramId,
@@ -607,7 +666,11 @@ describe('BoardService', () => {
 
     it('교직원이 아니면 STAFF_ONLY를 던지고 리포지토리를 건드리지 않는다', async () => {
       const { mocks, repository } = buildRepository();
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.setPinned(
@@ -624,6 +687,31 @@ describe('BoardService', () => {
     });
   });
 
+  describe('toComment', () => {
+    it('역할이 없는 작성자는 STUDENT로 접는다', () => {
+      const { repository } = buildRepository();
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
+
+      expect(
+        service['toComment']({
+          id: 'comment',
+          postId: syntheticPostId,
+          authorId: syntheticAuthorId,
+          authorMemberKind: null,
+          authorHasStaffAccess: false,
+          authorHasAdminAccess: false,
+          authorName: 'author',
+          body: 'body',
+          createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        }).authorRole,
+      ).toBe('STUDENT');
+    });
+  });
+
   describe('createComment', () => {
     it('글이 프로그램 소속이면 댓글을 만든다', async () => {
       const { mocks, repository } = buildRepository({
@@ -634,7 +722,11 @@ describe('BoardService', () => {
         }),
         createComment: jest.fn().mockResolvedValue({}),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.createComment(
         syntheticProgramId,
@@ -661,7 +753,11 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.deleteComment(
         syntheticProgramId,
@@ -682,7 +778,11 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await service.deleteComment(
         syntheticProgramId,
@@ -703,7 +803,11 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.deleteComment(
@@ -727,7 +831,11 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.deleteComment(
@@ -745,7 +853,11 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository, authority);
+      const service = new BoardService(
+        repository,
+        authority,
+        new UserProfileService(),
+      );
 
       await expect(
         service.deleteComment(

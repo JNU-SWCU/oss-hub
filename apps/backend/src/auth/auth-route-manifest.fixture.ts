@@ -5,15 +5,15 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { MetadataScanner } from '@nestjs/core/metadata-scanner';
-import { compareStringsByCodeUnit } from '../platform/platform.policy';
+import { SessionGuard } from './session.guard';
+import { compareStringsByCodeUnit } from '../app-controller-discovery';
 import {
   AUTH_ROUTE_ACCESS,
   type AuthRouteAccess,
   OPTIONAL_SESSION_ROUTE_METADATA,
   PROTECTED_ROUTE_METADATA,
   PUBLIC_ROUTE_METADATA,
-} from './auth-route-metadata.policy';
-import { SessionGuard } from './session.guard';
+} from './authentication.guard';
 
 export type ControllerType = Type<unknown>;
 

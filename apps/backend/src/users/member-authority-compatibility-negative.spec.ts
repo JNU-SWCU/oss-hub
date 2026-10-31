@@ -1,11 +1,19 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import type { PatchUserProfileInput } from './user-profile-record.policy';
 import { profileRecord } from './member-authority-test-fixtures';
-import { buildProfileCompletion } from './member-profile-completion.policy';
 import type { UsersRepositoryPort } from './users.repository';
-import { UsersService } from './users.service';
+import { UsersService, type PatchUserProfileInput } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+const usersService = new UsersService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
 
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {
@@ -53,18 +61,18 @@ describe('member authority completion negative contract', () => {
   ] satisfies readonly (readonly [string, PatchUserProfileInput])[])(
     '%s fails closed',
     (_label, input) => {
-      expect(errorCode(() => buildProfileCompletion(student, input))).toBe(
-        SystemErrorCode.VALIDATION_FAILED,
-      );
+      expect(
+        errorCode(() => usersService.buildProfileCompletion(student, input)),
+      ).toBe(SystemErrorCode.VALIDATION_FAILED);
     },
   );
 
   it('blank affiliation fails closed after normalization', () => {
     const input = { ...validStudentInput, department: '   ' };
 
-    expect(errorCode(() => buildProfileCompletion(student, input))).toBe(
-      SystemErrorCode.VALIDATION_FAILED,
-    );
+    expect(
+      errorCode(() => usersService.buildProfileCompletion(student, input)),
+    ).toBe(SystemErrorCode.VALIDATION_FAILED);
   });
 
   it.each([
@@ -84,9 +92,9 @@ describe('member authority completion negative contract', () => {
     typeof student,
     PatchUserProfileInput,
   ])[])('%s fails closed', (_label, target, input) => {
-    expect(errorCode(() => buildProfileCompletion(target, input))).toBe(
-      SystemErrorCode.VALIDATION_FAILED,
-    );
+    expect(
+      errorCode(() => usersService.buildProfileCompletion(target, input)),
+    ).toBe(SystemErrorCode.VALIDATION_FAILED);
   });
 
   it('duplicate student ID maps to the stable conflict code', async () => {
@@ -103,6 +111,8 @@ describe('member authority completion negative contract', () => {
       repository,
       { requireCurrent: () => Promise.resolve(undefined) },
       { record: jest.fn() },
+      new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     const completion = service.completeMyProfile(801020n, validStudentInput);

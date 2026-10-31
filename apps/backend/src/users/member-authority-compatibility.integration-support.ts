@@ -11,16 +11,31 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(
   new UsersRepository(compatibilityPrisma),
   { requireCurrent: () => Promise.resolve(undefined) },
-  new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
+  new AuditLogService(
+    new AuditLogRepository(compatibilityPrisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
+  new UserProfileService(),
 );
 export const compatibilityAccess = new AdminAccessService(
   new AdminAccessRepository(compatibilityPrisma),
-  new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
+  new AuditLogService(
+    new AuditLogRepository(compatibilityPrisma),
+    new AuditLogMetadataService(),
+  ),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 
 const TEST_PREFIX = 'test:task8:member-authority:';

@@ -14,6 +14,9 @@ import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
 } from './dto/access-requests-list-request.dto';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 9_131_400_001n,
@@ -51,7 +54,13 @@ describe('AccessRequestsController routes', () => {
 describe('AccessRequestsController delegation', () => {
   it('forces PENDING and createdAt desc on GET /users/access/requests', async () => {
     const service = serviceHarness();
-    const controller = new AccessRequestsController(service);
+    const controller = new AccessRequestsController(
+      service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
     const query = new AccessRequestsListRequestDto();
 
     await controller.listRequests(REQUEST, query);
@@ -68,7 +77,13 @@ describe('AccessRequestsController delegation', () => {
 
   it('passes independent history pages to the service', async () => {
     const service = serviceHarness();
-    const controller = new AccessRequestsController(service);
+    const controller = new AccessRequestsController(
+      service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
     const query = Object.assign(new AccessRequestsHistoryRequestDto(), {
       staffAccessRequestPage: 2,
       staffAccessRequestLimit: 5,
@@ -97,7 +112,13 @@ describe('AccessRequestsController delegation', () => {
     '%s rejects the user id %p before service delegation(#787)',
     async (method, id) => {
       const service = serviceHarness();
-      const controller = new AccessRequestsController(service);
+      const controller = new AccessRequestsController(
+        service,
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      );
       const query = new AccessRequestsHistoryRequestDto();
 
       const operation =

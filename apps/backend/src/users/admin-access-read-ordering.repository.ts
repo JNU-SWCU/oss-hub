@@ -1,21 +1,146 @@
+import type { AuthorityLabel } from './authority-label.types';
 import {
   AccountStatus,
   LoginHistoryEvent,
   Prisma,
   StaffAccessRequestStatus,
+  MemberKind,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import {
-  ADMIN_ACCESS_DEFAULT_DIRECTION,
-  ADMIN_ACCESS_DEFAULT_SORT,
-  ADMIN_ACCESS_PENDING_FILTERS,
-  ADMIN_ACCESS_ROLE_FILTERS,
-  ADMIN_ACCESS_SORT_DIRECTIONS,
   ADMIN_ACCESS_SORT_FIELDS,
-  type AdminAccessListQuery,
-  type AdminAccessSortDirection,
-  type AdminAccessSortField,
-} from './admin-access.types';
+  ADMIN_ACCESS_SORT_DIRECTIONS,
+  ADMIN_ACCESS_ROLE_FILTERS,
+  ADMIN_ACCESS_PENDING_FILTERS,
+  ADMIN_ACCESS_DEFAULT_SORT,
+  ADMIN_ACCESS_DEFAULT_DIRECTION,
+} from './admin-access-query.config';
+
+export type AdminAccessPendingRequest = {
+  readonly id: string;
+  readonly status: typeof StaffAccessRequestStatus.PENDING;
+  readonly createdAt: Date;
+};
+
+export type AdminAccessRoleFilter =
+  (typeof ADMIN_ACCESS_ROLE_FILTERS)[keyof typeof ADMIN_ACCESS_ROLE_FILTERS];
+
+export type AdminAccessPendingFilter =
+  (typeof ADMIN_ACCESS_PENDING_FILTERS)[keyof typeof ADMIN_ACCESS_PENDING_FILTERS];
+
+export type AdminAccessSortField =
+  (typeof ADMIN_ACCESS_SORT_FIELDS)[keyof typeof ADMIN_ACCESS_SORT_FIELDS];
+
+export type AdminAccessSortDirection =
+  (typeof ADMIN_ACCESS_SORT_DIRECTIONS)[keyof typeof ADMIN_ACCESS_SORT_DIRECTIONS];
+
+export type AdminAccessListQuery = {
+  readonly query: string;
+  readonly role?: AdminAccessRoleFilter;
+  readonly accountStatus?: AccountStatus;
+  readonly pendingRequest?: AdminAccessPendingFilter;
+  readonly sort?: AdminAccessSortField;
+  readonly direction?: AdminAccessSortDirection;
+  readonly page: number;
+  readonly limit: number;
+};
+
+type AdminAccessProfile = {
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly staffNumber: string | null;
+  readonly department: string | null;
+  readonly isComplete: boolean;
+};
+
+export type AdminAccessUser = {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly name: string | null;
+  readonly role: AuthorityLabel | null;
+  readonly accountStatus: AccountStatus;
+  readonly isSelf: boolean;
+  readonly isProfileComplete: boolean;
+  readonly createdAt: Date;
+  readonly pendingRequest: AdminAccessPendingRequest | null;
+  readonly lastLoginAt: Date | null;
+};
+
+export type AdminAccessFacets = {
+  readonly roles: {
+    readonly unassigned: number;
+    readonly student: number;
+    readonly staff: number;
+    readonly admin: number;
+  };
+  readonly accountStatuses: {
+    readonly active: number;
+    readonly deactivated: number;
+  };
+  readonly pendingRequests: {
+    readonly none: number;
+    readonly pending: number;
+  };
+};
+
+export type AdminAccessUserPage = {
+  readonly items: readonly AdminAccessUser[];
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+  readonly facets: AdminAccessFacets;
+};
+
+export type AdminAccessUserDetail = AdminAccessUser & {
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+  readonly profile: AdminAccessProfile;
+};
+
+type AdminAccessStaffAccessRequestHistoryItem = {
+  readonly id: string;
+  readonly status: StaffAccessRequestStatus;
+  readonly rejectionReason: string | null;
+  readonly decidedAt: Date | null;
+  readonly decidedBy: string | null;
+  readonly createdAt: Date;
+};
+
+export type AdminAccessStaffAccessRequestHistoryPage = {
+  readonly items: readonly AdminAccessStaffAccessRequestHistoryItem[];
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+};
+
+type AdminAccessLoginHistoryItem = {
+  readonly id: string;
+  readonly event: LoginHistoryEvent;
+  readonly provider: 'github';
+  readonly success: boolean;
+  readonly loginAt: Date;
+};
+
+export type AdminAccessLoginHistoryPage = {
+  readonly items: readonly AdminAccessLoginHistoryItem[];
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+};
+
+export type AdminAccessHistoryQuery = {
+  readonly staffAccessRequests: {
+    readonly page: number;
+    readonly limit: number;
+  };
+  readonly loginHistory: { readonly page: number; readonly limit: number };
+};
+
+export type AdminAccessUserHistory = {
+  readonly staffAccessRequests: AdminAccessStaffAccessRequestHistoryPage;
+  readonly loginHistory: AdminAccessLoginHistoryPage;
+};
 
 type OrderedAdminAccessUserId = { readonly id: string };
 type AdminAccessListSortContext = 'directory' | 'requestQueue';

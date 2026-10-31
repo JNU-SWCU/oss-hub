@@ -1,11 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-  createAccessAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogService } from '../platform/audit-log.service';
+} from '../platform/audit-log-metadata.config';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -13,10 +12,14 @@ import {
   type AccountDeactivationRepositoryPort,
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+export interface AccountDeactivationResult {
+  readonly accountStatus: typeof AccountStatus.DEACTIVATED;
+}
 
 export type { AccountDeactivationRepositoryPort } from './account-deactivation.repository';
-
-import type { AccountDeactivationResult } from './users.types';
 
 @Injectable()
 export class AccountDeactivationService {
@@ -24,6 +27,8 @@ export class AccountDeactivationService {
     @Inject(AccountDeactivationRepository)
     private readonly repository: AccountDeactivationRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
@@ -57,23 +62,24 @@ export class AccountDeactivationService {
         displayName: account.displayName,
         githubLogin: account.githubLogin,
       };
+      const role = this.userProfileService.authorityLabel(account);
       await this.auditLog.record(
         {
           actorGithubId: githubId,
           action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
           targetType: 'USER',
           targetId: account.id,
-          metadata: createAccessAuditMetadata({
+          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
             actor: person,
             target: person,
             before: {
-              role: account.role,
+              role,
               accountStatus: AccountStatus.ACTIVE,
               requestStatus: account.requestStatus,
             },
             after: {
-              role: account.role,
+              role,
               accountStatus: AccountStatus.DEACTIVATED,
               requestStatus: account.requestStatus,
             },

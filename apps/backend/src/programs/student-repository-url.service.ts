@@ -1,28 +1,33 @@
-import type { StudentRepositoryUrlView } from './programs.types';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import {
+  StudentRepositoryUrlTransactionRepository,
+  StudentRepositoryUrlRepository,
+} from './student-repository-url-transaction.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/application-repository-url-audit-metadata.policy';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
 import { DomainException } from '../platform/error-code.error';
-import { canEditStudentRepositoryUrl } from './programs.policy';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionTriggerService } from '../github/collection-trigger.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
-import { RepositoryProvisionFailure } from '../github/repository-provision-failure.policy';
 import { ApplicationsRepository } from './applications.repository';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import {
-  StudentRepositoryUrlRepository,
-  isStudentRepositoryUrlConflict,
-} from './student-repository-url-transaction.repository';
-import {
-  type StudentRepositoryUrlContext,
-  type TeamRepositoryUrlContext,
+import type {
+  StudentRepositoryUrlContext,
+  TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
+import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
+import { ProgramRulesService } from './program-rules.service';
+
+export type StudentRepositoryUrlView = {
+  readonly repositoryUrl: string | null;
+  readonly canEditRepositoryUrl: boolean;
+};
 
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;
@@ -55,6 +60,8 @@ export class StudentRepositoryUrlService {
       CollectionTriggerService,
       'collectRepository'
     >,
+    private readonly programRulesService: ProgramRulesService,
+    private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
   ) {}
 
   async getMine(
@@ -121,7 +128,14 @@ export class StudentRepositoryUrlService {
               },
               relinked: false,
             };
-          const repositoryId = await store.relink(current, resolution);
+          const repositoryId = await store.relink(
+            current,
+            resolution,
+            (stored) =>
+              this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+                stored,
+              ),
+          );
           const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
           await this.audit.record(
             {
@@ -157,7 +171,11 @@ export class StudentRepositoryUrlService {
         );
       return view;
     } catch (error) {
-      if (isStudentRepositoryUrlConflict(error))
+      if (
+        StudentRepositoryUrlTransactionRepository.isStudentRepositoryUrlConflict(
+          error,
+        )
+      )
         throw repositoryUrlError('conflict');
       throw error;
     }
@@ -199,7 +217,7 @@ export class StudentRepositoryUrlService {
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
     if (
-      !canEditStudentRepositoryUrl(
+      !this.programRulesService.canEditStudentRepositoryUrl(
         { status: context.status, endAt: context.program.endAt, isManager },
         new Date(),
       )
@@ -213,14 +231,15 @@ export class StudentRepositoryUrlService {
   ): StudentRepositoryUrlView {
     return {
       repositoryUrl: this.url(context),
-      canEditRepositoryUrl: canEditStudentRepositoryUrl(
-        {
-          status: context.status,
-          endAt: context.program.endAt,
-          isManager: context.team.leaderId === studentId,
-        },
-        new Date(),
-      ),
+      canEditRepositoryUrl:
+        this.programRulesService.canEditStudentRepositoryUrl(
+          {
+            status: context.status,
+            endAt: context.program.endAt,
+            isManager: context.team.leaderId === studentId,
+          },
+          new Date(),
+        ),
     };
   }
 

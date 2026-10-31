@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthConfig } from '../auth/auth.config';
-import { serializeClearedSessionCookie } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
+import { AuthSessionService } from '../auth/auth-session.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -24,6 +24,7 @@ export class AccountDeactivationController {
     @Inject(AccountDeactivationService)
     private readonly service: Pick<AccountDeactivationService, 'deactivate'>,
     private readonly authConfig: AuthConfig,
+    private readonly authSessionService: AuthSessionService,
   ) {}
 
   @Patch('deactivate')
@@ -36,7 +37,9 @@ export class AccountDeactivationController {
     const result = await this.service.deactivate(request.sessionGithubId);
     response.setHeader(
       'Set-Cookie',
-      serializeClearedSessionCookie(this.authConfig.useSecureCookies),
+      this.authSessionService.serializeClearedSessionCookie(
+        this.authConfig.useSecureCookies,
+      ),
     );
     return AccountDeactivationResponseDto.from(result);
   }

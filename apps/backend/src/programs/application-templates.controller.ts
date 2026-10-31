@@ -1,13 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
-import { Public } from '../auth/auth-route-metadata.policy';
 import { ApplicationTemplateListResponseDto } from './dto/application-template-response.dto';
-import { listProgramTemplates } from './program-template-registry.policy';
+import { Public } from '../auth/authentication.guard';
+import { ProgramRulesService } from './program-rules.service';
 
 @Controller('programs/application-templates')
 @Public()
 export class ApplicationTemplatesController {
+  constructor(private readonly programRulesService: ProgramRulesService) {}
+
   @Get()
   list(): ApplicationTemplateListResponseDto {
-    return ApplicationTemplateListResponseDto.from(listProgramTemplates());
+    return ApplicationTemplateListResponseDto.from(
+      this.programRulesService.listProgramTemplates(),
+    );
   }
 }

@@ -6,16 +6,19 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogRepository } from '../platform/audit-log.repository';
+import {
+  USER_PROFILE_AUDIT_ACTIONS,
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,7 +29,16 @@ const FIXTURE_PREFIX = 'test:member-kind:';
 const prisma = new PrismaService();
 const service = new MemberKindService(
   new MemberKindRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 let sequence = 0;
 
@@ -393,6 +405,12 @@ describe('member-kind persistence contract', () => {
           .fn()
           .mockRejectedValue(new Error('synthetic audit failure')),
       },
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(

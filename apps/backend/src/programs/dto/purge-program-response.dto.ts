@@ -1,7 +1,5 @@
-import type {
-  ProgramPurgeDeletedCounts,
-  ProgramPurgeResult,
-} from '../programs.types';
+import type { ProgramPurgeDeletedCounts } from '../program-lifecycle.repository';
+import type { ProgramPurgeResult } from '../program-lifecycle.service';
 
 export class PurgeProgramResponseDto {
   declare readonly id: string;

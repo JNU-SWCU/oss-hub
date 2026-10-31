@@ -9,20 +9,16 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { addOneCalendarYear } from '../platform/platform.policy';
-import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.repository';
+import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionChecklistRecordRepository } from './submission-checklist-record.repository';
+import { SubmissionsRepository } from './submissions.repository';
+
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
 } from './submission-file.error';
-import {
-  exactSubmissionByPublicId,
-  submissionPublicIdWhere,
-} from './submission.policy';
 
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
@@ -54,6 +50,7 @@ export interface CreatePendingSubmissionFileInput {
   readonly mimeType: string;
   readonly sizeBytes: number;
   readonly pendingExpiresAt: Date;
+  readonly resolveExpiresAt: (programEndAt: Date) => Date;
 }
 
 export interface ClaimedSubmissionFile {
@@ -174,9 +171,7 @@ export class SubmissionFilesRepository {
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
       application: {
-        is: SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          user.id,
-        ),
+        is: SubmissionsRepository.submissionParticipantWhere(user.id),
       },
     });
   }
@@ -190,9 +185,7 @@ export class SubmissionFilesRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
-        ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-          uploaderId,
-        ),
+        ...SubmissionsRepository.submissionParticipantWhere(uploaderId),
         program: { milestones: { some: { id: milestoneId } } },
       },
       select: {
@@ -216,7 +209,9 @@ export class SubmissionFilesRepository {
       const submissions =
         await this.prisma.milestoneDocumentSubmission.findMany({
           where: {
-            ...submissionPublicIdWhere(resubmissionContext.submissionId),
+            ...SubmissionsRepository.submissionPublicIdWhere(
+              resubmissionContext.submissionId,
+            ),
             applicationId: application.id,
             milestoneDocument: {
               milestoneId: milestone.id,
@@ -226,7 +221,8 @@ export class SubmissionFilesRepository {
           take: 2,
           select: { status: true, revision: true },
         });
-      const submission = exactSubmissionByPublicId(submissions);
+      const submission =
+        SubmissionsRepository.exactSubmissionByPublicId(submissions);
       if (submission === null) return null;
       resubmissionStatus = submission.status;
       currentRevision = submission.revision;
@@ -308,7 +304,7 @@ export class SubmissionFilesRepository {
           sizeBytes: input.sizeBytes,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: input.pendingExpiresAt,
-          expiresAt: addOneCalendarYear(program.endAt),
+          expiresAt: input.resolveExpiresAt(program.endAt),
         },
         select: {
           id: true,

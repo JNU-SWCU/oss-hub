@@ -1,5 +1,5 @@
-import type { Fetcher } from './provider-request-queue.policy';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
+import type { Fetcher } from './provider-request-queue.client';
 
 const DEFAULT_API_URL = 'https://api.github.com/graphql';
 const DEFAULT_DEADLINE_MS = 30_000;

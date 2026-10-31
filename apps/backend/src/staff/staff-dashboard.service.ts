@@ -1,18 +1,53 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  ProgramActivitySummaryService,
-  type ProgramActivitySummary,
-} from '../programs/program-activity-summary.service';
-import {
-  SubmissionDashboardSummaryService,
-  type SubmissionDashboardProgramSummary,
-} from '../programs/submission-dashboard-summary.service';
+import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
+import type { ProgramActivitySummary } from '../programs/program-activity-summary.service';
+import { SubmissionDashboardSummaryService } from '../programs/submission-dashboard-summary.service';
+import type { SubmissionDashboardProgramSummary } from '../programs/submission-dashboard-summary.service';
 import { ApplicationsService } from '../programs/applications.service';
 import type {
-  StaffDashboardActivitySummary,
-  StaffDashboardComposedSummary,
-  StaffDashboardSubmissionSummary,
-} from './staff.types';
+  StaffDashboardApplicationCounts,
+  StaffDashboardProgramSummary,
+} from '../programs/applications.repository';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+
+export type StaffDashboardComposedApplicationCounts =
+  StaffDashboardApplicationCounts & {
+    readonly pendingApproval: number;
+  };
+
+export interface StaffDashboardActivitySummary {
+  readonly repositories: number;
+  readonly commits: number;
+  readonly pullRequests: number;
+  readonly releases: number;
+  readonly lastActivityAt: string | null;
+  readonly dataAsOf: string | null;
+}
+
+export interface StaffDashboardSubmissionSummary {
+  readonly approvedApplications: number;
+  readonly milestones: number;
+  readonly total: number;
+  readonly notSubmitted: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly rejected: number;
+}
+
+export type StaffDashboardComposedProgramSummary = Omit<
+  StaffDashboardProgramSummary,
+  'applications'
+> & {
+  readonly applications: StaffDashboardComposedApplicationCounts;
+  readonly activity: StaffDashboardActivitySummary;
+  readonly submissions: StaffDashboardSubmissionSummary;
+  readonly coverImageUrl: string | null;
+};
+
+export interface StaffDashboardComposedSummary {
+  readonly programs: readonly StaffDashboardComposedProgramSummary[];
+}
 
 @Injectable()
 export class StaffDashboardService {
@@ -29,6 +64,7 @@ export class StaffDashboardService {
       SubmissionDashboardSummaryService,
       'listByProgram'
     >,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
   async summary(
@@ -50,6 +86,11 @@ export class StaffDashboardService {
     return {
       programs: base.programs.map((program) => ({
         ...program,
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
+          program.id,
+          program.coverId,
+          program.coverExternalImageUrl,
+        ),
         applications: {
           ...program.applications,
           pendingApproval: program.applications.submitted,

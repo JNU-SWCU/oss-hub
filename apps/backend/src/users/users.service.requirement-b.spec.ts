@@ -1,13 +1,14 @@
 import { MemberKind } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import type { PatchUserProfileInput } from './user-profile-record.policy';
 import { UsersErrorCode } from './users-error-code.error';
 import type {
   ProfileCompletionOutcome,
   UsersRepositoryPort,
 } from './users.repository';
-import { UsersService } from './users.service';
+import { UsersService, type PatchUserProfileInput } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
@@ -72,7 +73,13 @@ function buildService(
     updateProfileFields,
   };
   return {
-    service: new UsersService(repository, { requireCurrent }, auditLog),
+    service: new UsersService(
+      repository,
+      { requireCurrent },
+      auditLog,
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,

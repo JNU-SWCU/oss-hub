@@ -1,11 +1,13 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import {
-  OBJECT_STORAGE_ERROR_CODES,
-  ObjectStorageError,
   type ObjectInventoryEntry,
   type ObjectInventoryPort,
 } from './object-storage.types';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from './object-storage.error';
 import {
   ObjectS3Connection,
   ObjectStorageConfig,

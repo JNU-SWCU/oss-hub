@@ -1,11 +1,6 @@
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
 import { DomainException } from '../platform/error-code.error';
-import type { AdminAccessActor } from './admin-access-repository.types';
 import type {
   MemberKindProfileUpdate,
   MemberKindRepositoryPort,
@@ -13,6 +8,14 @@ import type {
   MemberKindTransactionStore,
 } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
+import {
+  USER_PROFILE_AUDIT_ACTIONS,
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
+import { type AdminAccessActor } from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;
 const TARGET_GITHUB_ID = 9_700_500_002n;
@@ -74,13 +77,6 @@ class InMemoryMemberKindRepository
       selectedMemberKind,
       memberKind: selectedMemberKind,
       hasStaffAccess,
-      role: current.hasAdminAccess
-        ? 'ADMIN'
-        : hasStaffAccess
-          ? 'STAFF'
-          : selectedMemberKind === MemberKind.STUDENT
-            ? 'STUDENT'
-            : null,
       profile: nextProfile,
     };
     return Promise.resolve('updated');
@@ -100,7 +96,16 @@ describe('MemberKindService', () => {
   it('maps STAFF to access=true, preserves studentId, and treats staffNumber as opaque text', async () => {
     const repository = new InMemoryMemberKindRepository();
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -160,7 +165,16 @@ describe('MemberKindService', () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget({ hasStaffAccess: false });
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -180,7 +194,16 @@ describe('MemberKindService', () => {
   it('adds one revoked history row only when staff access changes true to false', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -221,7 +244,16 @@ describe('MemberKindService', () => {
     async (_label, target, code, status) => {
       const repository = new InMemoryMemberKindRepository();
       repository.target = target;
-      const service = new MemberKindService(repository, auditHarness());
+      const service = new MemberKindService(
+        repository,
+        auditHarness(),
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      );
 
       const error = await captureDomainException(() =>
         service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -240,7 +272,16 @@ describe('MemberKindService', () => {
   it('requires a department when a valid existing studentId is used for a STUDENT transition', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -258,7 +299,16 @@ describe('MemberKindService', () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget({ studentId: '123456' });
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -282,6 +332,12 @@ describe('MemberKindService', () => {
     const matchingService = new MemberKindService(
       matchingRepository,
       auditHarness(),
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -300,6 +356,12 @@ describe('MemberKindService', () => {
     const missingService = new MemberKindService(
       missingRepository,
       auditHarness(),
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -317,7 +379,16 @@ describe('MemberKindService', () => {
   it('rejects a newly supplied invalid studentId before persistence', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -363,7 +434,16 @@ describe('MemberKindService', () => {
       if ('target' in options) {
         repository.target = options.target;
       }
-      const service = new MemberKindService(repository, auditHarness());
+      const service = new MemberKindService(
+        repository,
+        auditHarness(),
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      );
       const expectedHasStaffAccess =
         'expected' in options ? options.expected : false;
 
@@ -391,7 +471,6 @@ function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -422,7 +501,6 @@ function studentTarget(
     githubId: TARGET_GITHUB_ID,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
@@ -446,7 +524,6 @@ function staffTarget(
     ...profileOverrides
   } = overrides;
   return studentTarget({
-    role: 'STAFF',
     selectedMemberKind: MemberKind.STAFF,
     memberKind: MemberKind.STAFF,
     hasStaffAccess,

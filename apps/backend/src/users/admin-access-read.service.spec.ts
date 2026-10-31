@@ -1,7 +1,6 @@
 import { AccountStatus } from '@prisma/client';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
-import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -12,7 +11,12 @@ import {
   adminActor,
   auditLogHarness,
   staffActor,
+  roleFacts,
 } from './admin-access.service.spec-support';
+import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {
@@ -25,6 +29,10 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const result = await service.list(ADMIN_GITHUB_ID, {
@@ -43,6 +51,10 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const [facets, history] = await Promise.all([
@@ -70,7 +82,7 @@ describe('AdminAccessService reads', () => {
     ],
     [
       'staff',
-      adminActor({ role: 'STAFF', hasAdminAccess: false }),
+      adminActor({ hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],
@@ -82,6 +94,10 @@ describe('AdminAccessService reads', () => {
       const service = new AdminAccessService(
         repository,
         auditLogHarness().service,
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
 
       await expect(
@@ -96,6 +112,10 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -117,12 +137,16 @@ describe('AdminAccessService reads', () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.actor = staffActor();
     repository.target = accessUser({
-      role: null,
+      ...roleFacts(null),
       pendingRequest: PENDING_REQUEST,
     });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -149,6 +173,10 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(service.get(STAFF_GITHUB_ID, 'target')).rejects.toMatchObject({
@@ -168,12 +196,16 @@ describe('AdminAccessService reads', () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.actor = staffActor();
     repository.target = accessUser({
-      role: null,
+      ...roleFacts(null),
       pendingRequest: PENDING_REQUEST,
     });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject(

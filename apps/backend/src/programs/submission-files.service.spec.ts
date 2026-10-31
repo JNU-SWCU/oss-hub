@@ -2,11 +2,13 @@ import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import {
-  OBJECT_STORAGE_ERROR_CODES,
-  ObjectStorageError,
   type StoreObjectInput,
   type ObjectStoragePort,
 } from '../platform/object-storage.types';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from '../platform/object-storage.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
@@ -26,6 +28,8 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
@@ -106,6 +110,8 @@ function setup() {
   const service = new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
     storage,
+    new ProgramRulesService(),
+    new SubmissionFileRulesService(),
   );
   return { service, repository, storage };
 }
@@ -164,7 +170,7 @@ describe('SubmissionFilesService', () => {
 
   it('creates a pending file without uploading storage objects or changing its result', async () => {
     const { service, repository, storage } = setup();
-    const input: CreatePendingSubmissionFileInput = {
+    const input: Omit<CreatePendingSubmissionFileInput, 'resolveExpiresAt'> = {
       uploaderId: 'student-opaque',
       applicationId: 'app-opaque',
       milestoneId: 'milestone-opaque',
@@ -186,7 +192,7 @@ describe('SubmissionFilesService', () => {
     await expect(service.createPending(input)).resolves.toBe(result);
 
     expect(repository.createPending).toHaveBeenCalledTimes(1);
-    expect(repository.createPending.mock.calls[0]?.[0]).toBe(input);
+    expect(repository.createPending.mock.calls[0]?.[0]).toMatchObject(input);
     expect(storage.put).not.toHaveBeenCalled();
   });
 

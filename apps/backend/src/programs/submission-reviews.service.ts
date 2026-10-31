@@ -1,31 +1,41 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import {
-  RepositoryVisibility,
-  ReviewDecision,
   SubmissionStatus,
+  ReviewDecision,
+  SubmissionFileLifecycle,
+  RepositoryVisibility,
 } from '@prisma/client';
+import type {
+  RepositoryPublishEligibility,
+  PublishBlockedReason,
+} from '../github/repository-publish.config';
+import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
+import {
+  ReviewContextRow,
+  SubmissionRevisionRecord,
+  SubmissionReviewFileRecord,
+  SubmissionReviewsRepository,
+  type SubmissionReviewsRepositoryPort,
+  type CreateSubmissionReviewInput,
+  type RepositoryPublishResult,
+  type SubmissionReviewContext,
+  type SubmissionReviewResult,
+  type PublishEligibilitySource,
+} from './submission-reviews.repository';
 import { DomainException } from '../platform/error-code.error';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
 import {
-  publishBlockedReasons,
-  type CreateSubmissionReviewInput,
-  type PublishBlockedReason,
-  type RepositoryPublishResult,
-  type SubmissionReviewContext,
-  type SubmissionReviewResult,
-} from './submission-review.types';
-import {
-  SubmissionReviewsRepository,
-  type SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
-import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
 } from './submission-reviews-error-code.error';
 import { RepositoryNotFoundError } from '../github/repositories.error';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
@@ -37,6 +47,11 @@ const PUBLISH_BLOCKED_ERROR_CODES = {
 } as const satisfies Readonly<
   Record<PublishBlockedReason, SubmissionReviewsErrorCode>
 >;
+
+const APPLICATION_MODES = {
+  PERSONAL: 'PERSONAL',
+  TEAM: 'TEAM',
+} as const;
 
 @Injectable()
 export class SubmissionReviewsService {
@@ -50,6 +65,10 @@ export class SubmissionReviewsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly repositoryPublishService: RepositoryPublishService,
+    private readonly repositoryUrlService: RepositoryUrlService,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
   async context(
@@ -57,15 +76,91 @@ export class SubmissionReviewsService {
     actorGithubId: bigint,
   ): Promise<SubmissionReviewContext> {
     await this.assertStaff(actorGithubId);
-    const context = await this.repository.findReviewContext(submissionId);
-    if (context === null) {
+    const row = await this.repository.findReviewContext(submissionId);
+    if (row === null) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
           SubmissionReviewsErrorCode.SUBMISSION_NOT_FOUND
         ],
       );
     }
-    return context;
+    return this.toReviewContext(row);
+  }
+
+  private toReviewContext(
+    row: ReviewContextRow,
+    now: Date = new Date(),
+  ): SubmissionReviewContext {
+    const current = row.histories.find(
+      (history) => history.revision === row.revision,
+    );
+    if (current === undefined) {
+      throw new SubmissionRevisionInvariantError();
+    }
+    const repository = row.application.repository;
+    const blockedReasons = repository
+      ? this.repositoryPublishService.publishBlockedReasons(
+          this.toPublishEligibility(row.application, repository),
+          now,
+        )
+      : [];
+    return {
+      submissionId: row.legacySubmissionId ?? row.id,
+      application: {
+        id: row.application.id,
+        applicationMode:
+          row.application.teamId === null
+            ? APPLICATION_MODES.PERSONAL
+            : APPLICATION_MODES.TEAM,
+        displayName:
+          row.application.team?.name ??
+          row.application.applicant.profile?.name ??
+          row.application.applicant.nickname,
+      },
+      milestone: row.milestoneDocument.milestone,
+      currentRevision: this.toRevisionRecord(current, now),
+      history: row.histories
+        .filter((history) => history.id !== current.id)
+        .map((history) => this.toRevisionRecord(history, now)),
+      repository: repository
+        ? {
+            id: repository.id,
+            url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+              repository.nameWithOwner,
+            ),
+            visibility: repository.visibility,
+            publishEligible: blockedReasons.length === 0,
+            blockedReasons,
+          }
+        : null,
+    };
+  }
+
+  private toPublishEligibility(
+    application: PublishEligibilitySource,
+    repository: {
+      readonly id: string;
+      readonly visibility: RepositoryVisibility;
+    },
+  ): Omit<RepositoryPublishEligibility, 'repositoryId'> {
+    const { submissions, documentSubmissions } =
+      this.milestoneCompletionService.projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
+    const job = application.provisionJob;
+    return {
+      visibility: repository.visibility,
+      provisionStatus: job?.repositoryId === repository.id ? job.status : null,
+      requiredMilestonesApproved:
+        this.milestoneCompletionService.requiredMilestonesApproved(
+          application.program.milestones,
+          submissions,
+          documentSubmissions,
+        ),
+      isRepositoryPublicationPlanned:
+        application.isRepositoryPublicationPlanned,
+      programEndAt: application.program.endAt,
+    };
   }
 
   async review(
@@ -138,9 +233,9 @@ export class SubmissionReviewsService {
     publishedAt = new Date(),
   ): Promise<RepositoryPublishResult> {
     await this.assertStaff(actorGithubId);
-    const eligibility =
+    const eligibilityRow =
       await this.repository.findPublishEligibility(repositoryId);
-    if (eligibility === null) {
+    if (eligibilityRow === null) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
           SubmissionReviewsErrorCode.REPOSITORY_NOT_READY
@@ -148,7 +243,10 @@ export class SubmissionReviewsService {
       );
     }
 
-    const [blockedReason] = publishBlockedReasons(eligibility, publishedAt);
+    const [blockedReason] = this.repositoryPublishService.publishBlockedReasons(
+      this.toPublishEligibility(eligibilityRow.application, eligibilityRow),
+      publishedAt,
+    );
     if (blockedReason !== undefined) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
@@ -211,6 +309,49 @@ export class SubmissionReviewsService {
           ],
         ),
     );
+  }
+
+  private toRevisionRecord(
+    history: ReviewContextRow['histories'][number],
+    now: Date,
+  ): SubmissionRevisionRecord {
+    if (history.revision === null) {
+      throw new SubmissionRevisionInvariantError();
+    }
+    return {
+      number: history.revision,
+      content: history.content,
+      comment: history.comment,
+      submittedAt: history.createdAt,
+      files: history.files.flatMap((file) => this.toFileRecord(file, now)),
+      review: history.reviewHistories[0] ?? null,
+    };
+  }
+
+  private toFileRecord(
+    file: ReviewContextRow['histories'][number]['files'][number],
+    now: Date,
+  ): readonly SubmissionReviewFileRecord[] {
+    if (
+      file.lifecycle !== SubmissionFileLifecycle.ATTACHED ||
+      file.expiresAt === null ||
+      file.expiresAt.getTime() <= now.getTime()
+    ) {
+      return [];
+    }
+    return [
+      {
+        fileId: file.id,
+        fileName: file.originalFileName,
+        contentType:
+          this.submissionFileRulesService.safeSubmissionFileContentType(
+            file.originalFileName,
+          ),
+        size: file.sizeBytes,
+        expiresAt: file.expiresAt,
+        downloadUrl: `/api/v1/submission-files/${file.id}`,
+      },
+    ];
   }
 }
 

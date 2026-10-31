@@ -18,10 +18,6 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import {
-  setDownloadHeaders,
-  respondWithDownloadFailure,
-} from '../platform/object-storage.types';
-import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,
 } from './milestone-document-collection.service';
@@ -44,12 +40,16 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import type { MilestoneDocumentArchiveScope } from './milestone-document-result.types';
+import {
+  MilestoneDocumentArchiveService,
+  type MilestoneDocumentArchiveScope,
+} from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
+import { DownloadResponseService } from './download-response.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -66,23 +66,6 @@ function failedStorageKey(error: Error): string {
     : 'unknown';
 }
 
-function respondWithArchiveFailure(
-  error: Error,
-  response: Response,
-  request: ArchiveFailureRequest,
-): void {
-  archiveLogger.error(
-    `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
-  );
-  respondWithDownloadFailure(
-    response,
-    MILESTONE_DOCUMENTS_ERROR_CODES[
-      MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-    ],
-    'END',
-  );
-}
-
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
   constructor(
@@ -92,6 +75,8 @@ export class MilestoneDocumentsController {
     private readonly archiveService: MilestoneDocumentArchiveService,
     private readonly collectionService: MilestoneDocumentCollectionService,
     private readonly currentFileService: MilestoneDocumentCurrentFileService,
+    private readonly downloadResponseService: DownloadResponseService,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   @Get()
@@ -138,12 +123,12 @@ export class MilestoneDocumentsController {
       milestoneId,
       scope,
     );
-    setDownloadHeaders(response, archive);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
 
     response.once('close', () => archive.body.destroy());
 
     return new StreamableFile(archive.body).setErrorHandler((error) =>
-      respondWithArchiveFailure(error, response, { milestoneId, scope }),
+      this.respondWithArchiveFailure(error, response, { milestoneId, scope }),
     );
   }
 
@@ -178,7 +163,7 @@ export class MilestoneDocumentsController {
       milestoneId,
       documentId,
     );
-    setDownloadHeaders(response, file);
+    this.downloadResponseService.setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -198,7 +183,7 @@ export class MilestoneDocumentsController {
       documentId,
       applicationId,
     );
-    setDownloadHeaders(response, file);
+    this.downloadResponseService.setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -273,7 +258,14 @@ export class MilestoneDocumentsController {
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
     return this.service
-      .submit(request.sessionGithubId, milestoneId, documentId, body.toInput())
+      .submit(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        this.milestoneDocumentRulesService.parseMilestoneDocumentContent(
+          body.content,
+        ),
+      )
       .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
   }
 
@@ -291,7 +283,24 @@ export class MilestoneDocumentsController {
       milestoneId,
       documentId,
     );
-    setDownloadHeaders(response, file);
+    this.downloadResponseService.setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
+  }
+
+  private respondWithArchiveFailure(
+    error: Error,
+    response: Response,
+    request: ArchiveFailureRequest,
+  ): void {
+    archiveLogger.error(
+      `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
+    );
+    this.downloadResponseService.respondWithDownloadFailure(
+      response,
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+      ],
+      'END',
+    );
   }
 }

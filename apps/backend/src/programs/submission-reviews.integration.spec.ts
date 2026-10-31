@@ -10,12 +10,8 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { AuditLogRepository } from '../platform/audit-log.repository';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
-import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-identity.policy';
 import {
   prisma as seedPrisma,
   seedGithubId,
@@ -38,6 +34,13 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const repositoryUrlService = new RepositoryUrlService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -48,17 +51,26 @@ const prisma = new PrismaService();
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLog,
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositories,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new SubmissionFileRulesService(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -128,8 +140,10 @@ async function createFreshPrivateRepository(): Promise<{
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   const githubRepositoryId = seedRepositoryId(scenarioId);
   const nameWithOwner = seedNameWithOwner(scenarioId);
-  const name = repositoryNameFromNameWithOwner(nameWithOwner);
-  const url = repositoryUrlFromNameWithOwner(nameWithOwner);
+  const name =
+    repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner);
+  const url =
+    repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner);
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
@@ -292,14 +306,16 @@ describe('SubmissionReviewsService integration', () => {
     const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: repositoryId },
     });
-    const repositoryName = repositoryNameFromNameWithOwner(
+    const repositoryName = repositoryUrlService.repositoryNameFromNameWithOwner(
       repository.nameWithOwner,
     );
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: repository.githubRepositoryId,
       nameWithOwner: repository.nameWithOwner,
       name: repositoryName,
-      url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+      url: repositoryUrlService.repositoryUrlFromNameWithOwner(
+        repository.nameWithOwner,
+      ),
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
@@ -386,6 +402,8 @@ describe('SubmissionReviewsService integration', () => {
       barrierRepository,
       github,
       auditLog,
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({

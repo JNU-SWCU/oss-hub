@@ -1,22 +1,25 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-} from './admin-access-repository.types';
 import {
-  ADMIN_ACCESS_COMMANDS,
-  STAFF_ACCESS_COMMANDS,
-} from './independent-authority.types';
-import type {
-  IndependentAuthorityRepositoryPort,
-  IndependentAuthorityTransactionStore,
-  IndependentAuthorityUserRecord,
+  type IndependentAuthorityRepositoryPort,
+  type IndependentAuthorityTransactionStore,
+  type IndependentAuthorityTransition,
 } from './independent-authority.repository';
+import {
+  STAFF_ACCESS_COMMANDS,
+  ADMIN_ACCESS_COMMANDS,
+} from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
-import type { IndependentAuthorityTransition } from './independent-authority.policy';
+import {
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+} from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import type { AdminAccessUserRow } from './admin-access-read.repository';
 
 const actorGithubId = 9_700_100_001n;
 
@@ -28,7 +31,6 @@ class AuthorityStore
   readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor | null = {
     name: null,
-    role: 'ADMIN',
     id: 'actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-admin',
@@ -36,7 +38,7 @@ class AuthorityStore
     hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
   };
-  target: IndependentAuthorityUserRecord | null = target();
+  target: AdminAccessUserRow | null = target();
   activeAdminCount = 2;
   updates: IndependentAuthorityTransition[] = [];
   revokedInserts: AdminAccessRevokedRequestInsert[] = [];
@@ -55,7 +57,7 @@ class AuthorityStore
     return Promise.resolve(this.activeAdminCount);
   }
 
-  findUserForUpdate(): Promise<IndependentAuthorityUserRecord | null> {
+  findUserForUpdate(): Promise<AdminAccessUserRow | null> {
     return Promise.resolve(this.target);
   }
 
@@ -83,7 +85,16 @@ it.each([
   async (command, hasStaffAccess, hasAdminAccess) => {
     const store = new AuthorityStore();
     store.target = target({ hasStaffAccess: true, hasAdminAccess: true });
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      new UserProfileService(),
+    );
 
     const result =
       command === STAFF_ACCESS_COMMANDS.REVOKE
@@ -103,7 +114,7 @@ it.each([
   [
     '이미 켜진 관리자 접근에 다시 보낸 부여',
     ADMIN_ACCESS_COMMANDS.GRANT,
-    target({ hasAdminAccess: true, role: 'ADMIN' }),
+    target({ hasAdminAccess: true }),
   ],
   [
     '이미 꺼진 교직원 접근에 다시 보낸 회수',
@@ -115,7 +126,16 @@ it.each([
   async (_label, command, before) => {
     const store = new AuthorityStore();
     store.target = before;
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      new UserProfileService(),
+    );
 
     const request =
       command === ADMIN_ACCESS_COMMANDS.GRANT
@@ -124,7 +144,7 @@ it.each([
 
     await expect(request).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
-      extensions: { currentAccess: { id: before.id, role: before.role } },
+      extensions: { currentAccess: { id: before.id } },
     });
     expect(store.updates).toHaveLength(0);
     expect(store.revokedInserts).toEqual([]);
@@ -139,11 +159,19 @@ it('rejects a non-admin actor before writing', async () => {
     id: 'staff-actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
-    role: 'STUDENT',
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
+  );
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
@@ -158,8 +186,17 @@ it('rejects a non-admin actor before writing', async () => {
 it('rejects revoking the final active admin', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 1;
-  store.target = target({ hasAdminAccess: true, role: 'ADMIN' });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  store.target = target({ hasAdminAccess: true });
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -173,8 +210,17 @@ it('rejects revoking the final active admin', async () => {
 
 it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력 한 행을 남긴다', async () => {
   const store = new AuthorityStore();
-  store.target = target({ hasStaffAccess: true, role: 'STAFF' });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  store.target = target({ hasStaffAccess: true });
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
+  );
 
   await service.patchStaffAccess(actorGithubId, 'target', {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
@@ -193,14 +239,23 @@ it.each([
   [
     '관리자 접근을 끄는 전이',
     ADMIN_ACCESS_COMMANDS.REVOKE,
-    target({ hasStaffAccess: true, hasAdminAccess: true, role: 'ADMIN' }),
+    target({ hasStaffAccess: true, hasAdminAccess: true }),
   ],
 ] as const)(
   '%s는 교직원 신청 표를 건드리지 않는다',
   async (_label, command, before) => {
     const store = new AuthorityStore();
     store.target = before;
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      new UserProfileService(),
+    );
 
     if (command === ADMIN_ACCESS_COMMANDS.REVOKE) {
       await service.patchAdminAccess(actorGithubId, 'target', { command });
@@ -220,9 +275,17 @@ it('rejects revoking the actor own admin access', async () => {
     id: 'actor',
     hasAdminAccess: true,
     hasStaffAccess: true,
-    role: 'ADMIN',
   });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'actor', {
@@ -244,9 +307,17 @@ it('still allows the actor to revoke their own staff access', async () => {
     id: 'actor',
     hasAdminAccess: true,
     hasStaffAccess: true,
-    role: 'ADMIN',
   });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
+  );
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'actor', {
@@ -261,20 +332,20 @@ function noopAuditLog() {
 }
 
 function target(
-  overrides: Partial<IndependentAuthorityUserRecord> = {},
-): IndependentAuthorityUserRecord {
+  overrides: Partial<AdminAccessUserRow> = {},
+): AdminAccessUserRow {
   return {
     id: 'target',
     githubId: 9_700_100_002n,
     githubLogin: 'synthetic-target',
     name: null,
-    role: 'STUDENT',
+    studentId: null,
+    department: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
-    isProfileComplete: true,
     createdAt: new Date('2026-07-19T00:00:00.000Z'),
     pendingRequest: null,
     lastLoginAt: null,

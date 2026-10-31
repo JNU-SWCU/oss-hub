@@ -1,5 +1,4 @@
-import { ApplicationReviewEventKind } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { ApplicationReviewEventKind, type Prisma } from '@prisma/client';
 import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
 export type ReviewHistoryWriterClient = Pick<

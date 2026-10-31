@@ -1,7 +1,16 @@
 import { type Type } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AppModule } from './app.module';
-import { compareStringsByCodeUnit } from './platform/platform.policy';
+
+export function compareStringsByCodeUnit(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+}
 
 export function discoverAppModuleControllers(): Type<unknown>[] {
   return discoverModuleControllers(AppModule);

@@ -1,16 +1,16 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { RankingRequestDto } from './ranking-request.dto';
 import {
+  RankingYearService,
   LEGACY_RANKING_PERIODS,
   RANKING_YEAR_ALL,
   RANKING_YEAR_MAX,
   RANKING_YEAR_MIN,
-} from '../ranking.policy';
-import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from './ranking-request.dto';
+} from '../ranking-year.service';
+
+const rankingYearService = new RankingYearService();
 
 async function validateYear(year: string | undefined) {
   const query = plainToInstance(RankingRequestDto, {
@@ -49,7 +49,7 @@ describe('resolveRankingQueryYear (Q5)', () => {
 
   it('maps legacy period=THIS_YEAR to Asia/Seoul calendar year', () => {
     expect(
-      resolveRankingQueryYear(
+      rankingYearService.resolveRankingQueryYear(
         { period: LEGACY_RANKING_PERIODS.THIS_YEAR },
         fixedNow,
       ),
@@ -58,19 +58,22 @@ describe('resolveRankingQueryYear (Q5)', () => {
 
   it('maps legacy period=ALL to all', () => {
     expect(
-      resolveRankingQueryYear({ period: LEGACY_RANKING_PERIODS.ALL }, fixedNow),
+      rankingYearService.resolveRankingQueryYear(
+        { period: LEGACY_RANKING_PERIODS.ALL },
+        fixedNow,
+      ),
     ).toBe(RANKING_YEAR_ALL);
   });
 
   it('prefers year over period', () => {
     expect(
-      resolveRankingQueryYear(
+      rankingYearService.resolveRankingQueryYear(
         { year: '2025', period: LEGACY_RANKING_PERIODS.ALL },
         fixedNow,
       ),
     ).toBe(2025);
     expect(
-      resolveRankingQueryYear(
+      rankingYearService.resolveRankingQueryYear(
         { year: 'all', period: LEGACY_RANKING_PERIODS.THIS_YEAR },
         fixedNow,
       ),
@@ -78,6 +81,6 @@ describe('resolveRankingQueryYear (Q5)', () => {
   });
 
   it('year·period 가 모두 없으면 올해로 본다', () => {
-    expect(resolveRankingQueryYear({}, fixedNow)).toBe(2026);
+    expect(rankingYearService.resolveRankingQueryYear({}, fixedNow)).toBe(2026);
   });
 });

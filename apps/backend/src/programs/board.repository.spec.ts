@@ -305,7 +305,7 @@ describe('BoardRepository.findCommentRefById', () => {
 });
 
 describe('BoardRepository.findDetailById', () => {
-  it('댓글 author.role을 authorRole로 평탄화한다', async () => {
+  it('댓글 작성자의 권한 사실을 평탄화한다', async () => {
     const createdAt = new Date('2026-07-01T00:00:00.000Z');
     const updatedAt = new Date('2026-07-01T00:00:00.000Z');
     const commentAt = new Date('2026-07-01T01:00:00.000Z');
@@ -381,7 +381,9 @@ describe('BoardRepository.findDetailById', () => {
         id: syntheticCommentId,
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-staff',
-        authorRole: 'STAFF',
+        authorMemberKind: MemberKind.STAFF,
+        authorHasStaffAccess: true,
+        authorHasAdminAccess: false,
         authorName: '합성 교직원',
         body: '교직원 답변',
         createdAt: commentAt,
@@ -390,7 +392,9 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-student',
         postId: syntheticPostId,
         authorId: syntheticAuthorId,
-        authorRole: 'STUDENT',
+        authorMemberKind: MemberKind.STUDENT,
+        authorHasStaffAccess: false,
+        authorHasAdminAccess: false,
         authorName: '합성 학생',
         body: '학생 의견',
         createdAt: commentAt,
@@ -399,7 +403,9 @@ describe('BoardRepository.findDetailById', () => {
         id: 'cuid-synthetic-comment-admin',
         postId: syntheticPostId,
         authorId: 'cuid-synthetic-admin',
-        authorRole: 'ADMIN',
+        authorMemberKind: MemberKind.STAFF,
+        authorHasStaffAccess: false,
+        authorHasAdminAccess: true,
         authorName: '합성 관리자',
         body: '관리자 답변',
         createdAt: commentAt,
@@ -418,7 +424,7 @@ describe('BoardRepository.findDetailById', () => {
     );
   });
 
-  it('author.role이 null이면 authorRole을 STUDENT로 접는다', async () => {
+  it('프로필이 없는 작성자의 memberKind는 null이다', async () => {
     const createdAt = new Date('2026-07-01T00:00:00.000Z');
     const findUnique = jest.fn().mockResolvedValue({
       id: syntheticPostId,
@@ -460,12 +466,12 @@ describe('BoardRepository.findDetailById', () => {
       syntheticPostId,
     );
 
-    expect(detail?.comments[0]?.authorRole).toBe('STUDENT');
+    expect(detail?.comments[0]?.authorMemberKind).toBeNull();
   });
 });
 
 describe('BoardRepository.createComment', () => {
-  it('작성 응답에 author.role을 authorRole로 실어 보낸다', async () => {
+  it('작성 응답에 작성자의 권한 사실을 실어 보낸다', async () => {
     const createdAt = new Date('2026-07-01T00:00:00.000Z');
     const create = jest.fn().mockResolvedValue({
       id: syntheticCommentId,
@@ -494,7 +500,9 @@ describe('BoardRepository.createComment', () => {
       id: syntheticCommentId,
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
-      authorRole: 'STUDENT',
+      authorMemberKind: MemberKind.STUDENT,
+      authorHasStaffAccess: false,
+      authorHasAdminAccess: false,
       authorName: '합성 질문자',
       body: '새 댓글',
       createdAt,

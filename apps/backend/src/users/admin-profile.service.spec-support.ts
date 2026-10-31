@@ -1,14 +1,14 @@
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { adminActor } from './admin-access.service.spec-support';
-import type { AdminAccessActor } from './admin-access-repository.types';
-import type {
-  AdminProfileApplyOutcome,
-  AdminProfileLegacyFields,
-  AdminProfileRepositoryPort,
-  AdminProfileTargetRecord,
-  AdminProfileTransactionStore,
-  AdminProfileWriteFields,
-} from './users.types';
+import { type AdminAccessActor } from './admin-access-read.repository';
+import {
+  type AdminProfileApplyOutcome,
+  type AdminProfileLegacyFields,
+  type AdminProfileRepositoryPort,
+  type AdminProfileTargetRecord,
+  type AdminProfileTransactionStore,
+  type AdminProfileWriteFields,
+} from './admin-profile.repository';
 
 export function profileTarget(
   overrides: Partial<AdminProfileTargetRecord> = {},

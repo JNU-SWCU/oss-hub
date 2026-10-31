@@ -3,6 +3,9 @@ import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const authority = {
   assertActiveStaff: jest
@@ -36,7 +39,12 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         isComplete: true,
       }),
     } as unknown as MilestoneDocumentsRepository;
-    const service = new MilestoneDocumentsService(repository, authority);
+    const service = new MilestoneDocumentsService(
+      repository,
+      authority,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
+    );
 
     const result = await service
       .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
@@ -72,13 +80,15 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
 
     await expect(
-      new MilestoneDocumentsService(repository, authority).historyForStaff(
-        1n,
-        'milestone-1',
-        'document-1',
-        'application-1',
-        { cursor: 'foreign-history', limit: 20 },
-      ),
+      new MilestoneDocumentsService(
+        repository,
+        authority,
+        new MilestoneDocumentRulesService(new ProgramRulesService()),
+        new SubmissionFileRulesService(),
+      ).historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+        cursor: 'foreign-history',
+        limit: 20,
+      }),
     ).rejects.toMatchObject({ errorCode: { code: 'MSD_019' } });
   });
 });
@@ -136,6 +146,8 @@ describe('MilestoneDocumentsService history download links', () => {
         }),
       ),
       authority,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
 
     const result = await service
@@ -162,6 +174,8 @@ describe('MilestoneDocumentsService history download links', () => {
         }),
       ),
       authority,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
 
     const result = await service
@@ -187,6 +201,8 @@ describe('MilestoneDocumentsService history download links', () => {
         }),
       ),
       authority,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
 
     const result = await service

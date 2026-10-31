@@ -4,7 +4,7 @@ import {
   type RecordPhoneAudit,
   type RecordStaffNumberAudit,
 } from './users.repository';
-import type { UserProfileRecord } from './user-profile.policy';
+import { type UserProfileRecord } from './profile-validation.config';
 import { profileRecord } from './member-authority-test-fixtures';
 
 type TransactionCallback<T> = (transaction: unknown) => Promise<T>;

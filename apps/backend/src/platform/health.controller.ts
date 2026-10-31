@@ -1,7 +1,7 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { Public } from '../auth/auth-route-metadata.policy';
 import { HealthResponseDto } from './dto/health-response.dto';
 import { HealthService } from './health.service';
+import { Public } from '../auth/authentication.guard';
 
 @Controller('health')
 @Public()

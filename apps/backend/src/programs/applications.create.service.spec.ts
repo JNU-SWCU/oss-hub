@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   ProgramCategory,
@@ -5,19 +6,15 @@ import {
   RepositoryConnectionMode,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import {
-  type ApplicationCreateStore,
-  type ApplicationsRepository,
-  type ApplyProgramRecord,
-  type ApplicationStudentActor,
+import type {
+  ApplicationCreateStore,
+  ApplicationsRepository,
+  ApplyProgramRecord,
+  ApplicationStudentActor,
+  CreatedApplication,
 } from './applications.repository';
-import type { CreatedApplication } from './application-records.types';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
-import {
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
-  TEAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import {
@@ -25,6 +22,13 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
 } from './applications.error';
+import {
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
+  TEAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -176,6 +180,10 @@ function buildService(overrides: {
       { record } as unknown as AuditLogService,
       { assertActiveStaff },
       joinCodeService,
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     ),
     repository,
     store,

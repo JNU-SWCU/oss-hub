@@ -12,6 +12,7 @@ import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverService } from './program-creation.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 let application: INestApplication;
 let baseUrl = '';
@@ -29,6 +30,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       { provide: APP_GUARD, useClass: AuthenticationGuard },
       { provide: AuthConfig, useValue: { useSecureCookies: false } },
       { provide: AuthService, useValue: {} },

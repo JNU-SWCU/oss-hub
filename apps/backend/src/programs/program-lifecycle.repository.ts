@@ -4,20 +4,40 @@ import {
   ProgramAuthoringUploadLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import type { ProgramDeletionAuditBlockingCounts } from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
-import type { ProgramDeletionScopeCounts } from './programs.policy';
-import type { ProgramPurgeDeletedCounts } from './programs.types';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import {
+  ProgramDeletionScopeRepository,
+  type ProgramDeletionScopeCounts,
+} from './program-deletion-scope.repository';
+import type { ProgramDeletionAuditBlockingCounts } from '../platform/audit-log-metadata.config';
+
+export type ProgramPurgeDeletedCounts = {
+  readonly applications: number;
+  readonly teams: number;
+  readonly teamMembers: number;
+  readonly teamInvitations: number;
+  readonly boardPosts: number;
+  readonly boardComments: number;
+  readonly submissions: number;
+  readonly submissionRevisions: number;
+  readonly reviews: number;
+  readonly submissionFiles: number;
+  readonly milestones: number;
+  readonly milestoneDocuments: number;
+  readonly milestoneDocumentSubmissions: number;
+  readonly milestoneDocumentSubmissionHistories: number;
+  readonly milestoneDocumentReviewHistories: number;
+  readonly milestoneDocumentTemplateFiles: number;
+  readonly programAuthoringUploads: number;
+  readonly programCreateRequests: number;
+  readonly repositoryProvisionJobs: number;
+  readonly githubRepositoriesDetached: number;
+  readonly outboxEvents: number;
+  readonly notifications: number;
+  readonly programPurgeFileTombstones: number;
+};
 
 type ProgramLifecycleTransaction = Prisma.TransactionClient;
-
-export function isForeignKeyConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2003'
-  );
-}
 
 @Injectable()
 export class ProgramLifecycleRepository {
@@ -454,5 +474,12 @@ export class ProgramLifecycleRepository {
       notifications: notifications.count,
       programPurgeFileTombstones: templateFiles.length + programCovers,
     };
+  }
+
+  static isForeignKeyConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2003'
+    );
   }
 }

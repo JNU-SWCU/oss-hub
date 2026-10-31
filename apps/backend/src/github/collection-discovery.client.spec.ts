@@ -4,7 +4,7 @@ import {
   CollectionDiscoveryTokenProvider,
 } from './collection-discovery.client';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
 
 describe('collection-provider-queue.client', () => {
   const jsonResponse = (headers: Record<string, string> = {}): Response =>
@@ -24,10 +24,10 @@ describe('collection-provider-queue.client', () => {
     };
   }
 
-  describe('ProviderRequestQueue', () => {
+  describe('ProviderRequestQueueClient', () => {
     it('paces dispatches at least 250ms apart', async () => {
       const clock = fakeClock();
-      const queue = new ProviderRequestQueue(clock.now, clock.sleep);
+      const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
       const dispatchTimes: number[] = [];
       const fetcher = (): Promise<Response> => {
         dispatchTimes.push(clock.now());
@@ -47,7 +47,7 @@ describe('collection-provider-queue.client', () => {
 
     it('does not pace the very first dispatch', async () => {
       const clock = fakeClock();
-      const queue = new ProviderRequestQueue(clock.now, clock.sleep);
+      const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
       const wrapped = queue.wrapFetcher(() => Promise.resolve(jsonResponse()));
       const start = clock.now();
       await wrapped('https://api.github.com/a');
@@ -56,7 +56,7 @@ describe('collection-provider-queue.client', () => {
 
     it('keeps FIFO pacing across a failed dispatch', async () => {
       const clock = fakeClock();
-      const queue = new ProviderRequestQueue(clock.now, clock.sleep);
+      const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
       const dispatchTimes: number[] = [];
       let call = 0;
       const fetcher = (): Promise<Response> => {
@@ -83,12 +83,12 @@ describe('collection-provider-queue.client', () => {
     });
 
     it('observes rate-limit headers without reporting shouldStop before any response', () => {
-      const queue = new ProviderRequestQueue();
+      const queue = new ProviderRequestQueueClient();
       expect(queue.shouldStop()).toBe(false);
     });
 
     it('reports shouldStop once remaining drops to the dynamic floor (max(100, 20% of limit))', async () => {
-      const queue = new ProviderRequestQueue(
+      const queue = new ProviderRequestQueueClient(
         () => 0,
         () => Promise.resolve(),
       );
@@ -106,7 +106,7 @@ describe('collection-provider-queue.client', () => {
     });
 
     it('uses the 100-request floor when 20% of the limit is smaller', async () => {
-      const queue = new ProviderRequestQueue(
+      const queue = new ProviderRequestQueueClient(
         () => 0,
         () => Promise.resolve(),
       );
@@ -124,7 +124,7 @@ describe('collection-provider-queue.client', () => {
     });
 
     it('does not consume the response body while observing headers', async () => {
-      const queue = new ProviderRequestQueue();
+      const queue = new ProviderRequestQueueClient();
       const wrapped = queue.wrapFetcher(() =>
         Promise.resolve(
           jsonResponse({

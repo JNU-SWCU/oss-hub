@@ -1,25 +1,26 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import { OptionalSession, Public } from '../auth/auth-route-metadata.policy';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import {
   assertNeverHttpAuth,
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from '../auth/http-auth.types';
-import { RANKING_VIEWER_CLASSES } from './ranking.policy';
-import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from './dto/ranking-request.dto';
+  OptionalSession,
+  Public,
+} from '../auth/authentication.guard';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
+import { RankingRequestDto } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from './dto/ranking-page-response.dto';
-import { RankingService } from './ranking.service';
+import { RankingService, RANKING_VIEWER_CLASSES } from './ranking.service';
+import { RankingYearService } from './ranking-year.service';
 
 @Controller('ranking')
 export class RankingController {
-  constructor(private readonly rankingService: RankingService) {}
+  constructor(
+    private readonly rankingService: RankingService,
+    private readonly rankingYearService: RankingYearService,
+  ) {}
 
   @Get()
   @OptionalSession()
@@ -29,7 +30,7 @@ export class RankingController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingPageResponseDto> {
     const page = await this.rankingService.findPage(
-      resolveRankingQueryYear(query),
+      this.rankingYearService.resolveRankingQueryYear(query),
       query.page,
       query.pageSize,
       githubIdFrom(request),

@@ -9,11 +9,15 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { DomainException } from '../platform/error-code.error';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
 import { DeadlineDigestService } from '../notifications/deadline-digest.service';
-import type { DeadlineDigestMail } from '../notifications/notifications.types';
 import { NotificationsErrorCode } from '../notifications/notifications-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -37,7 +41,13 @@ const NOW = new Date('2026-08-18T00:00:00.000Z');
 const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
 
 const prisma = new PrismaService();
-const editor = new ProgramEditorService(new ProgramEditorRepository(prisma));
+const editor = new ProgramEditorService(
+  new ProgramEditorRepository(prisma),
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
+);
 
 const sentMails: DeadlineDigestMail[] = [];
 const digest = new DeadlineDigestService(

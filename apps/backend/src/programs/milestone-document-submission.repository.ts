@@ -8,8 +8,7 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import type { MilestoneDocumentSubmissionDetail } from './milestone-document-result.types';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-collection-read.repository';
+import { type MilestoneDocumentSubmissionDetail } from './milestone-document-collection-read.repository';
 import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
@@ -19,6 +18,12 @@ import {
 } from './milestone-document-submission.error';
 
 export class MilestoneDocumentSubmissionRepository {
+  static nextHistoryCreatedAt(requested: Date, latest: Date | null): Date {
+    return latest === null || requested.getTime() > latest.getTime()
+      ? requested
+      : new Date(latest.getTime() + 1);
+  }
+
   static milestoneDocumentSubmissionContent(
     text: string | null,
   ): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -95,10 +100,11 @@ export class MilestoneDocumentSubmissionRepository {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           select: { createdAt: true },
         });
-      const submittedAt = nextMilestoneDocumentHistoryCreatedAt(
-        input.submittedAt,
-        latestHistory?.createdAt ?? null,
-      );
+      const submittedAt =
+        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+          input.submittedAt,
+          latestHistory?.createdAt ?? null,
+        );
 
       const latestReview =
         await transaction.milestoneDocumentReviewHistory.findFirst({

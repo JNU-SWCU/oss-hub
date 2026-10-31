@@ -1,5 +1,7 @@
 import type { SubmissionsStore } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 type SubmissionStoreMocks = {
   readonly [Method in keyof SubmissionsStore]: jest.Mock<
@@ -52,7 +54,11 @@ export function createSubmissionsServiceHarness(): {
     },
   } satisfies ConstructorParameters<typeof SubmissionsService>[0];
   return {
-    service: new SubmissionsService(repository),
+    service: new SubmissionsService(
+      repository,
+      new ProgramRulesService(),
+      new SubmissionFileRulesService(),
+    ),
     store,
     didRollBack: () => rolledBack,
   };

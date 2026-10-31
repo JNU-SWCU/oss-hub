@@ -6,6 +6,8 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -15,7 +17,12 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new AccountDeactivationService(
   new AccountDeactivationRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
+  new UserProfileService(),
 );
 const USER_ID = 'synthetic-self-deactivation-user';
 const GITHUB_ID = 8_800_000_000_018n;

@@ -4,6 +4,10 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9_101_000_001n;
@@ -12,6 +16,10 @@ const PROGRAM_NAME = 'Issue 101 Same Name Program';
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
   new ProgramEditorRepository(prisma),
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
 );
 
 export async function runTogether<T, U>(

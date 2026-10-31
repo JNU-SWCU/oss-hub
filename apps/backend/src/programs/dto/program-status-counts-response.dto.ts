@@ -1,4 +1,4 @@
-import type { ProgramStatusCounts } from '../programs.policy';
+import type { ProgramStatusCounts } from '../programs.repository';
 
 export class ProgramStatusCountsResponseDto {
   declare readonly all: number;

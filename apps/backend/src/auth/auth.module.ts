@@ -8,11 +8,13 @@ import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
+import { AuthSessionService } from './auth-session.service';
 
 @Module({
   controllers: [AuthController, LoginHistoryController],
   providers: [
     AuthConfig,
+    AuthSessionService,
     AuthService,
     AuthRepository,
     LoginHistoryRepository,
@@ -22,6 +24,12 @@ import { SessionGuard } from './session.guard';
     SessionGuard,
     OriginGuard,
   ],
-  exports: [AuthConfig, AuthService, SessionGuard, OriginGuard],
+  exports: [
+    AuthConfig,
+    AuthSessionService,
+    AuthService,
+    SessionGuard,
+    OriginGuard,
+  ],
 })
 export class AuthModule {}

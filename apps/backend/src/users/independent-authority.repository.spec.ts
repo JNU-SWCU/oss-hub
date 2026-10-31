@@ -9,7 +9,21 @@ import {
   UsersAuthorityRepository,
   IndependentAuthorityRepository,
 } from './independent-authority.repository';
-import { resolveIndependentAuthorityTransition } from './independent-authority.policy';
+import { IndependentAuthorityService } from './independent-authority.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+
+const independentAuthorityService = new IndependentAuthorityService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+  new UserProfileService(),
+);
 
 describe('authority.repository', () => {
   const actors = [
@@ -144,11 +158,12 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
     if (!before) {
       throw new TypeError('Expected target');
     }
-    const transition = resolveIndependentAuthorityTransition(
-      before,
-      'ADMIN',
-      false,
-    );
+    const transition =
+      independentAuthorityService.resolveIndependentAuthorityTransition(
+        before,
+        'ADMIN',
+        false,
+      );
     await store.updateAuthority('target', transition);
   });
 

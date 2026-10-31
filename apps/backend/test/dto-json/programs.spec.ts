@@ -9,6 +9,8 @@ import {
 import {
   ApplicationPreparationInvitationResponseDto,
   ApplicationPreparationResponseDto,
+  ApplicationPreparationAcceptResponseDto,
+  ApplicationPreparationCandidateResponseDto,
 } from '../../src/programs/dto/application-preparation-response.dto';
 import {
   ApplicationFieldResponseDto,
@@ -109,40 +111,6 @@ import {
   TeamManagementListItemResponseDto,
   TeamManagementListPageResponseDto,
 } from '../../src/programs/dto/team-management-list-page-response.dto';
-import type {
-  ApplicationListItem,
-  TeamManagementListItem,
-} from '../../src/programs/application-records.types';
-import type {
-  MilestoneDocumentCollectionResult,
-  MilestoneDocumentRecord,
-  MilestoneDocumentViewerResult,
-} from '../../src/programs/milestone-document-result.types';
-import type {
-  EditableProgramView,
-  ProgramMilestoneEditView,
-} from '../../src/programs/program-editor.types';
-import type {
-  ProgramTeamView,
-  StaffTeamDetailView,
-  TeamActivityView,
-} from '../../src/programs/program-teams.types';
-import { listProgramTemplates } from '../../src/programs/program-template-registry.policy';
-import type {
-  BoardPostDetailResult,
-  BoardPostSummaryResult,
-  PersonalizedProgramListItem,
-  ProgramDetailResult,
-  ProgramOverviewView,
-  PublicUserProfileResult,
-} from '../../src/programs/programs.types';
-import type { PublicProjectRow } from '../../src/programs/public-projects.policy';
-import type { SubmissionReviewContext } from '../../src/programs/submission-review.types';
-import type { SentTeamInvitationRecord } from '../../src/programs/team-invitation.types';
-import {
-  ApplicationPreparationAcceptResponseDto,
-  ApplicationPreparationCandidateResponseDto,
-} from '../../src/programs/dto/application-preparation-response.dto';
 import { DeleteProgramResponseDto } from '../../src/programs/dto/delete-program-response.dto';
 import { ProgramAuthoringUploadResponseDto } from '../../src/programs/dto/program-authoring-upload-response.dto';
 import { ProgramDocumentChangeRequestCountResponseDto } from '../../src/programs/dto/program-document-change-request-count-response.dto';
@@ -154,6 +122,43 @@ import {
 import { StudentRepositoryUrlResponseDto } from '../../src/programs/dto/student-repository-url-response.dto';
 import { UploadedMilestoneDocumentFileResponseDto } from '../../src/programs/dto/uploaded-milestone-document-file-response.dto';
 import { UploadedSubmissionFileResponseDto } from '../../src/programs/dto/uploaded-submission-file-response.dto';
+import {
+  type ApplicationListItem,
+  type TeamManagementListItem,
+} from '../../src/programs/applications.repository';
+import {
+  type MilestoneDocumentCollectionResult,
+  type MilestoneDocumentViewerResult,
+} from '../../src/programs/milestone-documents.service';
+import { type MilestoneDocumentRecord } from '../../src/programs/milestone-document-collection-read.repository';
+import {
+  type EditableProgramView,
+  type ProgramMilestoneEditView,
+} from '../../src/programs/program-editor.repository';
+import {
+  type ProgramTeamView,
+  type StaffTeamDetailView,
+  type TeamActivityView,
+} from '../../src/programs/program-team-repository-evidence.repository';
+import {
+  type ProgramListPageItem,
+  type ProgramDetailResult,
+} from '../../src/programs/programs.service';
+import {
+  type BoardPostDetailResult,
+  type BoardPostSummaryResult,
+} from '../../src/programs/board.service';
+import { type ProgramOverviewView } from '../../src/programs/program-overview.service';
+import {
+  type PublicProjectListItem,
+  type PublicUserProfileResult,
+} from '../../src/programs/public-projects.service';
+import { PublicProjectApplicationMode } from '../../src/programs/public-projects.config';
+import { type SubmissionReviewContext } from '../../src/programs/submission-reviews.repository';
+import { type SentTeamInvitationRecord } from '../../src/programs/team-invitations.repository';
+import { ProgramRulesService } from '../../src/programs/program-rules.service';
+
+const programRulesService = new ProgramRulesService();
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -389,7 +394,7 @@ const viewerResult: MilestoneDocumentViewerResult = {
   teamSubmissionCount: { submitted: 2, total: 3 },
 };
 
-const programListItem: PersonalizedProgramListItem = {
+const programListItem: ProgramListPageItem = {
   id: 'program-1',
   name: 'Program A',
   organizer: 'Org',
@@ -404,6 +409,7 @@ const programListItem: PersonalizedProgramListItem = {
   teamMaxSize: 4,
   coverId: 'cover-1',
   coverExternalImageUrl: null,
+  coverImageUrl: '/programs/program-1/cover/cover-1',
   note: { text: 'Team needed', icon: 'team' },
   viewerApplicationStatus: 'SUBMITTED',
   applicationCount: 3,
@@ -509,7 +515,7 @@ const programTeam: ProgramTeamView = {
   members: teamMembers,
 };
 
-const projectRow: PublicProjectRow = {
+const projectRow: PublicProjectListItem = {
   id: 'row-1',
   projectId: 'project-1',
   githubRepositoryId: 99n,
@@ -522,15 +528,19 @@ const projectRow: PublicProjectRow = {
   teamName: 'Team A',
   teamMemberCount: 3,
   applicantNickname: 'octo',
+  applicationMode: PublicProjectApplicationMode.TEAM,
+  displayName: 'Team A',
 };
 
-const soloProjectRow: PublicProjectRow = {
+const soloProjectRow: PublicProjectListItem = {
   ...projectRow,
   id: 'row-2',
   projectId: 'project-2',
   trackType: null,
   teamName: null,
   teamMemberCount: 1,
+  applicationMode: PublicProjectApplicationMode.PERSONAL,
+  displayName: 'octo',
 };
 
 const metrics = { commitCount: 10, pullRequestCount: 4, releaseCount: 1 };
@@ -842,22 +852,27 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         invitee: sentInvitation.invitee,
       }),
   ],
-  ...listProgramTemplates().flatMap(
-    (template): ReadonlyArray<readonly [string, () => unknown]> => [
+  ...programRulesService
+    .listProgramTemplates()
+    .flatMap((template): ReadonlyArray<readonly [string, () => unknown]> => [
       [
         `ApplicationTemplateResponseDto ${template.key}`,
         () => ApplicationTemplateResponseDto.from(template),
       ],
-    ],
-  ),
+    ]),
   [
     'ApplicationFieldResponseDto',
     () =>
-      ApplicationFieldResponseDto.from(listProgramTemplates()[0]!.fields[0]!),
+      ApplicationFieldResponseDto.from(
+        programRulesService.listProgramTemplates()[0]!.fields[0]!,
+      ),
   ],
   [
     'ApplicationTemplateListResponseDto',
-    () => ApplicationTemplateListResponseDto.from(listProgramTemplates()),
+    () =>
+      ApplicationTemplateListResponseDto.from(
+        programRulesService.listProgramTemplates(),
+      ),
   ],
   ['BoardPostResponseDto', () => BoardPostResponseDto.from(boardPost)],
   [
@@ -1194,6 +1209,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         items: [
           programListItem,
           {
+            coverImageUrl: 'https://images.example/2.png',
             id: 'program-2',
             name: 'Program B',
             organizer: 'Org',

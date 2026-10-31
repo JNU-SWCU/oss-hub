@@ -14,10 +14,8 @@ import { StaffInsightsService } from '../../src/staff/staff-insights.service';
 import { AuthConfig } from '../../src/auth/auth.config';
 import { OriginGuard } from '../../src/auth/origin.guard';
 import { SessionGuard } from '../../src/auth/session.guard';
-import { sessionCookieName } from '../../src/auth/cookies.policy';
-import { issueSessionToken } from '../../src/auth/auth.policy';
 import { AuthService } from '../../src/auth/auth.service';
-import { configureHttpApp } from '../../src/platform/configure-http-app.config';
+import { configureHttpApp } from '../../src/configure-http-app';
 import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { RepositoriesRepository } from '../../src/github/repositories.repository';
@@ -63,6 +61,13 @@ import { AdminProfileService } from '../../src/users/admin-profile.service';
 import { UsersAuthorityService } from '../../src/users/users-authority.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
+import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
+import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
+import { AuthSessionService } from '../../src/auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 type Actor = {
   readonly label: string;
@@ -261,6 +266,7 @@ describe('Audience authorization HTTP characterization', () => {
         SystemStatusController,
       ],
       providers: [
+        ...STATELESS_PROVIDERS,
         SessionGuard,
         OriginGuard,
         UsersAuthorityService,
@@ -280,6 +286,9 @@ describe('Audience authorization HTTP characterization', () => {
         AdminProfileService,
         IndependentAuthorityService,
         MemberKindService,
+        AuditLogMetadataService,
+        AdminAccessMutationService,
+        AdminProfileMutationService,
         AuditLogService,
         SystemStatusService,
         {
@@ -430,7 +439,7 @@ describe('Audience authorization HTTP characterization', () => {
           provide: AuditLogRepository,
           useValue: {
             findActorByGithubId: findActor,
-            list: () => Promise.resolve({ items: [], total: 0 }),
+            list: () => Promise.resolve({ rows: [], total: 0 }),
             record: () => Promise.resolve({}),
           },
         },
@@ -470,7 +479,7 @@ describe('Audience authorization HTTP characterization', () => {
       .useMocker((token) => (token === Function ? undefined : {}))
       .compile();
     const config = module.get(AuthConfig);
-    cookie = `${sessionCookieName(config.useSecureCookies)}=${await issueSessionToken(config.sessionSecret, 4242n, 0)}`;
+    cookie = `${authSessionService.sessionCookieName(config.useSecureCookies)}=${await authSessionService.issueSessionToken(config.sessionSecret, 4242n, 0)}`;
     app = module.createNestApplication();
     configureHttpApp(app);
     await app.listen(0, '127.0.0.1');

@@ -3,8 +3,6 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
@@ -12,6 +10,10 @@ import { ProgramActivityService } from '../programs/program-activity.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
 import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentDashboardService } from './student-dashboard.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const SESSION_GITHUB_ID = 342_900_300n;
 const SESSION_SECRET = new Uint8Array(32).fill(41);
@@ -57,6 +59,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [StudentDashboardController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       SessionGuard,
       {
         provide: AuthConfig,
@@ -96,10 +100,16 @@ afterAll(async () => {
 });
 
 it('세션 사용자의 최근 판정을 private, no-store로 돌려준다', async () => {
-  const token = await issueSessionToken(SESSION_SECRET, SESSION_GITHUB_ID, 0);
+  const token = await authSessionService.issueSessionToken(
+    SESSION_SECRET,
+    SESSION_GITHUB_ID,
+    0,
+  );
 
   const response = await fetch(feedbackUrl, {
-    headers: { cookie: `${sessionCookieName(false)}=${token}` },
+    headers: {
+      cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
+    },
   });
 
   expect(response.status).toBe(200);

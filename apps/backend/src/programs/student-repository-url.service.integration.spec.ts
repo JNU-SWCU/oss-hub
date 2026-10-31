@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
@@ -5,13 +6,9 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/application-repository-url-audit-metadata.policy';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../github/repository-provision-event.policy';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from '../github/repository-provision-event.config';
 import {
   prisma,
   service,
@@ -27,6 +24,31 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ApplicationsService } from './applications.service';
+import { ApplicationJoinCodeService } from './application-preparations.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
+
+const parseProvisionPayload = (payload: unknown) =>
+  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
+
+const auditLogMetadataService = new AuditLogMetadataService();
+const applicationsService = new ApplicationsService(
+  applications,
+  audit,
+  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
+  new ApplicationJoinCodeService(
+    { TEAM_JOIN_CODE_SECRET: 'synthetic-url-relink-secret' },
+    new JoinCodeSecretService(),
+  ),
+  auditLogMetadataService,
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
+);
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -127,7 +149,8 @@ it('projects a successful relink without an original provision outbox', async ()
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    await applications.findApplicationForStaff(applicationId),
+    (await applicationsService.getForStaff(githubId, applicationId))
+      .application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
@@ -177,7 +200,7 @@ it('links a managed organization repository without re-arming provisioning', asy
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
-      parseRepositoryProvisionEvent,
+      parseProvisionPayload,
     );
     return event;
   });
@@ -296,7 +319,9 @@ it('serializes different targets into a continuous audit chain', async () => {
     where: { targetId: applicationId },
   });
   const history = rows.map((row) =>
-    parseApplicationRepositoryUrlAuditMetadata(row.metadata),
+    auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+      row.metadata,
+    ),
   );
   expect(history).toHaveLength(2);
   const first = history.find((entry) => entry?.before.repositoryId === oldId);

@@ -3,6 +3,7 @@ import type { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const programId = 'cuid-synthetic-program';
 const teamId = 'cuid-synthetic-team';
@@ -88,6 +89,7 @@ describe('팀 초대 대상 자격', () => {
     const service = new TeamInvitationsService(
       repository as unknown as TeamInvitationsRepository,
       { record: jest.fn() } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
     );
 
     const invitation = service.create(leaderGithubId, teamId, inviteeId);

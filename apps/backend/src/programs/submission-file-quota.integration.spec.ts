@@ -9,6 +9,7 @@ import {
   type CreatePendingSubmissionFileInput,
   SubmissionFilesRepository,
 } from './submission-files.repository';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -25,10 +26,7 @@ const PENDING_EXPIRES_AT = new Date('2099-01-01T00:00:00.000Z');
 const RETAINED_BYTES_LIMIT = 500 * 1024 * 1024;
 const FILE_BYTES_LIMIT = 5 * 1024 * 1024;
 
-function pendingInput(
-  suffix: string,
-  sizeBytes = 1,
-): CreatePendingSubmissionFileInput {
+function pendingRow(suffix: string, sizeBytes: number) {
   return {
     uploaderId: UPLOADER_ID,
     applicationId: APPLICATION_ID,
@@ -41,13 +39,24 @@ function pendingInput(
   };
 }
 
+function pendingInput(
+  suffix: string,
+  sizeBytes = 1,
+): CreatePendingSubmissionFileInput {
+  return {
+    ...pendingRow(suffix, sizeBytes),
+    resolveExpiresAt: (programEndAt: Date) =>
+      new SubmissionFileRulesService().addOneCalendarYear(programEndAt),
+  };
+}
+
 function retainedFile(
   suffix: string,
   sizeBytes: number,
   lifecycle: SubmissionFileLifecycle = SubmissionFileLifecycle.PENDING,
 ) {
   return {
-    ...pendingInput(suffix, sizeBytes),
+    ...pendingRow(suffix, sizeBytes),
     lifecycle,
     expiresAt: PENDING_EXPIRES_AT,
     deletedAt:

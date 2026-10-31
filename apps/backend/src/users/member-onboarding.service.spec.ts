@@ -10,8 +10,7 @@ import {
   ConsentErrorCode,
 } from './consent-error-code.error';
 import type { ConsentsService } from './consents.service';
-import type { UserProfileView } from '../platform/user-profile-read.repository';
-import type { StaffAccessRequestRecord, MemberUser } from './users.types';
+import type { UserProfileView } from '../platform/user-profile-read.config';
 import {
   type StaffAccessRequestOutcome,
   type StaffAccessRequestTarget,
@@ -20,9 +19,12 @@ import {
 import type {
   OnboardingTransactionStore,
   MemberOnboardingRepository,
+  StaffAccessRequestRecord,
+  MemberUser,
 } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import { MemberOnboardingService } from './member-onboarding.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
 
@@ -192,6 +194,7 @@ function createService(
         store,
       ) as unknown as MemberOnboardingRepository,
       consentsService,
+      new UserProfileService(),
     ),
     store,
   };

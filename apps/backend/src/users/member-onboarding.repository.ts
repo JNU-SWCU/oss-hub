@@ -6,19 +6,64 @@ import {
   StaffAccessRequestStatus,
   type Prisma as PrismaTypes,
   type StaffAccessRequest as PrismaStaffAccessRequest,
+  type AccountStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  ConsentRecord,
-  ConsentUser,
-  type MemberUser,
-  type StaffAccessRequestRecord,
-} from './users.types';
-import {
-  type StaffAccessRequestOutcome,
-  type StaffAccessRequestTarget,
-  PlatformRepository,
+import { PlatformRepository } from '../platform/platform.repository';
+import type {
+  StaffAccessRequestOutcome,
+  StaffAccessRequestTarget,
 } from '../platform/platform.repository';
+
+export interface ConsentUser {
+  readonly id: string;
+  readonly accountStatus: AccountStatus;
+}
+
+export interface ConsentRecord {
+  policyVersion: string;
+  consentedAt: Date;
+}
+
+export type SelectableMemberKind = MemberKind;
+
+type MemberProfileFields = {
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+export type MemberUser = {
+  readonly id: string;
+
+  readonly memberKind: MemberKind | null;
+
+  readonly selectedMemberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+  readonly accountStatus: AccountStatus;
+
+  readonly profile: MemberProfileFields;
+};
+
+export type StaffAccessRequestRecord = {
+  readonly id: string;
+  readonly userId: string;
+  readonly status: StaffAccessRequestStatus;
+  readonly rejectionReason: string | null;
+  readonly decidedAt: Date | null;
+  readonly createdAt: Date;
+};
+
+export type MemberKindSelectionResult = {
+  readonly selectedMemberKind: SelectableMemberKind;
+
+  readonly redirectTo: '/onboarding/profile';
+};
+
+export type MemberKindSelectionState = {
+  readonly selectedMemberKind: SelectableMemberKind | null;
+};
 
 @Injectable()
 export class ConsentsRepository {

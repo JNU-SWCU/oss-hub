@@ -6,11 +6,11 @@ import {
   MinLength,
 } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
-import type { ProgramDocumentArchiveScope } from '../milestone-document-result.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.error';
+import { type ProgramDocumentArchiveScope } from '../milestone-document-archive.service';
 
 export class ProgramDocumentArchiveRequestDto {
   @IsIn(['PROGRAM', 'MILESTONE', 'TEAM'])

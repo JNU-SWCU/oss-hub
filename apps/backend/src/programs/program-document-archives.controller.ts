@@ -16,19 +16,19 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ProgramDocumentArchiveRequestDto } from './dto/program-document-archive-request.dto';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
-  setDownloadHeaders,
-  respondWithDownloadFailure,
-} from '../platform/object-storage.types';
-import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
+import { DownloadResponseService } from './download-response.service';
 
 @Controller('programs/:programId/documents/collection/archive')
 export class ProgramDocumentArchivesController {
   private readonly logger = new Logger(ProgramDocumentArchivesController.name);
 
-  constructor(private readonly archives: MilestoneDocumentArchiveService) {}
+  constructor(
+    private readonly archives: MilestoneDocumentArchiveService,
+    private readonly downloadResponseService: DownloadResponseService,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
@@ -45,7 +45,7 @@ export class ProgramDocumentArchivesController {
       programId,
       scope,
     );
-    setDownloadHeaders(response, archive);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
     response.once('close', () => archive.body.destroy());
 
     return new StreamableFile(archive.body).setErrorHandler((error) => {
@@ -53,7 +53,7 @@ export class ProgramDocumentArchivesController {
         `Program archive failed: programId=${programId} scope=${scope.kind}`,
         error.stack,
       );
-      respondWithDownloadFailure(
+      this.downloadResponseService.respondWithDownloadFailure(
         response,
         MILESTONE_DOCUMENTS_ERROR_CODES[
           MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE

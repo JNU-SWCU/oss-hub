@@ -1,4 +1,4 @@
-import type { StudentApplicationView } from '../programs.types';
+import type { StudentApplicationView } from '../student-application-management.service';
 
 export class StudentApplicationResponseDto {
   declare readonly id: string;

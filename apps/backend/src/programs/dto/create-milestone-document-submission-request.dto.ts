@@ -7,10 +7,6 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import {
-  type MilestoneDocumentContentInput,
-  parseMilestoneDocumentContent,
-} from '../milestone-document.policy';
 
 export class MilestoneDocumentSubmissionContentRequestDto {
   @IsOptional()
@@ -30,8 +26,4 @@ export class CreateMilestoneDocumentSubmissionRequestDto {
   @IsObject()
   @Type(() => MilestoneDocumentSubmissionContentRequestDto)
   declare readonly content: MilestoneDocumentSubmissionContentRequestDto;
-
-  toInput(): MilestoneDocumentContentInput {
-    return parseMilestoneDocumentContent(this.content);
-  }
 }

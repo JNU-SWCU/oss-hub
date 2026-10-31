@@ -1,11 +1,11 @@
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { AuditLogRepository } from '../platform/audit-log.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.policy';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthRepository } from '../auth/auth.repository';
@@ -14,6 +14,9 @@ import { RolesErrorCode } from './roles-error-code.error';
 import { PausingRevocationAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,8 +25,18 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
-const service = new AdminAccessService(repository, auditLog);
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
+const service = new AdminAccessService(
+  repository,
+  auditLog,
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+);
 const TEST_PREFIX = 'test:184:admin-access-revocation:';
 const GITHUB_ID_BASE = 9_001_840_000n;
 let sequence = 0;
@@ -226,6 +239,10 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
       Promise.reject(new Error('synthetic-revocation-failure')),
     ),
     auditLog,
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
   );
 
   await expect(
@@ -255,7 +272,14 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
   const failingAudit = {
     record: () => Promise.reject(new Error('synthetic-audit-failure')),
   } as unknown as AuditLogService;
-  const failingService = new AdminAccessService(repository, failingAudit);
+  const failingService = new AdminAccessService(
+    repository,
+    failingAudit,
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+  );
 
   await expect(
     failingService.patchAccess(actor.githubId, target.id, {
@@ -307,6 +331,10 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
       },
     ),
     auditLog,
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
   );
 
   const revocation = pausedService.patchAccess(actor.githubId, target.id, {

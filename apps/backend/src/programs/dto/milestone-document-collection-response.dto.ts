@@ -1,16 +1,14 @@
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type { MilestoneDocumentCollectionResult } from '../milestone-documents.service';
+import type { MilestoneDocumentDeliveryCollectionResult } from '../milestone-document-collection.service';
 import type {
-  MilestoneDocumentCollectionResult,
-  MilestoneDocumentDeliveryCollectionResult,
   MilestoneContext,
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentRecord,
-} from '../milestone-document-result.types';
-import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import {
-  type DocumentDeliveryStatus,
-  type MilestoneDocumentSubmittedContent,
-  readMilestoneDocumentSubmittedContent,
-} from '../milestone-document.policy';
+  DocumentDeliveryStatus,
+  MilestoneDocumentSubmittedContent,
+} from '../milestone-document-collection-read.repository';
+import type { MilestoneDocumentCollectionCell } from '../milestone-document-rules.service';
 
 export class MilestoneDocumentCollectionMilestoneResponseDto {
   declare readonly id: string;
@@ -97,7 +95,7 @@ export class MilestoneDocumentCollectionCellResponseDto {
 
   static from(
     document: MilestoneDocumentRecord,
-    submission: MilestoneDocumentCollectionSubmission | null,
+    submission: MilestoneDocumentCollectionCell | null,
   ): MilestoneDocumentCollectionCellResponseDto {
     if (submission === null) {
       return {
@@ -121,7 +119,7 @@ export class MilestoneDocumentCollectionCellResponseDto {
           ? null
           : MilestoneDocumentCollectionFileResponseDto.from(submission.file),
 
-      content: readMilestoneDocumentSubmittedContent(submission.content),
+      content: submission.content,
       status: submission.status,
       review:
         submission.review === null

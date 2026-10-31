@@ -6,12 +6,16 @@ import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService, LoginHistoryService } from './auth.service';
-import { sessionCookieName } from './cookies.policy';
 import type { AuthUser } from './http-auth.types';
 import { OriginGuard } from './origin.guard';
-import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
+import {
+  AuthSessionService,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
@@ -42,6 +46,7 @@ describe('canonical auth session HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        AuthSessionService,
         AuthenticationGuard,
         OriginGuard,
         { provide: AuthService, useValue: authService },
@@ -74,14 +79,14 @@ describe('canonical auth session HTTP contract', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,
     )}`;
-    expiredSessionCookie = `${sessionCookieName(
+    expiredSessionCookie = `${authSessionService.sessionCookieName(
       false,
-    )}=${await issueSessionToken(
+    )}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

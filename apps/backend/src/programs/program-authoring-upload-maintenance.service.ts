@@ -1,8 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
   type ClaimedProgramAuthoringUpload,
   ProgramAuthoringUploadRepository,
@@ -30,6 +29,10 @@ export class ProgramAuthoringUploadMaintenanceService {
   private readonly logger = new Logger(
     ProgramAuthoringUploadMaintenanceService.name,
   );
+  private readonly schedulerLogger = new Logger(
+    'ProgramAuthoringUploadMaintenanceScheduler',
+  );
+  private running = false;
 
   constructor(
     @Inject(ProgramAuthoringUploadRepository)
@@ -39,6 +42,24 @@ export class ProgramAuthoringUploadMaintenanceService {
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'program-authoring-upload-cleanup',
+  })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.runDue();
+    } catch {
+      this.schedulerLogger.error({
+        event: 'program-authoring-upload.cleanup.run.failed',
+        errorCode: 'MAINTENANCE_RUN_FAILED',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
 
   async runDue(batchSize = MAX_BATCH_SIZE): Promise<number> {
     const limit = boundedBatchSize(batchSize);
@@ -100,8 +121,3 @@ function boundedBatchSize(requested: number): number {
   if (!Number.isFinite(requested)) return 0;
   return Math.min(Math.max(Math.trunc(requested), 0), MAX_BATCH_SIZE);
 }
-
-export type ProgramAuthoringUploadMaintenance = Pick<
-  ProgramAuthoringUploadMaintenanceService,
-  'runDue'
->;

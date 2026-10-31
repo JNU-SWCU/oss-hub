@@ -10,7 +10,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.policy';
+import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
 
 let app: INestApplication;
 let baseUrl: string;

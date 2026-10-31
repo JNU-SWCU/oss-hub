@@ -1,18 +1,38 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  MemberKind,
+  Prisma,
+  StaffAccessRequestStatus,
+  type AffiliationKind,
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  type StudentIdFillOutcome,
-  PlatformRepository,
-} from '../platform/platform.repository';
-import type {
-  CompleteUserProfileInput,
-  UpdateProfileFieldsInput,
-  UserProfileRecord,
-} from './user-profile-record.policy';
+import { PlatformRepository } from '../platform/platform.repository';
+import type { StudentIdFillOutcome } from '../platform/platform.repository';
+import { type UserProfileRecord } from './profile-validation.config';
+
+export interface CompleteUserProfileInput {
+  readonly name: string;
+  readonly studentId: string | null;
+  readonly department: string;
+  readonly phone?: string;
+  readonly memberKind: MemberKind;
+  readonly affiliationKind: AffiliationKind;
+  readonly affiliationName: string;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+}
+
+export interface UpdateProfileFieldsInput {
+  readonly name: string;
+  readonly department: string;
+  readonly phone?: string;
+  readonly staffNumber?: string | null;
+  readonly affiliationKind?: AffiliationKind;
+  readonly affiliationName?: string;
+}
 
 export type ProfileCompletionOutcome =
   'completed' | 'conflict' | 'student-id-taken';

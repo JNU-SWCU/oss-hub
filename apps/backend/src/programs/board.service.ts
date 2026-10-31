@@ -1,21 +1,63 @@
+import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
-import type {
-  BoardPostListQuery,
-  BoardPostPermissions,
-  BoardCommentResult,
-  BoardPostDetailResult,
-  BoardPostsPageResult,
-} from './programs.types';
 import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
 import {
+  BoardCommentRecord,
   BoardPostDetailRecord,
   BoardPostRef,
   BoardPostSummaryRecord,
   BoardRepository,
 } from './board.repository';
+import { UserProfileService } from '../platform/user-profile.service';
+
+export interface BoardPostListQuery {
+  readonly page: number;
+  readonly limit: number;
+}
+
+export interface BoardPostPermissions {
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface BoardPostSummaryResult extends BoardPostPermissions {
+  id: string;
+  programId: string;
+  authorId: string;
+  authorName: string;
+  category: BoardPostCategory;
+  title: string;
+  pinned: boolean;
+  createdAt: Date;
+  commentCount: number;
+}
+
+export interface BoardCommentResult {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorRole: AuthorityLabel;
+  authorName: string;
+  body: string;
+  createdAt: Date;
+  canDelete: boolean;
+}
+
+export interface BoardPostDetailResult extends BoardPostSummaryResult {
+  body: string;
+  updatedAt: Date;
+  comments: BoardCommentResult[];
+}
+
+export interface BoardPostsPageResult {
+  items: BoardPostSummaryResult[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
 export interface BoardPostWriteInput {
   title: string;
@@ -31,6 +73,7 @@ export class BoardService {
   constructor(
     private readonly repository: BoardRepository,
     private readonly authority: UsersAuthorityService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async listPosts(
@@ -158,7 +201,7 @@ export class BoardService {
       authorId: actorId,
       body: input.body,
     });
-    return { ...comment, canDelete: true };
+    return { ...this.toComment(comment), canDelete: true };
   }
 
   async deleteComment(
@@ -220,9 +263,28 @@ export class BoardService {
     return {
       ...this.withPostPermissions(post, actorId, actorIsStaff),
       comments: post.comments.map((comment) => ({
-        ...comment,
+        ...this.toComment(comment),
         canDelete: comment.authorId === actorId || actorIsStaff,
       })),
+    };
+  }
+
+  private toComment(
+    comment: BoardCommentRecord,
+  ): Omit<BoardCommentResult, 'canDelete'> {
+    return {
+      id: comment.id,
+      postId: comment.postId,
+      authorId: comment.authorId,
+      authorRole:
+        this.userProfileService.authorityLabel({
+          memberKind: comment.authorMemberKind,
+          hasStaffAccess: comment.authorHasStaffAccess,
+          hasAdminAccess: comment.authorHasAdminAccess,
+        }) ?? 'STUDENT',
+      authorName: comment.authorName,
+      body: comment.body,
+      createdAt: comment.createdAt,
     };
   }
 

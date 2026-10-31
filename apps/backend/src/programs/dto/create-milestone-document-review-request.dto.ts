@@ -10,11 +10,11 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { DomainException } from '../../platform/error-code.error';
-import type { CreateMilestoneDocumentReviewInput } from '../milestone-document.policy';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.error';
+import { type CreateMilestoneDocumentReviewInput } from '../milestone-document-collection-read.repository';
 
 export class CreateMilestoneDocumentReviewRequestDto {
   @IsEnum(ReviewDecision)

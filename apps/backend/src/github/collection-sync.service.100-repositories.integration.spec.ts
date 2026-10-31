@@ -20,7 +20,8 @@ import {
   CollectionSyncService,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
-import { ProviderRequestQueue } from './provider-request-queue.policy';
+import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -315,7 +316,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     Promise.resolve(GITHUB_ORGANIZATION_ID);
 
   const clock = fakeClock();
-  const queue = new ProviderRequestQueue(clock.now, clock.sleep);
+  const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
   const provider = new SyntheticGithubProvider(seeds);
   const dispatchTimes: number[] = [];
   const runtime = createSyntheticSyncRuntime(provider, queue, (input, init) => {
@@ -326,6 +327,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     repository,
     () => runtime,
     resolveGithubOrganizationId,
+    new RepositoryUrlService(),
   );
 
   const commitWrites: number[] = [];

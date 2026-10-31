@@ -7,7 +7,7 @@ import {
   type AdminAccessTableCurrentState,
   type AdminAccessTableDesiredState,
   type AdminAccessTransitionOutcome,
-} from './admin-access-transition-table.policy';
+} from './admin-access-mutation.service';
 
 export type AdminAccessTransitionFixture = {
   readonly name: string;

@@ -1,12 +1,5 @@
 import { createHash } from 'node:crypto';
 import {
-  canonicalProgramAuthoringPayload,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringUploadTokenError,
-  type ProgramAuthoringDocumentRequest,
-} from './program-authoring.policy';
-import { buildProgramAuthoringPlan } from './program-authoring-plan.policy';
-import {
   ProgramTrackType,
   ProgramAuthoringUploadLifecycle,
 } from '@prisma/client';
@@ -21,12 +14,32 @@ import {
   authoringMilestone,
   authoringRequest,
 } from './program-authoring.integration-support';
+import {
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringUploadTokenError,
+} from './program-authoring.error';
+import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const programAuthoringService = new ProgramAuthoringService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+);
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
     new ProgramAuthoringRepository(harness.prisma),
     { record: jest.fn() } as unknown as AuditLogService,
+    new AuditLogMetadataService(),
+    new ProgramRulesService(),
+    new ProgramUploadRulesService(new SubmissionFileRulesService()),
   );
 
   beforeAll(async () => {
@@ -188,9 +201,10 @@ describe('ProgramAuthoringService integration', () => {
       authoringMilestone('default-item', []),
     ]);
     const created = await service.create(actor.githubId, 'legacy-key', initial);
-    const canonical = canonicalProgramAuthoringPayload(
-      buildProgramAuthoringPlan(initial),
-    );
+    const canonical =
+      programAuthoringService.toCanonicalProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(initial),
+      );
     const { trackType, ...legacyProgram } = canonical.program;
     expect(trackType).toBe(ProgramTrackType.CURRICULAR);
     const payloadHash = createHash('sha256')

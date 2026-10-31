@@ -16,7 +16,8 @@ import {
 import { CollectionAppClient } from '../github/collection-app.client';
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
-import { ProviderRequestQueue } from '../github/provider-request-queue.policy';
+import { ProviderRequestQueueClient } from '../github/provider-request-queue.client';
+import { RepositoryUrlService } from '../github/repository-url.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -114,12 +115,13 @@ it('collects new facts only on the replacement when an external application repo
     organizationLogin: 'synthetic',
     tokens,
     client,
-    queue: new ProviderRequestQueue(),
+    queue: new ProviderRequestQueueClient(),
   });
   const sync = new CollectionSyncService(
     new FixtureCollectionRepository(prisma),
     runtime,
     () => Promise.resolve(8133n),
+    new RepositoryUrlService(),
     () => observedAt,
     () => 'synthetic-relink-collection-run',
     runtime,
@@ -307,7 +309,7 @@ function syntheticProvider() {
     organizationLogin: 'synthetic',
     tokens,
     client,
-    queue: new ProviderRequestQueue(),
+    queue: new ProviderRequestQueueClient(),
   });
   return {
     client,
@@ -340,6 +342,7 @@ it('collects a repository linked into an empty slot right after the team route s
     collection,
     provider.runtime,
     () => Promise.resolve(8133n),
+    new RepositoryUrlService(),
     () => observedAt,
     () => 'synthetic-link-run',
     provider.runtime,
@@ -400,6 +403,7 @@ it('stops streaming a detached organization repository in the organization sweep
     collection,
     provider.runtime,
     () => Promise.resolve(organizationId),
+    new RepositoryUrlService(),
     () => observedAt,
     () => 'synthetic-org-sweep-run',
   );

@@ -3,9 +3,9 @@ import { StaffAccessRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import type { StaffAccessRequestRecord } from './users.types';
 import { RoleRequestsController } from './role-requests.controller';
 import type { MemberOnboardingService } from './member-onboarding.service';
+import { type StaffAccessRequestRecord } from './member-onboarding.repository';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,

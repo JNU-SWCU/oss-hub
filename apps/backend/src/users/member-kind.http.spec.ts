@@ -6,11 +6,8 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthenticationGuard } from '../auth/authentication.guard';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import type { AdminAccessActor } from './admin-access-repository.types';
 import {
   type MemberKindProfileUpdate,
   type MemberKindRepositoryPort,
@@ -21,6 +18,10 @@ import {
 import { UserAccessController } from '../admin/user-access.controller';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
+import { type AdminAccessActor } from './admin-access-read.repository';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const ADMIN_GITHUB_ID = 9_700_600_001n;
 const sessionSecret = new Uint8Array(32).fill(41);
@@ -64,13 +65,6 @@ class HttpMemberKindRepository
       selectedMemberKind,
       memberKind: selectedMemberKind,
       hasStaffAccess,
-      role: this.target.hasAdminAccess
-        ? 'ADMIN'
-        : hasStaffAccess
-          ? 'STAFF'
-          : selectedMemberKind === MemberKind.STUDENT
-            ? 'STUDENT'
-            : null,
       profile: this.target.profile
         ? { ...this.target.profile, ...profilePatch }
         : null,
@@ -179,7 +173,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     repository.actor = adminActor({
       hasAdminAccess: false,
       hasStaffAccess: true,
-      role: 'STAFF',
     });
     const nonAdmin = await request(validStaffBody());
     await expectProblem(nonAdmin, 403, 'ROL_004');
@@ -219,7 +212,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       'content-type': 'application/json',
     };
     if (githubId !== null) {
-      headers.cookie = `${sessionCookieName(false)}=${await issueSessionToken(
+      headers.cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
         sessionSecret,
         githubId,
         0,
@@ -261,7 +254,6 @@ function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -292,7 +284,6 @@ function studentTarget(
     githubId: 9_700_600_002n,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
@@ -306,7 +297,6 @@ function studentTarget(
 
 function missingProfileTarget(): MemberKindTargetRecord {
   return studentTarget({
-    role: null,
     selectedMemberKind: null,
     memberKind: null,
     profile: null,

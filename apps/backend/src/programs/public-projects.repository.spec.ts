@@ -93,8 +93,7 @@ describe('PublicProjectsRepository', () => {
           id: 'synthetic-repository-1',
           projectId: '9001',
           githubRepositoryId: 9001n,
-          repositoryName: 'synthetic-repo',
-          githubUrl: 'https://github.com/synthetic-org/synthetic-repo',
+          nameWithOwner: 'synthetic-org/synthetic-repo',
           publishedAt: RAW_ROW.publishedAt,
           programId: 'synthetic-program-1',
           programName: 'synthetic-program',
@@ -202,7 +201,7 @@ describe('PublicProjectsRepository', () => {
       const result = await repository.findById('9001');
 
       expect(result?.projectId).toBe('9001');
-      expect(result?.repositoryName).toBe('synthetic-repo');
+      expect(result?.nameWithOwner).toContain('synthetic-repo');
       expect(result?.githubRepositoryId).toBe(9001n);
     });
 

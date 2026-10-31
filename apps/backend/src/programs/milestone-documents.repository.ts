@@ -1,3 +1,14 @@
+import {
+  MilestoneDocumentCollectionReadRepository,
+  type MilestoneDocumentReviewRecord,
+  type ProgramDocumentChangeRequestCandidate,
+  type MilestoneDocumentRecord,
+  type MilestoneContext,
+  type MilestoneDocumentCollectionApplication,
+  type MilestoneDocumentCollectionSubmission,
+  type CreatedMilestoneDocumentReview,
+  type MilestoneDocumentSubmissionDetail,
+} from './milestone-document-collection-read.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import {
@@ -10,33 +21,13 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import {
-  type MilestoneLock,
-  LockProgramTreeRepository,
-} from '../platform/lock-program-tree.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
+import type { MilestoneLock } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
-import type {
-  MilestoneDocumentReviewRecord,
-  ProgramDocumentChangeRequestCandidate,
-} from './milestone-document.policy';
-import type {
-  MilestoneDocumentRecord,
-  MilestoneContext,
-  MilestoneDocumentCollectionApplication,
-  MilestoneDocumentCollectionSubmission,
-  CreatedMilestoneDocumentReview,
-  MilestoneDocumentSubmissionDetail,
-} from './milestone-document-result.types';
-import {
-  boundedReviewHistoryQuery,
-  milestoneDocumentHistoryDescendingOrderBy,
-} from './milestone-document-collection-read.repository';
+} from '../platform/user-profile-read.config';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
@@ -368,9 +359,7 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
     const application = await this.transaction.application.findFirst({
       where: {
         id: applicationId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -798,9 +787,7 @@ class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocume
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: UserProfileReadRepository.resolveUserProfileName(
-        application.applicant,
-      ),
+      applicantName: application.applicant.profile?.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -847,7 +834,7 @@ class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocume
             },
           },
           reviewHistories: {
-            ...boundedReviewHistoryQuery,
+            ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
             take: 1,
           },
         },
@@ -1002,9 +989,7 @@ export class MilestoneDocumentsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -1060,7 +1045,7 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...boundedReviewHistoryQuery,
+          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
           take: 1,
         },
       },
@@ -1159,7 +1144,8 @@ export class MilestoneDocumentsRepository {
     }
     const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
       where: { milestoneDocumentSubmissionId: submission.id },
-      orderBy: milestoneDocumentHistoryDescendingOrderBy,
+      orderBy:
+        MilestoneDocumentCollectionReadRepository.milestoneDocumentHistoryDescendingOrderBy,
       take: limit + 1,
       ...(cursor === null ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: {
@@ -1244,9 +1230,7 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: UserProfileReadRepository.resolveUserProfileName(
-        application.applicant,
-      ),
+      applicantName: application.applicant.profile?.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -1295,7 +1279,7 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...boundedReviewHistoryQuery,
+          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
           take: 1,
         },
       },

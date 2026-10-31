@@ -4,11 +4,7 @@ import type { AuditLogTransactionWriter } from '../platform/audit-log-transactio
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
-import {
-  sameTeamDeletionScopeCountValues,
-  sameTeamDeletionScopeCounts,
-  type TeamDeletionScopeCounts,
-} from './programs.policy';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
@@ -117,7 +113,12 @@ export class ProgramTeamDeletionRepository {
               tx,
               teamId,
             );
-          if (!sameTeamDeletionScopeCounts(expectedScope, currentScopeCounts)) {
+          if (
+            !TeamDeletionScopeRepository.sameCounts(
+              expectedScope,
+              currentScopeCounts,
+            )
+          ) {
             return {
               outcome: 'scope-changed' as const,
               currentScopeCounts,
@@ -149,7 +150,10 @@ export class ProgramTeamDeletionRepository {
 
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (
-            !sameTeamDeletionScopeCountValues(currentScopeCounts, deletedCounts)
+            !TeamDeletionScopeRepository.sameCountValues(
+              currentScopeCounts,
+              deletedCounts,
+            )
           ) {
             throw new TeamDeletedScopeMismatchError();
           }

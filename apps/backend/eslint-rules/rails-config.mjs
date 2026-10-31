@@ -9,13 +9,13 @@ import tseslint from 'typescript-eslint';
 import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../../scripts/prisma-enum-names.mjs';
+import { configExports, serviceExports } from './module-exports.mjs';
 
 const layers = [
   'controller',
   'service',
   'repository',
   'gateway',
-  'job',
   'dto',
   'domain',
 ];
@@ -34,8 +34,10 @@ export const testFiles = [
 ];
 export const bootstrapFiles = [
   'src/main.ts',
+  'src/cli.ts',
   'src/app.module.ts',
   'src/app-controller-discovery.ts',
+  'src/configure-http-app.ts',
 ];
 const dtoFiles = [`${flatModuleGlob}/dto/*.ts`];
 const enumExemptFiles = [
@@ -222,6 +224,76 @@ const noDpdmIgnore = {
   },
 };
 
+const repositoryExports = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      forbidden:
+        'repository 파일은 데이터 접근만 둔다 — 클래스와 타입만 export한다. 함수는 서비스, 상수는 .config.ts로 옮긴다.',
+    },
+  },
+  create(context) {
+    const report = (node) => context.report({ node, messageId: 'forbidden' });
+    return {
+      ExportDefaultDeclaration(node) {
+        if (node.declaration.type !== 'ClassDeclaration') report(node);
+      },
+      ExportAllDeclaration(node) {
+        if (node.exportKind !== 'type') report(node);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.exportKind === 'type') return;
+        if (node.declaration) {
+          if (
+            [
+              'VariableDeclaration',
+              'FunctionDeclaration',
+              'TSEnumDeclaration',
+            ].includes(node.declaration.type)
+          )
+            report(node);
+          return;
+        }
+        for (const specifier of node.specifiers)
+          if (specifier.exportKind !== 'type') report(specifier);
+      },
+    };
+  },
+};
+
+const typesOnly = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      forbidden:
+        '.types.ts에는 타입만 둔다. 런타임 코드는 만드는 쪽 파일로 옮긴다.',
+    },
+  },
+  create(context) {
+    const runtime = new Set([
+      'VariableDeclaration',
+      'FunctionDeclaration',
+      'ClassDeclaration',
+      'TSEnumDeclaration',
+    ]);
+    return {
+      Program(program) {
+        for (const statement of program.body) {
+          const node =
+            statement.type === 'ExportNamedDeclaration' ||
+            statement.type === 'ExportDefaultDeclaration'
+              ? statement.declaration
+              : statement;
+          if (node && runtime.has(node.type))
+            context.report({ node, messageId: 'forbidden' });
+        }
+      },
+    };
+  },
+};
+
 async function cycleRule(rootDir) {
   const tsconfig = path.join(rootDir, 'tsconfig.json');
   const read = ts.readConfigFile(tsconfig, ts.sys.readFile);
@@ -392,19 +464,6 @@ const policies = [
     },
   },
   {
-    from: element('job'),
-    allow: {
-      to: [
-        element('service'),
-        element('dto', sameModule),
-        element('domain'),
-        element('runtime-config'),
-        category('auth-capability'),
-        category('bootstrap'),
-      ],
-    },
-  },
-  {
     from: element('service'),
     allow: {
       to: [
@@ -428,8 +487,40 @@ const policies = [
     },
   },
   {
+    from: [element('service'), element('repository')],
+    dependency: { kind: 'type' },
+    allow: { to: element('repository') },
+  },
+  {
+    from: element('repository'),
+    dependency: { kind: 'type' },
+    allow: { to: element('gateway', sameModule) },
+  },
+  {
+    from: { file: { path: '**/dto/*-request.dto.ts' } },
+    allow: {
+      to: [element('service', sameModule), element('repository', sameModule)],
+    },
+  },
+  {
+    from: { file: { path: '**/dto/*-request.dto.ts' } },
+    dependency: { kind: 'type' },
+    allow: { to: [element('service'), element('repository')] },
+  },
+  {
+    from: { file: { path: '**/dto/*-response.dto.ts' } },
+    dependency: { kind: 'type' },
+    allow: {
+      to: [element('service'), element('repository'), element('gateway')],
+    },
+  },
+  {
     from: [element('gateway'), element('dto'), element('domain')],
     allow: { to: element('domain') },
+  },
+  {
+    from: element('gateway'),
+    allow: { to: element('gateway', sameModule) },
   },
   {
     from: element('dto'),
@@ -474,7 +565,18 @@ const policies = [
   { from: element('runtime-config'), allow: { to: element('runtime-config') } },
   {
     from: element('prisma'),
-    allow: { to: [element('prisma'), element('runtime-config')] },
+    allow: {
+      to: [
+        element('prisma'),
+        element('runtime-config'),
+        {
+          file: {
+            categories: 'root-contract',
+            captured: { module: 'platform' },
+          },
+        },
+      ],
+    },
   },
   {
     from: category('composition'),
@@ -530,6 +632,10 @@ export async function createRailsConfig(rootDir) {
           rules: {
             'no-class-alias': noClassAlias,
             'dto-location': dtoLocation,
+            'repository-exports': repositoryExports,
+            'config-exports': configExports,
+            'service-exports': serviceExports,
+            'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
             'restricted-imports': builtinRules.get('no-restricted-imports'),
@@ -571,7 +677,7 @@ export async function createRailsConfig(rootDir) {
             type: 'prisma',
             pattern: [
               'src/platform/prisma.service.ts',
-              'src/platform/{platform,user-profile-read,lock-program-tree,repository-provision-generation,program-application-participant}.repository.ts',
+              'src/platform/{platform,lock-program-tree,repository-provision-generation}.repository.ts',
               'src/platform/{lock-program-tree,repository-provision-generation}.error.ts',
             ],
             mode: 'full',
@@ -585,9 +691,8 @@ export async function createRailsConfig(rootDir) {
           {
             type: 'common',
             pattern: [
-              'src/platform/configure-http-app.config.ts',
               'src/platform/{problem-detail.filter,multipart-file-upload.interceptor,prisma-serialization-retry.repository}.ts',
-              'src/platform/{system-error-code,error-code,platform}.{policy,error,types}.ts',
+              'src/platform/{system-error-code,error-code}.error.ts',
             ],
             mode: 'full',
           },
@@ -596,9 +701,8 @@ export async function createRailsConfig(rootDir) {
             service: '*.service.ts',
             repository: '*.repository.ts',
             gateway: '*.client.ts',
-            job: '*.{job,scheduler}.ts',
             dto: 'dto/*.dto.ts',
-            domain: '*.{policy,error,types,config}.ts',
+            domain: '*.{error,types,config}.ts',
           }).map(([type, suffix]) => ({
             type,
             pattern: `${flatModulePattern}/${suffix}`,
@@ -616,7 +720,7 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'auth-capability',
             pattern: [
-              'src/auth/{authentication.guard,origin.guard,session.guard,http-auth.types,auth-route-metadata.policy}.ts',
+              'src/auth/{authentication.guard,origin.guard,session.guard,http-auth.types}.ts',
               'src/auth/auth.config.ts',
             ],
           },
@@ -740,6 +844,26 @@ export async function createRailsConfig(rootDir) {
           { paths: [nestTestingImport], patterns: [mainImport] },
         ],
       },
+    },
+    {
+      files: ['src/**/*.repository.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/repository-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.config.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/config-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.service.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/service-exports': 'error' },
+    },
+    {
+      files: ['src/**/*.types.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/types-only': 'error' },
     },
     {
       files: ['test/**/*.ts'],

@@ -1,20 +1,21 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
-import {
-  HTTP_AUTH_KINDS,
-  type OptionalSessionRequest,
-} from '../auth/http-auth.types';
-import { RANKING_YEAR_ALL } from './ranking.policy';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { RankingController } from './ranking.controller';
 import { RankingService } from './ranking.service';
+import { RankingYearService, RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingController', () => {
   const findPage = jest.fn();
   const listYears = jest.fn();
-  const controller = new RankingController({
-    findPage,
-    listYears,
-  } as unknown as RankingService);
+  const controller = new RankingController(
+    {
+      findPage,
+      listYears,
+    } as unknown as RankingService,
+    new RankingYearService(),
+  );
 
   const emptyPage = {
     year: 2026,

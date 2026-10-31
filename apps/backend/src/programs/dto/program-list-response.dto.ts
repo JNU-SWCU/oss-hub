@@ -1,10 +1,10 @@
 import { type ApplicationStatus } from '@prisma/client';
-import { programCoverImageUrl } from '../program-cover.policy';
 import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../programs.types';
+  ProgramListPageItem,
+} from '../programs.service';
 
 export class ProgramListResponseDto {
   declare readonly coverImageUrl: string | null;
@@ -27,13 +27,9 @@ export class ProgramListResponseDto {
 
   declare readonly pendingApplicationCount?: number;
 
-  static from(program: PersonalizedProgramListItem): ProgramListResponseDto {
+  static from(program: ProgramListPageItem): ProgramListResponseDto {
     return {
-      coverImageUrl: programCoverImageUrl(
-        program.id,
-        program.coverId,
-        program.coverExternalImageUrl,
-      ),
+      coverImageUrl: program.coverImageUrl,
       id: program.id,
       name: program.name,
       organizer: program.organizer,

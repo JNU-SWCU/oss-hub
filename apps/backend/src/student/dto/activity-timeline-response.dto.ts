@@ -1,5 +1,7 @@
-import type { ActivityTimelineResult } from '../../programs/activity-timeline.types';
-import { type ActivityGranularity } from '../../programs/program-activity-granularity.policy';
+import type {
+  ActivityTimelineResult,
+  ActivityGranularity,
+} from '../../programs/program-activity.service';
 
 export class ActivityProgramResponseDto {
   declare readonly programId: string;

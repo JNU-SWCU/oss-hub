@@ -1,15 +1,14 @@
 import { Prisma } from '@prisma/client';
 import {
+  StorageOrphanReconciliationService,
   DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS,
   type StorageObjectInventory,
-  type StorageReferenceRepository,
-} from './storage-orphan-reconciliation.policy';
-import { StorageOrphanReconciliationService } from './storage-orphan-reconciliation.service';
+} from './storage-orphan-reconciliation.service';
 import {
   PrismaStorageReferenceRepository,
-  STORAGE_KEY_OWNERS,
+  type StorageReferenceRepository,
 } from './prisma-storage-reference.repository';
-import { parseStorageOrphanReconciliationMode } from './reconcile-storage-orphans.job';
+import { STORAGE_KEY_OWNERS } from './storage-orphan-reconciliation.config';
 
 const OLD = new Date('2026-08-12T00:00:00.000Z');
 const RUN_STARTED_AT = new Date('2026-08-12T02:00:00.000Z');
@@ -448,14 +447,31 @@ describe('PrismaStorageReferenceRepository', () => {
 
 describe('reconcile-storage-orphans CLI arguments', () => {
   it('인자 없음과 --report는 report이고 삭제는 --delete만 허용한다', () => {
-    expect(parseStorageOrphanReconciliationMode([])).toBe('report');
-    expect(parseStorageOrphanReconciliationMode(['--report'])).toBe('report');
-    expect(parseStorageOrphanReconciliationMode(['--delete'])).toBe('delete');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode(
+        [],
+      ),
+    ).toBe('report');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--report',
+      ]),
+    ).toBe('report');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--delete',
+      ]),
+    ).toBe('delete');
     expect(() =>
-      parseStorageOrphanReconciliationMode(['--report', '--delete']),
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--report',
+        '--delete',
+      ]),
     ).toThrow('Exactly one mode');
-    expect(() => parseStorageOrphanReconciliationMode(['--force'])).toThrow(
-      'Exactly one mode',
-    );
+    expect(() =>
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--force',
+      ]),
+    ).toThrow('Exactly one mode');
   });
 });

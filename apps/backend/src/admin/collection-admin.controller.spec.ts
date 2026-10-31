@@ -3,7 +3,6 @@ import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
 import { AuditLogService } from '../platform/audit-log.service';
-import type { AuditLogRecord } from '../platform/audit-log.types';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
@@ -15,6 +14,8 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from '../github/collection-user-activity.service';
+import { type AuditLogRecord } from '../platform/audit-log.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const authority = {
   assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
@@ -27,7 +28,14 @@ function createController(
   activity: CollectionUserActivityService,
 ): CollectionAdminController {
   return new CollectionAdminController(
-    new CollectionAdminService(sync, cutover, audit, activity, authority),
+    new CollectionAdminService(
+      sync,
+      cutover,
+      audit,
+      activity,
+      authority,
+      new AuditLogMetadataService(),
+    ),
   );
 }
 
@@ -76,6 +84,7 @@ describe('CollectionAdminController', () => {
         { provide: UsersAuthorityService, useValue: authority },
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        AuditLogMetadataService,
         { provide: AuditLogService, useValue: { record } },
         {
           provide: CollectionUserActivityService,

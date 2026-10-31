@@ -17,8 +17,9 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/programs/application-decision.policy';
-import { resolveJoinCodeSecret } from '../../src/platform/join-code-secret.config';
+import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
@@ -340,18 +341,18 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       prisma.team.upsert({
         where: { id: personalTeamId },
         update: {
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-MILESTONES-SOLO',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
         },
         create: {
           id: personalTeamId,
           programId: PROGRAM_ID,
           name: '마일스톤 개인 참여 1인 팀',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-MILESTONES-SOLO',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: applicantPersonal.id,
         },
@@ -416,18 +417,18 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       prisma.team.upsert({
         where: { id: TEAM_ID },
         update: {
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-MILESTONES-TEAM',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
         },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-milestones-team',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-MILESTONES-TEAM',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: teamLeader.id,
         },

@@ -1,6 +1,5 @@
 import { AccountStatus } from '@prisma/client';
 import { RolesErrorCode } from './roles-error-code.error';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
 import { AdminAccessService } from './admin-access.service';
 import {
   ADMIN_GITHUB_ID,
@@ -8,19 +7,31 @@ import {
   PENDING_REQUEST,
   accessUser,
   auditLogHarness,
+  roleFacts,
 } from './admin-access.service.spec-support';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.requestCasSucceeds = false;
     repository.target = accessUser({
-      role: null,
+      ...roleFacts(null),
       pendingRequest: PENDING_REQUEST,
     });
-    repository.authoritativeTarget = accessUser({ role: null });
+    repository.authoritativeTarget = accessUser({ ...roleFacts(null) });
     const audit = auditLogHarness();
-    const service = new AdminAccessService(repository, audit.service);
+    const service = new AdminAccessService(
+      repository,
+      audit.service,
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    );
 
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {

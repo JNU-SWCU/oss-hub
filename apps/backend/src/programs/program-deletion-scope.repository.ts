@@ -1,5 +1,15 @@
-import { ProgramDeletionScopeCounts } from './programs.policy';
 import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
+
+export type ProgramDeletionScopeCounts = {
+  readonly applications: number;
+  readonly teams: number;
+  readonly boardPosts: number;
+  readonly submissions: number;
+
+  readonly submissionEvents: number;
+
+  readonly scopeFingerprint: string;
+};
 
 type DeletionScopeCountsRow = Readonly<{
   applications: bigint;

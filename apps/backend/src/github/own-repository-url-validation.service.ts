@@ -1,10 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { GithubAppClient } from './github-app.client';
-import {
-  PROVISION_ERROR_CODES,
-  RepositoryProvisionFailure,
-} from './repository-provision-failure.policy';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
+import { RepositoryProvisionFailure } from './repository-provision-state.error';
 
 export type OwnRepositoryUrlValidationResult =
   | { readonly kind: 'VALID' }
@@ -26,13 +24,14 @@ export class OwnRepositoryUrlValidationService {
       GithubAppClient,
       'organization' | 'findRepository' | 'findPublicRepository'
     >,
+    private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
   ) {}
 
   async validate(
     repositoryUrl: string,
   ): Promise<OwnRepositoryUrlValidationResult> {
     try {
-      await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      await this.repositoryProvisionGithubService.resolveOwnGithubRepository(
         this.github,
         repositoryUrl,
       );
@@ -56,7 +55,7 @@ export class OwnRepositoryUrlValidationService {
   }
 
   resolve(repositoryUrl: string) {
-    return RepositoryProvisionGithubService.resolveOwnGithubRepository(
+    return this.repositoryProvisionGithubService.resolveOwnGithubRepository(
       this.github,
       repositoryUrl,
     );

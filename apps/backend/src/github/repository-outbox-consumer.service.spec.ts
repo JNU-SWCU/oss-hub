@@ -4,18 +4,19 @@ import {
   RepositoryOutboxConsumerService,
   type RepositoryOutboxConsumeResult,
 } from './repository-outbox-consumer.service';
-import {
+import type {
+  RepositoryProvisionResult,
   RepositoryProvisionWorkerService,
-  type RepositoryProvisionResult,
 } from './repository-provision-worker.service';
-import { RepositoryProvisionScheduler } from './github.scheduler';
+import type { RepositoriesRepository } from './repositories.repository';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
-describe('github.scheduler', () => {
+describe('RepositoryOutboxConsumerService scheduling', () => {
   const NOW = new Date('2026-07-22T00:00:00.000Z');
   const LATER = new Date('2026-07-22T00:00:01.000Z');
   const INTERVAL_NAME = 'repository-provision';
 
-  describe('RepositoryProvisionScheduler', () => {
+  describe('poll', () => {
     describe('SchedulerRegistry 등록', () => {
       let testingModule: TestingModule;
       const consumeNext = jest.fn<
@@ -35,29 +36,16 @@ describe('github.scheduler', () => {
         consumeNext.mockResolvedValue({ kind: 'EMPTY' });
         runNext.mockReset();
         runNext.mockResolvedValue({ kind: 'EMPTY' });
+        const service = new RepositoryOutboxConsumerService(
+          {} as RepositoriesRepository,
+          { runNext },
+          new RepositoryProvisionEventService(),
+        );
+        service.consumeNext = consumeNext;
         testingModule = await Test.createTestingModule({
           imports: [ScheduleModule.forRoot()],
           providers: [
-            {
-              provide: RepositoryOutboxConsumerService,
-              useValue: { consumeNext },
-            },
-            {
-              provide: RepositoryProvisionWorkerService,
-              useValue: { runNext },
-            },
-            {
-              provide: RepositoryProvisionScheduler,
-              inject: [
-                RepositoryOutboxConsumerService,
-                RepositoryProvisionWorkerService,
-              ],
-              useFactory: (
-                outbox: RepositoryOutboxConsumerService,
-                worker: RepositoryProvisionWorkerService,
-              ): RepositoryProvisionScheduler =>
-                new RepositoryProvisionScheduler(outbox, worker),
-            },
+            { provide: RepositoryOutboxConsumerService, useValue: service },
           ],
         }).compile();
         await testingModule.init();
@@ -103,13 +91,6 @@ describe('github.scheduler', () => {
     });
 
     it('outbox와 job을 각각 빈 결과까지 bounded batch로 처리한다', async () => {
-      const outbox = {
-        consumeNext: jest
-          .fn()
-          .mockResolvedValueOnce({ kind: 'CONSUMED' })
-          .mockResolvedValueOnce({ kind: 'FAILED' })
-          .mockResolvedValueOnce({ kind: 'EMPTY' }),
-      } as jest.Mocked<Pick<RepositoryOutboxConsumerService, 'consumeNext'>>;
       const worker = {
         runNext: jest
           .fn()
@@ -126,14 +107,31 @@ describe('github.scheduler', () => {
         .mockReturnValueOnce(LATER)
         .mockReturnValueOnce(LATER)
         .mockReturnValue(LATER);
-      const scheduler = new RepositoryProvisionScheduler(outbox, worker, now);
+      const scheduler = new RepositoryOutboxConsumerService(
+        {} as RepositoriesRepository,
+        worker,
+        new RepositoryProvisionEventService(),
+        now,
+      );
+      const consumeNext = jest
+        .spyOn(scheduler, 'consumeNext')
+        .mockResolvedValueOnce({
+          kind: 'CONSUMED',
+          eventId: 'synthetic-event-id',
+          jobId: 'synthetic-job-id',
+        })
+        .mockResolvedValueOnce({
+          kind: 'FAILED',
+          eventId: 'synthetic-event-id',
+        })
+        .mockResolvedValueOnce({ kind: 'EMPTY' });
 
       await scheduler.runBatch();
 
-      expect(outbox.consumeNext.mock.calls).toHaveLength(3);
+      expect(consumeNext.mock.calls).toHaveLength(3);
       expect(worker.runNext.mock.calls).toHaveLength(2);
-      expect(outbox.consumeNext.mock.calls[0]?.[1]).toBe(NOW);
-      expect(outbox.consumeNext.mock.calls[1]?.[1]).toBe(LATER);
+      expect(consumeNext.mock.calls[0]?.[1]).toBe(NOW);
+      expect(consumeNext.mock.calls[1]?.[1]).toBe(LATER);
       expect(worker.runNext.mock.calls[0]).toEqual([expect.any(String)]);
     });
   });

@@ -7,19 +7,17 @@ import {
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentsService } from './consents.service';
-import { isCompleteProfileFields } from './user-profile.policy';
-import type {
-  MemberKindSelectionResult,
-  MemberKindSelectionState,
-  MemberUser,
-  SelectableMemberKind,
-  StaffAccessRequestRecord,
-} from './users.types';
 import {
   MemberOnboardingRepository,
   type OnboardingTransactionStore,
+  type MemberKindSelectionResult,
+  type MemberKindSelectionState,
+  type MemberUser,
+  type SelectableMemberKind,
+  type StaffAccessRequestRecord,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
+import { UserProfileService } from '../platform/user-profile.service';
 
 @Injectable()
 export class MemberOnboardingService {
@@ -27,6 +25,7 @@ export class MemberOnboardingService {
     private readonly repository: MemberOnboardingRepository,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async selectMemberKind(
@@ -45,7 +44,12 @@ export class MemberOnboardingService {
         selectedMemberKind,
       );
 
-      if (isCompleteProfileFields(recorded.profile, selectedMemberKind)) {
+      if (
+        this.userProfileService.isCompleteProfileFields(
+          recorded.profile,
+          selectedMemberKind,
+        )
+      ) {
         await store.requestStaffAccess({
           id: recorded.id,
           memberKind: selectedMemberKind,

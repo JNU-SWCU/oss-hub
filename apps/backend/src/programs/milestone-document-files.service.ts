@@ -1,37 +1,33 @@
-import type { UploadedMilestoneDocumentFileResponse } from './milestone-document-result.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import { normalizeMultipartFileName } from '../platform/platform.policy';
-import {
-  isAllowedSubmissionFileType,
-  safeSubmissionFileContentType,
-  createSubmissionFileObjectKey,
-  sanitizeSubmissionFileOriginalName,
-  hasValidSubmissionFileSignature,
-  hasValidSubmissionTemplateSignature,
-  SUBMISSION_UPLOAD_MAX_BYTES,
-} from './submission-file.policy';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import type { ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
 } from './submission-file.error';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { inspectSubmissionZipMetadata } from './submission-zip-admission.policy';
-import { milestoneDocumentSubmissionBlock } from './milestone-document-submission-window.policy';
-import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name.policy';
 import {
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+export interface UploadedMilestoneDocumentFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
 
 const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
@@ -76,6 +72,8 @@ export class MilestoneDocumentFilesService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
   async upload(
@@ -128,20 +126,22 @@ export class MilestoneDocumentFilesService {
       ),
     ]);
 
-    const blocked = milestoneDocumentSubmissionBlock({
-      dueAt: documentContext.dueAt,
-      graceDueAt: documentContext.graceDueAt,
-      now,
-      hasSubmission: currentSubmission !== null,
-      latestDecision: latestReview?.decision ?? null,
-      submissionStatus: currentSubmission?.status ?? null,
-      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-    });
+    const blocked =
+      this.milestoneDocumentRulesService.milestoneDocumentSubmissionBlock({
+        dueAt: documentContext.dueAt,
+        graceDueAt: documentContext.graceDueAt,
+        now,
+        hasSubmission: currentSubmission !== null,
+        latestDecision: latestReview?.decision ?? null,
+        submissionStatus: currentSubmission?.status ?? null,
+        resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+      });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
 
-    const objectKey = createSubmissionFileObjectKey();
+    const objectKey =
+      this.submissionFileRulesService.createSubmissionFileObjectKey();
 
     let created;
     try {
@@ -218,7 +218,8 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
-    const objectKey = createSubmissionFileObjectKey();
+    const objectKey =
+      this.submissionFileRulesService.createSubmissionFileObjectKey();
     const now = new Date();
 
     try {
@@ -304,7 +305,10 @@ export class MilestoneDocumentFilesService {
     return {
       body,
       fileName: template.originalFileName,
-      contentType: safeSubmissionFileContentType(template.originalFileName),
+      contentType:
+        this.submissionFileRulesService.safeSubmissionFileContentType(
+          template.originalFileName,
+        ),
       contentLength: template.sizeBytes,
     };
   }
@@ -352,12 +356,16 @@ export class MilestoneDocumentFilesService {
 
     return {
       body,
-      fileName: milestoneDocumentDownloadFileName({
-        teamName: file.teamName,
-        documentName: documentContext.name,
-        originalFileName: file.originalFileName,
-      }),
-      contentType: safeSubmissionFileContentType(file.originalFileName),
+      fileName:
+        this.milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
+          teamName: file.teamName,
+          documentName: documentContext.name,
+          originalFileName: file.originalFileName,
+        }),
+      contentType:
+        this.submissionFileRulesService.safeSubmissionFileContentType(
+          file.originalFileName,
+        ),
       contentLength: file.sizeBytes,
     };
   }
@@ -375,22 +383,35 @@ export class MilestoneDocumentFilesService {
     const normalizedFileName = normalizeMultipartFileName(file.originalname);
     const valid =
       purpose === 'TEMPLATE'
-        ? hasValidSubmissionTemplateSignature(file.buffer, normalizedFileName)
-        : isAllowedSubmissionFileType(normalizedFileName) &&
-          hasValidSubmissionFileSignature(file.buffer, normalizedFileName);
+        ? this.submissionFileRulesService.hasValidSubmissionTemplateSignature(
+            file.buffer,
+            normalizedFileName,
+          )
+        : this.submissionFileRulesService.isAllowedSubmissionFileType(
+            normalizedFileName,
+          ) &&
+          this.submissionFileRulesService.hasValidSubmissionFileSignature(
+            file.buffer,
+            normalizedFileName,
+          );
     if (!valid) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
 
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
-      const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
+      const zipRejection =
+        await this.submissionFileRulesService.inspectSubmissionZipMetadata(
+          file.buffer,
+        );
       if (zipRejection !== null) {
         throw this.error(
           MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[zipRejection],
         );
       }
     }
-    return sanitizeSubmissionFileOriginalName(normalizedFileName);
+    return this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
+      normalizedFileName,
+    );
   }
 
   private requiredOpaqueId(value: unknown): string {

@@ -1,12 +1,12 @@
 import { ApplicationStatus } from '@prisma/client';
-import type {
-  TeamManagementListItem,
-  TeamManagementListPage,
-} from '../application-records.types';
 import {
   TeamManagementListItemResponseDto,
   TeamManagementListPageResponseDto,
 } from './team-management-list-page-response.dto';
+import {
+  type TeamManagementListItem,
+  type TeamManagementListPage,
+} from '../applications.repository';
 
 const ITEM: TeamManagementListItem = {
   id: 'synthetic-application',

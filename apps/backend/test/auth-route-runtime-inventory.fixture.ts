@@ -7,7 +7,7 @@ import { MetadataScanner } from '@nestjs/core/metadata-scanner';
 import { DependenciesScanner } from '@nestjs/core/scanner';
 import { PathsExplorer } from '@nestjs/core/router/paths-explorer';
 import { AppModule } from '../src/app.module';
-import { compareStringsByCodeUnit } from '../src/platform/platform.policy';
+import { compareStringsByCodeUnit } from '../src/app-controller-discovery';
 
 export async function discoverRuntimeControllers(): Promise<Type<unknown>[]> {
   const applicationConfig = new ApplicationConfig();

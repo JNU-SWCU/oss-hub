@@ -1,4 +1,4 @@
-import type { TeamDeletionNotification } from '../notifications.types';
+import type { TeamDeletionNotification } from '../application-decision-notifications.repository';
 
 export class TeamDeletionNotificationResponseDto {
   declare readonly id: string;

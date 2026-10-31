@@ -6,6 +6,9 @@ import {
   profileTarget,
 } from './admin-profile.service.spec-support';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ACTOR_GITHUB_ID = 9_131_500_001n;
 
@@ -19,7 +22,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    const result = await AdminProfileMutationService.mutateAdminUserProfile(
+    const result = await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -71,7 +81,14 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await expect(
-      AdminProfileMutationService.mutateAdminUserProfile(
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
@@ -96,7 +113,14 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await expect(
-      AdminProfileMutationService.mutateAdminUserProfile(
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
@@ -119,7 +143,14 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await expect(
-      AdminProfileMutationService.mutateAdminUserProfile(
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
@@ -140,7 +171,14 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await expect(
-      AdminProfileMutationService.mutateAdminUserProfile(
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
@@ -163,7 +201,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    const result = await AdminProfileMutationService.mutateAdminUserProfile(
+    const result = await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -192,7 +237,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    const result = await AdminProfileMutationService.mutateAdminUserProfile(
+    const result = await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -220,7 +272,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    await AdminProfileMutationService.mutateAdminUserProfile(
+    await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -241,7 +300,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    await AdminProfileMutationService.mutateAdminUserProfile(
+    await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -267,7 +333,14 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    await AdminProfileMutationService.mutateAdminUserProfile(
+    await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
@@ -290,7 +363,14 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await expect(
-      AdminProfileMutationService.mutateAdminUserProfile(
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,

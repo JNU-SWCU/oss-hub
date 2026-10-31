@@ -1,10 +1,9 @@
-import {
-  RANKING_VIEWER_CLASSES,
-  type RankingEntry,
-  type RankingPage,
-  type RankingViewerClass,
-  type RankingYear,
-} from '../ranking.policy';
+import type {
+  RankingEntry,
+  RankingPage,
+  RankingViewerClass,
+} from '../ranking.service';
+import type { RankingYear } from '../ranking-year.service';
 
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;
@@ -83,15 +82,15 @@ type RankingEntryResponseDto =
 
 function projectItems(page: RankingPage): readonly RankingEntryResponseDto[] {
   switch (page.viewerClass) {
-    case RANKING_VIEWER_CLASSES.PUBLIC:
+    case 'public':
       return page.items.map((entry) =>
         PublicRankingEntryResponseDto.from(entry),
       );
-    case RANKING_VIEWER_CLASSES.MEMBER:
+    case 'member':
       return page.items.map((entry) =>
         MemberRankingEntryResponseDto.from(entry),
       );
-    case RANKING_VIEWER_CLASSES.STAFF:
+    case 'staff':
       return page.items.map((entry) =>
         StaffRankingEntryResponseDto.from(entry),
       );

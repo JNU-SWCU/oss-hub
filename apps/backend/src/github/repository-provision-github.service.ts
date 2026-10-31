@@ -3,38 +3,49 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import type { GithubAppClient } from './github-app.client';
-import type { GithubRepositoryMetadata } from './github-app-response.policy';
-import type { RepositoryNameCandidates } from './repository-name.policy';
+import type {
+  GithubAppClient,
+  GithubRepositoryMetadata,
+} from './github-app.client';
+import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
+import { RepositoryProvisionFailure } from './repository-provision-state.error';
+import { Injectable } from '@nestjs/common';
+import { RepositoryUrlService } from './repository-url.service';
 import {
-  finalProvisionFailure,
-  PROVISION_ERROR_CODES,
-} from './repository-provision-failure.policy';
-import { parseGithubRepositoryUrl } from './github-repository-url.policy';
+  RepositoryProvisionRulesService,
+  RepositoryNameCandidates,
+} from './repository-provision-rules.service';
 
 type ProvisionGithubClient = Pick<
   GithubAppClient,
   'findRepository' | 'createRepository' | 'findPublicRepository'
 > & { readonly organization: string };
 
+@Injectable()
 export class RepositoryProvisionGithubService {
-  static async resolveOwnGithubRepository(
+  constructor(
+    private readonly repositoryUrlService: RepositoryUrlService,
+    private readonly repositoryProvisionRulesService: RepositoryProvisionRulesService,
+  ) {}
+
+  async resolveOwnGithubRepository(
     github: Pick<
       GithubAppClient,
       'organization' | 'findRepository' | 'findPublicRepository'
     >,
     repositoryUrl: string,
   ): Promise<OwnGithubRepositoryResolution> {
-    const parsed = parseGithubRepositoryUrl(repositoryUrl);
+    const parsed =
+      this.repositoryUrlService.parseGithubRepositoryUrl(repositoryUrl);
     if (parsed === null) {
-      throw finalProvisionFailure(
+      throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
       );
     }
     if (parsed.owner.toLowerCase() === github.organization.toLowerCase()) {
       const repository = await github.findRepository(parsed.name);
       if (repository === null) {
-        throw finalProvisionFailure(
+        throw RepositoryProvisionFailure.final(
           PROVISION_ERROR_CODES.OWN_ORGANIZATION_REPOSITORY_INACCESSIBLE,
         );
       }
@@ -53,7 +64,7 @@ export class RepositoryProvisionGithubService {
       parsed.name,
     );
     if (repository === null || repository.visibility !== 'PUBLIC') {
-      throw finalProvisionFailure(
+      throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       );
     }
@@ -67,7 +78,7 @@ export class RepositoryProvisionGithubService {
     };
   }
 
-  static async findOrCreateGithubRepository(
+  async findOrCreateGithubRepository(
     github: ProvisionGithubClient,
     names: RepositoryNameCandidates,
     ownershipMarker: string,

@@ -1,18 +1,20 @@
-import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import type {
-  SubmissionMatrixFilter,
-  SubmissionMatrixQuery,
-} from './submission.types';
 import {
-  submissionMatrixApplicationWhere,
+  SubmissionMatrixRepository,
   type MatrixApplicationRecord,
   type MatrixDocumentChangeRequest,
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
+  type SubmissionMatrixFilter,
 } from './submission-matrix.repository';
-import { SubmissionMatrixService } from './submission-matrix.service';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
+import {
+  SubmissionMatrixService,
+  type SubmissionMatrixQuery,
+} from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const OUTSIDER_GITHUB_ID = 9_124_000_002n;
@@ -86,7 +88,10 @@ function query(
 describe('SubmissionMatrixService', () => {
   it('활성 STAFF·ADMIN이 아니면 403 STAFF_ONLY로 닫힌다', async () => {
     const repository = new FakeSubmissionMatrixRepository();
-    const service = new SubmissionMatrixService(repository);
+    const service = new SubmissionMatrixService(
+      repository,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+    );
 
     await expect(
       service.matrix(OUTSIDER_GITHUB_ID, PROGRAM_ID, query()),
@@ -98,7 +103,10 @@ describe('SubmissionMatrixService', () => {
 
   it('프로그램이 없으면 404 PROGRAM_NOT_FOUND', async () => {
     const repository = new FakeSubmissionMatrixRepository();
-    const service = new SubmissionMatrixService(repository);
+    const service = new SubmissionMatrixService(
+      repository,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+    );
 
     await expect(
       service.matrix(STAFF_GITHUB_ID, 'missing-program', query()),
@@ -155,7 +163,10 @@ describe('SubmissionMatrixService', () => {
         { applicationId: 'application-team', milestoneId: 'milestone-2' },
       ],
     });
-    const service = new SubmissionMatrixService(repository);
+    const service = new SubmissionMatrixService(
+      repository,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+    );
 
     const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
 
@@ -245,7 +256,10 @@ describe('SubmissionMatrixService', () => {
         },
       ],
     });
-    const service = new SubmissionMatrixService(repository);
+    const service = new SubmissionMatrixService(
+      repository,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+    );
 
     const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
 
@@ -258,7 +272,10 @@ describe('SubmissionMatrixService', () => {
 
   it('페이지네이션 skip/take를 계산하고 page·pageSize·total을 그대로 돌려준다', async () => {
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
-    const service = new SubmissionMatrixService(repository);
+    const service = new SubmissionMatrixService(
+      repository,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+    );
 
     const matrix = await service.matrix(
       STAFF_GITHUB_ID,
@@ -282,7 +299,7 @@ describe('SubmissionMatrixService', () => {
 describe('submissionMatrixApplicationWhere', () => {
   it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -295,19 +312,19 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
     };
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
     ).toEqual(base);
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
     ).toEqual(base);
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -318,7 +335,7 @@ describe('submissionMatrixApplicationWhere', () => {
     const contains = { contains: 'Hong', mode: 'insensitive' };
 
     expect(
-      submissionMatrixApplicationWhere(PROGRAM_ID, {
+      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: 'Hong',
         applicationMode: null,
       }),

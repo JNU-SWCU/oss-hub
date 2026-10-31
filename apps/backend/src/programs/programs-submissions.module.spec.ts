@@ -5,7 +5,7 @@ import { SubmissionFileCleanupRetryService } from './submission-file-cleanup.ser
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
-import { OBJECT_STORAGE } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramsModule } from './programs.module';
 
 const getMetadataArray = (key: string): unknown[] => {

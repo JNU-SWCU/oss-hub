@@ -2,28 +2,48 @@ import { Injectable } from '@nestjs/common';
 import type { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
-  checkApplicationTemplateVersion,
-  applicationAnswerTooLongMessage,
-  normalizeAndValidateApplicationAnswers,
-} from './application-answers-validator.policy';
-import { isProgramApplicationManager } from './programs.policy';
-import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
 import {
   ApplicationsRepository,
   type ApplyProgramRecord,
+  type UpdateStudentApplicationInput,
 } from './applications.repository';
-import type { UpdateStudentApplicationInput } from './application-records.types';
-import type { StudentApplicationView } from './programs.types';
 import {
-  CANCELLABLE_STATUSES,
-  RESUBMITTABLE_STATUSES,
   StudentApplicationManagementRepository,
   type OwnedStudentApplication,
   type StudentApplicationMutationFailure,
 } from './student-application-management.repository';
+import {
+  CANCELLABLE_STATUSES,
+  RESUBMITTABLE_STATUSES,
+} from './student-application-management.config';
+import { ApplicationAnswersService } from './application-answers.service';
+import type { ApplicationAnswers } from './application-answers.service';
+
+export interface StudentApplicationView {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly answers: ApplicationAnswers;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+
+  readonly rejectionReason: string | null;
+
+  readonly isManager: boolean;
+  readonly canManage: boolean;
+}
+
+function isProgramApplicationManager(
+  userId: string,
+  application: { readonly teamLeaderId: string },
+): boolean {
+  return application.teamLeaderId === userId;
+}
 
 interface StudentApplicationContext {
   readonly studentId: string;
@@ -37,6 +57,7 @@ export class StudentApplicationManagementService {
   constructor(
     private readonly repository: StudentApplicationManagementRepository,
     private readonly applicationsRepository: ApplicationsRepository,
+    private readonly applicationAnswersService: ApplicationAnswersService,
   ) {}
 
   async getMine(
@@ -64,18 +85,20 @@ export class StudentApplicationManagementService {
       now,
       RESUBMITTABLE_STATUSES,
     );
-    const versionCheck = checkApplicationTemplateVersion(
-      input.applicationTemplateVersion,
-      context.policy.applicationTemplateVersion,
-    );
+    const versionCheck =
+      this.applicationAnswersService.checkApplicationTemplateVersion(
+        input.applicationTemplateVersion,
+        context.policy.applicationTemplateVersion,
+      );
     if (!versionCheck.ok) {
       throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
     }
-    const answers = normalizeAndValidateApplicationAnswers(
-      input.answers,
-      this.resolveApplicantName(context.application),
-      'enforce-length',
-    );
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        input.answers,
+        this.resolveApplicantName(context.application),
+        'enforce-length',
+      );
     if (!answers.ok) {
       if (answers.reason === 'TOO_LONG')
         throw new DomainException(
@@ -84,7 +107,10 @@ export class StudentApplicationManagementService {
             fieldErrors: (answers.tooLongKeys ?? []).map((key) => ({
               field: key,
               code: ApplicationsErrorCode.ANSWER_TOO_LONG,
-              message: applicationAnswerTooLongMessage(key),
+              message:
+                this.applicationAnswersService.applicationAnswerTooLongMessage(
+                  key,
+                ),
             })),
           },
         );
@@ -210,11 +236,12 @@ export class StudentApplicationManagementService {
     isManager: boolean,
     editable: boolean,
   ): StudentApplicationView {
-    const answers = normalizeAndValidateApplicationAnswers(
-      application.answers,
-      this.resolveApplicantName(application),
-      'skip-length',
-    );
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        application.answers,
+        this.resolveApplicantName(application),
+        'skip-length',
+      );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }

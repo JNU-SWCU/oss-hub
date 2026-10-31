@@ -42,6 +42,7 @@ import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramLifecycleRepository } from './program-lifecycle.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -60,10 +61,14 @@ const STUDENT_GITHUB_ID = 9_875_000_003n;
 
 const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const lifecycle = new ProgramLifecycleService(
   new ProgramLifecycleRepository(prisma),
   auditLog,
+  new AuditLogMetadataService(),
 );
 const storageConfig = new ObjectStorageConfig();
 const storageSettings = storageConfig.requireSettings();
@@ -1801,6 +1806,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const failingLifecycle = new ProgramLifecycleService(
       new ProgramLifecycleRepository(prisma),
       failingAuditLog,
+      new AuditLogMetadataService(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
 
@@ -2076,6 +2082,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
           ),
         ),
         auditLog,
+        new AuditLogMetadataService(),
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
 

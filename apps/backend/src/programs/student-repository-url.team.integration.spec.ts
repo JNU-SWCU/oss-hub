@@ -130,11 +130,13 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
   const history = await new ProgramTeamsRepository(
     prisma,
   ).findStaffRepositoryUrlHistory(programId, teamId);
-  expect(history?.items).toMatchObject([
+  expect(history?.rows).toMatchObject([
     {
-      actorGithubLogin: staffLogin,
-      previousRepositoryUrl: 'https://github.com/synthetic/old',
-      newRepositoryUrl: input.repositoryUrl,
+      metadata: {
+        actorGithubLogin: staffLogin,
+        before: { repositoryUrl: 'https://github.com/synthetic/old' },
+        after: { repositoryUrl: input.repositoryUrl },
+      },
     },
   ]);
 });

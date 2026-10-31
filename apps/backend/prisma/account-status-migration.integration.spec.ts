@@ -14,6 +14,10 @@ import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
+import { UserProfileService } from '../src/platform/user-profile.service';
+import { AuthSessionService } from '../src/auth/auth-session.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -45,6 +49,8 @@ describe('accountStatus migration regression', () => {
   const authService = new AuthService(
     authConfig,
     new AuthRepository(prisma, authConfig),
+    new UserProfileService(),
+    new AuthSessionService(),
   );
 
   const rolesService = new MemberOnboardingService(
@@ -52,10 +58,18 @@ describe('accountStatus migration regression', () => {
     {
       requireCurrent: jest.fn(),
     } satisfies Pick<ConsentsService, 'requireCurrent'>,
+    new UserProfileService(),
   );
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(
+      new AuditLogRepository(prisma),
+      new AuditLogMetadataService(),
+    ),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
   );
 
   beforeAll(async () => {

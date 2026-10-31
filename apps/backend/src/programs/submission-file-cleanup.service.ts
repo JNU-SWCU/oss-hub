@@ -1,20 +1,18 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
-import {
-  SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
-  createSubmissionFileCleanupAuditMetadata,
-} from '../platform/audit-log-metadata.policy';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { AuditLogService } from '../platform/audit-log.service';
+import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import {
-  OBJECT_STORAGE,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Injectable()
 export class SubmissionFileCleanupRetryService {
   constructor(
     private readonly files: SubmissionFilesRepository,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async retry(operatorId: string, fileId: string): Promise<void> {
@@ -37,7 +35,10 @@ export class SubmissionFileCleanupRetryService {
         SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS.SUBMISSION_FILE_CLEANUP_RETRY_RESET,
       targetType: 'SUBMISSION_FILE',
       targetId: fileId,
-      metadata: createSubmissionFileCleanupAuditMetadata({ fileId }),
+      metadata:
+        this.auditLogMetadataService.createSubmissionFileCleanupAuditMetadata({
+          fileId,
+        }),
     });
   }
 }
@@ -56,6 +57,10 @@ const DEFAULT_BATCH_SIZE = 100;
 @Injectable()
 export class SubmissionFileCleanupService {
   private readonly logger = new Logger(SubmissionFileCleanupService.name);
+  private readonly schedulerLogger = new Logger(
+    'SubmissionFileCleanupScheduler',
+  );
+  private running = false;
 
   constructor(
     private readonly files: SubmissionFilesRepository,
@@ -64,6 +69,24 @@ export class SubmissionFileCleanupService {
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'submission-file-cleanup',
+  })
+  async run(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.runDue();
+    } catch (error) {
+      this.schedulerLogger.error({
+        event: 'submission-file.cleanup.run.failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    } finally {
+      this.running = false;
+    }
+  }
 
   async runDue(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
     let claimedCount = 0;

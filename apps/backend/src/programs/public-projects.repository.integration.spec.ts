@@ -348,9 +348,7 @@ describe('PublicProjectsRepository integration', () => {
         expect(found).not.toBeNull();
         expect(found?.projectId).toBe(contractGithubRepositoryId.toString());
         expect(found?.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
-        expect(found?.githubUrl).toBe(
-          `https://github.com/${contractNameWithOwner}`,
-        );
+        expect(found?.nameWithOwner).toBe(contractNameWithOwner);
       } finally {
         await prisma.githubRepository.delete({
           where: { id: contractRepositoryId },

@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { AuthRepository } from './auth.repository';
+import { AuthRepository, type AuthLoginRow } from './auth.repository';
 import type { GithubProfile } from './http-auth.types';
 
 export function prismaServiceWith(overrides: object): PrismaService {
@@ -148,6 +148,9 @@ export function buildRepository(
   };
 }
 
-export function upsertUser(repository: AuthRepository, profile: GithubProfile) {
+export function upsertUser(
+  repository: AuthRepository,
+  profile: GithubProfile,
+): Promise<AuthLoginRow> {
   return repository.withTransaction((store) => store.upsertUser(profile));
 }

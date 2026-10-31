@@ -1,10 +1,11 @@
+import type { RepositoryProvisionHistoryPayloadParser } from '../platform/repository-provision-generation.repository';
 import type {
   ClaimedProvisionEvent,
   ClaimProvisionEventInput,
   ProvisionJobReference,
   RepositoriesRepository,
   RepositoriesTransactionStore,
-  RepositoryPublishTarget,
+  RepositoryPublishTargetRow,
 } from './repositories.repository';
 
 class TwoPartyBarrier {
@@ -35,7 +36,7 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
 
   findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
+  ): Promise<RepositoryPublishTargetRow | null> {
     return this.store.findPublishTarget(repositoryId);
   }
 
@@ -75,11 +76,13 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
     eventId: string,
     applicationId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     return this.store.confirmSupersededProvisionEvent(
       eventId,
       applicationId,
       now,
+      parsePayload,
     );
   }
 
@@ -116,7 +119,7 @@ export class BarrierRepositoriesRepository {
 
   findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
+  ): Promise<RepositoryPublishTargetRow | null> {
     return this.repository.findPublishTarget(repositoryId);
   }
 

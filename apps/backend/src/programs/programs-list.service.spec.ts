@@ -6,15 +6,20 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { PROGRAM_LIST_QUERY_STATUSES } from './programs.policy';
 import {
   type ProgramListDerivedStatus,
   type ProgramListStatusInput,
   ProgramListStatusFilterRepository,
 } from './program-list-status-filter.repository';
-import { ProgramsRepository } from './programs.repository';
-import type { ProgramListRecord } from './programs.types';
+import { PROGRAM_LIST_QUERY_STATUSES } from './program-list.config';
+import {
+  ProgramsRepository,
+  type ProgramListRecord,
+} from './programs.repository';
 import { ProgramsService } from './programs.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -538,6 +543,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     await expect(
@@ -565,6 +573,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     const page = await service.list(
@@ -572,7 +583,9 @@ describe('ProgramsService list', () => {
       anonymousViewer,
     );
 
-    expect(page.items).toEqual(items);
+    expect(page.items).toEqual(
+      items.map((item) => ({ ...item, coverImageUrl: null })),
+    );
     expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
     expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });
@@ -593,6 +606,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 1n,
@@ -614,7 +630,7 @@ describe('ProgramsService list', () => {
       viewerApplicationStatus: ApplicationStatus.SUBMITTED,
       note: { text: '지원서 제출됨 · 교직원 승인을 기다립니다' },
     });
-    expect(page.items[1]).toEqual(items[1]);
+    expect(page.items[1]).toEqual({ ...items[1], coverImageUrl: null });
     expect((page.items[1] as { note?: unknown }).note).toBeUndefined();
     expect(
       (page.items[1] as { viewerApplicationStatus?: unknown })
@@ -636,6 +652,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 1n,
@@ -673,6 +692,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     const page = await service.list(
@@ -706,6 +728,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 2n,
@@ -746,6 +771,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 3n,
@@ -776,6 +804,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 4n,
@@ -788,7 +819,9 @@ describe('ProgramsService list', () => {
       viewer,
     );
 
-    expect(page.items).toEqual(items);
+    expect(page.items).toEqual(
+      items.map((item) => ({ ...item, coverImageUrl: null })),
+    );
     expect(findViewerApplicationStatuses).not.toHaveBeenCalled();
     expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });
@@ -806,6 +839,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     await expect(service.statusCounts()).resolves.toEqual(counts);

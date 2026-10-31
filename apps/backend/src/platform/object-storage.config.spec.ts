@@ -1,7 +1,7 @@
 import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
-} from './object-storage.types';
+} from './object-storage.error';
 import { ObjectStorageConfig } from './object-storage.config';
 
 const ENV_KEYS = [

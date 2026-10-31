@@ -9,11 +9,20 @@ import {
 } from '../notifications/deadline-digest.integration-support';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { buildMilestoneDocumentDeliveryPage } from './milestone-document-delivery-page.policy';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const milestoneDocumentCollectionService =
+  new MilestoneDocumentCollectionService(
+    undefined as never,
+    undefined as never,
+    new MilestoneDocumentRulesService(new ProgramRulesService()),
+  );
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,10 +35,16 @@ const repository = new MilestoneDocumentCollectionReadRepository(
 const authority = new UsersAuthorityService(
   new UsersAuthorityRepository(harness.prisma),
 );
-const service = new MilestoneDocumentCollectionService(repository, authority);
+const service = new MilestoneDocumentCollectionService(
+  repository,
+  authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+);
 const legacyService = new MilestoneDocumentsService(
   new MilestoneDocumentsRepository(harness.prisma),
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
 );
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;
 const late = new Date(fixture.dueSoon.getTime() + 1);
@@ -259,7 +274,7 @@ it('holds counts and visible details at one snapshot while another connection su
       },
     });
     return {
-      page: buildMilestoneDocumentDeliveryPage(
+      page: milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
         { documents, applications, submissions, dueAt: fixture.dueSoon },
         query,
       ),

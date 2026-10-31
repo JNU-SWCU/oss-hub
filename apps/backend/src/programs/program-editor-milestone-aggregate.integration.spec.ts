@@ -8,7 +8,10 @@ import { Readable } from 'node:stream';
 import type { UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './program-error-code.error';
-import { ProgramEditorRepository } from './program-editor.repository';
+import {
+  ProgramEditorRepository,
+  type ProgramEditorTransactionStore,
+} from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -20,7 +23,6 @@ import { MilestoneDocumentSubmissionRepository } from './milestone-document-subm
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
   cleanup,
   createMilestone,
@@ -34,6 +36,11 @@ import {
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -247,8 +254,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
       ),
       new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     ).uploadTemplate(
       STAFF_GITHUB_ID,
       milestoneId,
@@ -378,8 +389,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
       ),
       new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
 
     await expect(
@@ -417,8 +432,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
       ),
       new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
     const direct = files.uploadTemplate(
       STAFF_GITHUB_ID,
@@ -564,8 +583,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new SubmissionFilesService(
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
       ),
       new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
     await expect(
       files.uploadTemplate(
@@ -1211,7 +1234,13 @@ function createFaultingEditor(
         return operation(instrumentStore(store, overrides));
       }),
   };
-  return new ProgramEditorService(repository);
+  return new ProgramEditorService(
+    repository,
+    new ProgramCoverUrlService(),
+    new ProgramRulesService(),
+    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new SubmissionFileRulesService(),
+  );
 }
 
 function pausingAggregateEditor(
@@ -1268,7 +1297,13 @@ function pausingAggregateEditorAt(
         return operation(instrumentStore(store, overrides));
       }),
   };
-  return new ProgramEditorService(repository);
+  return new ProgramEditorService(
+    repository,
+    new ProgramCoverUrlService(),
+    new ProgramRulesService(),
+    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new SubmissionFileRulesService(),
+  );
 }
 
 function instrumentStore(

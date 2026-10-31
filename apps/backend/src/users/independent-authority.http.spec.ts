@@ -4,27 +4,32 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import type {
-  AdminAccessActor,
-  AdminAccessInsertedRequest,
-  AdminAccessRevokedRequestInsert,
-} from './admin-access-repository.types';
-import { ADMIN_ACCESS_COMMANDS } from './independent-authority.types';
 import { UserAccessController } from '../admin/user-access.controller';
 import {
   IndependentAuthorityRepository,
   type IndependentAuthorityRepositoryPort,
   type IndependentAuthorityTransactionStore,
-  type IndependentAuthorityUserRecord,
+  type IndependentAuthorityTransition,
 } from './independent-authority.repository';
+import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
-import type { IndependentAuthorityTransition } from './independent-authority.policy';
+import {
+  type AdminAccessActor,
+  type AdminAccessInsertedRequest,
+  type AdminAccessRevokedRequestInsert,
+} from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import type { AdminAccessUserRow } from './admin-access-read.repository';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const githubId = 9_700_400_001n;
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -37,7 +42,7 @@ class HttpAuthorityStore
 {
   readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor = adminActor();
-  target: IndependentAuthorityUserRecord = targetUser();
+  target: AdminAccessUserRow = targetUser();
   activeAdminCount = 2;
   updates: IndependentAuthorityTransition[] = [];
   revokedInserts: AdminAccessRevokedRequestInsert[] = [];
@@ -56,7 +61,7 @@ class HttpAuthorityStore
     return Promise.resolve(this.activeAdminCount);
   }
 
-  findUserForUpdate(): Promise<IndependentAuthorityUserRecord> {
+  findUserForUpdate(): Promise<AdminAccessUserRow> {
     return Promise.resolve(this.target);
   }
 
@@ -96,7 +101,11 @@ describe('independent authority HTTP contracts', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController],
       providers: [
+        ...STATELESS_PROVIDERS,
+        AdminAccessMutationService,
+        UserProfileService,
         IndependentAuthorityService,
+        AuditLogMetadataService,
         SessionGuard,
         OriginGuard,
         { provide: IndependentAuthorityRepository, useValue: store },
@@ -132,7 +141,7 @@ describe('independent authority HTTP contracts', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    cookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,
@@ -148,7 +157,6 @@ describe('independent authority HTTP contracts', () => {
     'preserves the other authority through PATCH /users/:id/%s',
     async (path, command, hasStaffAccess, hasAdminAccess, role) => {
       store.target = targetUser({
-        role: 'ADMIN',
         hasStaffAccess: true,
         hasAdminAccess: true,
       });
@@ -167,7 +175,7 @@ describe('independent authority HTTP contracts', () => {
   );
 
   it('rejects a same-state command as a stale-view conflict', async () => {
-    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+    store.target = targetUser({ hasAdminAccess: true });
 
     const response = await request(
       'admin-access',
@@ -187,7 +195,6 @@ describe('independent authority HTTP contracts', () => {
   it('denies a non-admin actor', async () => {
     store.actor = {
       ...adminActor(),
-      role: 'STAFF',
       hasAdminAccess: false,
     };
     const response = await request(
@@ -203,7 +210,7 @@ describe('independent authority HTTP contracts', () => {
 
   it('denies revoking the final active admin', async () => {
     store.activeAdminCount = 1;
-    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+    store.target = targetUser({ hasAdminAccess: true });
     const response = await request(
       'admin-access',
       ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -268,7 +275,6 @@ function adminActor(): AdminAccessActor {
     githubId,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -276,20 +282,20 @@ function adminActor(): AdminAccessActor {
 }
 
 function targetUser(
-  overrides: Partial<IndependentAuthorityUserRecord> = {},
-): IndependentAuthorityUserRecord {
+  overrides: Partial<AdminAccessUserRow> = {},
+): AdminAccessUserRow {
   return {
     id: 'target',
     githubId: 9_700_400_002n,
     githubLogin: 'synthetic-target',
     name: null,
-    role: 'STUDENT',
+    studentId: null,
+    department: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
-    isProfileComplete: true,
     createdAt: new Date('2026-07-19T00:00:00.000Z'),
     pendingRequest: null,
     lastLoginAt: null,

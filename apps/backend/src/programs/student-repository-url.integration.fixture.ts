@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
   AffiliationKind,
@@ -12,6 +13,8 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './applications.repository';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const prisma = new PrismaService();
 const namespace = randomBytes(4).toString('hex');
@@ -28,7 +31,10 @@ let caseNumber = 0;
 let targetGithubId = 0n;
 const repository = new StudentRepositoryUrlRepository(prisma);
 const applications = new ApplicationsRepository(prisma);
-const audit = new AuditLogService(new AuditLogRepository(prisma));
+const audit = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const resolver = {
   resolve: jest.fn().mockResolvedValue({
     kind: 'EXTERNAL',
@@ -53,6 +59,8 @@ const service = new StudentRepositoryUrlService(
   { requireCurrent: jest.fn().mockResolvedValue(undefined) },
   audit,
   collectionTrigger,
+  new ProgramRulesService(),
+  new RepositoryProvisionEventService(),
 );
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',

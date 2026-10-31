@@ -1,46 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
-  RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
-  RepositorySource,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
-  InvalidRepositoryProvisionEventError,
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  canonicalGithubLogin,
-  canonicalGithubLogins,
-} from './repository-provision-event.policy';
-import type {
-  CompleteRepositoryInvitationInput,
-  FailRepositoryInvitationInput,
-  FailRepositoryProvisionJobInput,
-  ProvisionedRepository,
-  RecordProvisionedRepositoryInput,
-  RepositoryInvitationWork,
-  RepositoryProvisionContext,
-  RepositoryProvisionStateStore,
-} from './repository-provision-contract.types';
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import {
-  finalProvisionFailure,
-  PROVISION_ERROR_CODES,
-  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
-} from './repository-provision-failure.policy';
-import {
-  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
-  repositorySelection,
-  teamMemberLoginSelection,
   RepositoryProvisionStateHelpersRepository,
+  type CompleteRepositoryInvitationInput,
+  type FailRepositoryInvitationInput,
+  type FailRepositoryProvisionJobInput,
+  type RecordProvisionedRepositoryInput,
+  type RepositoryInvitationWork,
 } from './repository-provision-state-helpers.repository';
+import {
+  DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
+  PROVISION_ERROR_CODES,
+} from './repository-provision-state.config';
 import {
   GithubRepositoryClaimConflictError,
   RepositoryProvisionLeaseLostError,
+  RepositoryProvisionFailure,
 } from './repository-provision-state.error';
+
+import type { OwnedProvisionedRepositoryRow } from './repository-provision-state-helpers.repository';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,
@@ -73,14 +61,10 @@ function rearmedProvisionJobData(
 }
 
 @Injectable()
-export class RepositoryProvisionStateRepository implements RepositoryProvisionStateStore {
+export class RepositoryProvisionStateRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async loadContext(
-    jobId: string,
-    workerId: string,
-    requestId: string,
-  ): Promise<RepositoryProvisionContext> {
+  async loadContext(jobId: string, workerId: string, requestId: string) {
     return this.prisma.$transaction(async (transaction) => {
       await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
@@ -115,12 +99,15 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               team: {
                 select: {
                   name: true,
-                  members: { select: teamMemberLoginSelection },
+                  members: {
+                    select:
+                      RepositoryProvisionStateHelpersRepository.teamMemberLoginSelection,
+                  },
                 },
               },
               repository: {
                 select: {
-                  ...repositorySelection,
+                  ...RepositoryProvisionStateHelpersRepository.repositorySelection,
                   source: true,
                 },
               },
@@ -131,102 +118,27 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       if (job === null) {
         throw new RepositoryProvisionLeaseLostError();
       }
-      if (job.currentEventId === null) {
-        throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
-      }
-      const application = job.application;
-      const event = await transaction.outboxEvent.findUnique({
-        where: { id: job.currentEventId },
-        select: {
-          id: true,
-          type: true,
-          aggregateType: true,
-          aggregateId: true,
-          payload: true,
-        },
-      });
-      if (event === null) {
-        throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
-      }
-      let requested: ReturnType<typeof parseRepositoryProvisionEvent>;
-      try {
-        if (
-          event.type !== REPOSITORY_PROVISION_EVENT_TYPE ||
-          event.aggregateType !== 'Application' ||
-          event.aggregateId !== application.id
-        ) {
-          throw new InvalidRepositoryProvisionEventError();
-        }
-        requested = parseRepositoryProvisionEvent(event.payload);
-        if (
-          requested.applicationId !== application.id ||
-          requested.programId !== application.programId ||
-          (requested.teamId !== null && requested.teamId !== application.teamId)
-        ) {
-          throw new InvalidRepositoryProvisionEventError();
-        }
-      } catch (error) {
-        if (error instanceof InvalidRepositoryProvisionEventError) {
-          throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
-        }
-        throw error;
-      }
-      const team = application.team;
-      const requiresManagedMembership =
-        application.repository === null
-          ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
-          : application.repository.source === RepositorySource.ORG_PROVISIONED;
-      if (team === null && requiresManagedMembership) {
-        throw finalProvisionFailure(
-          PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
-        );
-      }
-
-      const currentMemberGithubLogins =
-        team === null
-          ? []
-          : RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(
-              team.members,
-            );
-      return {
-        requestId: event.id,
-        requestedConnectionMode: requested.repositoryConnectionMode,
-        requestedRepositoryUrl: requested.repositoryUrl,
-        requestedByGithubId:
-          requested.requestedByGithubId == null
-            ? null
-            : BigInt(requested.requestedByGithubId),
-        currentConnectionMode: application.repositoryConnectionMode,
-        currentRepositoryUrl: application.repositoryUrl,
-        applicationId: application.id,
-        applicantGithubId: application.applicant.githubId,
-        applicationStatus: application.status,
-        programId: application.programId,
-        programName: application.program.name,
-        repositoryProvisioningEnabled:
-          application.program.repositoryProvisioningEnabled,
-        teamId: application.teamId,
-        subjectName: team?.name ?? application.applicant.nickname,
-        currentMemberGithubLogins,
-        membershipFingerprint:
-          RepositoryProvisionStateHelpersRepository.membershipFingerprint(
-            currentMemberGithubLogins,
-          ),
-        currentRepositorySource: application.repository?.source ?? null,
-        repository:
-          application.repository === null ||
-          job.repositoryId !== application.repository.id
-            ? null
-            : RepositoryProvisionStateHelpersRepository.toProvisionedRepository(
-                application.repository,
-              ),
-      };
+      const event =
+        job.currentEventId === null
+          ? null
+          : await transaction.outboxEvent.findUnique({
+              where: { id: job.currentEventId },
+              select: {
+                id: true,
+                type: true,
+                aggregateType: true,
+                aggregateId: true,
+                payload: true,
+              },
+            });
+      return { job, event };
     });
   }
 
   async recordRepository(
     input: RecordProvisionedRepositoryInput,
-  ): Promise<ProvisionedRepository> {
+    metadataMatchesRepositoryIdentity: boolean,
+  ): Promise<OwnedProvisionedRepositoryRow> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await RepositoryProvisionStateHelpersRepository.lockApplicationForRepositoryClaim(
@@ -252,20 +164,21 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               currentRepositoryUrl: input.currentRepositoryUrl,
               connectionMode: input.connectionMode,
               repositoryUrl: input.repositoryUrl,
-              auditActorGithubId: input.auditActorGithubId,
+              connectionAudit: input.connectionAudit,
             },
           );
         const provisioned =
-          RepositoryProvisionStateHelpersRepository.toProvisionedRepository(
+          RepositoryProvisionStateHelpersRepository.assertOwnedRepository(
             repository,
           );
         if (
+          !metadataMatchesRepositoryIdentity ||
           !RepositoryProvisionStateHelpersRepository.matchesProvisionedMetadata(
             provisioned,
             input,
           )
         ) {
-          throw finalProvisionFailure(
+          throw RepositoryProvisionFailure.final(
             PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
           );
         }
@@ -288,7 +201,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
           error,
         )
       ) {
-        throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+        throw RepositoryProvisionFailure.final(
+          PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+        );
       }
       throw error;
     }
@@ -301,7 +216,10 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     repositoryId: string,
     githubLogins: readonly string[],
   ): Promise<void> {
-    const desired = canonicalGithubLogins(githubLogins);
+    const desired =
+      RepositoryProvisionStateHelpersRepository.canonicalGithubLogins(
+        githubLogins,
+      );
     await this.prisma.$transaction(async (transaction) => {
       await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
@@ -316,7 +234,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       });
       const desiredSet = new Set(desired);
       const known = new Set(
-        rows.map((row) => canonicalGithubLogin(row.githubLogin)),
+        rows.map((row) =>
+          RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
+            row.githubLogin,
+          ),
+        ),
       );
       const isRevocation = (status: RepositoryInvitationStatus): boolean =>
         RepositoryProvisionStateHelpersRepository.invitationIntent(status) ===
@@ -332,8 +254,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       const revokeIds = rows
         .filter(
           (row) =>
-            !desiredSet.has(canonicalGithubLogin(row.githubLogin)) &&
-            !isRevocation(row.status),
+            !desiredSet.has(
+              RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
+                row.githubLogin,
+              ),
+            ) && !isRevocation(row.status),
         )
         .map((row) => row.id);
       await transaction.repositoryInvitation.updateMany({
@@ -351,8 +276,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
       const rejoinIds = rows
         .filter(
           (row) =>
-            desiredSet.has(canonicalGithubLogin(row.githubLogin)) &&
-            isRevocation(row.status),
+            desiredSet.has(
+              RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
+                row.githubLogin,
+              ),
+            ) && isRevocation(row.status),
         )
         .map((row) => row.id);
       await transaction.repositoryInvitation.updateMany({
@@ -501,6 +429,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     applicationId: string,
     requestId: string,
     now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction((transaction) =>
       RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
@@ -514,7 +443,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: now,
         },
-        parseRepositoryProvisionEvent,
+        parsePayload,
       ),
     );
   }
@@ -525,8 +454,9 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     requestId: string,
     repositoryId: string,
     now: Date,
-    nextReconciliationAt?: Date,
-    expectedMembershipFingerprint?: string,
+    nextReconciliationAt: Date | undefined,
+    expectedMembershipFingerprint: string | undefined,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const { applicationId } =
@@ -581,7 +511,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             outcome: RepositoryIssuanceOutcome.SUCCEEDED,
             closedAt: now,
           },
-          parseRepositoryProvisionEvent,
+          parsePayload,
         );
       }
     });
@@ -602,14 +532,18 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     }
     const members = await transaction.teamMember.findMany({
       where: { teamId: application.teamId },
-      select: teamMemberLoginSelection,
+      select:
+        RepositoryProvisionStateHelpersRepository.teamMemberLoginSelection,
     });
     return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
       RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(members),
     );
   }
 
-  async failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
+  async failJob(
+    input: FailRepositoryProvisionJobInput,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const { applicationId, repositoryId } =
         await RepositoryProvisionStateHelpersRepository.lockClaimedProvisionJob(
@@ -666,7 +600,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             lastErrorCode: input.errorCode,
             closedAt: input.now,
           },
-          parseRepositoryProvisionEvent,
+          parsePayload,
         );
       }
     });

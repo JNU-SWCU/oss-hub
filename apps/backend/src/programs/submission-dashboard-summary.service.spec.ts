@@ -8,6 +8,7 @@ import type {
   SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
 
 class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
   readonly calls: string[][] = [];
@@ -84,7 +85,10 @@ describe('SubmissionDashboardSummaryService', () => {
         },
       ],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram(['program-a', 'program-b']);
 
@@ -127,7 +131,10 @@ describe('SubmissionDashboardSummaryService', () => {
       ],
       [],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram([
       'empty',
@@ -163,7 +170,10 @@ describe('SubmissionDashboardSummaryService', () => {
         },
       ],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram(['program-a']);
 
@@ -222,7 +232,10 @@ describe('SubmissionDashboardSummaryService', () => {
         ),
       ],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram(['program-doc']);
 
@@ -277,7 +290,10 @@ describe('SubmissionDashboardSummaryService', () => {
         ),
       ],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram(['program-both']);
 
@@ -301,7 +317,10 @@ describe('SubmissionDashboardSummaryService', () => {
       ],
       [],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     await expect(service.listByProgram(['program-info'])).resolves.toEqual([
       {
@@ -341,7 +360,10 @@ describe('SubmissionDashboardSummaryService', () => {
         ),
       ],
     );
-    const service = new SubmissionDashboardSummaryService(repository);
+    const service = new SubmissionDashboardSummaryService(
+      repository,
+      new MilestoneCompletionService(),
+    );
 
     const summaries = await service.listByProgram(['p']);
     const summary = summaries[0];

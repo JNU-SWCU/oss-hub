@@ -13,9 +13,15 @@ import type { RepositoriesService } from '../github/repositories.service';
 import type {
   SubmissionReviewTransactionStore,
   SubmissionReviewsRepositoryPort,
+  PublishEligibilityRow,
 } from './submission-reviews.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsService } from './submission-reviews.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import type { RepositoryPublishEligibility } from '../github/repository-publish.config';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -68,6 +74,10 @@ it.each(['context', 'review', 'publishRepository'] as const)(
       repository,
       repositories,
       deniedAuthority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
     const result =
       method === 'context'
@@ -98,6 +108,33 @@ it.each(['context', 'review', 'publishRepository'] as const)(
   },
 );
 
+function eligibilityRow(
+  eligibility: RepositoryPublishEligibility,
+): PublishEligibilityRow {
+  return {
+    id: eligibility.repositoryId,
+    visibility: eligibility.visibility,
+    application: {
+      milestoneDocumentSubmissions: [],
+      isRepositoryPublicationPlanned:
+        eligibility.isRepositoryPublicationPlanned,
+      provisionJob:
+        eligibility.provisionStatus === null
+          ? null
+          : {
+              status: eligibility.provisionStatus,
+              repositoryId: eligibility.repositoryId,
+            },
+      program: {
+        endAt: eligibility.programEndAt,
+        milestones: eligibility.requiredMilestonesApproved
+          ? []
+          : [{ id: 'milestone-1', submissionType: 'FILE', documents: [] }],
+      },
+    },
+  };
+}
+
 describe('SubmissionReviewsService.review', () => {
   it.each(Object.values(ReviewDecision))(
     '현재 팀원이면 자기 팀의 %s 판정을 기록하지 않는다',
@@ -109,6 +146,10 @@ describe('SubmissionReviewsService.review', () => {
         repository,
         repositories,
         authority,
+        new RepositoryPublishService(),
+        new RepositoryUrlService(),
+        new MilestoneCompletionService(),
+        new SubmissionFileRulesService(),
       );
 
       await expect(
@@ -145,6 +186,10 @@ describe('SubmissionReviewsService.review', () => {
         repository,
         repositories,
         authority,
+        new RepositoryPublishService(),
+        new RepositoryUrlService(),
+        new MilestoneCompletionService(),
+        new SubmissionFileRulesService(),
       );
 
       const result = await service.review(
@@ -189,6 +234,10 @@ describe('SubmissionReviewsService.review', () => {
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
@@ -213,6 +262,10 @@ describe('SubmissionReviewsService.review', () => {
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
@@ -230,14 +283,16 @@ describe('SubmissionReviewsService.review', () => {
 describe('SubmissionReviewsService.publishRepository', () => {
   it('모든 마일스톤 승인 뒤 별도 액션으로 저장소를 공개한다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: true,
-      isRepositoryPublicationPlanned: true,
-      programEndAt: PROGRAM_ENDED_AT,
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: true,
+        isRepositoryPublicationPlanned: true,
+        programEndAt: PROGRAM_ENDED_AT,
+      }),
+    );
     repositories.publish.mockResolvedValue({
       id: 'repository-1',
       githubRepositoryId: 123n,
@@ -250,6 +305,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const result = await service.publishRepository(
@@ -272,18 +331,24 @@ describe('SubmissionReviewsService.publishRepository', () => {
 
   it('필수 마일스톤 미승인 상태에서는 GitHub 호출을 막는다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: false,
-      isRepositoryPublicationPlanned: true,
-      programEndAt: PROGRAM_ENDED_AT,
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: false,
+        isRepositoryPublicationPlanned: true,
+        programEndAt: PROGRAM_ENDED_AT,
+      }),
+    );
     const service = new SubmissionReviewsService(
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const publish = service.publishRepository(
@@ -302,18 +367,24 @@ describe('SubmissionReviewsService.publishRepository', () => {
 
   it('지원서가 저장소 공개를 계획하지 않았으면 GitHub 호출을 막는다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: true,
-      isRepositoryPublicationPlanned: false,
-      programEndAt: PROGRAM_ENDED_AT,
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: true,
+        isRepositoryPublicationPlanned: false,
+        programEndAt: PROGRAM_ENDED_AT,
+      }),
+    );
     const service = new SubmissionReviewsService(
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const publish = service.publishRepository(
@@ -332,18 +403,24 @@ describe('SubmissionReviewsService.publishRepository', () => {
 
   it('프로그램이 아직 진행 중이면 GitHub 호출을 막는다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: true,
-      isRepositoryPublicationPlanned: true,
-      programEndAt: new Date('2026-08-01T00:00:00.000Z'),
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: true,
+        isRepositoryPublicationPlanned: true,
+        programEndAt: new Date('2026-08-01T00:00:00.000Z'),
+      }),
+    );
     const service = new SubmissionReviewsService(
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const publish = service.publishRepository(
@@ -360,14 +437,16 @@ describe('SubmissionReviewsService.publishRepository', () => {
 
   it('GitHub 공개 실패는 검토 트랜잭션과 분리된 502 오류다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: true,
-      isRepositoryPublicationPlanned: true,
-      programEndAt: PROGRAM_ENDED_AT,
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: true,
+        isRepositoryPublicationPlanned: true,
+        programEndAt: PROGRAM_ENDED_AT,
+      }),
+    );
     repositories.publish.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
@@ -375,6 +454,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     const publish = service.publishRepository(
@@ -391,20 +474,26 @@ describe('SubmissionReviewsService.publishRepository', () => {
 
   it('예상하지 않은 내부 오류를 GitHub 실패로 숨기지 않는다', async () => {
     const { repository, repositories } = reviewDependencies();
-    repository.findPublishEligibility.mockResolvedValue({
-      repositoryId: 'repository-1',
-      visibility: RepositoryVisibility.PRIVATE,
-      provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
-      requiredMilestonesApproved: true,
-      isRepositoryPublicationPlanned: true,
-      programEndAt: PROGRAM_ENDED_AT,
-    });
+    repository.findPublishEligibility.mockResolvedValue(
+      eligibilityRow({
+        repositoryId: 'repository-1',
+        visibility: RepositoryVisibility.PRIVATE,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        requiredMilestonesApproved: true,
+        isRepositoryPublicationPlanned: true,
+        programEndAt: PROGRAM_ENDED_AT,
+      }),
+    );
     const internalError = new Error('synthetic database failure');
     repositories.publish.mockRejectedValue(internalError);
     const service = new SubmissionReviewsService(
       repository,
       repositories,
       authority,
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
 
     await expect(

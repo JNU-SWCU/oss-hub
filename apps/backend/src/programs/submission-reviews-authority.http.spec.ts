@@ -18,6 +18,10 @@ import type {
   SubmissionReviewTransactionStore,
   SubmissionReviewsRepositoryPort,
 } from './submission-reviews.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const actors = [
   ['anonymous', null],
@@ -123,6 +127,10 @@ beforeAll(async () => {
             findActorByGithubId: (githubId) =>
               Promise.resolve(actors[Number(githubId)]?.[1] ?? null),
           }),
+          new RepositoryPublishService(),
+          new RepositoryUrlService(),
+          new MilestoneCompletionService(),
+          new SubmissionFileRulesService(),
         ),
       },
     ],

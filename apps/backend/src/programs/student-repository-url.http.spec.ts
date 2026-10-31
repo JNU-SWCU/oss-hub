@@ -4,11 +4,13 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import { issueSessionToken } from '../auth/auth.policy';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(32).fill(8);
 const origin = 'http://frontend.test';
@@ -26,6 +28,8 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     controllers: [StudentRepositoryUrlController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       {
         provide: StudentRepositoryUrlService,
         useValue: { updateMine, updateForTeam },
@@ -62,7 +66,7 @@ beforeAll(async () => {
   app.useGlobalFilters(new ProblemDetailFilter());
   await app.listen(0, '127.0.0.1');
   baseUrl = await app.getUrl();
-  cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, 1133n, 0)}`;
+  cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 1133n, 0)}`;
 });
 afterAll(async () => {
   await app?.close();

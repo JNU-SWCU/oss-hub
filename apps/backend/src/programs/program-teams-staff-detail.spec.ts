@@ -9,6 +9,11 @@ import {
 import { ProgramTeamsService } from './program-teams.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
@@ -72,6 +77,11 @@ function buildService(overrides: {
     { record: jest.fn() } as unknown as AuditLogService,
     deletionRepository,
     new UsersAuthorityService({ findActorByGithubId }),
+    new AuditLogMetadataService(),
+    new RepositoryPublishService(),
+    new RepositoryUrlService(),
+    new MilestoneCompletionService(),
+    new ProgramRulesService(),
   );
   return {
     service,
@@ -89,7 +99,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-b',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [
           { userId: 'user-a', nickname: 'login-a', name: '가나다' },
           { userId: 'user-b', nickname: 'login-b', name: '라마바' },
@@ -124,24 +134,32 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-a',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
           status: 'APPROVED',
           repositoryConnectionMode: 'NEW',
+          repositoryUrl: 'https://github.com/org/repo',
+          updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+          isRepositoryPublicationPlanned: true,
           repository: {
             id: 'repository-1',
-            url: 'https://github.com/org/repo',
+            nameWithOwner: 'org/repo',
             visibility: 'PUBLIC',
-            publishEligible: true,
-            blockedReasons: [],
           },
-          repositoryProvisioning: {
-            enabled: true,
-            jobStatus: 'SUCCEEDED',
+          program: {
+            endAt: new Date('2026-08-01T00:00:00.000Z'),
+            repositoryProvisioningEnabled: true,
+            milestones: [],
+          },
+          milestoneDocumentSubmissions: [],
+          outbox: null,
+          job: {
+            status: 'SUCCEEDED',
             updatedAt: new Date('2026-08-01T00:00:00.000Z'),
-            safeErrorClass: null,
+            lastErrorCode: null,
+            repositoryId: 'repository-1',
           },
         },
       },
@@ -191,19 +209,24 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-a',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
           status: 'SUBMITTED',
           repositoryConnectionMode: 'NEW',
+          repositoryUrl: null,
+          updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+          isRepositoryPublicationPlanned: true,
           repository: null,
-          repositoryProvisioning: {
-            enabled: true,
-            jobStatus: 'NOT_REQUESTED',
-            updatedAt: new Date('2026-08-01T00:00:00.000Z'),
-            safeErrorClass: null,
+          program: {
+            endAt: new Date('2026-08-01T00:00:00.000Z'),
+            repositoryProvisioningEnabled: true,
+            milestones: [],
           },
+          milestoneDocumentSubmissions: [],
+          outbox: null,
+          job: null,
         },
       },
     });
@@ -274,7 +297,7 @@ describe('ProgramTeamsService.getForStaff 권한', () => {
     name: '오픈소스팀',
     leaderId: 'user-a',
     repositoryContributions: null,
-    repositoryUrlHistory: { items: [], nextCursor: null },
+    repositoryUrlHistory: { rows: [], hasMore: false },
     members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
     application: null,
   };
@@ -480,7 +503,19 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
 
     const result = await repository.findStaffTeamDetail(PROGRAM_ID, TEAM_ID);
 
-    expect(result?.application?.repository).toMatchObject({
+    expect(
+      new ProgramTeamsService(
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        new AuditLogMetadataService(),
+        new RepositoryPublishService(),
+        new RepositoryUrlService(),
+        new MilestoneCompletionService(),
+        new ProgramRulesService(),
+      )['toTeamApplicationView'](result!.application!).repository,
+    ).toMatchObject({
       id: 'repository-1',
       publishEligible: true,
       blockedReasons: [],

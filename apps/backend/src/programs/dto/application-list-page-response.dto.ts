@@ -11,7 +11,7 @@ import type {
   RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
   StaffApplicationDetail,
-} from '../application-records.types';
+} from '../applications.repository';
 
 export class ApplicationListItemResponseDto {
   declare readonly id: string;

@@ -4,9 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { ProgramAuthoringUploadMaintenanceScheduler } from './programs.scheduler';
 
-describe('programs.scheduler', () => {
+describe('ProgramAuthoringUploadMaintenanceService cron', () => {
   function deferred(): {
     readonly promise: Promise<number>;
     readonly resolve: (value: number) => void;
@@ -23,7 +22,22 @@ describe('programs.scheduler', () => {
 
   const CRON_JOB_NAME = 'program-authoring-upload-cleanup';
 
-  describe('ProgramAuthoringUploadMaintenanceScheduler', () => {
+  function maintenanceWith(
+    runDue: () => Promise<number>,
+  ): ProgramAuthoringUploadMaintenanceService {
+    const service = new ProgramAuthoringUploadMaintenanceService(
+      {
+        claimForDeletion: jest.fn(),
+        markDeleted: jest.fn(),
+        recordDeleteFailure: jest.fn(),
+      },
+      { delete: jest.fn() },
+    );
+    service.runDue = runDue;
+    return service;
+  }
+
+  describe('run', () => {
     describe('SchedulerRegistry 등록', () => {
       let testingModule: TestingModule;
       const runDue = jest.fn<Promise<number>, []>();
@@ -37,10 +51,9 @@ describe('programs.scheduler', () => {
         testingModule = await Test.createTestingModule({
           imports: [ScheduleModule.forRoot()],
           providers: [
-            ProgramAuthoringUploadMaintenanceScheduler,
             {
               provide: ProgramAuthoringUploadMaintenanceService,
-              useValue: { runDue },
+              useValue: maintenanceWith(runDue),
             },
           ],
         }).compile();
@@ -76,9 +89,7 @@ describe('programs.scheduler', () => {
       const maintenance: jest.Mocked<
         Pick<ProgramAuthoringUploadMaintenanceService, 'runDue'>
       > = { runDue: jest.fn().mockReturnValue(pending.promise) };
-      const scheduler = new ProgramAuthoringUploadMaintenanceScheduler(
-        maintenance,
-      );
+      const scheduler = maintenanceWith(maintenance.runDue);
 
       const first = scheduler.run();
       await scheduler.run();
@@ -97,9 +108,7 @@ describe('programs.scheduler', () => {
           .mockRejectedValue(new Error('database provider connection detail')),
       };
       const alert = jest.spyOn(Logger.prototype, 'error').mockImplementation();
-      const scheduler = new ProgramAuthoringUploadMaintenanceScheduler(
-        maintenance,
-      );
+      const scheduler = maintenanceWith(maintenance.runDue);
 
       await scheduler.run();
 

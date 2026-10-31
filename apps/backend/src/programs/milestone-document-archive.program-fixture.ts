@@ -1,12 +1,14 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import type {
-  ArchiveProgram,
-  MilestoneDocumentArchiveSubmission,
-} from './milestone-document-archive.policy';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import {
+  type ArchiveProgram,
+  type MilestoneDocumentArchiveSubmission,
+} from './milestone-document-archive.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 export const now = new Date('2026-09-03T00:00:00Z');
 export const fileBody = Buffer.from('synthetic retained image');
@@ -85,6 +87,7 @@ export function fixture() {
           .fn()
           .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
       },
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
     ),
   };
 }

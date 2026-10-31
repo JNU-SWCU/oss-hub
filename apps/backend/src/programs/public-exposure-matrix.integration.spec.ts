@@ -12,12 +12,8 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.policy';
-import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-identity.policy';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -37,6 +33,14 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RankingYearService } from '../ranking/ranking-year.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const repositoryUrlService = new RepositoryUrlService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,23 +61,36 @@ const publicProjectsService = new PublicProjectsService(
   eligibilityService,
   metrics,
   loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
+  new RepositoryUrlService(),
 );
-const rankingService = new RankingService(new RankingRepository(prisma));
+const rankingService = new RankingService(
+  new RankingRepository(prisma),
+  new RankingYearService(),
+);
 
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLogService = new AuditLogService(new AuditLogRepository(prisma));
+const auditLogService = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLogService,
+  new AuditLogMetadataService(),
+  new RepositoryUrlService(),
 );
 const submissionReviewsService = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositoriesService,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new SubmissionFileRulesService(),
 );
 
 const PREFIX = 'synthetic-exposure-matrix';
@@ -254,7 +271,8 @@ async function createScenario(params: {
     repositoryId,
     githubRepositoryId,
     nameWithOwner,
-    repositoryName: repositoryNameFromNameWithOwner(nameWithOwner),
+    repositoryName:
+      repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner),
   };
 }
 
@@ -825,7 +843,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: outcome8.githubRepositoryId,
       name: outcome8.repositoryName,
-      url: repositoryUrlFromNameWithOwner(outcome8.nameWithOwner),
+      url: repositoryUrlService.repositoryUrlFromNameWithOwner(
+        outcome8.nameWithOwner,
+      ),
       nameWithOwner: outcome8.nameWithOwner,
       visibility: RepositoryVisibility.PUBLIC,
       description: null,

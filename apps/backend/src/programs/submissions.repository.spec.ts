@@ -4,14 +4,13 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import type { CreateSubmissionInput } from './submission.policy';
-import { SubmissionChecklistRecordRepository } from './submission-checklist-record.repository';
+import {
+  SubmissionsRepository,
+  type CreateSubmissionRevisionInput,
+  type CreateSubmissionInput,
+} from './submissions.repository';
 import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  type CreateSubmissionRevisionInput,
-  SubmissionsRepository,
-} from './submissions.repository';
 import { StaleSubmissionRevisionError } from './submissions.error';
 
 const mockLockSubmissionMembership = jest.fn<
@@ -191,9 +190,7 @@ describe('참여자 판정 조건', () => {
     const where = applicationFindFirst.onlyCall().where;
     expect(where).toMatchObject({
       programId: 'program-1',
-      ...SubmissionChecklistRecordRepository.submissionParticipantWhere(
-        CURRENT_MEMBER_ID,
-      ),
+      ...SubmissionsRepository.submissionParticipantWhere(CURRENT_MEMBER_ID),
     });
 
     expect(JSON.stringify(where)).not.toContain('leaderId');

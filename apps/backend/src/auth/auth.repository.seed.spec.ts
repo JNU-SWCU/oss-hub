@@ -1,4 +1,3 @@
-import { initialAccountSeed } from './auth.config';
 import {
   buildProfile,
   buildRepository,
@@ -6,11 +5,12 @@ import {
   upsertUser,
 } from './auth.repository.spec-support';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
+import { INITIAL_ACCOUNT_SEEDS } from './auth.config';
 
 describe('AuthRepository.upsertUser seed requests', () => {
   it('CAS 경쟁에서 갱신하지 못하면 역할 요청 부수효과도 만들지 않는다', async () => {
     const { repository, staffAccessRequestCreate, staffAccessRequestUpdate } =
-      buildRepository(buildRow(), initialAccountSeed('STAFF'), { casCount: 0 });
+      buildRepository(buildRow(), INITIAL_ACCOUNT_SEEDS.STAFF, { casCount: 0 });
 
     await upsertUser(repository, buildProfile());
 
@@ -23,7 +23,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
       repository,
       staffAccessRequestCreate,
       staffAccessRequestUpdateMany,
-    } = buildRepository(buildRow(), initialAccountSeed('STAFF'), {
+    } = buildRepository(buildRow(), INITIAL_ACCOUNT_SEEDS.STAFF, {
       pendingRequest: { id: 'pending-request' },
     });
 
@@ -42,7 +42,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
   it('전이 직전 관리자가 같은 신청을 결정했으면 시드 트랜잭션이 실패한다', async () => {
     const { repository, staffAccessRequestCreate } = buildRepository(
       buildRow(),
-      initialAccountSeed('STAFF'),
+      INITIAL_ACCOUNT_SEEDS.STAFF,
       { pendingRequest: { id: 'pending-request' }, pendingTransitionCount: 0 },
     );
 
@@ -55,7 +55,7 @@ describe('AuthRepository.upsertUser seed requests', () => {
   it('STAFF 시드는 PENDING 요청이 없을 때만 APPROVED 요청을 만든다', async () => {
     const { repository, staffAccessRequestCreate } = buildRepository(
       buildRow(),
-      initialAccountSeed('STAFF'),
+      INITIAL_ACCOUNT_SEEDS.STAFF,
     );
 
     await upsertUser(repository, buildProfile());

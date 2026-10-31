@@ -1,26 +1,29 @@
 import {
+  LoginHistoryEvent,
   AccountStatus,
   MemberKind,
   StaffAccessRequestStatus,
-  type Prisma,
+  Prisma,
 } from '@prisma/client';
-import { UserProfileReadRepository } from '../platform/user-profile-read.repository';
+import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
 import type { PrismaService } from '../platform/prisma.service';
+import {
+  AdminAccessReadOrderingRepository,
+  type AdminAccessFacets,
+  type AdminAccessListQuery,
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+  type AdminAccessUser,
+  type AdminAccessUserDetail,
+} from './admin-access-read-ordering.repository';
 import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
-  type AdminAccessFacets,
-  type AdminAccessListQuery,
-} from './admin-access.types';
-import type {
-  AdminAccessUserDetailRecord,
-  AdminAccessUserPageRecord,
-} from './admin-access-repository.types';
-import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
-import {
-  ADMIN_ACCESS_USER_SELECT,
-  AdminAccessUserProjectionRepository,
-} from './admin-access-user-projection.repository';
+} from './admin-access-query.config';
+
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import type { UserProfileSource } from '../platform/user-profile-read.config';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export class AdminAccessReadRepository {
   static async listAdminAccessUsers(
@@ -44,14 +47,14 @@ export class AdminAccessReadRepository {
         ? []
         : await prisma.user.findMany({
             where: { AND: [where, { id: { in: ids } }] },
-            select: ADMIN_ACCESS_USER_SELECT,
+            select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
           });
     const usersById = new Map(users.map((user) => [user.id, user] as const));
     return {
       items: ids.flatMap((id) => {
         const user = usersById.get(id);
         return user
-          ? [AdminAccessUserProjectionRepository.toAdminAccessUserRecord(user)]
+          ? [AdminAccessReadRepository.toAdminAccessUserRow(user)]
           : [];
       }),
       page: query.page,
@@ -141,15 +144,80 @@ export class AdminAccessReadRepository {
   static async findAdminAccessUserById(
     prisma: Pick<PrismaService, 'user'>,
     userId: string,
-  ): Promise<AdminAccessUserDetailRecord | null> {
+  ): Promise<AdminAccessUserDetailRow | null> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: ADMIN_ACCESS_USER_SELECT,
+      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
     return user
-      ? AdminAccessUserProjectionRepository.toAdminAccessUserDetailRecord(user)
+      ? AdminAccessReadRepository.toAdminAccessUserDetailRow(user)
       : null;
   }
+
+  static toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
+    const pendingRequest = user.staffAccessRequests[0];
+    return {
+      id: user.id,
+      githubId: user.githubId,
+      githubLogin: user.nickname,
+      name: user.profile?.name ?? null,
+      studentId: user.profile?.studentId ?? null,
+      department: user.profile?.department ?? null,
+      memberKind: user.profile?.memberKind ?? null,
+      selectedMemberKind: user.selectedMemberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
+      accountStatus: user.accountStatus,
+      createdAt: user.createdAt,
+      pendingRequest: pendingRequest
+        ? {
+            id: pendingRequest.id,
+            status: StaffAccessRequestStatus.PENDING,
+            createdAt: pendingRequest.createdAt,
+          }
+        : null,
+      lastLoginAt: user.loginHistories[0]?.loginAt ?? null,
+    };
+  }
+
+  static toAdminAccessUserDetailRow(
+    user: AdminAccessUserDetailSource,
+  ): AdminAccessUserDetailRow {
+    return {
+      ...AdminAccessReadRepository.toAdminAccessUserRow(user),
+      staffNumber: user.profile?.staffNumber ?? null,
+    };
+  }
+
+  static readonly ADMIN_ACCESS_USER_SELECT = {
+    id: true,
+    githubId: true,
+    nickname: true,
+    selectedMemberKind: true,
+    createdAt: true,
+    hasStaffAccess: true,
+    hasAdminAccess: true,
+    accountStatus: true,
+    ...USER_PROFILE_SELECT,
+    profile: {
+      select: {
+        ...USER_PROFILE_SELECT.profile.select,
+        staffNumber: true,
+      },
+    },
+    staffAccessRequests: {
+      where: { status: StaffAccessRequestStatus.PENDING },
+      orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
+      take: 1,
+      select: { id: true, status: true, createdAt: true },
+    },
+    loginHistories: {
+      where: { event: LoginHistoryEvent.LOGIN, success: true },
+      orderBy: [{ loginAt: 'desc' as const }, { id: 'desc' as const }],
+      take: 1,
+      select: { loginAt: true },
+    },
+  } as const satisfies Prisma.UserSelect;
 }
 
 type FacetDimension = 'role' | 'accountStatus' | 'pendingRequest';
@@ -162,7 +230,7 @@ function adminAccessWhere(
   if (query.query) {
     clauses.push({
       OR: [
-        UserProfileReadRepository.userProfileNameWhere(query.query),
+        PlatformRepository.userProfileNameWhere(query.query),
         {
           nickname: {
             contains: query.query,
@@ -221,3 +289,133 @@ function adminAccessRoleFilterWhere(
       };
   }
 }
+
+export type AdminAccessActor = {
+  readonly id: string;
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly name: string | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+  readonly accountStatus: AccountStatus;
+};
+
+export type AdminAccessUserRecord = Omit<AdminAccessUser, 'isSelf'> & {
+  readonly githubId: bigint;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type AdminAccessUserRow = Omit<
+  AdminAccessUserRecord,
+  'role' | 'isProfileComplete'
+> & {
+  readonly selectedMemberKind: MemberKind | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+export type AdminAccessUserDetailRow = AdminAccessUserRow & {
+  readonly staffNumber: string | null;
+};
+
+export type AdminAccessUserDetailRecord = Omit<
+  AdminAccessUserDetail,
+  'isSelf'
+> & {
+  readonly githubId: bigint;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
+
+export type AdminAccessUserPageRecord = {
+  readonly items: readonly AdminAccessUserRow[];
+  readonly page: number;
+  readonly limit: number;
+  readonly total: number;
+  readonly facets: AdminAccessFacets;
+};
+
+export type AdminAccessUserUpdate = {
+  readonly userId: string;
+
+  readonly expectedHasStaffAccess: boolean;
+  readonly expectedHasAdminAccess: boolean;
+  readonly expectedAccountStatus: AccountStatus;
+  readonly desiredAccountStatus: AccountStatus;
+  readonly desiredHasStaffAccess: boolean;
+  readonly desiredHasAdminAccess: boolean;
+};
+
+export type AdminAccessPendingDecisionUpdate = {
+  readonly requestId: string;
+  readonly actorId: string;
+  readonly nextStatus:
+    | typeof StaffAccessRequestStatus.APPROVED
+    | typeof StaffAccessRequestStatus.REJECTED;
+  readonly rejectionReason: string | null;
+  readonly decidedAt: Date;
+};
+
+export type AdminAccessRevokedRequestInsert = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly decidedAt: Date;
+};
+
+export type AdminAccessInsertedRequest = {
+  readonly id: string;
+};
+
+export interface AdminAccessTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
+  lockActiveAdmins(): Promise<number>;
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
+  compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean>;
+  decidePendingRequest(
+    input: AdminAccessPendingDecisionUpdate,
+  ): Promise<boolean>;
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest>;
+}
+
+export interface AdminAccessRepositoryPort {
+  withTransaction<T>(
+    operation: (store: AdminAccessTransactionStore) => Promise<T>,
+  ): Promise<T>;
+  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
+  list(
+    query: AdminAccessListQuery,
+    sortContext?: 'directory' | 'requestQueue',
+  ): Promise<AdminAccessUserPageRecord>;
+  facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null>;
+  listStaffAccessRequestHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessStaffAccessRequestHistoryPage>;
+  listLoginHistory(
+    userId: string,
+    page: { readonly page: number; readonly limit: number },
+  ): Promise<AdminAccessLoginHistoryPage>;
+}
+
+type PrismaAdminAccessUser = Prisma.UserGetPayload<{
+  select: typeof AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT;
+}>;
+
+export type AdminAccessUserSource = Omit<PrismaAdminAccessUser, 'profile'> &
+  UserProfileSource;
+
+export type AdminAccessUserDetailSource = AdminAccessUserSource & {
+  readonly profile:
+    | (NonNullable<UserProfileSource['profile']> & {
+        readonly staffNumber: string | null;
+      })
+    | null;
+};

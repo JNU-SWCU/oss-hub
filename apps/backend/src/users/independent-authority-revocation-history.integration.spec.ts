@@ -7,9 +7,12 @@ import { PrismaService } from '../platform/prisma.service';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { MemberOnboardingService } from './member-onboarding.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { STAFF_ACCESS_COMMANDS } from './independent-authority.types';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { STAFF_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,7 +22,16 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const authority = new IndependentAuthorityService(
   new IndependentAuthorityRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+  new UserProfileService(),
 );
 
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
@@ -28,6 +40,7 @@ const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
 const roles = new MemberOnboardingService(
   new MemberOnboardingRepository(prisma),
   consentsService,
+  new UserProfileService(),
 );
 
 const TEST_PREFIX = 'test:1383:independent-authority-revocation:';

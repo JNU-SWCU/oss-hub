@@ -1,11 +1,11 @@
 import { Controller, Get, Header, Param, Query } from '@nestjs/common';
-import { Public } from '../auth/auth-route-metadata.policy';
 import { PublicProjectRequestDto } from './dto/public-project-request.dto';
 import {
   PublicProjectDetailResponseDto,
   PublicProjectPageResponseDto,
 } from './dto/public-project-page-response.dto';
 import { PublicProjectsService } from './public-projects.service';
+import { Public } from '../auth/authentication.guard';
 
 @Controller('projects')
 @Public()

@@ -1,7 +1,6 @@
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ConsentsController } from './consents.controller';
-import { ConsentsService } from './consents.service';
-import { CURRENT_CONSENT_POLICY } from './user-profile.policy';
+import { ConsentsService, CURRENT_CONSENT_POLICY } from './consents.service';
 
 const syntheticGithubId = 424242n;
 const request = {

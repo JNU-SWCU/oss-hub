@@ -10,31 +10,28 @@ import {
 } from './github-app.client';
 import type { RepositoryOwnEnrollmentService } from './repositories.service';
 import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
-import type {
-  ProvisionedRepository,
-  RepositoryInvitationWork,
-  RepositoryProvisionContext,
-  RepositoryProvisionStateStore,
-} from './repository-provision-contract.types';
-import {
-  DEFAULT_PROVISION_OPTIONS,
-  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
-  finalProvisionFailure,
-  normalizeProvisionFailure,
-  PROVISION_ERROR_CODES,
-  provisionRetryAt,
-  type RepositoryProvisionWorkerOptions,
-} from './repository-provision-failure.policy';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
 import {
-  buildRepositoryNames,
-  buildRepositoryOwnershipMarker,
-} from './repository-name.policy';
-import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
+  RepositoryProvisionFailure,
 } from './repository-provision-state.error';
+import {
+  type ProvisionedRepository,
+  type RepositoryInvitationWork,
+  type RepositoryProvisionContext,
+  type RepositoryProvisionStateStore,
+} from './repository-provision-state-helpers.repository';
+
+import {
+  DEFAULT_PROVISION_OPTIONS,
+  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+  PROVISION_ERROR_CODES,
+  type RepositoryProvisionWorkerOptions,
+} from './repository-provision-state.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }
@@ -82,6 +79,9 @@ export class RepositoryProvisionWorkerService {
       RepositoryOwnEnrollmentService,
       'enrollExternalRepository'
     >,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly repositoryProvisionRulesService: RepositoryProvisionRulesService,
+    private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
   ) {}
 
@@ -136,7 +136,9 @@ export class RepositoryProvisionWorkerService {
       }
       const repository = context.repository;
       if (repository === null) {
-        throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+        throw RepositoryProvisionFailure.final(
+          PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+        );
       }
       const accessPath = this.resolveAccessPath(
         context.currentRepositorySource,
@@ -151,13 +153,13 @@ export class RepositoryProvisionWorkerService {
             resolution.repository.githubRepositoryId !==
             repository.githubRepositoryId
           ) {
-            throw finalProvisionFailure(
+            throw RepositoryProvisionFailure.final(
               PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
             );
           }
 
           if (resolution.kind !== 'EXTERNAL') {
-            throw finalProvisionFailure(
+            throw RepositoryProvisionFailure.final(
               PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
             );
           }
@@ -247,7 +249,8 @@ export class RepositoryProvisionWorkerService {
       if (error instanceof RepositoryProvisionLeaseLostError) {
         throw error;
       }
-      const failure = normalizeProvisionFailure(error);
+      const failure =
+        this.repositoryProvisionRulesService.normalizeProvisionFailure(error);
       const final =
         !failure.retryable || job.attemptCount >= this.options.maxAttempts;
       const failedAt = now();
@@ -259,7 +262,7 @@ export class RepositoryProvisionWorkerService {
         errorCode: failure.code,
         nextAttemptAt: final
           ? failedAt
-          : provisionRetryAt(
+          : this.repositoryProvisionRulesService.provisionRetryAt(
               failure,
               job.attemptCount,
               failedAt,
@@ -289,12 +292,14 @@ export class RepositoryProvisionWorkerService {
     readonly repositoryUrl: string | null;
   } {
     if (context.applicationStatus !== ApplicationStatus.APPROVED) {
-      throw finalProvisionFailure(
+      throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.APPLICATION_NOT_APPROVED,
       );
     }
     if (!context.repositoryProvisioningEnabled) {
-      throw finalProvisionFailure(PROVISION_ERROR_CODES.FEATURE_DISABLED);
+      throw RepositoryProvisionFailure.final(
+        PROVISION_ERROR_CODES.FEATURE_DISABLED,
+      );
     }
     return {
       originalIntent: context.requestedConnectionMode,
@@ -311,7 +316,9 @@ export class RepositoryProvisionWorkerService {
     if (source === RepositorySource.EXTERNAL_PUBLIC) {
       return 'EXTERNAL';
     }
-    throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+    throw RepositoryProvisionFailure.final(
+      PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+    );
   }
 
   private async reloadRecordedContext(
@@ -331,7 +338,9 @@ export class RepositoryProvisionWorkerService {
       reloaded.programId !== claimed.programId ||
       reloaded.requestId !== claimed.requestId
     ) {
-      throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
+      throw RepositoryProvisionFailure.final(
+        PROVISION_ERROR_CODES.INVALID_EVENT,
+      );
     }
     const current = reloaded.repository;
     if (
@@ -341,7 +350,9 @@ export class RepositoryProvisionWorkerService {
       current.githubRepositoryId !== recorded.githubRepositoryId ||
       current.applicationId !== claimed.applicationId
     ) {
-      throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+      throw RepositoryProvisionFailure.final(
+        PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+      );
     }
     return reloaded;
   }
@@ -358,7 +369,7 @@ export class RepositoryProvisionWorkerService {
     await this.jobs.renewLease(jobId, workerId, requestId, now());
     const ownResolution =
       connectionMode === 'OWN'
-        ? await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+        ? await this.repositoryProvisionGithubService.resolveOwnGithubRepository(
             this.github,
 
             repositoryUrl ?? '',
@@ -366,15 +377,17 @@ export class RepositoryProvisionWorkerService {
         : null;
     const metadata =
       ownResolution?.repository ??
-      (await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      (await this.repositoryProvisionGithubService.findOrCreateGithubRepository(
         this.github,
-        buildRepositoryNames({
+        this.repositoryProvisionRulesService.buildRepositoryNames({
           programName: context.programName,
           programId: context.programId,
           subjectName: context.subjectName,
           applicationId: context.applicationId,
         }),
-        buildRepositoryOwnershipMarker(context.applicationId),
+        this.repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+          context.applicationId,
+        ),
       ));
 
     const source =
@@ -394,7 +407,15 @@ export class RepositoryProvisionWorkerService {
       currentRepositoryUrl: context.currentRepositoryUrl,
       ...(context.requestedByGithubId === null
         ? {}
-        : { auditActorGithubId: context.requestedByGithubId }),
+        : {
+            connectionAudit: {
+              actorGithubId: context.requestedByGithubId,
+              buildMetadata: (change) =>
+                this.auditLogMetadataService.createRepositoryConnectionAuditMetadata(
+                  change,
+                ),
+            },
+          }),
       source,
       metadata,
     });
@@ -509,7 +530,8 @@ export class RepositoryProvisionWorkerService {
     error: unknown,
     now: () => Date,
   ): Promise<void> {
-    const failure = normalizeProvisionFailure(error);
+    const failure =
+      this.repositoryProvisionRulesService.normalizeProvisionFailure(error);
     await this.state.failInvitation({
       jobId,
       workerId,

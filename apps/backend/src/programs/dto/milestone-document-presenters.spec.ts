@@ -1,7 +1,7 @@
-import type { MilestoneDocumentViewerResult } from '../milestone-document-result.types';
 import { MilestoneDocumentFeedbackResponseDto } from '../../student/dto/milestone-document-feedback-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
+import { type MilestoneDocumentViewerResult } from '../milestone-documents.service';
 
 const when = new Date('2026-10-20T01:02:03.123Z');
 

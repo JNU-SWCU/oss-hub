@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsString, MaxLength, Validate } from 'class-validator';
-import { GithubRepositoryUrlConstraint } from '../programs.policy';
+import { GithubRepositoryUrlConstraintService } from '../github-repository-url-constraint.service';
 
 export class UpdateStudentRepositoryUrlRequestDto {
   @Transform(({ value }: { readonly value: unknown }) =>
@@ -8,6 +8,6 @@ export class UpdateStudentRepositoryUrlRequestDto {
   )
   @IsString()
   @MaxLength(250)
-  @Validate(GithubRepositoryUrlConstraint)
+  @Validate(GithubRepositoryUrlConstraintService)
   declare readonly repositoryUrl: string;
 }

@@ -10,18 +10,32 @@ import {
   InMemoryAdminProfileRepository,
   profileTarget,
 } from './admin-profile.service.spec-support';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 describe('AdminProfileService.patchProfile', () => {
   it('ADMIN이 아닌 액터는 ADMIN_ONLY(403)로 거부되고 프로필 저장소를 건드리지 않는다', async () => {
     const profileRepository = new InMemoryAdminProfileRepository();
     profileRepository.actor = adminActor({
-      role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
     });
     const audit = auditLogHarness();
-    const service = new AdminProfileService(profileRepository, audit.service);
+    const service = new AdminProfileService(
+      profileRepository,
+      audit.service,
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ),
+    );
 
     await expect(
       service.patchProfile(9_131_500_002n, 'target', { name: '새 이름' }),
@@ -36,7 +50,7 @@ describe('AdminProfileService.patchProfile', () => {
   it.each([
     [
       'STAFF로 강등된',
-      adminActor({ role: 'STAFF', hasAdminAccess: false }),
+      adminActor({ hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],
@@ -53,7 +67,18 @@ describe('AdminProfileService.patchProfile', () => {
       const profileRepository = new InMemoryAdminProfileRepository();
       profileRepository.actor = actor;
       const audit = auditLogHarness();
-      const service = new AdminProfileService(profileRepository, audit.service);
+      const service = new AdminProfileService(
+        profileRepository,
+        audit.service,
+        new AdminProfileMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+          new AdminAccessMutationService(
+            new AuditLogMetadataService(),
+            new UserProfileService(),
+          ),
+        ),
+      );
 
       await expect(
         service.patchProfile(9_131_500_002n, 'target', { name: '새 이름' }),
@@ -72,7 +97,18 @@ describe('AdminProfileService.patchProfile', () => {
     const profileRepository = new InMemoryAdminProfileRepository();
     profileRepository.target = profileTarget({ name: '기존 이름' });
     const audit = auditLogHarness();
-    const service = new AdminProfileService(profileRepository, audit.service);
+    const service = new AdminProfileService(
+      profileRepository,
+      audit.service,
+      new AdminProfileMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
+      ),
+    );
 
     const result = await service.patchProfile(9_131_500_002n, 'target', {
       name: '새 이름',

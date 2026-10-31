@@ -6,27 +6,154 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   type RepositoryVisibility,
+  type ApplicationStatus,
 } from '@prisma/client';
-import {
-  createRepositoryConnectionAuditMetadata,
-  REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from './repository-identity.policy';
-import { canonicalGithubLogins } from './repository-provision-event.policy';
-import type { GithubRepositoryMetadata } from './github-app-response.policy';
-import type {
-  ProvisionedRepository,
-  RecordProvisionedRepositoryInput,
-} from './repository-provision-contract.types';
 import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
   GithubRepositoryClaimConflictError,
 } from './repository-provision-state.error';
+import type { GithubRepositoryMetadata } from './github-app.client';
+import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
+import type { RepositoryConnectionAuditMetadata } from '../platform/repository-audit-metadata.config';
+
+export interface ProvisionedRepository {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly githubRepositoryId: bigint;
+  readonly name: string;
+  readonly url: string;
+  readonly visibility: RepositoryVisibility;
+}
+
+export interface RepositoryProvisionContext {
+  readonly requestId: string;
+  readonly requestedConnectionMode: RepositoryConnectionMode;
+  readonly requestedRepositoryUrl: string | null;
+  readonly requestedByGithubId: bigint | null;
+  readonly currentConnectionMode: RepositoryConnectionMode;
+  readonly currentRepositoryUrl: string | null;
+  readonly applicationId: string;
+  readonly applicantGithubId: bigint;
+  readonly applicationStatus: ApplicationStatus;
+  readonly programId: string;
+  readonly programName: string;
+  readonly repositoryProvisioningEnabled: boolean;
+  readonly teamId: string | null;
+  readonly subjectName: string;
+  readonly repository: ProvisionedRepository | null;
+
+  readonly currentRepositorySource: RepositorySource | null;
+
+  readonly currentMemberGithubLogins: readonly string[];
+  readonly membershipFingerprint: string;
+}
+
+export interface RepositoryInvitationWork {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly status: RepositoryInvitationStatus;
+  readonly intent: 'GRANT' | 'REVOKE';
+}
+
+export interface RecordProvisionedRepositoryInput {
+  readonly jobId: string;
+  readonly workerId: string;
+  readonly requestId: string;
+  readonly applicationId: string;
+  readonly programId: string;
+  readonly teamId: string | null;
+  readonly connectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly currentConnectionMode: RepositoryConnectionMode;
+  readonly currentRepositoryUrl: string | null;
+  readonly connectionAudit?: RepositoryConnectionAudit;
+
+  readonly source: RepositorySource;
+  readonly metadata: GithubRepositoryMetadata;
+}
+
+export interface CompleteRepositoryInvitationInput {
+  readonly jobId: string;
+  readonly workerId: string;
+  readonly requestId: string;
+  readonly invitationId: string;
+  readonly repositoryId: string;
+  readonly expectedStatus: RepositoryInvitationStatus;
+  readonly status: Extract<
+    RepositoryInvitationStatus,
+    'PENDING' | 'SUCCEEDED' | 'REVOKED'
+  >;
+  readonly now: Date;
+}
+
+export interface FailRepositoryInvitationInput {
+  readonly jobId: string;
+  readonly workerId: string;
+  readonly requestId: string;
+  readonly invitationId: string;
+  readonly repositoryId: string;
+  readonly expectedStatus: RepositoryInvitationStatus;
+  readonly intent: 'GRANT' | 'REVOKE';
+  readonly final: boolean;
+  readonly errorCode: string;
+  readonly now: Date;
+}
+
+export interface FailRepositoryProvisionJobInput {
+  readonly jobId: string;
+  readonly workerId: string;
+  readonly requestId: string;
+  readonly final: boolean;
+  readonly errorCode: string;
+  readonly nextAttemptAt: Date;
+  readonly now: Date;
+
+  readonly expectedMembershipFingerprint?: string;
+}
+
+export interface RepositoryProvisionStateStore {
+  loadContext(
+    jobId: string,
+    workerId: string,
+    requestId: string,
+  ): Promise<RepositoryProvisionContext>;
+  recordRepository(
+    input: RecordProvisionedRepositoryInput,
+  ): Promise<ProvisionedRepository>;
+  prepareInvitations(
+    jobId: string,
+    workerId: string,
+    requestId: string,
+    repositoryId: string,
+    githubLogins: readonly string[],
+  ): Promise<void>;
+  findInvitationWork(
+    jobId: string,
+    workerId: string,
+    requestId: string,
+    repositoryId: string,
+  ): Promise<readonly RepositoryInvitationWork[]>;
+  completeInvitation(input: CompleteRepositoryInvitationInput): Promise<void>;
+  failInvitation(input: FailRepositoryInvitationInput): Promise<void>;
+  recordSupersededRequest(
+    applicationId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<void>;
+  completeJob(
+    jobId: string,
+    workerId: string,
+    requestId: string,
+    repositoryId: string,
+    now: Date,
+    nextReconciliationAt?: Date,
+
+    expectedMembershipFingerprint?: string,
+  ): Promise<void>;
+  failJob(input: FailRepositoryProvisionJobInput): Promise<void>;
+}
 
 interface LockedRepositoryClaimTarget {
   readonly id: string;
@@ -34,13 +161,12 @@ interface LockedRepositoryClaimTarget {
   readonly source: RepositorySource;
 }
 
-export const repositorySelection = {
-  id: true,
-  applicationId: true,
-  githubRepositoryId: true,
-  nameWithOwner: true,
-  visibility: true,
-} as const;
+export interface RepositoryConnectionAudit {
+  readonly actorGithubId: bigint;
+  readonly buildMetadata: (
+    change: Omit<RepositoryConnectionAuditMetadata, 'schemaVersion'>,
+  ) => RepositoryConnectionAuditMetadata;
+}
 
 export interface ProvisionedRepositoryRow {
   readonly id: string;
@@ -50,21 +176,38 @@ export interface ProvisionedRepositoryRow {
   readonly visibility: RepositoryVisibility;
 }
 
+export interface OwnedProvisionedRepositoryRow extends ProvisionedRepositoryRow {
+  readonly applicationId: string;
+}
+
 export class RepositoryProvisionStateHelpersRepository {
-  static toProvisionedRepository(
+  static assertOwnedRepository(
     row: ProvisionedRepositoryRow,
-  ): ProvisionedRepository {
+  ): OwnedProvisionedRepositoryRow {
     if (row.applicationId === null) {
       throw new RepositoryProvisionLeaseLostError();
     }
-    return {
-      id: row.id,
-      applicationId: row.applicationId,
-      githubRepositoryId: row.githubRepositoryId,
-      name: repositoryNameFromNameWithOwner(row.nameWithOwner),
-      url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
-      visibility: row.visibility,
-    };
+    return { ...row, applicationId: row.applicationId };
+  }
+
+  static canonicalGithubLogin(login: string | null | undefined): string {
+    return (login ?? '').trim().toLowerCase();
+  }
+
+  static canonicalGithubLogins(
+    logins: readonly (string | null | undefined)[],
+  ): readonly string[] {
+    return [
+      ...new Set(
+        logins
+          .map((login) =>
+            RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
+              login,
+            ),
+          )
+          .filter((login) => login.length > 0),
+      ),
+    ].sort();
   }
 
   static claimedJobWhere(jobId: string, workerId: string) {
@@ -177,7 +320,7 @@ export class RepositoryProvisionStateHelpersRepository {
       readonly currentRepositoryUrl: string | null;
       readonly connectionMode: RepositoryConnectionMode;
       readonly repositoryUrl: string | null;
-      readonly auditActorGithubId?: bigint;
+      readonly connectionAudit?: RepositoryConnectionAudit;
     },
   ): Promise<ProvisionedRepositoryRow> {
     const target =
@@ -228,7 +371,7 @@ export class RepositoryProvisionStateHelpersRepository {
             source,
             presence: CollectionRepositoryPresence.PRESENT,
           },
-          select: repositorySelection,
+          select: RepositoryProvisionStateHelpersRepository.repositorySelection,
         });
       } catch (error) {
         if (
@@ -261,7 +404,7 @@ export class RepositoryProvisionStateHelpersRepository {
       }
       repository = await transaction.githubRepository.findUniqueOrThrow({
         where: { id: target.id },
-        select: repositorySelection,
+        select: RepositoryProvisionStateHelpersRepository.repositorySelection,
       });
     }
 
@@ -272,9 +415,9 @@ export class RepositoryProvisionStateHelpersRepository {
         repositoryUrl: input.repositoryUrl,
       },
     });
-    if (input.auditActorGithubId !== undefined) {
+    if (input.connectionAudit !== undefined) {
       const auditActor = await transaction.user.findUniqueOrThrow({
-        where: { githubId: input.auditActorGithubId },
+        where: { githubId: input.connectionAudit.actorGithubId },
         select: { id: true },
       });
       await transaction.auditLog.create({
@@ -284,7 +427,7 @@ export class RepositoryProvisionStateHelpersRepository {
             REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED,
           targetType: 'APPLICATION',
           targetId: input.applicationId,
-          metadata: createRepositoryConnectionAuditMetadata({
+          metadata: input.connectionAudit.buildMetadata({
             applicationId: input.applicationId,
             before: {
               repositoryId: current?.id ?? null,
@@ -323,7 +466,9 @@ export class RepositoryProvisionStateHelpersRepository {
   static loginsFromTeamMembers(
     members: readonly { readonly user: { readonly nickname: string } }[],
   ): readonly string[] {
-    return canonicalGithubLogins(members.map((member) => member.user.nickname));
+    return RepositoryProvisionStateHelpersRepository.canonicalGithubLogins(
+      members.map((member) => member.user.nickname),
+    );
   }
 
   static async lockClaimedProvisionJob(
@@ -344,21 +489,29 @@ export class RepositoryProvisionStateHelpersRepository {
   }
 
   static matchesProvisionedMetadata(
-    repository: ProvisionedRepository,
+    repository: OwnedProvisionedRepositoryRow,
     input: RecordProvisionedRepositoryInput,
   ): boolean {
     return (
       repository.applicationId === input.applicationId &&
       repository.githubRepositoryId === input.metadata.githubRepositoryId &&
-      repository.name === input.metadata.name &&
-      repository.url === input.metadata.url &&
+      repository.nameWithOwner === input.metadata.nameWithOwner &&
       repository.visibility === input.metadata.visibility
     );
   }
-}
 
-export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
-  'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
+  static readonly repositorySelection = {
+    id: true,
+    applicationId: true,
+    githubRepositoryId: true,
+    nameWithOwner: true,
+    visibility: true,
+  } as const;
+
+  static readonly teamMemberLoginSelection = {
+    user: { select: { nickname: true } },
+  } as const;
+}
 
 const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -366,7 +519,3 @@ const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
   RepositoryInvitationStatus.REVOKE_FAILED_FINAL,
 ] as const;
-
-export const teamMemberLoginSelection = {
-  user: { select: { nickname: true } },
-} as const;

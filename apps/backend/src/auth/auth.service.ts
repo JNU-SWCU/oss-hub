@@ -1,26 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import {
-  LOGIN_HISTORY_EVENTS,
-  type LoginHistoryPage,
-  type ActiveAccountPrincipal,
-  type AuthLoginResult,
-  type AuthUser,
-  type GithubProfile,
+import type {
+  LoginHistoryPage,
+  ActiveAccountPrincipal,
+  AuthLoginResult,
+  AuthUser,
+  GithubProfile,
 } from './http-auth.types';
-import { LoginHistoryRepository, AuthRepository } from './auth.repository';
+import { LOGIN_HISTORY_EVENTS, AuthConfig } from './auth.config';
+import {
+  LoginHistoryRepository,
+  AuthRepository,
+  type AuthUserRecord,
+} from './auth.repository';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { AuthConfig } from './auth.config';
-import {
-  selectGithubPrimaryEmail,
-  createFlowState,
-  decodeFlowCookie,
-  encodeFlowCookie,
-  isSameState,
-  toCodeChallenge,
-  issueSessionToken,
-} from './auth.policy';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from './auth-session.service';
 
 @Injectable()
 export class LoginHistoryService {
@@ -68,36 +64,48 @@ export class AuthService {
   constructor(
     private readonly config: AuthConfig,
     private readonly repository: AuthRepository,
+    private readonly userProfileService: UserProfileService,
+    private readonly authSessionService: AuthSessionService,
   ) {}
 
   buildAuthorizeRedirect(prompt?: 'select_account'): AuthorizeRedirect {
     const oauth = this.config.requireOauth();
-    const flow = createFlowState();
+    const flow = this.authSessionService.createFlowState();
     const url = new URL(GITHUB_AUTHORIZE_URL);
     url.searchParams.set('client_id', oauth.clientId);
     url.searchParams.set('redirect_uri', oauth.callbackUrl);
     url.searchParams.set('scope', GITHUB_OAUTH_SCOPE);
     url.searchParams.set('state', flow.state);
-    url.searchParams.set('code_challenge', toCodeChallenge(flow.verifier));
+    url.searchParams.set(
+      'code_challenge',
+      this.authSessionService.toCodeChallenge(flow.verifier),
+    );
     url.searchParams.set('code_challenge_method', 'S256');
     if (prompt === 'select_account') {
       url.searchParams.set('prompt', prompt);
     }
-    return { url: url.toString(), flowCookieValue: encodeFlowCookie(flow) };
+    return {
+      url: url.toString(),
+      flowCookieValue: this.authSessionService.encodeFlowCookie(flow),
+    };
   }
 
   async completeLogin(input: CompleteLoginInput): Promise<AuthLoginResult> {
-    const flow = decodeFlowCookie(input.flowCookie);
-    if (!flow || !isSameState(flow.state, input.state)) {
+    const flow = this.authSessionService.decodeFlowCookie(input.flowCookie);
+    if (
+      !flow ||
+      !this.authSessionService.isSameState(flow.state, input.state)
+    ) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.OAUTH_FLOW_INVALID],
       );
     }
     const accessToken = await this.exchangeCode(input.code, flow.verifier);
     const profile = await this.fetchProfile(accessToken);
-    return this.repository.withTransaction((store) =>
+    const login = await this.repository.withTransaction((store) =>
       store.upsertUser(profile),
     );
+    return { user: this.toAuthUser(login.user), isNew: login.isNew };
   }
 
   async issueSession(user: AuthUser): Promise<string> {
@@ -106,7 +114,7 @@ export class AuthService {
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
     }
-    return issueSessionToken(
+    return this.authSessionService.issueSessionToken(
       this.config.sessionSecret,
       user.githubId,
       user.sessionVersion,
@@ -130,11 +138,23 @@ export class AuthService {
     if (user?.accountStatus !== AccountStatus.ACTIVE) {
       return null;
     }
-    return { ...user, accountStatus: AccountStatus.ACTIVE };
+    return { ...this.toAuthUser(user), accountStatus: AccountStatus.ACTIVE };
   }
 
   async findMe(githubId: bigint): Promise<AuthUser | null> {
-    return this.repository.findByGithubId(githubId);
+    const user = await this.repository.findByGithubId(githubId);
+    return user ? this.toAuthUser(user) : null;
+  }
+
+  private toAuthUser(record: AuthUserRecord): AuthUser {
+    const { selectedMemberKind, studentId, department, ...user } = record;
+    return {
+      ...user,
+      isProfileComplete: this.userProfileService.isCompleteProfileFields(
+        { name: record.name, studentId, department },
+        record.memberKind ?? selectedMemberKind,
+      ),
+    };
   }
 
   async incrementSessionVersion(githubId: bigint): Promise<void> {
@@ -227,7 +247,7 @@ export class AuthService {
         },
       ];
     });
-    return selectGithubPrimaryEmail(emails);
+    return this.authSessionService.selectGithubPrimaryEmail(emails);
   }
 
   private githubApiHeaders(accessToken: string): Record<string, string> {

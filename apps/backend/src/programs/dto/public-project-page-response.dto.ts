@@ -2,15 +2,11 @@ import { type ProgramTrackType } from '@prisma/client';
 import type {
   PublicProjectContributor,
   PublicProjectDetailResult,
+  PublicProjectListItem,
   PublicProjectMetrics,
   PublicProjectPageResult,
-} from '../programs.types';
-import {
-  applicationMode,
-  displayNameOf,
-  type PublicProjectApplicationMode,
-  type PublicProjectRow,
-} from '../public-projects.policy';
+} from '../public-projects.service';
+import type { PublicProjectApplicationMode } from '../public-projects.config';
 
 class PublicProjectListItemResponseDto {
   declare readonly projectId: string;
@@ -23,14 +19,14 @@ class PublicProjectListItemResponseDto {
   declare readonly githubUrl: string;
   declare readonly publishedAt: string;
 
-  static from(row: PublicProjectRow): PublicProjectListItemResponseDto {
+  static from(row: PublicProjectListItem): PublicProjectListItemResponseDto {
     return {
       projectId: row.projectId,
       programId: row.programId,
       programName: row.programName,
       trackType: row.trackType,
-      applicationMode: applicationMode(row.teamMemberCount),
-      displayName: displayNameOf(row),
+      applicationMode: row.applicationMode,
+      displayName: row.displayName,
       repositoryName: row.repositoryName,
       githubUrl: row.githubUrl,
       publishedAt: row.publishedAt.toISOString(),
@@ -107,8 +103,8 @@ export class PublicProjectDetailResponseDto {
       programId: detail.row.programId,
       programName: detail.row.programName,
       trackType: detail.row.trackType,
-      applicationMode: applicationMode(detail.row.teamMemberCount),
-      displayName: displayNameOf(detail.row),
+      applicationMode: detail.row.applicationMode,
+      displayName: detail.row.displayName,
       repositoryName: detail.row.repositoryName,
       githubUrl: detail.row.githubUrl,
       publishedAt: detail.row.publishedAt.toISOString(),

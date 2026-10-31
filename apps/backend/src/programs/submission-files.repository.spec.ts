@@ -3,6 +3,7 @@ import type { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import type { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
@@ -397,6 +398,8 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     mimeType: 'application/pdf',
     sizeBytes: 1024,
     pendingExpiresAt: new Date('2026-07-26T12:00:00.000Z'),
+    resolveExpiresAt: (programEndAt: Date) =>
+      new SubmissionFileRulesService().addOneCalendarYear(programEndAt),
   };
 
   const queryRaw = jest.fn<Promise<unknown[]>, [Prisma.Sql]>();

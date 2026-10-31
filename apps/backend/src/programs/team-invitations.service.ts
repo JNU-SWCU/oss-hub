@@ -1,27 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import {
-  createTeamJoinedAuditMetadata,
-  TEAM_JOINED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.policy';
 import { AuditLogService } from '../platform/audit-log.service';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import {
   TEAM_INVITATION_ERROR_CODES,
   TeamInvitationErrorCode,
 } from './team-invitation-error-code.error';
-import { TeamInvitationsRepository } from './team-invitations.repository';
-import type {
-  AcceptedInvitationResult,
-  InvitationCandidateRecord,
-  ReceivedTeamInvitationRecord,
-  SentTeamInvitationRecord,
-} from './team-invitation.types';
+import {
+  TeamInvitationsRepository,
+  type AcceptedInvitationResult,
+  type InvitationCandidateRecord,
+  type ReceivedTeamInvitationRecord,
+  type SentTeamInvitationRecord,
+} from './team-invitations.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Injectable()
 export class TeamInvitationsService {
   constructor(
     private readonly repository: TeamInvitationsRepository,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async listReceived(
@@ -147,10 +146,11 @@ export class TeamInvitationsService {
             action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
             targetType: 'TEAM',
             targetId: names.teamId,
-            metadata: createTeamJoinedAuditMetadata({
-              programName: names.programName,
-              teamName: names.teamName,
-            }),
+            metadata:
+              this.auditLogMetadataService.createTeamJoinedAuditMetadata({
+                programName: names.programName,
+                teamName: names.teamName,
+              }),
           },
           store.auditLogWriter,
         );

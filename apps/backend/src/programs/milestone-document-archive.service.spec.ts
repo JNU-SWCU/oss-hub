@@ -5,6 +5,8 @@ import { MilestoneDocumentArchiveService } from './milestone-document-archive.se
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
@@ -241,6 +243,7 @@ function buildService(
           .fn()
           .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
       },
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
     ),
     repositoryMocks,
     storageMocks,

@@ -1,4 +1,8 @@
 import {
+  PROGRAM_COVER_MAX_BYTES,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-upload.config';
+import {
   Body,
   Controller,
   HttpCode,
@@ -36,21 +40,19 @@ import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-uploa
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';
 import { ProgramAuthoringRequestDto } from './dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from './dto/program-authoring-upload-policy-response.dto';
-import {
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringUploadTokenError,
-} from './program-authoring.policy';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-file.policy';
-import { PROGRAM_COVER_MAX_BYTES } from './program-cover.policy';
 import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
 import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
-import { ProgramAuthoringForbiddenError } from './program-authoring.error';
+import {
+  ProgramAuthoringForbiddenError,
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringUploadTokenError,
+} from './program-authoring.error';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

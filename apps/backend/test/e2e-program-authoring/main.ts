@@ -1,16 +1,16 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApp } from '../../src/platform/configure-http-app.config';
+import { configureHttpApp } from '../../src/configure-http-app';
 import { GithubAppClient } from '../../src/github/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
-import { MAIL_SENDER } from '../../src/notifications/notifications.types';
 import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
-import { OBJECT_STORAGE } from '../../src/platform/object-storage.types';
+import { OBJECT_STORAGE } from '../../src/platform/object-storage.config';
 import type { RuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { E2eProgramAuthoringModule } from './e2e-program-authoring.module';
 import { FaultInjectingProgramAuthoringRepository } from './fault-injecting-program-authoring.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
+import { MAIL_SENDER } from '../../src/notifications/gmail-mail.client';
 
 async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {

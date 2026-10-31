@@ -1,3 +1,4 @@
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -5,12 +6,19 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import { ApplicationsRepository } from './applications.repository';
+import {
+  ApplicationsRepository,
+  type ApplicationListSource,
+} from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -113,6 +121,21 @@ function detailTransaction(
   };
 }
 
+function mapItem(source: ApplicationListSource | null | undefined) {
+  return source
+    ? new ApplicationsService(
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        undefined as never,
+        new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      )['toApplicationListItem'](source.row, source.outbox, source.job)
+    : undefined;
+}
+
 describe('ApplicationsService.getForStaff', () => {
   it('교직원 권한이 없으면 APP_018 로 막고 신청도 이력도 읽지 않는다', async () => {
     const findApplicationForStaff = jest.fn();
@@ -128,9 +151,16 @@ describe('ApplicationsService.getForStaff', () => {
       {
         assertActiveStaff,
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -158,9 +188,16 @@ describe('ApplicationsService.getForStaff', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -177,7 +214,11 @@ describe('ApplicationsService.getForStaff', () => {
     const item = { id: APPLICATION_ID };
     const reviewHistory = [{ id: 'history-1' }];
     const repository = {
-      findApplicationForStaff: jest.fn().mockResolvedValue(item),
+      findApplicationForStaff: jest.fn().mockResolvedValue({
+        row: {},
+        outbox: undefined,
+        job: undefined,
+      }),
       listReviewHistory: jest.fn().mockResolvedValue(reviewHistory),
     } as unknown as ApplicationsRepository;
     const service = new ApplicationsService(
@@ -186,10 +227,24 @@ describe('ApplicationsService.getForStaff', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
+
+    jest
+      .spyOn(
+        service as unknown as { toApplicationListItem: () => unknown },
+        'toApplicationListItem',
+      )
+      .mockReturnValue(item);
 
     await expect(
       service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
@@ -211,9 +266,16 @@ describe('ApplicationsService.getForStaff', () => {
       {
         assertActiveStaff: allowStaff(),
       },
-      new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-      }),
+      new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+        },
+        new JoinCodeSecretService(),
+      ),
+      new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
     );
 
     await expect(
@@ -297,7 +359,9 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
     );
     const { repository } = buildRepository(transaction);
 
-    const item = await repository.findApplicationForStaff(APPLICATION_ID);
+    const item = mapItem(
+      await repository.findApplicationForStaff(APPLICATION_ID),
+    );
 
     expect(item?.repositoryProvisioning).toEqual({
       enabled: true,
@@ -320,7 +384,9 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
     );
     const { repository } = buildRepository(transaction);
 
-    const item = await repository.findApplicationForStaff(APPLICATION_ID);
+    const item = mapItem(
+      await repository.findApplicationForStaff(APPLICATION_ID),
+    );
 
     expect(item).toMatchObject({
       id: APPLICATION_ID,

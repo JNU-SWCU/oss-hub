@@ -1,6 +1,18 @@
 import { Logger } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
-import type { DeadlineDigestMail, MailSender } from './notifications.types';
+
+export interface DeadlineDigestMail {
+  readonly to: string;
+  readonly subject: string;
+  readonly body: string;
+  readonly html?: string;
+}
+
+export interface MailSender {
+  send(mail: DeadlineDigestMail): Promise<void>;
+}
+
+export const MAIL_SENDER = Symbol('NOTIFICATIONS_MAIL_SENDER');
 
 export interface GmailSenderConfig {
   readonly sender: string;

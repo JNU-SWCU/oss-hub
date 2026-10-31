@@ -3,25 +3,29 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   DeadlineDigestService,
   mailSenderProvider,
-  resolveMailSender,
 } from './deadline-digest.service';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
 } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { GmailMailClient, LogMailClient } from './gmail-mail.client';
-import { MAIL_SENDER, type MailSender } from './notifications.types';
+import {
+  GmailMailClient,
+  LogMailClient,
+  MAIL_SENDER,
+  type MailSender,
+} from './gmail-mail.client';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import type { DeadlineProgramSource } from './deadline-digest-eligibility.policy';
-import type { DeadlineDigestRepositoryPort } from './deadline-digest.repository';
-import { DeadlineDigestScheduler } from './deadline-digest.scheduler';
+import type {
+  DeadlineDigestRepositoryPort,
+  DeadlineProgramSource,
+} from './deadline-digest.repository';
 
-describe('deadline-digest.scheduler', () => {
-  describe('DeadlineDigestScheduler', () => {
+describe('deadline digest cron', () => {
+  describe('DeadlineDigestService.run', () => {
     let testingModule: TestingModule;
-    let scheduler: DeadlineDigestScheduler;
+    let scheduler: DeadlineDigestService;
     const sendDeadlineDigests = jest.fn<Promise<void>, []>();
 
     const registeredJobs = () => [
@@ -40,15 +44,17 @@ describe('deadline-digest.scheduler', () => {
     beforeEach(async () => {
       sendDeadlineDigests.mockReset();
       sendDeadlineDigests.mockResolvedValue(undefined);
+      scheduler = new DeadlineDigestService(
+        {} as DeadlineDigestRepositoryPort,
+        {} as MailSender,
+        { FRONTEND_URL: 'https://oss.example' },
+      );
+      scheduler.sendDeadlineDigests = sendDeadlineDigests;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
-        providers: [
-          DeadlineDigestScheduler,
-          { provide: DeadlineDigestService, useValue: { sendDeadlineDigests } },
-        ],
+        providers: [{ provide: DeadlineDigestService, useValue: scheduler }],
       }).compile();
       await testingModule.init();
-      scheduler = testingModule.get(DeadlineDigestScheduler);
     });
 
     afterEach(async () => {
@@ -119,26 +125,34 @@ describe('mail-sender-provider.service', () => {
     });
 
     it('missing MAIL_MODE throws', () => {
-      expect(() => resolveMailSender(frozenSnapshot({}))).toThrow(/MAIL_MODE/);
+      expect(() =>
+        DeadlineDigestService.resolveMailSender(frozenSnapshot({})),
+      ).toThrow(/MAIL_MODE/);
     });
 
     it('blank MAIL_MODE throws', () => {
       expect(() =>
-        resolveMailSender(frozenSnapshot({ MAIL_MODE: '   ' })),
+        DeadlineDigestService.resolveMailSender(
+          frozenSnapshot({ MAIL_MODE: '   ' }),
+        ),
       ).toThrow(/MAIL_MODE/);
     });
 
     it('invalid MAIL_MODE throws', () => {
       expect(() =>
-        resolveMailSender(frozenSnapshot({ MAIL_MODE: 'production' })),
+        DeadlineDigestService.resolveMailSender(
+          frozenSnapshot({ MAIL_MODE: 'production' }),
+        ),
       ).toThrow(/MAIL_MODE/);
       expect(() =>
-        resolveMailSender(frozenSnapshot({ MAIL_MODE: 'real' })),
+        DeadlineDigestService.resolveMailSender(
+          frozenSnapshot({ MAIL_MODE: 'real' }),
+        ),
       ).toThrow(/MAIL_MODE/);
     });
 
     it('dry-run with complete credentials resolves LogMailClient', () => {
-      const sender = resolveMailSender(
+      const sender = DeadlineDigestService.resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
           ...COMPLETE_GMAIL,
@@ -148,7 +162,7 @@ describe('mail-sender-provider.service', () => {
     });
 
     it('dry-run with incomplete credentials resolves LogMailClient', () => {
-      const sender = resolveMailSender(
+      const sender = DeadlineDigestService.resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
         }),
@@ -156,7 +170,7 @@ describe('mail-sender-provider.service', () => {
       expect(sender).toBeInstanceOf(LogMailClient);
     });
     it('send with complete four credentials resolves GmailMailClient', () => {
-      const sender = resolveMailSender(
+      const sender = DeadlineDigestService.resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'send',
           ...COMPLETE_GMAIL,
@@ -178,14 +192,14 @@ describe('mail-sender-provider.service', () => {
         ...COMPLETE_GMAIL,
         [missingKey]: undefined,
       };
-      expect(() => resolveMailSender(frozenSnapshot(overrides))).toThrow(
-        /GMAIL_/,
-      );
+      expect(() =>
+        DeadlineDigestService.resolveMailSender(frozenSnapshot(overrides)),
+      ).toThrow(/GMAIL_/);
     });
 
     it('send with blank Gmail credential throws', () => {
       expect(() =>
-        resolveMailSender(
+        DeadlineDigestService.resolveMailSender(
           frozenSnapshot({
             MAIL_MODE: 'send',
             ...COMPLETE_GMAIL,
@@ -202,7 +216,7 @@ describe('mail-sender-provider.service', () => {
       ['GMAIL_OAUTH_REFRESH_TOKEN'],
     ] as const)('send with whitespace-only %s throws', (blankKey) => {
       expect(() =>
-        resolveMailSender(
+        DeadlineDigestService.resolveMailSender(
           frozenSnapshot({
             MAIL_MODE: 'send',
             ...COMPLETE_GMAIL,

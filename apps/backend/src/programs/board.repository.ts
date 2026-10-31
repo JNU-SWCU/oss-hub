@@ -1,19 +1,12 @@
+import type { UserProfileNameSource } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   BoardPostCategory,
   type MemberKind,
 } from '@prisma/client';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  authorityLabel,
-  type AuthorityLabel,
-} from '../users/authority-label.policy';
-import {
-  type UserProfileNameSource,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export interface BoardPostSummaryRecord {
   id: string;
@@ -36,8 +29,9 @@ export interface BoardCommentRecord {
   id: string;
   postId: string;
   authorId: string;
-
-  authorRole: AuthorityLabel;
+  authorMemberKind: MemberKind | null;
+  authorHasStaffAccess: boolean;
+  authorHasAdminAccess: boolean;
   authorName: string;
   body: string;
   createdAt: Date;
@@ -152,9 +146,7 @@ export class BoardRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          userId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -332,12 +324,9 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     postId: comment.postId,
     authorId: comment.authorId,
 
-    authorRole:
-      authorityLabel({
-        memberKind: comment.author.profile?.memberKind ?? null,
-        hasStaffAccess: comment.author.hasStaffAccess,
-        hasAdminAccess: comment.author.hasAdminAccess,
-      }) ?? 'STUDENT',
+    authorMemberKind: comment.author.profile?.memberKind ?? null,
+    authorHasStaffAccess: comment.author.hasStaffAccess,
+    authorHasAdminAccess: comment.author.hasAdminAccess,
     authorName: resolveAuthorName(comment.author),
     body: comment.body,
     createdAt: comment.createdAt,
@@ -364,7 +353,5 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
 function resolveAuthorName(
   author: UserProfileNameSource & { nickname: string },
 ): string {
-  return (
-    UserProfileReadRepository.resolveUserProfileName(author) ?? author.nickname
-  );
+  return author.profile?.name ?? author.nickname;
 }

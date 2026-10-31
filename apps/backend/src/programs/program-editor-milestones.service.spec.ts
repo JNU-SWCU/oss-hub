@@ -8,7 +8,19 @@ import {
   createProgramEditorServiceHarness,
   milestoneInput,
 } from '../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from './program-milestone-edit.policy';
+import { ProgramEditorService } from './program-editor.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const programEditorService = new ProgramEditorService(
+  undefined as never,
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
+);
 
 describe('ProgramEditorService milestones', () => {
   it('updates the selected milestone by canonical id through the aggregate edit contract', async () => {
@@ -55,14 +67,15 @@ describe('ProgramEditorService milestones', () => {
     store.countSubmissionHistoriesForDocuments.mockResolvedValue(0);
     store.lockAttachableUploads.mockResolvedValue([]);
 
-    const expectedFingerprint = fingerprintProgramMilestoneEdit({
-      operation: locked.view.operation,
-      milestone: {
-        ...locked.view.milestone,
-        updatedAt: locked.milestoneUpdatedAt,
-      },
-      documents: locked.fingerprintDocuments,
-    });
+    const expectedFingerprint =
+      programEditorService.fingerprintProgramMilestoneEdit({
+        operation: locked.view.operation,
+        milestone: {
+          ...locked.view.milestone,
+          updatedAt: locked.milestoneUpdatedAt,
+        },
+        documents: locked.fingerprintDocuments,
+      });
 
     await service.updateMilestoneEdit(101n, 'milestone-canonical-id', {
       expectedFingerprint,

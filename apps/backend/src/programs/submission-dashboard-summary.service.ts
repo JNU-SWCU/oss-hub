@@ -1,15 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SubmissionStatus } from '@prisma/client';
 import {
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-  type MilestoneCompletionStatus,
-} from './milestone-completion.policy';
-import {
   SubmissionDashboardSummaryRepository,
   type SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
 import { UnexpectedSubmissionStatusError } from './submission-dashboard-summary.error';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  type MilestoneCompletionStatus,
+} from './milestone-completion.config';
+import { MilestoneCompletionService } from './milestone-completion.service';
 
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
@@ -40,6 +40,7 @@ export class SubmissionDashboardSummaryService {
   constructor(
     @Inject(SubmissionDashboardSummaryRepository)
     private readonly repository: SubmissionDashboardSummaryRepositoryPort,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
   ) {}
 
   async listByProgram(
@@ -145,7 +146,7 @@ export class SubmissionDashboardSummaryService {
             requiredDocumentsByMilestone.get(milestoneId) ?? [];
           addCellCount(
             summary,
-            milestoneCompletionStatus({
+            this.milestoneCompletionService.milestoneCompletionStatus({
               submissionAxisInUse:
                 submissionAxisByMilestone.get(milestoneId) ?? true,
               requiredDocumentStatuses: documentIds.map(

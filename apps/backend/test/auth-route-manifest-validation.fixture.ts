@@ -6,13 +6,13 @@ import {
   Module,
   UseGuards,
 } from '@nestjs/common';
+import { SessionGuard } from '../src/auth/session.guard';
 import {
   OptionalSession,
   Protected,
   Public,
   PUBLIC_ROUTE_METADATA,
-} from '../src/auth/auth-route-metadata.policy';
-import { SessionGuard } from '../src/auth/session.guard';
+} from '../src/auth/authentication.guard';
 
 @Controller('fixture/missing')
 export class MissingMetadataController {

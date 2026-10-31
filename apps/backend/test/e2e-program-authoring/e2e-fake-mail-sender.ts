@@ -1,12 +1,12 @@
-import type {
-  DeadlineDigestMail,
-  MailSender,
-} from '../../src/notifications/notifications.types';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   E2eExternalPortFailure,
   type E2eExternalPortRegistry,
 } from './e2e-external-port-registry';
+import {
+  type DeadlineDigestMail,
+  type MailSender,
+} from '../../src/notifications/gmail-mail.client';
 
 export class E2eFakeMailSender implements MailSender {
   constructor(private readonly registry: E2eExternalPortRegistry) {}

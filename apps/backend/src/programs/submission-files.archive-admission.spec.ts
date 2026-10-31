@@ -7,6 +7,8 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const MIB = 1024 * 1024;
 
@@ -192,6 +194,8 @@ function setup() {
   const service = new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
     storage,
+    new ProgramRulesService(),
+    new SubmissionFileRulesService(),
   );
   return { repository, service, storage };
 }

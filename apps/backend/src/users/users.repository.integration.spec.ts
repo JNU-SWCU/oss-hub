@@ -10,7 +10,10 @@ import {
   type ProfileCompletionOutcome,
   type UsersRepositoryPort,
 } from './users.repository';
-import { isCompleteUserProfile } from './user-profile.policy';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+const userProfileService = new UserProfileService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,7 +60,12 @@ const repository = new UsersRepository(prisma);
 const service = new UsersService(
   repository,
   { requireCurrent: () => Promise.resolve() },
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
+  new UserProfileService(),
 );
 const recordPhoneAudit = jest
   .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
@@ -389,7 +397,7 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
     hasPendingStaffRequest: true,
   });
   expect(after).not.toBeNull();
-  expect(isCompleteUserProfile(after!)).toBe(true);
+  expect(userProfileService.isCompleteUserProfile(after!)).toBe(true);
   await expect(
     readStaffNumberAudits(staffNumberSetUserId),
   ).resolves.toMatchObject([
@@ -696,6 +704,8 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
     repository,
     { requireCurrent: () => Promise.resolve() },
     { record: jest.fn().mockRejectedValue(failure) },
+    new AuditLogMetadataService(),
+    new UserProfileService(),
   );
   await expect(
     rejectingService.patchMyProfile(rollbackGithubId, {

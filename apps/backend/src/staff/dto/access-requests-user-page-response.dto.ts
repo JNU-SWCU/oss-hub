@@ -1,10 +1,10 @@
+import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
   AccountStatus,
   LoginHistoryEvent,
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuthorityLabel } from '../../users/authority-label.policy';
 import type {
   AdminAccessFacets,
   AdminAccessPendingRequest,
@@ -12,7 +12,7 @@ import type {
   AdminAccessUserDetail,
   AdminAccessUserPage,
   AdminAccessUserHistory,
-} from '../../users/admin-access.types';
+} from '../../users/admin-access-read-ordering.repository';
 
 class StaffAccessRequestHistoryItemResponseDto {
   declare readonly id: string;

@@ -1,8 +1,8 @@
 import type { PrismaService } from '../platform/prisma.service';
-import type {
-  AdminAccessLoginHistoryPage,
-  AdminAccessStaffAccessRequestHistoryPage,
-} from './admin-access.types';
+import {
+  type AdminAccessLoginHistoryPage,
+  type AdminAccessStaffAccessRequestHistoryPage,
+} from './admin-access-read-ordering.repository';
 
 type HistoryPage = { readonly page: number; readonly limit: number };
 

@@ -7,18 +7,19 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';
-import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import {
+  RepositoryProvisionGenerationRepository,
+  type RepositoryProvisionHistoryPayloadParser,
+} from '../platform/repository-provision-generation.repository';
 import {
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
-  STUDENT_REPOSITORY_URL_SELECT,
   StudentRepositoryUrlContextRepository,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
-import { ProgramApplicationParticipantRepository } from '../platform/program-application-participant.repository';
 import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export class StudentRepositoryUrlTransactionRepository {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
@@ -49,6 +50,7 @@ export class StudentRepositoryUrlTransactionRepository {
   async relink(
     context: StudentRepositoryUrlContext,
     resolution: OwnGithubRepositoryResolution,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<string> {
     const tx = this.transaction;
     await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "applicationId" = ${context.id} FOR UPDATE`;
@@ -125,17 +127,17 @@ export class StudentRepositoryUrlTransactionRepository {
     await RepositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },
-      parseRepositoryProvisionEvent,
+      parsePayload,
     );
     return repositoryId;
   }
-}
 
-export function isStudentRepositoryUrlConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  );
+  static isStudentRepositoryUrlConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
+  }
 }
 
 @Injectable()
@@ -149,11 +151,10 @@ export class StudentRepositoryUrlRepository {
     return this.prisma.application.findFirst({
       where: {
         programId,
-        ...ProgramApplicationParticipantRepository.programApplicationParticipantWhere(
-          studentId,
-        ),
+        ...PlatformRepository.programApplicationParticipantWhere(studentId),
       },
-      select: STUDENT_REPOSITORY_URL_SELECT,
+      select:
+        StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,
     });
   }
 

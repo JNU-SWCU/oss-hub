@@ -4,15 +4,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFileCleanupScheduler } from './programs.scheduler';
 
-describe('programs.scheduler', () => {
+describe('SubmissionFileCleanupService cron', () => {
   const CRON_JOB_NAME = 'submission-file-cleanup';
 
   const settleRun = (): Promise<void> =>
     new Promise((resolve) => setImmediate(resolve));
 
-  describe('SubmissionFileCleanupScheduler', () => {
+  describe('run', () => {
     let testingModule: TestingModule;
     const runDue = jest.fn<Promise<number>, []>();
     let releasePendingRun: (() => void) | undefined;
@@ -24,11 +23,15 @@ describe('programs.scheduler', () => {
       releasePendingRun = undefined;
       runDue.mockReset();
       runDue.mockResolvedValue(0);
+      const service = new SubmissionFileCleanupService(
+        {} as SubmissionFilesRepository,
+        {} as ObjectStoragePort,
+      );
+      service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          SubmissionFileCleanupScheduler,
-          { provide: SubmissionFileCleanupService, useValue: { runDue } },
+          { provide: SubmissionFileCleanupService, useValue: service },
         ],
       }).compile();
       await testingModule.init();

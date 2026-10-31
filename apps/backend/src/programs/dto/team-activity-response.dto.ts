@@ -1,4 +1,4 @@
-import type { TeamActivityView } from '../program-teams.types';
+import type { TeamActivityView } from '../program-team-repository-evidence.repository';
 
 export class TeamActivityResponseDto {
   declare readonly applicationId: string | null;

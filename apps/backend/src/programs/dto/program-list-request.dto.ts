@@ -8,16 +8,17 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
 import {
-  PROGRAM_LIST_QUERY_DIRECTIONS,
-  PROGRAM_LIST_QUERY_SORTS,
-  PROGRAM_LIST_QUERY_STATUSES,
   type ProgramListQuery,
   type ProgramListQueryDirection,
   type ProgramListQuerySort,
   type ProgramListQueryStatus,
-} from '../programs.policy';
+} from '../program-list-status-filter.repository';
+import {
+  PROGRAM_LIST_QUERY_DIRECTIONS,
+  PROGRAM_LIST_QUERY_SORTS,
+  PROGRAM_LIST_QUERY_STATUSES,
+} from '../program-list.config';
 
 export class ProgramListRequestDto {
   @Type(() => Number)

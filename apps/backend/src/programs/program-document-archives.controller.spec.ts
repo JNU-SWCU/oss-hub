@@ -4,19 +4,23 @@ import { AccountStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  MilestoneDocumentArchiveService,
+  type ProgramDocumentArchiveScope,
+} from './milestone-document-archive.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { type ProgramDocumentArchiveScope } from './milestone-document-result.types';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(32).fill(39);
 const githubId = 3429001135n;
@@ -35,6 +39,8 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       SessionGuard,
       { provide: AuthConfig, useValue: { sessionSecret: secret } },
       {
@@ -95,7 +101,7 @@ afterAll(async () => {
 });
 async function headers() {
   return {
-    cookie: `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`,
+    cookie: `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`,
   };
 }
 

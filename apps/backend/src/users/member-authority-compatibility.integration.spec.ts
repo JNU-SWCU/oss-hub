@@ -4,7 +4,6 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access.types';
 import {
   compatibilityAccess as access,
   compatibilityPrisma as prisma,
@@ -16,6 +15,7 @@ import {
   pendingRequest,
   storedMember,
 } from './member-authority-compatibility.integration-support';
+import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

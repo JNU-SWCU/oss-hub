@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { ProgramsController } from './programs.controller';
 import { ProgramCoverService } from './program-creation.service';
 import { ProgramCoverRepository } from './program-cover.repository';
-import { OBJECT_STORAGE } from '../platform/object-storage.types';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
@@ -17,6 +17,9 @@ import {
   seedUpload,
   authoring,
 } from './program-cover.integration-fixtures';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -91,7 +94,12 @@ it('creates and replays an external cover with public projections and no storage
       where: { actorId: { startsWith: PREFIX } },
     }),
   ).toBe(0);
-  const programs = new ProgramsService(new ProgramsRepository(prisma));
+  const programs = new ProgramsService(
+    new ProgramsRepository(prisma),
+    new MilestoneCompletionService(),
+    new ProgramCoverUrlService(),
+    new ProgramRulesService(),
+  );
   const listing = await programs.list({
     page: 1,
     pageSize: 20,

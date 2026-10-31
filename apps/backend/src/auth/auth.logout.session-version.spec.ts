@@ -4,13 +4,17 @@ import type { Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { SignJWT } from 'jose';
-import type { LoginHistoryService, AuthService } from './auth.service';
-import { AuthenticationGuard } from './authentication.guard';
-import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata.policy';
+import { type LoginHistoryService, type AuthService } from './auth.service';
+import {
+  AuthenticationGuard,
+  OPTIONAL_SESSION_ROUTE_METADATA,
+} from './authentication.guard';
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { sessionCookieName } from './cookies.policy';
 import type { AuthUser, OptionalSessionRequest } from './http-auth.types';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const tokenIssuedAt = 4_000_000_000;
@@ -56,7 +60,7 @@ async function copiedSessionCookie(
     .setIssuedAt(tokenIssuedAt)
     .setExpirationTime(tokenIssuedAt + 60)
     .sign(sessionSecret);
-  return `${sessionCookieName(true)}=${token}`;
+  return `${authSessionService.sessionCookieName(true)}=${token}`;
 }
 
 function statefulAuthService(revocationFailure?: Error): {
@@ -87,9 +91,14 @@ function statefulAuthService(revocationFailure?: Error): {
 }
 
 function controllerWith(authService: AuthService): AuthController {
-  return new AuthController(authService, config(), {
-    recordLogout: jest.fn(),
-  } as unknown as LoginHistoryService);
+  return new AuthController(
+    authService,
+    config(),
+    {
+      recordLogout: jest.fn(),
+    } as unknown as LoginHistoryService,
+    new AuthSessionService(),
+  );
 }
 
 function optionalSessionContext(cookie: string): {
@@ -130,6 +139,7 @@ async function authenticateRequest(
     optionalSessionReflector(),
     config(),
     authService,
+    new AuthSessionService(),
   );
   await guard.canActivate(context);
   return sessionRequest as OptionalSessionRequest;

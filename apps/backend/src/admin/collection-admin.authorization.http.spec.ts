@@ -4,8 +4,6 @@ import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/session.guard';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
-import { issueSessionToken } from '../auth/auth.policy';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { CollectionAdminService } from '../github/collection-admin.service';
@@ -18,6 +16,11 @@ import { CollectionCutoverRepository } from '../github/repository-provision-job.
 import { CollectionSyncService } from '../github/collection-sync.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const roles = [
   ['ADMIN', true, true, AccountStatus.ACTIVE],
@@ -43,6 +46,8 @@ describe('Collection admin authorization HTTP characterization', () => {
     const module = await Test.createTestingModule({
       controllers: [CollectionAdminController],
       providers: [
+        ...STATELESS_PROVIDERS,
+        AuthSessionService,
         SessionGuard,
         CollectionAdminService,
         UsersAuthorityService,
@@ -91,11 +96,12 @@ describe('Collection admin authorization HTTP characterization', () => {
           provide: CollectionCutoverRepository,
           useValue: { isQuiesced: () => false },
         },
+        AuditLogMetadataService,
         { provide: AuditLogService, useValue: { record: () => undefined } },
       ],
     }).compile();
     const config = module.get(AuthConfig);
-    cookie = `${sessionCookieName(config.useSecureCookies)}=${await issueSessionToken(config.sessionSecret, 4242n, 0)}`;
+    cookie = `${authSessionService.sessionCookieName(config.useSecureCookies)}=${await authSessionService.issueSessionToken(config.sessionSecret, 4242n, 0)}`;
     work.mockResolvedValue({ status: 'COMPLETED' });
     app = module.createNestApplication();
     app.useGlobalFilters(new ProblemDetailFilter());

@@ -5,6 +5,9 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,6 +29,8 @@ const staffId = 'test:1276:document-order:staff';
 const service = new MilestoneDocumentsService(
   new MilestoneDocumentsRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
 );
 
 async function cleanup(): Promise<void> {

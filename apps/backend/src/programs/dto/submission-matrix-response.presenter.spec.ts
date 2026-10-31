@@ -1,5 +1,5 @@
-import type { SubmissionMatrixResult } from '../submission.types';
 import { SubmissionMatrixResponseDto } from './submission-matrix-response.dto';
+import { type SubmissionMatrixResult } from '../submission-matrix.service';
 
 it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로를 보존한다', () => {
   const dueAt = new Date('2026-10-01T14:59:59.123Z');

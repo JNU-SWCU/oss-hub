@@ -1,5 +1,5 @@
-import { RANKING_YEAR_ALL } from './ranking.policy';
 import { activity, setupRankingService } from './ranking.service.spec.helpers';
+import { RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingService display name — 공개 계층 (D3 — GitHub nickname 단일화)', () => {
   let harness: ReturnType<typeof setupRankingService>;

@@ -1,33 +1,60 @@
+import { AdminAccessRepository } from './admin-access.repository';
+import { type AdminAccessActor } from './admin-access-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import {
-  USER_PROFILE_SELECT,
-  UserProfileReadRepository,
-} from '../platform/user-profile-read.repository';
+import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import type { AdminAccessActor } from './admin-access-repository.types';
-import {
-  findAdminActorByGithubId,
-  lockActiveAdminRows,
-} from './admin-access.repository';
-import type {
-  AdminProfileApplyOutcome,
-  AdminProfileLegacyFields,
-  AdminProfileRepositoryPort,
-  AdminProfileTargetRecord,
-  AdminProfileTransactionStore,
-  AdminProfileWriteFields,
-} from './users.types';
 
-export type {
-  AdminProfileRepositoryPort,
-  AdminProfileTransactionStore,
-} from './users.types';
+export type AdminProfileTargetRecord = {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+  readonly memberKind?: MemberKind | null;
+};
+
+export type AdminProfileWriteFields = {
+  readonly name: string;
+  readonly studentId: string;
+  readonly department: string;
+};
+
+export type AdminProfileLegacyFields = {
+  readonly name?: string;
+  readonly department?: string;
+};
+
+export type AdminProfileApplyOutcome = 'applied' | 'studentIdTaken';
+
+export interface AdminProfileTransactionStore {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+
+  lockActiveAdmins(): Promise<void>;
+  findActor(githubId: bigint): Promise<AdminAccessActor | null>;
+  findTarget(userId: string): Promise<AdminProfileTargetRecord | null>;
+
+  applyProfile(
+    userId: string,
+    fields: AdminProfileWriteFields,
+    changedFields: Partial<AdminProfileWriteFields>,
+  ): Promise<AdminProfileApplyOutcome>;
+  applyLegacyFields(
+    userId: string,
+    fields: AdminProfileLegacyFields,
+  ): Promise<void>;
+}
+
+export interface AdminProfileRepositoryPort {
+  withTransaction<T>(
+    operation: (store: AdminProfileTransactionStore) => Promise<T>,
+  ): Promise<T>;
+}
 
 const ADMIN_PROFILE_TARGET_SELECT = {
   id: true,
@@ -47,11 +74,14 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
   }
 
   async lockActiveAdmins(): Promise<void> {
-    await lockActiveAdminRows(this.transaction);
+    await AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   findActor(githubId: bigint): Promise<AdminAccessActor | null> {
-    return findAdminActorByGithubId(this.transaction, githubId);
+    return AdminAccessRepository.findAdminActorByGithubId(
+      this.transaction,
+      githubId,
+    );
   }
 
   async findTarget(userId: string): Promise<AdminProfileTargetRecord | null> {
@@ -133,7 +163,11 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
 function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
-  const profile = UserProfileReadRepository.resolveUserProfile(user);
+  const profile = {
+    name: user.profile?.name ?? null,
+    studentId: user.profile?.studentId ?? null,
+    department: user.profile?.department ?? null,
+  };
   return {
     id: user.id,
     githubLogin: user.nickname,

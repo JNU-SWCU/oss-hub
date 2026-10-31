@@ -1,15 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { issueSessionToken } from '../auth/auth.policy';
 import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import { ApplicationPreparationsService } from './application-preparations.service';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(32).fill(9);
 const origin = 'http://frontend.test';
@@ -48,6 +50,8 @@ beforeAll(async () => {
       ApplicationPreparationsController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       {
         provide: StudentApplicationManagementService,
         useValue: { getMine },
@@ -80,7 +84,7 @@ beforeAll(async () => {
   app.setGlobalPrefix('api/v1');
   await app.listen(0, '127.0.0.1');
   baseUrl = await app.getUrl();
-  cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, 1133n, 0)}`;
+  cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 1133n, 0)}`;
 });
 afterAll(async () => {
   await app?.close();

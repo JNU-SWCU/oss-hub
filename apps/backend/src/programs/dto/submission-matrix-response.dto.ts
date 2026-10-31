@@ -1,9 +1,9 @@
 import type {
   SubmissionMatrixResult,
-  MatrixApplicationMode,
   MatrixCellStatus,
-} from '../submission.types';
-import type { DocumentDeliveryStatus } from '../milestone-document.policy';
+} from '../submission-matrix.service';
+import type { MatrixApplicationMode } from '../submission-matrix.repository';
+import type { DocumentDeliveryStatus } from '../milestone-document-collection-read.repository';
 
 export class MatrixMilestoneResponseDto {
   declare readonly id: string;

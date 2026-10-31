@@ -4,14 +4,19 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { issueSessionToken } from '../auth/auth.policy';
-import { sessionCookieName } from '../auth/cookies.policy';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ConsentsController } from './consents.controller';
-import { ConsentsRepository } from './member-onboarding.repository';
+import {
+  ConsentsRepository,
+  type ConsentRecord,
+  type ConsentUser,
+} from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
-import type { ConsentRecord, ConsentUser } from './users.types';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const expectedPolicyVersion = '2026-10-19';
 const allowedOrigin = 'http://frontend.test';
@@ -107,6 +112,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ConsentsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       ConsentsService,
       SessionGuard,
       {
@@ -142,8 +149,12 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  const token = await issueSessionToken(sessionSecret, syntheticGithubId, 0);
-  sessionCookie = `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    syntheticGithubId,
+    0,
+  );
+  sessionCookie = `${authSessionService.sessionCookieName(false)}=${token}`;
   process.stdout.write(`issue99_http_listener=${baseUrl}\n`);
 });
 

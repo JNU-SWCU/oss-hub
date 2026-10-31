@@ -2,14 +2,16 @@ import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CollectionAppClient } from './collection-app.client';
+import {
+  CollectionAppClient,
+  requestFingerprintKey,
+} from './collection-app.client';
 import {
   CollectionAppConfig,
   CollectionAppConfigError,
   CollectionAppConfigValues,
 } from './collection-app.config';
 import { CollectionAppTokenClient } from './collection-app-token.client';
-import { requestFingerprintKey } from './github.policy';
 import { CollectionAppTokenError } from './collection-app-token.error';
 import { CollectionAppClientError } from './collection-app.error';
 
