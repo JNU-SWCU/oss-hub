@@ -15,6 +15,7 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
+import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 
@@ -66,6 +67,7 @@ export class AuthService {
     private readonly repository: AuthRepository,
     private readonly userProfileService: UserProfileService,
     private readonly authSessionService: AuthSessionService,
+    private readonly userActivityService: CollectionUserActivityService,
   ) {}
 
   buildAuthorizeRedirect(prompt?: 'select_account'): AuthorizeRedirect {
@@ -104,6 +106,11 @@ export class AuthService {
     const profile = await this.fetchProfile(accessToken);
     const login = await this.repository.withTransaction((store) =>
       store.upsertUser(profile),
+    );
+    void this.userActivityService.observePrivate(
+      accessToken,
+      profile.githubId,
+      profile.login,
     );
     return { user: this.toAuthUser(login.user), isNew: login.isNew };
   }

@@ -88,10 +88,17 @@ describe('CollectionUserActivityService', () => {
       '2026-08-19T00:00:00.000Z',
     );
     expect(upsert).toHaveBeenCalledWith({
-      where: { githubId_year: { githubId: 4242n, year: 2026 } },
+      where: {
+        githubId_year_visibility: {
+          githubId: 4242n,
+          year: 2026,
+          visibility: 'PUBLIC',
+        },
+      },
       create: expect.objectContaining({
         githubId: 4242n,
         year: 2026,
+        visibility: 'PUBLIC',
         githubLogin: 'octocat',
         commitCount: 10,
         pullRequestCount: 2,
@@ -100,6 +107,7 @@ describe('CollectionUserActivityService', () => {
         starCount: 5,
       }) as unknown,
       update: expect.objectContaining({
+        visibility: 'PUBLIC',
         githubLogin: 'octocat',
         commitCount: 10,
         starCount: 5,
@@ -133,6 +141,16 @@ describe('CollectionUserActivityService', () => {
     expect(fetchUserActivityMetrics).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
     expect(result.skippedPastYearCount).toBe(1);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: {
+        githubId_year_visibility: {
+          githubId: 4242n,
+          year: 2025,
+          visibility: 'PUBLIC',
+        },
+      },
+      select: { githubId: true },
+    });
   });
 
   it('과거 연도 행이 없으면 그 해 경계로 잘라 관측한다', async () => {

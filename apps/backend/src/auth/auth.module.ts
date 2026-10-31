@@ -7,9 +7,10 @@ import { LoginHistoryRepository, AuthRepository } from './auth.repository';
 import { LoginHistoryService, AuthService } from './auth.service';
 import { AuthenticationGuard } from './authentication.guard';
 import { AuthController } from './auth.controller';
+import { CollectionUserActivityModule } from '../github/collection-user-activity.module';
 
 @Module({
-  imports: [HttpSecurityModule, UsersModule],
+  imports: [HttpSecurityModule, UsersModule, CollectionUserActivityModule],
   controllers: [AuthController, LoginHistoryController],
   providers: [
     AuthService,

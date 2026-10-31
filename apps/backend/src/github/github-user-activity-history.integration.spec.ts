@@ -33,7 +33,13 @@ describe('GithubUserActivityHistory (실 Postgres)', () => {
     const secondObservedAt = new Date('2026-08-19T01:00:00.000Z');
 
     const created = await prisma.githubUserActivityHistory.upsert({
-      where: { githubId_year: { githubId: GITHUB_ID, year: YEAR } },
+      where: {
+        githubId_year_visibility: {
+          githubId: GITHUB_ID,
+          year: YEAR,
+          visibility: 'PUBLIC',
+        },
+      },
       create: {
         githubId: GITHUB_ID,
         githubLogin: 'synthetic-login',
@@ -61,7 +67,13 @@ describe('GithubUserActivityHistory (실 Postgres)', () => {
     );
 
     const updated = await prisma.githubUserActivityHistory.upsert({
-      where: { githubId_year: { githubId: GITHUB_ID, year: YEAR } },
+      where: {
+        githubId_year_visibility: {
+          githubId: GITHUB_ID,
+          year: YEAR,
+          visibility: 'PUBLIC',
+        },
+      },
       create: {
         githubId: GITHUB_ID,
         githubLogin: 'synthetic-login',

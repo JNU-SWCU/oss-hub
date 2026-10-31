@@ -6,14 +6,24 @@ import {
   takeLoginDestination,
 } from '@/features/auth/login-destination';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { CurrentConsent } from '@/features/consents/api';
+import { useCurrentConsentQuery } from '@/features/consents/queries';
+import { featureKey } from '@/lib/query-keys';
+import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
 import { BottomTabBar } from './bottom-tab-bar';
 import { ProductShell, ShellMenuProvider } from './product-shell';
 import { ProgramNameReportProvider } from './program-name-report-context';
 import { sectionItemsFor } from './section-list';
 import { ShellNav } from './shell-nav';
 import { hasShellSidebar, shellSheetKind } from './sidebar-presence';
-import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
+import {
+  COSMOS_GROUND_PATHS,
+  PRE_MEMBER_PATHS,
+  SIGNUP_FLOW_PATHS,
+} from './signup-routes';
+import { SessionError } from './session-error';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 import { SkipLink } from './skip-link';
@@ -48,6 +58,43 @@ function SessionAppFrame({
   const pathname = usePathname();
   const session = useSessionRole();
   const { status, isProfileComplete } = session;
+  const queryClient = useQueryClient();
+  const shouldCheckConsent =
+    status === 'assigned' && !SIGNUP_FLOW_PATHS.has(pathname);
+  const consent = useCurrentConsentQuery(shouldCheckConsent);
+  const consentStatus = consent.isError
+    ? 'error'
+    : consent.data === undefined
+      ? 'checking'
+      : consent.data.consented
+        ? 'complete'
+        : 'required';
+
+  const handleConsentCompleted = useCallback(() => {
+    queryClient.setQueryData<CurrentConsent>(
+      featureKey('consents'),
+      (current) => current && { ...current, consented: true },
+    );
+  }, [queryClient]);
+  const consentRequiredDialog = shouldCheckConsent ? (
+    <ConsentRequiredDialog
+      open={consentStatus === 'required'}
+      onOpenChange={() => {}}
+      onCompleted={handleConsentCompleted}
+    />
+  ) : null;
+  const content =
+    !shouldCheckConsent ||
+    consentStatus === 'checking' ||
+    consentStatus === 'complete' ? (
+      children
+    ) : consentStatus === 'error' ? (
+      <SessionError onRetry={() => void consent.refetch()} />
+    ) : (
+      <p className="p-6 text-sm text-muted-foreground" role="status">
+        확인 중…
+      </p>
+    );
   useEffect(() => {
     if (status !== 'assigned' || !isProfileComplete) return;
     if (pathname !== '/' && pathname !== '/dashboard') return;
@@ -84,9 +131,10 @@ function SessionAppFrame({
             id="main-content"
             tabIndex={-1}
           >
-            {children}
+            {content}
           </div>
         </div>
+        {consentRequiredDialog}
       </SessionRoleProvider>
     );
   }
@@ -106,11 +154,12 @@ function SessionAppFrame({
               actions={actions}
               compactMenu={false}
             />
-            <ProductShell>{children}</ProductShell>
+            <ProductShell>{content}</ProductShell>
             <BottomTabBar items={navItems} pathname={pathname} />
           </div>
         </ProgramNameReportProvider>
       </ShellMenuProvider>
+      {consentRequiredDialog}
     </SessionRoleProvider>
   );
 }

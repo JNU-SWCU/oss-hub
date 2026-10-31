@@ -1,4 +1,9 @@
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import {
+  AccountStatus,
+  ActivityVisibility,
+  AffiliationKind,
+  MemberKind,
+} from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingService } from './ranking.service';
@@ -190,6 +195,90 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
         starCount: 1,
       },
     );
+  });
+});
+
+describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
+  it('PRIVATE 행이 있는 학생만 필드별 합산되고 별은 PUBLIC 값이다', async () => {
+    await prisma.githubUserActivityHistory.create({
+      data: {
+        githubId: 8_961_000_000_001n,
+        githubLogin: `${PREFIX}-student`,
+        year: YEAR,
+        visibility: ActivityVisibility.PRIVATE,
+        commitCount: 3,
+        pullRequestCount: 2,
+        issueCount: 1,
+        repositoryCount: 4,
+        starCount: 0,
+        observedAt: OBSERVED_AT,
+      },
+    });
+
+    const rows = await repository.findMetrics({ currentYear: YEAR });
+    await prisma.githubUserActivityHistory.deleteMany({
+      where: { githubId: 8_961_000_000_001n, visibility: 'PRIVATE' },
+    });
+    const byLogin = (name: string) =>
+      rows.find((row) => row.githubLogin === `${PREFIX}-${name}`);
+
+    expect(byLogin('student')).toMatchObject({
+      commitCount: 10,
+      pullRequestCount: 3,
+      issueCount: 2,
+      repositoryCount: 5,
+      starCount: 1,
+    });
+    expect(byLogin('student-admin')).toMatchObject({
+      commitCount: 5,
+      pullRequestCount: 1,
+      issueCount: 1,
+      repositoryCount: 1,
+      starCount: 1,
+    });
+  });
+});
+
+describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () => {
+  it('PRIVATE 기여로 하위 학생이 상위를 역전하고 행이 없는 학생은 그대로다', async () => {
+    const service = new RankingService(repository, new RankingYearService());
+    const summarize = async () =>
+      (await collectCohortItems(service, null)).map((item) => ({
+        githubLogin: item.githubLogin,
+        total: item.total,
+      }));
+
+    const before = await summarize();
+    await prisma.githubUserActivityHistory.create({
+      data: {
+        githubId: 8_961_000_000_002n,
+        githubLogin: `${PREFIX}-student-admin`,
+        year: YEAR,
+        visibility: ActivityVisibility.PRIVATE,
+        commitCount: 10,
+        observedAt: OBSERVED_AT,
+      },
+    });
+    let after: Awaited<ReturnType<typeof summarize>>;
+    try {
+      after = await summarize();
+    } finally {
+      await prisma.githubUserActivityHistory.deleteMany({
+        where: {
+          githubId: 8_961_000_000_002n,
+          visibility: ActivityVisibility.PRIVATE,
+        },
+      });
+    }
+
+    expect(before).toEqual([
+      { githubLogin: `${PREFIX}-student`, total: 11 },
+      { githubLogin: `${PREFIX}-student-admin`, total: 9 },
+    ]);
+    expect(after).toEqual([
+      { githubLogin: `${PREFIX}-student-admin`, total: 19 },
+      { githubLogin: `${PREFIX}-student`, total: 11 },
+    ]);
   });
 });
 

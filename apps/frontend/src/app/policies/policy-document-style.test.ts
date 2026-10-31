@@ -35,7 +35,7 @@ describe('약관 전문 문서 스타일', () => {
       expect(html.match(/<main class="policy-document">/g)).toHaveLength(1);
       expect(html.match(/<h1>/g)).toHaveLength(1);
       expect(html.match(/<h2>/g)).toHaveLength(sections);
-      expect(html).toContain('정책 버전: 2026-10-19');
+      expect(html).toContain('정책 버전: 2026-11-01');
       expect(html).not.toContain('<style');
       expect(html).not.toMatch(/\sstyle="/);
     },

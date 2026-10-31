@@ -10,6 +10,7 @@ import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -45,6 +46,7 @@ describe('GitHub login account choice', () => {
         },
         { provide: AuthRepository, useValue: {} },
         { provide: LoginHistoryService, useValue: {} },
+        { provide: CollectionUserActivityService, useValue: {} },
       ],
     }).compile();
     service = module.get(AuthService);

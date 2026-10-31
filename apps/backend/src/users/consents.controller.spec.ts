@@ -21,7 +21,7 @@ describe('ConsentsController.getCurrent', () => {
 
     expect(getCurrent).toHaveBeenCalledWith(syntheticGithubId);
     expect(response).toEqual({
-      policyVersion: '2026-10-19',
+      policyVersion: '2026-11-01',
       requiredItems: [
         {
           key: 'PRIVACY_COLLECTION',
@@ -74,7 +74,7 @@ describe('ConsentsController.create', () => {
       ],
     });
     expect(response).toEqual({
-      policyVersion: '2026-10-19',
+      policyVersion: '2026-11-01',
       consentedAt: '2026-07-19T01:00:00.000Z',
       nextUrl: '/onboarding/role',
     });

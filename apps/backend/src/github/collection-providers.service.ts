@@ -43,7 +43,7 @@ export class CollectionPublicTokenService {
 }
 
 export class CollectionProvidersService {
-  static readonly providers: Provider[] = [
+  static readonly activityProviders: Provider[] = [
     {
       provide: CollectionPublicTokenService,
       inject: [RUNTIME_CONFIG],
@@ -71,6 +71,10 @@ export class CollectionProvidersService {
           discoveryClient,
         ),
     },
+  ];
+
+  static readonly providers: Provider[] = [
+    ...CollectionProvidersService.activityProviders,
     {
       provide: CollectionSyncService,
       inject: [

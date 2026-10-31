@@ -10,7 +10,7 @@ export function PolicyDocument({
   return (
     <main className="policy-document">
       <h1>{title}</h1>
-      <p>정책 버전: 2026-10-19</p>
+      <p>정책 버전: 2026-11-01</p>
       {children}
     </main>
   );
