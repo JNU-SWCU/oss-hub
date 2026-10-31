@@ -112,7 +112,7 @@ describe('팀 초대 대상 자격', () => {
         accountStatus: AccountStatus.ACTIVE,
         profile: { memberKind: MemberKind.STAFF },
       }),
-      isActiveStaff: jest.fn().mockResolvedValue(false),
+      findStaffAuthority: jest.fn().mockResolvedValue(null),
       isUserInProgramTeam: jest.fn().mockResolvedValue(false),
       countTeamMembers: jest.fn().mockResolvedValue(1),
       createInvitation: jest.fn(),

@@ -88,6 +88,12 @@ export interface InvitationCandidateRecord {
   readonly avatarUrl: string | null;
 }
 
+export interface StaffAuthorityRow {
+  readonly accountStatus: AccountStatus;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+}
+
 export interface InviteeAccountRow {
   readonly accountStatus: AccountStatus;
   readonly profile: { readonly memberKind: MemberKind } | null;
@@ -316,8 +322,15 @@ export class TeamInvitationsRepository {
     return member !== null;
   }
 
-  async isActiveStaff(userId: string): Promise<boolean> {
-    return isActiveStaffActor(this.prisma, userId);
+  findStaffAuthority(userId: string): Promise<StaffAuthorityRow | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        accountStatus: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      },
+    });
   }
 
   findInviteeAccount(userId: string): Promise<InviteeAccountRow | null> {

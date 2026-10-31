@@ -14,6 +14,7 @@ import {
   type ReceivedTeamInvitationRecord,
   type SentTeamInvitationRecord,
   type InviteeAccountRow,
+  type StaffAuthorityRow,
 } from './team-invitations.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
@@ -190,7 +191,8 @@ export class TeamInvitationsService {
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
-    if (await this.repository.isActiveStaff(userId)) return team;
+    if (this.isActiveStaff(await this.repository.findStaffAuthority(userId)))
+      return team;
     const isMember = await this.repository.isTeamMember(teamId, userId);
     if (!isMember) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_MEMBER);
@@ -203,11 +205,19 @@ export class TeamInvitationsService {
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
-    if (await this.repository.isActiveStaff(userId)) return team;
+    if (this.isActiveStaff(await this.repository.findStaffAuthority(userId)))
+      return team;
     if (team.leaderId !== userId) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
     }
     return team;
+  }
+
+  private isActiveStaff(account: StaffAuthorityRow | null): boolean {
+    return (
+      account?.accountStatus === AccountStatus.ACTIVE &&
+      (account.hasStaffAccess || account.hasAdminAccess)
+    );
   }
 
   private error(code: TeamInvitationErrorCode): DomainException {

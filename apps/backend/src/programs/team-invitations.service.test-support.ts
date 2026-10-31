@@ -47,7 +47,7 @@ export type MockRepository = TeamInvitationsRepository & {
   findByTeamId: jest.Mock;
   findTeamContext: jest.Mock;
   isTeamMember: jest.Mock;
-  isActiveStaff: jest.Mock;
+  findStaffAuthority: jest.Mock;
   findInviteeAccount: jest.Mock;
   searchCandidates: jest.Mock;
   createInvitation: jest.Mock;
@@ -76,7 +76,7 @@ export function buildService(
     }),
     isTeamMember: jest.fn().mockResolvedValue(true),
 
-    isActiveStaff: jest.fn().mockResolvedValue(false),
+    findStaffAuthority: jest.fn().mockResolvedValue(null),
     findInviteeAccount: jest.fn().mockResolvedValue({
       accountStatus: AccountStatus.ACTIVE,
       profile: { memberKind: MemberKind.STUDENT },
