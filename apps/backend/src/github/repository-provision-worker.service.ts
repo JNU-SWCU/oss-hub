@@ -1,15 +1,13 @@
-import { Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   ApplicationStatus,
   RepositoryInvitationStatus,
   RepositorySource,
 } from '@prisma/client';
-import {
-  COLLABORATOR_OUTCOMES,
-  type GithubAppClient,
-} from './github-app.client';
-import type { RepositoryOwnEnrollmentService } from './repositories.service';
-import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { COLLABORATOR_OUTCOMES, GithubAppClient } from './github-app.client';
+import { RepositoryOwnEnrollmentService } from './repositories.service';
+import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { type OwnGithubRepositoryResolution } from './own-repository-resolution.types';
 import {
@@ -21,13 +19,13 @@ import {
   type ProvisionedRepository,
   type RepositoryInvitationWork,
   type RepositoryProvisionContext,
-  type RepositoryProvisionStateStore,
 } from './repository-provision-state-helpers.repository';
 
 import {
   DEFAULT_PROVISION_OPTIONS,
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   PROVISION_ERROR_CODES,
+  PROVISION_WORKER_OPTIONS,
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision-state.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -56,32 +54,20 @@ interface PreparedRepository {
   readonly ownResolution: OwnGithubRepositoryResolution | null;
 }
 
+@Injectable()
 export class RepositoryProvisionWorkerService {
   private readonly logger = new Logger(RepositoryProvisionWorkerService.name);
 
   constructor(
-    private readonly jobs: Pick<
-      RepositoryProvisionJobRepository,
-      'claimNext' | 'claimNextReconciliation' | 'renewLease'
-    >,
-    private readonly state: RepositoryProvisionStateStore,
-    private readonly github: Pick<
-      GithubAppClient,
-      | 'findRepository'
-      | 'createRepository'
-      | 'ensureCollaborator'
-      | 'revokeCollaborator'
-      | 'findPublicRepository'
-      | 'organization'
-    >,
-
-    private readonly collectionEnrollment: Pick<
-      RepositoryOwnEnrollmentService,
-      'enrollExternalRepository'
-    >,
+    private readonly jobs: RepositoryProvisionJobRepository,
+    private readonly state: RepositoryProvisionStateService,
+    private readonly github: GithubAppClient,
+    private readonly collectionEnrollment: RepositoryOwnEnrollmentService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryProvisionRulesService: RepositoryProvisionRulesService,
     private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
+    @Optional()
+    @Inject(PROVISION_WORKER_OPTIONS)
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
   ) {}
 

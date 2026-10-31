@@ -421,7 +421,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
-        github,
+        github as unknown as GithubAppClient,
         ownEnrollment(),
         new AuditLogMetadataService(),
         new RepositoryProvisionRulesService(),
@@ -501,7 +501,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
-        github,
+        github as unknown as GithubAppClient,
         ownEnrollment(),
         new AuditLogMetadataService(),
         new RepositoryProvisionRulesService(),
@@ -572,7 +572,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       ownEnrollment(),
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
@@ -654,7 +654,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       const worker = new RepositoryProvisionWorkerService(
         jobs,
         state,
-        github,
+        github as unknown as GithubAppClient,
         ownEnrollment(),
         new AuditLogMetadataService(),
         new RepositoryProvisionRulesService(),
@@ -708,7 +708,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       new StudentRepositoryUrlRepository(prisma),
       repository,
       new OwnRepositoryUrlValidationService(
-        github,
+        github as unknown as GithubAppClient,
         new RepositoryProvisionGithubService(
           new RepositoryUrlService(),
           new RepositoryProvisionRulesService(),
@@ -739,7 +739,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       ownEnrollment(),
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
@@ -793,7 +793,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       const result = await new RepositoryProvisionWorkerService(
         jobs,
         state,
-        github,
+        github as unknown as GithubAppClient,
         ownEnrollment(),
         new AuditLogMetadataService(),
         new RepositoryProvisionRulesService(),

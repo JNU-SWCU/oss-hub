@@ -107,7 +107,7 @@ export class PublicExposurePersonaHttpHarness {
     const repositoriesRepository = new RepositoriesRepository(this.prisma);
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
-      github,
+      github as unknown as GithubAppClient,
       auditLogService,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),

@@ -56,7 +56,7 @@ const auditLog = new AuditLogService(
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositories = new RepositoriesService(
   repositoriesRepository,
-  github,
+  github as unknown as GithubAppClient,
   auditLog,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
@@ -390,8 +390,8 @@ describe('SubmissionReviewsService integration', () => {
       repositoriesRepository,
     );
     const concurrentRepositories = new RepositoriesService(
-      barrierRepository,
-      github,
+      barrierRepository as unknown as RepositoriesRepository,
+      github as unknown as GithubAppClient,
       auditLog,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),

@@ -76,7 +76,7 @@ const auditLogService = new AuditLogService(
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
-  github,
+  github as unknown as GithubAppClient,
   auditLogService,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),

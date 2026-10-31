@@ -257,10 +257,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -358,10 +358,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      githubClient(),
+      githubClient() as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -477,10 +477,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      githubClient(),
+      githubClient() as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -552,10 +552,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -624,10 +624,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -683,10 +683,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -745,10 +745,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository,
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -814,10 +814,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -861,10 +861,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -902,10 +902,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
@@ -968,7 +968,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       ownEnrollment(),
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
@@ -1081,10 +1081,10 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
-      github,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
       new RepositoryProvisionRulesService(),
       new RepositoryProvisionGithubService(
