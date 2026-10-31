@@ -75,7 +75,7 @@ describe('loadRuntimeConfig', () => {
     const loadedKeys = Object.keys(config) as RuntimeEnvKey[];
 
     expect(loadedKeys).toEqual([...RUNTIME_CONFIG_KEYS]);
-    expect(RUNTIME_CONFIG_KEYS).toHaveLength(33);
+    expect(RUNTIME_CONFIG_KEYS).toHaveLength(29);
     expect(RUNTIME_CONFIG_KEYS).toContain('MAIL_MODE');
 
     const expected: RuntimeConfig = Object.freeze(
