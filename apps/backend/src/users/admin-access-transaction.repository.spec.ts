@@ -1,3 +1,6 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -52,11 +55,15 @@ describe('AdminAccessRepository transaction store', () => {
       },
       auditLog: { create: jest.fn() },
     };
-    const repository = new AdminAccessRepository({
-      $transaction: <T>(
-        operation: (store: typeof transaction) => Promise<T>,
-      ): Promise<T> => operation(transaction),
-    } as unknown as PrismaService);
+    const repository = new AdminAccessRepository(
+      {
+        $transaction: <T>(
+          operation: (store: typeof transaction) => Promise<T>,
+        ): Promise<T> => operation(transaction),
+      } as unknown as PrismaService,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    );
     const decidedAt = new Date('2026-07-24T00:00:00.000Z');
 
     const result = await repository.withTransaction(async (store) => ({

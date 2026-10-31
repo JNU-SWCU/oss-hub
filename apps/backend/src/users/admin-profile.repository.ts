@@ -67,18 +67,21 @@ type PrismaAdminProfileTarget = Prisma.UserGetPayload<{
 }>;
 
 class PrismaAdminProfileTransactionRepository implements AdminProfileTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
   }
 
   async lockActiveAdmins(): Promise<void> {
-    await AdminAccessRepository.lockActiveAdminRows(this.transaction);
+    await this.adminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   findActor(githubId: bigint): Promise<AdminAccessActor | null> {
-    return AdminAccessRepository.findAdminActorByGithubId(
+    return this.adminAccessRepository.findAdminActorByGithubId(
       this.transaction,
       githubId,
     );
@@ -138,7 +141,10 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
 
 @Injectable()
 export class AdminProfileRepository implements AdminProfileRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: AdminProfileTransactionStore) => Promise<T>,
@@ -147,7 +153,12 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(new PrismaAdminProfileTransactionRepository(transaction)),
+            operation(
+              new PrismaAdminProfileTransactionRepository(
+                transaction,
+                this.adminAccessRepository,
+              ),
+            ),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {

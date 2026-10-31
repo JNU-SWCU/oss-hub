@@ -1,3 +1,6 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -18,7 +21,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessRepository(
+  prisma,
+  new AdminAccessHistoryRepository(),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
@@ -101,7 +108,11 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
   const releasePauseAfterLock = deferred();
   const pausedService = new AdminAccessService(
     new PausingActorRevalidationAdminAccessRepository(
-      new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
+      new AdminAccessRepository(
+        pidCapturingPrisma(mutationBackend.capture),
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      ),
       {
         onAfterLock: async () => {
           reachedPauseAfterLock.resolve();

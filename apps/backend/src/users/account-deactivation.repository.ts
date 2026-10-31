@@ -57,7 +57,10 @@ type PrismaAccountDeactivationTarget = Prisma.UserGetPayload<{
 type LockedUserRow = Readonly<{ id: string }>;
 
 class PrismaAccountDeactivationTransactionRepository implements AccountDeactivationTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
@@ -80,7 +83,7 @@ class PrismaAccountDeactivationTransactionRepository implements AccountDeactivat
   }
 
   lockActiveAdmins(): Promise<number> {
-    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
+    return this.adminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   async deactivate(userId: string): Promise<boolean> {
@@ -94,14 +97,20 @@ class PrismaAccountDeactivationTransactionRepository implements AccountDeactivat
 
 @Injectable()
 export class AccountDeactivationRepository implements AccountDeactivationRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: AccountDeactivationTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
       operation(
-        new PrismaAccountDeactivationTransactionRepository(transaction),
+        new PrismaAccountDeactivationTransactionRepository(
+          transaction,
+          this.adminAccessRepository,
+        ),
       ),
     );
   }

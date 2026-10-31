@@ -1,3 +1,6 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
@@ -26,7 +29,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessRepository(
+  prisma,
+  new AdminAccessHistoryRepository(),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+);
 const service = new AdminAccessService(
   repository,
   new AuditLogService(

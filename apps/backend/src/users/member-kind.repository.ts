@@ -114,18 +114,21 @@ type PrismaMemberKindTarget = Prisma.UserGetPayload<{
 type LockedRow = Readonly<{ id: string }>;
 
 class PrismaMemberKindTransactionRepository implements MemberKindTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
   }
 
   async lockActiveAdmins(): Promise<void> {
-    await AdminAccessRepository.lockActiveAdminRows(this.transaction);
+    await this.adminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return AdminAccessRepository.findAdminActorByGithubId(
+    return this.adminAccessRepository.findAdminActorByGithubId(
       this.transaction,
       githubId,
     );
@@ -183,7 +186,7 @@ class PrismaMemberKindTransactionRepository implements MemberKindTransactionStor
     readonly actorId: string;
     readonly decidedAt: Date;
   }): Promise<{ readonly id: string }> {
-    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
       this.transaction,
       input,
     );
@@ -192,7 +195,10 @@ class PrismaMemberKindTransactionRepository implements MemberKindTransactionStor
 
 @Injectable()
 export class MemberKindRepository implements MemberKindRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: MemberKindTransactionStore) => Promise<T>,
@@ -201,7 +207,12 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(new PrismaMemberKindTransactionRepository(transaction)),
+            operation(
+              new PrismaMemberKindTransactionRepository(
+                transaction,
+                this.adminAccessRepository,
+              ),
+            ),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {

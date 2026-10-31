@@ -1,3 +1,6 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { MemberKindService } from './member-kind.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus } from '@prisma/client';
@@ -25,7 +28,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessRepository(
+  prisma,
+  new AdminAccessHistoryRepository(),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
@@ -68,7 +75,19 @@ describe('Admin access real PostgreSQL transactions', () => {
 
     const synchronizedService = new IndependentAuthorityService(
       new BarrierIndependentAuthorityRepository(
-        new IndependentAuthorityRepository(prisma),
+        new IndependentAuthorityRepository(
+          prisma,
+          new AdminAccessReadRepository(
+            new AdminAccessReadOrderingRepository(),
+          ),
+          new AdminAccessRepository(
+            prisma,
+            new AdminAccessHistoryRepository(),
+            new AdminAccessReadRepository(
+              new AdminAccessReadOrderingRepository(),
+            ),
+          ),
+        ),
       ),
       auditLog,
       new AuditLogMetadataService(),

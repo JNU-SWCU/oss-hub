@@ -43,21 +43,25 @@ type PrismaAdminActor = Prisma.UserGetPayload<{
 type LockedUserRow = Readonly<{ id: string }>;
 
 class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly adminAccessReadRepository: AdminAccessReadRepository,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return AdminAccessRepository.findAdminActorByGithubId(
+    return this.adminAccessRepository.findAdminActorByGithubId(
       this.transaction,
       githubId,
     );
   }
 
   lockActiveAdmins(): Promise<number> {
-    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
+    return this.adminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
   async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
@@ -69,9 +73,11 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
     }
     const user = await this.transaction.user.findUnique({
       where: { id: userId },
-      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
+      select: this.adminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
-    return user ? AdminAccessReadRepository.toAdminAccessUserRow(user) : null;
+    return user
+      ? this.adminAccessReadRepository.toAdminAccessUserRow(user)
+      : null;
   }
 
   async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
@@ -109,7 +115,7 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    return AdminAccessRepository.insertRevokedStaffAccessRequest(
+    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
       this.transaction,
       input,
     );
@@ -118,28 +124,35 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
 
 @Injectable()
 export class AdminAccessRepository implements AdminAccessRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessHistoryRepository: AdminAccessHistoryRepository,
+    private readonly adminAccessReadRepository: AdminAccessReadRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaAdminAccessTransactionRepository(transaction)),
+      operation(
+        new PrismaAdminAccessTransactionRepository(
+          transaction,
+          this.adminAccessReadRepository,
+          this,
+        ),
+      ),
     );
   }
 
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return AdminAccessRepository.findAdminActorByGithubId(
-      this.prisma,
-      githubId,
-    );
+    return this.findAdminActorByGithubId(this.prisma, githubId);
   }
 
   list(
     query: AdminAccessListQuery,
     sortContext: 'directory' | 'requestQueue' = 'directory',
   ) {
-    return AdminAccessReadRepository.listAdminAccessUsers(
+    return this.adminAccessReadRepository.listAdminAccessUsers(
       this.prisma,
       query,
       sortContext,
@@ -147,11 +160,14 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
   }
 
   facets(query: AdminAccessListQuery) {
-    return AdminAccessReadRepository.listAdminAccessFacets(this.prisma, query);
+    return this.adminAccessReadRepository.listAdminAccessFacets(
+      this.prisma,
+      query,
+    );
   }
 
   findById(userId: string) {
-    return AdminAccessReadRepository.findAdminAccessUserById(
+    return this.adminAccessReadRepository.findAdminAccessUserById(
       this.prisma,
       userId,
     );
@@ -161,7 +177,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
-    return AdminAccessHistoryRepository.listAdminAccessStaffAccessRequestHistory(
+    return this.adminAccessHistoryRepository.listAdminAccessStaffAccessRequestHistory(
       this.prisma,
       userId,
       page,
@@ -172,14 +188,14 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     userId: string,
     page: { readonly page: number; readonly limit: number },
   ): Promise<AdminAccessLoginHistoryPage> {
-    return AdminAccessHistoryRepository.listAdminAccessLoginHistory(
+    return this.adminAccessHistoryRepository.listAdminAccessLoginHistory(
       this.prisma,
       userId,
       page,
     );
   }
 
-  static async lockActiveAdminRows(
+  async lockActiveAdminRows(
     transaction: Prisma.TransactionClient,
   ): Promise<number> {
     const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
@@ -195,7 +211,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     return rows.length;
   }
 
-  static async findAdminActorByGithubId(
+  async findAdminActorByGithubId(
     transaction: Prisma.TransactionClient,
     githubId: bigint,
   ): Promise<AdminAccessActor | null> {
@@ -203,10 +219,10 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       where: { githubId },
       select: ADMIN_ACTOR_SELECT,
     });
-    return actor ? AdminAccessRepository.toAdminActor(actor) : null;
+    return actor ? this.toAdminActor(actor) : null;
   }
 
-  static toAdminActor(user: PrismaAdminActor): AdminAccessActor {
+  toAdminActor(user: PrismaAdminActor): AdminAccessActor {
     return {
       id: user.id,
       githubId: user.githubId,
@@ -218,7 +234,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     };
   }
 
-  static async insertRevokedStaffAccessRequest(
+  async insertRevokedStaffAccessRequest(
     transaction: Prisma.TransactionClient,
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {

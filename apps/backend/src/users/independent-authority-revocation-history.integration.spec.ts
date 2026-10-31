@@ -1,3 +1,7 @@
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -21,7 +25,15 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const authority = new IndependentAuthorityService(
-  new IndependentAuthorityRepository(prisma),
+  new IndependentAuthorityRepository(
+    prisma,
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    ),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),

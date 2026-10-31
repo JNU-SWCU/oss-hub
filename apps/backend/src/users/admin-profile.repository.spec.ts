@@ -1,3 +1,7 @@
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
 import { Prisma } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
@@ -20,6 +24,11 @@ describe('AdminProfileRepository.withTransaction', () => {
     const prisma = { $transaction: transaction };
     const repository = new AdminProfileRepository(
       prisma as unknown as PrismaService,
+      new AdminAccessRepository(
+        prisma as unknown as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      ),
     );
     const operation = jest.fn().mockResolvedValue('result');
 
@@ -35,6 +44,11 @@ describe('AdminProfileRepository.withTransaction', () => {
     const prisma = { $transaction: transaction };
     const repository = new AdminProfileRepository(
       prisma as unknown as PrismaService,
+      new AdminAccessRepository(
+        prisma as unknown as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      ),
     );
 
     const rejection = repository.withTransaction(() =>
@@ -59,6 +73,11 @@ describe('AdminProfileRepository.withTransaction', () => {
     const prisma = { $transaction: transaction };
     const repository = new AdminProfileRepository(
       prisma as unknown as PrismaService,
+      new AdminAccessRepository(
+        prisma as unknown as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      ),
     );
 
     await expect(

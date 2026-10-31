@@ -1,3 +1,6 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -27,7 +30,11 @@ export const compatibilityUsers = new UsersService(
   new UserProfileService(),
 );
 export const compatibilityAccess = new AdminAccessService(
-  new AdminAccessRepository(compatibilityPrisma),
+  new AdminAccessRepository(
+    compatibilityPrisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  ),
   new AuditLogService(
     new AuditLogRepository(compatibilityPrisma),
     new AuditLogMetadataService(),

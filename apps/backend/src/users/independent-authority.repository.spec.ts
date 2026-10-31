@@ -1,3 +1,7 @@
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -54,7 +58,15 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
       operation: (store: typeof transaction) => Promise<T>,
     ): Promise<T> => operation(transaction),
   });
-  const repository = new IndependentAuthorityRepository(prisma);
+  const repository = new IndependentAuthorityRepository(
+    prisma,
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    ),
+  );
 
   await repository.withTransaction(async (store) => {
     expect(store.auditLogWriter).toBe(transaction);
@@ -90,7 +102,15 @@ it('교직원 회수 이력을 옛 CAS 경로와 같은 모양으로 같은 트�
       operation: (store: typeof transaction) => Promise<T>,
     ): Promise<T> => operation(transaction),
   });
-  const repository = new IndependentAuthorityRepository(prisma);
+  const repository = new IndependentAuthorityRepository(
+    prisma,
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    ),
+  );
   const decidedAt = new Date('2026-09-23T00:00:00.000Z');
 
   const inserted = await repository.withTransaction((store) =>

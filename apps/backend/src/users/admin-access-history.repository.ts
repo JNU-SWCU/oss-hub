@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type { PrismaService } from '../platform/prisma.service';
 import {
   type AdminAccessLoginHistoryPage,
@@ -6,8 +7,9 @@ import {
 
 type HistoryPage = { readonly page: number; readonly limit: number };
 
+@Injectable()
 export class AdminAccessHistoryRepository {
-  static async listAdminAccessStaffAccessRequestHistory(
+  async listAdminAccessStaffAccessRequestHistory(
     prisma: Pick<PrismaService, 'staffAccessRequest'>,
     userId: string,
     page: HistoryPage,
@@ -45,7 +47,7 @@ export class AdminAccessHistoryRepository {
     };
   }
 
-  static async listAdminAccessLoginHistory(
+  async listAdminAccessLoginHistory(
     prisma: Pick<PrismaService, 'loginHistory'>,
     userId: string,
     page: HistoryPage,

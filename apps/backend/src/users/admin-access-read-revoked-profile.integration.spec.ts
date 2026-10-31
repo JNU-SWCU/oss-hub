@@ -1,3 +1,4 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -91,10 +92,9 @@ afterAll(async () => {
 
 it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다', async () => {
   const detail = mutation.toAdminAccessUserDetailRecord(
-    (await AdminAccessReadRepository.findAdminAccessUserById(
-      prisma,
-      REVOKED_STAFF_ID,
-    ))!,
+    (await new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+    ).findAdminAccessUserById(prisma, REVOKED_STAFF_ID))!,
   );
 
   expect(detail?.role).toBeNull();
@@ -107,17 +107,18 @@ it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다'
 
 it('고른 역할이 없는 미배정 사용자는 여전히 학생 기준으로 미완료다', async () => {
   const detail = mutation.toAdminAccessUserDetailRecord(
-    (await AdminAccessReadRepository.findAdminAccessUserById(
-      prisma,
-      UNCHOSEN_ID,
-    ))!,
+    (await new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+    ).findAdminAccessUserById(prisma, UNCHOSEN_ID))!,
   );
 
   expect(detail?.isProfileComplete).toBe(false);
 });
 
 it('목록 조회도 상세와 같은 완료 판정을 돌려준다', async () => {
-  const page = await AdminAccessReadRepository.listAdminAccessUsers(prisma, {
+  const page = await new AdminAccessReadRepository(
+    new AdminAccessReadOrderingRepository(),
+  ).listAdminAccessUsers(prisma, {
     page: 1,
     limit: 50,
     query: 'synthetic-184-',
