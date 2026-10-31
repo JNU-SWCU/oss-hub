@@ -1,13 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useBoardListUrlState } from '../board-list-url-state';
+import { invalidateBoard, useBoardListQuery } from '../queries';
+import { useCallback, useMemo, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { createBoardPost, listBoardPosts } from '../api';
-import {
-  invalidateBoardList,
-  subscribeBoardListInvalidation,
-} from '../board-list-refetch';
+import { createBoardPost } from '../api';
 import {
   hasBoardPostInputError,
   mapBoardError,
@@ -15,7 +14,6 @@ import {
 } from '../board-format';
 import { boardPostHref } from '../board-paths';
 import type { BoardListState } from '../types';
-import { BOARD_PAGE_SIZE } from '../board-pagination';
 import { BoardListContent } from './board-list-content';
 
 const BOARD_PARTICIPATION_REQUIRED_CODE = 'BRD_001';
@@ -28,9 +26,26 @@ export function BoardListScreen({
   readonly isStaff: boolean;
 }) {
   const router = useRouter();
-  const [page, setPage] = useState(1);
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<BoardListState>({ kind: 'loading' });
+  const {
+    state: { page },
+    navigate,
+  } = useBoardListUrlState();
+  const queryClient = useQueryClient();
+  const query = useBoardListQuery(programId, page);
+  const state: BoardListState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? query.error instanceof ApiError &&
+        query.error.problem.code === BOARD_PARTICIPATION_REQUIRED_CODE
+        ? { kind: 'not-participant' }
+        : {
+            kind: 'error',
+            message:
+              query.error instanceof ApiError
+                ? mapBoardError(query.error.problem)
+                : '잠시 후 다시 시도해 주세요.',
+          }
+      : { kind: 'ready', page: query.data };
   const [newPostOpen, setNewPostOpen] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostBody, setNewPostBody] = useState('');
@@ -45,39 +60,7 @@ export function BoardListScreen({
     [newPostTitle, newPostBody],
   );
 
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
-
-  useEffect(() => {
-    let active = true;
-    const loadPosts = () => {
-      setState({ kind: 'loading' });
-      listBoardPosts(programId, { page, limit: BOARD_PAGE_SIZE })
-        .then((result) => {
-          if (active) setState({ kind: 'ready', page: result });
-        })
-        .catch((error: unknown) => {
-          if (!active) return;
-          if (
-            error instanceof ApiError &&
-            error.problem.code === BOARD_PARTICIPATION_REQUIRED_CODE
-          ) {
-            setState({ kind: 'not-participant' });
-            return;
-          }
-          const message =
-            error instanceof ApiError
-              ? mapBoardError(error.problem)
-              : '잠시 후 다시 시도해 주세요.';
-          setState({ kind: 'error', message });
-        });
-    };
-    const unsubscribe = subscribeBoardListInvalidation(programId, loadPosts);
-    loadPosts();
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [programId, page, attempt]);
+  const retry = () => void query.refetch();
 
   const toggleNewPost = useCallback(() => {
     setNewPostOpen((open) => !open);
@@ -94,7 +77,7 @@ export function BoardListScreen({
     setNewPostSubmitError(null);
     createBoardPost(programId, { title: newPostTitle, body: newPostBody })
       .then((post) => {
-        invalidateBoardList(programId);
+        void invalidateBoard(queryClient, programId);
         router.push(boardPostHref(programId, post.id));
       })
       .catch((error: unknown) => {
@@ -105,7 +88,14 @@ export function BoardListScreen({
             : '잠시 후 다시 시도해 주세요.',
         );
       });
-  }, [programId, newPostTitle, newPostBody, newPostErrors, router]);
+  }, [
+    programId,
+    newPostTitle,
+    newPostBody,
+    newPostErrors,
+    router,
+    queryClient,
+  ]);
 
   return (
     <BoardListContent
@@ -124,7 +114,7 @@ export function BoardListScreen({
       onTitleChange={setNewPostTitle}
       onBodyChange={setNewPostBody}
       onSubmitNewPost={submitNewPost}
-      onPageChange={setPage}
+      onPageChange={(nextPage) => navigate({ page: nextPage })}
       onRetry={retry}
     />
   );

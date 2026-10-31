@@ -1,14 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
-import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService, LoginHistoryService } from './auth.service';
 import { AuthUser, type OptionalSessionRequest } from './http-auth.types';
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-} from './auth-session.service';
+} from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

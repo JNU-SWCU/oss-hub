@@ -5,7 +5,6 @@ import {
   Module,
   RequestMethod,
   type Type,
-  UseGuards,
 } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { MetadataScanner } from '@nestjs/core/metadata-scanner';
@@ -16,7 +15,6 @@ import {
   compareStringsByCodeUnit,
 } from '../app-controller-discovery';
 import { createAuthRouteManifest } from './auth-route-manifest.fixture';
-import { SessionGuard } from './session.guard';
 import {
   OptionalSession,
   Protected,
@@ -102,24 +100,6 @@ class DuplicateInheritedHandlerBaseController {
   route(): void {}
 }
 class DuplicateInheritedHandlerController extends DuplicateInheritedHandlerBaseController {}
-
-@Public()
-@Controller('inherited-guard-migration')
-@UseGuards(SessionGuard)
-class InheritedGuardMigrationBaseController {
-  @Get()
-  route(): void {}
-}
-class InheritedGuardMigrationController extends InheritedGuardMigrationBaseController {}
-
-@Controller('inherited-handler-guard-migration')
-class InheritedHandlerGuardMigrationBaseController {
-  @Get()
-  @Public()
-  @UseGuards(SessionGuard)
-  route(): void {}
-}
-class InheritedHandlerGuardMigrationController extends InheritedHandlerGuardMigrationBaseController {}
 
 @Public()
 @Controller('Z')
@@ -222,27 +202,6 @@ describe('authentication route manifest inheritance', () => {
     expect(() =>
       createAuthRouteManifest([DuplicateInheritedHandlerController]),
     ).toThrow(/duplicate authentication metadata.*handler/i);
-  });
-
-  it('keeps inherited SessionGuard enforcement separate from declared access', () => {
-    expect(
-      createAuthRouteManifest([InheritedGuardMigrationController]),
-    ).toEqual([
-      {
-        access: 'PUBLIC',
-        method: 'GET',
-        path: '/api/v1/inherited-guard-migration',
-      },
-    ]);
-    expect(
-      createAuthRouteManifest([InheritedHandlerGuardMigrationController]),
-    ).toEqual([
-      {
-        access: 'PUBLIC',
-        method: 'GET',
-        path: '/api/v1/inherited-handler-guard-migration',
-      },
-    ]);
   });
 
   it('orders controllers and routes without locale-sensitive comparison', () => {

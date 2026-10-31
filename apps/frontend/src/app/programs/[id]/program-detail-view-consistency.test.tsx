@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProgramDetail } from '@/features/programs/catalog/dto';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 import { ApiError } from '@/lib/api-client';
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -15,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
   hasStaffAccess: true,
   hasAdminAccess: false,
+  memberKind: 'STUDENT',
   getMyApplication: vi.fn(),
   getProgramOverview: vi.fn(),
   router: { push: vi.fn(), replace: vi.fn() },
@@ -47,7 +50,7 @@ vi.mock('@/features/auth/use-session', () => ({
 vi.mock('../../_shell/use-session-role', () => ({
   useSessionRole: () => ({
     status: 'assigned',
-    memberKind: 'STUDENT',
+    memberKind: mocks.memberKind,
     hasStaffAccess: mocks.hasStaffAccess,
     hasAdminAccess: mocks.hasAdminAccess,
     isProfileComplete: true,
@@ -90,17 +93,21 @@ const DETAIL = {
 } as const satisfies ProgramDetail;
 
 describe('프로그램 상세와 셸의 참여 화면 일치', () => {
+  let queryClient = createTestQueryClient();
   let root: Root;
   let container: HTMLDivElement;
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    queryClient = createTestQueryClient();
+    notifyManager.setScheduler(queueMicrotask);
     sessionStorage.clear();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
     mocks.hasStaffAccess = true;
     mocks.hasAdminAccess = false;
+    mocks.memberKind = 'STUDENT';
     mocks.searchParams = new URLSearchParams();
     mocks.getMyApplication.mockRejectedValue(
       new ApiError({
@@ -139,17 +146,50 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     vi.restoreAllMocks();
     setProgramOperationsView('program-1', false);
     vi.clearAllMocks();
+    queryClient.clear();
+    notifyManager.setScheduler((callback) => setTimeout(callback, 0));
   });
 
   async function renderScreen() {
     await act(async () =>
       root.render(
-        <ProductShell>
-          <ProgramDetailScreen programId="program-1" />
-        </ProductShell>,
+        <QueryClientProvider client={queryClient}>
+          <ProductShell>
+            <ProgramDetailScreen programId="program-1" />
+          </ProductShell>
+        </QueryClientProvider>,
       ),
     );
   }
+
+  it.each(['staff', 'student', 'dual'] as const)(
+    '%s 상세와 셸은 같은 overview 요청 하나만 공유한다',
+    async (role) => {
+      mocks.memberKind = role === 'staff' ? 'STAFF' : 'STUDENT';
+      mocks.hasStaffAccess = role !== 'student';
+      let resolveParticipation: (value: { status: string }) => void = () => {
+        throw new TypeError('participation request missing');
+      };
+      mocks.getMyApplication.mockReturnValue(
+        new Promise<{ status: string }>((resolve) => {
+          resolveParticipation = resolve;
+        }),
+      );
+      await renderScreen();
+      if (role === 'dual') {
+        expect(mocks.getProgramOverview).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+      }
+      if (role !== 'staff') {
+        await act(async () => resolveParticipation({ status: 'APPROVED' }));
+      }
+      expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
+      expect(mocks.getProgramOverview).toHaveBeenCalledWith(
+        'program-1',
+        role === 'staff',
+      );
+    },
+  );
 
   function editLink(): Element | null {
     return container.querySelector('main a[href$="/edit"]');
@@ -195,9 +235,11 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await act(async () => root.unmount());
     const screen = (
-      <ProductShell>
-        <ProgramDetailScreen programId="program-1" />
-      </ProductShell>
+      <QueryClientProvider client={queryClient}>
+        <ProductShell>
+          <ProgramDetailScreen programId="program-1" />
+        </ProductShell>
+      </QueryClientProvider>
     );
     container.innerHTML = renderToString(screen);
     expect(container.textContent).toBe('');

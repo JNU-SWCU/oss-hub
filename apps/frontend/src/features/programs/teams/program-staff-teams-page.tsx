@@ -1,6 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgram } from '../catalog/queries';
+import { useUrlSearchDraft } from '@/lib/list-url-state';
+import { useStaffTeamsUrlState } from './staff-teams-url-state';
+import { useStaffTeamsQuery } from './queries';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import {
@@ -14,11 +19,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { programTeamDetailHref } from '@/lib/program-route';
-import {
-  decideApplication,
-  getApplicationDetail,
-  listTeamManagementApplications,
-} from '../applications/api';
+import { getApplicationDetail } from '../applications/api';
+import { useApplicationDecisionMutation } from '../applications/queries';
+import { programFeatureKey } from '@/lib/query-keys';
 import {
   APPLICATION_STATUS_LABELS,
   formatSubmittedAt,
@@ -36,8 +39,6 @@ import type {
   TeamManagementListItem,
 } from '../applications/dto';
 import type { ApplicationStatus } from '../program-contract';
-
-import { TEAM_MANAGEMENT_PAGE_SIZE } from '../applications/application-wire';
 
 type StatusFilter = ApplicationListStatus;
 
@@ -70,11 +71,21 @@ export function ProgramStaffTeamsPage({
 }: {
   readonly programId: string;
 }) {
-  const [state, setState] = useState<ScreenState>({ kind: 'loading' });
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<StatusFilter>('all');
-  const [page, setPage] = useState(1);
+  const { state: urlState, navigate } = useStaffTeamsUrlState();
+  const { search, filter, page } = urlState;
+  const [searchInput, setSearchInput] = useUrlSearchDraft(search);
+  const queryClient = useQueryClient();
+  const { mutateAsync: decide } = useApplicationDecisionMutation(programId);
+  const query = useStaffTeamsQuery(programId, urlState);
+  const state: ScreenState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? { kind: 'error' }
+      : { kind: 'ready', ...query.data };
+  const load = useCallback(
+    () => invalidateProgram(queryClient, programId),
+    [programId, queryClient],
+  );
   const [notices, setNotices] = useState<Readonly<Record<string, RowNotice>>>(
     {},
   );
@@ -89,52 +100,21 @@ export function ProgramStaffTeamsPage({
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
 
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      const result = await listTeamManagementApplications(programId, {
-        page,
-        pageSize: TEAM_MANAGEMENT_PAGE_SIZE,
-        search,
-        status: filter,
-      });
-      if (cancelled.current) return;
-      setState({
-        kind: 'ready',
-        items: result.items,
-        page: result.page,
-        totalItems: result.totalItems,
-        totalPages: result.totalPages,
-      });
-    } catch {
-      if (!cancelled.current) setState({ kind: 'error' });
-    }
-  }, [programId, page, search, filter]);
-
   useEffect(() => {
     cancelled.current = false;
-    void load();
     return () => {
       cancelled.current = true;
     };
-  }, [load]);
-
-  const applySearch = useCallback(() => {
-    setPage(1);
-    setSearch(searchInput.trim());
-  }, [searchInput]);
-
-  const changeFilter = useCallback((next: StatusFilter) => {
-    setPage(1);
-    setFilter(next);
   }, []);
 
-  const resetFilters = useCallback(() => {
-    setPage(1);
-    setFilter('all');
-    setSearch('');
+  const applySearch = () =>
+    navigate({ search: searchInput.trim(), page: 1 }, 'replace');
+  const changeFilter = (next: StatusFilter) =>
+    navigate({ filter: next, page: 1 });
+  const resetFilters = () => {
     setSearchInput('');
-  }, []);
+    navigate({ search: '', filter: 'all', page: 1 });
+  };
 
   const applyDecision = useCallback(
     async (
@@ -153,8 +133,13 @@ export function ProgramStaffTeamsPage({
         (next === 'APPROVED' && item.status === 'REJECTED');
       setBusyId(item.id);
       const result = await runDecisionWithRefetch({
-        decide: () => decideApplication(item.id, input),
-        refetch: () => getApplicationDetail(item.id),
+        decide: () => decide({ applicationId: item.id, input }),
+        refetch: () =>
+          queryClient.fetchQuery({
+            queryKey: programFeatureKey(programId, 'applications', item.id),
+            queryFn: () => getApplicationDetail(item.id),
+            staleTime: 0,
+          }),
       });
       if (cancelled.current) return;
       setBusyId(null);
@@ -188,7 +173,7 @@ export function ProgramStaffTeamsPage({
 
       await load();
     },
-    [load],
+    [load, decide, queryClient, programId],
   );
 
   const onSelectStatus = useCallback(
@@ -397,7 +382,7 @@ export function ProgramStaffTeamsPage({
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => navigate({ page: Math.max(1, page - 1) })}
           >
             이전
           </Button>
@@ -409,9 +394,7 @@ export function ProgramStaffTeamsPage({
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() =>
-              setPage((current) => Math.min(totalPages, current + 1))
-            }
+            onClick={() => navigate({ page: Math.min(totalPages, page + 1) })}
           >
             다음
           </Button>

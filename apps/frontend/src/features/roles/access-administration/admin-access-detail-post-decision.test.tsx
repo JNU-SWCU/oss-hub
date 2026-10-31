@@ -1,5 +1,8 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { useQuery } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -19,8 +22,16 @@ vi.mock('./admin-access-mutation-execution', () => ({
   executeAdminAccessMutation,
 }));
 
+vi.mock('./admin-access-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./admin-access-api')>()),
+  fetchAdminAccessHistory: vi.fn(),
+}));
+
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import type { AdminAccessHistory } from './admin-access-api';
+import {
+  fetchAdminAccessHistory,
+  type AdminAccessHistory,
+} from './admin-access-api';
 import type { AccessWorkspace } from './admin-access-list-query';
 import { AdminAccessDetailNotFoundError } from './admin-access-detail-api';
 import { adminDetail } from './admin-access-detail-test-fixture';
@@ -40,15 +51,14 @@ import {
 let container: HTMLDivElement;
 let root: Root;
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
-  container = document.createElement('div');
-  document.body.appendChild(container);
-  root = createRoot(container);
+  root = await renderWithQuery(null);
+  container = root.container;
 });
 
-afterEach(() => {
-  act(() => root.unmount());
+afterEach(async () => {
+  await root.unmount();
   container.remove();
 });
 
@@ -162,6 +172,41 @@ async function approve(): Promise<void> {
 }
 
 describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신한다', () => {
+  it('상세에서 승인하면 열린 목록과 패싯도 다시 조회한다', async () => {
+    let pending = 1;
+    const fetchPending = vi.fn(async () => pending);
+    function PendingList() {
+      const list = useQuery({
+        queryKey: featureKey('admin-access', 'list', 'queue'),
+        queryFn: fetchPending,
+      });
+      const facets = useQuery({
+        queryKey: featureKey('admin-access', 'facets'),
+        queryFn: fetchPending,
+      });
+      return <output>{`pending:${list.data},facets:${facets.data}`}</output>;
+    }
+    loadAdminAccessDetail.mockResolvedValue({
+      detail: PENDING_DETAIL,
+      history: PENDING_HISTORY,
+    });
+    executeAdminAccessMutation.mockImplementation(async () => {
+      pending = 0;
+      return approvedResponse();
+    });
+    await root.rerender(
+      <>
+        <PendingList />
+        <AdminAccessDetailScreen userId="target" workspace="queue" />
+      </>,
+    );
+    expect(container.textContent).toContain('pending:1,facets:1');
+    await approve();
+    expect(container.textContent).toContain('pending:0,facets:0');
+    expect(fetchPending).toHaveBeenCalledTimes(4);
+    expect(loadAdminAccessDetail).toHaveBeenCalledTimes(1);
+  });
+
   it('승인하면 상세를 다시 읽지 않고 대기 카드가 사라지고 이력이 승인으로 바뀐다', async () => {
     loadAdminAccessDetail.mockResolvedValue({
       detail: PENDING_DETAIL,
@@ -223,6 +268,52 @@ describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신�
 });
 
 describe('관리자 명부(directory) 결정 — 재조회로 최신 감사 필드를 읽는다', () => {
+  it('승인 후 최신 이력을 읽으면 승인 전 지연 페이지가 덮어쓰지 않는다', async () => {
+    const oldRequest = Promise.withResolvers<AdminAccessHistory>();
+    const freshHistory = decidedHistory(
+      'APPROVED',
+      '2026-08-22T00:00:00.000Z',
+      'fresh-after-approval',
+    );
+    loadAdminAccessDetail
+      .mockResolvedValueOnce({
+        detail: PENDING_DETAIL,
+        history: {
+          ...PENDING_HISTORY,
+          staffAccessRequests: {
+            ...PENDING_HISTORY.staffAccessRequests,
+            total: 40,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        detail: adminDetail({ pendingRequest: null }),
+        history: freshHistory,
+      });
+    vi.mocked(fetchAdminAccessHistory).mockReturnValue(oldRequest.promise);
+    executeAdminAccessMutation.mockResolvedValue(approvedResponse());
+    await mount('directory');
+    await act(async () => clickButton(container, '다음'));
+    expect(fetchAdminAccessHistory).toHaveBeenCalledTimes(1);
+
+    await approve();
+    expect(container.textContent).toContain('fresh-after-approval');
+    await act(async () => {
+      oldRequest.resolve(
+        decidedHistory(
+          'REJECTED',
+          '2026-08-21T00:00:00.000Z',
+          'stale-before-approval',
+        ),
+      );
+      await oldRequest.promise;
+    });
+
+    expect(loadAdminAccessDetail).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('fresh-after-approval');
+    expect(container.textContent).not.toContain('stale-before-approval');
+  });
+
   it('승인하면 상세를 한 번 더 읽고 두 번째 응답을 그린다', async () => {
     const secondHistory: AdminAccessHistory = decidedHistory(
       'APPROVED',

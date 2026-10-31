@@ -3,6 +3,14 @@ import { createRequire } from 'node:module';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
 const happyDomTests = [
+  'test-support/dashboard-admin-queries.test.tsx',
+  'test-support/read-only-screens.test.tsx',
+  'src/features/submissions/submission-checklist-page.test.tsx',
+  'src/features/programs/teams/queries.test.tsx',
+  'src/features/programs/catalog/queries.test.tsx',
+  'src/features/programs/staff-dashboard/staff-dashboard-url-query.test.tsx',
+  'src/app/_shell/program-list-url-query.test.tsx',
+  'src/app/_shell/query-provider.test.tsx',
   'src/lib/navigation-notices.test.tsx',
   'e2e/support/confirmation-cancel-label.test.tsx',
   'src/app/error.test.tsx',
@@ -23,7 +31,7 @@ const happyDomTests = [
   'src/features/audit-log/audit-log-screen.test.tsx',
   'src/features/auth/login-destination.test.ts',
   'src/features/auth/components/{github-sign-in-link.test.tsx,login-button.logout.test.tsx}',
-  'src/features/board/components/{board-delete-list-refetch.test.tsx,board-field-focus.test.tsx}',
+  'src/features/board/components/{board-delete-list-refetch.test.tsx,board-field-focus.test.tsx,board-query-invalidation.test.tsx}',
   'src/features/consents/components/{consent-flow-navigation.test.tsx,consent-required-dialog.test.tsx}',
   'src/features/dashboard/{pending-invite-reach.test.tsx,student-dashboard-screen.test.tsx,student-dashboard-sections.test.tsx}',
   'src/features/landing/cosmos/cosmos-interaction.test.ts',

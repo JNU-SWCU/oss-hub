@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { DashboardFilter } from '../student-dashboard-url-state';
 
 import {
   FilterChip,
@@ -22,7 +23,6 @@ import {
 import type { DashboardFeedbackItem, DashboardItem } from '../types';
 import { ActiveProgramCard, ProgramCompactRow } from './student-dashboard-card';
 
-type DashboardFilter = 'all' | 'active' | 'feedback' | 'done' | 'applying';
 type FeedbackOf = (item: DashboardItem) => readonly DashboardFeedbackItem[];
 
 const DONE_LIST_ID = 'dashboard-done-programs';
@@ -81,12 +81,15 @@ export function DashboardProgramSections({
   items,
   now,
   feedback,
+  filter = 'all',
+  onFilterChange,
 }: {
   readonly items: readonly DashboardItem[];
   readonly now: Date;
   readonly feedback: readonly DashboardFeedbackItem[];
+  readonly filter?: DashboardFilter;
+  readonly onFilterChange?: (filter: DashboardFilter) => void;
 }) {
-  const [filter, setFilter] = useState<DashboardFilter>('all');
   const [doneExpanded, setDoneExpanded] = useState(false);
   const { active, done, applying, primaryApplicationId } = splitDashboardItems(
     items,
@@ -126,7 +129,7 @@ export function DashboardProgramSections({
             <FilterChip
               key={value}
               pressed={filter === value}
-              onClick={() => setFilter(value)}
+              onClick={() => onFilterChange?.(value)}
             >
               {label} {count}
             </FilterChip>

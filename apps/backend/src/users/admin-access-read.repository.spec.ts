@@ -21,7 +21,7 @@ import {
 } from './admin-access-mutation.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import type { AdminAccessUserDetailRow } from './admin-access-read.repository';
 
 const toDetail = (row: AdminAccessUserDetailRow | null) =>

@@ -1,7 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { TeamInvitationStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationsController } from './team-invitations.controller';
@@ -88,12 +87,12 @@ function buildController(overrides: Partial<ServiceMocks> = {}): {
 }
 
 describe('TeamInvitationsController', () => {
-  it('컨트롤러 전체에 SessionGuard를 적용한다', () => {
+  it('컨트롤러에 로컬 인증 가드를 두지 않는다', () => {
     const classGuards: unknown = Reflect.getMetadata(
       GUARDS_METADATA,
       TeamInvitationsController,
     );
-    expect(classGuards).toEqual([SessionGuard]);
+    expect(classGuards).toBeUndefined();
   });
 
   it.each(['create', 'cancel', 'decline', 'accept'])(

@@ -3,17 +3,17 @@ import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
-import { AuthConfig } from './auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService, LoginHistoryService } from './auth.service';
 import type { AuthUser } from './http-auth.types';
-import { OriginGuard } from './origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-} from './auth-session.service';
+} from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

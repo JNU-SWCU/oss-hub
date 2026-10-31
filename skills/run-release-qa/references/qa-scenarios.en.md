@@ -132,7 +132,7 @@ Locking this allowlist into a contract is tracked in [#552](https://github.com/J
 ### Paths that static checks miss
 
 Program creation/editing, teams, application creation, submission/resubmission, activity timeline, submission matrix, file upload/download, administrator access, auditing, and system status check roles **in the service**, not in a guard.
-Scanning only `@UseGuards(SessionGuard)` misses the actual 403 paths.
+Scanning only `@Protected()` routes (the global authentication guard's 401) misses the actual 403 paths.
 
 ### Observation
 

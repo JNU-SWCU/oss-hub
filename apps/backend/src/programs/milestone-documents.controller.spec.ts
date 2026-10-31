@@ -11,9 +11,8 @@ import {
 } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
@@ -26,7 +25,7 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import type { Response } from 'express';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
@@ -38,8 +37,12 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  protectedRouteGuardStub,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -64,7 +67,7 @@ describe('milestone-document-current-file.controller', () => {
       controllers: [MilestoneDocumentsController],
       providers: [
         ...STATELESS_PROVIDERS,
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         {
           provide: AuthConfig,
           useValue: {
@@ -174,7 +177,7 @@ describe('milestone-document-current-file.controller', () => {
     expect(download).not.toHaveBeenCalled();
   });
 
-  it('SessionGuard만 붙여 미인증 요청을 401 경계에 둔다', () => {
+  it('로컬 가드 없이 전역 인증 가드가 미인증 요청을 401로 막는다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       MilestoneDocumentsController.prototype,
       'downloadCurrentSubmissionFile',
@@ -182,9 +185,7 @@ describe('milestone-document-current-file.controller', () => {
 
     expect(typeof handler).toBe('function');
     if (typeof handler !== 'function') return;
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-      SessionGuard,
-    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
   });
 });
 
@@ -330,6 +331,15 @@ beforeAll(async () => {
       MilestoneDocumentFilesController,
     ],
     providers: [
+      protectedRouteGuardStub({
+        canActivate: (context: ExecutionContext): boolean => {
+          const request = context
+            .switchToHttp()
+            .getRequest<AuthenticatedRequest>();
+          request.sessionGithubId = SESSION_GITHUB_ID;
+          return true;
+        },
+      }),
       ...STATELESS_PROVIDERS,
       {
         provide: MilestoneDocumentCollectionService,
@@ -373,16 +383,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate: (context: ExecutionContext): boolean => {
-        const request = context
-          .switchToHttp()
-          .getRequest<AuthenticatedRequest>();
-        request.sessionGithubId = SESSION_GITHUB_ID;
-        return true;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();
@@ -568,10 +568,7 @@ it('서류 파일 판정은 업로드와 같은 세션+Origin 가드와 multipar
       )?.value as object,
     );
 
-  expect(metadata(GUARDS_METADATA, 'check')).toEqual([
-    SessionGuard,
-    OriginGuard,
-  ]);
+  expect(metadata(GUARDS_METADATA, 'check')).toEqual([OriginGuard]);
   expect(metadata(GUARDS_METADATA, 'check')).toEqual(
     metadata(GUARDS_METADATA, 'upload'),
   );
@@ -1400,27 +1397,27 @@ function readHandlerGuards(propertyKey: string): unknown {
 }
 
 describe('교직원 전용 endpoint의 가드 구성', () => {
-  it('서류 수합 조회는 SessionGuard만 붙인다', () => {
+  it('서류 수합 조회는 로컬 가드를 붙이지 않는다', () => {
     const guards = readHandlerGuards('collection');
 
-    expect(guards).toEqual([SessionGuard]);
+    expect(guards).toBeUndefined();
   });
 
-  it('서류 일괄 내려받기는 SessionGuard만 붙인다', () => {
+  it('서류 일괄 내려받기는 로컬 가드를 붙이지 않는다', () => {
     const guards = readHandlerGuards('archive');
 
-    expect(guards).toEqual([SessionGuard]);
+    expect(guards).toBeUndefined();
   });
 
-  it('제출 파일 다운로드는 SessionGuard만 붙인다', () => {
+  it('제출 파일 다운로드는 로컬 가드를 붙이지 않는다', () => {
     const guards = readHandlerGuards('downloadSubmissionFile');
 
-    expect(guards).toEqual([SessionGuard]);
+    expect(guards).toBeUndefined();
   });
 
-  it('제출물 판정은 SessionGuard + OriginGuard를 붙인다', () => {
+  it('제출물 판정은 OriginGuard만 붙인다', () => {
     const guards = readHandlerGuards('review');
 
-    expect(guards).toEqual([SessionGuard, OriginGuard]);
+    expect(guards).toEqual([OriginGuard]);
   });
 });

@@ -1,32 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { ApiError } from '@/lib/api-client';
 
-import {
-  fetchAdminAccessList,
-  fetchAdminAccessRequests,
-} from '../admin-access-api';
-import type {
-  AdminAccessListItem,
-  AdminAccessSortField,
-} from '../admin-access-api';
+import { useAdminAccessListQuery } from '../queries';
+import type { AdminAccessSortField } from '../admin-access-api';
 import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_LIST_LIMIT,
   APPLICANT_QUEUE_DEFAULT_FILTER_STATE,
   accessDetailPath,
-  buildAdminAccessListParams,
   type AccessWorkspace,
   type AdminAccessListFilterState,
 } from '../admin-access-list-query';
 import {
   buildAdminAccessSearchParams,
   buildApplicantQueueSearchParams,
-  parseAdminAccessSearchParams,
-  parseApplicantQueueSearchParams,
+  useAdminAccessUrlState,
 } from '../admin-access-url-state';
 import { AdminAccessView } from './admin-access-view';
 
@@ -43,27 +35,19 @@ export function AdminAccessScreen({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { state, listSearch } = useAdminAccessUrlState(workspace);
   const isQueue = workspace === 'queue';
   const defaults = isQueue
     ? APPLICANT_QUEUE_DEFAULT_FILTER_STATE
     : ADMIN_ACCESS_DEFAULT_FILTER_STATE;
 
-  const state = useMemo(
-    () =>
-      isQueue
-        ? parseApplicantQueueSearchParams(searchParams)
-        : parseAdminAccessSearchParams(searchParams),
-    [isQueue, searchParams],
-  );
-
-  const [items, setItems] = useState<readonly AdminAccessListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
+  const query = useAdminAccessListQuery(workspace, state);
+  const items = query.data?.items ?? [];
+  const total = query.data?.total ?? 0;
+  const pendingCount = query.data?.facets.pendingRequests.pending ?? 0;
   const [queryInput, setQueryInput] = useState(state.query);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const latestRequestId = useRef(0);
+  const isLoading = query.isPending;
+  const error = query.isError ? errorMessage(query.error) : null;
 
   const committedQueryRef = useRef(state.query);
   useEffect(() => {
@@ -72,8 +56,6 @@ export function AdminAccessScreen({
       setQueryInput(state.query);
     }
   }, [state.query]);
-
-  const listSearch = searchParams.toString();
 
   const navigate = useCallback(
     (next: AdminAccessListFilterState) => {
@@ -88,34 +70,6 @@ export function AdminAccessScreen({
     },
     [isQueue, pathname, router],
   );
-
-  const load = useCallback(async () => {
-    const requestId = ++latestRequestId.current;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = buildAdminAccessListParams(state);
-      const result = isQueue
-        ? await fetchAdminAccessRequests(params)
-        : await fetchAdminAccessList(params);
-      if (requestId !== latestRequestId.current) return;
-      setItems(result.items);
-      setTotal(result.total);
-      setPendingCount(result.facets.pendingRequests.pending);
-    } catch (loadError) {
-      if (requestId !== latestRequestId.current) return;
-      setError(errorMessage(loadError));
-    } finally {
-      if (requestId === latestRequestId.current) setIsLoading(false);
-    }
-  }, [isQueue, state]);
-
-  useEffect(() => {
-    void load();
-    return () => {
-      latestRequestId.current += 1;
-    };
-  }, [load]);
 
   const resetFilters = () => {
     committedQueryRef.current = defaults.query;
@@ -161,7 +115,7 @@ export function AdminAccessScreen({
         navigate({ ...state, sort: field, direction, page: 1 });
       }}
       onPageChange={(nextPage) => navigate({ ...state, page: nextPage })}
-      onRetry={() => void load()}
+      onRetry={() => void query.refetch()}
       onResetFilters={resetFilters}
       onRowClick={(item) =>
         router.push(accessDetailPath(workspace, item.id, listSearch), {

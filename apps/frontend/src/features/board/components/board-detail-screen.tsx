@@ -1,17 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import {
   createBoardComment,
   deleteBoardComment,
   deleteBoardPost,
-  getBoardPost,
   setBoardPostPinned,
   updateBoardPost,
 } from '../api';
-import { invalidateBoardList } from '../board-list-refetch';
+import { boardPostKey, invalidateBoard, useBoardPostQuery } from '../queries';
 import {
   hasBoardPostInputError,
   mapBoardError,
@@ -19,7 +19,7 @@ import {
   validateBoardPostInput,
 } from '../board-format';
 import { boardListHref } from '../board-paths';
-import type { BoardDetailState } from '../types';
+import type { BoardDetailState, BoardPostDetail } from '../types';
 import { BoardDetailContent } from './board-detail-content';
 
 export function BoardDetailScreen({
@@ -32,8 +32,24 @@ export function BoardDetailScreen({
   readonly isStaff: boolean;
 }) {
   const router = useRouter();
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<BoardDetailState>({ kind: 'loading' });
+  const queryClient = useQueryClient();
+  const query = useBoardPostQuery(programId, postId);
+  const state: BoardDetailState =
+    query.isError &&
+    query.error instanceof ApiError &&
+    query.error.problem.code === 'BRD_002'
+      ? { kind: 'not-found' }
+      : query.data !== undefined
+        ? { kind: 'ready', post: query.data }
+        : query.isError
+          ? {
+              kind: 'error',
+              message:
+                query.error instanceof ApiError
+                  ? mapBoardError(query.error.problem)
+                  : '잠시 후 다시 시도해 주세요.',
+            }
+          : { kind: 'loading' };
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
@@ -54,7 +70,19 @@ export function BoardDetailScreen({
     null,
   );
 
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
+  const { refetch } = query;
+  const retry = useCallback(() => void refetch(), [refetch]);
+
+  const applyPost = useCallback(
+    (update: (post: BoardPostDetail) => BoardPostDetail) => {
+      queryClient.setQueryData<BoardPostDetail>(
+        boardPostKey(programId, postId),
+        (current) => (current === undefined ? current : update(current)),
+      );
+      void invalidateBoard(queryClient, programId);
+    },
+    [queryClient, programId, postId],
+  );
 
   const editErrors = useMemo(
     () => validateBoardPostInput({ title: editTitle, body: editBody }),
@@ -64,30 +92,6 @@ export function BoardDetailScreen({
     () => validateBoardCommentInput(commentDraft),
     [commentDraft],
   );
-
-  useEffect(() => {
-    let active = true;
-    setState({ kind: 'loading' });
-    getBoardPost(programId, postId)
-      .then((post) => {
-        if (active) setState({ kind: 'ready', post });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        if (error instanceof ApiError && error.problem.code === 'BRD_002') {
-          setState({ kind: 'not-found' });
-          return;
-        }
-        const message =
-          error instanceof ApiError
-            ? mapBoardError(error.problem)
-            : '잠시 후 다시 시도해 주세요.';
-        setState({ kind: 'error', message });
-      });
-    return () => {
-      active = false;
-    };
-  }, [programId, postId, attempt]);
 
   const toggleEdit = useCallback(() => {
     if (state.kind !== 'ready') return;
@@ -111,7 +115,7 @@ export function BoardDetailScreen({
     setEditSubmitError(null);
     updateBoardPost(programId, postId, { title: editTitle, body: editBody })
       .then((post) => {
-        setState({ kind: 'ready', post });
+        applyPost(() => post);
         setEditing(false);
       })
       .catch((error: unknown) => {
@@ -122,7 +126,7 @@ export function BoardDetailScreen({
         );
       })
       .finally(() => setEditSubmitting(false));
-  }, [state, programId, postId, editTitle, editBody, editErrors]);
+  }, [state, programId, postId, editTitle, editBody, editErrors, applyPost]);
 
   const deletePost = useCallback(() => {
     if (state.kind !== 'ready') return;
@@ -131,7 +135,11 @@ export function BoardDetailScreen({
     setDeleteError(null);
     deleteBoardPost(programId, postId)
       .then(() => {
-        invalidateBoardList(programId);
+        queryClient.removeQueries({
+          queryKey: boardPostKey(programId, postId),
+          exact: true,
+        });
+        void invalidateBoard(queryClient, programId, postId);
         router.push(boardListHref(programId));
       })
       .catch((error: unknown) => {
@@ -142,7 +150,7 @@ export function BoardDetailScreen({
             : '잠시 후 다시 시도해 주세요.',
         );
       });
-  }, [state, programId, postId, router]);
+  }, [state, programId, postId, router, queryClient]);
 
   const togglePin = useCallback(() => {
     if (state.kind !== 'ready') return;
@@ -151,11 +159,7 @@ export function BoardDetailScreen({
     setPinError(null);
     setBoardPostPinned(programId, postId, nextPinned)
       .then(({ pinned }) => {
-        setState((current) =>
-          current.kind === 'ready'
-            ? { kind: 'ready', post: { ...current.post, pinned } }
-            : current,
-        );
+        applyPost((current) => ({ ...current, pinned }));
       })
       .catch((error: unknown) => {
         setPinError(
@@ -165,7 +169,7 @@ export function BoardDetailScreen({
         );
       })
       .finally(() => setPinSubmitting(false));
-  }, [state, programId, postId]);
+  }, [state, programId, postId, applyPost]);
 
   const submitComment = useCallback(() => {
     if (state.kind !== 'ready') return;
@@ -175,18 +179,11 @@ export function BoardDetailScreen({
     setCommentSubmitError(null);
     createBoardComment(programId, postId, { body: commentDraft })
       .then((comment) => {
-        setState((current) =>
-          current.kind === 'ready'
-            ? {
-                kind: 'ready',
-                post: {
-                  ...current.post,
-                  comments: [...current.post.comments, comment],
-                  commentCount: current.post.commentCount + 1,
-                },
-              }
-            : current,
-        );
+        applyPost((current) => ({
+          ...current,
+          comments: [...current.comments, comment],
+          commentCount: current.commentCount + 1,
+        }));
         setCommentDraft('');
 
         setCommentSubmitted(false);
@@ -199,7 +196,7 @@ export function BoardDetailScreen({
         );
       })
       .finally(() => setCommentSubmitting(false));
-  }, [state, programId, postId, commentDraft, commentDraftError]);
+  }, [state, programId, postId, commentDraft, commentDraftError, applyPost]);
 
   const deleteComment = useCallback(
     (commentId: string) => {
@@ -209,20 +206,13 @@ export function BoardDetailScreen({
       setCommentSubmitError(null);
       deleteBoardComment(programId, postId, commentId)
         .then(() => {
-          setState((current) =>
-            current.kind === 'ready'
-              ? {
-                  kind: 'ready',
-                  post: {
-                    ...current.post,
-                    comments: current.post.comments.filter(
-                      (comment) => comment.id !== commentId,
-                    ),
-                    commentCount: Math.max(0, current.post.commentCount - 1),
-                  },
-                }
-              : current,
-          );
+          applyPost((current) => ({
+            ...current,
+            comments: current.comments.filter(
+              (comment) => comment.id !== commentId,
+            ),
+            commentCount: Math.max(0, current.commentCount - 1),
+          }));
         })
         .catch((error: unknown) => {
           setCommentSubmitError(
@@ -233,7 +223,7 @@ export function BoardDetailScreen({
         })
         .finally(() => setDeletingCommentId(null));
     },
-    [state, programId, postId],
+    [state, programId, postId, applyPost],
   );
 
   return (

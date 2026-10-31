@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
+import { featureKey, programFeatureKey } from '@/lib/query-keys';
 import {
   getMyTeam,
   getMyApplicationPreparation,
@@ -7,6 +8,7 @@ import {
 } from '../teams/api';
 import { getProgramDetail } from '../catalog/api';
 import { listApplicationTemplates } from './api';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import type { ProgramTeam } from '../teams/dto';
 import { loadProgramApplyContext } from './load-program-apply-context';
 import { getMyApplication } from './student-application-api';
@@ -152,7 +154,11 @@ function problem(status: number, code: string) {
 const NO_TEAM = null;
 
 function loadDefaultContext(): ReturnType<typeof loadProgramApplyContext> {
-  return loadProgramApplyContext('program-1', sessionUser);
+  return loadProgramApplyContext(
+    'program-1',
+    sessionUser,
+    createTestQueryClient(),
+  );
 }
 
 function openProgram(overrides: Partial<ProgramDetail> = {}): ProgramDetail {
@@ -175,6 +181,43 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(listApplicationTemplates).mockResolvedValue([template]);
     vi.mocked(getMyApplication).mockResolvedValue(application);
     vi.mocked(getMyTeam).mockResolvedValue(NO_TEAM);
+  });
+
+  it('shares the in-flight detail read and refreshes cached application values', async () => {
+    const queryClient = createTestQueryClient();
+    queryClient.setDefaultOptions({
+      queries: { retry: false, gcTime: Infinity },
+    });
+    const detailKey = programFeatureKey('program-1', 'detail', false);
+    const applicationKey = programFeatureKey('program-1', 'application');
+    queryClient.setQueryData(applicationKey, {
+      ...application,
+      answers: { ...application.answers, title: 'Old cached title' },
+    });
+    queryClient.setQueryData(featureKey('application-templates'), []);
+    const pending = Promise.withResolvers<ProgramDetail>();
+    vi.mocked(getProgramDetail).mockReturnValue(pending.promise);
+    const shared = queryClient.fetchQuery({
+      queryKey: detailKey,
+      queryFn: () => getProgramDetail('program-1'),
+      staleTime: 0,
+    });
+    const context = loadProgramApplyContext(
+      'program-1',
+      sessionUser,
+      queryClient,
+    );
+    pending.resolve(program);
+    await shared;
+    expect(await context).toMatchObject({
+      kind: 'ready',
+      initialValues: { title: application.answers.title },
+    });
+    expect(getProgramDetail).toHaveBeenCalledOnce();
+    expect(getMyApplication).toHaveBeenCalledOnce();
+    expect(listApplicationTemplates).toHaveBeenCalledOnce();
+    expect(queryClient.getQueryData(applicationKey)).toEqual(application);
+    queryClient.clear();
   });
 
   it('blocks a team member who cannot manage the application', async () => {
@@ -452,10 +495,14 @@ describe('loadProgramApplyContext', () => {
   it('shared session 스냅샷으로 신청자 표시를 채운다', async () => {
     vi.mocked(getProgramDetail).mockResolvedValue(openProgram());
 
-    const result = await loadProgramApplyContext('program-1', {
-      name: 'Shared Applicant',
-      nickname: 'shared-applicant',
-    });
+    const result = await loadProgramApplyContext(
+      'program-1',
+      {
+        name: 'Shared Applicant',
+        nickname: 'shared-applicant',
+      },
+      createTestQueryClient(),
+    );
 
     expect(result).toMatchObject({
       kind: 'ready',

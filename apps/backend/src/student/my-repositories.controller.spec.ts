@@ -3,7 +3,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import { SessionGuard } from '../auth/session.guard';
 import { MyRepositoriesController } from './my-repositories.controller';
 import type { RepositoriesReadService } from '../github/repositories-read.service';
 
@@ -49,9 +48,7 @@ describe('MyRepositoriesController', () => {
     expect(response.items[0]?.updatedAt).toBe(UPDATED_AT.toISOString());
   });
 
-  it('keeps unauthenticated handling with SessionGuard metadata', () => {
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler())).toEqual([
-      SessionGuard,
-    ]);
+  it('leaves unauthenticated handling to the global authentication guard', () => {
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler())).toBeUndefined();
   });
 });

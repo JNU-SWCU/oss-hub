@@ -1,7 +1,24 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
+  );
+}
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
 import { MilestoneDocumentSectionBody } from './milestone-document-list';
 import type { MilestoneDocument } from './milestone-document-dto';
@@ -113,7 +130,11 @@ describe('마일스톤 목록의 경계', () => {
     program: ProgramDetail = programWith(MILESTONES),
   ): Promise<readonly HTMLElement[]> {
     await act(async () => {
-      root.render(<ProgramMilestones program={program} />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ProgramMilestones program={program} />
+        </QueryClientProvider>,
+      );
     });
     await vi.waitFor(() => {
       expect(
@@ -207,6 +228,8 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
   function bodyMarkup(state: 'ready' | 'failed'): string {
     return renderToStaticMarkup(
       <MilestoneDocumentSectionBody
+        programId="program-1"
+        onSubmitted={vi.fn()}
         state={
           state === 'ready'
             ? {

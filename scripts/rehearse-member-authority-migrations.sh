@@ -97,7 +97,6 @@ services:
       GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: /run/fixture/private-key.pem
       GITHUB_OPERATIONS_APP_ID: '1002'
       GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE: /run/fixture/private-key.pem
-      COLLECTION_CRON_EXPRESSION: '0 0 0 1 1 *'
       PORT: '4000'
       SUBMISSION_FILE_S3_ENDPOINT: http://127.0.0.1:1
       SUBMISSION_FILE_S3_REGION: us-east-1

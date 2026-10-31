@@ -306,7 +306,7 @@ edge(
 edge(
   'flat controller may import an auth guard',
   'src/staff/guard.controller.ts',
-  'src/auth/session.guard.ts',
+  'src/auth/authentication.guard.ts',
   true,
 );
 edge(
@@ -464,25 +464,25 @@ edge(
 edge(
   'controller may use auth guard',
   'src/programs/auth.controller.ts',
-  'src/auth/session.guard.ts',
+  'src/auth/authentication.guard.ts',
   true,
 );
 edge(
-  'controller may use root auth guard',
+  'controller may use platform origin guard',
   'src/programs/root-auth.controller.ts',
-  'src/auth/session.guard.ts',
+  'src/platform/origin.guard.ts',
   true,
 );
 edge(
   'controller may read exported auth config',
   'src/programs/auth-config.controller.ts',
-  'src/auth/auth.config.ts',
+  'src/platform/auth.config.ts',
   true,
 );
 edge(
   'service cannot use auth controller',
   'src/programs/auth.service.ts',
-  'src/auth/session.guard.ts',
+  'src/auth/authentication.guard.ts',
   false,
 );
 edge(

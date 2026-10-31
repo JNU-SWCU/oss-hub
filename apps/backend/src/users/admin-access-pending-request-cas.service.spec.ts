@@ -12,7 +12,7 @@ import {
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {

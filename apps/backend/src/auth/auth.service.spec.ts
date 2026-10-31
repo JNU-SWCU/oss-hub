@@ -1,5 +1,5 @@
 import { type LoginHistoryPage, type AuthUser } from './http-auth.types';
-import { LOGIN_HISTORY_EVENTS, AuthConfig } from './auth.config';
+import { LOGIN_HISTORY_EVENTS, AuthConfig } from '../platform/auth.config';
 import {
   LoginHistoryRepository,
   type AuthRepository,
@@ -11,8 +11,6 @@ import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
-import { UserProfileService } from '../platform/user-profile.service';
-import { AuthSessionService } from './auth-session.service';
 import { Logger } from '@nestjs/common';
 import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
 import { CollectionPublicTokenService } from '../github/collection-providers.service';
@@ -22,6 +20,8 @@ import { PrismaService } from '../platform/prisma.service';
 import { Test } from '@nestjs/testing';
 import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from './auth.module';
+import { UserProfileService } from '../users/user-profile.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

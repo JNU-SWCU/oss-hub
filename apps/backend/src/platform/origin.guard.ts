@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
-import { DomainException } from '../platform/error-code.error';
-import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
+import { DomainException } from './error-code.error';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { AuthConfig } from './auth.config';
 
 @Injectable()

@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import type {
@@ -76,7 +77,12 @@ describe('ReadOnlyMilestoneDocuments', () => {
       .mockRejectedValueOnce(new TypeError('network'))
       .mockResolvedValueOnce(list([documentFixture]));
     await act(async () => {
-      root.render(<ReadOnlyMilestoneDocuments milestoneId="milestone-1" />);
+      root.render(
+        <ReadOnlyMilestoneDocuments
+          programId="program-1"
+          milestoneId="milestone-1"
+        />,
+      );
       await Promise.resolve();
     });
     expect(container.textContent).toContain('불러오지 못했습니다');
@@ -98,11 +104,17 @@ describe('ReadOnlyMilestoneDocuments', () => {
     const pending = deferred<MilestoneDocumentList>();
     listMilestoneDocumentsMock.mockReturnValue(pending.promise);
     await act(async () => {
-      root.render(<ReadOnlyMilestoneDocuments milestoneId="milestone-1" />);
+      root.render(
+        <ReadOnlyMilestoneDocuments
+          programId="program-1"
+          milestoneId="milestone-1"
+        />,
+      );
     });
     await act(async () => {
       root.render(
         <ReadOnlyMilestoneDocuments
+          programId="program-1"
           milestoneId="milestone-1"
           canonicalDocuments={[
             {
@@ -126,6 +138,7 @@ describe('ReadOnlyMilestoneDocuments', () => {
     await act(async () => {
       root.render(
         <ReadOnlyMilestoneDocuments
+          programId="program-1"
           milestoneId="milestone-1"
           canonicalDocuments={[]}
         />,

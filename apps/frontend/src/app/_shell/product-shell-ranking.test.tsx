@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -84,9 +96,11 @@ describe('ProductShell ranking fetch', () => {
     mocks.usePathname.mockReturnValue('/dashboard');
     await act(async () => {
       root.render(
-        <ProductShell>
-          <p>본문</p>
-        </ProductShell>,
+        <QueryClientProvider client={queryClient}>
+          <ProductShell>
+            <p>본문</p>
+          </ProductShell>
+        </QueryClientProvider>,
       );
     });
     expect(mocks.getRanking).not.toHaveBeenCalled();
@@ -97,9 +111,11 @@ describe('ProductShell ranking fetch', () => {
     mocks.usePathname.mockReturnValue('/ranking');
     await act(async () => {
       root.render(
-        <ProductShell>
-          <p>본문</p>
-        </ProductShell>,
+        <QueryClientProvider client={queryClient}>
+          <ProductShell>
+            <p>본문</p>
+          </ProductShell>
+        </QueryClientProvider>,
       );
     });
     expect(mocks.getRanking).not.toHaveBeenCalled();
@@ -120,9 +136,11 @@ describe('ProductShell ranking fetch', () => {
     });
     await act(async () => {
       root.render(
-        <ProductShell>
-          <RankingPage />
-        </ProductShell>,
+        <QueryClientProvider client={queryClient}>
+          <ProductShell>
+            <RankingPage />
+          </ProductShell>
+        </QueryClientProvider>,
       );
     });
   };

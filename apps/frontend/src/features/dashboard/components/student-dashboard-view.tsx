@@ -15,8 +15,11 @@ import type {
 import { TeamDeletionNotices } from './team-deletion-notices';
 import { ApplicationDecisionNotices } from './application-decision-notices';
 import { DashboardProgramSections } from './dashboard-program-sections';
+import type { DashboardFilter } from '../student-dashboard-url-state';
 
 interface StudentDashboardViewProps {
+  readonly filter?: DashboardFilter;
+  readonly onFilterChange?: (filter: DashboardFilter) => void;
   data: StudentDashboard | null;
   status: StudentDashboardStatus;
   now?: Date;
@@ -44,6 +47,8 @@ function DashboardSkeleton() {
 
 export function StudentDashboardView({
   data,
+  filter,
+  onFilterChange,
   status,
   now = new Date(),
   showSignupCompleteNotice = false,
@@ -116,6 +121,8 @@ export function StudentDashboardView({
         </Alert>
       ) : data && data.items.length > 0 ? (
         <DashboardProgramSections
+          filter={filter}
+          onFilterChange={onFilterChange}
           items={data.items}
           now={now}
           feedback={feedback.status === 'success' ? feedback.items : []}

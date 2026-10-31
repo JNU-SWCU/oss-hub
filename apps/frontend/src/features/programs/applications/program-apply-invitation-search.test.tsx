@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApplicationPreparation, removeMyTeamMember } from '../teams/api';
 import type { ProgramTeam } from '../teams/dto';

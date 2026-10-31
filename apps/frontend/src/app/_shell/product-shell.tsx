@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { ProgramCountdown } from '@/components';
 import type { CountdownMilestone } from '@/components/program/program-countdown';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ import {
 import { RankingCycleProvider } from './ranking-cycle-context';
 import { RankingCycleCountdown } from './ranking-cycle-countdown';
 import { useShellMenu } from './shell-menu-context';
+import { useShellUrlState } from './shell-url-state';
 import {
   hasShellSidebar,
   isShellMember,
@@ -133,8 +134,7 @@ export function ProductShell({
   readonly initialCollapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const search = searchParams.toString();
+  const search = useShellUrlState();
   const session = useSessionRole();
   const member = isShellMember(session);
   const section = shellSectionFromPathname(pathname);
@@ -162,6 +162,7 @@ export function ProductShell({
     scopeMilestones,
     scopeParticipant,
     scopeViewerRole,
+    scopeViewReady,
   } = useProductShellData({
     section,
     programDetailId,
@@ -326,7 +327,9 @@ export function ProductShell({
 
   return (
     <RankingCycleProvider>
-      <ProgramViewContext.Provider value={scopeViewerRole}>
+      <ProgramViewContext.Provider
+        value={scopeViewReady ? scopeViewerRole : null}
+      >
         <div
           data-slot="product-shell"
           data-collapsed={collapsed ? 'true' : 'false'}

@@ -7,7 +7,7 @@ import {
   buildRow,
   upsertUser,
 } from './auth.repository.spec-support';
-import { INITIAL_ACCOUNT_SEEDS } from './auth.config';
+import { INITIAL_ACCOUNT_SEEDS } from '../platform/auth.config';
 
 describe('AuthRepository.upsertUser', () => {
   it('미설정 시 부팅 가능한 빈 설정은 역할 시드를 적용하지 않는다', async () => {

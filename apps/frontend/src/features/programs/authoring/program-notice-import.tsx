@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
 import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +36,7 @@ export function ProgramNoticeImport({
   readonly disabled?: boolean;
   readonly onApply: (patch: ProgramNoticePatch) => void;
 }) {
+  const queryClient = useQueryClient();
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const request = useRef<AbortController | null>(null);
@@ -42,12 +45,17 @@ export function ProgramNoticeImport({
   const [state, setState] = useState<PreviewState>({ kind: 'idle' });
   const [patch, setPatch] = useState<ProgramNoticePatch>({});
 
-  useEffect(() => () => request.current?.abort(), []);
-
-  const cancelRequest = () => {
-    request.current?.abort();
+  const cancelRequest = useCallback(() => {
+    if (request.current === null) return;
+    request.current.abort();
     request.current = null;
-  };
+    void queryClient.cancelQueries({
+      queryKey: featureKey('program-notice-preview', url.trim()),
+      exact: true,
+    });
+  }, [queryClient, url]);
+
+  useEffect(() => cancelRequest, [cancelRequest]);
   const close = () => {
     cancelRequest();
     setOpen(false);
@@ -61,7 +69,11 @@ export function ProgramNoticeImport({
     setState({ kind: 'loading' });
     setPatch({});
     try {
-      const preview = await previewProgramNotice(url.trim(), controller.signal);
+      const preview = await queryClient.fetchQuery({
+        queryKey: featureKey('program-notice-preview', url.trim()),
+        queryFn: () => previewProgramNotice(url.trim(), controller.signal),
+        staleTime: 0,
+      });
       if (controller.signal.aborted || request.current !== controller) return;
       setState({ kind: 'ready', preview });
       setPatch({

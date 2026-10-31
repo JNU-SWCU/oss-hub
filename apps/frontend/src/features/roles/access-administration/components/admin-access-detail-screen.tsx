@@ -1,16 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  skipToken,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
 import {
   fetchAdminAccessHistory,
   parseAdminAccessConflictProjection,
+  type AdminAccessHistory,
+  type AdminAccessHistoryParams,
 } from '../admin-access-api';
 import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
   AdminAccessDetailNotFoundError,
-  loadAdminAccessDetail,
+  type AdminAccessDetailData,
 } from '../admin-access-detail-api';
+import {
+  adminAccessDetailKey,
+  adminAccessHistoryKey,
+  invalidateAdminAccess,
+  useAdminAccessDetailQuery,
+} from '../queries';
 import type { AccessWorkspace } from '../admin-access-list-query';
 import { executeAdminAccessMutation } from '../admin-access-mutation-execution';
 import {
@@ -30,7 +44,7 @@ import {
 import type { AdminAccessDetailLayoutContext } from './admin-access-detail-layout';
 import type { AdminAccessDetailMutationController } from './admin-access-detail-mutation';
 
-export function AdminAccessDetailScreen({
+function AdminAccessDetailScreenForUser({
   userId,
   layoutContext = 'standalone',
   workspace = 'directory',
@@ -39,75 +53,64 @@ export function AdminAccessDetailScreen({
   readonly layoutContext?: AdminAccessDetailLayoutContext;
   readonly workspace?: AccessWorkspace;
 }) {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<AdminAccessDetailState>({
-    kind: 'loading',
-  });
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const historyRequestRef = useRef(0);
-  const [historyFailure, setHistoryFailure] = useState<{
+  const client = useQueryClient();
+  const query = useAdminAccessDetailQuery(userId);
+  const [historyPage, setHistoryPage] = useState<{
+    readonly source: AdminAccessDetailData;
     readonly kind: 'staffAccessRequest' | 'login';
-    readonly page: number;
+    readonly params: AdminAccessHistoryParams;
+    readonly previousKey: QueryKey;
   } | null>(null);
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    historyRequestRef.current += 1;
-    setHistoryLoading(false);
-    setHistoryFailure(null);
-    setState({ kind: 'loading' });
-    void loadAdminAccessDetail(userId, controller.signal)
-      .then((data) => {
-        if (active) setState({ kind: 'ready', ...data });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setState(
-          error instanceof AdminAccessDetailNotFoundError
-            ? { kind: 'not-found' }
-            : { kind: 'error' },
-        );
-      });
-    return () => {
-      active = false;
-      historyRequestRef.current += 1;
-      controller.abort();
-    };
-  }, [attempt, userId]);
-
-  const changeHistoryPage = async (
+  const selectedHistory =
+    historyPage?.source === query.data ? historyPage : null;
+  const historyKey = adminAccessHistoryKey(
+    userId,
+    query.dataUpdatedAt,
+    selectedHistory?.params ?? null,
+  );
+  const historyQuery = useQuery({
+    queryKey: historyKey,
+    queryFn: selectedHistory
+      ? ({ signal }) =>
+          fetchAdminAccessHistory(userId, selectedHistory.params, signal)
+      : skipToken,
+  });
+  const previousHistoryQuery = useQuery<AdminAccessHistory>({
+    queryKey: selectedHistory?.previousKey ?? historyKey,
+    queryFn: skipToken,
+  });
+  const history =
+    historyQuery.data ?? previousHistoryQuery.data ?? query.data?.history;
+  const state: AdminAccessDetailState =
+    query.data !== undefined && history !== undefined
+      ? { kind: 'ready', ...query.data, history }
+      : query.isError
+        ? query.error instanceof AdminAccessDetailNotFoundError
+          ? { kind: 'not-found' }
+          : { kind: 'error' }
+        : { kind: 'loading' };
+  const retry = () => void query.refetch();
+  const historyLoading = historyQuery.isFetching;
+  const historyFailure = historyQuery.isError ? selectedHistory : null;
+  const changeHistoryPage = (
     kind: 'staffAccessRequest' | 'login',
-    nextPage: number,
+    page: number,
   ) => {
-    if (state.kind !== 'ready' || state.detail.id !== userId) return;
-    const request = ++historyRequestRef.current;
-    setHistoryLoading(true);
-    setHistoryFailure(null);
-    try {
-      const history = await fetchAdminAccessHistory(userId, {
+    if (state.kind !== 'ready' || query.data === undefined) return;
+    setHistoryPage({
+      source: query.data,
+      kind,
+      params: {
         staffAccessRequestPage:
           kind === 'staffAccessRequest'
-            ? nextPage
+            ? page
             : state.history.staffAccessRequests.page,
         staffAccessRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
-        loginPage:
-          kind === 'login' ? nextPage : state.history.loginHistory.page,
+        loginPage: kind === 'login' ? page : state.history.loginHistory.page,
         loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
-      });
-      if (request !== historyRequestRef.current) return;
-      setState((current) =>
-        current.kind === 'ready' && current.detail.id === userId
-          ? { ...current, history }
-          : current,
-      );
-    } catch {
-      if (request !== historyRequestRef.current) return;
-      setHistoryFailure({ kind, page: nextPage });
-    } finally {
-      if (request === historyRequestRef.current) setHistoryLoading(false);
-    }
+      },
+      previousKey: historyFailure?.previousKey ?? historyKey,
+    });
   };
 
   const [confirmAction, setConfirmAction] =
@@ -118,15 +121,6 @@ export function AdminAccessDetailScreen({
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [conflictNotice, setConflictNotice] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setConfirmAction(null);
-    setRejectReason('');
-    setProcessingAction(null);
-    setDialogError(null);
-    setConflictNotice(null);
-    setSuccessMessage(null);
-  }, [userId]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -172,23 +166,25 @@ export function AdminAccessDetailScreen({
       );
 
       if (workspace === 'queue' && result) {
-        setState((current) =>
-          current.kind === 'ready'
-            ? {
-                kind: 'ready',
-                detail: applyAdminAccessConflictProjection(
-                  current.detail,
-                  result,
-                ),
-                history: applyAdminAccessDecidedRequestToHistory(
-                  current.history,
-                  result.decidedRequest,
-                ),
-              }
-            : current,
+        client.setQueryData<AdminAccessDetailData>(
+          adminAccessDetailKey(userId),
+          (current) =>
+            current
+              ? {
+                  detail: applyAdminAccessConflictProjection(
+                    current.detail,
+                    result,
+                  ),
+                  history: applyAdminAccessDecidedRequestToHistory(
+                    current.history,
+                    result.decidedRequest,
+                  ),
+                }
+              : current,
         );
+        await invalidateAdminAccess(client, userId, false);
       } else {
-        retry();
+        await invalidateAdminAccess(client, userId);
       }
     } catch (error) {
       if (
@@ -203,19 +199,22 @@ export function AdminAccessDetailScreen({
         setConflictNotice(
           '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
         );
-        retry();
+        await invalidateAdminAccess(client, userId);
         return;
       }
       const projection = parseAdminAccessConflictProjection(error);
       if (projection) {
         if (isIndependentAuthorityMutationAction(action)) {
-          retry();
+          await invalidateAdminAccess(client, userId);
         } else {
-          setState({
-            kind: 'ready',
-            detail: applyAdminAccessConflictProjection(detail, projection),
-            history: state.history,
-          });
+          client.setQueryData<AdminAccessDetailData>(
+            adminAccessDetailKey(userId),
+            {
+              detail: applyAdminAccessConflictProjection(detail, projection),
+              history: state.history,
+            },
+          );
+          await invalidateAdminAccess(client, userId, false);
         }
         setConfirmAction(null);
         setRejectReason('');
@@ -256,7 +255,7 @@ export function AdminAccessDetailScreen({
         `${state.detail.githubLogin}님의 프로필을 저장했습니다.`,
       );
     }
-    retry();
+    void invalidateAdminAccess(client, userId);
   };
 
   return (
@@ -271,11 +270,7 @@ export function AdminAccessDetailScreen({
         historyFailure
           ? {
               message: `${historyFailure.kind === 'login' ? '로그인' : '요청'} 이력을 불러오지 못했습니다. 이전 목록은 그대로 남아 있습니다.`,
-              onRetry: () =>
-                void changeHistoryPage(
-                  historyFailure.kind,
-                  historyFailure.page,
-                ),
+              onRetry: () => void historyQuery.refetch(),
             }
           : null
       }
@@ -286,4 +281,10 @@ export function AdminAccessDetailScreen({
       onProfileSaved={handleProfileSaved}
     />
   );
+}
+
+export function AdminAccessDetailScreen(
+  props: Parameters<typeof AdminAccessDetailScreenForUser>[0],
+) {
+  return <AdminAccessDetailScreenForUser key={props.userId} {...props} />;
 }

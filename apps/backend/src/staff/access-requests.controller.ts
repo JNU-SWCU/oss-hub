@@ -6,10 +6,8 @@ import {
   Param,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { AdminAccessService } from '../users/admin-access.service';
 import {
   AccessRequestsHistoryRequestDto,
@@ -21,6 +19,7 @@ import {
   AccessRequestsUserPageResponseDto,
 } from './dto/access-requests-user-page-response.dto';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -37,7 +36,7 @@ export class AccessRequestsController {
 
   @Get('access/requests')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async listRequests(
     @Req() request: SessionIdentity,
     @Query() query: AccessRequestsListRequestDto,
@@ -52,7 +51,7 @@ export class AccessRequestsController {
 
   @Get(':id/access')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async get(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -65,7 +64,7 @@ export class AccessRequestsController {
 
   @Get(':id/access/history')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getHistory(
     @Req() request: SessionIdentity,
     @Param('id') id: string,

@@ -1,7 +1,7 @@
 import { AuthConfig } from './auth.config';
 import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { loadRuntimeConfig } from '../platform/runtime-config.config';
+import { loadRuntimeConfig } from './runtime-config.config';
 
 describe('initial-roles', () => {
   describe('parseInitialRoles', () => {

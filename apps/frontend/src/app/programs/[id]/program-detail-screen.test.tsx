@@ -1,5 +1,4 @@
-import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProgramDetail } from '@/features/programs/catalog/dto';
 
@@ -92,27 +91,27 @@ const program: ProgramDetail = {
 
 describe('ProgramDetailScreen의 실제 상세 화면', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let rendered: Awaited<ReturnType<typeof renderWithQuery>>;
   beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
     navigation.searchParams = new URLSearchParams();
     navigation.router.replace.mockReset();
     remote.detail.mockResolvedValue(program);
     remote.overview.mockResolvedValue(null);
   });
   afterEach(async () => {
-    await act(async () => root.unmount());
-    container.remove();
+    await rendered.unmount();
   });
 
   async function renderScreen() {
-    await act(async () => {
-      root.render(
-        <ProgramViewContext.Provider value="STUDENT">
-          <ProgramDetailScreen programId={program.id} />
-        </ProgramViewContext.Provider>,
+    rendered = await renderWithQuery(
+      <ProgramViewContext.Provider value="STUDENT">
+        <ProgramDetailScreen programId={program.id} />
+      </ProgramViewContext.Provider>,
+    );
+    container = rendered.container;
+    await vi.waitFor(() => {
+      expect(container.querySelector('#milestones')?.textContent).toContain(
+        '합성 결과물',
       );
     });
   }
@@ -143,16 +142,15 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
   });
 
   it('불러온 프로그램 이름을 쉘의 이름 보고 컨텍스트로 올린다 — 모바일 스코프 바가 id 대신 쓴다', async () => {
-    await act(async () => {
-      root.render(
-        <ProgramNameReportProvider>
-          <ReportedName programId={program.id} />
-          <ProgramViewContext.Provider value="STUDENT">
-            <ProgramDetailScreen programId={program.id} />
-          </ProgramViewContext.Provider>
-        </ProgramNameReportProvider>,
-      );
-    });
+    rendered = await renderWithQuery(
+      <ProgramNameReportProvider>
+        <ReportedName programId={program.id} />
+        <ProgramViewContext.Provider value="STUDENT">
+          <ProgramDetailScreen programId={program.id} />
+        </ProgramViewContext.Provider>
+      </ProgramNameReportProvider>,
+    );
+    container = rendered.container;
 
     expect(
       container.querySelector('[data-testid="reported-name"]')?.textContent,

@@ -1,15 +1,8 @@
-import {
-  Controller,
-  Get,
-  Header,
-  Inject,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Header, Inject, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { MyRepositoriesResponseDto } from './dto/my-repositories-response.dto';
 import { RepositoriesReadService } from '../github/repositories-read.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -25,7 +18,7 @@ export class MyRepositoriesController {
 
   @Get('me')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getMyRepositories(
     @Req() request: SessionIdentity,
   ): Promise<MyRepositoriesResponseDto> {

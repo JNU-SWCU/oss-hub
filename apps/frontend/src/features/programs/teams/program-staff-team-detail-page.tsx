@@ -31,11 +31,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api-client';
-import {
-  decideApplication,
-  getApplicationDetailWithHistory,
-} from '../applications/api';
-import { getStaffProgramTeamDetail } from './api';
+import { getApplicationDetailWithHistory } from '../applications/api';
+import { useApplicationDecisionMutation } from '../applications/queries';
+import { useQueryClient } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../catalog/queries';
+import { useStaffTeamDetailQuery, useTeamApplicationQuery } from './queries';
 import {
   blocksFurtherDecisions,
   decisionInputFor,
@@ -53,7 +54,6 @@ import { TeamRepositoryPanel } from './team-repository-panel';
 import { OutsiderContributions } from './outsider-contributions';
 import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
-import type { ApplicationDetail } from '../applications/dto';
 import type { ApplicationStatus } from '../program-contract';
 import type { StaffTeamDetail } from './dto';
 
@@ -96,14 +96,28 @@ export function ProgramStaffTeamDetailPage({
 
   readonly sessionKey: string | null;
 }): ReactElement {
-  const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const queryClient = useQueryClient();
+  const { mutateAsync: decide } = useApplicationDecisionMutation(programId);
+  const query = useStaffTeamDetailQuery(programId, teamId, sessionKey);
+  const loadState: LoadState =
+    query.data !== undefined
+      ? { kind: 'ready', detail: query.data }
+      : query.isError
+        ? query.error instanceof ApiError && query.error.problem.status === 404
+          ? { kind: 'not-found' }
+          : {
+              kind: 'error',
+              message:
+                query.error instanceof ApiError
+                  ? query.error.problem.detail
+                  : '팀 상세를 불러오지 못했습니다.',
+            }
+        : { kind: 'loading' };
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const [justRenamed, setJustRenamed] = useState(false);
 
-  const [applicationDetail, setApplicationDetail] =
-    useState<ApplicationDetail | null>(null);
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionBlocked, setDecisionBlocked] = useState(false);
   const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
@@ -117,60 +131,22 @@ export function ProgramStaffTeamDetailPage({
   const router = useRouter();
 
   const load = useCallback(
-    async (options?: { readonly quiet?: boolean }): Promise<void> => {
-      const quiet = options?.quiet === true;
-      if (!quiet) setLoadState({ kind: 'loading' });
-      try {
-        const detail = await getStaffProgramTeamDetail(programId, teamId);
-        if (cancelled.current) return;
-        setLoadState({ kind: 'ready', detail });
-      } catch (error: unknown) {
-        if (cancelled.current || quiet) return;
-        if (error instanceof ApiError && error.problem.status === 404) {
-          setLoadState({ kind: 'not-found' });
-        } else {
-          setLoadState({
-            kind: 'error',
-            message:
-              error instanceof ApiError
-                ? error.problem.detail
-                : '팀 상세를 불러오지 못했습니다.',
-          });
-        }
-      }
-    },
-    [programId, teamId],
+    () => invalidateProgram(queryClient, programId),
+    [queryClient, programId],
   );
-
   useEffect(() => {
     cancelled.current = false;
-    void load();
     return () => {
       cancelled.current = true;
     };
-  }, [load]);
-
-  const applicationId =
-    loadState.kind === 'ready'
-      ? (loadState.detail.application?.id ?? null)
-      : null;
-
-  const loadApplication = useCallback(async (): Promise<void> => {
-    if (applicationId === null) {
-      setApplicationDetail(null);
-      return;
-    }
-    try {
-      const detail = await getApplicationDetailWithHistory(applicationId);
-      if (!cancelled.current) setApplicationDetail(detail);
-    } catch {
-      if (!cancelled.current) setApplicationDetail(null);
-    }
-  }, [applicationId]);
-
-  useEffect(() => {
-    void loadApplication();
-  }, [loadApplication]);
+  }, [programId, teamId, sessionKey]);
+  const applicationId = query.data?.application?.id ?? null;
+  const applicationQuery = useTeamApplicationQuery(
+    programId,
+    applicationId,
+    sessionKey,
+  );
+  const applicationDetail = applicationQuery.data ?? null;
 
   const applyDecision = useCallback(
     async (next: ApplicationStatus, why: string): Promise<void> => {
@@ -182,8 +158,19 @@ export function ProgramStaffTeamDetailPage({
       }
       setDecisionBusy(true);
       const result = await runDecisionWithRefetch({
-        decide: () => decideApplication(applicationId, input),
-        refetch: () => getApplicationDetailWithHistory(applicationId),
+        decide: () => decide({ applicationId, input }),
+        refetch: () =>
+          queryClient.fetchQuery({
+            queryKey: programFeatureKey(
+              programId,
+              'teams',
+              'application',
+              applicationId,
+              sessionKey,
+            ),
+            queryFn: () => getApplicationDetailWithHistory(applicationId),
+            staleTime: 0,
+          }),
       });
       if (cancelled.current) return;
       setDecisionBusy(false);
@@ -197,14 +184,23 @@ export function ProgramStaffTeamDetailPage({
         return;
       }
       if (result.kind === 'removed') {
-        setApplicationDetail(null);
+        queryClient.setQueryData(
+          programFeatureKey(
+            programId,
+            'teams',
+            'application',
+            applicationId,
+            sessionKey,
+          ),
+          null,
+        );
         return;
       }
       if (blocksFurtherDecisions(result)) return;
 
-      await Promise.all([loadApplication(), load()]);
+      await load();
     },
-    [applicationId, loadApplication, load],
+    [applicationId, load, queryClient, programId, sessionKey, decide],
   );
 
   const teamsHref = programHref(programId, '/teams');
@@ -370,11 +366,6 @@ export function ProgramStaffTeamDetailPage({
         />
 
         <TeamRepositoryPanel
-          key={[
-            application?.id,
-            application?.status,
-            detail.members.map((member) => member.userId).join(','),
-          ].join('|')}
           programId={programId}
           teamId={teamId}
           activityTitle="팀 활동"
@@ -382,7 +373,6 @@ export function ProgramStaffTeamDetailPage({
           saveRepositoryUrl={(repositoryUrl) =>
             updateTeamRepositoryUrl(programId, teamId, { repositoryUrl })
           }
-          onSaved={() => void load({ quiet: true })}
           activityExtra={
             detail.repositoryContributions?.outsiderContributions ? (
               <OutsiderContributions
@@ -492,11 +482,17 @@ export function ProgramStaffTeamDetailPage({
               setRenaming(false);
               setJustRenamed(true);
 
-              setLoadState((current) =>
-                current.kind === 'ready'
-                  ? { ...current, detail: { ...current.detail, name } }
-                  : current,
+              queryClient.setQueryData<StaffTeamDetail>(
+                programFeatureKey(
+                  programId,
+                  'teams',
+                  'staff-detail',
+                  teamId,
+                  sessionKey,
+                ),
+                (current) => (current ? { ...current, name } : current),
               );
+              void load();
             }}
           />
         ) : null}
@@ -511,6 +507,25 @@ export function ProgramStaffTeamDetailPage({
               requestAnimationFrame(() => deleteTriggerRef.current?.focus());
             }}
             onDeleted={() => {
+              queryClient.removeQueries({
+                queryKey: programFeatureKey(
+                  programId,
+                  'teams',
+                  'staff-detail',
+                  teamId,
+                ),
+              });
+              if (applicationId !== null) {
+                queryClient.removeQueries({
+                  queryKey: programFeatureKey(
+                    programId,
+                    'teams',
+                    'application',
+                    applicationId,
+                  ),
+                });
+              }
+              void load();
               router.push(teamsHref);
             }}
           />

@@ -261,6 +261,7 @@ function MilestoneGroup({
   );
   const detail = (
     <MilestoneDocumentSection
+      programId={program.id}
       milestoneId={milestone.id}
       viewerRole={program.viewer.role}
       closed={isPastDue(milestone.dueAt)}

@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
+import { useQueryClient } from '@tanstack/react-query';
+import { programFeatureKey } from '@/lib/query-keys';
+import {
+  useSentInvitationsQuery,
+  useInvitationCandidatesQuery,
+} from './queries';
 import type { ProgramTeam } from './dto';
 import { mapInvitationError } from './program-teams-flow';
-import {
-  cancelInvitation,
-  createInvitation,
-  listSentInvitations,
-  searchInvitationCandidates,
-} from './team-invitation-api';
+import { cancelInvitation, createInvitation } from './team-invitation-api';
 import type {
   InvitationCandidate,
   SentTeamInvitation,
@@ -29,19 +30,11 @@ const INVITATION_CANCEL_FAILED_MESSAGE = '초대를 취소하지 못했습니다
 const NO_SENT_INVITATIONS: readonly SentTeamInvitation[] = [];
 const NO_CANDIDATES: readonly InvitationCandidate[] = [];
 
-type SentInvitationsState =
-  | { readonly kind: 'idle' }
-  | { readonly kind: 'loading' }
-  | {
-      readonly kind: 'loaded';
-      readonly invitations: readonly SentTeamInvitation[];
-    }
-  | { readonly kind: 'failed'; readonly message: string };
-
 export interface TeamInvitationManagementInput {
   readonly programId: string;
   readonly team: Pick<ProgramTeam, 'id' | 'canInvite' | 'preparation'> | null;
   readonly sessionKey: string | null;
+  readonly refetchInterval?: number;
 }
 
 export interface TeamInvitationManagement {
@@ -79,12 +72,43 @@ export function useTeamInvitationManagement(
   const identityKey = resolveIdentityKey(input);
   const teamId = input.team?.id ?? null;
 
-  const [sent, setSent] = useState<SentInvitationsState>({ kind: 'idle' });
   const [inviteQuery, setInviteQuery] = useState('');
-  const [inviteCandidates, setInviteCandidates] =
-    useState<readonly InvitationCandidate[]>(NO_CANDIDATES);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
+  const [immediateQuery, setImmediateQuery] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const preparation = input.team?.preparation === true;
+  const sentQuery = useSentInvitationsQuery(
+    input.programId,
+    teamId,
+    identityKey,
+    preparation,
+    input.refetchInterval,
+  );
+  const debouncedInviteQuery = useDebouncedValue(
+    inviteQuery,
+    INVITE_SEARCH_DEBOUNCE_MS,
+  );
+  const searchQuery = immediateQuery ?? debouncedInviteQuery.trim();
+  const searchEnabled =
+    searchQuery === inviteQuery.trim() &&
+    searchQuery.length >= MIN_INVITE_SEARCH_QUERY_LENGTH;
+  const candidatesQuery = useInvitationCandidatesQuery(
+    input.programId,
+    teamId,
+    identityKey,
+    preparation,
+    searchQuery,
+    searchEnabled,
+  );
+  const inviteCandidates = searchEnabled
+    ? (candidatesQuery.data ?? NO_CANDIDATES)
+    : NO_CANDIDATES;
+  const searching = searchEnabled && candidatesQuery.isFetching;
+  const searchError =
+    searchEnabled && candidatesQuery.isError
+      ? candidatesQuery.error instanceof ApiError
+        ? mapInvitationError(candidatesQuery.error.problem)
+        : INVITATION_SEARCH_FAILED_MESSAGE
+      : null;
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
   const [cancelingInvitationId, setCancelingInvitationId] = useState<
     string | null
@@ -95,8 +119,6 @@ export function useTeamInvitationManagement(
 
   const mountedRef = useRef(true);
   const epochRef = useRef(0);
-  const sentSeqRef = useRef(0);
-  const searchSeqRef = useRef(0);
   const invitingUserIdRef = useRef<string | null>(null);
   const cancelingInvitationIdRef = useRef<string | null>(null);
   const identityKeyRef = useRef(identityKey);
@@ -124,115 +146,40 @@ export function useTeamInvitationManagement(
     [],
   );
 
-  const loadSent = useCallback(
-    async (options?: { readonly quiet?: boolean }): Promise<void> => {
-      const key = identityKeyRef.current;
-      const targetTeamId = teamIdRef.current;
-      if (key === null || targetTeamId === null) return;
-      const epoch = epochRef.current;
-      const seq = ++sentSeqRef.current;
-      if (!options?.quiet) setSent({ kind: 'loading' });
-      try {
-        const invitations = await listSentInvitations(
-          targetTeamId,
-          preparationRef.current,
-        );
-        if (seq !== sentSeqRef.current || !stillCurrent(epoch, key)) return;
-        setSent({ kind: 'loaded', invitations });
-      } catch (error: unknown) {
-        if (seq !== sentSeqRef.current || !stillCurrent(epoch, key)) return;
-        setSent({
-          kind: 'failed',
-          message:
-            error instanceof ApiError
-              ? mapInvitationError(error.problem)
-              : SENT_INVITATIONS_LOAD_FAILED_MESSAGE,
-        });
-      }
-    },
-    [stillCurrent],
-  );
+  const loadSent = useCallback(async (): Promise<void> => {
+    if (identityKey === null) return;
+    await queryClient.invalidateQueries({
+      queryKey: programFeatureKey(input.programId, 'teams', 'sent'),
+    });
+  }, [identityKey, queryClient, input.programId]);
 
   const performSearch = useCallback(
-    async (rawQuery: string): Promise<void> => {
-      const key = identityKeyRef.current;
-      const targetTeamId = teamIdRef.current;
-      if (key === null || targetTeamId === null) return;
-      const query = rawQuery.trim();
-      const epoch = epochRef.current;
-      const seq = ++searchSeqRef.current;
-      if (query.length < MIN_INVITE_SEARCH_QUERY_LENGTH) {
-        setInviteCandidates(NO_CANDIDATES);
-        setSearchError(null);
-        setSearching(false);
-        return;
-      }
-      setSearching(true);
-      setSearchError(null);
-      try {
-        const candidates = await searchInvitationCandidates(
-          targetTeamId,
-          query,
-          preparationRef.current,
-        );
-        if (seq !== searchSeqRef.current || !stillCurrent(epoch, key)) return;
-        setInviteCandidates(candidates);
-      } catch (error: unknown) {
-        if (seq !== searchSeqRef.current || !stillCurrent(epoch, key)) return;
-        setInviteCandidates(NO_CANDIDATES);
-        setSearchError(
-          error instanceof ApiError
-            ? mapInvitationError(error.problem)
-            : INVITATION_SEARCH_FAILED_MESSAGE,
-        );
-      } finally {
-        if (seq === searchSeqRef.current && stillCurrent(epoch, key)) {
-          setSearching(false);
-        }
-      }
+    async (query: string): Promise<void> => {
+      setImmediateQuery(query.trim());
+      await queryClient.invalidateQueries({
+        queryKey: programFeatureKey(input.programId, 'teams', 'search'),
+      });
     },
-    [stillCurrent],
+    [queryClient, input.programId],
   );
 
   useEffect(() => {
     epochRef.current += 1;
-    sentSeqRef.current += 1;
-    searchSeqRef.current += 1;
     invitingUserIdRef.current = null;
     cancelingInvitationIdRef.current = null;
-    setSent({ kind: 'idle' });
     setInviteQuery('');
-    setInviteCandidates(NO_CANDIDATES);
-    setSearching(false);
-    setSearchError(null);
+    setImmediateQuery(null);
     setInvitingUserId(null);
     setCancelingInvitationId(null);
     setInviteActionError(null);
-    if (identityKey !== null) void loadSent();
     return () => {
       epochRef.current += 1;
-      sentSeqRef.current += 1;
-      searchSeqRef.current += 1;
     };
-  }, [identityKey, loadSent]);
-
-  const debouncedInviteQuery = useDebouncedValue(
-    inviteQuery,
-    INVITE_SEARCH_DEBOUNCE_MS,
-  );
-
-  useEffect(() => {
-    void performSearch(debouncedInviteQuery);
-  }, [debouncedInviteQuery, performSearch]);
+  }, [identityKey]);
 
   const onInviteQueryChange = useCallback((value: string) => {
-    searchSeqRef.current += 1;
     setInviteQuery(value);
-    setInviteCandidates(NO_CANDIDATES);
-    setSearchError(null);
-    if (value.trim().length < MIN_INVITE_SEARCH_QUERY_LENGTH) {
-      setSearching(false);
-    }
+    setImmediateQuery(null);
   }, []);
 
   const invite = useCallback(
@@ -253,7 +200,7 @@ export function useTeamInvitationManagement(
         );
         if (!stillCurrent(epoch, key)) return;
 
-        await loadSent({ quiet: true });
+        await loadSent();
         if (!stillCurrent(epoch, key)) return;
         if (
           inviteQueryRef.current.trim().length >= MIN_INVITE_SEARCH_QUERY_LENGTH
@@ -290,7 +237,7 @@ export function useTeamInvitationManagement(
       try {
         await cancelInvitation(invitationId, preparationRef.current);
         if (!stillCurrent(epoch, key)) return;
-        await loadSent({ quiet: true });
+        await loadSent();
       } catch (error: unknown) {
         if (!stillCurrent(epoch, key)) return;
         setInviteActionError(
@@ -330,12 +277,14 @@ export function useTeamInvitationManagement(
     [cancel],
   );
 
-  const reloadSent = useCallback(() => loadSent({ quiet: true }), [loadSent]);
+  const reloadSent = useCallback(() => loadSent(), [loadSent]);
 
   return {
     sentInvitations:
-      sent.kind === 'loaded' ? sent.invitations : NO_SENT_INVITATIONS,
-    sentLoading: sent.kind === 'loading',
+      identityKey !== null
+        ? (sentQuery.data ?? NO_SENT_INVITATIONS)
+        : NO_SENT_INVITATIONS,
+    sentLoading: identityKey !== null && sentQuery.isPending,
     inviteQuery,
     inviteCandidates,
     searching,
@@ -343,7 +292,12 @@ export function useTeamInvitationManagement(
     invitingUserId,
     cancelingInvitationId,
     inviteActionError,
-    sentError: sent.kind === 'failed' ? sent.message : null,
+    sentError:
+      identityKey !== null && sentQuery.isError
+        ? sentQuery.error instanceof ApiError
+          ? mapInvitationError(sentQuery.error.problem)
+          : SENT_INVITATIONS_LOAD_FAILED_MESSAGE
+        : null,
     onRetrySent,
     onInviteQueryChange,
     onSearch,

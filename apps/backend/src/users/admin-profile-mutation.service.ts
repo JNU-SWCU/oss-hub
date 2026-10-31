@@ -18,7 +18,7 @@ import {
 } from './admin-profile.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { Injectable } from '@nestjs/common';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 type AdminProfileFields = {

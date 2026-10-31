@@ -1,5 +1,6 @@
 import { act, type ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import type { RepositoryUrlState } from './repository-url-dto';

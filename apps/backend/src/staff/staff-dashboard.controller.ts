@@ -1,20 +1,12 @@
-import {
-  Controller,
-  Get,
-  Header,
-  Inject,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Header, Inject, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
 import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsService } from './staff-insights.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('dashboard/staff')
 export class StaffDashboardController {
@@ -28,7 +20,7 @@ export class StaffDashboardController {
 
   @Get('summary')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async summary(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
   ): Promise<StaffDashboardSummaryResponseDto> {
@@ -39,7 +31,7 @@ export class StaffDashboardController {
 
   @Get('insights')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async insightsSummary(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Query() query: StaffInsightsRequestDto,

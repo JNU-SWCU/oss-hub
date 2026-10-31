@@ -9,9 +9,8 @@ import {
 } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { ProgramSubmissionsController } from './program-submissions.controller';
@@ -20,6 +19,7 @@ import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionsService } from './submissions.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -98,6 +98,15 @@ beforeAll(async () => {
       SubmissionsController,
     ],
     providers: [
+      protectedRouteGuardStub({
+        canActivate: (context: ExecutionContext): boolean => {
+          const request = context
+            .switchToHttp()
+            .getRequest<AuthenticatedRequest>();
+          request.sessionGithubId = SESSION_GITHUB_ID;
+          return true;
+        },
+      }),
       ...STATELESS_PROVIDERS,
       {
         provide: SubmissionsService,
@@ -110,16 +119,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate: (context: ExecutionContext): boolean => {
-        const request = context
-          .switchToHttp()
-          .getRequest<AuthenticatedRequest>();
-        request.sessionGithubId = SESSION_GITHUB_ID;
-        return true;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();
@@ -408,19 +407,18 @@ function readGuards(
 it('체크리스트는 세션 가드를, 재제출은 세션+Origin 가드를 요구한다', () => {
   expect(
     readGuards(ProgramSubmissionsController.prototype, 'checklist'),
-  ).toEqual([SessionGuard]);
-  expect(readGuards(SubmissionFilesController.prototype, 'download')).toEqual([
-    SessionGuard,
-  ]);
+  ).toEqual([]);
+  expect(readGuards(SubmissionFilesController.prototype, 'download')).toEqual(
+    [],
+  );
   expect(readGuards(SubmissionsController.prototype, 'resubmit')).toEqual([
-    SessionGuard,
     OriginGuard,
   ]);
 });
 
 it('파일 판정은 업로드와 같은 세션+Origin 가드와 multipart 한도를 쓴다', () => {
   const files = SubmissionFilesController.prototype;
-  expect(readGuards(files, 'check')).toEqual([SessionGuard, OriginGuard]);
+  expect(readGuards(files, 'check')).toEqual([OriginGuard]);
   expect(readGuards(files, 'check')).toEqual(readGuards(files, 'upload'));
   expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toHaveLength(1);
   expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toEqual(

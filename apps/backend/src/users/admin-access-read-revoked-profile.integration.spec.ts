@@ -13,7 +13,7 @@ import {
 } from './admin-access-query.config';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const mutation = new AdminAccessMutationService(
   new AuditLogMetadataService(),

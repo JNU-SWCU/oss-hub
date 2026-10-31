@@ -1,7 +1,7 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
-import { HTTP_AUTH_KINDS } from '../auth/auth.config';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { RankingController } from './ranking.controller';
 import { RankingService } from './ranking.service';
 import { RankingYearService, RANKING_YEAR_ALL } from './ranking-year.service';

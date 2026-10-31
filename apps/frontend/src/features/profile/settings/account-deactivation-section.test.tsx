@@ -1,6 +1,17 @@
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  createQueryRoot as createRoot,
+  createTestQueryClient,
+} from '../../../../test-support/render-with-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({ deactivateMyAccount: vi.fn() }));
@@ -59,6 +70,8 @@ describe('AccountDeactivationSection', () => {
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
+    root.queryClient.setQueryDefaults(['profile'], { gcTime: Infinity });
+    root.queryClient.setQueryData(['profile'], { name: '합성 사용자' });
 
     await act(async () => {
       root.render(
@@ -90,6 +103,7 @@ describe('AccountDeactivationSection', () => {
 
     await act(async () => finish());
     expect(onDeactivated).toHaveBeenCalledOnce();
+    expect(root.queryClient.getQueryCache().getAll()).toHaveLength(0);
 
     await act(async () => root.unmount());
     container.remove();

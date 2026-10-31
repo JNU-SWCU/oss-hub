@@ -6,7 +6,7 @@ import {
   recordLogin,
   requestWithCookie,
 } from './auth.controller.spec.helpers';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

@@ -21,7 +21,7 @@ import {
 import { type UserProfileRecord } from './profile-validation.config';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 export interface UserProfile {
   readonly name: string;

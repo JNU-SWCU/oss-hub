@@ -10,15 +10,15 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ApplicationsService } from './applications.service';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { ApplicationListPageResponseDto } from './dto/application-list-page-response.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
 import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
+import { Protected } from '../auth/authentication.guard';
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -33,7 +33,7 @@ export class ProgramApplicationsController {
   ) {}
 
   @Get()
-  @UseGuards(SessionGuard)
+  @Protected()
   async list(
     @Req() request: ApplicationSessionRequest,
     @Param('programId') programId: string,
@@ -62,7 +62,8 @@ export class ProgramApplicationsController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async create(
     @Req() request: ApplicationSessionRequest,
     @Param('programId') programId: string,

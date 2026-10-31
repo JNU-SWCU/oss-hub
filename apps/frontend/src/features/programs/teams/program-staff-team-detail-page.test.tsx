@@ -1,8 +1,9 @@
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import { programFeatureKey } from '@/lib/query-keys';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
 import { updateTeamRepositoryUrl } from './repository-url-api';
 import { removeStaffTeamMember } from './staff-team-members-api';
@@ -67,6 +68,11 @@ vi.mock('./team-activity-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./team-activity-api')>()),
   getTeamActivity: vi.fn(),
   getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('./team-invitation-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./team-invitation-api')>()),
+  listSentInvitations: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('./staff-team-members-api', async (importOriginal) => ({
@@ -206,10 +212,9 @@ describe('ProgramStaffTeamDetailPage', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+  beforeEach(async () => {
+    root = await renderWithQuery(null);
+    container = root.container;
     getStaffProgramTeamDetailMock.mockReset();
     publishRepositoryMock.mockReset();
     renameProgramTeamMock.mockReset();
@@ -224,8 +229,8 @@ describe('ProgramStaffTeamDetailPage', () => {
     vi.mocked(removeStaffTeamMember).mockReset();
   });
 
-  afterEach(() => {
-    act(() => root.unmount());
+  afterEach(async () => {
+    await root.unmount();
     container.remove();
   });
 
@@ -876,7 +881,9 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
 
     it('새 이름으로 저장하면 제목과 알림이 바뀐 이름을 말한다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({ ...withApplication, name: '새팀이름' });
       renameProgramTeamMock.mockResolvedValue({
         teamId: 'team-1',
         name: '새팀이름',
@@ -895,7 +902,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain('새팀이름');
       expect(container.textContent).not.toContain('오픈소스팀');
 
-      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(1);
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
     });
 
     it('저장이 실패하면 창 안에서 말하고 제목은 그대로 둔다', async () => {
@@ -950,12 +957,17 @@ describe('ProgramStaffTeamDetailPage', () => {
   });
 
   describe('팀 삭제', () => {
-    it('삭제 뒤에도 운영 팀 목록으로 돌아간다', async () => {
+    it('삭제된 팀과 신청서를 재조회하지 않고 목록을 갱신한 뒤 돌아간다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       deleteStaffProgramTeamMock.mockResolvedValue({
         deletedCounts: withApplication.deletionScope,
       });
       await render();
+      const listKey = programFeatureKey('program-1', 'teams', 'staff');
+      root.queryClient.setQueryDefaults(listKey, { gcTime: Infinity });
+      root.queryClient.setQueryData(listKey, { items: [] });
+      getStaffProgramTeamDetailMock.mockClear();
+      getApplicationDetailWithHistoryMock.mockClear();
       const trigger = [...container.querySelectorAll('button')].find(
         (button) => button.textContent?.trim() === '팀 삭제',
       );
@@ -969,6 +981,9 @@ describe('ProgramStaffTeamDetailPage', () => {
       });
 
       expect(routerPushMock).toHaveBeenCalledWith('/programs/program-1/teams');
+      expect(getStaffProgramTeamDetailMock).not.toHaveBeenCalled();
+      expect(getApplicationDetailWithHistoryMock).not.toHaveBeenCalled();
+      expect(root.queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     });
 
     it('위험 영역에 팀 삭제 버튼이 있고 누르면 확인 창이 열린다', async () => {

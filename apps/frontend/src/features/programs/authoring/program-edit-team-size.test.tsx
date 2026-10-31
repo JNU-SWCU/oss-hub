@@ -1,4 +1,13 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
 import { describe, expect, it, vi } from 'vitest';
 import type { EditableProgram } from './dto';
 import { buildProgramEditInput, toProgramEditForm } from './program-edit-flow';

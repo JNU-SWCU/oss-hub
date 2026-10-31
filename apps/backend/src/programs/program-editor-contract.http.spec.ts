@@ -5,8 +5,7 @@ import {
 } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramsController } from './programs.controller';
 import { MilestonesController } from './milestones.controller';
@@ -21,6 +20,7 @@ import {
 } from '../../test/program-editor-service-fixtures';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -96,14 +96,13 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController, MilestonesController],
     providers: [
+      protectedRouteGuardStub({ canActivate: sessionGuard }),
       ...STATELESS_PROVIDERS,
       ProgramEditorService,
       { provide: ProgramEditorRepository, useValue: repository },
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({ canActivate: sessionGuard })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();

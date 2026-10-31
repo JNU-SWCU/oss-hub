@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -133,6 +134,21 @@ describe('SectionFacetChips', () => {
 
     expect(mocks.push).toHaveBeenCalledWith(
       '/programs?status=recruiting&sort=applicationPeriod&direction=desc',
+    );
+  });
+
+  it('keeps search and sorting but resets page and year when status changes', async () => {
+    await renderChips(
+      programFacets({
+        search:
+          'status=ended&year=2025&sort=name&direction=desc&search=OSS&page=3',
+      }),
+    );
+
+    await act(async () => chip('모집').click());
+
+    expect(mocks.push).toHaveBeenCalledWith(
+      '/programs?status=recruiting&sort=name&direction=desc&search=OSS',
     );
   });
 

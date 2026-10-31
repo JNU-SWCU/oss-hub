@@ -4,8 +4,7 @@ import {
   ApplicationStatus,
 } from '@prisma/client';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { ApplicationsService } from './applications.service';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
@@ -22,15 +21,15 @@ function readGuards(target: object, methodName: 'create' | 'list'): unknown[] {
 }
 
 describe('ProgramApplicationsController', () => {
-  it('POST 에 SessionGuard·OriginGuard 를 적용한다', () => {
+  it('POST 에 OriginGuard 를 적용한다', () => {
     expect(
       readGuards(ProgramApplicationsController.prototype, 'create'),
-    ).toEqual([SessionGuard, OriginGuard]);
+    ).toEqual([OriginGuard]);
   });
 
-  it('GET 에 SessionGuard 를 적용한다', () => {
+  it('GET 에 로컬 가드를 두지 않는다', () => {
     expect(readGuards(ProgramApplicationsController.prototype, 'list')).toEqual(
-      [SessionGuard],
+      [],
     );
   });
 

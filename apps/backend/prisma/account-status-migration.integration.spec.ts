@@ -1,6 +1,6 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.error';
-import { AuthConfig } from '../src/auth/auth.config';
+import { AuthConfig } from '../src/platform/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { AuthService } from '../src/auth/auth.service';
 import { AuditLogRepository } from '../src/platform/audit-log.repository';
@@ -16,12 +16,12 @@ import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixtur
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
-import { UserProfileService } from '../src/platform/user-profile.service';
-import { AuthSessionService } from '../src/auth/auth-session.service';
 import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
 import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
 import { CollectionDiscoveryClient } from '../src/github/collection-discovery.client';
 import { CollectionPublicTokenService } from '../src/github/collection-providers.service';
+import { UserProfileService } from '../src/users/user-profile.service';
+import { AuthSessionService } from '../src/platform/auth-session.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

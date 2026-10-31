@@ -55,6 +55,19 @@ const [firstMember] = activity.members;
 if (firstMember === undefined) throw new Error('fixture member required');
 
 describe('team activity boundary', () => {
+  it.each(['', ' \t '])(
+    '저장소 이력의 빈 커서 %j는 생략한다',
+    async (cursor) => {
+      vi.mocked(apiClient).mockResolvedValue(history);
+
+      await getRepositoryHistory('program-1', 'team-1', cursor);
+
+      expect(apiClient).toHaveBeenLastCalledWith(
+        'programs/program-1/teams/team-1/repository-url-history',
+      );
+    },
+  );
+
   it('학생·교직원이 같은 경로로 읽고 응답을 그대로 돌려준다', async () => {
     vi.mocked(apiClient).mockResolvedValue(activity);
 

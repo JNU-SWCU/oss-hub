@@ -4,7 +4,7 @@ import type {
   LOGIN_HISTORY_EVENTS,
   LOGIN_HISTORY_PROVIDER,
   HTTP_AUTH_KINDS,
-} from './auth.config';
+} from '../platform/auth.config';
 
 export interface AuthUser {
   readonly id: string;

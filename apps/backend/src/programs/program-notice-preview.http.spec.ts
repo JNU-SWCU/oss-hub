@@ -3,7 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthenticationGuard } from '../auth/authentication.guard';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -12,7 +12,7 @@ import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramNoticePreviewService } from './program-authoring.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const authSessionService = new AuthSessionService();

@@ -10,8 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationPreparationsService } from './application-preparations.service';
 import {
@@ -24,9 +23,10 @@ import { CreateApplicationPreparationRequestDto } from './dto/create-application
 import { InviteApplicationPreparationRequestDto } from './dto/invite-application-preparation-request.dto';
 import { MyApplicationPreparationResponseDto } from './dto/my-application-preparation-response.dto';
 import { SearchApplicationPreparationRequestDto } from './dto/search-application-preparation-request.dto';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('application-preparations')
-@UseGuards(SessionGuard)
+@Protected()
 export class ApplicationPreparationsController {
   constructor(private readonly service: ApplicationPreparationsService) {}
 

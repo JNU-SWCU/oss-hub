@@ -6,9 +6,8 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { AccountStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { UserAccessController } from './user-access.controller';
 import { AdminAccessService } from '../users/admin-access.service';
@@ -21,7 +20,7 @@ import { IndependentAuthorityService } from '../users/independent-authority.serv
 import { MemberKindService } from '../users/member-kind.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 describe('admin-access.controller', () => {
@@ -31,20 +30,10 @@ describe('admin-access.controller', () => {
 
   describe('UserAccessController routes', () => {
     it.each([
-      ['list', RequestMethod.GET, 'access', [SessionGuard]],
-      ['facets', RequestMethod.GET, 'access/facets', [SessionGuard]],
-      [
-        'patchAccess',
-        RequestMethod.PATCH,
-        ':id/access',
-        [SessionGuard, OriginGuard],
-      ],
-      [
-        'patchProfile',
-        RequestMethod.PATCH,
-        ':id/profile',
-        [SessionGuard, OriginGuard],
-      ],
+      ['list', RequestMethod.GET, 'access', undefined],
+      ['facets', RequestMethod.GET, 'access/facets', undefined],
+      ['patchAccess', RequestMethod.PATCH, ':id/access', [OriginGuard]],
+      ['patchProfile', RequestMethod.PATCH, ':id/profile', [OriginGuard]],
     ] as const)(
       '%s owns the fixed method/path/guard contract',
       (name, method, path, guards) => {
@@ -310,7 +299,6 @@ describe('independent-authority.controller', () => {
       );
       expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-        SessionGuard,
         OriginGuard,
       ]);
     },

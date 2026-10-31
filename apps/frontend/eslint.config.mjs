@@ -7,6 +7,7 @@ import typescriptParser from '@typescript-eslint/parser';
 import { builtinRules } from 'eslint/use-at-your-own-risk';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 import featureOwnership from './eslint-rules/feature-ownership.mjs';
+import urlServerStateRules from './eslint-rules/url-server-state.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
 import {
   crossAppImportPatterns,
@@ -172,6 +173,7 @@ export default defineConfig([
           'no-cross-app-path': noCrossAppPath,
           'no-cross-app-imports': builtinRules.get('no-restricted-imports'),
           ...designSystemRules,
+          ...urlServerStateRules,
         },
       },
     },
@@ -179,6 +181,10 @@ export default defineConfig([
       ...nextPlugin.configs.recommended.rules,
       'local/runtime-test-boundary': 'error',
       'local/feature-ownership': 'error',
+      'local/no-direct-search-params': 'error',
+      'local/no-window-custom-events': 'error',
+      'local/no-effect-server-fetch': 'error',
+      'local/no-effect-reset-page': 'error',
       'local/no-comments': 'error',
       'local/no-cross-app-path': 'error',
       'local/no-cross-app-imports': [

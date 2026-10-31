@@ -3,8 +3,7 @@ import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { SessionGuard } from '../auth/session.guard';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramAuthoringController } from './program-authoring.controller';
@@ -19,6 +18,7 @@ import { ProgramAuthoringUploadService } from './program-authoring-upload.servic
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverService } from './program-creation.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXuoAAAAASUVORK5CYII=',
@@ -40,6 +40,14 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
+      protectedRouteGuardStub({
+        canActivate(context: ExecutionContext) {
+          context
+            .switchToHttp()
+            .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 1266n;
+          return authenticated;
+        },
+      }),
       ...STATELESS_PROVIDERS,
       ProgramAuthoringUploadService,
       ProgramCoverService,
@@ -80,15 +88,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate(context: ExecutionContext) {
-        context
-          .switchToHttp()
-          .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 1266n;
-        return authenticated;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => originAllowed })
     .compile();

@@ -1,16 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTeamsDirectoryQuery } from './queries';
 import { EmptyState, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref } from '@/lib/program-route';
-import { getMyTeam } from './api';
-import { getProgramDetail } from '../catalog/api';
-import { getProgramTeamDirectory } from './program-team-directory-api';
 import type { ProgramTeamDirectoryEntry } from './program-team-directory-dto';
 import type { ProgramDetail } from '../catalog/dto';
 
@@ -81,38 +78,16 @@ export function ProgramTeamsPage({
 }: {
   readonly programId: string;
 }) {
-  const [state, setState] = useState<DirectoryPageState>({ kind: 'loading' });
-  const generation = useRef(0);
-  const load = useCallback(async () => {
-    const request = ++generation.current;
-    setState({ kind: 'loading' });
-    try {
-      const [program, teams] = await Promise.all([
-        getProgramDetail(programId),
-        getProgramTeamDirectory(programId),
-      ]);
-      let myTeamId: string | null = null;
-      if (program.viewer.role === 'STUDENT') {
-        myTeamId = (await getMyTeam(programId))?.id ?? null;
-      }
-      if (request !== generation.current) return;
-      setState({ kind: 'ready', program, teams, myTeamId });
-    } catch (error: unknown) {
-      if (request !== generation.current) return;
-      if (error instanceof ApiError && error.problem.status === 404) {
-        setState({ kind: 'not-found' });
-      } else {
-        setState({ kind: 'failed' });
-      }
-    }
-  }, [programId]);
-
-  useEffect(() => {
-    void load();
-    return () => {
-      generation.current += 1;
-    };
-  }, [load]);
+  const query = useTeamsDirectoryQuery(programId);
+  const state: DirectoryPageState =
+    query.data !== undefined
+      ? { kind: 'ready', ...query.data }
+      : query.isError
+        ? query.error instanceof ApiError && query.error.problem.status === 404
+          ? { kind: 'not-found' }
+          : { kind: 'failed' }
+        : { kind: 'loading' };
+  const load = () => query.refetch();
 
   if (state.kind === 'loading') {
     return (

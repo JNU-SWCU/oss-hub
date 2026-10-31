@@ -1,4 +1,6 @@
 import { ApiError } from '@/lib/api-client';
+import type { QueryClient } from '@tanstack/react-query';
+import { featureKey, programFeatureKey } from '@/lib/query-keys';
 import { getMyTeam, getMyApplicationPreparation } from '../teams/api';
 import { getProgramDetail } from '../catalog/api';
 import { listApplicationTemplates } from './api';
@@ -48,14 +50,25 @@ export type ProgramApplyContext =
       readonly initialValues: ProgramApplyFormValues;
     };
 
-async function resolveTeam(programId: string): Promise<{
+async function resolveTeam(
+  programId: string,
+  queryClient: QueryClient,
+): Promise<{
   readonly teamId: string | null;
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
   const team =
-    (await getMyTeam(programId)) ??
-    (await getMyApplicationPreparation(programId));
+    (await queryClient.fetchQuery({
+      queryKey: programFeatureKey(programId, 'teams', 'current'),
+      queryFn: () => getMyTeam(programId),
+      staleTime: 0,
+    })) ??
+    (await queryClient.fetchQuery({
+      queryKey: programFeatureKey(programId, 'teams', 'preparation'),
+      queryFn: () => getMyApplicationPreparation(programId),
+      staleTime: 0,
+    }));
   if (team === null) return { teamId: null, minimum: null, team: null };
   return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
 }
@@ -63,11 +76,20 @@ async function resolveTeam(programId: string): Promise<{
 export async function loadProgramApplyContext(
   programId: string,
   sessionUser: ProgramApplySessionUser,
+  queryClient: QueryClient,
 ): Promise<ProgramApplyContext> {
   try {
     const [program, templates] = await Promise.all([
-      getProgramDetail(programId),
-      listApplicationTemplates(),
+      queryClient.fetchQuery({
+        queryKey: programFeatureKey(programId, 'detail', false),
+        queryFn: () => getProgramDetail(programId),
+        staleTime: 0,
+      }),
+      queryClient.fetchQuery({
+        queryKey: featureKey('application-templates'),
+        queryFn: listApplicationTemplates,
+        staleTime: 0,
+      }),
     ]);
     const template = resolveProgramApplicationTemplate(program, templates);
     if (!template) {
@@ -77,7 +99,11 @@ export async function loadProgramApplyContext(
     const githubHandle = sessionUser.nickname;
 
     if (program.viewer.applicationStatus !== null) {
-      const application = await getMyApplication(programId);
+      const application = await queryClient.fetchQuery({
+        queryKey: programFeatureKey(programId, 'application'),
+        queryFn: () => getMyApplication(programId),
+        staleTime: 0,
+      });
       if (application === null) {
         return {
           kind: 'failed',
@@ -105,7 +131,7 @@ export async function loadProgramApplyContext(
           application,
         };
       }
-      const editTeam = await resolveTeam(programId);
+      const editTeam = await resolveTeam(programId, queryClient);
       return {
         kind: 'ready',
         mode: 'edit',
@@ -132,7 +158,7 @@ export async function loadProgramApplyContext(
       };
     }
 
-    const team = await resolveTeam(programId);
+    const team = await resolveTeam(programId, queryClient);
     const blocked = resolveApplyBlockedReason(program);
     if (blocked) {
       return { kind: 'blocked', reason: blocked, program, application: null };

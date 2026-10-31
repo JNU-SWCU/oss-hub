@@ -7,7 +7,7 @@ import {
 } from './admin-profile.service.spec-support';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ACTOR_GITHUB_ID = 9_131_500_001n;

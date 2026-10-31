@@ -4,10 +4,9 @@ import { useRouter } from 'next/navigation';
 import { FilterChip, FilterChipGroup } from '@/components';
 import {
   buildProgramListHref,
-  parseProgramListDirection,
-  parseProgramListSort,
+  parseProgramListSearchParams,
   parseProgramListStatus,
-} from '@/features/programs/catalog/program-list-sort';
+} from '@/features/programs/catalog/program-list-url-state';
 import { formatSidebarCount } from './app-sidebar';
 import {
   programDetailIdFromPathname,
@@ -24,13 +23,13 @@ const FILTER_LABELS: Readonly<Record<SectionFacetSpec['param'], string>> = {
 };
 
 function programChipHref(href: string, search: string): string {
-  const current = new URLSearchParams(search);
   return buildProgramListHref({
+    ...parseProgramListSearchParams(new URLSearchParams(search)),
     status: parseProgramListStatus(
       new URLSearchParams(href.split('?')[1]).get('status'),
     ),
-    sort: parseProgramListSort(current.get('sort')),
-    direction: parseProgramListDirection(current.get('direction')),
+    year: undefined,
+    page: 1,
   });
 }
 

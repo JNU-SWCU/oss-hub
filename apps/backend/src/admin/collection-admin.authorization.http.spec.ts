@@ -1,8 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
-import { AuthConfig } from '../auth/auth.config';
-import { SessionGuard } from '../auth/session.guard';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
@@ -17,8 +16,9 @@ import { CollectionSyncService } from '../github/collection-sync.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -48,7 +48,7 @@ describe('Collection admin authorization HTTP characterization', () => {
       providers: [
         ...STATELESS_PROVIDERS,
         AuthSessionService,
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         CollectionAdminService,
         UsersAuthorityService,
         UsersAuthorityRepository,

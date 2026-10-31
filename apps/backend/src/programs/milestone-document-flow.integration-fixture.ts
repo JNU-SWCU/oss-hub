@@ -3,7 +3,8 @@ import { PlatformModule } from '../platform/platform.module';
 import { PublicProjectsService } from './public-projects.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
+import { AuthModule } from '../auth/auth.module';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -19,7 +20,7 @@ import {
   flowGithubIds,
   seedMilestoneDocumentFlow,
 } from './milestone-document-flow-data.integration-fixture';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -53,7 +54,7 @@ export class MilestoneDocumentFlowFixture {
         }),
     };
     const module = await Test.createTestingModule({
-      imports: [PlatformModule, ProgramsModule],
+      imports: [PlatformModule, AuthModule, ProgramsModule],
     })
       .overrideProvider(PrismaService)
       .useValue(this.prisma)

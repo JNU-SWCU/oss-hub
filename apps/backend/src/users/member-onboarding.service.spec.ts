@@ -23,7 +23,7 @@ import type {
 } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
 

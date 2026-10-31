@@ -3,12 +3,11 @@ import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthenticationGuard } from '../src/auth/authentication.guard';
-import { AuthConfig } from '../src/auth/auth.config';
+import { AuthConfig } from '../src/platform/auth.config';
 import { AuthController } from '../src/auth/auth.controller';
 import { AuthService, LoginHistoryService } from '../src/auth/auth.service';
 import type { AuthUser } from '../src/auth/http-auth.types';
-import { OriginGuard } from '../src/auth/origin.guard';
-import { SessionGuard } from '../src/auth/session.guard';
+import { OriginGuard } from '../src/platform/origin.guard';
 import { ProblemDetailFilter } from '../src/platform/problem-detail.filter';
 import { HealthController } from '../src/platform/health.controller';
 import { HealthService } from '../src/platform/health.service';
@@ -29,7 +28,7 @@ import { RankingService } from '../src/ranking/ranking.service';
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-} from '../src/auth/auth-session.service';
+} from '../src/platform/auth-session.service';
 import { STATELESS_PROVIDERS } from './stateless-providers.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -148,7 +147,6 @@ export class AuthRouteStatusHarness {
       providers: [
         ...STATELESS_PROVIDERS,
         AuthenticationGuard,
-        SessionGuard,
         OriginGuard,
         { provide: AuthService, useValue: authService },
         {

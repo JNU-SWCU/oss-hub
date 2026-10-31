@@ -4,7 +4,6 @@ import {
   COLLECTION_CRON_EXPRESSION,
   COLLECTION_CRON_JOB_NAME,
   CollectionTriggerService,
-  DEFAULT_COLLECTION_CRON_EXPRESSION,
 } from './collection-trigger.service';
 import { Logger } from '@nestjs/common';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
@@ -50,7 +49,7 @@ describe('collection cron', () => {
       const job = registeredJob();
 
       expect(COLLECTION_CRON_JOB_NAME).toBe('collection-reconciliation');
-      expect(DEFAULT_COLLECTION_CRON_EXPRESSION).toBe('0 0 * * * *');
+      expect(COLLECTION_CRON_EXPRESSION).toBe('0 0 * * * *');
       expect(job.cronTime.source).toBe(COLLECTION_CRON_EXPRESSION);
       expect(job.cronTime.timeZone).toBe('Asia/Seoul');
       expect(job.waitForCompletion).toBe(true);

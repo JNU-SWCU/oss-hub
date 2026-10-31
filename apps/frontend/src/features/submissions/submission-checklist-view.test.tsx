@@ -1,6 +1,15 @@
 import { formatDeadline } from './components/submission-form-view';
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
+function renderToStaticMarkup(element: ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
 import {
   Children,
   isValidElement,

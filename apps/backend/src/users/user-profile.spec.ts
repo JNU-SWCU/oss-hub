@@ -1,7 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { USER_NAME_MAX_LENGTH } from './profile-validation.config';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const userProfileService = new UserProfileService();
 

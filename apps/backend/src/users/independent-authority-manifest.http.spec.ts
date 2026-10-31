@@ -1,10 +1,9 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { AccessRequestsController } from '../staff/access-requests.controller';
 import { UserAccessController } from '../admin/user-access.controller';
@@ -14,9 +13,10 @@ import { IndependentAuthorityService } from './independent-authority.service';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { UserProfileService } from './user-profile.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -93,7 +93,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
         AdminAccessMutationService,
         AuditLogMetadataService,
         UserProfileService,
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
         { provide: AdminAccessService, useValue: accessService },
         {

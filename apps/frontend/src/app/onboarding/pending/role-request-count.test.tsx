@@ -1,5 +1,5 @@
 import { act, useState } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
@@ -75,7 +75,7 @@ function SharedRoleRefreshProbe() {
 
 describe('승인 대기 화면 역할 요청 조회', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let rendered: Awaited<ReturnType<typeof renderWithQuery>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -102,25 +102,19 @@ describe('승인 대기 화면 역할 요청 조회', () => {
     });
     mocks.fetchMyRoleSelection.mockResolvedValue({ selectedRole: 'STAFF' });
     mocks.getMyProfile.mockResolvedValue({ isComplete: true });
-
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
-    container.remove();
+    await rendered.unmount();
   });
 
   it('공통 셸·게이트·본문이 같은 최초 조회 결과를 한 번만 쓴다', async () => {
-    await act(async () => {
-      root.render(
-        <AppFrame>
-          <OnboardingPendingPage />
-        </AppFrame>,
-      );
-    });
+    rendered = await renderWithQuery(
+      <AppFrame>
+        <OnboardingPendingPage />
+      </AppFrame>,
+    );
+    container = rendered.container;
 
     expect(container.textContent).toContain('교직원 승인을 기다리고 있습니다');
     expect(mocks.fetchMyStaffAccessRequest).toHaveBeenCalledTimes(1);
@@ -169,13 +163,12 @@ describe('승인 대기 화면 역할 요청 조회', () => {
         rejectionReason: '소속 정보를 다시 확인해 주세요.',
       });
 
-    await act(async () => {
-      root.render(
-        <AppFrame>
-          <SharedRoleRefreshProbe />
-        </AppFrame>,
-      );
-    });
+    rendered = await renderWithQuery(
+      <AppFrame>
+        <SharedRoleRefreshProbe />
+      </AppFrame>,
+    );
+    container = rendered.container;
     expect(container.textContent).toContain('PENDING');
 
     const refresh = [...container.querySelectorAll('button')].find(

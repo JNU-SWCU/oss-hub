@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
 import {
   classifyProfileApiError,
   getMyProfile,
@@ -36,6 +38,7 @@ export function SettingsScreen({
   readonly memberKind: ProfileMemberKind | null;
   readonly hasAdminAccess: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [values, setValues] = useState<SettingsFormValues | null>(null);
   const [notificationLoad, setNotificationLoad] =
     useState<SettingsNotificationLoadState>({ kind: 'ready' });
@@ -48,64 +51,80 @@ export function SettingsScreen({
   const submissionInFlight = useRef(false);
   const notificationRetryInFlight = useRef(false);
 
-  const loadSettings = useCallback(async (signal?: AbortSignal) => {
-    setLoadError(null);
-    setValues(null);
-    try {
-      const [profileResult, notificationResult] = await Promise.allSettled([
-        getMyProfile(signal),
-        getMyNotificationChannel(signal),
-      ]);
+  const loadSettings = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadError(null);
+      setValues(null);
+      try {
+        const [profileResult, notificationResult] = await Promise.allSettled([
+          queryClient.fetchQuery({
+            queryKey: featureKey('profile'),
+            queryFn: ({ signal: querySignal }) => getMyProfile(querySignal),
+            staleTime: 0,
+          }),
+          queryClient.fetchQuery({
+            queryKey: featureKey('notification-channel'),
+            queryFn: ({ signal: querySignal }) =>
+              getMyNotificationChannel(querySignal),
+            staleTime: 0,
+          }),
+        ]);
 
-      if (signal?.aborted) {
-        return;
-      }
+        if (signal?.aborted) {
+          return;
+        }
 
-      if (profileResult.status === 'rejected') {
-        if (classifyProfileApiError(profileResult.reason) === 'unauthorized') {
+        if (profileResult.status === 'rejected') {
+          if (
+            classifyProfileApiError(profileResult.reason) === 'unauthorized'
+          ) {
+            window.location.assign('/');
+            return;
+          }
+          setLoadError(
+            '프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.',
+          );
+          return;
+        }
+
+        if (notificationResult.status === 'fulfilled') {
+          setNotificationLoad({ kind: 'ready' });
+          setValues(
+            createInitialSettingsForm(
+              profileResult.value,
+              notificationResult.value,
+            ),
+          );
+          return;
+        }
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        const kind = classifyNotificationChannelApiError(
+          notificationResult.reason,
+        );
+        if (kind === 'unauthorized') {
           window.location.assign('/');
           return;
         }
-        setLoadError('프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
-        return;
-      }
 
-      if (notificationResult.status === 'fulfilled') {
-        setNotificationLoad({ kind: 'ready' });
-        setValues(
-          createInitialSettingsForm(
-            profileResult.value,
-            notificationResult.value,
+        setNotificationLoad({
+          kind: 'unavailable',
+          message: notificationUnavailableMessage(
+            kind === 'forbidden' || kind === 'not-found' ? kind : 'generic',
           ),
-        );
-        return;
+        });
+        setValues(createInitialSettingsForm(profileResult.value, null));
+      } catch {
+        if (!signal?.aborted) {
+          setLoadError('설정을 불러오지 못했습니다. 다시 시도해 주세요.');
+        }
       }
-
-      if (signal?.aborted) {
-        return;
-      }
-
-      const kind = classifyNotificationChannelApiError(
-        notificationResult.reason,
-      );
-      if (kind === 'unauthorized') {
-        window.location.assign('/');
-        return;
-      }
-
-      setNotificationLoad({
-        kind: 'unavailable',
-        message: notificationUnavailableMessage(
-          kind === 'forbidden' || kind === 'not-found' ? kind : 'generic',
-        ),
-      });
-      setValues(createInitialSettingsForm(profileResult.value, null));
-    } catch {
-      if (!signal?.aborted) {
-        setLoadError('설정을 불러오지 못했습니다. 다시 시도해 주세요.');
-      }
-    }
-  }, []);
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -121,7 +140,11 @@ export function SettingsScreen({
     setIsRetryingNotification(true);
 
     try {
-      const notification = await getMyNotificationChannel();
+      const notification = await queryClient.fetchQuery({
+        queryKey: featureKey('notification-channel'),
+        queryFn: ({ signal }) => getMyNotificationChannel(signal),
+        staleTime: 0,
+      });
       setNotificationLoad({ kind: 'ready' });
       setValues(
         (current) =>
@@ -145,7 +168,7 @@ export function SettingsScreen({
       notificationRetryInFlight.current = false;
       setIsRetryingNotification(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const errors = useMemo(
     () =>
@@ -180,6 +203,7 @@ export function SettingsScreen({
 
     try {
       await updateMyProfile(profileRequest);
+      void queryClient.invalidateQueries({ queryKey: featureKey('profile') });
 
       const savedStudentId = profileRequest.studentId;
       if (savedStudentId) {
@@ -201,6 +225,9 @@ export function SettingsScreen({
         }
         try {
           await updateMyNotificationChannel(notificationRequest);
+          void queryClient.invalidateQueries({
+            queryKey: featureKey('notification-channel'),
+          });
         } catch (error: unknown) {
           const kind = classifyNotificationChannelApiError(error);
           if (kind === 'unauthorized') {

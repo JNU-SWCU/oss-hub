@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
 import { FolderGit2, UserRound } from 'lucide-react';
 import {
   CardGrid,
@@ -14,10 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import {
-  PublicProfileNotFoundError,
-  loadPublicProfile,
-} from '../public-profile-api';
+import { PublicProfileNotFoundError } from '../public-profile-api';
+import { usePublicProfileQuery } from '../queries';
 import type {
   PublicProfile,
   PublicProfileMetrics,
@@ -225,29 +222,19 @@ export function PublicProfileContent({
 }
 
 export function PublicProfileView({ userId }: { readonly userId: string }) {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<PublicProfileState>({ kind: 'loading' });
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
+  const query = usePublicProfileQuery(userId);
+  const state: PublicProfileState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? {
+          kind:
+            query.error instanceof PublicProfileNotFoundError
+              ? 'not-found'
+              : 'error',
+        }
+      : { kind: 'ready', profile: query.data };
 
-  useEffect(() => {
-    let active = true;
-    setState({ kind: 'loading' });
-    loadPublicProfile(userId)
-      .then((profile) => {
-        if (active) setState({ kind: 'ready', profile });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setState(
-          error instanceof PublicProfileNotFoundError
-            ? { kind: 'not-found' }
-            : { kind: 'error' },
-        );
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, userId]);
-
-  return <PublicProfileContent state={state} onRetry={retry} />;
+  return (
+    <PublicProfileContent state={state} onRetry={() => void query.refetch()} />
+  );
 }

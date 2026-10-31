@@ -1,6 +1,6 @@
 import { ProgramOverviewRepository } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 function staffOverviewRepository(prisma: object): ProgramOverviewRepository {
   return new ProgramOverviewRepository(prisma as never);

@@ -1,13 +1,13 @@
 import { Body, Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { UpdateStudentRepositoryUrlRequestDto } from './dto/update-student-repository-url-request.dto';
 import { StudentRepositoryUrlResponseDto } from './dto/student-repository-url-response.dto';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('programs/:programId')
-@UseGuards(SessionGuard)
+@Protected()
 export class StudentRepositoryUrlController {
   constructor(private readonly service: StudentRepositoryUrlService) {}
 
