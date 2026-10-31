@@ -18,7 +18,7 @@ import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const authSessionService = new AuthSessionService();
 
-const expectedPolicyVersion = '2026-10-19';
+const expectedPolicyVersion = '2026-11-01';
 const allowedOrigin = 'http://frontend.test';
 const syntheticGithubId = 424242n;
 const syntheticUserId = 'cuid-synthetic-http-user';
