@@ -38,6 +38,7 @@ The backend `src/` had more than 20 folders, each split into layer subfolders (c
 ### DTOs
 
 - Request DTOs hold fields plus class-validator decorators only.
+- Request DTO inheritance is allowed only when Create and Update are field-for-field identical, validators included (`UpdateXRequestDto extends CreateXRequestDto`).
 - Response DTOs hold `declare readonly` fields and a `static from()` that returns an object literal in the baseline JSON key order. No mapped-types.
 - Absence is an explicit state field, never null. Nest sends null as an empty 200 body.
 
@@ -52,6 +53,7 @@ export class ProgramSummaryResponseDto {
 
 - A read endpoint lives in the audience module (`student`, `staff`, `admin`) of the lowest-privilege menu that calls it.
 - Writes stay in the module that owns the data.
+- Direction: one write repository per aggregate. Not executed in this phase.
 - Frontend and backend never reference each other's paths.
 
 ## Consequences
