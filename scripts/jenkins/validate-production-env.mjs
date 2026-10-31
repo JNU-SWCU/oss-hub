@@ -141,22 +141,6 @@ function requireFrontendUrl(environment) {
   }
 }
 
-function requireHttpsProviderUrl(environment, key) {
-  const parsed = parseUrl(environment, key, false);
-  if (parsed === undefined) {
-    return;
-  }
-  const { value, url } = parsed;
-  if (
-    url.protocol !== 'https:' ||
-    hasUserInfo(value) ||
-    value.includes('?') ||
-    value.includes('#')
-  ) {
-    fail(key);
-  }
-}
-
 function requireS3Endpoint(environment) {
   const key = 'SUBMISSION_FILE_S3_ENDPOINT';
   const parsed = parseUrl(environment, key);
@@ -166,56 +150,6 @@ function requireS3Endpoint(environment) {
     hasUserInfo(value) ||
     value.includes('?') ||
     value.includes('#')
-  ) {
-    fail(key);
-  }
-}
-
-function validCronAtom(atom, minimum, maximum) {
-  const match = /^(\*|[0-9]+(?:-[0-9]+)?)(?:\/([1-9][0-9]*))?$/u.exec(atom);
-  if (!match) {
-    return false;
-  }
-  if (match[1] === '*') {
-    return match[2] === undefined || Number(match[2]) <= maximum - minimum + 1;
-  }
-  const [startText, endText = startText] = match[1].split('-');
-  const start = Number(startText);
-  const end = Number(endText);
-  return (
-    start >= minimum &&
-    end <= maximum &&
-    start <= end &&
-    (match[2] === undefined || Number(match[2]) <= maximum - minimum + 1)
-  );
-}
-
-function requireCron(environment) {
-  const key = 'COLLECTION_CRON_EXPRESSION';
-  const expression = optional(environment, key);
-  if (expression === undefined) {
-    return;
-  }
-  const fields = expression.split(' ');
-  const ranges = [
-    [0, 59],
-    [0, 59],
-    [0, 23],
-    [1, 31],
-    [1, 12],
-    [0, 7],
-  ];
-  if (
-    fields.length !== ranges.length ||
-    fields.some(
-      (field, index) =>
-        field === '' ||
-        !field
-          .split(',')
-          .every((atom) =>
-            validCronAtom(atom, ranges[index][0], ranges[index][1]),
-          ),
-    )
   ) {
     fail(key);
   }
@@ -256,18 +190,6 @@ function validate(environment) {
   requireCanonicalInteger(environment, 'PORT', 1, 65_535);
   requireCanonicalInteger(
     environment,
-    'GITHUB_COLLECTION_APP_MAX_PAGES',
-    1,
-    100,
-  );
-  requireCanonicalInteger(
-    environment,
-    'GITHUB_COLLECTION_APP_DEADLINE_MS',
-    1,
-    30_000,
-  );
-  requireCanonicalInteger(
-    environment,
     'GITHUB_COLLECTION_APP_ID',
     1,
     Number.MAX_SAFE_INTEGER,
@@ -278,7 +200,6 @@ function validate(environment) {
     1,
     Number.MAX_SAFE_INTEGER,
   );
-  requireCron(environment);
 
   const organization = required(environment, 'GITHUB_APP_ORG');
   if (
@@ -288,7 +209,6 @@ function validate(environment) {
     fail('GITHUB_APP_ORG');
   }
 
-  requireHttpsProviderUrl(environment, 'GITHUB_COLLECTION_APP_API_BASE_URL');
   requireS3Endpoint(environment);
 
   const region = required(environment, 'SUBMISSION_FILE_S3_REGION');

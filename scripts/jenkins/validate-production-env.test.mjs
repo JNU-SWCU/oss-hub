@@ -34,10 +34,6 @@ const baseEnvironment = Object.freeze({
   GITHUB_APP_ORG: 'synthetic-org',
   GITHUB_COLLECTION_APP_ID: '12345',
   GITHUB_OPERATIONS_APP_ID: '67890',
-  GITHUB_COLLECTION_APP_API_BASE_URL: 'https://api.github.com',
-  GITHUB_COLLECTION_APP_MAX_PAGES: '100',
-  GITHUB_COLLECTION_APP_DEADLINE_MS: '30000',
-  COLLECTION_CRON_EXPRESSION: '0 0 * * * *',
   PORT: '4000',
   SUBMISSION_FILE_STORAGE_MODE: 'managed',
   SUBMISSION_FILE_S3_ENDPOINT: R2_ENDPOINT,
@@ -156,23 +152,12 @@ const controls = [
     }),
   ),
   control(
-    'bounded positive collection integers are accepted',
-    renderEnvironment({
-      GITHUB_COLLECTION_APP_MAX_PAGES: '100',
-      GITHUB_COLLECTION_APP_DEADLINE_MS: '30000',
-    }),
-  ),
-  control(
     'root slash HTTPS frontend origin is accepted',
     renderEnvironment({ FRONTEND_URL: 'https://oss-hub.example.test/' }),
   ),
   control(
     'non-default HTTPS frontend port is accepted',
     renderEnvironment({ FRONTEND_URL: 'https://oss-hub.example.test:8443' }),
-  ),
-  control(
-    'six-field stepped cron is accepted',
-    renderEnvironment({ COLLECTION_CRON_EXPRESSION: '0 */15 * * * *' }),
   ),
   control(
     'managed R2 configuration accepts a dotted bucket',
@@ -183,10 +168,6 @@ const controls = [
   control(
     'missing compose-defaulted values are accepted',
     renderEnvironment({
-      GITHUB_COLLECTION_APP_API_BASE_URL: REMOVE,
-      GITHUB_COLLECTION_APP_MAX_PAGES: REMOVE,
-      GITHUB_COLLECTION_APP_DEADLINE_MS: REMOVE,
-      COLLECTION_CRON_EXPRESSION: REMOVE,
       PORT: REMOVE,
     }),
   ),
@@ -197,12 +178,6 @@ const controls = [
   control(
     'canonical mixed-case GitHub organization is accepted',
     renderEnvironment({ GITHUB_APP_ORG: 'Synthetic-Security-Org' }),
-  ),
-  control(
-    'HTTPS GitHub Enterprise API path is accepted',
-    renderEnvironment({
-      GITHUB_COLLECTION_APP_API_BASE_URL: 'https://github.example.test/api/v3',
-    }),
   ),
 ];
 
@@ -368,42 +343,7 @@ const valueRejects = [
     ['negative port', 'PORT', '-1'],
     ['decimal port', 'PORT', '4000.5'],
     ['noncanonical leading-zero port', 'PORT', '04000'],
-    ['zero collection max pages', 'GITHUB_COLLECTION_APP_MAX_PAGES', '0'],
-    [
-      'collection max pages above 100',
-      'GITHUB_COLLECTION_APP_MAX_PAGES',
-      '101',
-    ],
-    ['decimal collection max pages', 'GITHUB_COLLECTION_APP_MAX_PAGES', '1.5'],
-    ['zero collection deadline', 'GITHUB_COLLECTION_APP_DEADLINE_MS', '0'],
-    [
-      'collection deadline above 30000',
-      'GITHUB_COLLECTION_APP_DEADLINE_MS',
-      '30001',
-    ],
-    [
-      'decimal collection deadline',
-      'GITHUB_COLLECTION_APP_DEADLINE_MS',
-      '10.5',
-    ],
   ].map(([name, key, value]) => reject(name, key, value)),
-
-  reject(
-    'five-field collection cron',
-    'COLLECTION_CRON_EXPRESSION',
-    '0 * * * *',
-  ),
-  reject(
-    'seven-field collection cron',
-    'COLLECTION_CRON_EXPRESSION',
-    '0 0 0 * * * *',
-  ),
-  reject('cron descriptor', 'COLLECTION_CRON_EXPRESSION', '@hourly'),
-  reject(
-    'out-of-range cron minute',
-    'COLLECTION_CRON_EXPRESSION',
-    '0 60 * * * *',
-  ),
 
   removed('missing GitHub OAuth client ID', 'GITHUB_OAUTH_CLIENT_ID'),
   removed('missing GitHub OAuth client secret', 'GITHUB_OAUTH_CLIENT_SECRET'),
@@ -425,26 +365,6 @@ const valueRejects = [
     'overlong GitHub organization',
     'GITHUB_APP_ORG',
     'synthetic-organization-name-that-is-over-thirty-nine',
-  ),
-  reject(
-    'HTTP Collection App API endpoint',
-    'GITHUB_COLLECTION_APP_API_BASE_URL',
-    'http://api.github.com',
-  ),
-  reject(
-    'credentialed Collection App API endpoint',
-    'GITHUB_COLLECTION_APP_API_BASE_URL',
-    'https://user:pass@api.github.invalid',
-  ),
-  reject(
-    'queried Collection App API endpoint',
-    'GITHUB_COLLECTION_APP_API_BASE_URL',
-    'https://api.github.com?mode=prod',
-  ),
-  reject(
-    'fragmented Collection App API endpoint',
-    'GITHUB_COLLECTION_APP_API_BASE_URL',
-    'https://api.github.com#prod',
   ),
 
   reject(

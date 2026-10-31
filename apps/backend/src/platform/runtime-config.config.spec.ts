@@ -36,12 +36,6 @@ describe('loadRuntimeConfig', () => {
     expect(config.FRONTEND_URL).toBe('');
     expect(config.PORT).toBeUndefined();
     expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
-    expect(config.GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES).toBe(
-      'synthetic-github_collection_app_smoke_public_aliases',
-    );
-    expect(config.GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS).toBe(
-      'synthetic-github_collection_app_smoke_private_alias',
-    );
     expect(config.SUBMISSION_FILE_CLEANUP_OPERATOR_ID).toBe(
       'synthetic-submission_file_cleanup_operator_id',
     );
@@ -81,7 +75,7 @@ describe('loadRuntimeConfig', () => {
     const loadedKeys = Object.keys(config) as RuntimeEnvKey[];
 
     expect(loadedKeys).toEqual([...RUNTIME_CONFIG_KEYS]);
-    expect(RUNTIME_CONFIG_KEYS).toHaveLength(35);
+    expect(RUNTIME_CONFIG_KEYS).toHaveLength(29);
     expect(RUNTIME_CONFIG_KEYS).toContain('MAIL_MODE');
 
     const expected: RuntimeConfig = Object.freeze(

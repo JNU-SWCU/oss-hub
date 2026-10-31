@@ -95,7 +95,7 @@ const releaseFixture = (
 });
 
 describe('CollectionAppConfig', () => {
-  it('validates required values and lower caps', () => {
+  it('validates required values and uses fixed collection limits', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'collection-config-'));
     const privateKeyFile = join(workspace, 'collection.pem');
     writeFileSync(
@@ -111,21 +111,15 @@ describe('CollectionAppConfig', () => {
           GITHUB_COLLECTION_APP_ID: '1',
           GITHUB_APP_ORG: 'JNU-SWCU',
           GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: privateKeyFile,
-          GITHUB_COLLECTION_APP_MAX_PAGES: '3',
-          GITHUB_COLLECTION_APP_DEADLINE_MS: '500',
         }),
-      ).toMatchObject({ maxPages: 3, deadlineMs: 500 });
+      ).toMatchObject({
+        apiBaseUrl: 'https://api.github.com',
+        maxPages: 100,
+        deadlineMs: 30_000,
+      });
       expect(() => CollectionAppConfig.fromEnv({})).toThrow(
         CollectionAppConfigError,
       );
-      expect(() =>
-        CollectionAppConfig.fromEnv({
-          GITHUB_COLLECTION_APP_ID: '1',
-          GITHUB_APP_ORG: 'org',
-          GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: privateKeyFile,
-          GITHUB_COLLECTION_APP_MAX_PAGES: '101',
-        }),
-      ).toThrow(CollectionAppConfigError);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
