@@ -1,4 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
@@ -8,7 +10,11 @@ vi.mock('next/navigation', () => ({
 import { ConsentFlow } from './consent-flow';
 
 function renderFlow(): string {
-  return renderToStaticMarkup(<ConsentFlow />);
+  return renderToStaticMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      <ConsentFlow />
+    </QueryClientProvider>,
+  );
 }
 
 describe('ConsentFlow', () => {

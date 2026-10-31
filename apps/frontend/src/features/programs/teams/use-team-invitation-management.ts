@@ -34,6 +34,7 @@ export interface TeamInvitationManagementInput {
   readonly programId: string;
   readonly team: Pick<ProgramTeam, 'id' | 'canInvite' | 'preparation'> | null;
   readonly sessionKey: string | null;
+  readonly refetchInterval?: number;
 }
 
 export interface TeamInvitationManagement {
@@ -80,6 +81,7 @@ export function useTeamInvitationManagement(
     teamId,
     identityKey,
     preparation,
+    input.refetchInterval,
   );
   const debouncedInviteQuery = useDebouncedValue(
     inviteQuery,

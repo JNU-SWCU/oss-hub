@@ -1,7 +1,8 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { Component, act, type ReactNode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClient = createTestQueryClient();

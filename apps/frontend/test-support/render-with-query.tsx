@@ -1,6 +1,10 @@
-import { act, type ReactNode } from 'react';
+import { act, StrictMode, isValidElement, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+} from '@tanstack/react-query';
 
 export function createTestQueryClient() {
   return new QueryClient({
@@ -14,6 +18,37 @@ export function createTestQueryClient() {
       mutations: { retry: false, gcTime: 0 },
     },
   });
+}
+
+export function createQueryRoot(
+  container: Element | DocumentFragment,
+  options?: Parameters<typeof createRoot>[1],
+) {
+  const root = createRoot(container, options);
+  const queryClient = createTestQueryClient();
+  notifyManager.setScheduler(queueMicrotask);
+  return {
+    queryClient,
+    render(children: ReactNode) {
+      const tree = (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      );
+      root.render(
+        isValidElement(children) && children.type === StrictMode ? (
+          <StrictMode>{tree}</StrictMode>
+        ) : (
+          tree
+        ),
+      );
+    },
+    unmount() {
+      root.unmount();
+      queryClient.clear();
+      notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+    },
+  };
 }
 
 export async function renderWithQuery(

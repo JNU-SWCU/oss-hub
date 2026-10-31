@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgramLists } from '../catalog/list-queries';
+import { invalidateProgram } from '../catalog/queries';
+import { programFeatureKey } from '@/lib/query-keys';
 import { SectionHeading } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
@@ -83,31 +85,37 @@ export function ProgramEditDangerZoneSection({
     setPurgeCounts(null);
     setPurgeScopeError(null);
     setIsPurgeScopeLoading(true);
-    void getEditableProgram(programId).then(
-      (program) => {
-        if (!mountedRef.current || purgeScopeRequest.current !== request) {
-          return;
-        }
-        const counts = program.deletionScopeCounts;
-        if (counts) {
-          setPurgeCounts(counts);
-        } else {
+    void queryClient
+      .fetchQuery({
+        queryKey: programFeatureKey(programId, 'edit'),
+        queryFn: () => getEditableProgram(programId),
+        staleTime: 0,
+      })
+      .then(
+        (program) => {
+          if (!mountedRef.current || purgeScopeRequest.current !== request) {
+            return;
+          }
+          const counts = program.deletionScopeCounts;
+          if (counts) {
+            setPurgeCounts(counts);
+          } else {
+            setPurgeScopeError(
+              '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
+            );
+          }
+          setIsPurgeScopeLoading(false);
+        },
+        () => {
+          if (!mountedRef.current || purgeScopeRequest.current !== request) {
+            return;
+          }
           setPurgeScopeError(
             '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
           );
-        }
-        setIsPurgeScopeLoading(false);
-      },
-      () => {
-        if (!mountedRef.current || purgeScopeRequest.current !== request) {
-          return;
-        }
-        setPurgeScopeError(
-          '삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.',
-        );
-        setIsPurgeScopeLoading(false);
-      },
-    );
+          setIsPurgeScopeLoading(false);
+        },
+      );
   };
   const close = () => {
     purgeScopeRequest.current += 1;
@@ -127,6 +135,7 @@ export function ProgramEditDangerZoneSection({
     setPurgeScopeError(null);
     try {
       const result = await purgeProgram(programId, purgeCounts);
+      void invalidateProgram(queryClient, programId);
       void invalidateProgramLists(queryClient);
       if (mountedRef.current) {
         onDeleted(formatDeletedCounts(result.deletedCounts));
