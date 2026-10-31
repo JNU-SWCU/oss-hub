@@ -552,6 +552,20 @@ for (const [name, code] of [
     'an export list of an arrow',
     'const parseThing = () => 1; export { parseThing };',
   ],
+  ['a value re-export', 'export { parseThing } from "./thing.service";'],
+  ['a star re-export', 'export * from "./thing.service";'],
+  [
+    'a default export of a function binding',
+    'function parseThing() { return 1; } export default parseThing;',
+  ],
+  [
+    'an arrow behind a type assertion',
+    'export const parseThing = (() => 1) as () => number;',
+  ],
+  [
+    'an arrow behind satisfies',
+    'export const parseThing = (() => 1) satisfies () => number;',
+  ],
 ] as const) {
   invalid('config-exports', `rejects ${name}`, configFile, code, ['forbidden']);
 }
@@ -577,6 +591,16 @@ for (const [name, code] of [
   [
     'an export list of a function',
     'function run() { return 1; } export { run };',
+  ],
+  ['a value re-export', 'export { run } from "./run.helpers";'],
+  ['a star re-export', 'export * from "./run.helpers";'],
+  [
+    'a default export of a function binding',
+    'const run = () => 1; export default run;',
+  ],
+  [
+    'an arrow behind a type assertion',
+    'export const run = (() => 1) as never;',
   ],
 ] as const) {
   invalid('service-exports', `rejects ${name}`, serviceFile, code, [
