@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { NavItem } from '@/components';
 
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
@@ -31,10 +30,11 @@ vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 import { AppFrame } from './app-frame';
 import { readStoredCollapsed, SIDEBAR_STORAGE_KEY } from './product-shell';
 
-const ITEMS: NavItem[] = [
-  { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
-];
+const ANONYMOUS = {
+  status: 'anonymous',
+  role: null,
+  isProfileComplete: false,
+} as const;
 
 function render(
   pathname: string,
@@ -76,10 +76,16 @@ function render(
     retry: () => {},
   });
   return renderToStaticMarkup(
-    <AppFrame brand="OSS Hub" items={ITEMS} actions={<button>로그인</button>}>
+    <AppFrame brand="OSS Hub" actions={<button>로그인</button>}>
       <p>본문</p>
     </AppFrame>,
   );
+}
+
+function breakpointVisibility(html: string, slot: string): string | undefined {
+  return html.match(
+    new RegExp(`data-slot="${slot}"[^>]*data-breakpoint-visibility="([^"]*)"`),
+  )?.[1];
 }
 
 function mainContentTag(html: string): string {
@@ -170,15 +176,46 @@ describe('AppFrame', () => {
     }
   });
 
-  it('사이드바가 있는 경로에서 상단바 드로어 트리거는 모바일 전용 속성으로 렌더된다', () => {
-    const html = render('/dashboard');
-    const trigger = html.match(
-      /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
-    )?.[0];
-    expect(trigger).toBeDefined();
-    expect(trigger).toContain('data-breakpoint-visibility="mobile"');
-    expect(trigger).toContain('aria-expanded="false"');
-    expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
+  it('접힌 상단 메뉴는 랜딩·가입 화면에만 있고 제품 셸에는 없다', () => {
+    for (const path of ['/', '/consent']) {
+      const html = render(path, ANONYMOUS);
+      expect(html, path).toContain('data-slot="nav-bar-menu"');
+      expect(breakpointVisibility(html, 'nav-bar-items'), path).toBe('wide');
+    }
+    for (const [path, session] of [
+      ['/programs', ANONYMOUS],
+      ['/dashboard', undefined],
+    ] as const) {
+      const html = render(path, session);
+      expect(html, path).not.toContain('data-slot="nav-bar-menu"');
+      expect(breakpointVisibility(html, 'nav-bar-items'), path).toBe('desktop');
+    }
+  });
+
+  it('하단 탭 바는 제품 셸에만 있고 랜딩·가입 화면에는 없다', () => {
+    for (const [path, session] of [
+      ['/programs', ANONYMOUS],
+      ['/ranking', ANONYMOUS],
+      ['/dashboard', undefined],
+    ] as const) {
+      const html = render(path, session);
+      expect(html, path).toMatch(
+        /<nav[^>]*aria-label="섹션"[^>]*data-slot="bottom-tab-bar"/,
+      );
+    }
+    for (const path of ['/', '/consent', '/onboarding/role']) {
+      expect(render(path, ANONYMOUS), path).not.toContain(
+        'data-slot="bottom-tab-bar"',
+      );
+    }
+  });
+
+  it('상단바에 모바일 드로어 트리거는 더 이상 없다', () => {
+    for (const path of ['/dashboard', '/programs', '/']) {
+      expect(render(path), path).not.toContain(
+        'data-slot="nav-bar-sidebar-drawer-trigger"',
+      );
+    }
   });
 
   it('상단 내비에서 역할 메뉴가 기존 항목과 href가 겹치면 하나만 남는다', () => {
@@ -239,7 +276,7 @@ describe('AppFrame', () => {
       retry: () => {},
     });
     const html = renderToStaticMarkup(
-      <AppFrame brand="OSS Hub" items={ITEMS} initialSidebarCollapsed>
+      <AppFrame brand="OSS Hub" initialSidebarCollapsed>
         <p>본문</p>
       </AppFrame>,
     );

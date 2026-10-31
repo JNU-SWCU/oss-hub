@@ -63,10 +63,7 @@ export function ActivityTimelineView({
         title="내 활동"
         description="참여 프로그램과 오픈소스 활동 추이를 확인합니다."
         actions={
-          <FilterChipGroup
-            aria-label="활동 집계 기간"
-            className="inline-flex rounded-md border border-border bg-background p-1"
-          >
+          <FilterChipGroup aria-label="활동 집계 기간">
             {(
               [
                 ['MONTH', '월별'],

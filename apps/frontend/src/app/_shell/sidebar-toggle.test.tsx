@@ -1,7 +1,6 @@
 import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NavItem } from '@/components';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -46,11 +45,6 @@ import { AppFrame } from './app-frame';
 import { useRankingCycle } from './ranking-cycle-context';
 import { SIDEBAR_STORAGE_KEY } from './sidebar-collapsed';
 import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
-
-const ITEMS: NavItem[] = [
-  { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
-];
 
 function mockSession(status: 'anonymous' | 'assigned'): void {
   mocks.useSessionRole.mockReturnValue({
@@ -117,27 +111,21 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   ): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
-      root.render(
-        <AppFrame brand="OSS Hub" items={ITEMS}>
-          {children}
-        </AppFrame>,
-      );
+      root.render(<AppFrame brand="OSS Hub">{children}</AppFrame>);
     });
   }
 
-  it('사이드바가 있는 경로에서만 데스크톱 토글과 드로어 트리거를 함께 그린다', async () => {
+  it('사이드바가 있는 경로에서만 데스크톱 토글을 그리고, 모바일 드로어 트리거는 없다', async () => {
     await renderFrame('/programs');
+
     const toggle = desktopToggle();
-    const trigger = drawerTrigger();
     expect(toggle).not.toBeNull();
-    expect(trigger).not.toBeNull();
+    expect(drawerTrigger()).toBeNull();
     expect(toggle?.getAttribute('data-breakpoint-visibility')).toBe('desktop');
-    expect(trigger?.getAttribute('data-breakpoint-visibility')).toBe('mobile');
 
     const nav = container.querySelector('nav[data-slot="nav-bar"]');
     expect(nav?.firstElementChild).toBe(toggle);
-    expect(toggle?.nextElementSibling).toBe(trigger);
-    expect(trigger?.nextElementSibling?.getAttribute('data-slot')).toBe(
+    expect(toggle?.nextElementSibling?.getAttribute('data-slot')).toBe(
       'nav-bar-brand',
     );
   });
@@ -204,9 +192,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       expect(desktopToggle()?.getAttribute('aria-keyshortcuts')).toBe(
         'Meta+Backslash Control+Backslash',
       );
-      expect(drawerTrigger()?.getAttribute('aria-keyshortcuts')).toBe(
-        'Meta+Backslash Control+Backslash',
-      );
     });
 
     it('Meta+\\ 와 Control+\\ 는 데스크톱에서 접힘을 뒤집는다', async () => {
@@ -242,8 +227,24 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
     });
 
-    it('데스크톱 aside가 숨겨진 폭에서는 드로어를 연다', async () => {
+    it('필터 칩 섹션(/programs)에서는 aside가 숨겨져도 단축키가 시트를 열지 않는다', async () => {
       await renderFrame('/programs');
+
+      const aside = document.getElementById(SIDEBAR_ASIDE_ID);
+      if (aside) aside.style.display = 'none';
+
+      let event!: KeyboardEvent;
+      await act(async () => {
+        event = press(document.body, 'metaKey');
+      });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
+    });
+
+    it('시트가 있는 경로(프로그램 상세)에서는 aside가 숨겨지면 단축키가 시트를 연다', async () => {
+      await renderFrame('/programs/prog-1');
       const aside = document.getElementById(SIDEBAR_ASIDE_ID);
       if (aside) aside.style.display = 'none';
 
@@ -251,7 +252,12 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
         press(document.body, 'metaKey');
       });
 
-      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      expect(dialog?.getAttribute('data-slot')).toBe('shell-menu-sheet');
+      expect(
+        dialog?.querySelector('[data-slot="program-scope-sidebar-nav"]'),
+      ).not.toBeNull();
       expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
     });
 
@@ -362,20 +368,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
   });
 
-  it('드로어 트리거는 드로어를 열고 aria-expanded를 반영한다', async () => {
-    await renderFrame('/programs');
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-    expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('false');
-
-    await act(async () => {
-      drawerTrigger()?.click();
-    });
-
-    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('true');
-    expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
-  });
-
   it('aside 안에는 토글이 없다', async () => {
     await renderFrame('/programs');
     const aside = document.getElementById(SIDEBAR_ASIDE_ID);
@@ -383,7 +375,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     expect(aside?.querySelector('button')).toBeNull();
   });
 
-  it('랭킹 카운트다운은 한 바인딩으로 aside와 드로어 양쪽에 그려진다', async () => {
+  it('랭킹 카운트다운은 aside 하단에 그려지고 시트는 없다', async () => {
     await renderFrame('/ranking');
     expect(
       document
@@ -400,19 +392,21 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       aside?.querySelector('[data-slot="program-countdown"]'),
     ).not.toBeNull();
     expect(aside?.textContent).toContain('다음 수집');
+    expect(container.querySelector('[data-slot="scope-bar"]')).toBeNull();
 
+    if (aside) aside.style.display = 'none';
     await act(async () => {
-      drawerTrigger()?.click();
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: '\\',
+          code: 'Backslash',
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
 
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(
-      dialog?.querySelector('[data-slot="program-countdown"]'),
-    ).not.toBeNull();
-    expect(
-      dialog?.querySelector(
-        '[data-slot="sidebar-shell"][data-variant="drawer"]',
-      ),
-    ).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });

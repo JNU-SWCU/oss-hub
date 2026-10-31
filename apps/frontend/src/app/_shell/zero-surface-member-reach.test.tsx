@@ -165,7 +165,7 @@ describe('면이 없는 회원의 화면 도달', () => {
       );
 
       const { text } = await mount(
-        <AppFrame brand="OSS Hub" items={[]}>
+        <AppFrame brand="OSS Hub">
           <p>본문</p>
         </AppFrame>,
       );
@@ -196,7 +196,7 @@ describe('면이 없는 회원의 화면 도달', () => {
         mocks.useSession.mockReturnValue(authenticatedSession(access));
 
         const { text } = await mount(
-          <AppFrame brand="OSS Hub" items={[]}>
+          <AppFrame brand="OSS Hub">
             <p>본문</p>
           </AppFrame>,
         );

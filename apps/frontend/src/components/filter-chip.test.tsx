@@ -64,6 +64,13 @@ describe('FilterChip', () => {
 
     expect(chips.every((chip) => chip.dataset.variant === 'toggle')).toBe(true);
     expect(chips.every((chip) => chip.type === 'button')).toBe(true);
+    expect(
+      chips.every(
+        (chip) =>
+          chip.classList.contains('max-w-full') &&
+          chip.classList.contains('whitespace-normal'),
+      ),
+    ).toBe(true);
 
     await act(async () => chips[2]?.click());
     expect(onSelect).toHaveBeenCalledWith('rejected');

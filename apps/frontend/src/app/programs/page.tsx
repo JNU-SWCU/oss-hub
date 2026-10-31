@@ -1,6 +1,7 @@
 'use client';
 
 import { ProgramListPage } from '@/features/programs/catalog/program-list-page';
+import { SectionFacetChips } from '../_shell/section-facet-chips';
 import { useSessionRole } from '../_shell/use-session-role';
 
 export default function ProgramsPage() {
@@ -23,6 +24,7 @@ export default function ProgramsPage() {
       <ProgramListPage
         canCreateProgram={canCreateProgram}
         viewerRole={viewerRole}
+        filters={<SectionFacetChips />}
       />
     </main>
   );

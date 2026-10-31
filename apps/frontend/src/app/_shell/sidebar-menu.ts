@@ -58,6 +58,10 @@ function pathKey(href: string): string {
   return href.split('?')[0] ?? href;
 }
 
+export function menuIconFor(href: string): ShellIconName {
+  return MENU_ICONS[pathKey(href)] ?? FALLBACK_ICON;
+}
+
 function withIcons(
   items: readonly NavItem[],
   depth: 0 | 1 = 0,
@@ -65,7 +69,7 @@ function withIcons(
   return items.map((item) => ({
     ...item,
     depth,
-    icon: MENU_ICONS[pathKey(item.href)] ?? FALLBACK_ICON,
+    icon: menuIconFor(item.href),
   }));
 }
 

@@ -42,11 +42,11 @@ export async function captureResponsiveMenu(
     await page.setViewportSize(viewport);
     let target = page.locator('[data-slot="app-sidebar"]');
     if (viewport.name === 'narrow') {
-      const trigger = page.getByRole('button', { name: '메뉴 열기' });
+      const trigger = page.locator('[data-slot="scope-bar-menu-trigger"]');
       await trigger.focus();
       await expect(trigger).toBeFocused();
       await page.keyboard.press('Enter');
-      target = page.getByRole('dialog');
+      target = page.locator('[data-slot="shell-menu-sheet"]');
       await expect(target).toBeVisible();
     }
     await assertTask9Layout(page);

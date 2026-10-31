@@ -1,10 +1,23 @@
 import {
   PROGRAM_LIST_DIRECTIONS,
   PROGRAM_LIST_SORTS,
+  PROGRAM_LIST_STATUSES,
   type ProgramListDirection,
   type ProgramListSort,
   type ProgramListStatus,
 } from './program-list-options';
+
+export function parseProgramListStatus(
+  value: string | null,
+): ProgramListStatus {
+  if (
+    value !== null &&
+    (PROGRAM_LIST_STATUSES as readonly string[]).includes(value)
+  ) {
+    return value as ProgramListStatus;
+  }
+  return 'all';
+}
 
 export function parseProgramListSort(
   value: string | null,

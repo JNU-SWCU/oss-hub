@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({ usePathname: mocks.pathname }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.session }));
 vi.mock('./shell-nav', () => ({ ShellNav: () => null }));
 vi.mock('./product-shell', () => ({
-  SidebarDrawerProvider: ({ children }: { readonly children: ReactNode }) =>
+  ShellMenuProvider: ({ children }: { readonly children: ReactNode }) =>
     children,
   ProductShell: ({ children }: { readonly children: ReactNode }) => children,
 }));

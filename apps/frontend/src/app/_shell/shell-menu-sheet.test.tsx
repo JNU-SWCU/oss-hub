@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -7,7 +7,7 @@ import {
   documentListenerAdded,
   nextFocus,
 } from './drawer-test-signals';
-import { SidebarDrawer, SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
+import { ShellMenuSheet, SHELL_MENU_SHEET_ID } from './shell-menu-sheet';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -23,7 +23,7 @@ function Content() {
   );
 }
 
-describe('SidebarDrawer', () => {
+describe('ShellMenuSheet', () => {
   let container: HTMLDivElement;
   let root: Root;
   let trigger: HTMLButtonElement;
@@ -34,7 +34,7 @@ describe('SidebarDrawer', () => {
     root = createRoot(container);
 
     trigger = document.createElement('button');
-    trigger.textContent = '사이드바 메뉴 열기';
+    trigger.textContent = '프로그램 개요 ▾';
     document.body.append(trigger);
     trigger.focus();
   });
@@ -46,49 +46,86 @@ describe('SidebarDrawer', () => {
     document.body.removeAttribute('data-scroll-locked');
   });
 
-  async function renderDrawer(open: boolean, onClose: () => void) {
+  async function renderSheet(
+    open: boolean,
+    onClose: () => void,
+    returnFocusRef?: React.RefObject<HTMLElement | null>,
+  ) {
     await act(async () => {
       root.render(
-        <SidebarDrawer open={open} onClose={onClose} label="메뉴">
+        <ShellMenuSheet
+          open={open}
+          onClose={onClose}
+          title="2026-2 오픈소스 SW 프로젝트"
+          returnFocusRef={returnFocusRef}
+        >
           <Content />
-        </SidebarDrawer>,
+        </ShellMenuSheet>,
       );
     });
   }
 
+  function dialog(): HTMLElement | null {
+    return document.querySelector('[role="dialog"]');
+  }
+
   it('닫혀 있을 때는 아무것도 렌더하지 않는다', async () => {
-    await renderDrawer(false, () => {});
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await renderSheet(false, () => {});
+    expect(dialog()).toBeNull();
   });
 
-  it('role=dialog, aria-modal, aria-label을 단다', async () => {
-    await renderDrawer(true, () => {});
-    const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog).not.toBeNull();
-    expect(dialog?.getAttribute('aria-modal')).toBe('true');
-    expect(dialog?.getAttribute('aria-label')).toBe('메뉴');
-    expect(dialog?.id).toBe(SIDEBAR_DRAWER_DIALOG_ID);
-  });
-
-  it('열리면 첫 포커서블 요소로 포커스가 이동한다', async () => {
-    await renderDrawer(true, () => {});
-    const closeButton = document.querySelector<HTMLElement>(
-      '[aria-label="사이드바 메뉴 닫기"]',
+  it('role=dialog, aria-modal과 숨긴 제목으로 이름을 단다', async () => {
+    await renderSheet(true, () => {});
+    const dlg = dialog();
+    expect(dlg).not.toBeNull();
+    expect(dlg?.getAttribute('aria-modal')).toBe('true');
+    expect(dlg?.id).toBe(SHELL_MENU_SHEET_ID);
+    expect(dlg?.getAttribute('data-slot')).toBe('shell-menu-sheet');
+    const titleId = dlg?.getAttribute('aria-labelledby');
+    expect(titleId).toBeTruthy();
+    expect(document.getElementById(titleId ?? '')?.textContent).toBe(
+      '2026-2 오픈소스 SW 프로젝트',
     );
+    expect(dlg?.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('열리면 첫 포커서블 요소(닫기)로 포커스가 이동한다', async () => {
+    await renderSheet(true, () => {});
+    const closeButton = document.querySelector<HTMLElement>(
+      '[aria-label="메뉴 닫기"]',
+    );
+    expect(closeButton).not.toBeNull();
     expect(document.activeElement).toBe(closeButton);
   });
 
-  it('닫히면(트리거로) 열기 전 포커스로 복귀한다', async () => {
-    await renderDrawer(true, () => {});
+  it('닫히면 열기 전 포커스로 복귀한다', async () => {
+    await renderSheet(true, () => {});
     const refocused = nextFocus(trigger);
-    await renderDrawer(false, () => {});
+    await renderSheet(false, () => {});
     await act(() => refocused);
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('returnFocusRef가 있으면 닫힐 때 그 요소로 포커스를 돌려준다', async () => {
+    const scopeButton = document.createElement('button');
+    scopeButton.textContent = '현재 메뉴 ▾';
+    document.body.append(scopeButton);
+    const ref = createRef<HTMLElement | null>();
+    ref.current = scopeButton;
+    try {
+      await renderSheet(true, () => {}, ref);
+      const refocused = nextFocus(scopeButton);
+      await renderSheet(false, () => {}, ref);
+      await act(() => refocused);
+      expect(document.activeElement).toBe(scopeButton);
+    } finally {
+      scopeButton.remove();
+    }
+  });
+
   it('Escape를 누르면 onClose가 호출된다', async () => {
     const onClose = vi.fn();
-    await renderDrawer(true, onClose);
+    await renderSheet(true, onClose);
 
     await act(async () => {
       document.dispatchEvent(
@@ -105,18 +142,17 @@ describe('SidebarDrawer', () => {
 
   it('배경 스크롤을 잠근다', async () => {
     expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
-    await renderDrawer(true, () => {});
+    await renderSheet(true, () => {});
     expect(document.body.hasAttribute('data-scroll-locked')).toBe(true);
     const unlocked = bodyAttributeRemoved('data-scroll-locked');
-    await renderDrawer(false, () => {});
+    await renderSheet(false, () => {});
     await act(() => unlocked);
     expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
   });
 
-  it('Tab이 드로어 밖으로 나가지 않는다(포커스 트랩) — 마지막에서 Tab하면 첫 요소로', async () => {
-    await renderDrawer(true, () => {});
-    const dialog = document.querySelector('[role="dialog"]');
-    const focusables = dialog?.querySelectorAll<HTMLElement>(
+  it('Tab이 시트 밖으로 나가지 않는다(포커스 트랩) — 마지막에서 Tab하면 첫 요소로', async () => {
+    await renderSheet(true, () => {});
+    const focusables = dialog()?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled])',
     );
     expect(focusables).toBeDefined();
@@ -138,10 +174,9 @@ describe('SidebarDrawer', () => {
     expect(document.activeElement).toBe(first);
   });
 
-  it('Tab이 드로어 밖으로 나가지 않는다(포커스 트랩) — 첫 요소에서 Shift+Tab하면 마지막 요소로', async () => {
-    await renderDrawer(true, () => {});
-    const dialog = document.querySelector('[role="dialog"]');
-    const focusables = dialog?.querySelectorAll<HTMLElement>(
+  it('Tab이 시트 밖으로 나가지 않는다(포커스 트랩) — 첫 요소에서 Shift+Tab하면 마지막 요소로', async () => {
+    await renderSheet(true, () => {});
+    const focusables = dialog()?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled])',
     );
     const first = focusables?.[0];
@@ -165,10 +200,10 @@ describe('SidebarDrawer', () => {
     const closeSignal = callSignal();
     const onClose = vi.fn(closeSignal.notify);
     const outsideListenerReady = documentListenerAdded('pointerdown');
-    await renderDrawer(true, onClose);
+    await renderSheet(true, onClose);
     await act(() => outsideListenerReady);
     const backdrop = document.querySelector<HTMLElement>(
-      '[data-slot="sidebar-drawer-backdrop"]',
+      '[data-slot="shell-menu-sheet-backdrop"]',
     );
     expect(backdrop).not.toBeNull();
 
@@ -188,9 +223,9 @@ describe('SidebarDrawer', () => {
 
   it('닫기 버튼 클릭 시 onClose가 호출된다', async () => {
     const onClose = vi.fn();
-    await renderDrawer(true, onClose);
+    await renderSheet(true, onClose);
     const closeButton = document.querySelector<HTMLElement>(
-      '[aria-label="사이드바 메뉴 닫기"]',
+      '[aria-label="메뉴 닫기"]',
     );
 
     await act(async () => {
@@ -200,8 +235,8 @@ describe('SidebarDrawer', () => {
   });
 
   it('children으로 넘긴 메뉴 콘텐츠를 그대로 렌더한다', async () => {
-    await renderDrawer(true, () => {});
-    expect(document.querySelector('a[href="/programs"]')).not.toBeNull();
-    expect(document.querySelector('a[href="/ranking"]')).not.toBeNull();
+    await renderSheet(true, () => {});
+    expect(dialog()?.querySelector('a[href="/programs"]')).not.toBeNull();
+    expect(dialog()?.querySelector('a[href="/ranking"]')).not.toBeNull();
   });
 });

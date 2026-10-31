@@ -18,6 +18,7 @@ vi.mock('next/link', () => ({
 
 import {
   SIDEBAR_ASIDE_ID,
+  SidebarFoot,
   SidebarScopeRow,
   SidebarShell,
 } from './sidebar-shell';
@@ -52,7 +53,6 @@ describe('SidebarShell', () => {
       /<aside[^>]*id="app-sidebar-aside"[^>]*data-slot="app-sidebar"[^>]*data-breakpoint-visibility="desktop"[^>]*data-collapsed="false"/,
     );
     expect(SIDEBAR_ASIDE_ID).toBe('app-sidebar-aside');
-    expect(html).toMatch(/<aside[^>]*data-variant="aside"/);
     expect(html.match(/<aside\b/g)).toHaveLength(1);
     expect(slots(html)).toEqual([
       'app-sidebar',
@@ -117,21 +117,20 @@ describe('SidebarShell', () => {
     }
   });
 
-  it('drawer 변형은 aside가 아니고 브레이크포인트 숨김과 id가 없다', () => {
-    const html = render({ variant: 'drawer', kind: 'program-scope-sidebar' });
-    expect(html).not.toContain('<aside');
-    expect(html).toMatch(
-      /<div[^>]*data-slot="sidebar-shell"[^>]*data-variant="drawer"[^>]*data-kind="program-scope-sidebar"/,
+  it('데스크톱 전용 aside 하나밖에 그리지 않는다 — 드로어 변형은 없다', () => {
+    const html = render({ kind: 'program-scope-sidebar' });
+    expect(html.match(/data-breakpoint-visibility="desktop"/g)).toHaveLength(1);
+    expect(html).not.toContain('data-variant');
+    expect(html).not.toContain('data-slot="sidebar-shell"');
+  });
+
+  it('SidebarFoot은 kind에 맞는 슬롯으로 같은 호스트 푸터를 그린다', () => {
+    const html = renderToStaticMarkup(
+      <SidebarFoot kind="program-scope-sidebar" />,
     );
-    expect(html).not.toContain('data-breakpoint-visibility');
-    expect(html).not.toContain(`id="${SIDEBAR_ASIDE_ID}"`);
-    expect(html).not.toContain('data-variant="aside"');
-    expect(slots(html)).toEqual([
-      'sidebar-shell',
-      'app-sidebar-nav',
-      'program-scope-sidebar-foot',
-    ]);
-    expect(html).not.toMatch(/<(header|h[1-6]|hr)\b/);
+    expect(html).toMatch(
+      /<p[^>]*data-slot="program-scope-sidebar-foot"[^>]*>전남대학교<br\/>SW중심대학사업단<\/p>/,
+    );
   });
 });
 

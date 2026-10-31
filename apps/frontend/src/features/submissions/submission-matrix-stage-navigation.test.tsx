@@ -44,7 +44,7 @@ describe('MatrixStageNavigation', () => {
     });
   }
 
-  it('태블릿 단계 버튼으로 모든 단계와 특정 단계를 선택한다', async () => {
+  it('단계 칩으로 모든 단계와 특정 단계를 선택한다', async () => {
     await renderNavigation('mid');
     const buttons = Array.from(
       container.querySelectorAll<HTMLButtonElement>('[role="group"] button'),
@@ -90,18 +90,16 @@ describe('MatrixStageNavigation', () => {
     expect(document.activeElement).toBe(buttons[3]);
   });
 
-  it('모바일 선택 메뉴도 같은 선택 계약을 사용한다', async () => {
+  it('모든 폭에서 하나의 칩 줄만 렌더하고 선택 메뉴는 없다', async () => {
     await renderNavigation('plan');
-    const select = container.querySelector<HTMLSelectElement>(
-      '#matrix-mobile-stage',
-    );
-    expect(select?.value).toBe('plan');
 
-    await act(async () => {
-      if (!select) return;
-      select.value = 'final';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    expect(onSelectMilestone).toHaveBeenCalledWith('final');
+    expect(
+      container.querySelectorAll('[data-slot="matrix-stage-navigation"]'),
+    ).toHaveLength(1);
+    expect(container.querySelectorAll('[role="group"]')).toHaveLength(1);
+    expect(
+      container.querySelector('[role="group"]')?.getAttribute('aria-label'),
+    ).toBe('볼 제출 단계');
+    expect(container.querySelector('select')).toBeNull();
   });
 });

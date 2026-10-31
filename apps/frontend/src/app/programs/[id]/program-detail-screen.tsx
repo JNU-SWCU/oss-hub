@@ -1,11 +1,14 @@
 'use client';
 
-import { useContext } from 'react';
+import { useCallback, useContext } from 'react';
+
 import { useSession } from '@/features/auth/use-session';
 import {
   ProgramDetailPage,
   type ProgramDetailSession,
 } from '@/features/programs/catalog/program-detail-page';
+import { useReportProgramName } from '../../_shell/program-name-report-context';
+
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
 import { renderSignInApplyEntry } from './sign-in-apply-entry';
 
@@ -16,6 +19,11 @@ export function ProgramDetailScreen({
 }) {
   const programView = useContext(ProgramViewContext);
   const { status: sessionStatus } = useSession();
+  const reportProgramName = useReportProgramName();
+  const onProgramName = useCallback(
+    (name: string) => reportProgramName(programId, name),
+    [reportProgramName, programId],
+  );
 
   const session: ProgramDetailSession =
     sessionStatus === 'loading'
@@ -29,6 +37,7 @@ export function ProgramDetailScreen({
       programId={programId}
       session={session}
       renderSignInApply={renderSignInApplyEntry}
+      onProgramName={onProgramName}
       operationsView={
         programView === null
           ? null

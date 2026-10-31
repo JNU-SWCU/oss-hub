@@ -95,7 +95,6 @@
   --measure-76: 76px;
   --measure-148: 148px;
   --measure-248: 248px;
-  --measure-320: 320px;
   --measure-1600: 1600px;
 }
 
@@ -185,7 +184,11 @@
   --spacing-sidebar-collapsed: var(--sidebar-collapsed-width);
   --spacing-sidebar-icon: var(--sidebar-icon-size);
   --spacing-sidebar-marker: var(--sidebar-marker-width);
-  --spacing-sidebar-drawer: var(--sidebar-drawer-width);
+  --spacing-safe-bottom: var(--safe-area-bottom-padding);
+  --spacing-bottom-tabs-clearance: calc(
+    var(--bottom-tabs-height) + var(--safe-area-bottom-padding)
+  );
+  --spacing-sheet-max: var(--sheet-max-height);
   --color-overlay: var(--overlay);
   --text-page: var(--step-page);
   --text-section: var(--step-section);
@@ -270,7 +273,9 @@
   --sidebar-collapse-duration: 140ms;
   --sidebar-icon-size: var(--measure-18);
   --sidebar-marker-width: var(--measure-3);
-  --sidebar-drawer-width: min(85vw, var(--measure-320));
+  --bottom-tabs-height: var(--measure-64);
+  --sheet-max-height: 85dvh;
+  --safe-area-bottom-padding: env(safe-area-inset-bottom, 0px);
   --overlay: color-mix(in oklch, var(--palette-black) 50%, transparent);
 
   --status-recruiting-bg: var(--palette-navy-50);
@@ -429,6 +434,17 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Sticky footer rows clear the mobile bottom tab bar; dialogs sit above it. */
+@utility bottom-above-tabs {
+  bottom: var(--spacing-bottom-tabs-clearance);
+  @variant shell {
+    bottom: 0;
+  }
+  [role='dialog'] & {
+    bottom: 0;
   }
 }
 

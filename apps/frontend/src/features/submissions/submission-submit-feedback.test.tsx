@@ -195,7 +195,7 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
 
     expect(body?.contains(actions ?? null)).toBe(true);
     expect(actions?.className).toContain('sticky');
-    expect(actions?.className).toContain('bottom-0');
+    expect(actions?.dataset.slot).toBe('submission-form-actions');
 
     const submit = [...(actions?.querySelectorAll('button') ?? [])].find(
       (candidate) => candidate.textContent?.trim() === '제출하기',
