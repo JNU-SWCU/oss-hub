@@ -5,7 +5,6 @@ import { NavBar } from './nav-bar';
 const ITEMS = [
   { label: '홈', href: '/' },
   { label: '프로그램', href: '/programs' },
-  { label: '공개 아카이브', href: '/archive' },
   { label: '랭킹', href: '/ranking' },
 ];
 
@@ -33,11 +32,11 @@ function currentLinks(list: string): string[] {
 
 describe('NavBar 현재 탭', () => {
   it('currentPath와 같은 href 항목에 aria-current="page"와 data-current를 단다', () => {
-    const html = render('/archive');
+    const html = render('/programs');
     for (const list of [wideList(html), collapsedPanel(html)]) {
       const current = currentLinks(list);
       expect(current).toHaveLength(1);
-      expect(current[0]).toContain('href="/archive"');
+      expect(current[0]).toContain('href="/programs"');
       expect(current[0]).toContain('data-current="true"');
     }
   });

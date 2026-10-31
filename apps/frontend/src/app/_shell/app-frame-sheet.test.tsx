@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
   getProgramStatusCounts: vi.fn(),
-  loadArchiveYears: vi.fn(),
+  getRankingYears: vi.fn(),
   getMyApplication: vi.fn(),
 }));
 
@@ -43,11 +43,11 @@ vi.mock('@/features/programs/catalog/program-overview-api', () => ({
 vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
+vi.mock('@/features/ranking/api', () => ({
+  getRankingYears: mocks.getRankingYears,
+}));
 vi.mock('@/features/programs/catalog/api', () => ({
   getProgramStatusCounts: mocks.getProgramStatusCounts,
-}));
-vi.mock('@/features/archive/api', () => ({
-  loadArchiveYears: mocks.loadArchiveYears,
 }));
 vi.mock('@/features/programs/applications/student-application-api', () => ({
   getMyApplication: mocks.getMyApplication,
@@ -155,7 +155,6 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     mocks.getProgramStatusCounts
       .mockReset()
       .mockReturnValue(new Promise(() => {}));
-    mocks.loadArchiveYears.mockReset().mockReturnValue(new Promise(() => {}));
     mocks.getMyApplication.mockReset().mockReturnValue(new Promise(() => {}));
     container = document.createElement('div');
     document.body.append(container);
@@ -231,12 +230,12 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(button.getAttribute('aria-controls')).toBe(SHELL_MENU_SHEET_ID);
   });
 
-  it('목록 섹션(/programs, /archive)에는 스코프 바가 없다 — 필터는 칩이 맡는다', async () => {
+  it('목록 섹션(/programs, /ranking)에는 스코프 바가 없다 — 필터는 칩이 맡는다', async () => {
     mockSession(STUDENT_ADMIN_SESSION);
     await renderFrame('/programs');
     expect(scopeBar()).toBeNull();
 
-    await renderFrame('/archive');
+    await renderFrame('/ranking');
     expect(scopeBar()).toBeNull();
   });
 

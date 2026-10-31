@@ -20,7 +20,6 @@ function section(id: SectionId, label: string, href: string): SectionItem {
 
 export const SECTIONS: readonly SectionItem[] = [
   section('programs', '프로그램', '/programs'),
-  section('archive', '공개 아카이브', '/archive'),
   section('ranking', '랭킹', '/ranking'),
 ];
 

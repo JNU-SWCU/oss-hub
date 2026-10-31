@@ -41,20 +41,18 @@ function currentTabs(doc: Document): HTMLAnchorElement[] {
 }
 
 describe('BottomTabBar', () => {
-  it('섹션 nav 하나에 비회원 3개, 가입을 마친 회원 4개 탭을 그린다', () => {
+  it('섹션 nav 하나에 비회원 2개, 가입을 마친 회원 3개 탭을 그린다', () => {
     const guest = render('/programs', GUEST);
     const nav = guest.querySelector('nav[data-slot="bottom-tab-bar"]');
     expect(nav?.getAttribute('aria-label')).toBe('섹션');
     expect(tabs(guest).map((tab) => tab.getAttribute('href'))).toEqual([
       '/programs',
-      '/archive',
       '/ranking',
     ]);
 
     const member = render('/programs', STUDENT);
     expect(tabs(member).map((tab) => tab.getAttribute('href'))).toEqual([
       '/programs',
-      '/archive',
       '/ranking',
       '/dashboard',
     ]);
@@ -62,7 +60,7 @@ describe('BottomTabBar', () => {
   });
 
   it('각 탭은 아이콘과 라벨을 함께 담는다', () => {
-    for (const tab of tabs(render('/archive', STUDENT))) {
+    for (const tab of tabs(render('/programs', STUDENT))) {
       expect(tab.querySelector('svg[data-icon]')).not.toBeNull();
       expect(tab.textContent?.trim()).not.toBe('');
     }

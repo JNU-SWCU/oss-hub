@@ -178,7 +178,7 @@ describe('AppFrame', () => {
   });
 
   it('접힌 상단 메뉴는 랜딩·가입 화면에만 있고 제품 셸에는 없다', () => {
-    for (const path of ['/', '/signup']) {
+    for (const path of ['/', '/consent']) {
       const html = render(path, ANONYMOUS);
       expect(html, path).toContain('data-slot="nav-bar-menu"');
       expect(breakpointVisibility(html, 'nav-bar-items'), path).toBe('wide');
@@ -196,7 +196,7 @@ describe('AppFrame', () => {
   it('하단 탭 바는 제품 셸에만 있고 랜딩·가입 화면에는 없다', () => {
     for (const [path, session] of [
       ['/programs', ANONYMOUS],
-      ['/archive', ANONYMOUS],
+      ['/ranking', ANONYMOUS],
       ['/dashboard', undefined],
     ] as const) {
       const html = render(path, session);
@@ -204,7 +204,7 @@ describe('AppFrame', () => {
         /<nav[^>]*aria-label="섹션"[^>]*data-slot="bottom-tab-bar"/,
       );
     }
-    for (const path of ['/', '/signup', '/onboarding/role']) {
+    for (const path of ['/', '/consent', '/onboarding/role']) {
       expect(render(path, ANONYMOUS), path).not.toContain(
         'data-slot="bottom-tab-bar"',
       );

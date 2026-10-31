@@ -12,15 +12,13 @@ const GUEST = { status: 'anonymous', isProfileComplete: false } as const;
 const MEMBER = { status: 'assigned', isProfileComplete: true } as const;
 
 describe('섹션 목록 단일 원본', () => {
-  it('공개 섹션은 프로그램·공개 아카이브·랭킹 순서이고 아이콘을 품는다', () => {
+  it('공개 섹션은 프로그램·랭킹 순서이고 아이콘을 품는다', () => {
     expect(SECTIONS.map((item) => [item.id, item.href])).toEqual([
       ['programs', '/programs'],
-      ['archive', '/archive'],
       ['ranking', '/ranking'],
     ]);
     expect(SECTIONS.map((item) => item.icon)).toEqual([
       'list',
-      'archive',
       'chart',
     ]);
   });
@@ -42,7 +40,6 @@ describe('섹션 목록 단일 원본', () => {
     const member = sectionItemsFor(MEMBER);
     expect(member.map((item) => item.id)).toEqual([
       'programs',
-      'archive',
       'ranking',
       'dashboard',
     ]);
@@ -63,7 +60,7 @@ describe('섹션 목록 단일 원본', () => {
     expect(hrefs).not.toContain('/');
   });
 
-  it('프로그램 섹션 좌측에는 상태 필터만 있고 아카이브·랭킹 href는 없다', () => {
+  it('프로그램 섹션 좌측에는 상태 필터만 있고 랭킹 href는 없다', () => {
     const hrefs = sidebarGroupsFor('programs', {
       memberKind: 'STUDENT',
       hasStaffAccess: false,
@@ -72,17 +69,15 @@ describe('섹션 목록 단일 원본', () => {
     expect(
       hrefs.some((h) => h === '/programs' || h.startsWith('/programs?')),
     ).toBe(true);
-    expect(hrefs).not.toContain('/archive');
     expect(hrefs).not.toContain('/ranking');
   });
 
   it('현재 섹션은 셸 섹션 판정을 따른다 — 하위 경로와 /my-repos 포함', () => {
     expect(isCurrentSection('/programs/abc/teams', 'programs')).toBe(true);
-    expect(isCurrentSection('/archive', 'archive')).toBe(true);
     expect(isCurrentSection('/ranking', 'ranking')).toBe(true);
     expect(isCurrentSection('/my-repos', 'dashboard')).toBe(true);
     expect(isCurrentSection('/dashboard/users', 'dashboard')).toBe(true);
-    expect(isCurrentSection('/programs', 'archive')).toBe(false);
+    expect(isCurrentSection('/programs', 'ranking')).toBe(false);
     expect(isCurrentSection('/', 'programs')).toBe(false);
   });
 });

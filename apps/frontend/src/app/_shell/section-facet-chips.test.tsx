@@ -12,8 +12,7 @@ const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
-  loadArchiveYears: vi.fn(),
-  loadArchivePage: vi.fn(),
+  getProgramStatusCounts: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -36,12 +35,10 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
-vi.mock('@/features/archive/api', () => ({
-  loadArchiveYears: mocks.loadArchiveYears,
-  loadArchivePage: mocks.loadArchivePage,
+vi.mock('@/features/programs/catalog/api', () => ({
+  getProgramStatusCounts: mocks.getProgramStatusCounts,
 }));
 
-import ArchivePage from '../archive/page';
 import { ProductShell } from './product-shell';
 import { SectionFacetChips } from './section-facet-chips';
 import { ShellFacetsContext, type ShellFacets } from './shell-facets-context';
@@ -161,9 +158,9 @@ describe('SectionFacetChips', () => {
     ).toBeNull();
   });
 
-  it('archive page shows shell-loaded years from a single years request', async () => {
-    mocks.usePathname.mockReturnValue('/archive');
-    mocks.useSearchParams.mockReturnValue(new URLSearchParams('year=2025'));
+  it('program chips share one counts request and navigate to ended programs', async () => {
+    mocks.usePathname.mockReturnValue('/programs');
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams());
     mocks.useSessionRole.mockReturnValue({
       status: 'anonymous',
       memberKind: null,
@@ -172,21 +169,18 @@ describe('SectionFacetChips', () => {
       isProfileComplete: false,
       retry: () => {},
     });
-    mocks.loadArchiveYears.mockReset().mockResolvedValue([2026, 2025]);
-    mocks.loadArchivePage
-      .mockReset()
-      .mockResolvedValue({ items: [], pageSize: 12, nextPageId: null });
+    mocks.getProgramStatusCounts.mockReset().mockResolvedValue(COUNTS);
 
     await act(async () => {
       root.render(
         <ProductShell>
-          <ArchivePage />
+          <SectionFacetChips />
         </ProductShell>,
       );
     });
 
-    expect(mocks.loadArchiveYears).toHaveBeenCalledTimes(1);
-    expect(chip('2026').getAttribute('aria-pressed')).toBe('false');
-    expect(chip('2025').getAttribute('aria-pressed')).toBe('true');
+    expect(mocks.getProgramStatusCounts).toHaveBeenCalledTimes(1);
+    await act(async () => chip('종료').click());
+    expect(mocks.push).toHaveBeenCalledWith('/programs?status=ended');
   });
 });

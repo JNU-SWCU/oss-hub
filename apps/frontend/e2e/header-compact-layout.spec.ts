@@ -7,7 +7,7 @@ import {
 
 const PRODUCT_MOBILE_WIDTHS = [320, 390, 768, 899] as const;
 const PRODUCT_DESKTOP_WIDTHS = [900, 1440] as const;
-const SECTION_TABS = ['프로그램', '공개 아카이브', '랭킹', '대시보드'] as const;
+const SECTION_TABS = ['프로그램', '랭킹', '대시보드'] as const;
 
 function expectNoFoldedNavigation(page: Page, width: number) {
   return Promise.all([
@@ -129,7 +129,7 @@ for (const multipleAuthorities of [false, true]) {
   });
 }
 
-for (const pathname of ['/', '/signup']) {
+for (const pathname of ['/']) {
   test(`가입 전 화면 ${pathname}의 접힌 헤더 메뉴는 그대로 열고 닫힌다`, async ({
     page,
   }, testInfo) => {

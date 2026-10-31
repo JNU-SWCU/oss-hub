@@ -387,9 +387,9 @@ describe('ProductShell — 모바일 스코프 바와 메뉴 시트 배선', () 
     expect(html).toContain('aria-controls="shell-menu-sheet"');
   });
 
-  it('필터 칩 섹션(/programs, /archive, /ranking)에는 스코프 바가 없다', () => {
+  it('필터 칩 섹션(/programs, /ranking)에는 스코프 바가 없다', () => {
     mockSession();
-    for (const pathname of ['/programs', '/archive', '/ranking']) {
+    for (const pathname of ['/programs', '/ranking']) {
       const html = render(pathname);
       expect(html, pathname).toContain('data-slot="app-sidebar"');
       expect(html, pathname).not.toContain('data-slot="scope-bar"');
