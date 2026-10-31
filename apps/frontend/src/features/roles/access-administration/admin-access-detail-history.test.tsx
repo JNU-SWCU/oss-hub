@@ -78,6 +78,35 @@ async function nextHistoryPage(index: number) {
 }
 
 describe('관리자 상세 이력 조회 복구와 사용자 전환', () => {
+  it.each(['close', 'switch'])(
+    '이력 페이지 요청 중 %s 후 같은 사용자를 다시 열어도 오래된 응답이 덮어쓰지 않는다',
+    async (departure) => {
+      const oldRequest = Promise.withResolvers<AdminAccessHistory>();
+      vi.mocked(loadAdminAccessDetail).mockResolvedValue({
+        detail: adminDetail(),
+        history: pagedHistory('original-history'),
+      });
+      vi.mocked(fetchAdminAccessHistory).mockReturnValue(oldRequest.promise);
+      await renderDetail();
+      await nextHistoryPage(0);
+      expect(fetchAdminAccessHistory).toHaveBeenCalledTimes(1);
+      if (departure === 'close') await root.rerender(null);
+      else await renderDetail('new-target');
+      vi.mocked(loadAdminAccessDetail).mockResolvedValue({
+        detail: adminDetail(),
+        history: pagedHistory('fresh-history'),
+      });
+      await renderDetail();
+      expect(container.textContent).toContain('fresh-history');
+      await act(async () => {
+        oldRequest.resolve(pagedHistory('stale-history', 2));
+        await oldRequest.promise;
+      });
+      expect(container.textContent).toContain('fresh-history');
+      expect(container.textContent).not.toContain('stale-history');
+    },
+  );
+
   it.each([0, 1])(
     '이력 %i 페이지 실패는 이전 목록과 재시도를 보존한다',
     async (index) => {
