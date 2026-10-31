@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -156,6 +157,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
   ),
   storage,
   new SubmissionFileRulesService(),
+  new DownloadResponseService(),
 );
 
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
@@ -394,6 +396,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       submissionsModule.get(SubmissionFilesService),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
 
     await cleanup();

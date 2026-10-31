@@ -17,7 +17,6 @@ import { ProgramDocumentChangeRequestCountResponseDto } from './dto/program-docu
 import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-program-document-change-request-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
@@ -38,7 +37,6 @@ const staffOnly = () =>
 export class ProgramDocumentChangeRequestsController {
   constructor(
     private readonly changeRequests: ProgramDocumentChangeRequestsService,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   @Get('targets')
@@ -50,13 +48,7 @@ export class ProgramDocumentChangeRequestsController {
     @Query() query: ProgramDocumentChangeRequestTargetsRequestDto,
   ): Promise<ProgramDocumentChangeRequestTargetsResponseDto> {
     return ProgramDocumentChangeRequestTargetsResponseDto.from(
-      await this.changeRequests.targets(
-        programId,
-        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
-          query.scope,
-          query.teamId,
-        ),
-      ),
+      await this.changeRequests.targetsFromRequest(programId, query),
     );
   }
 
@@ -71,12 +63,10 @@ export class ProgramDocumentChangeRequestsController {
     @Body() body: CreateProgramDocumentChangeRequestRequestDto,
   ): Promise<ProgramDocumentChangeRequestCountResponseDto> {
     return ProgramDocumentChangeRequestCountResponseDto.from(
-      await this.changeRequests.requestChanges(
+      await this.changeRequests.requestChangesFromRequest(
         request.principal.id,
         programId,
-        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
-          body,
-        ),
+        body,
       ),
     );
   }

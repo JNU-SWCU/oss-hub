@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
+import { Inject, Injectable, Logger, StreamableFile } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../platform/error-code.error';
@@ -248,6 +250,16 @@ interface ZipFileFinalSize {
   ): void;
 }
 
+const archiveLogger = new Logger('MilestoneDocumentArchive');
+
+const programArchiveLogger = new Logger('ProgramDocumentArchivesController');
+
+function failedStorageKey(error: Error): string {
+  return error instanceof MilestoneDocumentArchiveEntryError
+    ? error.storageKey
+    : 'unknown';
+}
+
 @Injectable()
 export class MilestoneDocumentArchiveService {
   constructor(
@@ -257,7 +269,62 @@ export class MilestoneDocumentArchiveService {
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async streamArchiveForStaff(
+    response: Response,
+    milestoneId: string,
+    request: Parameters<
+      MilestoneDocumentArchiveService['milestoneArchiveScopeFromRequest']
+    >[0],
+  ): Promise<StreamableFile> {
+    const scope = this.milestoneArchiveScopeFromRequest(request);
+    const archive = await this.archiveForStaff(milestoneId, scope);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
+
+    response.once('close', () => archive.body.destroy());
+
+    return new StreamableFile(archive.body).setErrorHandler((error) => {
+      archiveLogger.error(
+        `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${milestoneId} scope=${scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
+      );
+      this.downloadResponseService.respondWithDownloadFailure(
+        response,
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        ],
+        'END',
+      );
+    });
+  }
+
+  async streamArchiveForProgramStaff(
+    response: Response,
+    programId: string,
+    request: Parameters<
+      MilestoneDocumentArchiveService['programArchiveScopeFromRequest']
+    >[0],
+  ): Promise<StreamableFile> {
+    const scope = this.programArchiveScopeFromRequest(request);
+    const archive = await this.archiveForProgramStaff(programId, scope);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
+    response.once('close', () => archive.body.destroy());
+
+    return new StreamableFile(archive.body).setErrorHandler((error) => {
+      programArchiveLogger.error(
+        `Program archive failed: programId=${programId} scope=${scope.kind}`,
+        error.stack,
+      );
+      this.downloadResponseService.respondWithDownloadFailure(
+        response,
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        ],
+        'DESTROY',
+      );
+    });
+  }
 
   programArchiveScopeFromRequest(request: {
     readonly scope: ProgramDocumentArchiveScope['kind'];

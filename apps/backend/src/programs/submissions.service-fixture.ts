@@ -1,3 +1,4 @@
+import { SubmissionInputService } from './submission-input.service';
 import type { SubmissionsStore } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 import { ProgramRulesService } from './program-rules.service';
@@ -58,6 +59,7 @@ export function createSubmissionsServiceHarness(): {
       repository,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),
+      new SubmissionInputService(),
     ),
     store,
     didRollBack: () => rolledBack,

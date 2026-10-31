@@ -547,6 +547,20 @@ export class ProgramTeamsService {
     };
   }
 
+  getRepositoryUrlHistoryFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: { readonly cursor?: string },
+  ): Promise<RepositoryUrlHistoryPage> {
+    return this.getRepositoryUrlHistory(
+      githubId,
+      programId,
+      teamId,
+      this.repositoryUrlHistoryCursorFromRequest(request),
+    );
+  }
+
   async getRepositoryUrlHistory(
     githubId: bigint,
     programId: string,

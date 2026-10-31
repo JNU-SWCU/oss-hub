@@ -84,24 +84,14 @@ export class MilestonesController {
     @Param('id') id: string,
     @Body(milestoneUpdatePipe) command: MilestoneUpdateCommand,
   ): Promise<ProgramMilestoneEditResponseDto | ProgramMilestoneResponseDto> {
-    switch (command.kind) {
-      case 'aggregate':
-        return ProgramMilestoneEditResponseDto.from(
-          await this.editor.updateMilestoneEdit(
-            request.sessionGithubId,
-            id,
-            command.input,
-          ),
-        );
-      case 'legacy':
-        return ProgramMilestoneResponseDto.from(
-          await this.editor.updateMilestone(
-            request.sessionGithubId,
-            id,
-            command.input,
-          ),
-        );
-    }
+    const updated = await this.editor.updateMilestoneByCommand(
+      request.sessionGithubId,
+      id,
+      command,
+    );
+    return updated.kind === 'aggregate'
+      ? ProgramMilestoneEditResponseDto.from(updated.result)
+      : ProgramMilestoneResponseDto.from(updated.result);
   }
 
   @Delete(':id')

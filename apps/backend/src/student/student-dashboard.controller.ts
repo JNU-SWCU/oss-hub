@@ -7,7 +7,6 @@ import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dt
 import { ProgramActivityService } from '../programs/program-activity.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { StudentDashboardService } from './student-dashboard.service';
-import { ProgramViewerService } from '../programs/program-viewer.service';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -21,7 +20,6 @@ export class StudentDashboardController {
       'getStudentDashboard'
     >,
     private readonly activity: ProgramActivityService,
-    private readonly viewers: ProgramViewerService,
     private readonly feedback: MilestoneDocumentFeedbackService,
   ) {}
 
@@ -43,8 +41,8 @@ export class StudentDashboardController {
     @Query() query: ActivityTimelineRequestDto,
   ): Promise<ActivityTimelineResponseDto> {
     return ActivityTimelineResponseDto.from(
-      await this.activity.activityTimeline(
-        await this.viewers.studentFromGithubId(request.sessionGithubId),
+      await this.activity.activityTimelineForGithubId(
+        request.sessionGithubId,
         query.granularity,
       ),
     );

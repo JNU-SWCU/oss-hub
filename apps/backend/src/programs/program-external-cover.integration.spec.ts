@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -110,6 +111,7 @@ it('creates and replays an external cover with public projections and no storage
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({
     page: 1,

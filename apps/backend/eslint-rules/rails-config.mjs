@@ -15,6 +15,7 @@ import {
   serviceExports,
 } from './module-exports.mjs';
 import { requestDtoNoMethods } from './request-dto-no-methods.mjs';
+import { thinController } from './thin-controller.mjs';
 
 const layers = [
   'controller',
@@ -642,6 +643,7 @@ export async function createRailsConfig(rootDir) {
             'service-exports': serviceExports,
             'injectable-role-class': injectableRoleClass,
             'request-dto-no-methods': requestDtoNoMethods,
+            'thin-controller': thinController,
             'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
@@ -881,6 +883,11 @@ export async function createRailsConfig(rootDir) {
         'src/**/*.interceptor.ts',
       ],
       rules: { 'architecture/injectable-role-class': 'error' },
+    },
+    {
+      files: ['src/**/*.controller.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/thin-controller': 'error' },
     },
     {
       files: ['src/**/dto/*-request.dto.ts'],

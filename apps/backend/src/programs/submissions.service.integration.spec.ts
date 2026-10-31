@@ -1,3 +1,5 @@
+import { DownloadResponseService } from './download-response.service';
+import { SubmissionInputService } from './submission-input.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { createHash } from 'node:crypto';
 import {
@@ -44,6 +46,7 @@ const service = new SubmissionsService(
   new SubmissionsRepository(prisma, new PlatformRepository()),
   new ProgramRulesService(),
   new SubmissionFileRulesService(),
+  new SubmissionInputService(),
 );
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');
@@ -594,6 +597,7 @@ describe('SubmissionsService integration', () => {
       storage,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
 
     try {
@@ -677,6 +681,7 @@ describe('SubmissionsService integration', () => {
       storage,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
 
     try {

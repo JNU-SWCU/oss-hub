@@ -246,6 +246,13 @@ export class DeadlineDigestService {
     await this.sendDeadlineDigests();
   }
 
+  previewProgramFromRequest(
+    programId: string,
+    guidance: DeadlineDigestGuidance,
+  ): Promise<DeadlineDigestPreview> {
+    return this.previewProgram(programId, new Date(), guidance);
+  }
+
   async previewProgram(
     programId: string,
     now: Date = new Date(),

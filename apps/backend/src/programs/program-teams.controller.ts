@@ -53,8 +53,7 @@ export class ProgramTeamsController {
       | 'listForStaff'
       | 'getForStaff'
       | 'getActivity'
-      | 'getRepositoryUrlHistory'
-      | 'repositoryUrlHistoryCursorFromRequest'
+      | 'getRepositoryUrlHistoryFromRequest'
       | 'rename'
       | 'deleteForStaff'
       | 'removeMemberForStaff'
@@ -145,11 +144,11 @@ export class ProgramTeamsController {
     @Query() query: RepositoryUrlHistoryRequestDto,
   ): Promise<RepositoryUrlHistoryResponseDto> {
     return RepositoryUrlHistoryResponseDto.from(
-      await this.service.getRepositoryUrlHistory(
+      await this.service.getRepositoryUrlHistoryFromRequest(
         request.sessionGithubId,
         programId,
         teamId,
-        this.service.repositoryUrlHistoryCursorFromRequest(query),
+        query,
       ),
     );
   }

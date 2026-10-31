@@ -59,8 +59,17 @@ function declarationOrder(name: ControllerMethodName): number {
 }
 
 function serviceStub(
-  overrides: Partial<ControllerService> = {},
+  overrides: Partial<ControllerService> & {
+    readonly getRepositoryUrlHistory?: ProgramTeamsService['getRepositoryUrlHistory'];
+  } = {},
 ): ControllerService {
+  const {
+    getRepositoryUrlHistory = jest.fn<
+      ReturnType<ProgramTeamsService['getRepositoryUrlHistory']>,
+      Parameters<ProgramTeamsService['getRepositoryUrlHistory']>
+    >(),
+    ...rest
+  } = overrides;
   return {
     getMe: jest.fn(),
     leave: jest.fn(),
@@ -68,14 +77,23 @@ function serviceStub(
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
     getActivity: jest.fn(),
-    getRepositoryUrlHistory: jest.fn(),
-    repositoryUrlHistoryCursorFromRequest: (request) =>
-      teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
+    getRepositoryUrlHistoryFromRequest: (
+      githubId,
+      programId,
+      teamId,
+      request,
+    ) =>
+      getRepositoryUrlHistory(
+        githubId,
+        programId,
+        teamId,
+        teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
+      ),
     rename: jest.fn(),
     deleteForStaff: jest.fn(),
     removeMemberForStaff: jest.fn(),
     transferLeaderForStaff: jest.fn(),
-    ...overrides,
+    ...rest,
   };
 }
 

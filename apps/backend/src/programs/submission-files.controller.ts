@@ -26,7 +26,6 @@ import {
 } from './submissions-error-code.error';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
-import { DownloadResponseService } from './download-response.service';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -51,10 +50,7 @@ const SubmissionFileUploadInterceptor = new MultipartFileUploadInterceptor(
 
 @Controller('submission-files')
 export class SubmissionFilesController {
-  constructor(
-    private readonly service: SubmissionFilesService,
-    private readonly downloadResponseService: DownloadResponseService,
-  ) {}
+  constructor(private readonly service: SubmissionFilesService) {}
 
   @Get(':fileId')
   @Protected()
@@ -63,10 +59,7 @@ export class SubmissionFilesController {
     @Param('fileId') fileId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const file = await this.service.download(request.sessionGithubId, fileId);
-    response.setHeader('Cache-Control', 'private, no-store');
-    this.downloadResponseService.setDownloadHeaders(response, file);
-    return new StreamableFile(file.body);
+    return this.service.downloadTo(response, request.sessionGithubId, fileId);
   }
 
   @Post()

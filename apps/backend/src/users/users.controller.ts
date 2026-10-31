@@ -25,9 +25,8 @@ export class UsersController {
     private readonly usersService: Pick<
       UsersService,
       | 'getMyProfile'
-      | 'completeMyProfile'
-      | 'patchMyProfile'
-      | 'profileInputFromRequest'
+      | 'completeMyProfileFromRequest'
+      | 'patchMyProfileFromRequest'
     >,
   ) {}
 
@@ -50,9 +49,9 @@ export class UsersController {
     @Body() body: UpdateMyProfileRequestDto,
   ): Promise<UserProfileResponseDto> {
     return UserProfileResponseDto.from(
-      await this.usersService.completeMyProfile(
+      await this.usersService.completeMyProfileFromRequest(
         request.sessionGithubId,
-        this.usersService.profileInputFromRequest(body),
+        body,
       ),
     );
   }
@@ -65,9 +64,9 @@ export class UsersController {
     @Body() body: UpdateMyProfileRequestDto,
   ): Promise<UserProfileResponseDto> {
     return UserProfileResponseDto.from(
-      await this.usersService.patchMyProfile(
+      await this.usersService.patchMyProfileFromRequest(
         request.sessionGithubId,
-        this.usersService.profileInputFromRequest(body),
+        body,
       ),
     );
   }

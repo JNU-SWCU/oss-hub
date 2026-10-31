@@ -44,11 +44,11 @@ export class SubmissionRepositoryPublishingController {
     @Param('repositoryId') repositoryId: string,
     @Body() body: ConfirmRepositoryPublishRequestDto,
   ): Promise<RepositoryPublishResponseDto> {
-    this.service.assertPublishConfirmed(body);
     return RepositoryPublishResponseDto.from(
-      await this.service.publishRepository(
+      await this.service.publishRepositoryFromRequest(
         repositoryId,
         request.sessionGithubId,
+        body,
       ),
     );
   }

@@ -1,5 +1,7 @@
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
 import type { MilestoneDocumentCollectionFilter } from './milestone-document-rules.service';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, StreamableFile } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
@@ -77,7 +79,18 @@ export class MilestoneDocumentCurrentFileService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async downloadTo(
+    response: Response,
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.download(sessionGithubId, milestoneId, documentId);
+    return this.downloadResponseService.streamableFile(response, file);
+  }
 
   async download(
     sessionGithubId: bigint,

@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
+import { Inject, Injectable, StreamableFile } from '@nestjs/common';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
@@ -60,7 +62,18 @@ export class SubmissionFilesService {
     private readonly storage: ObjectStoragePort,
     private readonly programRulesService: ProgramRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async downloadTo(
+    response: Response,
+    sessionGithubId: bigint,
+    fileId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.download(sessionGithubId, fileId);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return this.downloadResponseService.streamableFile(response, file);
+  }
 
   createPending(
     input: Omit<CreatePendingSubmissionFileInput, 'resolveExpiresAt'>,

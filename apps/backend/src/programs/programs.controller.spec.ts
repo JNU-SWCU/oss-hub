@@ -283,6 +283,11 @@ const publicDetail: ProgramDetailResult = {
 
 describe('ProgramsController read boundaries', () => {
   const creation = { create: jest.fn() };
+  const viewers = { fromGithubId: jest.fn() };
+  const activity = Object.assign(
+    Object.create(ProgramActivityService.prototype) as object,
+    { activity: jest.fn(), programViewerService: viewers },
+  );
   const programs = Object.assign(
     Object.create(ProgramsService.prototype) as object,
     {
@@ -290,10 +295,10 @@ describe('ProgramsController read boundaries', () => {
       list: jest.fn(),
       statusCounts: jest.fn(),
       endedYears: jest.fn(),
+      programViewerService: viewers,
     },
   );
-  const activity = { activity: jest.fn() };
-  const viewers = { fromGithubId: jest.fn() };
+
   let controller: ProgramsController;
   let moduleRef: TestingModule;
 

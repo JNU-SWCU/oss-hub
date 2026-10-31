@@ -1,4 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { ProgramErrorCode } from './program-error-code.error';
+import { PROGRAM_ERROR_CODES } from './program-error-code.error';
+import { type ProblemDetailExtensions } from '../platform/error-code.error';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
   ProgramAuthoringRepository,
@@ -149,6 +153,36 @@ export class ProgramAuthoringService {
     private readonly programUploadRulesService: ProgramUploadRulesService,
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
   ) {}
+
+  async createFromRequest(
+    actor: { readonly id: string; readonly githubId: bigint },
+    idempotencyKey: string | undefined,
+    request: ProgramAuthoringRequest,
+  ): Promise<ProgramAuthoringProgram> {
+    if (idempotencyKey === undefined || idempotencyKey.trim().length === 0) {
+      throw new BadRequestException('A valid idempotency key is required.');
+    }
+    try {
+      return await this.create(actor, idempotencyKey, request);
+    } catch (error) {
+      if (error instanceof ProgramAuthoringIdempotencyConflictError) {
+        const extensions: ProblemDetailExtensions & {
+          readonly existingProgramId: string;
+        } = { existingProgramId: error.existingProgramId };
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.AUTHORING_REQUEST_CONFLICT],
+          extensions,
+        );
+      }
+      if (
+        error instanceof ProgramAuthoringValidationError ||
+        error instanceof ProgramAuthoringUploadTokenError
+      ) {
+        throw new BadRequestException('The authoring request is invalid.');
+      }
+      throw error;
+    }
+  }
 
   async create(
     actor: { readonly id: string; readonly githubId: bigint },

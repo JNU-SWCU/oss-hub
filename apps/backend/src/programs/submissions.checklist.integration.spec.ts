@@ -1,3 +1,4 @@
+import { SubmissionInputService } from './submission-input.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
@@ -36,6 +37,7 @@ const service = new SubmissionsService(
   new SubmissionsRepository(prisma, new PlatformRepository()),
   new ProgramRulesService(),
   new SubmissionFileRulesService(),
+  new SubmissionInputService(),
 );
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');

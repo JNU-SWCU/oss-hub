@@ -81,6 +81,22 @@ export class MilestoneDocumentReviewsService {
     }
   }
 
+  reviewFromRequest(
+    reviewerId: string,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    request: MilestoneDocumentReviewRequest,
+  ): ReturnType<MilestoneDocumentReviewsService['review']> {
+    return this.review(
+      reviewerId,
+      milestoneId,
+      documentId,
+      applicationId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+
   async review(
     reviewerId: string,
     milestoneId: string,

@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
@@ -106,9 +107,21 @@ beforeAll(async () => {
         provide: MilestoneDocumentsRepository,
         useValue: { withTransaction: writer },
       },
-      { provide: MilestoneDocumentArchiveService, useValue: {} },
+      {
+        provide: MilestoneDocumentArchiveService,
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentArchiveService.prototype) as object,
+          { downloadResponseService: new DownloadResponseService() },
+        ),
+      },
       { provide: MilestoneDocumentCollectionService, useValue: {} },
-      { provide: MilestoneDocumentFilesService, useValue: {} },
+      {
+        provide: MilestoneDocumentFilesService,
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentFilesService.prototype) as object,
+          { downloadResponseService: new DownloadResponseService() },
+        ),
+      },
       { provide: MilestoneDocumentReviewsService, useValue: {} },
     ],
   })

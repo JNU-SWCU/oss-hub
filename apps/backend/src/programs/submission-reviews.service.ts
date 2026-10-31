@@ -193,6 +193,18 @@ export class SubmissionReviewsService {
     };
   }
 
+  reviewFromRequest(
+    reviewerId: string,
+    submissionId: string,
+    request: Parameters<SubmissionReviewsService['reviewInputFromRequest']>[0],
+  ): Promise<SubmissionReviewResult> {
+    return this.review(
+      reviewerId,
+      submissionId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+
   async review(
     reviewerId: string,
     submissionId: string,
@@ -254,6 +266,15 @@ export class SubmissionReviewsService {
       }
       return { reviewId: review.id, submissionStatus: nextStatus };
     });
+  }
+
+  publishRepositoryFromRequest(
+    repositoryId: string,
+    actorGithubId: bigint,
+    request: { readonly isConfirmed: boolean },
+  ): Promise<RepositoryPublishResult> {
+    this.assertPublishConfirmed(request);
+    return this.publishRepository(repositoryId, actorGithubId);
   }
 
   async publishRepository(

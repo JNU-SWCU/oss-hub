@@ -175,6 +175,23 @@ export class UsersService {
     }
   }
 
+  completeMyProfileFromRequest(
+    githubId: bigint,
+    request: UpdateMyProfileRequest,
+  ): Promise<UserProfile> {
+    return this.completeMyProfile(
+      githubId,
+      this.profileInputFromRequest(request),
+    );
+  }
+
+  patchMyProfileFromRequest(
+    githubId: bigint,
+    request: UpdateMyProfileRequest,
+  ): Promise<UserProfile> {
+    return this.patchMyProfile(githubId, this.profileInputFromRequest(request));
+  }
+
   async completeMyProfile(
     githubId: bigint,
     input: PatchUserProfileInput,

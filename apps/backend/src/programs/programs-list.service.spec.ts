@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { ProgramViewer } from './program-viewer.service';
 import {
@@ -571,6 +572,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     await expect(
@@ -601,6 +603,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     const page = await service.list(
@@ -634,6 +637,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 1n,
@@ -680,6 +684,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 1n,
@@ -720,6 +725,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     const page = await service.list(
@@ -756,6 +762,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 2n,
@@ -799,6 +806,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 3n,
@@ -832,6 +840,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 4n,
@@ -867,6 +876,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     await expect(service.statusCounts()).resolves.toEqual(counts);

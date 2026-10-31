@@ -396,6 +396,41 @@ export class ProgramEditorService {
     });
   }
 
+  async updateMilestoneByCommand(
+    githubId: bigint,
+    milestoneId: string,
+    command: MilestoneUpdateCommand,
+  ): Promise<
+    | { readonly kind: 'aggregate'; readonly result: ProgramMilestoneEditView }
+    | {
+        readonly kind: 'legacy';
+        readonly result: Awaited<
+          ReturnType<ProgramEditorService['updateMilestone']>
+        >;
+      }
+  > {
+    switch (command.kind) {
+      case 'aggregate':
+        return {
+          kind: 'aggregate',
+          result: await this.updateMilestoneEdit(
+            githubId,
+            milestoneId,
+            command.input,
+          ),
+        };
+      case 'legacy':
+        return {
+          kind: 'legacy',
+          result: await this.updateMilestone(
+            githubId,
+            milestoneId,
+            command.input,
+          ),
+        };
+    }
+  }
+
   updateMilestone(
     githubId: bigint,
     milestoneId: string,

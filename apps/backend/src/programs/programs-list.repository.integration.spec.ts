@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory } from '@prisma/client';
@@ -28,6 +29,7 @@ const service = new ProgramsService(
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
+  Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 
 async function cleanup(): Promise<void> {

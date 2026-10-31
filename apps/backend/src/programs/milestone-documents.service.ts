@@ -459,6 +459,26 @@ export class MilestoneDocumentsService {
     });
   }
 
+  submitFromRequest(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    request: {
+      readonly content: Parameters<
+        MilestoneDocumentRulesService['parseMilestoneDocumentContent']
+      >[0];
+    },
+  ): ReturnType<MilestoneDocumentsService['submit']> {
+    return this.submit(
+      sessionGithubId,
+      milestoneId,
+      documentId,
+      this.milestoneDocumentRulesService.parseMilestoneDocumentContent(
+        request.content,
+      ),
+    );
+  }
+
   async submit(
     sessionGithubId: bigint,
     milestoneId: string,

@@ -100,6 +100,13 @@ export class AuthRouteStatusHarness {
       findMe: jest.fn().mockResolvedValue(syntheticUser),
       getMe: jest.fn().mockResolvedValue(syntheticUser),
     };
+    const viewerService = {
+      fromGithubId: jest.fn().mockResolvedValue({
+        githubId: null,
+        userId: null,
+        role: null,
+      }),
+    };
     const programsService = {
       endedYears: jest.fn().mockResolvedValue([2027, 2026]),
       list: jest.fn().mockResolvedValue({
@@ -170,9 +177,10 @@ export class AuthRouteStatusHarness {
         },
         {
           provide: HealthService,
-          useValue: {
-            isDatabaseReachable: jest.fn().mockResolvedValue(true),
-          },
+          useValue: Object.assign(
+            Object.create(HealthService.prototype) as object,
+            { isDatabaseReachable: jest.fn().mockResolvedValue(true) },
+          ),
         },
         {
           provide: RankingService,
@@ -211,9 +219,16 @@ export class AuthRouteStatusHarness {
           useValue: Object.assign(
             Object.create(ProgramsService.prototype) as object,
             programsService,
+            { programViewerService: viewerService },
           ),
         },
-        { provide: ProgramActivityService, useValue: { activity: jest.fn() } },
+        {
+          provide: ProgramActivityService,
+          useValue: Object.assign(
+            Object.create(ProgramActivityService.prototype) as object,
+            { activity: jest.fn(), programViewerService: viewerService },
+          ),
+        },
         {
           provide: ProgramViewerService,
           useValue: {

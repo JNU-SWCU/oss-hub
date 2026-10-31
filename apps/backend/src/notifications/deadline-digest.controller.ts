@@ -40,7 +40,7 @@ export class DeadlineDigestController {
     @Body() input: DeadlineDigestGuidanceRequestDto,
   ): Promise<DeadlineDigestPreviewResponseDto> {
     return DeadlineDigestPreviewResponseDto.from(
-      await this.service.previewProgram(programId, new Date(), input),
+      await this.service.previewProgramFromRequest(programId, input),
     );
   }
 

@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
@@ -78,6 +79,7 @@ describe('ProgramsModule milestone documents', () => {
       SubmissionFilesService,
       MilestoneDocumentRulesService,
       SubmissionFileRulesService,
+      DownloadResponseService,
     ]);
   });
 

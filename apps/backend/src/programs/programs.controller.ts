@@ -22,7 +22,6 @@ import {
   type AuthenticatedRequest,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
-import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
 import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
 import {
@@ -46,7 +45,6 @@ import { ProgramEndedYearsResponseDto } from './dto/program-ended-years-response
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-response.dto';
 import { ProgramActivityService } from './program-activity.service';
-import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService } from './programs.service';
 import {
   Public,
@@ -84,7 +82,6 @@ export class ProgramsController {
     private readonly creation: ProgramCreationService,
     private readonly programs: ProgramsService,
     private readonly activity: ProgramActivityService,
-    private readonly viewers: ProgramViewerService,
     private readonly covers: ProgramCoverService,
     private readonly lifecycle: ProgramLifecycleService,
     private readonly editor: ProgramEditorService,
@@ -96,13 +93,8 @@ export class ProgramsController {
     @Query() query: ProgramListRequestDto,
     @Req() request: OptionalSessionRequest,
   ): Promise<ProgramListPageResponseDto> {
-    const githubId =
-      request.auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED
-        ? request.auth.principal.githubId
-        : null;
-    const viewer = await this.viewers.fromGithubId(githubId);
     return ProgramListPageResponseDto.from(
-      await this.programs.listFromRequest(query, viewer),
+      await this.programs.listFromRequest(query, request.auth),
     );
   }
 
@@ -151,13 +143,10 @@ export class ProgramsController {
     @Query() query: ProgramViewerRequestDto = {},
   ): Promise<ProgramDetailResponseDto> {
     return ProgramDetailResponseDto.from(
-      await this.programs.detail(
+      await this.programs.detailForGithubId(
         programId,
-        await this.viewers.fromGithubId(
-          request.sessionGithubId,
-          programId,
-          query.view === 'operations',
-        ),
+        request.sessionGithubId,
+        query,
       ),
     );
   }
@@ -169,9 +158,9 @@ export class ProgramsController {
     @Req() request: SessionIdentity,
   ): Promise<readonly ProgramActivityResponseDto[]> {
     return (
-      await this.activity.activity(
+      await this.activity.activityForGithubId(
         programId,
-        await this.viewers.fromGithubId(request.sessionGithubId),
+        request.sessionGithubId,
       )
     ).map((result) => ProgramActivityResponseDto.from(result));
   }

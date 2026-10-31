@@ -25,7 +25,6 @@ import {
   ResubmittedSubmissionResponseDto,
 } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
-import { SubmissionInputService } from './submission-input.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
@@ -51,7 +50,6 @@ export class SubmissionsController {
   constructor(
     private readonly service: SubmissionsService,
     private readonly reviewsService: SubmissionReviewsService,
-    private readonly submissionInputService: SubmissionInputService,
   ) {}
 
   @Post()
@@ -63,10 +61,7 @@ export class SubmissionsController {
     @Body() body: CreateSubmissionRequestDto,
   ): Promise<CreatedSubmissionResponseDto> {
     return this.service
-      .create(
-        request.sessionGithubId,
-        this.submissionInputService.toCreateSubmissionInput(body),
-      )
+      .createFromRequest(request.sessionGithubId, body)
       .then((result) => CreatedSubmissionResponseDto.from(result));
   }
 
@@ -80,11 +75,7 @@ export class SubmissionsController {
     @Body() body: CreateResubmissionRequestDto,
   ): Promise<ResubmittedSubmissionResponseDto> {
     return this.service
-      .resubmit(
-        request.sessionGithubId,
-        submissionId,
-        this.submissionInputService.toResubmitSubmissionInput(body),
-      )
+      .resubmitFromRequest(request.sessionGithubId, submissionId, body)
       .then((result) => ResubmittedSubmissionResponseDto.from(result));
   }
 
@@ -110,10 +101,10 @@ export class SubmissionsController {
     @Body() body: CreateSubmissionReviewRequestDto,
   ): Promise<CreateSubmissionReviewResponseDto> {
     return CreateSubmissionReviewResponseDto.from(
-      await this.reviewsService.review(
+      await this.reviewsService.reviewFromRequest(
         request.principal.id,
         submissionId,
-        this.reviewsService.reviewInputFromRequest(body),
+        body,
       ),
     );
   }

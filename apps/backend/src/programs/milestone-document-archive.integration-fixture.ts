@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -31,6 +32,7 @@ export class ProgramArchiveIntegrationFixture {
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
     new MilestoneDocumentRulesService(new ProgramRulesService()),
+    new DownloadResponseService(),
   );
 
   async seed(): Promise<void> {

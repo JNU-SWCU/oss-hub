@@ -30,6 +30,7 @@ const rules = {
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
   'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
+  'thin-controller': await load('thin-controller.mjs', 'thinController'),
   'request-dto-no-methods': await load('request-dto-no-methods.mjs', 'requestDtoNoMethods'),
 };
 let current;
@@ -847,6 +848,72 @@ for (const filename of [
     filename,
     'export function helper() { return 1; }',
     ['forbidden'],
+  );
+}
+
+valid(
+  'thin-controller',
+  'accepts a route that maps HTTP input to one service call',
+  controllerFile(),
+  `import { Controller, Get, Param } from '@nestjs/common';
+@Controller('things')
+export class ThingsController {
+  constructor(private readonly service: ThingService) {}
+  @Get(':id')
+  async get(@Param('id') id: string): Promise<ThingResponseDto> {
+    return ThingResponseDto.from(await this.service.get(id));
+  }
+}`,
+);
+valid(
+  'thin-controller',
+  'accepts a conditional expression that only picks the response mapping',
+  controllerFile(),
+  `export class ThingsController {
+  async get(id: string) {
+    const thing = await this.service.find(id);
+    return thing ? ThingResponseDto.from(thing) : null;
+  }
+}`,
+);
+for (const [name, body, errors] of [
+  [
+    'a switch statement in a route',
+    'get(kind: string) { switch (kind) { default: return this.service.get(kind); } }',
+    ['branching'],
+  ],
+  [
+    'a private helper method',
+    'private helper(): number { return 1; }',
+    ['hiddenMethod'],
+  ],
+  [
+    'branching in a route',
+    'get(id: string) { if (id) { return this.service.get(id); } return null; }',
+    ['branching'],
+  ],
+  [
+    'try/catch in a route',
+    'async get(id: string) { try { return await this.service.get(id); } catch { return null; } }',
+    ['branching'],
+  ],
+  [
+    'two service calls in a route',
+    'async get(id: string) { this.rules.check(id); return this.service.get(id); }',
+    ['serviceCalls'],
+  ],
+  [
+    'a clock read in a route',
+    'get() { return this.service.list(new Date()); }',
+    ['clock'],
+  ],
+] as const) {
+  invalid(
+    'thin-controller',
+    `rejects ${name}`,
+    controllerFile(),
+    `export class ThingsController { ${body} }`,
+    [...errors],
   );
 }
 

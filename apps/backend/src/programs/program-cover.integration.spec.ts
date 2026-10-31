@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -63,6 +64,7 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({
     page: 1,

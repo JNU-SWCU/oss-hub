@@ -1,3 +1,4 @@
+import { StaffInsightsService } from './staff-insights.service';
 import {
   GUARDS_METADATA,
   HEADERS_METADATA,
@@ -93,12 +94,8 @@ describe('StaffDashboardController', () => {
         ],
       });
       const service: Pick<StaffDashboardService, 'summary'> = { summary };
-      const insights = { summarize: jest.fn() };
-      const controller = new StaffDashboardController(
-        service,
-        insights,
-        new StaffInsightsQueryService(),
-      );
+      const insights = { summarizeFromRequest: jest.fn() };
+      const controller = new StaffDashboardController(service, insights);
 
       await expect(controller.summary()).resolves.toEqual({
         programs: [
@@ -158,8 +155,10 @@ describe('StaffDashboardController', () => {
     });
     const controller = new StaffDashboardController(
       { summary: jest.fn() },
-      { summarize },
-      new StaffInsightsQueryService(),
+      Object.assign(Object.create(StaffInsightsService.prototype) as object, {
+        summarize,
+        staffInsightsQueryService: new StaffInsightsQueryService(),
+      }) as unknown as StaffInsightsService,
     );
     const insightsSummary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,

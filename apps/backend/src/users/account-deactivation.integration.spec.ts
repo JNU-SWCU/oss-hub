@@ -1,3 +1,5 @@
+import type { AuthConfig } from '../platform/auth.config';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
@@ -38,6 +40,8 @@ const service = new AccountDeactivationService(
   ),
   new AuditLogMetadataService(),
   new UserProfileService(),
+  { useSecureCookies: false } as AuthConfig,
+  new AuthSessionService(),
 );
 const USER_ID = 'synthetic-self-deactivation-user';
 const GITHUB_ID = 8_800_000_000_018n;

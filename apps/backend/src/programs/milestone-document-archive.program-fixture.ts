@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -83,6 +84,7 @@ export function fixture() {
       storage,
       programs,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new DownloadResponseService(),
     ),
   };
 }

@@ -8,12 +8,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { AuthConfig } from '../platform/auth.config';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
-import { AuthSessionService } from '../platform/auth-session.service';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -22,9 +20,10 @@ type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class AccountDeactivationController {
   constructor(
     @Inject(AccountDeactivationService)
-    private readonly service: Pick<AccountDeactivationService, 'deactivate'>,
-    private readonly authConfig: AuthConfig,
-    private readonly authSessionService: AuthSessionService,
+    private readonly service: Pick<
+      AccountDeactivationService,
+      'deactivateAndClearSession'
+    >,
   ) {}
 
   @Patch('deactivate')
@@ -35,13 +34,11 @@ export class AccountDeactivationController {
     @Req() request: SessionIdentity,
     @Res({ passthrough: true }) response: Response,
   ): Promise<AccountDeactivationResponseDto> {
-    const result = await this.service.deactivate(request.sessionGithubId);
-    response.setHeader(
-      'Set-Cookie',
-      this.authSessionService.serializeClearedSessionCookie(
-        this.authConfig.useSecureCookies,
+    return AccountDeactivationResponseDto.from(
+      await this.service.deactivateAndClearSession(
+        request.sessionGithubId,
+        response,
       ),
     );
-    return AccountDeactivationResponseDto.from(result);
   }
 }

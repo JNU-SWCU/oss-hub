@@ -40,7 +40,7 @@ export class ProgramApplicationsController {
     @Inject(ApplicationsService)
     private readonly service: Pick<
       ApplicationsService,
-      'createFromRequest' | 'listForProgram' | 'listTeamManagementForProgram'
+      'createFromRequest' | 'listForProgramView'
     >,
   ) {}
 
@@ -53,14 +53,10 @@ export class ProgramApplicationsController {
   ): Promise<
     ApplicationListPageResponseDto | TeamManagementListPageResponseDto
   > {
-    if (query.view === 'team-management') {
-      return TeamManagementListPageResponseDto.from(
-        await this.service.listTeamManagementForProgram(programId, query),
-      );
-    }
-    return ApplicationListPageResponseDto.from(
-      await this.service.listForProgram(programId, query),
-    );
+    const listed = await this.service.listForProgramView(programId, query);
+    return listed.view === 'team-management'
+      ? TeamManagementListPageResponseDto.from(listed.page)
+      : ApplicationListPageResponseDto.from(listed.page);
   }
 
   @Post()

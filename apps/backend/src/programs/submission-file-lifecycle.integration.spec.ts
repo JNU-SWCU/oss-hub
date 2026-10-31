@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -502,6 +503,7 @@ describeIntegration(
         storage,
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
       const downloaded = await filesService.download(
         seedGithubId(USER_ID),
@@ -522,6 +524,7 @@ describeIntegration(
         storage,
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
       const zipUpload = (buffer: Buffer) => ({
         buffer,

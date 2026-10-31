@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { randomUUID } from 'node:crypto';
@@ -134,6 +135,7 @@ it('counts only current linked activity and never substitutes detached or unrela
       new ProgramListStatusFilterRepository(),
     ),
     new ProgramActivityRepository(prisma, new PlatformRepository()),
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const timeline = await service.activityTimeline(
     { githubId, userId: studentId },

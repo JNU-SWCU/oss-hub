@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
+import { Inject, Injectable, StreamableFile } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -67,7 +69,36 @@ export class MilestoneDocumentFilesService {
     private readonly submissionFiles: SubmissionFilesService,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async downloadTemplateTo(
+    response: Response,
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadTemplate(
+      sessionGithubId,
+      milestoneId,
+      documentId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
+
+  async downloadSubmissionFileTo(
+    response: Response,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadSubmissionFile(
+      milestoneId,
+      documentId,
+      applicationId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
 
   async upload(
     sessionGithubId: bigint,

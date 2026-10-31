@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { Logger, ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
@@ -49,7 +50,10 @@ beforeAll(async () => {
           Object.create(
             MilestoneDocumentArchiveService.prototype,
           ) as MilestoneDocumentArchiveService,
-          { archiveForProgramStaff },
+          {
+            archiveForProgramStaff,
+            downloadResponseService: new DownloadResponseService(),
+          },
         ),
       },
     ],

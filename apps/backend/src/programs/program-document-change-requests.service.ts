@@ -28,6 +28,38 @@ export class ProgramDocumentChangeRequestsService {
     private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
 
+  targetsFromRequest(
+    programId: string,
+    request: {
+      readonly scope: ProgramDocumentChangeRequestScope['kind'];
+      readonly teamId?: string | null;
+    },
+  ): Promise<ProgramDocumentChangeRequestPreview> {
+    return this.targets(
+      programId,
+      this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+        request.scope,
+        request.teamId,
+      ),
+    );
+  }
+
+  requestChangesFromRequest(
+    reviewerId: string,
+    programId: string,
+    request: Parameters<
+      MilestoneDocumentRulesService['toProgramDocumentChangeRequestInput']
+    >[0],
+  ): Promise<{ readonly requestedCount: number }> {
+    return this.requestChanges(
+      reviewerId,
+      programId,
+      this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
+        request,
+      ),
+    );
+  }
+
   async targets(
     programId: string,
     scope: ProgramDocumentChangeRequestScope,

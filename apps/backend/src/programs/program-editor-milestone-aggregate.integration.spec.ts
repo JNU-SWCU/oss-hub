@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
@@ -272,9 +273,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     ).uploadTemplate(
       `${TEST_PREFIX}staff`,
       milestoneId,
@@ -416,9 +419,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
 
     await expect(
@@ -468,9 +473,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
     const direct = files.uploadTemplate(
       `${TEST_PREFIX}staff`,
@@ -625,9 +632,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
     await expect(
       files.uploadTemplate(

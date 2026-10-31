@@ -396,6 +396,28 @@ export class ApplicationsService {
     };
   }
 
+  async listForProgramView(
+    programId: string,
+    request: ApplicationListQuery,
+  ): Promise<
+    | {
+        readonly view: 'team-management';
+        readonly page: TeamManagementListPage;
+      }
+    | { readonly view: 'default'; readonly page: ApplicationListPage }
+  > {
+    if (request.view === 'team-management') {
+      return {
+        view: 'team-management',
+        page: await this.listTeamManagementForProgram(programId, request),
+      };
+    }
+    return {
+      view: 'default',
+      page: await this.listForProgram(programId, request),
+    };
+  }
+
   async listForProgram(
     programId: string,
     request: ApplicationListQuery,

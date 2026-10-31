@@ -1,3 +1,4 @@
+import { ProgramViewerService } from '../programs/program-viewer.service';
 import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -75,6 +76,7 @@ const programs = new ProgramsService(
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
+  Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 
 function programRow(programId: string) {
