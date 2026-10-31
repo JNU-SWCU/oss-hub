@@ -180,6 +180,10 @@ describe('SectionFacetChips', () => {
     });
 
     expect(mocks.getProgramStatusCounts).toHaveBeenCalledTimes(1);
+    expect(
+      container.querySelectorAll('[data-slot="section-facet-chips"] button'),
+    ).toHaveLength(5);
+    expect(chip('종료').getAttribute('aria-pressed')).toBe('false');
     await act(async () => chip('종료').click());
     expect(mocks.push).toHaveBeenCalledWith('/programs?status=ended');
   });

@@ -63,7 +63,6 @@ export default async function RootLayout({
             {children}
           </AppFrame>
         </NavigationNoticeProvider>
-
       </body>
     </html>
   );

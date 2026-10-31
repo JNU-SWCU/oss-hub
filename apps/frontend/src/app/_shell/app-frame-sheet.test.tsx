@@ -74,7 +74,6 @@ function NameReporter({
 }
 
 interface SheetSession {
-
   readonly status:
     'loading' | 'anonymous' | 'unassigned' | 'assigned' | 'error';
   readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;

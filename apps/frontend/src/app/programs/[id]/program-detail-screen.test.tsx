@@ -147,7 +147,9 @@ describe('ProgramDetailScreen의 실제 상세 화면', () => {
       root.render(
         <ProgramNameReportProvider>
           <ReportedName programId={program.id} />
-          <ProgramDetailScreen programId={program.id} />
+          <ProgramViewContext.Provider value="STUDENT">
+            <ProgramDetailScreen programId={program.id} />
+          </ProgramViewContext.Provider>
         </ProgramNameReportProvider>,
       );
     });

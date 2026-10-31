@@ -17,10 +17,7 @@ describe('섹션 목록 단일 원본', () => {
       ['programs', '/programs'],
       ['ranking', '/ranking'],
     ]);
-    expect(SECTIONS.map((item) => item.icon)).toEqual([
-      'list',
-      'chart',
-    ]);
+    expect(SECTIONS.map((item) => item.icon)).toEqual(['list', 'chart']);
   });
 
   it('레이아웃은 메뉴 항목을 넘기지 않고 셸이 원본에서 읽는다', () => {

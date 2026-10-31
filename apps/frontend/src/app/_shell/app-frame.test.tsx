@@ -36,7 +36,6 @@ const ANONYMOUS = {
   isProfileComplete: false,
 } as const;
 
-
 function render(
   pathname: string,
   session: {

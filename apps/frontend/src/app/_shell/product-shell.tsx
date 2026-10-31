@@ -355,7 +355,6 @@ export function ProductShell({
               id="main-content"
               tabIndex={-1}
               className="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
-
             >
               <ShellFacetsContext.Provider
                 value={{ section, groups, facetStatus, pathname, search }}

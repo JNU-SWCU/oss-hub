@@ -46,7 +46,6 @@ import { useRankingCycle } from './ranking-cycle-context';
 import { SIDEBAR_STORAGE_KEY } from './sidebar-collapsed';
 import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
 
-
 function mockSession(status: 'anonymous' | 'assigned'): void {
   mocks.useSessionRole.mockReturnValue({
     status,
@@ -368,7 +367,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       expect(panel()?.getAttribute('data-phase')).toBe('open');
     });
   });
-
 
   it('aside 안에는 토글이 없다', async () => {
     await renderFrame('/programs');

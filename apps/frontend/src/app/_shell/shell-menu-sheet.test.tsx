@@ -19,7 +19,6 @@ function Content() {
     <nav>
       <a href="/programs">프로그램</a>
       <a href="/ranking">랭킹</a>
-
     </nav>
   );
 }
@@ -239,6 +238,5 @@ describe('ShellMenuSheet', () => {
     await renderSheet(true, () => {});
     expect(dialog()?.querySelector('a[href="/programs"]')).not.toBeNull();
     expect(dialog()?.querySelector('a[href="/ranking"]')).not.toBeNull();
-
   });
 });
