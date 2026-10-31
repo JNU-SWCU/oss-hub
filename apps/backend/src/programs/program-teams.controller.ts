@@ -54,7 +54,7 @@ export class ProgramTeamsController {
       | 'getActivity'
       | 'getRepositoryUrlHistoryFromRequest'
       | 'rename'
-      | 'deleteForStaff'
+      | 'deleteForStaffFromRequest'
       | 'removeMemberForStaff'
       | 'transferLeaderForStaff'
     >,
@@ -215,12 +215,11 @@ export class ProgramTeamsController {
     @Body() body: DeleteTeamRequestDto,
   ): Promise<DeleteTeamResponseDto> {
     return DeleteTeamResponseDto.from(
-      await this.service.deleteForStaff(
+      await this.service.deleteForStaffFromRequest(
         request.sessionGithubId,
         programId,
         teamId,
-        body.expectedScope,
-        body.notificationMessage ?? null,
+        body,
       ),
     );
   }

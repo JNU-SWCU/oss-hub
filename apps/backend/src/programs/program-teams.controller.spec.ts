@@ -90,7 +90,7 @@ function serviceStub(
         teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
       ),
     rename: jest.fn(),
-    deleteForStaff: jest.fn(),
+    deleteForStaffFromRequest: jest.fn(),
     removeMemberForStaff: jest.fn(),
     transferLeaderForStaff: jest.fn(),
     ...rest,
@@ -535,7 +535,10 @@ describe('ProgramTeamsController.remove', () => {
       .fn()
       .mockResolvedValue({ teamId: 'team-1', deleted: true, deletedCounts });
     const controller = new ProgramTeamsController(
-      serviceStub({ deleteForStaff }),
+      Object.assign(
+        Object.create(ProgramTeamsService.prototype) as ProgramTeamsService,
+        { deleteForStaff },
+      ),
     );
     const expectedScope = {
       ...deletedCounts,

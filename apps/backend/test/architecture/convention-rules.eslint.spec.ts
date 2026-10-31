@@ -1000,6 +1000,31 @@ for (const [name, body, errors] of [
     ['conditional', 'domainCall', 'domainCall'],
   ],
   [
+    'an operator in a service call argument',
+    'get(input) { return this.service.run(input.price * 2); }',
+    ['expression'],
+  ],
+  [
+    'a comparison passed to the service',
+    "get(query) { return this.service.run(query.view === 'operations'); }",
+    ['expression'],
+  ],
+  [
+    'a nullish default passed to the service',
+    'get(body) { return this.service.run(body.message ?? null); }',
+    ['expression'],
+  ],
+  [
+    'a string built for the service',
+    'get(id) { return this.service.run(`thing-${id}`); }',
+    ['expression'],
+  ],
+  [
+    'a local variable other than the service result',
+    'get(input) { const price = input.price; return this.service.run(price); }',
+    ['expression'],
+  ],
+  [
     'a calculation without a service call or other call',
     'get(input) { return ThingResponseDto.from({ price: input.price * 2 }); }',
     ['noService'],

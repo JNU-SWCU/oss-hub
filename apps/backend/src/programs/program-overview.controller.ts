@@ -17,10 +17,10 @@ export class ProgramOverviewController {
     @Req() request: AuthenticatedRequest,
     @Query() query: ProgramOverviewQueryRequestDto = {},
   ): Promise<ProgramOverviewResponseDto> {
-    const overview = await this.service.getOverview(
+    const overview = await this.service.getOverviewFromRequest(
       programId,
       request.sessionGithubId,
-      query.view === 'operations',
+      query,
     );
     return ProgramOverviewResponseDto.from(overview);
   }

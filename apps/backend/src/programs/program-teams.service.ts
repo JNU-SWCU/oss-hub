@@ -344,6 +344,24 @@ export class ProgramTeamsService {
     );
   }
 
+  deleteForStaffFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: {
+      readonly expectedScope: TeamDeletionScopeCounts;
+      readonly notificationMessage?: string | null;
+    },
+  ): Promise<DeletedTeamView> {
+    return this.deleteForStaff(
+      githubId,
+      programId,
+      teamId,
+      request.expectedScope,
+      request.notificationMessage ?? null,
+    );
+  }
+
   async deleteForStaff(
     githubId: bigint,
     programId: string,

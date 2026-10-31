@@ -250,7 +250,13 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      { provide: ProgramTeamsService, useValue: { deleteForStaff } },
+      {
+        provide: ProgramTeamsService,
+        useValue: Object.assign(
+          Object.create(ProgramTeamsService.prototype) as object,
+          { deleteForStaff },
+        ),
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {

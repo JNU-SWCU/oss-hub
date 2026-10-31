@@ -103,6 +103,26 @@ function isResponseChoice(node, resultNames) {
   );
 }
 
+const OPERATORS = new Set([
+  'BinaryExpression',
+  'LogicalExpression',
+  'UnaryExpression',
+  'UpdateExpression',
+  'AssignmentExpression',
+  'SequenceExpression',
+  'TemplateLiteral',
+]);
+
+const isHandlerStatement = (statement, resultNames) =>
+  statement.type === 'ReturnStatement' ||
+  statement.type === 'ExpressionStatement' ||
+  (statement.type === 'VariableDeclaration' &&
+    statement.declarations.every(
+      (declarator) =>
+        declarator.id.type === 'Identifier' &&
+        resultNames.has(declarator.id.name),
+    ));
+
 const handlerParams = (member) =>
   new Set(
     member.value.params
@@ -187,6 +207,8 @@ export const thinController = {
       branching:
         'controller 메서드는 분기하지 않는다. HTTP 입력을 서비스 호출 하나로 넘기고 결과를 돌려준다.',
       serviceCalls: 'controller 메서드는 서비스를 한 번만 호출한다.',
+      expression:
+        'controller 메서드는 서비스 호출 하나와 그 결과의 응답 매핑만 쓴다. 연산·문자열 조합·다른 지역 변수는 담당 서비스로 옮긴다.',
       noService:
         '서비스를 부르지 않는 controller 메서드는 리터럴·상수나 파라미터로 만든 응답 DTO의 from()만 돌려준다. 계산은 담당 서비스로 옮긴다.',
       conditional:
@@ -206,14 +228,24 @@ export const thinController = {
         let serviceCalls = 0;
         const body = member.value.body ?? member.value;
         const resultNames = serviceResultNames(body);
+        const checkedNodes = new Set();
+        const expressions = (body.body ?? []).filter(
+          (statement) =>
+            !BRANCHES.has(statement.type) &&
+            !isHandlerStatement(statement, resultNames),
+        );
         walk(body, (node) => {
           if (BRANCHES.has(node.type))
             context.report({ node, messageId: 'branching' });
-          if (
-            node.type === 'ConditionalExpression' &&
-            !isResponseChoice(node, resultNames)
-          )
-            context.report({ node, messageId: 'conditional' });
+          if (node.type === 'ConditionalExpression') {
+            const allowed = isResponseChoice(node, resultNames);
+            walk(allowed ? node.test : node, (child) =>
+              checkedNodes.add(child),
+            );
+            if (!allowed) context.report({ node, messageId: 'conditional' });
+          }
+          if (OPERATORS.has(node.type) && !checkedNodes.has(node))
+            expressions.push(node);
           if (
             (node.type === 'CallExpression' && !isAllowedCall(node)) ||
             (node.type === 'NewExpression' && node.callee.name !== 'Date')
@@ -225,11 +257,13 @@ export const thinController = {
               context.report({ node, messageId: 'serviceCalls' });
           }
         });
-        if (
-          serviceCalls === 0 &&
-          !isStaticResponse(body, handlerParams(member))
-        )
-          context.report({ node: member.key, messageId: 'noService' });
+        if (serviceCalls === 0) {
+          if (!isStaticResponse(body, handlerParams(member)))
+            context.report({ node: member.key, messageId: 'noService' });
+          return;
+        }
+        for (const node of expressions)
+          context.report({ node, messageId: 'expression' });
       },
       'NewExpression[callee.name="Date"]'(node) {
         context.report({ node, messageId: 'clock' });
