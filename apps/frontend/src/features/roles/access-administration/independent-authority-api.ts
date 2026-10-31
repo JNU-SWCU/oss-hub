@@ -30,7 +30,8 @@ export interface IndependentAuthority {
   readonly hasAdminAccess: boolean;
 }
 
-export type AdminAccessDirectoryItem = AdminAccessListItem & IndependentAuthority;
+export type AdminAccessDirectoryItem = AdminAccessListItem &
+  IndependentAuthority;
 
 export function isAdminAccessDirectoryItem(
   item: AdminAccessListItem,

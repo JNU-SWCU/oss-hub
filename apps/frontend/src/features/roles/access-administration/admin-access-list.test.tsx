@@ -426,7 +426,9 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).toContain('aria-label="합성 사용자 회원 유형"');
     expect(html).toContain('aria-label="합성 사용자 관리자 접근"');
     expect(html).toContain('aria-label="합성 사용자 계정 상태"');
-    expect(html).toMatch(/<th[^>]*aria-sort="ascending"[^>]*>[\s\S]*?회원 유형/);
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="ascending"[^>]*>[\s\S]*?회원 유형/,
+    );
     expect(html).toMatch(/<th[^>]*>관리자 접근<\/th>/);
     expect(html).not.toMatch(/<button[^>]*>역할</);
   });
@@ -488,7 +490,10 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     const success = renderToStaticMarkup(
       <AdminAccessView
         {...baseViewProps}
-        inlineActions={{ ...noInlineActions, successMessage: '처리를 완료했습니다.' }}
+        inlineActions={{
+          ...noInlineActions,
+          successMessage: '처리를 완료했습니다.',
+        }}
       />,
     );
     expect(success).toMatch(
@@ -522,7 +527,9 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
       /sticky top-0[\s\S]*?role="alert"[\s\S]*?요청을 처리하지 못했습니다\./,
     );
 
-    expect(renderToStaticMarkup(<AdminAccessView {...baseViewProps} />)).not.toContain('sticky top-0');
+    expect(
+      renderToStaticMarkup(<AdminAccessView {...baseViewProps} />),
+    ).not.toContain('sticky top-0');
   });
 
   it('사용자 목록의 조회 오류는 sticky 영역 안에 role="alert"와 다시 시도로 표시하고 가입 신청은 기존 위치를 유지한다', () => {

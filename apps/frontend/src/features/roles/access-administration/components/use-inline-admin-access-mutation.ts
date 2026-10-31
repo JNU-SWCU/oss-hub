@@ -100,7 +100,13 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
 
   const confirm = async (fields?: MemberKindMutationFields) => {
     const controller = lifetime.current;
-    if (!pending || processing.current || !controller || controller.signal.aborted) return;
+    if (
+      !pending ||
+      processing.current ||
+      !controller ||
+      controller.signal.aborted
+    )
+      return;
     processing.current = true;
     setIsProcessing(true);
     setDialogError(null);

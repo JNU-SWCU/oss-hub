@@ -1,4 +1,3 @@
-
 export type SyntheticRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 export type SyntheticMemberKind = 'STUDENT' | 'STAFF';
 export type SyntheticAccountStatus = 'ACTIVE' | 'DEACTIVATED';
@@ -104,9 +103,17 @@ export const ADMIN_USERS_TOTAL = 41;
 function authorityFor(role: SyntheticRole | null): SyntheticAuthorityFields {
   switch (role) {
     case 'ADMIN':
-      return { memberKind: 'STAFF', hasStaffAccess: true, hasAdminAccess: true };
+      return {
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      };
     case 'STAFF':
-      return { memberKind: 'STAFF', hasStaffAccess: true, hasAdminAccess: false };
+      return {
+        memberKind: 'STAFF',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+      };
     case 'STUDENT':
       return {
         memberKind: 'STUDENT',

@@ -150,7 +150,8 @@ function fieldMemberKindReason(target: AdminAccessDirectoryItem): string {
     );
   });
   const paragraph = container.querySelector('p')?.textContent;
-  if (!paragraph) throw new TypeError('field 레이아웃에 막힘 사유 문단이 없습니다.');
+  if (!paragraph)
+    throw new TypeError('field 레이아웃에 막힘 사유 문단이 없습니다.');
   return paragraph;
 }
 

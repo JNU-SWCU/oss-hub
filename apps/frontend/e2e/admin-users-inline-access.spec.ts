@@ -62,11 +62,22 @@ function problem(
   instance: string,
   code: string,
 ): Problem {
-  return { type: 'about:blank', title: '합성 오류', status, detail, instance, code };
+  return {
+    type: 'about:blank',
+    title: '합성 오류',
+    status,
+    detail,
+    instance,
+    code,
+  };
 }
 
 type PatchKind = 'member-kind' | 'admin-access' | 'access';
-const PATCH_KINDS: readonly PatchKind[] = ['member-kind', 'admin-access', 'access'];
+const PATCH_KINDS: readonly PatchKind[] = [
+  'member-kind',
+  'admin-access',
+  'access',
+];
 
 interface PatchRecord {
   readonly path: string;
@@ -278,7 +289,10 @@ function rowOf(page: Page, name: string): Locator {
 }
 
 function cellControl(page: Page, name: string, control: string): Locator {
-  return page.getByRole('combobox', { name: `${name} ${control}`, exact: true });
+  return page.getByRole('combobox', {
+    name: `${name} ${control}`,
+    exact: true,
+  });
 }
 
 function dialogNamed(page: Page, title: string): Locator {
@@ -317,7 +331,11 @@ async function openDirectory(
   viewport: { readonly width: number; readonly height: number },
   store = createStore(),
 ): Promise<AdminUsersStore> {
-  await installSyntheticAuthority(page, ADMIN_SESSION, adminUsersHandlers(store));
+  await installSyntheticAuthority(
+    page,
+    ADMIN_SESSION,
+    adminUsersHandlers(store),
+  );
   await page.setViewportSize(viewport);
   await page.goto('/dashboard/users');
   await page.addStyleTag({ content: HIDE_DEV_OVERLAY });
@@ -380,7 +398,11 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
   const staff = store.details['synthetic-id-04'];
   store.details['synthetic-id-04'] = {
     ...staff,
-    profile: { ...staff.profile, studentId: null, department: '소프트웨어공학과' },
+    profile: {
+      ...staff.profile,
+      studentId: null,
+      department: '소프트웨어공학과',
+    },
   };
   await openDirectory(page, DESKTOP, store);
   const trigger = cellControl(page, '합성 사용자 04', '회원 유형');
@@ -389,7 +411,9 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
   await choose(trigger, '학생');
   const dialog = dialogNamed(page, '학생으로 변경');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('소프트웨어공학과', { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText('소프트웨어공학과', { exact: true }),
+  ).toBeVisible();
   await expect(dialog.getByText('저장된 학과를 사용합니다.')).toBeVisible();
   await expect(dialog.locator('#admin-member-kind-department')).toHaveCount(0);
   await dialog.locator('#admin-member-kind-student-id').fill('123456');
@@ -515,7 +539,9 @@ test('조용한 갱신이 실패하면 오류 알림이 sticky 영역에 보이�
   await expect(cellControl(page, '합성 사용자 14', '계정 상태')).toHaveText(
     '비활성',
   );
-  audit.assertClean([{ status: 500, path: '/api/v1/users/access', method: 'GET' }]);
+  audit.assertClean([
+    { status: 500, path: '/api/v1/users/access', method: 'GET' },
+  ]);
 });
 
 test('드롭다운을 열고 닫아도 상세가 열리지 않고 드롭다운 밖 행 클릭은 상세 오버레이를 연다 (1280px)', async ({
@@ -658,7 +684,11 @@ test('500 응답은 다이얼로그 안에 서버 문구를 보이고 그 사이
   await expect(trigger).toBeFocused();
   expect(store.patches).toHaveLength(1);
   audit.assertClean([
-    { status: 500, path: '/api/v1/users/synthetic-id-06/access', method: 'PATCH' },
+    {
+      status: 500,
+      path: '/api/v1/users/synthetic-id-06/access',
+      method: 'PATCH',
+    },
   ]);
 });
 
@@ -722,16 +752,27 @@ test('권한 필드가 없는 목록 응답은 배지로 렌더링되고 오류�
     ['합성 사용자 04', '교직원'],
   ] as const) {
     await expect(
-      rowOf(page, name).getByText(badge, { exact: true }).locator('visible=true'),
+      rowOf(page, name)
+        .getByText(badge, { exact: true })
+        .locator('visible=true'),
     ).toHaveCount(1);
   }
   audit.assertClean();
 });
 
 interface LayoutMetrics {
-  readonly document: { readonly scrollWidth: number; readonly clientWidth: number };
-  readonly scroller: { readonly scrollWidth: number; readonly clientWidth: number };
-  readonly table: { readonly scrollWidth: number; readonly clientWidth: number };
+  readonly document: {
+    readonly scrollWidth: number;
+    readonly clientWidth: number;
+  };
+  readonly scroller: {
+    readonly scrollWidth: number;
+    readonly clientWidth: number;
+  };
+  readonly table: {
+    readonly scrollWidth: number;
+    readonly clientWidth: number;
+  };
   readonly rowHeights: readonly number[];
 }
 
@@ -742,11 +783,17 @@ function layoutMetrics(page: Page): Promise<LayoutMetrics> {
     const table = document.querySelector('[data-slot="table-container"]');
     if (!main || !table) throw new Error('scroll containers missing');
     return {
-      document: { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth },
-      scroller: { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth },
+      document: {
+        scrollWidth: root.scrollWidth,
+        clientWidth: root.clientWidth,
+      },
+      scroller: {
+        scrollWidth: main.scrollWidth,
+        clientWidth: main.clientWidth,
+      },
       table: { scrollWidth: table.scrollWidth, clientWidth: table.clientWidth },
-      rowHeights: Array.from(document.querySelectorAll('tbody tr')).map(
-        (row) => Math.ceil(row.getBoundingClientRect().height),
+      rowHeights: Array.from(document.querySelectorAll('tbody tr')).map((row) =>
+        Math.ceil(row.getBoundingClientRect().height),
       ),
     };
   });
@@ -805,7 +852,11 @@ async function captureWidth(
       animations: 'disabled',
     });
   }
-  await captureFull(page, target.extendedDir, `full-${viewport.width}-extended`);
+  await captureFull(
+    page,
+    target.extendedDir,
+    `full-${viewport.width}-extended`,
+  );
   await page.setViewportSize(viewport);
   await settle(page);
 }

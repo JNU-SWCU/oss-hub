@@ -164,7 +164,8 @@ function dialogButton(label: string): HTMLButtonElement {
   const found = Array.from(
     document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
   ).find((button) => button.textContent?.trim() === label);
-  if (!found) throw new TypeError(`다이얼로그 버튼을 찾지 못했습니다: ${label}`);
+  if (!found)
+    throw new TypeError(`다이얼로그 버튼을 찾지 못했습니다: ${label}`);
   return found;
 }
 
@@ -604,7 +605,10 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
     );
     expect(fetch.mock.calls[2]?.[1]).toMatchObject({ method: 'PATCH' });
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
-      adminAccessMutationSuccessMessage('SET_STATUS_DEACTIVATED', 'synthetic-user'),
+      adminAccessMutationSuccessMessage(
+        'SET_STATUS_DEACTIVATED',
+        'synthetic-user',
+      ),
     );
     expect(trigger('합성 사용자 계정 상태').textContent).toContain('비활성');
     expect(navigation.push).not.toHaveBeenCalled();
@@ -685,7 +689,12 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       await act(async () =>
         refresh.resolve(
           listResponse(
-            [directoryItem({ name: '갱신 결과', accountStatus: 'DEACTIVATED' })],
+            [
+              directoryItem({
+                name: '갱신 결과',
+                accountStatus: 'DEACTIVATED',
+              }),
+            ],
             2,
           ),
         ),
@@ -734,9 +743,7 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       );
       act(() => retryButton?.click());
       expect(container.textContent).toContain('불러오는 중…');
-      await act(async () =>
-        retry.resolve(listResponse([directoryItem()], 2)),
-      );
+      await act(async () => retry.resolve(listResponse([directoryItem()], 2)));
       expect(container.querySelector('[role="alert"]')).toBeNull();
     });
 
@@ -762,7 +769,9 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
 
       await render({ page: '2', role: 'STAFF' });
 
-      expect(container.querySelector('tbody [data-slot="select-trigger"]')).toBeNull();
+      expect(
+        container.querySelector('tbody [data-slot="select-trigger"]'),
+      ).toBeNull();
       expect(navigation.push).not.toHaveBeenCalled();
     });
 

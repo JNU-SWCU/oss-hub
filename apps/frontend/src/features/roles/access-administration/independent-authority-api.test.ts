@@ -51,14 +51,26 @@ describe('Task 8 independent authority API', () => {
   it('accepts a parsed directory item with independent authority fields', async () => {
     const { parseAdminAccessListPage } = await import('./admin-access-api');
     const parsed = parseAdminAccessListPage({
-      items: [{
-        id: 'target', githubLogin: 'synthetic-target', name: '합성 사용자',
-        role: 'STUDENT', memberKind: 'STUDENT', hasStaffAccess: false,
-        hasAdminAccess: true, accountStatus: 'ACTIVE', isSelf: false,
-        isProfileComplete: false, createdAt: '2026-09-01T00:00:00.000Z',
-        pendingRequest: null, lastLoginAt: null,
-      }],
-      page: 1, limit: 20, total: 1,
+      items: [
+        {
+          id: 'target',
+          githubLogin: 'synthetic-target',
+          name: '합성 사용자',
+          role: 'STUDENT',
+          memberKind: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: true,
+          accountStatus: 'ACTIVE',
+          isSelf: false,
+          isProfileComplete: false,
+          createdAt: '2026-09-01T00:00:00.000Z',
+          pendingRequest: null,
+          lastLoginAt: null,
+        },
+      ],
+      page: 1,
+      limit: 20,
+      total: 1,
       facets: {
         roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },
         accountStatuses: { active: 1, deactivated: 0 },
@@ -69,26 +81,50 @@ describe('Task 8 independent authority API', () => {
   });
 
   it.each([
-    ['missing', { memberKind: undefined, hasStaffAccess: undefined, hasAdminAccess: undefined }],
-    ['invalid member kind', { memberKind: 'X', hasStaffAccess: false, hasAdminAccess: false }],
-  ])('does not identify a directory item with %s authority fields', (_label, fields) => {
-    const response = {
-      items: [{
-      id: 'target', githubLogin: 'synthetic-target', name: null, role: null,
-      accountStatus: 'ACTIVE', isSelf: false, isProfileComplete: true,
-      createdAt: '2026-09-01T00:00:00.000Z', pendingRequest: null, lastLoginAt: null,
-      ...fields,
-      }],
-      page: 1, limit: 20, total: 1,
-      facets: {
-        roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },
-        accountStatuses: { active: 1, deactivated: 0 },
-        pendingRequests: { none: 1, pending: 0 },
+    [
+      'missing',
+      {
+        memberKind: undefined,
+        hasStaffAccess: undefined,
+        hasAdminAccess: undefined,
       },
-    };
-    const parsed = parseAdminAccessListPage(response);
-    expect(isAdminAccessDirectoryItem(parsed.items[0])).toBe(false);
-  });
+    ],
+    [
+      'invalid member kind',
+      { memberKind: 'X', hasStaffAccess: false, hasAdminAccess: false },
+    ],
+  ])(
+    'does not identify a directory item with %s authority fields',
+    (_label, fields) => {
+      const response = {
+        items: [
+          {
+            id: 'target',
+            githubLogin: 'synthetic-target',
+            name: null,
+            role: null,
+            accountStatus: 'ACTIVE',
+            isSelf: false,
+            isProfileComplete: true,
+            createdAt: '2026-09-01T00:00:00.000Z',
+            pendingRequest: null,
+            lastLoginAt: null,
+            ...fields,
+          },
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+        facets: {
+          roles: { unassigned: 0, student: 1, staff: 0, admin: 0 },
+          accountStatuses: { active: 1, deactivated: 0 },
+          pendingRequests: { none: 1, pending: 0 },
+        },
+      };
+      const parsed = parseAdminAccessListPage(response);
+      expect(isAdminAccessDirectoryItem(parsed.items[0])).toBe(false);
+    },
+  );
 
   it.each([
     ['student-admin', 'STUDENT', false, true],

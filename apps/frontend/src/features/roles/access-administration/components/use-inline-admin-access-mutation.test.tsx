@@ -88,7 +88,9 @@ async function open() {
 describe('useInlineAdminAccessMutation', () => {
   it('ignores a duplicate request during fetch and keeps trigger focus', async () => {
     const fetchResult = Promise.withResolvers<CanonicalAdminAccessDetail>();
-    vi.mocked(fetchCanonicalAdminAccessDetail).mockReturnValueOnce(fetchResult.promise);
+    vi.mocked(fetchCanonicalAdminAccessDetail).mockReturnValueOnce(
+      fetchResult.promise,
+    );
     const trigger = container.querySelector('button');
     trigger?.focus();
 
@@ -114,21 +116,35 @@ describe('useInlineAdminAccessMutation', () => {
     { memberKind: 'STUDENT' as const },
     { hasAdminAccess: true },
     { accountStatus: 'DEACTIVATED' as const },
-    { pendingRequest: { id: 'new-request', status: 'PENDING' as const, createdAt: detail.createdAt } },
-  ])('refreshes without opening a dialog when fresh fields differ: %j', async (change) => {
-    vi.mocked(fetchCanonicalAdminAccessDetail).mockResolvedValueOnce({ ...detail, ...change });
+    {
+      pendingRequest: {
+        id: 'new-request',
+        status: 'PENDING' as const,
+        createdAt: detail.createdAt,
+      },
+    },
+  ])(
+    'refreshes without opening a dialog when fresh fields differ: %j',
+    async (change) => {
+      vi.mocked(fetchCanonicalAdminAccessDetail).mockResolvedValueOnce({
+        ...detail,
+        ...change,
+      });
 
-    await act(async () => current.request(detail, action, null));
+      await act(async () => current.request(detail, action, null));
 
-    expect(current.pending).toBeNull();
-    expect(current.conflictNotice).toBeTruthy();
-    expect(current.successMessage).toBeNull();
-    expect(runAdminAccessMutation).not.toHaveBeenCalled();
-    expect(onChanged).toHaveBeenCalledTimes(1);
-  });
+      expect(current.pending).toBeNull();
+      expect(current.conflictNotice).toBeTruthy();
+      expect(current.successMessage).toBeNull();
+      expect(runAdminAccessMutation).not.toHaveBeenCalled();
+      expect(onChanged).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('reports fetch failure outside the dialog and permits another request', async () => {
-    vi.mocked(fetchCanonicalAdminAccessDetail).mockRejectedValueOnce(new TypeError('Network failed'));
+    vi.mocked(fetchCanonicalAdminAccessDetail).mockRejectedValueOnce(
+      new TypeError('Network failed'),
+    );
 
     await act(async () => current.request(detail, action, null));
 
@@ -168,42 +184,66 @@ describe('useInlineAdminAccessMutation', () => {
     expect(current.pending).not.toBeNull();
     expect(runAdminAccessMutation).toHaveBeenCalledTimes(1);
     expect(runAdminAccessMutation).toHaveBeenCalledWith({
-      userId: detail.id, action, detail, reason: '', memberKindFields: fields,
+      userId: detail.id,
+      action,
+      detail,
+      reason: '',
+      memberKindFields: fields,
     });
     expect(fetchCanonicalAdminAccessDetail).toHaveBeenCalledTimes(1);
     await act(async () => mutation.resolve({ kind: 'success', result: null }));
 
     expect(current.pending).toBeNull();
     expect(current.isProcessing).toBe(false);
-    expect(current.successMessage).toBe(adminAccessMutationSuccessMessage(action, detail.githubLogin));
+    expect(current.successMessage).toBe(
+      adminAccessMutationSuccessMessage(action, detail.githubLogin),
+    );
     expect(onChanged).toHaveBeenCalledTimes(1);
-    act(() => { vi.advanceTimersByTime(3_999); });
+    act(() => {
+      vi.advanceTimersByTime(3_999);
+    });
     expect(current.successMessage).not.toBeNull();
-    act(() => { vi.advanceTimersByTime(1); });
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(current.successMessage).toBeNull();
   });
 
   it.each([
     null,
-    { id: detail.id, role: detail.role, accountStatus: detail.accountStatus, pendingRequest: null },
-  ])('closes and refreshes on conflict with projection %j', async (projection) => {
-    await open();
-    vi.mocked(runAdminAccessMutation).mockResolvedValueOnce({ kind: 'conflict', projection });
+    {
+      id: detail.id,
+      role: detail.role,
+      accountStatus: detail.accountStatus,
+      pendingRequest: null,
+    },
+  ])(
+    'closes and refreshes on conflict with projection %j',
+    async (projection) => {
+      await open();
+      vi.mocked(runAdminAccessMutation).mockResolvedValueOnce({
+        kind: 'conflict',
+        projection,
+      });
 
-    await act(async () => current.confirm());
+      await act(async () => current.confirm());
 
-    expect(current.pending).toBeNull();
-    expect(current.conflictNotice).toBeTruthy();
-    expect(current.dialogError).toBeNull();
-    expect(current.successMessage).toBeNull();
-    expect(onChanged).toHaveBeenCalledTimes(1);
-    await open();
-    expect(current.conflictNotice).toBeNull();
-  });
+      expect(current.pending).toBeNull();
+      expect(current.conflictNotice).toBeTruthy();
+      expect(current.dialogError).toBeNull();
+      expect(current.successMessage).toBeNull();
+      expect(onChanged).toHaveBeenCalledTimes(1);
+      await open();
+      expect(current.conflictNotice).toBeNull();
+    },
+  );
 
   it('keeps the dialog open with an error while refreshing the list', async () => {
     await open();
-    vi.mocked(runAdminAccessMutation).mockResolvedValueOnce({ kind: 'error', message: 'synthetic-error' });
+    vi.mocked(runAdminAccessMutation).mockResolvedValueOnce({
+      kind: 'error',
+      message: 'synthetic-error',
+    });
 
     await act(async () => current.confirm(fields));
 
@@ -216,26 +256,33 @@ describe('useInlineAdminAccessMutation', () => {
     expect(current.dialogError).toBeNull();
   });
 
-  it.each(['resolve', 'reject'] as const)('aborts fetch and ignores late %s after unmount', async (outcome) => {
-    const fetchResult = Promise.withResolvers<CanonicalAdminAccessDetail>();
-    vi.mocked(fetchCanonicalAdminAccessDetail).mockReturnValueOnce(fetchResult.promise);
-    act(() => void current.request(detail, action, null));
-    const signal = vi.mocked(fetchCanonicalAdminAccessDetail).mock.calls[0]?.[1];
+  it.each(['resolve', 'reject'] as const)(
+    'aborts fetch and ignores late %s after unmount',
+    async (outcome) => {
+      const fetchResult = Promise.withResolvers<CanonicalAdminAccessDetail>();
+      vi.mocked(fetchCanonicalAdminAccessDetail).mockReturnValueOnce(
+        fetchResult.promise,
+      );
+      act(() => void current.request(detail, action, null));
+      const signal = vi.mocked(fetchCanonicalAdminAccessDetail).mock
+        .calls[0]?.[1];
 
-    act(() => root.unmount());
-    expect(signal?.aborted).toBe(true);
-    await act(async () => {
-      if (outcome === 'resolve') fetchResult.resolve({ ...detail, hasAdminAccess: true });
-      else fetchResult.reject(new DOMException('Aborted', 'AbortError'));
-    });
+      act(() => root.unmount());
+      expect(signal?.aborted).toBe(true);
+      await act(async () => {
+        if (outcome === 'resolve')
+          fetchResult.resolve({ ...detail, hasAdminAccess: true });
+        else fetchResult.reject(new DOMException('Aborted', 'AbortError'));
+      });
 
-    expect(onChanged).not.toHaveBeenCalled();
-    expect(runAdminAccessMutation).not.toHaveBeenCalled();
-    root = createRoot(container);
-    act(() => root.render(<Harness />));
-    await open();
-    expect(current.pending).toEqual({ action, detail, returnFocusTo: null });
-  });
+      expect(onChanged).not.toHaveBeenCalled();
+      expect(runAdminAccessMutation).not.toHaveBeenCalled();
+      root = createRoot(container);
+      act(() => root.render(<Harness />));
+      await open();
+      expect(current.pending).toEqual({ action, detail, returnFocusTo: null });
+    },
+  );
 
   it('ignores a late mutation completion after unmount', async () => {
     await open();
