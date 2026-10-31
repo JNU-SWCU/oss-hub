@@ -4,7 +4,7 @@ import type {
   ProvisionJobReference,
   RepositoriesRepository,
   RepositoriesTransactionStore,
-  RepositoryPublishTarget,
+  RepositoryPublishTargetRow,
 } from './repositories.repository';
 
 class TwoPartyBarrier {
@@ -35,7 +35,7 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
 
   findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
+  ): Promise<RepositoryPublishTargetRow | null> {
     return this.store.findPublishTarget(repositoryId);
   }
 
@@ -116,7 +116,7 @@ export class BarrierRepositoriesRepository {
 
   findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
+  ): Promise<RepositoryPublishTargetRow | null> {
     return this.repository.findPublishTarget(repositoryId);
   }
 

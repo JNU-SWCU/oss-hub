@@ -12,14 +12,7 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repository-provision-event.config';
-import {
-  repositoryUrlFromNameWithOwner,
-  repositoryNameFromNameWithOwner,
-} from './repository-url.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 
 import { PrismaService } from '../platform/prisma.service';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
@@ -60,8 +53,7 @@ export interface OwnedProvisionJob {
 
     readonly repository: {
       readonly id: string;
-      readonly name: string;
-      readonly url: string;
+      readonly nameWithOwner: string;
       readonly visibility: RepositoryVisibility;
       readonly source: RepositorySource;
       readonly invitations: readonly {
@@ -74,6 +66,14 @@ export interface OwnedProvisionJob {
   readonly updatedAt: Date;
 }
 
+export interface RepositoryPublishTargetRow {
+  readonly id: string;
+  readonly githubRepositoryId: bigint;
+  readonly nameWithOwner: string;
+  readonly visibility: RepositoryVisibility;
+  readonly publishedAt: Date | null;
+}
+
 export interface RepositoryPublishTarget {
   readonly id: string;
   readonly githubRepositoryId: bigint;
@@ -81,42 +81,6 @@ export interface RepositoryPublishTarget {
   readonly url: string;
   readonly visibility: RepositoryVisibility;
   readonly publishedAt: Date | null;
-}
-
-function toPublishTarget(row: {
-  readonly id: string;
-  readonly githubRepositoryId: bigint;
-  readonly nameWithOwner: string;
-  readonly visibility: RepositoryVisibility;
-  readonly publishedAt: Date | null;
-}): RepositoryPublishTarget {
-  return {
-    id: row.id,
-    githubRepositoryId: row.githubRepositoryId,
-    name: repositoryNameFromNameWithOwner(row.nameWithOwner),
-    url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
-    visibility: row.visibility,
-    publishedAt: row.publishedAt,
-  };
-}
-
-function toOwnedRepository(row: {
-  readonly id: string;
-  readonly nameWithOwner: string;
-  readonly source: RepositorySource;
-  readonly visibility: RepositoryVisibility;
-  readonly invitations: readonly {
-    readonly status: RepositoryInvitationStatus;
-  }[];
-}): NonNullable<OwnedProvisionJob['application']['repository']> {
-  return {
-    id: row.id,
-    name: repositoryNameFromNameWithOwner(row.nameWithOwner),
-    url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
-    visibility: row.visibility,
-    source: row.source,
-    invitations: row.invitations,
-  };
 }
 
 export interface RepositoriesTransactionStore {
@@ -144,7 +108,7 @@ export interface RepositoriesTransactionStore {
   failProvisionEvent(eventId: string, workerId: string): Promise<void>;
   findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null>;
+  ): Promise<RepositoryPublishTargetRow | null>;
   publishRepositoryIfPrivate(
     repositoryId: string,
     githubRepositoryId: bigint,
@@ -170,8 +134,8 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
 
   async findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
-    const repository = await this.transaction.githubRepository.findUnique({
+  ): Promise<RepositoryPublishTargetRow | null> {
+    return this.transaction.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
         id: true,
@@ -181,7 +145,6 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
         publishedAt: true,
       },
     });
-    return repository === null ? null : toPublishTarget(repository);
   }
 
   async publishRepositoryIfPrivate(
@@ -336,7 +299,6 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
         outcome: RepositoryIssuanceOutcome.SUPERSEDED,
         closedAt: now,
       },
-      parseRepositoryProvisionEvent,
     );
   }
 
@@ -452,20 +414,14 @@ export class RepositoriesRepository {
     });
     return jobs.map((job) => ({
       ...job,
-      application: {
-        ...job.application,
-        repository:
-          job.application.repository === null
-            ? null
-            : toOwnedRepository(job.application.repository),
-      },
+      application: job.application,
     }));
   }
 
   async findPublishTarget(
     repositoryId: string,
-  ): Promise<RepositoryPublishTarget | null> {
-    const repository = await this.prisma.githubRepository.findUnique({
+  ): Promise<RepositoryPublishTargetRow | null> {
+    return this.prisma.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
         id: true,
@@ -475,6 +431,5 @@ export class RepositoriesRepository {
         publishedAt: true,
       },
     });
-    return repository === null ? null : toPublishTarget(repository);
   }
 }

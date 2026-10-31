@@ -8,7 +8,7 @@ import type { MyRepositoryResult } from './repositories-read.types';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryProvisionStateError } from './repository-provision-state.error';
-import { parseGithubRepositoryUrl } from './repository-url.config';
+import { RepositoryUrlService } from './repository-url.service';
 
 @Injectable()
 export class RepositoriesReadService {
@@ -23,6 +23,7 @@ export class RepositoriesReadService {
       GithubOperationsConfig,
       'requireOrganization'
     >,
+    private readonly repositoryUrlService: RepositoryUrlService,
   ) {}
 
   async getMyRepositories(
@@ -30,10 +31,19 @@ export class RepositoriesReadService {
   ): Promise<readonly MyRepositoryResult[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
-      const repository = job.application.repository;
+      const row = job.application.repository;
+      const repository = row && {
+        ...row,
+        name: this.repositoryUrlService.repositoryNameFromNameWithOwner(
+          row.nameWithOwner,
+        ),
+        url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+          row.nameWithOwner,
+        ),
+      };
       if (repository !== null) {
         if (
-          !isValidRepositoryIdentity(
+          !this.isValidRepositoryIdentity(
             repository.name,
             repository.url,
             repository.source,
@@ -77,6 +87,22 @@ export class RepositoriesReadService {
       };
     });
   }
+
+  private isValidRepositoryIdentity(
+    name: string,
+    url: string,
+    source: RepositorySource,
+    organization: string,
+  ): boolean {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
+      return false;
+    }
+
+    if (source === RepositorySource.EXTERNAL_PUBLIC) {
+      return this.repositoryUrlService.parseGithubRepositoryUrl(url) !== null;
+    }
+    return url === `https://github.com/${organization}/${name}`;
+  }
 }
 
 function connectionModeFromSource(
@@ -85,20 +111,4 @@ function connectionModeFromSource(
   return source === RepositorySource.EXTERNAL_PUBLIC
     ? RepositoryConnectionMode.OWN
     : RepositoryConnectionMode.NEW;
-}
-
-function isValidRepositoryIdentity(
-  name: string,
-  url: string,
-  source: RepositorySource,
-  organization: string,
-): boolean {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
-    return false;
-  }
-
-  if (source === RepositorySource.EXTERNAL_PUBLIC) {
-    return parseGithubRepositoryUrl(url) !== null;
-  }
-  return url === `https://github.com/${organization}/${name}`;
 }

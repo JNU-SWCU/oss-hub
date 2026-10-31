@@ -1,12 +1,15 @@
 import { AccountStatus } from '@prisma/client';
 import {
-  buildDeadlineEligibility,
-  deadlineWindow,
-} from './deadline-digest.service';
-import {
   type DeadlineProgramSource,
   type DeadlineRecipientSource,
 } from './deadline-digest.repository';
+import { DeadlineDigestService } from './deadline-digest.service';
+
+const deadlineDigestService = new DeadlineDigestService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+);
 
 const NOW = new Date('2026-08-14T00:00:00.000Z');
 
@@ -84,9 +87,12 @@ function source(): DeadlineProgramSource {
 
 describe('deadline digest eligibility', () => {
   it('uses the exact inclusive now through 24-hour window and ignores optional or informational documents', () => {
-    const window = deadlineWindow(NOW);
+    const window = deadlineDigestService.deadlineWindow(NOW);
 
-    const eligibility = buildDeadlineEligibility(source(), window);
+    const eligibility = deadlineDigestService.buildDeadlineEligibility(
+      source(),
+      window,
+    );
 
     expect(window.to).toEqual(new Date(NOW.getTime() + 24 * 60 * 60 * 1000));
     expect(eligibility.milestones.map((milestone) => milestone.id)).toEqual([
@@ -132,9 +138,9 @@ describe('deadline digest eligibility', () => {
       ],
     };
 
-    const eligibility = buildDeadlineEligibility(
+    const eligibility = deadlineDigestService.buildDeadlineEligibility(
       classified,
-      deadlineWindow(NOW),
+      deadlineDigestService.deadlineWindow(NOW),
     );
 
     expect(eligibility.summary).toEqual({
@@ -166,9 +172,9 @@ describe('deadline digest eligibility', () => {
       ],
     };
 
-    const eligibility = buildDeadlineEligibility(
+    const eligibility = deadlineDigestService.buildDeadlineEligibility(
       classified,
-      deadlineWindow(NOW),
+      deadlineDigestService.deadlineWindow(NOW),
     );
 
     expect(eligibility.recipients).toHaveLength(2);
@@ -192,7 +198,10 @@ describe('deadline digest eligibility', () => {
   });
 
   it('제출이 끝난 마일스톤은 교직원 요약 명단에서 빠진다', () => {
-    const eligibility = buildDeadlineEligibility(source(), deadlineWindow(NOW));
+    const eligibility = deadlineDigestService.buildDeadlineEligibility(
+      source(),
+      deadlineDigestService.deadlineWindow(NOW),
+    );
 
     expect(eligibility.milestones.map((milestone) => milestone.id)).toEqual([
       'at-now',
@@ -233,11 +242,13 @@ describe('deadline digest eligibility', () => {
       throw new TypeError('Missing adopted-fixture application.');
     }
 
-    const beforeSubmission = buildDeadlineEligibility(
+    const beforeSubmission = deadlineDigestService.buildDeadlineEligibility(
       fixture,
-      deadlineWindow(new Date('2026-08-20T00:00:00.000Z')),
+      deadlineDigestService.deadlineWindow(
+        new Date('2026-08-20T00:00:00.000Z'),
+      ),
     );
-    const afterSubmission = buildDeadlineEligibility(
+    const afterSubmission = deadlineDigestService.buildDeadlineEligibility(
       {
         ...fixture,
         applications: [
@@ -247,7 +258,9 @@ describe('deadline digest eligibility', () => {
           },
         ],
       },
-      deadlineWindow(new Date('2026-08-20T00:00:00.000Z')),
+      deadlineDigestService.deadlineWindow(
+        new Date('2026-08-20T00:00:00.000Z'),
+      ),
     );
 
     expect(beforeSubmission.summary).toMatchObject({
@@ -282,14 +295,17 @@ describe('deadline digest eligibility', () => {
       ),
     };
 
-    const first = buildDeadlineEligibility(original, deadlineWindow(NOW));
-    const duplicateOrdered = buildDeadlineEligibility(
-      reordered,
-      deadlineWindow(NOW),
+    const first = deadlineDigestService.buildDeadlineEligibility(
+      original,
+      deadlineDigestService.deadlineWindow(NOW),
     );
-    const changedEligibility = buildDeadlineEligibility(
+    const duplicateOrdered = deadlineDigestService.buildDeadlineEligibility(
+      reordered,
+      deadlineDigestService.deadlineWindow(NOW),
+    );
+    const changedEligibility = deadlineDigestService.buildDeadlineEligibility(
       changed,
-      deadlineWindow(NOW),
+      deadlineDigestService.deadlineWindow(NOW),
     );
 
     expect(first.previewVersion).toMatch(/^[a-f0-9]{64}$/u);

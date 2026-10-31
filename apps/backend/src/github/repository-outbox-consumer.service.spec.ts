@@ -9,6 +9,7 @@ import type {
   RepositoryProvisionWorkerService,
 } from './repository-provision-worker.service';
 import type { RepositoriesRepository } from './repositories.repository';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
 describe('RepositoryOutboxConsumerService scheduling', () => {
   const NOW = new Date('2026-07-22T00:00:00.000Z');
@@ -38,6 +39,7 @@ describe('RepositoryOutboxConsumerService scheduling', () => {
         const service = new RepositoryOutboxConsumerService(
           {} as RepositoriesRepository,
           { runNext },
+          new RepositoryProvisionEventService(),
         );
         service.consumeNext = consumeNext;
         testingModule = await Test.createTestingModule({
@@ -108,6 +110,7 @@ describe('RepositoryOutboxConsumerService scheduling', () => {
       const scheduler = new RepositoryOutboxConsumerService(
         {} as RepositoriesRepository,
         worker,
+        new RepositoryProvisionEventService(),
         now,
       );
       const consumeNext = jest

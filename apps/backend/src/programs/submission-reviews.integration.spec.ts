@@ -27,10 +27,6 @@ import { PrismaService } from '../platform/prisma.service';
 import type { GithubAppClient } from '../github/github-app.client';
 import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
 import { RepositoriesRepository } from '../github/repositories.repository';
-import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-url.config';
 import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
@@ -39,6 +35,12 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const repositoryUrlService = new RepositoryUrlService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -59,11 +61,16 @@ const repositories = new RepositoriesService(
   github,
   auditLog,
   new AuditLogMetadataService(),
+  new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositories,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new SubmissionFileRulesService(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -133,8 +140,10 @@ async function createFreshPrivateRepository(): Promise<{
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   const githubRepositoryId = seedRepositoryId(scenarioId);
   const nameWithOwner = seedNameWithOwner(scenarioId);
-  const name = repositoryNameFromNameWithOwner(nameWithOwner);
-  const url = repositoryUrlFromNameWithOwner(nameWithOwner);
+  const name =
+    repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner);
+  const url =
+    repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner);
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
@@ -297,14 +306,16 @@ describe('SubmissionReviewsService integration', () => {
     const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: repositoryId },
     });
-    const repositoryName = repositoryNameFromNameWithOwner(
+    const repositoryName = repositoryUrlService.repositoryNameFromNameWithOwner(
       repository.nameWithOwner,
     );
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: repository.githubRepositoryId,
       nameWithOwner: repository.nameWithOwner,
       name: repositoryName,
-      url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+      url: repositoryUrlService.repositoryUrlFromNameWithOwner(
+        repository.nameWithOwner,
+      ),
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
@@ -392,6 +403,7 @@ describe('SubmissionReviewsService integration', () => {
       github,
       auditLog,
       new AuditLogMetadataService(),
+      new RepositoryUrlService(),
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({

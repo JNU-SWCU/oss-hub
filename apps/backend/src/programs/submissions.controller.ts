@@ -25,11 +25,8 @@ import {
   CreatedSubmissionResponseDto,
   ResubmittedSubmissionResponseDto,
 } from './dto/submission-form-response.dto';
-import {
-  SubmissionsService,
-  toCreateSubmissionInput,
-  toResubmitSubmissionInput,
-} from './submissions.service';
+import { SubmissionsService } from './submissions.service';
+import { SubmissionInputService } from './submission-input.service';
 
 type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -40,6 +37,7 @@ export class SubmissionsController {
   constructor(
     private readonly service: SubmissionsService,
     private readonly reviewsService: SubmissionReviewsService,
+    private readonly submissionInputService: SubmissionInputService,
   ) {}
 
   @Post()
@@ -50,7 +48,10 @@ export class SubmissionsController {
     @Body() body: CreateSubmissionRequestDto,
   ): Promise<CreatedSubmissionResponseDto> {
     return this.service
-      .create(request.sessionGithubId, toCreateSubmissionInput(body))
+      .create(
+        request.sessionGithubId,
+        this.submissionInputService.toCreateSubmissionInput(body),
+      )
       .then((result) => CreatedSubmissionResponseDto.from(result));
   }
 
@@ -66,7 +67,7 @@ export class SubmissionsController {
       .resubmit(
         request.sessionGithubId,
         submissionId,
-        toResubmitSubmissionInput(body),
+        this.submissionInputService.toResubmitSubmissionInput(body),
       )
       .then((result) => ResubmittedSubmissionResponseDto.from(result));
   }

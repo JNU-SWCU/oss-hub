@@ -6,12 +6,9 @@ import {
   syntheticOnboardedUser,
   syntheticUser,
 } from './auth.controller.spec.helpers';
-import {
-  createFlowState,
-  encodeFlowCookie,
-  flowCookieName,
-  sessionCookieName,
-} from './auth.service';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 describe('AuthController github callback', () => {
   beforeEach(() => {
@@ -20,14 +17,16 @@ describe('AuthController github callback', () => {
   });
 
   it('callback redirect 응답에 no-referrer/no-store를 설정한다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
 
     await createController().githubCallback(
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -41,7 +40,7 @@ describe('AuthController github callback', () => {
   });
 
   it('신규 사용자는 세션 발급 후 동의 화면으로 바로 이동한다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const completeLogin = jest
       .fn()
@@ -51,7 +50,9 @@ describe('AuthController github callback', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -62,7 +63,7 @@ describe('AuthController github callback', () => {
   });
 
   it('초기 역할이 설정된 신규 가입자도 동의 화면을 거친다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const completeLogin = jest
       .fn()
@@ -72,7 +73,9 @@ describe('AuthController github callback', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -83,7 +86,7 @@ describe('AuthController github callback', () => {
   });
 
   it('가입을 끝내지 못한 재로그인 사용자도 온보딩 입구로 되돌린다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const completeLogin = jest
       .fn()
@@ -93,7 +96,9 @@ describe('AuthController github callback', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -104,7 +109,7 @@ describe('AuthController github callback', () => {
   });
 
   it('로그인 이력 저장 실패가 정상 세션 발급을 막지 않는다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     recordLogin.mockRejectedValue(new Error('synthetic history failure'));
 
@@ -112,7 +117,9 @@ describe('AuthController github callback', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -120,7 +127,9 @@ describe('AuthController github callback', () => {
     expect(res.setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
       expect.arrayContaining([
-        expect.stringContaining(`${sessionCookieName(true)}=`),
+        expect.stringContaining(
+          `${authSessionService.sessionCookieName(true)}=`,
+        ),
       ]),
     );
   });

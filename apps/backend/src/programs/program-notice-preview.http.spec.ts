@@ -4,11 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
@@ -16,6 +12,10 @@ import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramNoticePreviewService } from './program-authoring.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';
 const secret = new Uint8Array(32).fill(42);
@@ -39,6 +39,7 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     controllers: [ProgramAuthoringController],
     providers: [
+      ...STATELESS_PROVIDERS,
       { provide: APP_GUARD, useClass: AuthenticationGuard },
       {
         provide: AuthConfig,
@@ -79,7 +80,7 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   origin = await application.getUrl();
-  cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, 101n, 1)}`;
+  cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 101n, 1)}`;
 });
 afterAll(() => application.close());
 beforeEach(() => {

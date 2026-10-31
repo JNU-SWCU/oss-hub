@@ -15,12 +15,9 @@ import {
   type ProgramDocumentChangeRequestPreview,
   type ProgramDocumentChangeRequestScope,
 } from './milestone-document-collection-read.repository';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import {
-  changeRequestTargetStatuses,
-  changeRequestTargetsVersion,
-} from './milestone-documents.service';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 @Injectable()
 export class ProgramDocumentChangeRequestsService {
@@ -33,6 +30,7 @@ export class ProgramDocumentChangeRequestsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async targets(
@@ -57,7 +55,10 @@ export class ProgramDocumentChangeRequestsService {
         [SubmissionStatus.APPROVED]: count(SubmissionStatus.APPROVED),
         [SubmissionStatus.REJECTED]: count(SubmissionStatus.REJECTED),
       },
-      version: changeRequestTargetsVersion(candidates),
+      version:
+        this.milestoneDocumentRulesService.changeRequestTargetsVersion(
+          candidates,
+        ),
     };
   }
 
@@ -86,12 +87,17 @@ export class ProgramDocumentChangeRequestsService {
           documentIds,
           applicationIds,
         });
-        if (changeRequestTargetsVersion(candidates) !== input.expectedVersion) {
+        if (
+          this.milestoneDocumentRulesService.changeRequestTargetsVersion(
+            candidates,
+          ) !== input.expectedVersion
+        ) {
           throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
         }
-        const statuses = changeRequestTargetStatuses(
-          input.includeFinalDecisions,
-        );
+        const statuses =
+          this.milestoneDocumentRulesService.changeRequestTargetStatuses(
+            input.includeFinalDecisions,
+          );
         const targets = candidates.filter((candidate) =>
           statuses.includes(candidate.status),
         );
@@ -104,10 +110,11 @@ export class ProgramDocumentChangeRequestsService {
           if (submission === null) {
             throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
           }
-          const reviewedAt = nextMilestoneDocumentHistoryCreatedAt(
-            now(),
-            submission.latestHistoryCreatedAt,
-          );
+          const reviewedAt =
+            MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+              now(),
+              submission.latestHistoryCreatedAt,
+            );
           if (input.resubmissionDueAt.getTime() <= reviewedAt.getTime()) {
             throw this.error(
               MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,

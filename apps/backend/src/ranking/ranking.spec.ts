@@ -1,21 +1,25 @@
 import {
-  rankingYearInAsiaSeoul,
-  rankingYearStartInAsiaSeoul,
+  RankingYearService,
   LEGACY_RANKING_PERIODS,
   RANKING_YEAR_ALL,
-  resolveRankingYearFromQuery,
-} from './ranking.service';
+} from './ranking-year.service';
+
+const rankingYearService = new RankingYearService();
 
 describe('ranking-event', () => {
   describe('ranking period boundaries', () => {
     it('uses midnight on January 1 in Asia/Seoul as the exact year boundary', () => {
-      expect(rankingYearInAsiaSeoul(new Date('2025-12-31T14:59:59.999Z'))).toBe(
-        2025,
-      );
-      expect(rankingYearInAsiaSeoul(new Date('2025-12-31T15:00:00.000Z'))).toBe(
-        2026,
-      );
-      expect(rankingYearStartInAsiaSeoul(2026)).toEqual(
+      expect(
+        rankingYearService.rankingYearInAsiaSeoul(
+          new Date('2025-12-31T14:59:59.999Z'),
+        ),
+      ).toBe(2025);
+      expect(
+        rankingYearService.rankingYearInAsiaSeoul(
+          new Date('2025-12-31T15:00:00.000Z'),
+        ),
+      ).toBe(2026);
+      expect(rankingYearService.rankingYearStartInAsiaSeoul(2026)).toEqual(
         new Date('2025-12-31T15:00:00.000Z'),
       );
     });
@@ -27,10 +31,14 @@ describe('resolveRankingYearFromQuery', () => {
 
   it('prefers year over legacy period', () => {
     expect(
-      resolveRankingYearFromQuery(2025, LEGACY_RANKING_PERIODS.ALL, now),
+      rankingYearService.resolveRankingYearFromQuery(
+        2025,
+        LEGACY_RANKING_PERIODS.ALL,
+        now,
+      ),
     ).toBe(2025);
     expect(
-      resolveRankingYearFromQuery(
+      rankingYearService.resolveRankingYearFromQuery(
         RANKING_YEAR_ALL,
         LEGACY_RANKING_PERIODS.THIS_YEAR,
         now,
@@ -40,7 +48,7 @@ describe('resolveRankingYearFromQuery', () => {
 
   it('maps legacy THIS_YEAR to Asia/Seoul calendar year', () => {
     expect(
-      resolveRankingYearFromQuery(
+      rankingYearService.resolveRankingYearFromQuery(
         undefined,
         LEGACY_RANKING_PERIODS.THIS_YEAR,
         now,
@@ -48,7 +56,7 @@ describe('resolveRankingYearFromQuery', () => {
     ).toBe(2026);
 
     expect(
-      resolveRankingYearFromQuery(
+      rankingYearService.resolveRankingYearFromQuery(
         undefined,
         LEGACY_RANKING_PERIODS.THIS_YEAR,
         new Date('2025-12-31T15:00:00.000Z'),
@@ -58,9 +66,15 @@ describe('resolveRankingYearFromQuery', () => {
 
   it('legacy ALL 은 전체이되 기본값은 올해다', () => {
     expect(
-      resolveRankingYearFromQuery(undefined, LEGACY_RANKING_PERIODS.ALL, now),
+      rankingYearService.resolveRankingYearFromQuery(
+        undefined,
+        LEGACY_RANKING_PERIODS.ALL,
+        now,
+      ),
     ).toBe(RANKING_YEAR_ALL);
 
-    expect(resolveRankingYearFromQuery(undefined, undefined, now)).toBe(2026);
+    expect(
+      rankingYearService.resolveRankingYearFromQuery(undefined, undefined, now),
+    ).toBe(2026);
   });
 });

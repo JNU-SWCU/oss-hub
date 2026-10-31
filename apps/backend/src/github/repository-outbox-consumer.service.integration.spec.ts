@@ -11,13 +11,11 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repository-provision-event.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 import { RepositoriesRepository } from './repositories.repository';
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,6 +26,7 @@ const prisma = new PrismaService();
 const consumer = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
+  new RepositoryProvisionEventService(),
 );
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-provision-applicant';
@@ -131,7 +130,6 @@ async function createProvisionEvent(
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
-      parseRepositoryProvisionEvent,
     );
     return event.id;
   });

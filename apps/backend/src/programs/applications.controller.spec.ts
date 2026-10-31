@@ -11,12 +11,12 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import {
-  type ApplicationsService,
-  applicationDecisionAction,
-} from './applications.service';
+import { type ApplicationsService } from './applications.service';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 import { type ApplicationListItem } from './applications.repository';
+import { ApplicationAnswersService } from './application-answers.service';
+
+const applicationAnswersService = new ApplicationAnswersService();
 
 type ControllerService = Pick<ApplicationsService, 'decide' | 'getForStaff'>;
 
@@ -85,7 +85,7 @@ describe('ApplicationsController', () => {
 
     let thrown: unknown;
     try {
-      applicationDecisionAction(body);
+      applicationAnswersService.applicationDecisionAction(body);
     } catch (error) {
       thrown = error;
     }

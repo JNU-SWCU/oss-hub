@@ -4,10 +4,11 @@ import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import {
-  MilestoneDocumentsService,
-  type MilestoneDocumentCollectionQuery,
-} from './milestone-documents.service';
+import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import type { MilestoneDocumentCollectionQuery } from './milestone-document-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -27,6 +28,8 @@ const repository = new MilestoneDocumentsRepository(prisma);
 const service = new MilestoneDocumentsService(
   repository,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
 );
 
 const collectionQuery: MilestoneDocumentCollectionQuery = {

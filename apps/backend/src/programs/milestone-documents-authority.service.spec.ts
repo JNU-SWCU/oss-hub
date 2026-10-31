@@ -10,6 +10,9 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const findActorByGithubId = jest.fn();
 const authority = new UsersAuthorityService({ findActorByGithubId });
@@ -19,23 +22,36 @@ const storage = {
   get: jest.fn(),
   delete: jest.fn(),
 } satisfies ObjectStoragePort;
-const documents = new MilestoneDocumentsService(repository, authority);
+const documents = new MilestoneDocumentsService(
+  repository,
+  authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
+);
 const files = new MilestoneDocumentFilesService(
   repository,
   storage,
   {} as SubmissionFilesService,
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new SubmissionFileRulesService(),
 );
-const reviews = new MilestoneDocumentReviewsService(repository, authority);
+const reviews = new MilestoneDocumentReviewsService(
+  repository,
+  authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+);
 const archives = new MilestoneDocumentArchiveService(
   repository,
   storage,
   {} as ProgramArchiveReader,
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const collection = new MilestoneDocumentCollectionService(
   {} as MilestoneDocumentCollectionReadRepository,
   authority,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const input = { name: '합성 서류', required: true, sortOrder: 1 };
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;

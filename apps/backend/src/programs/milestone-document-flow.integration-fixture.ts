@@ -4,11 +4,7 @@ import { PublicProjectsService } from './public-projects.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
@@ -23,6 +19,9 @@ import {
   flowGithubIds,
   seedMilestoneDocumentFlow,
 } from './milestone-document-flow-data.integration-fixture';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 export { flowIds } from './milestone-document-flow-data.integration-fixture';
 
@@ -94,7 +93,7 @@ export class MilestoneDocumentFlowFixture {
   ): Promise<Response> {
     if (this.app === undefined)
       throw new Error('Fixture application is not started');
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       sessionSecret,
       flowGithubIds[input.actor ?? 'student'],
       0,
@@ -103,7 +102,7 @@ export class MilestoneDocumentFlowFixture {
       method: input.method ?? 'GET',
       headers: {
         origin,
-        cookie: `${sessionCookieName(false)}=${token}`,
+        cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
         ...(input.json === undefined
           ? {}
           : { 'Content-Type': 'application/json' }),

@@ -22,6 +22,7 @@ import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoryProvisionStateError } from './repository-provision-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from './repository-url.service';
 
 describe('repository-own-enrollment.service', () => {
   const INPUT = {
@@ -89,19 +90,26 @@ describe('repository-own-enrollment.service', () => {
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
-const target = {
+const targetRow = {
   id: 'synthetic-repository-id',
   githubRepositoryId: 987654321n,
-  name: 'synthetic-repository',
-  url: 'https://github.com/synthetic-org/synthetic-repository',
+  nameWithOwner: 'synthetic-org/synthetic-repository',
   visibility: RepositoryVisibility.PRIVATE,
   publishedAt: null,
+};
+const target = {
+  id: targetRow.id,
+  githubRepositoryId: targetRow.githubRepositoryId,
+  name: 'synthetic-repository',
+  url: 'https://github.com/synthetic-org/synthetic-repository',
+  visibility: targetRow.visibility,
+  publishedAt: targetRow.publishedAt,
 };
 
 function dependencies() {
   const store = {
     auditLogWriter: {} as RepositoriesTransactionStore['auditLogWriter'],
-    findPublishTarget: jest.fn().mockResolvedValue(target),
+    findPublishTarget: jest.fn().mockResolvedValue(targetRow),
     publishRepositoryIfPrivate: jest.fn().mockResolvedValue(true),
   } as jest.Mocked<
     Pick<
@@ -110,7 +118,7 @@ function dependencies() {
     >
   >;
   const repository = {
-    findPublishTarget: jest.fn().mockResolvedValue(target),
+    findPublishTarget: jest.fn().mockResolvedValue(targetRow),
     listOwnedProvisionJobs: jest.fn().mockResolvedValue([]),
     withTransaction: jest.fn(
       async (
@@ -145,11 +153,16 @@ function serviceFrom(deps: ReturnType<typeof dependencies>) {
     deps.github,
     deps.auditLog,
     new AuditLogMetadataService(),
+    new RepositoryUrlService(),
   );
 }
 
 function readServiceFrom(deps: ReturnType<typeof dependencies>) {
-  return new RepositoriesReadService(deps.repository, deps.organization);
+  return new RepositoriesReadService(
+    deps.repository,
+    deps.organization,
+    new RepositoryUrlService(),
+  );
 }
 
 function job(
@@ -201,8 +214,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         application: {
           repository: {
             id: 'synthetic-in-progress-repository',
-            name: 'synthetic-in-progress',
-            url: 'https://github.com/synthetic-org/synthetic-in-progress',
+            nameWithOwner: 'synthetic-org/synthetic-in-progress',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.PENDING }],
@@ -219,8 +231,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
           team: { name: 'Synthetic team', _count: { members: 2 } },
           repository: {
             id: 'synthetic-completed-repository',
-            name: 'synthetic-completed',
-            url: 'https://github.com/synthetic-org/synthetic-completed',
+            nameWithOwner: 'synthetic-org/synthetic-completed',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
@@ -289,8 +300,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
           team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
           repository: {
             id: 'synthetic-own-repository',
-            name: 'synthetic-own-repo',
-            url: externalUrl,
+            nameWithOwner: externalUrl.replace('https://github.com/', ''),
             visibility: RepositoryVisibility.PUBLIC,
             source: RepositorySource.EXTERNAL_PUBLIC,
             invitations: [],
@@ -336,8 +346,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         application: {
           repository: {
             id: 'synthetic-revoking-repository',
-            name: 'synthetic-revoking',
-            url: 'https://github.com/synthetic-org/synthetic-revoking',
+            nameWithOwner: 'synthetic-org/synthetic-revoking',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [
@@ -382,8 +391,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         application: {
           repository: {
             id: 'synthetic-granted-repository',
-            name: 'synthetic-granted',
-            url: 'https://github.com/synthetic-org/synthetic-granted',
+            nameWithOwner: 'synthetic-org/synthetic-granted',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
@@ -413,8 +421,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         application: {
           repository: {
             id: 'synthetic-invalid-repository',
-            name: 'synthetic-invalid',
-            url: 'https://github.com/other-org/synthetic-invalid',
+            nameWithOwner: 'other-org/synthetic-invalid',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
@@ -465,7 +472,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       'synthetic/completed',
       'https://github.com/synthetic-org/synthetic/completed',
     ],
-  ])('fails closed on %s repository identity', async (_case, name, url) => {
+  ])('fails closed on %s repository identity', async (_case, _name, url) => {
     const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
@@ -473,8 +480,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         application: {
           repository: {
             id: 'synthetic-invalid-repository',
-            name,
-            url,
+            nameWithOwner: url.replace('https://github.com/', ''),
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
@@ -505,8 +511,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
           team: { name: 'Synthetic direct team', _count: { members: 3 } },
           repository: {
             id: 'synthetic-direct-org-repository',
-            name: 'synthetic-direct-org',
-            url: 'https://github.com/synthetic-org/synthetic-direct-org',
+            nameWithOwner: 'synthetic-org/synthetic-direct-org',
             visibility: RepositoryVisibility.PUBLIC,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
@@ -544,8 +549,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
           team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
           repository: {
             id: 'synthetic-relinked-repository',
-            name: 'synthetic-relinked-repo',
-            url: externalUrl,
+            nameWithOwner: externalUrl.replace('https://github.com/', ''),
             visibility: RepositoryVisibility.PUBLIC,
             source: RepositorySource.EXTERNAL_PUBLIC,
             invitations: [],
@@ -594,8 +598,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
           team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
           repository: {
             id: 'synthetic-managed-mismatch-repository',
-            name: 'synthetic-managed-mismatch',
-            url: 'https://github.com/other-org/synthetic-managed-mismatch',
+            nameWithOwner: 'other-org/synthetic-managed-mismatch',
             visibility: RepositoryVisibility.PRIVATE,
             source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
@@ -620,7 +623,7 @@ describe('RepositoriesService.publish', () => {
   it('이미 public인 repository는 GitHub를 다시 호출하지 않는다', async () => {
     const { repository, github, auditLog } = dependencies();
     repository.findPublishTarget.mockResolvedValue({
-      ...target,
+      ...targetRow,
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     });
@@ -688,7 +691,7 @@ describe('RepositoriesService.publish', () => {
   it('CAS에서 진 patron은 감사 기록 없이 승자가 커밋한 상태를 재조회한다', async () => {
     const { repository, github, auditLog, store } = dependencies();
     const winnerCommittedState = {
-      ...target,
+      ...targetRow,
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
     };
@@ -711,7 +714,11 @@ describe('RepositoriesService.publish', () => {
       [target.id, target.githubRepositoryId, NOW],
     ]);
     expect(auditLog.record.mock.calls).toHaveLength(0);
-    expect(result).toEqual(winnerCommittedState);
+    expect(result).toEqual({
+      ...target,
+      visibility: winnerCommittedState.visibility,
+      publishedAt: winnerCommittedState.publishedAt,
+    });
   });
 
   it('없는 repository는 GitHub 호출 전에 중단한다', async () => {

@@ -17,6 +17,7 @@ import { CollectionUserActivityRepository } from './repository-provision-job.rep
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 export class CollectionPublicTokenService {
   private token: string | undefined;
@@ -76,11 +77,13 @@ export class CollectionProvidersService {
         CollectionIncrementalRepository,
         RUNTIME_CONFIG,
         CollectionPublicTokenService,
+        RepositoryUrlService,
       ],
       useFactory: (
         incrementalRepository: CollectionIncrementalRepository,
         runtimeConfig: RuntimeConfig,
         publicTokens: CollectionPublicTokenService,
+        repositoryUrl: RepositoryUrlService,
       ): CollectionSyncService => {
         let orgTokens: CollectionAppTokenClient | undefined;
         let runtime: CollectionSyncRuntime | undefined;
@@ -134,6 +137,7 @@ export class CollectionProvidersService {
           incrementalRepository,
           runtimeFactory,
           resolveGithubOrganizationId,
+          repositoryUrl,
           undefined,
           undefined,
           externalRuntimeFactory,

@@ -15,7 +15,7 @@ import {
 } from './submissions-error-code.error';
 import { type SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './milestone-document-collection-read.repository';
-import { documentDeliveryStatus } from './milestone-documents.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
   readonly page: number;
@@ -59,6 +59,7 @@ export class SubmissionMatrixService {
   constructor(
     @Inject(SubmissionMatrixRepository)
     private readonly repository: SubmissionMatrixRepositoryPort,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async matrix(
@@ -120,7 +121,7 @@ export class SubmissionMatrixService {
         dueAt: milestone.dueAt,
       })),
       rows: applications.items.map((application) =>
-        toMatrixRow(application, milestones, {
+        this.toMatrixRow(application, milestones, {
           reviews: cellIndex,
           firstSubmissions: firstSubmissionIndex,
           changeRequestCounts,
@@ -135,6 +136,50 @@ export class SubmissionMatrixService {
   private error(code: SubmissionsErrorCode): DomainException {
     return new DomainException(SUBMISSIONS_ERROR_CODES[code]);
   }
+
+  private toMatrixRow(
+    application: MatrixApplicationRecord,
+    milestones: readonly MatrixMilestoneRecord[],
+    index: {
+      readonly reviews: ReadonlyMap<string, MatrixSubmissionRecord>;
+      readonly firstSubmissions: ReadonlyMap<string, Date>;
+      readonly changeRequestCounts: ReadonlyMap<string, number>;
+    },
+  ): MatrixRowResult {
+    return {
+      applicationId: application.id,
+
+      applicationMode: isSoloTeam(application) ? 'PERSONAL' : 'TEAM',
+      displayName: isSoloTeam(application)
+        ? (application.applicant.name ?? application.applicant.nickname)
+        : (application.team?.name ??
+          application.applicant.name ??
+          application.applicant.nickname),
+      githubLogins: application.team
+        ? application.team.memberNicknames
+        : [application.applicant.nickname],
+      cells: milestones.map((milestone) => ({
+        ...toMatrixCell(
+          milestone.id,
+          index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
+        ),
+        deliveryStatus:
+          this.milestoneDocumentRulesService.documentDeliveryStatus({
+            dueAt: milestone.dueAt,
+            requiredFirstSubmissions: milestone.requiredDocumentIds.map(
+              (documentId) =>
+                index.firstSubmissions.get(
+                  cellKey(application.id, documentId),
+                ) ?? null,
+            ),
+          }),
+        changesRequestedCount:
+          index.changeRequestCounts.get(
+            cellKey(application.id, milestone.id),
+          ) ?? 0,
+      })),
+    };
+  }
 }
 
 function cellKey(applicationId: string, milestoneId: string): string {
@@ -144,47 +189,6 @@ function cellKey(applicationId: string, milestoneId: string): string {
 function isSoloTeam(application: MatrixApplicationRecord): boolean {
   const team = application.team;
   return team === null || team.memberNicknames.length <= 1;
-}
-
-function toMatrixRow(
-  application: MatrixApplicationRecord,
-  milestones: readonly MatrixMilestoneRecord[],
-  index: {
-    readonly reviews: ReadonlyMap<string, MatrixSubmissionRecord>;
-    readonly firstSubmissions: ReadonlyMap<string, Date>;
-    readonly changeRequestCounts: ReadonlyMap<string, number>;
-  },
-): MatrixRowResult {
-  return {
-    applicationId: application.id,
-
-    applicationMode: isSoloTeam(application) ? 'PERSONAL' : 'TEAM',
-    displayName: isSoloTeam(application)
-      ? (application.applicant.name ?? application.applicant.nickname)
-      : (application.team?.name ??
-        application.applicant.name ??
-        application.applicant.nickname),
-    githubLogins: application.team
-      ? application.team.memberNicknames
-      : [application.applicant.nickname],
-    cells: milestones.map((milestone) => ({
-      ...toMatrixCell(
-        milestone.id,
-        index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
-      ),
-      deliveryStatus: documentDeliveryStatus({
-        dueAt: milestone.dueAt,
-        requiredFirstSubmissions: milestone.requiredDocumentIds.map(
-          (documentId) =>
-            index.firstSubmissions.get(cellKey(application.id, documentId)) ??
-            null,
-        ),
-      }),
-      changesRequestedCount:
-        index.changeRequestCounts.get(cellKey(application.id, milestone.id)) ??
-        0,
-    })),
-  };
 }
 
 function toMatrixCell(

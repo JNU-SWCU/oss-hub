@@ -10,6 +10,8 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import { MilestoneDocumentRulesService } from '../programs/milestone-document-rules.service';
+import { ProgramRulesService } from '../programs/program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,6 +31,7 @@ const prisma = new PrismaService();
 const service = new MilestoneDocumentFeedbackService(
   new MilestoneDocumentFeedbackRepository(prisma),
   () => now,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 
 async function cleanup(): Promise<void> {

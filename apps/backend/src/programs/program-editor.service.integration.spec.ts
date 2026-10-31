@@ -18,6 +18,9 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -83,6 +86,8 @@ describe('ProgramEditorService integration', () => {
     const documents = new MilestoneDocumentsService(
       new MilestoneDocumentsRepository(prisma),
       new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new SubmissionFileRulesService(),
     );
     const results = await runTogether(
       () =>

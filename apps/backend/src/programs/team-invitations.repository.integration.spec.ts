@@ -10,8 +10,10 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { parseRepositoryAccessSyncEvent } from '../github/repository-provision-event.config';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+
+const repositoryProvisionEventService = new RepositoryProvisionEventService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -509,7 +511,11 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       });
       expect(event!.availableAt).toEqual(RESPONDED_AT);
 
-      expect(parseRepositoryAccessSyncEvent(event!.payload)).toEqual({
+      expect(
+        repositoryProvisionEventService.parseRepositoryAccessSyncEvent(
+          event!.payload,
+        ),
+      ).toEqual({
         applicationId: APPLICATION_ID,
         teamId: TARGET_TEAM_ID,
         requestedAt: RESPONDED_AT.toISOString(),

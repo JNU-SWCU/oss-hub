@@ -1,7 +1,6 @@
 import {
   CollectionInventoryService,
   type SweepInventory,
-  splitNameWithOwner,
 } from './collection-inventory.service';
 import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
@@ -25,6 +24,7 @@ import type {
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
 import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
+import { RepositoryUrlService } from './repository-url.service';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
@@ -190,6 +190,7 @@ export class CollectionSyncService {
     private readonly incrementalRepository: SyncRepository,
     private readonly runtimeFactory: CollectionSyncRuntimeFactory,
     private readonly resolveGithubOrganizationId: () => Promise<bigint>,
+    private readonly repositoryUrlService: RepositoryUrlService,
     private readonly now: () => Date = () => new Date(),
     private readonly createRunId: () => string = randomUUID,
 
@@ -200,6 +201,7 @@ export class CollectionSyncService {
       incrementalRepository,
       this.deadline,
       now,
+      repositoryUrlService,
     );
     this.checkpoints = new CollectionStreamCheckpointService(
       incrementalRepository,
@@ -660,7 +662,9 @@ export class CollectionSyncService {
       insertedCount: number,
     ) => void,
   ): Promise<void> {
-    const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
+    const [owner, name] = this.repositoryUrlService.splitNameWithOwner(
+      repository.nameWithOwner,
+    );
 
     const { teamMembers, insertedCount: commitCount } =
       await this.trackStreamOutcome(

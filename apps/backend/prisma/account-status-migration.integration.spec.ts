@@ -17,6 +17,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { UserProfileService } from '../src/platform/user-profile.service';
+import { AuthSessionService } from '../src/auth/auth-session.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -49,6 +50,7 @@ describe('accountStatus migration regression', () => {
     authConfig,
     new AuthRepository(prisma, authConfig),
     new UserProfileService(),
+    new AuthSessionService(),
   );
 
   const rolesService = new MemberOnboardingService(

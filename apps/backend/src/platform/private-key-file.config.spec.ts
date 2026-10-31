@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import {
   PrivateKeyFileError,
-  readPrivateKeyFile,
+  loadPrivateKeyFileConfig,
 } from './private-key-file.config';
 
 const PKCS8_HEADER = ['-----BEGIN', 'PRIVATE KEY-----'].join(' ');
@@ -29,7 +29,7 @@ function syntheticPem(type: 'pkcs8' | 'pkcs1'): string {
   return privateKey;
 }
 
-describe('readPrivateKeyFile', () => {
+describe('loadPrivateKeyFileConfig', () => {
   let workspace: string;
 
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe('readPrivateKeyFile', () => {
     const pem = syntheticPem('pkcs8');
     const path = writeKeyFile('pkcs8.pem', pem);
 
-    const loaded = readPrivateKeyFile(ENV_KEY, path);
+    const loaded = loadPrivateKeyFileConfig(ENV_KEY, path);
 
     expect(loaded).toBe(pem.trim());
     expect(loaded).toContain('\n');
@@ -62,7 +62,7 @@ describe('readPrivateKeyFile', () => {
     const pem = syntheticPem('pkcs1');
     const path = writeKeyFile('pkcs1.pem', pem);
 
-    const loaded = readPrivateKeyFile(ENV_KEY, path);
+    const loaded = loadPrivateKeyFileConfig(ENV_KEY, path);
 
     expect(loaded.startsWith(PKCS1_HEADER)).toBe(true);
   });
@@ -71,7 +71,7 @@ describe('readPrivateKeyFile', () => {
     const pem = syntheticPem('pkcs8');
     const path = writeKeyFile('padded.pem', `\n  ${pem}\n\n`);
 
-    const loaded = readPrivateKeyFile(ENV_KEY, path);
+    const loaded = loadPrivateKeyFileConfig(ENV_KEY, path);
 
     expect(loaded).toBe(pem.trim());
   });
@@ -79,7 +79,7 @@ describe('readPrivateKeyFile', () => {
   it('파일이 없으면 거절한다', () => {
     const path = join(workspace, 'missing.pem');
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -88,7 +88,7 @@ describe('readPrivateKeyFile', () => {
     const path = join(workspace, 'a-directory');
     mkdirSync(path);
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -96,7 +96,7 @@ describe('readPrivateKeyFile', () => {
   it('빈 파일을 거절한다', () => {
     const path = writeKeyFile('empty.pem', '');
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -104,7 +104,7 @@ describe('readPrivateKeyFile', () => {
   it('공백만 있는 파일을 거절한다', () => {
     const path = writeKeyFile('blank.pem', '   \n\t\n  ');
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -113,7 +113,7 @@ describe('readPrivateKeyFile', () => {
     const oversized = `${PKCS8_HEADER}\n${'A'.repeat(65_536)}\n${PKCS8_FOOTER}\n`;
     const path = writeKeyFile('oversized.pem', oversized);
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -121,7 +121,7 @@ describe('readPrivateKeyFile', () => {
   it('PEM 헤더가 없으면 거절한다', () => {
     const path = writeKeyFile('headerless.pem', 'bm90LWEtcGVtLWZpbGU=\n');
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -130,7 +130,7 @@ describe('readPrivateKeyFile', () => {
     const corrupted = `${PKCS8_HEADER}\nQUJDREVGRw==\n${PKCS8_FOOTER}\n`;
     const path = writeKeyFile('corrupted.pem', corrupted);
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -145,7 +145,7 @@ describe('readPrivateKeyFile', () => {
     ].join('\n');
     const path = writeKeyFile('truncated.pem', truncated);
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
   });
@@ -156,7 +156,7 @@ describe('readPrivateKeyFile', () => {
     const path = writeKeyFile('unreadable.pem', syntheticPem('pkcs8'));
     chmodSync(path, 0o000);
 
-    expect(() => readPrivateKeyFile(ENV_KEY, path)).toThrow(
+    expect(() => loadPrivateKeyFileConfig(ENV_KEY, path)).toThrow(
       PrivateKeyFileError,
     );
 
@@ -172,7 +172,7 @@ describe('readPrivateKeyFile', () => {
 
     let caught: unknown;
     try {
-      readPrivateKeyFile(ENV_KEY, path);
+      loadPrivateKeyFileConfig(ENV_KEY, path);
     } catch (error) {
       caught = error;
     }
@@ -197,8 +197,8 @@ describe('readPrivateKeyFile', () => {
     );
 
     try {
-      readPrivateKeyFile(ENV_KEY, validPath);
-      expect(() => readPrivateKeyFile(ENV_KEY, corruptedPath)).toThrow(
+      loadPrivateKeyFileConfig(ENV_KEY, validPath);
+      expect(() => loadPrivateKeyFileConfig(ENV_KEY, corruptedPath)).toThrow(
         PrivateKeyFileError,
       );
 
@@ -218,7 +218,7 @@ describe('readPrivateKeyFile', () => {
 
     const codes = [missing, empty].map((path) => {
       try {
-        readPrivateKeyFile(ENV_KEY, path);
+        loadPrivateKeyFileConfig(ENV_KEY, path);
         return null;
       } catch (error) {
         return (error as PrivateKeyFileError).code;

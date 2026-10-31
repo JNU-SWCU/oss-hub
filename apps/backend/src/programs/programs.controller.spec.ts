@@ -17,6 +17,8 @@ import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService, type ProgramDetailResult } from './programs.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { AuthSessionService } from '../auth/auth-session.service';
 
 describe('program-editor.controller', () => {
   const controllerMethod = (name: keyof ProgramsController): object => {
@@ -45,7 +47,10 @@ describe('program-editor.controller', () => {
       jest.clearAllMocks();
       const module = await Test.createTestingModule({
         controllers: [ProgramsController],
-        providers: [{ provide: ProgramEditorService, useValue: editor }],
+        providers: [
+          ...STATELESS_PROVIDERS,
+          { provide: ProgramEditorService, useValue: editor },
+        ],
       })
         .useMocker((token) => (token === Function ? undefined : {}))
         .overrideGuard(OriginGuard)
@@ -151,7 +156,11 @@ describe('program-lifecycle.controller', () => {
       jest.clearAllMocks();
       moduleRef = await Test.createTestingModule({
         controllers: [ProgramsController],
-        providers: [{ provide: ProgramLifecycleService, useValue: lifecycle }],
+        providers: [
+          AuthSessionService,
+          ...STATELESS_PROVIDERS,
+          { provide: ProgramLifecycleService, useValue: lifecycle },
+        ],
       })
         .useMocker((token) => (token === Function ? undefined : {}))
         .overrideGuard(SessionGuard)
@@ -293,6 +302,8 @@ describe('ProgramsController read boundaries', () => {
     const module = await Test.createTestingModule({
       controllers: [ProgramsController],
       providers: [
+        AuthSessionService,
+        ...STATELESS_PROVIDERS,
         { provide: ProgramCreationService, useValue: creation },
         { provide: ProgramsService, useValue: programs },
         { provide: ProgramActivityService, useValue: activity },

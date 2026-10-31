@@ -4,6 +4,7 @@ import { LoginHistoryService, AuthService } from './auth.service';
 import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { AuthController } from './auth.controller';
 import { type AuthUser, type OptionalSessionRequest } from './http-auth.types';
+import { AuthSessionService } from './auth-session.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -60,6 +61,7 @@ describe('AuthController logout', () => {
       useSecureCookies: true,
     } as unknown as AuthConfig,
     { recordLogout } as unknown as LoginHistoryService,
+    new AuthSessionService(),
   );
 
   beforeEach(() => {

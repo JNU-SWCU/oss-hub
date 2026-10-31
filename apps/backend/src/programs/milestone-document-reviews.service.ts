@@ -9,9 +9,9 @@ import {
   type CreateMilestoneDocumentReviewInput,
   type CreatedMilestoneDocumentReview,
 } from './milestone-document-collection-read.repository';
-import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history.config';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { reviewDecisionToSubmissionStatus } from './milestone-documents.service';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 @Injectable()
 export class MilestoneDocumentReviewsService {
@@ -22,6 +22,7 @@ export class MilestoneDocumentReviewsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async review(
@@ -79,10 +80,11 @@ export class MilestoneDocumentReviewsService {
       if (latestReviewId !== input.expectedLatestReviewId) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
-      const reviewedAt = nextMilestoneDocumentHistoryCreatedAt(
-        now(),
-        submission.latestHistoryCreatedAt,
-      );
+      const reviewedAt =
+        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+          now(),
+          submission.latestHistoryCreatedAt,
+        );
 
       if (
         input.resubmissionDueAt !== null &&
@@ -105,7 +107,9 @@ export class MilestoneDocumentReviewsService {
       });
       await store.updateSubmissionStatus(
         submission.id,
-        reviewDecisionToSubmissionStatus(input.decision),
+        this.milestoneDocumentRulesService.reviewDecisionToSubmissionStatus(
+          input.decision,
+        ),
       );
       return review;
     });

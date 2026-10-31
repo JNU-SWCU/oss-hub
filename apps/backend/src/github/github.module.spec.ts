@@ -27,6 +27,9 @@ import {
 } from './repositories.service';
 import { CollectionPublicTokenService } from './collection-providers.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+import { RepositoryPublishService } from './repository-publish.service';
+import { RepositoryUrlService } from './repository-url.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, GithubModule) as unknown;
@@ -146,6 +149,9 @@ describe('GithubModule', () => {
       RepositoriesService,
       RepositoriesReadService,
       OwnRepositoryUrlValidationService,
+      RepositoryProvisionEventService,
+      RepositoryPublishService,
+      RepositoryUrlService,
     ]);
     expect(
       getMetadataArray(MODULE_METADATA.PROVIDERS).some(
@@ -228,6 +234,7 @@ describe('GithubModule', () => {
       CollectionIncrementalRepository,
       RUNTIME_CONFIG,
       CollectionPublicTokenService,
+      RepositoryUrlService,
     ]);
 
     const runtimeConfig = loadRuntimeConfig({

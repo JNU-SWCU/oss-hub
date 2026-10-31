@@ -8,9 +8,6 @@ import {
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
-  buildProgramAuthoringPlan,
-  canonicalProgramAuthoringPayload,
-  hashProgramAuthoringPayload,
 } from './program-authoring.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
@@ -29,6 +26,18 @@ import {
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const programAuthoringService = new ProgramAuthoringService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+);
 
 describe('program-notice-preview.service', () => {
   const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';
@@ -226,6 +235,8 @@ function setup() {
       repository,
       auditLog,
       new AuditLogMetadataService(),
+      new ProgramRulesService(),
+      new ProgramUploadRulesService(new SubmissionFileRulesService()),
     ),
   };
 }
@@ -234,8 +245,8 @@ describe('ProgramAuthoringService', () => {
   it('rejects a changed track on a retry instead of returning the first program', async () => {
     const { service, repository, transaction } = setup();
     repository.findReplay.mockResolvedValue({
-      payloadHash: hashProgramAuthoringPayload(
-        buildProgramAuthoringPlan(request()),
+      payloadHash: programAuthoringService.hashProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(request()),
       ),
       program: program(),
     });
@@ -254,9 +265,10 @@ describe('ProgramAuthoringService', () => {
 
   it('requires existing-program confirmation when a historical hash has no track proof', async () => {
     const { service, repository, transaction } = setup();
-    const canonical = canonicalProgramAuthoringPayload(
-      buildProgramAuthoringPlan(request()),
-    );
+    const canonical =
+      programAuthoringService.toCanonicalProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(request()),
+      );
     const { trackType, ...historicalProgram } = canonical.program;
     const historicalHash = createHash('sha256')
       .update(
@@ -315,6 +327,8 @@ describe('ProgramAuthoringService', () => {
     const { repository } = setup();
     const moduleRef = await Test.createTestingModule({
       providers: [
+        ...STATELESS_PROVIDERS,
+        ProgramRulesService,
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
         AuditLogMetadataService,
@@ -408,8 +422,8 @@ describe('ProgramAuthoringService', () => {
     const { service, repository, record } = setup();
     const created = program();
     repository.findReplay.mockResolvedValue({
-      payloadHash: hashProgramAuthoringPayload(
-        buildProgramAuthoringPlan(request()),
+      payloadHash: programAuthoringService.hashProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(request()),
       ),
       program: created,
     });
@@ -425,8 +439,8 @@ describe('ProgramAuthoringService', () => {
       new ProgramAuthoringIdempotencyRaceError(new Error('p2002')),
     );
     repository.findReplay.mockResolvedValueOnce(null).mockResolvedValueOnce({
-      payloadHash: hashProgramAuthoringPayload(
-        buildProgramAuthoringPlan(request()),
+      payloadHash: programAuthoringService.hashProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(request()),
       ),
       program: program(),
     });

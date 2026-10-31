@@ -58,11 +58,12 @@ export async function retrySubmissionFileCleanup(
 export async function reconcileStorageOrphans(
   args: readonly string[],
 ): Promise<void> {
-  const {
-    parseStorageOrphanReconciliationMode,
-    runStorageOrphanReconciliation,
-  } = await import('./programs/storage-orphan-reconciliation.service');
-  const mode = parseStorageOrphanReconciliationMode(args);
+  const { StorageOrphanReconciliationService } =
+    await import('./programs/storage-orphan-reconciliation.service');
+  const mode =
+    StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode(
+      args,
+    );
   const { PrismaStorageReferenceRepository } =
     await import('./programs/prisma-storage-reference.repository');
   const { PlatformModule } = await import('./platform/platform.module');
@@ -75,7 +76,7 @@ export async function reconcileStorageOrphans(
       logger: false,
       abortOnError: false,
     });
-    await runStorageOrphanReconciliation(
+    await StorageOrphanReconciliationService.runStorageOrphanReconciliation(
       mode,
       references,
       context.get<ObjectStoragePort>(OBJECT_STORAGE),
@@ -92,12 +93,12 @@ export async function reconcileStorageOrphans(
 
 async function sendDeadlineDigest(): Promise<void> {
   const logger = new Logger('send-deadline-digest-cli');
-  const { DeadlineDigestService, sendForcedDeadlineDigest } =
+  const { DeadlineDigestService } =
     await import('./notifications/deadline-digest.service');
   const forceToValue = PROCESS_RUNTIME_CONFIG.DIGEST_FORCE_TO;
 
   if (forceToValue !== undefined) {
-    await sendForcedDeadlineDigest(
+    await DeadlineDigestService.sendForcedDeadlineDigest(
       PROCESS_RUNTIME_CONFIG,
       forceToValue,
       logger,

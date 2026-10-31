@@ -4,6 +4,7 @@ import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService, LoginHistoryService } from './auth.service';
 import { AuthUser } from './http-auth.types';
+import { AuthSessionService } from './auth-session.service';
 
 export const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -51,9 +52,14 @@ export function createController(
     frontendUrl: 'https://oss.example',
     useSecureCookies: true,
   } as AuthConfig;
-  return new AuthController(service, config, {
-    recordLogin,
-  } as unknown as LoginHistoryService);
+  return new AuthController(
+    service,
+    config,
+    {
+      recordLogin,
+    } as unknown as LoginHistoryService,
+    new AuthSessionService(),
+  );
 }
 
 export function requestWithCookie(cookie?: string): Request {

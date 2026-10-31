@@ -2,21 +2,20 @@ import { Injectable } from '@nestjs/common';
 import {
   ProgramTeamRepositoryEvidenceRepository,
   type TeamActivityScope,
-  type TeamActivityView,
-  type TeamRepositoryEvidenceView,
   type RepositoryUrlHistoryCursor,
   type TeamApplicationView,
-  type TeamRepositoryProvisioningJobStatus,
-  type TeamRepositoryProvisioningSafeErrorClass,
+  type RepositoryUrlHistoryRows,
+  type TeamRepositoryContributionsRow,
+  type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
 import {
   AccountStatus,
-  ApplicationStatus,
   MilestoneDocumentKind,
   OutboxEventStatus,
   Prisma,
   RepositoryProvisionJobStatus,
   type ProgramCategory,
+  type MilestoneSubmissionType,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
@@ -25,14 +24,10 @@ import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
-import { requiredMilestonesApproved } from './milestone-completion.config';
-import { publishBlockedReasons } from '../github/repository-publish.config';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import {
-  projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
+  type SubmissionCompletionTargetRow,
 } from './submission-completion.config';
-import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 
 export interface TeamStudentActor {
   readonly id: string;
@@ -80,10 +75,42 @@ export interface RepositoryUrlHistoryScopedRows extends RepositoryUrlHistoryRows
   readonly applicationId: string | null;
 }
 
-export interface StaffTeamDetailRecord extends Omit<
-  TeamRepositoryEvidenceView,
-  'repositoryUrlHistory'
-> {
+export interface TeamApplicationRow {
+  readonly id: string;
+  readonly status: TeamApplicationView['status'];
+  readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
+  readonly repositoryUrl: string | null;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly repository: {
+    readonly id: string;
+    readonly nameWithOwner: string;
+    readonly visibility: 'PUBLIC' | 'PRIVATE';
+  } | null;
+  readonly program: {
+    readonly endAt: Date;
+    readonly repositoryProvisioningEnabled: boolean;
+    readonly milestones: readonly {
+      readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
+      readonly documents: readonly { readonly id: string }[];
+    }[];
+  };
+  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  readonly outbox: {
+    readonly status: OutboxEventStatus;
+    readonly createdAt: Date;
+  } | null;
+  readonly job: {
+    readonly status: RepositoryProvisionJobStatus;
+    readonly updatedAt: Date;
+    readonly lastErrorCode: string | null;
+    readonly repositoryId: string | null;
+  } | null;
+}
+
+export interface StaffTeamDetailRecord {
+  readonly repositoryContributions: TeamRepositoryContributionsRow | null;
   readonly repositoryUrlHistory: RepositoryUrlHistoryRows;
   readonly id: string;
   readonly name: string;
@@ -93,7 +120,7 @@ export interface StaffTeamDetailRecord extends Omit<
     readonly nickname: string;
     readonly name: string | null;
   }[];
-  readonly application: TeamApplicationView | null;
+  readonly application: TeamApplicationRow | null;
 }
 
 export type TeamLeaveResult =
@@ -412,7 +439,7 @@ export class ProgramTeamsRepository {
       },
     });
 
-    let applicationView: TeamApplicationView | null = null;
+    let applicationRow: TeamApplicationRow | null = null;
     if (application) {
       const [outbox, job] = await Promise.all([
         this.prisma.outboxEvent.findUnique({
@@ -429,61 +456,7 @@ export class ProgramTeamsRepository {
           },
         }),
       ]);
-      const repository = application.repository;
-      const completionTargets = projectSubmissionCompletionTargets(
-        application.milestoneDocumentSubmissions,
-      );
-      const blockedReasons = repository
-        ? publishBlockedReasons(
-            {
-              visibility: repository.visibility,
-              provisionStatus:
-                job?.repositoryId === repository.id ? job.status : null,
-              requiredMilestonesApproved: requiredMilestonesApproved(
-                application.program.milestones,
-                completionTargets.submissions,
-                completionTargets.documentSubmissions,
-              ),
-              isRepositoryPublicationPlanned:
-                application.isRepositoryPublicationPlanned,
-              programEndAt: application.program.endAt,
-            },
-            new Date(),
-          )
-        : [];
-      applicationView = {
-        id: application.id,
-        status: application.status,
-        repositoryConnectionMode: application.repositoryConnectionMode,
-        repository: repository
-          ? {
-              id: repository.id,
-              url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
-              visibility: repository.visibility,
-              publishEligible: blockedReasons.length === 0,
-              blockedReasons,
-            }
-          : null,
-        repositoryProvisioning:
-          repository &&
-          application.repositoryUrl ===
-            repositoryUrlFromNameWithOwner(repository.nameWithOwner) &&
-          job?.repositoryId === repository.id &&
-          job.status === RepositoryProvisionJobStatus.SUCCEEDED
-            ? {
-                enabled: application.program.repositoryProvisioningEnabled,
-                jobStatus: 'SUCCEEDED',
-                updatedAt: job.updatedAt,
-                safeErrorClass: null,
-              }
-            : resolveTeamRepositoryProvisioning(
-                application.status,
-                application.program.repositoryProvisioningEnabled,
-                application.updatedAt,
-                outbox ?? undefined,
-                job ?? undefined,
-              ),
-      };
+      applicationRow = { ...application, outbox, job };
     }
 
     return {
@@ -495,7 +468,7 @@ export class ProgramTeamsRepository {
         nickname: member.user.nickname,
         name: member.user.profile?.name ?? null,
       })),
-      application: applicationView,
+      application: applicationRow,
       repositoryContributions: application
         ? await new ProgramTeamRepositoryEvidenceRepository(
             this.prisma,
@@ -571,9 +544,7 @@ export class ProgramTeamsRepository {
     return { ...scope, application: applications[0] ?? null };
   }
 
-  readTeamActivity(
-    team: TeamActivityScope,
-  ): Promise<Omit<TeamActivityView, 'canEditRepositoryUrl'>> {
+  readTeamActivity(team: TeamActivityScope): Promise<TeamActivityRow> {
     return new ProgramTeamRepositoryEvidenceRepository(this.prisma).activity(
       team,
     );
@@ -942,139 +913,4 @@ function lockTeamRow(
 
 interface LockedTeamRow {
   readonly id: string;
-}
-
-interface TeamProvisionOutbox {
-  readonly status: OutboxEventStatus;
-  readonly createdAt: Date;
-}
-
-interface TeamProvisionJob {
-  readonly status: RepositoryProvisionJobStatus;
-  readonly updatedAt: Date;
-  readonly lastErrorCode: string | null;
-}
-
-function resolveTeamRepositoryProvisioning(
-  applicationStatus: ApplicationStatus,
-  enabled: boolean,
-  applicationUpdatedAt: Date,
-  outbox: TeamProvisionOutbox | undefined,
-  job: TeamProvisionJob | undefined,
-): TeamApplicationView['repositoryProvisioning'] {
-  const anomalous = (): TeamApplicationView['repositoryProvisioning'] => ({
-    enabled,
-    jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
-    safeErrorClass: 'UNKNOWN',
-  });
-  if (applicationStatus !== ApplicationStatus.APPROVED) {
-    if (outbox || job) {
-      return anomalous();
-    }
-    return {
-      enabled,
-      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: null,
-    };
-  }
-
-  if (
-    (job && !outbox) ||
-    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
-    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
-  ) {
-    return anomalous();
-  }
-
-  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = mapTeamProvisionJobStatus(job.status);
-    return {
-      enabled,
-      jobStatus,
-      updatedAt: job.updatedAt,
-      safeErrorClass:
-        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
-          ? normalizeTeamSafeErrorClass(job.lastErrorCode)
-          : null,
-    };
-  }
-
-  if (enabled && outbox) {
-    if (
-      outbox.status === OutboxEventStatus.PENDING ||
-      outbox.status === OutboxEventStatus.PROCESSING
-    ) {
-      return {
-        enabled,
-        jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: null,
-      };
-    }
-    if (outbox.status === OutboxEventStatus.FAILED) {
-      return {
-        enabled,
-        jobStatus: 'FAILED',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: 'UNKNOWN',
-      };
-    }
-  }
-
-  if (!outbox && !job) {
-    return {
-      enabled,
-      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: enabled ? 'UNKNOWN' : null,
-    };
-  }
-  return anomalous();
-}
-
-function mapTeamProvisionJobStatus(
-  status: RepositoryProvisionJobStatus,
-): TeamRepositoryProvisioningJobStatus {
-  switch (status) {
-    case RepositoryProvisionJobStatus.PENDING:
-      return 'PENDING';
-    case RepositoryProvisionJobStatus.PROCESSING:
-      return 'PROCESSING';
-    case RepositoryProvisionJobStatus.SUCCEEDED:
-      return 'SUCCEEDED';
-    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
-      return 'RETRYABLE_FAILED';
-    case RepositoryProvisionJobStatus.FAILED_FINAL:
-      return 'FAILED';
-  }
-}
-
-function normalizeTeamSafeErrorClass(
-  errorCode: string | null,
-): TeamRepositoryProvisioningSafeErrorClass {
-  switch (errorCode) {
-    case 'GITHUB_OPERATIONS_CONFIGURATION':
-    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
-    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
-    case 'GITHUB_OPERATIONS_AUTHENTICATION':
-    case 'GITHUB_OPERATIONS_PERMISSION':
-      return 'AUTH';
-    case 'GITHUB_OPERATIONS_RATE_LIMITED':
-    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
-      return 'RATE_LIMIT';
-    case 'GITHUB_OPERATIONS_INVALID_INPUT':
-    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
-    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
-    case 'REPOSITORY_PROVISION_INVALID_EVENT':
-    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
-      return 'UPSTREAM_REJECTED';
-    case 'GITHUB_OPERATIONS_UPSTREAM':
-    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
-    case 'REPOSITORY_PROVISION_INTERNAL':
-    case null:
-    default:
-      return 'UNKNOWN';
-  }
 }

@@ -3,15 +3,19 @@ import type { Response } from 'express';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../auth/auth.config';
 import { RankingController } from './ranking.controller';
-import { RankingService, RANKING_YEAR_ALL } from './ranking.service';
+import { RankingService } from './ranking.service';
+import { RankingYearService, RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingController', () => {
   const findPage = jest.fn();
   const listYears = jest.fn();
-  const controller = new RankingController({
-    findPage,
-    listYears,
-  } as unknown as RankingService);
+  const controller = new RankingController(
+    {
+      findPage,
+      listYears,
+    } as unknown as RankingService,
+    new RankingYearService(),
+  );
 
   const emptyPage = {
     year: 2026,

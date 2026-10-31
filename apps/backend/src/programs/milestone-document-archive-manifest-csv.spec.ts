@@ -2,12 +2,22 @@ import {
   type MilestoneDocumentArchiveCell,
   type MilestoneDocumentArchiveCellState,
   type MilestoneDocumentArchiveManifestRow,
-  milestoneDocumentArchiveManifestCsv,
+  MilestoneDocumentArchiveService,
 } from './milestone-document-archive.service';
 import {
   type MilestoneDocumentArchiveDocument,
   type MilestoneDocumentArchiveTeam,
 } from './milestone-document-archive.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+);
 
 const BOM = '﻿';
 const CRLF = '\r\n';
@@ -81,7 +91,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [unsubmittedRow()],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(csv.codePointAt(0)).toBe(0xfeff);
       expect(csv.startsWith(`${BOM}팀,`)).toBe(true);
@@ -93,7 +106,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [unsubmittedRow(), unsubmittedRow({ teamName: '합성팀2' })],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(csv.endsWith(CRLF)).toBe(true);
       expect(csv.replace(/\r\n/g, '')).not.toContain('\n');
@@ -105,7 +121,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
     it('머리글은 팀·신청자·팀원 다음에 서류마다 세 칸을 붙인다', () => {
       const input = { documents: TWO_DOCUMENTS, rows: [] };
 
-      const header = plainFields(milestoneDocumentArchiveManifestCsv(input), 0);
+      const header = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        0,
+      );
 
       expect(header).toEqual([
         '팀',
@@ -143,7 +164,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields.slice(3)).toEqual([
         '반려',
@@ -172,7 +198,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields).toHaveLength(9);
       expect(fields.slice(6)).toEqual(['', '', '']);
@@ -197,7 +228,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(plainLines(csv)).toHaveLength(3);
       expect(plainFields(csv, 2)).toEqual([
@@ -229,7 +263,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [{ team: team(), cells: [cell(CONSENT_DOCUMENT.id, { state })] }],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields[3]).toBe(label);
     });
@@ -250,7 +289,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields[4]).toBe('2026-08-10 00:30');
     });
@@ -271,7 +315,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields[4]).toBe('2026-08-09 14:30');
       expect(fields[4]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
@@ -298,7 +347,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(plainFields(csv, 1).slice(3)).toEqual([
         '승인',
@@ -325,7 +377,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields[5]).toBe('(내용 없음)');
     });
@@ -349,7 +406,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       expect(
-        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+        plainFields(
+          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+            input,
+          ),
+          1,
+        )[5],
       ).toBe('계획서/합성팀_계획서.pdf · (내용 없음)');
     });
 
@@ -371,7 +433,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       } as const;
 
       expect(
-        plainFields(milestoneDocumentArchiveManifestCsv(input), 1)[5],
+        plainFields(
+          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+            input,
+          ),
+          1,
+        )[5],
       ).toBe('(제출 내용을 가져올 수 없음)');
     });
   });
@@ -392,7 +459,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(csv).toContain('"합성""팀","합성, 신청자","합성\n닉"');
     });
@@ -413,7 +483,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
           rows: [{ team: team({ teamName }), cells: [] }],
         };
 
-        const csv = milestoneDocumentArchiveManifestCsv(input);
+        const csv =
+          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+            input,
+          );
 
         expect(csv).toContain(`'${teamName}`);
         expect(csv).not.toContain(`${CRLF}${teamName}`);
@@ -426,7 +499,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [{ team: team({ teamName: '=1,2' }), cells: [] }],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(csv).toContain(`"'=1,2"`);
     });
@@ -437,7 +513,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [{ team: team({ teamName: '-팀' }), cells: [] }],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(plainFields(csv, 1)[0]).toBe(`'-팀`);
     });
@@ -456,7 +535,10 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         ],
       };
 
-      const csv = milestoneDocumentArchiveManifestCsv(input);
+      const csv =
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        );
 
       expect(csv).toContain(`${CRLF}합성팀,,"합성닉1, 합성닉2"${CRLF}`);
     });
@@ -467,7 +549,12 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         rows: [{ team: team({ memberNicknames: [] }), cells: [] }],
       };
 
-      const fields = plainFields(milestoneDocumentArchiveManifestCsv(input), 1);
+      const fields = plainFields(
+        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
+          input,
+        ),
+        1,
+      );
 
       expect(fields).toEqual(['합성팀', '합성신청자', '']);
     });

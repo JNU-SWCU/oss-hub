@@ -8,23 +8,14 @@ import {
   SubmissionStatus,
   type Prisma as PrismaTypes,
   type ReviewDecision,
-  SubmissionFileLifecycle,
   RepositoryVisibility,
+  type MilestoneSubmissionType,
+  type RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { requiredMilestonesApproved } from './milestone-completion.config';
-import type {
-  RepositoryPublishEligibility,
-  PublishBlockedReason,
-} from '../github/repository-publish.config';
+import type { PublishBlockedReason } from '../github/repository-publish.config';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
-import { publishBlockedReasons } from '../github/repository-publish.config';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
-import {
-  safeSubmissionFileContentType,
-  publicSubmissionId,
-} from './submission-file.config';
+import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 
 type JsonObject = { [key in string]?: JsonValue };
 
@@ -34,13 +25,7 @@ type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 
 export type SubmissionRevisionContent = JsonValue;
 
-const APPLICATION_MODES = {
-  PERSONAL: 'PERSONAL',
-  TEAM: 'TEAM',
-} as const;
-
-type ApplicationMode =
-  (typeof APPLICATION_MODES)[keyof typeof APPLICATION_MODES];
+type ApplicationMode = 'PERSONAL' | 'TEAM';
 
 export interface SubmissionReviewRecord {
   readonly id: string;
@@ -113,87 +98,32 @@ export interface RepositoryPublishResult {
   readonly publishedAt: Date;
 }
 
+export interface PublishEligibilitySource {
+  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly provisionJob: {
+    readonly status: RepositoryProvisionJobStatus;
+    readonly repositoryId: string | null;
+  } | null;
+  readonly program: {
+    readonly endAt: Date;
+    readonly milestones: readonly {
+      readonly id: string;
+      readonly submissionType?: MilestoneSubmissionType | null;
+      readonly documents: readonly { readonly id: string }[];
+    }[];
+  };
+}
+
+export interface PublishEligibilityRow {
+  readonly id: string;
+  readonly visibility: RepositoryVisibility;
+  readonly application: PublishEligibilitySource;
+}
+
 export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
   select: typeof SubmissionReviewsRepository.REVIEW_CONTEXT_SELECT;
 }>;
-
-function toPublishEligibility(
-  application: ReviewContextRow['application'],
-  repository: NonNullable<ReviewContextRow['application']['repository']>,
-): Omit<RepositoryPublishEligibility, 'repositoryId'> {
-  const targetSubmissions = application.milestoneDocumentSubmissions;
-  const legacySubmissions = targetSubmissions
-    .filter(
-      (submission) =>
-        submission.milestoneDocument.kind ===
-        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-    )
-    .map((submission) => ({
-      milestoneId: submission.milestoneDocument.milestoneId,
-      status: submission.status,
-    }));
-  const documentSubmissions = targetSubmissions
-    .filter(
-      (submission) =>
-        submission.milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT,
-    )
-    .map((submission) => ({
-      milestoneDocumentId: submission.milestoneDocument.id,
-      status: submission.status,
-    }));
-  const job = application.provisionJob;
-  return {
-    visibility: repository.visibility,
-    provisionStatus: job?.repositoryId === repository.id ? job.status : null,
-    requiredMilestonesApproved: requiredMilestonesApproved(
-      application.program.milestones,
-      legacySubmissions,
-      documentSubmissions,
-    ),
-    isRepositoryPublicationPlanned: application.isRepositoryPublicationPlanned,
-    programEndAt: application.program.endAt,
-  };
-}
-
-function toRevisionRecord(
-  history: ReviewContextRow['histories'][number],
-  now: Date,
-): SubmissionRevisionRecord {
-  if (history.revision === null) {
-    throw new SubmissionRevisionInvariantError();
-  }
-  return {
-    number: history.revision,
-    content: history.content,
-    comment: history.comment,
-    submittedAt: history.createdAt,
-    files: history.files.flatMap((file) => toFileRecord(file, now)),
-    review: history.reviewHistories[0] ?? null,
-  };
-}
-
-function toFileRecord(
-  file: ReviewContextRow['histories'][number]['files'][number],
-  now: Date,
-): readonly SubmissionReviewFileRecord[] {
-  if (
-    file.lifecycle !== SubmissionFileLifecycle.ATTACHED ||
-    file.expiresAt === null ||
-    file.expiresAt.getTime() <= now.getTime()
-  ) {
-    return [];
-  }
-  return [
-    {
-      fileId: file.id,
-      fileName: file.originalFileName,
-      contentType: safeSubmissionFileContentType(file.originalFileName),
-      size: file.sizeBytes,
-      expiresAt: file.expiresAt,
-      downloadUrl: `/api/v1/submission-files/${file.id}`,
-    },
-  ];
-}
 
 interface CreateReviewRecordInput {
   readonly submissionHistoryId: string;
@@ -230,12 +160,10 @@ export interface SubmissionReviewsRepositoryPort {
   withTransaction<T>(
     operation: (store: SubmissionReviewTransactionStore) => Promise<T>,
   ): Promise<T>;
-  findReviewContext(
-    submissionId: string,
-  ): Promise<SubmissionReviewContext | null>;
+  findReviewContext(submissionId: string): Promise<ReviewContextRow | null>;
   findPublishEligibility(
     repositoryId: string,
-  ): Promise<RepositoryPublishEligibility | null>;
+  ): Promise<PublishEligibilityRow | null>;
 }
 
 class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTransactionStore {
@@ -367,7 +295,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
 
   async findReviewContext(
     submissionId: string,
-  ): Promise<SubmissionReviewContext | null> {
+  ): Promise<ReviewContextRow | null> {
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
         ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
@@ -380,14 +308,12 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     });
     const submission =
       SubmissionsRepository.exactSubmissionByPublicId(submissions);
-    return submission
-      ? SubmissionReviewsRepository.toReviewContext(submission)
-      : null;
+    return submission ?? null;
   }
 
   async findPublishEligibility(
     repositoryId: string,
-  ): Promise<RepositoryPublishEligibility | null> {
+  ): Promise<PublishEligibilityRow | null> {
     const repository = await this.prisma.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
@@ -430,85 +356,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     });
 
     if (repository === null || repository.application === null) return null;
-    const job = repository.application.provisionJob;
-    return {
-      repositoryId: repository.id,
-      visibility: repository.visibility,
-      provisionStatus: job?.repositoryId === repository.id ? job.status : null,
-      requiredMilestonesApproved: requiredMilestonesApproved(
-        repository.application.program.milestones,
-        repository.application.milestoneDocumentSubmissions
-          .filter(
-            (submission) =>
-              submission.milestoneDocument.kind ===
-              MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-          )
-          .map((submission) => ({
-            milestoneId: submission.milestoneDocument.milestoneId,
-            status: submission.status,
-          })),
-        repository.application.milestoneDocumentSubmissions
-          .filter(
-            (submission) =>
-              submission.milestoneDocument.kind ===
-              MilestoneDocumentKind.DOCUMENT,
-          )
-          .map((submission) => ({
-            milestoneDocumentId: submission.milestoneDocument.id,
-            status: submission.status,
-          })),
-      ),
-      isRepositoryPublicationPlanned:
-        repository.application.isRepositoryPublicationPlanned,
-      programEndAt: repository.application.program.endAt,
-    };
-  }
-
-  static toReviewContext(
-    row: ReviewContextRow,
-    now: Date = new Date(),
-  ): SubmissionReviewContext {
-    const current = row.histories.find(
-      (history) => history.revision === row.revision,
-    );
-    if (current === undefined) {
-      throw new SubmissionRevisionInvariantError();
-    }
-    const repository = row.application.repository;
-    const blockedReasons = repository
-      ? publishBlockedReasons(
-          toPublishEligibility(row.application, repository),
-          now,
-        )
-      : [];
-    return {
-      submissionId: publicSubmissionId(row),
-      application: {
-        id: row.application.id,
-        applicationMode:
-          row.application.teamId === null
-            ? APPLICATION_MODES.PERSONAL
-            : APPLICATION_MODES.TEAM,
-        displayName:
-          row.application.team?.name ??
-          row.application.applicant.profile?.name ??
-          row.application.applicant.nickname,
-      },
-      milestone: row.milestoneDocument.milestone,
-      currentRevision: toRevisionRecord(current, now),
-      history: row.histories
-        .filter((history) => history.id !== current.id)
-        .map((history) => toRevisionRecord(history, now)),
-      repository: repository
-        ? {
-            id: repository.id,
-            url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
-            visibility: repository.visibility,
-            publishEligible: blockedReasons.length === 0,
-            blockedReasons,
-          }
-        : null,
-    };
+    return { ...repository, application: repository.application };
   }
 
   static readonly REVIEW_CONTEXT_SELECT = {

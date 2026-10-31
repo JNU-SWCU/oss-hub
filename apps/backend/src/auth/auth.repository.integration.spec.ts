@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { AuthConfig, initialAccountSeed } from './auth.config';
+import { AuthConfig, INITIAL_ACCOUNT_SEEDS } from './auth.config';
 import { AuthRepository } from './auth.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -36,7 +36,9 @@ function repositoryWithInitialSeed(
   const config = {
     resolveInitialRole: jest
       .fn()
-      .mockReturnValue(setting === null ? null : initialAccountSeed(setting)),
+      .mockReturnValue(
+        setting === null ? null : INITIAL_ACCOUNT_SEEDS[setting],
+      ),
   } as unknown as AuthConfig;
   return new AuthRepository(prisma, config);
 }

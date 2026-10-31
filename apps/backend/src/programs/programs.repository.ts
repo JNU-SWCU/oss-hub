@@ -15,11 +15,7 @@ import {
   ProgramListStatusFilterRepository,
   type ProgramListQuery,
 } from './program-list-status-filter.repository';
-import {
-  submissionCompletionTargetSelect,
-  type SubmissionCompletionTargetRow,
-  projectSubmissionCompletionTargets,
-} from './submission-completion.config';
+import { submissionCompletionTargetSelect } from './submission-completion.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
 export type ProgramListRecord = {
@@ -210,7 +206,7 @@ export class ProgramsRepository {
   }
 
   async findStudentApplication(programId: string, userId: string) {
-    const application = await this.prisma.application.findFirst({
+    return this.prisma.application.findFirst({
       where: {
         programId,
         ...PlatformRepository.programApplicationParticipantWhere(userId),
@@ -223,11 +219,10 @@ export class ProgramsRepository {
         },
       },
     });
-    return application ? toTargetSubmissionAxes(application) : null;
   }
 
   async findApprovedApplications(programId: string) {
-    const applications = await this.prisma.application.findMany({
+    return this.prisma.application.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
         milestoneDocumentSubmissions: {
@@ -235,7 +230,6 @@ export class ProgramsRepository {
         },
       },
     });
-    return applications.map(toTargetSubmissionAxes);
   }
 
   async findViewerApplicationStatuses(
@@ -418,20 +412,4 @@ export class ProgramsRepository {
   ) {
     return writer.program.create({ data });
   }
-}
-
-function toTargetSubmissionAxes<
-  T extends {
-    readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
-  },
->(application: T) {
-  const { submissions, documentSubmissions } =
-    projectSubmissionCompletionTargets(
-      application.milestoneDocumentSubmissions,
-    );
-  return {
-    ...application,
-    submissions,
-    milestoneDocumentSubmissions: documentSubmissions,
-  };
 }

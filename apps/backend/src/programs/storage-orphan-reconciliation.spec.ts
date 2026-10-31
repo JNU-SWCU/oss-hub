@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import {
   StorageOrphanReconciliationService,
   DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS,
-  parseStorageOrphanReconciliationMode,
   type StorageObjectInventory,
 } from './storage-orphan-reconciliation.service';
 import {
@@ -448,14 +447,31 @@ describe('PrismaStorageReferenceRepository', () => {
 
 describe('reconcile-storage-orphans CLI arguments', () => {
   it('인자 없음과 --report는 report이고 삭제는 --delete만 허용한다', () => {
-    expect(parseStorageOrphanReconciliationMode([])).toBe('report');
-    expect(parseStorageOrphanReconciliationMode(['--report'])).toBe('report');
-    expect(parseStorageOrphanReconciliationMode(['--delete'])).toBe('delete');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode(
+        [],
+      ),
+    ).toBe('report');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--report',
+      ]),
+    ).toBe('report');
+    expect(
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--delete',
+      ]),
+    ).toBe('delete');
     expect(() =>
-      parseStorageOrphanReconciliationMode(['--report', '--delete']),
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--report',
+        '--delete',
+      ]),
     ).toThrow('Exactly one mode');
-    expect(() => parseStorageOrphanReconciliationMode(['--force'])).toThrow(
-      'Exactly one mode',
-    );
+    expect(() =>
+      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
+        '--force',
+      ]),
+    ).toThrow('Exactly one mode');
   });
 });

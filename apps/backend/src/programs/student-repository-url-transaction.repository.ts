@@ -8,7 +8,6 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.config';
 import {
   type StudentRepositoryUrlContext,
   type TeamRepositoryUrlContext,
@@ -124,7 +123,6 @@ export class StudentRepositoryUrlTransactionRepository {
     await RepositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },
-      parseRepositoryProvisionEvent,
     );
     return repositoryId;
   }

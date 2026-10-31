@@ -10,17 +10,18 @@ import {
   ProgramAuthoringUploadTransactionRepository,
   type ProgramExternalCover,
 } from './program-authoring-upload-transaction.repository';
-import {
-  type ProgramAuthoringUploadToken,
-  assertProgramCoverUpload,
-} from './program-authoring-upload.config';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramAuthoringUploadConsumptionRaceError } from './program-authoring.error';
 import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 
 export type ProgramCoverChange = {
   readonly actorId: string;
 } & (
-  | { readonly uploadId: string | null; readonly externalCover?: never }
+  | {
+      readonly uploadId: string | null;
+      readonly externalCover?: never;
+      readonly assertUpload: (upload: ProgramAuthoringUploadToken) => void;
+    }
   | {
       readonly externalCover: ProgramExternalCover | null;
       readonly uploadId?: never;
@@ -78,7 +79,7 @@ export class ProgramCoverRepository {
         uploads,
       );
       upload = uploads[0] ?? null;
-      if (upload !== null) assertProgramCoverUpload(upload);
+      if (upload !== null) input.assertUpload(upload);
     }
     const previous = await transaction.programCover.findUnique({
       where: { programId: input.programId },
@@ -130,7 +131,6 @@ export class ProgramCoverRepository {
       readonly upload: ProgramAuthoringUploadToken;
     },
   ): Promise<void> {
-    assertProgramCoverUpload(input.upload);
     await transaction.programCover.create({
       data: {
         programId: input.programId,

@@ -22,6 +22,9 @@ import { StudentApplicationManagementRepository } from './student-application-ma
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -37,14 +40,20 @@ const service = new ApplicationsService(
     new AuditLogMetadataService(),
   ),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
   new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
   repository,
+  new ApplicationAnswersService(),
 );
 const ACTOR_ID = 'synthetic-decision-actor';
 const ACTOR_GITHUB_ID = 8_000_000_000_001n;
@@ -363,10 +372,15 @@ describe('ApplicationsService integration', () => {
         new UsersAuthorityService(
           new UsersAuthorityRepository(applicantPrisma),
         ),
-        new ApplicationJoinCodeService({
-          TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
-        }),
+        new ApplicationJoinCodeService(
+          {
+            TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
+          },
+          new JoinCodeSecretService(),
+        ),
         new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
       );
       let releaseEditor!: () => void;
       const editorRelease = new Promise<void>((resolve) => {

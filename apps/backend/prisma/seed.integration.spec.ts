@@ -23,10 +23,6 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import {
-  resolveJoinCodeSecret,
-  computeJoinCodeDigest,
-} from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
@@ -34,10 +30,14 @@ import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
-import { repositoryUrlFromNameWithOwner } from '../src/github/repository-url.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
 import type { AuthUserRecord } from '../src/auth/auth.repository';
 import { UserProfileService } from '../src/platform/user-profile.service';
+import { RepositoryUrlService } from '../src/github/repository-url.service';
+import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
+
+const repositoryUrlService = new RepositoryUrlService();
+const joinCodeSecretService = new JoinCodeSecretService();
 
 function isProfileComplete(user: AuthUserRecord | null): boolean {
   return (
@@ -707,9 +707,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
       });
-      expect(repositoryUrlFromNameWithOwner(repository.nameWithOwner)).toBe(
-        OSS_HUB_REPOSITORY_URL,
-      );
+      expect(
+        repositoryUrlService.repositoryUrlFromNameWithOwner(
+          repository.nameWithOwner,
+        ),
+      ).toBe(OSS_HUB_REPOSITORY_URL);
       expect(ossHubRepositoryProvisionJobCount).toBe(1);
       expect(provisionJob).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
@@ -745,7 +747,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
         visibility: RepositoryVisibility.PUBLIC,
       });
       expect(
-        repositoryUrlFromNameWithOwner(practiceRepository.nameWithOwner),
+        repositoryUrlService.repositoryUrlFromNameWithOwner(
+          practiceRepository.nameWithOwner,
+        ),
       ).toBe(OSS_HUB_PRACTICE_REPOSITORY_URL);
       expect(practiceRepository.publishedAt).not.toBeNull();
       expect(practiceProvisionJob).toMatchObject({
@@ -1376,9 +1380,9 @@ describe('seed profile=demo 계약 (integration)', () => {
           id: survivorTeamId,
           programId: survivorProgramId,
           name: 'teardown guard 팀',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             `TEARDOWN-GUARD-${survivorTeamId}`,
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: survivorUserId,
         },

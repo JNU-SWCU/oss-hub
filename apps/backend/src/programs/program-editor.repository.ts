@@ -25,7 +25,6 @@ import {
   type ProgramAuthoringPendingUploadConsumption,
 } from './program-authoring-upload-transaction.repository';
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
-import { programCoverImageUrl } from './program-cover.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
 
 export type ProgramAuthority = {
@@ -95,6 +94,11 @@ type ApplyProgramMilestoneEditInput = {
     readonly templateUploadId?: string;
   }[];
   readonly uploads: readonly ProgramAuthoringUploadToken[];
+};
+
+export type EditableProgramRow = Omit<EditableProgramView, 'coverImageUrl'> & {
+  readonly coverId: string | null;
+  readonly coverExternalImageUrl: string | null;
 };
 
 export type EditableProgramView = {
@@ -191,11 +195,11 @@ export interface ProgramEditorTransactionStore {
   ): Promise<ProgramAuthority | null>;
   findEditableProgramById(
     programId: string,
-  ): Promise<EditableProgramView | null>;
+  ): Promise<EditableProgramRow | null>;
   findEditableProgramForUpdate(
     programId: string,
-  ): Promise<EditableProgramView | null>;
-  updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView>;
+  ): Promise<EditableProgramRow | null>;
+  updateProgram(input: ProgramUpdateInput): Promise<EditableProgramRow>;
   findProgramScheduleForMilestoneCreate(
     programId: string,
   ): Promise<ProgramSchedule | null>;
@@ -257,7 +261,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
 
   async findEditableProgramById(
     programId: string,
-  ): Promise<EditableProgramView | null> {
+  ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
       this.transaction.program.findUnique({
         where: { id: programId },
@@ -270,7 +274,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
 
   async findEditableProgramForUpdate(
     programId: string,
-  ): Promise<EditableProgramView | null> {
+  ): Promise<EditableProgramRow | null> {
     const locked = await LockProgramTreeRepository.lockProgramTree(
       this.transaction,
       {
@@ -281,7 +285,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     return locked ? this.findEditableProgramById(programId) : null;
   }
 
-  async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramView> {
+  async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramRow> {
     if (input.coverChange !== undefined) {
       await ProgramCoverRepository.replaceProgramCover(this.transaction, {
         programId: input.programId,
@@ -755,13 +759,10 @@ const editableProgramInclude = {
 function toEditableProgramView(
   program: ProgramRecord,
   deletionScopeCounts: ProgramDeletionScopeCounts,
-): EditableProgramView {
+): EditableProgramRow {
   return {
-    coverImageUrl: programCoverImageUrl(
-      program.id,
-      program.cover?.id,
-      program.cover?.imageUrl,
-    ),
+    coverId: program.cover?.id ?? null,
+    coverExternalImageUrl: program.cover?.imageUrl ?? null,
     externalCover:
       program.cover?.sourceUrl != null && program.cover.imageUrl != null
         ? {

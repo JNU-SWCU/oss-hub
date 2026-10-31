@@ -1,16 +1,16 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
@@ -33,14 +33,20 @@ async function getTeamDetail(cookie: string | null): Promise<Response> {
 }
 
 async function sessionCookieFor(githubId: bigint): Promise<string> {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
-  return `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
+  return `${authSessionService.sessionCookieName(false)}=${token}`;
 }
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       { provide: ProgramTeamsService, useValue: { getForStaff } },
       SessionGuard,
       OriginGuard,

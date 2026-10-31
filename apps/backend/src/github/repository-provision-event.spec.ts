@@ -1,11 +1,10 @@
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
-import {
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  parseRepositoryAccessSyncEvent,
-  parseRepositoryProvisionEvent,
-} from './repository-provision-event.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+
+const repositoryProvisionEventService = new RepositoryProvisionEventService();
 
 describe('parseRepositoryProvisionEvent', () => {
   it('승인 시점 collaborator snapshot을 typed event로 파싱한다', () => {
@@ -17,7 +16,8 @@ describe('parseRepositoryProvisionEvent', () => {
       collaboratorGithubLogins: ['student-a', 'student-b'],
     };
 
-    const result = parseRepositoryProvisionEvent(payload);
+    const result =
+      repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
 
     expect(result).toEqual({
       ...payload,
@@ -37,7 +37,9 @@ describe('parseRepositoryProvisionEvent', () => {
       repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
     };
 
-    expect(parseRepositoryProvisionEvent(payload)).toEqual(payload);
+    expect(
+      repositoryProvisionEventService.parseRepositoryProvisionEvent(payload),
+    ).toEqual(payload);
   });
 
   it('NEW + null repositoryUrl payload를 허용한다', () => {
@@ -51,7 +53,9 @@ describe('parseRepositoryProvisionEvent', () => {
       repositoryUrl: null,
     };
 
-    expect(parseRepositoryProvisionEvent(payload)).toEqual(payload);
+    expect(
+      repositoryProvisionEventService.parseRepositoryProvisionEvent(payload),
+    ).toEqual(payload);
   });
 
   it.each([
@@ -117,7 +121,7 @@ describe('parseRepositoryProvisionEvent', () => {
     ],
   ])('불완전하거나 비정규화된 payload %p를 거부한다', (payload) => {
     const parse = (): void => {
-      parseRepositoryProvisionEvent(payload);
+      repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
     };
 
     expect(parse).toThrow(InvalidRepositoryProvisionEventError);
@@ -166,9 +170,11 @@ describe('repositoryAccessSyncEventData', () => {
       expect(row.idempotencyKey).toBe(
         `repository-access-sync:${SYNC_APPLICATION_ID}:${SYNC_REQUESTED_AT}`,
       );
-      expect(parseRepositoryAccessSyncEvent(row.payload).requestedAt).toBe(
-        SYNC_REQUESTED_AT,
-      );
+      expect(
+        repositoryProvisionEventService.parseRepositoryAccessSyncEvent(
+          row.payload,
+        ).requestedAt,
+      ).toBe(SYNC_REQUESTED_AT);
     } finally {
       jest.useRealTimers();
     }
@@ -211,7 +217,9 @@ describe('parseRepositoryAccessSyncEvent', () => {
       SYNC_NOW,
     );
 
-    expect(parseRepositoryAccessSyncEvent(payload)).toEqual({
+    expect(
+      repositoryProvisionEventService.parseRepositoryAccessSyncEvent(payload),
+    ).toEqual({
       applicationId: SYNC_APPLICATION_ID,
       teamId: SYNC_TEAM_ID,
       requestedAt: SYNC_REQUESTED_AT,
@@ -280,7 +288,7 @@ describe('parseRepositoryAccessSyncEvent', () => {
     ],
   ])('%s payload 를 거부한다', (_label, payload) => {
     const parse = (): void => {
-      parseRepositoryAccessSyncEvent(payload);
+      repositoryProvisionEventService.parseRepositoryAccessSyncEvent(payload);
     };
 
     expect(parse).toThrow(InvalidRepositoryProvisionEventError);
@@ -301,11 +309,15 @@ describe('parseRepositoryAccessSyncEvent', () => {
         SYNC_NOW,
       );
 
-    expect(() => parseRepositoryAccessSyncEvent(provisionPayload)).toThrow(
-      InvalidRepositoryProvisionEventError,
-    );
-    expect(() => parseRepositoryProvisionEvent(accessSyncPayload)).toThrow(
-      InvalidRepositoryProvisionEventError,
-    );
+    expect(() =>
+      repositoryProvisionEventService.parseRepositoryAccessSyncEvent(
+        provisionPayload,
+      ),
+    ).toThrow(InvalidRepositoryProvisionEventError);
+    expect(() =>
+      repositoryProvisionEventService.parseRepositoryProvisionEvent(
+        accessSyncPayload,
+      ),
+    ).toThrow(InvalidRepositoryProvisionEventError);
   });
 });

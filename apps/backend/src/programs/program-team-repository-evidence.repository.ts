@@ -4,7 +4,6 @@ import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
 } from '../platform/repository-audit-metadata.config';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
@@ -61,10 +60,22 @@ export interface RepositoryUrlHistoryRows {
   readonly hasMore: boolean;
 }
 
-export interface TeamRepositoryEvidenceView {
-  readonly repositoryContributions: TeamRepositoryContributionsView | null;
-  readonly repositoryUrlHistory: RepositoryUrlHistoryPage;
-}
+export type TeamRepositoryContributionsRow = Omit<
+  TeamRepositoryContributionsView,
+  'repositoryUrl'
+> & {
+  readonly nameWithOwner: string;
+};
+
+export type TeamActivityRow = Omit<
+  TeamActivityView,
+  'canEditRepositoryUrl' | 'repository'
+> & {
+  readonly repository: {
+    readonly id: string;
+    readonly nameWithOwner: string;
+  } | null;
+};
 
 export interface RepositoryUrlHistoryPage {
   readonly items: readonly RepositoryUrlHistoryView[];
@@ -162,6 +173,11 @@ export interface TeamApplicationView {
     readonly updatedAt: Date;
     readonly safeErrorClass: TeamRepositoryProvisioningSafeErrorClass | null;
   };
+}
+
+interface TeamRepositoryEvidenceView {
+  readonly repositoryContributions: TeamRepositoryContributionsView | null;
+  readonly repositoryUrlHistory: RepositoryUrlHistoryPage;
 }
 
 export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
@@ -280,7 +296,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
   async contributions(
     application: ApplicationRepositorySource,
     members: readonly TeamRepositoryMember[],
-  ): Promise<TeamRepositoryContributionsView | null> {
+  ): Promise<TeamRepositoryContributionsRow | null> {
     const repository = application.repository;
     if (!repository) return null;
     const window = programWindow(application.program);
@@ -318,7 +334,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
     );
     return {
       repositoryId: repository.id,
-      repositoryUrl: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+      nameWithOwner: repository.nameWithOwner,
       window,
       collectionStatus: collectionStatus(repository),
       lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
@@ -364,9 +380,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
     };
   }
 
-  async activity(
-    team: TeamActivityScope,
-  ): Promise<Omit<TeamActivityView, 'canEditRepositoryUrl'>> {
+  async activity(team: TeamActivityScope): Promise<TeamActivityRow> {
     const repository = team.application?.repository ?? null;
     const window = programWindow(team.program);
     const rows = repository?.lastSuccessAt
@@ -398,7 +412,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       applicationId: team.application?.id ?? null,
       repository: repository && {
         id: repository.id,
-        url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+        nameWithOwner: repository.nameWithOwner,
       },
       status: repository ? collectionStatus(repository) : 'NOT_CONNECTED',
       lastSuccessAt: repository?.lastSuccessAt?.toISOString() ?? null,

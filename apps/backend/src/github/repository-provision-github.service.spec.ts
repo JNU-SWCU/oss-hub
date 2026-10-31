@@ -8,7 +8,15 @@ import type {
 } from './github-app.client';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
-import { parseGithubRepositoryUrl } from './repository-url.config';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+
+const provisionGithubService = new RepositoryProvisionGithubService(
+  new RepositoryUrlService(),
+  new RepositoryProvisionRulesService(),
+);
+
+const repositoryUrlService = new RepositoryUrlService();
 
 const names = {
   preferred: 'synthetic-program-team',
@@ -58,7 +66,7 @@ describe('findOrCreateGithubRepository', () => {
     const github = githubMock();
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -75,7 +83,7 @@ describe('findOrCreateGithubRepository', () => {
     github.findRepository.mockResolvedValue(metadata(names.preferred));
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -92,7 +100,7 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(null);
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -112,7 +120,7 @@ describe('findOrCreateGithubRepository', () => {
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -133,7 +141,7 @@ describe('findOrCreateGithubRepository', () => {
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -156,7 +164,7 @@ describe('findOrCreateGithubRepository', () => {
     github.createRepository.mockRejectedValueOnce(nameCollision());
 
     const repository =
-      await RepositoryProvisionGithubService.findOrCreateGithubRepository(
+      await provisionGithubService.findOrCreateGithubRepository(
         github,
         names,
         OWNERSHIP_MARKER,
@@ -174,12 +182,11 @@ describe('findOrCreateGithubRepository', () => {
       .mockResolvedValueOnce(metadata(names.preferred, null))
       .mockResolvedValueOnce(metadata(names.collisionFallback, null));
 
-    const repository =
-      RepositoryProvisionGithubService.findOrCreateGithubRepository(
-        github,
-        names,
-        OWNERSHIP_MARKER,
-      );
+    const repository = provisionGithubService.findOrCreateGithubRepository(
+      github,
+      names,
+      OWNERSHIP_MARKER,
+    );
 
     await expect(repository).rejects.toEqual(nameCollision());
     expect(github.createRepository).not.toHaveBeenCalled();
@@ -189,7 +196,7 @@ describe('findOrCreateGithubRepository', () => {
 describe('parseGithubRepositoryUrl', () => {
   it('https://github.com/{owner}/{name} 만 허용한다', () => {
     expect(
-      parseGithubRepositoryUrl(
+      repositoryUrlService.parseGithubRepositoryUrl(
         'https://github.com/synthetic-student/synthetic-repo',
       ),
     ).toEqual({ owner: 'synthetic-student', name: 'synthetic-repo' });
@@ -206,7 +213,7 @@ describe('parseGithubRepositoryUrl', () => {
     'https://github.com/synthetic-student/synthetic-repo#readme',
     'not-a-url',
   ])('거부: %s', (url) => {
-    expect(parseGithubRepositoryUrl(url)).toBeNull();
+    expect(repositoryUrlService.parseGithubRepositoryUrl(url)).toBeNull();
   });
 });
 
@@ -223,11 +230,10 @@ describe('resolveOwnGithubRepository', () => {
         visibility,
       });
 
-      const result =
-        await RepositoryProvisionGithubService.resolveOwnGithubRepository(
-          github,
-          submittedUrl,
-        );
+      const result = await provisionGithubService.resolveOwnGithubRepository(
+        github,
+        submittedUrl,
+      );
 
       expect(result).toEqual({
         kind: 'ORGANIZATION',
@@ -249,7 +255,7 @@ describe('resolveOwnGithubRepository', () => {
     const github = githubMock();
 
     await expect(
-      RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      provisionGithubService.resolveOwnGithubRepository(
         github,
         'https://github.com/synthetic-org/inaccessible',
       ),
@@ -274,11 +280,10 @@ describe('resolveOwnGithubRepository', () => {
       description: null,
     });
 
-    const repository =
-      await RepositoryProvisionGithubService.resolveOwnGithubRepository(
-        github,
-        studentUrl,
-      );
+    const repository = await provisionGithubService.resolveOwnGithubRepository(
+      github,
+      studentUrl,
+    );
 
     expect(github.findPublicRepository.mock.calls).toEqual([
       ['synthetic-student', 'synthetic-repo'],
@@ -318,7 +323,7 @@ describe('resolveOwnGithubRepository', () => {
     github.findPublicRepository.mockResolvedValue(resolved);
 
     await expect(
-      RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      provisionGithubService.resolveOwnGithubRepository(
         github,
         'https://github.com/synthetic-student/private-or-missing',
       ),
@@ -332,7 +337,7 @@ describe('resolveOwnGithubRepository', () => {
     const github = githubMock();
 
     await expect(
-      RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      provisionGithubService.resolveOwnGithubRepository(
         github,
         'https://example.com/not-github',
       ),

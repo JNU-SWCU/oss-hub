@@ -24,13 +24,14 @@ export class OwnRepositoryUrlValidationService {
       GithubAppClient,
       'organization' | 'findRepository' | 'findPublicRepository'
     >,
+    private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
   ) {}
 
   async validate(
     repositoryUrl: string,
   ): Promise<OwnRepositoryUrlValidationResult> {
     try {
-      await RepositoryProvisionGithubService.resolveOwnGithubRepository(
+      await this.repositoryProvisionGithubService.resolveOwnGithubRepository(
         this.github,
         repositoryUrl,
       );
@@ -54,7 +55,7 @@ export class OwnRepositoryUrlValidationService {
   }
 
   resolve(repositoryUrl: string) {
-    return RepositoryProvisionGithubService.resolveOwnGithubRepository(
+    return this.repositoryProvisionGithubService.resolveOwnGithubRepository(
       this.github,
       repositoryUrl,
     );

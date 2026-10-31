@@ -5,6 +5,8 @@ import {
 } from '@prisma/client';
 import type { RecentMilestoneDocumentReview } from './milestone-document-feedback.repository';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
+import { MilestoneDocumentRulesService } from '../programs/milestone-document-rules.service';
+import { ProgramRulesService } from '../programs/program-rules.service';
 
 const NOW = new Date('2026-09-23T03:00:00.000Z');
 
@@ -38,6 +40,7 @@ function serviceWith(
     service: new MilestoneDocumentFeedbackService(
       { findRecentForParticipant },
       () => now,
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
     ),
     findRecentForParticipant,
   };

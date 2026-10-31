@@ -7,7 +7,9 @@ import {
   type PersonalizedProgramListItem,
   type ProgramListPageItem,
 } from '../programs.service';
-import { programCoverImageUrl } from '../program-cover.config';
+import { ProgramCoverUrlService } from '../program-cover-url.service';
+
+const programCoverUrlService = new ProgramCoverUrlService();
 
 function baseItem(
   overrides: Partial<ProgramListPageItem> = {},
@@ -29,7 +31,7 @@ function baseItem(
   };
   return {
     ...item,
-    coverImageUrl: programCoverImageUrl(
+    coverImageUrl: programCoverUrlService.programCoverImageUrl(
       item.id,
       item.coverId,
       item.coverExternalImageUrl,

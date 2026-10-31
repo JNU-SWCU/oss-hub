@@ -2,11 +2,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -19,6 +15,10 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(32).fill(47);
 const origin = 'https://jnu-oss-hub.com';
@@ -91,6 +91,7 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     controllers: [MilestoneDocumentsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       SessionGuard,
       OriginGuard,
       MilestoneDocumentsService,
@@ -152,7 +153,7 @@ it.each(actors)(
           ...(githubId === null
             ? {}
             : {
-                cookie: `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`,
+                cookie: `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`,
               }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -186,7 +187,7 @@ it.each(actors)(
 it.each([1n, 2n])(
   'validates invalid inputs before staff authorization for actor %s',
   async (githubId) => {
-    const cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`;
+    const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
     for (const [method, path, body] of [
       [
         'POST',
@@ -215,7 +216,7 @@ it.each([1n, 2n])(
 it.each([1n, 2n])(
   'checks missing and foreign Origin before staff authorization for actor %s',
   async (githubId) => {
-    const cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`;
+    const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
     for (const requestOrigin of [undefined, 'https://attacker.example']) {
       for (const [method, path, body] of routes) {
         const response = await fetch(`${base}${path}`, {

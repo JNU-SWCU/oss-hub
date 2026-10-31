@@ -7,11 +7,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
@@ -22,6 +18,13 @@ import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const authSessionService = new AuthSessionService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -56,6 +59,10 @@ beforeAll(async () => {
     new ProgramTeamDeletionRepository(prisma),
     new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     new AuditLogMetadataService(),
+    new RepositoryPublishService(),
+    new RepositoryUrlService(),
+    new MilestoneCompletionService(),
+    new ProgramRulesService(),
   );
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
@@ -91,7 +98,7 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  cookie = `${sessionCookieName(false)}=${await issueSessionToken(sessionSecret, githubId, 0)}`;
+  cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
 });
 
 beforeEach(async () => {

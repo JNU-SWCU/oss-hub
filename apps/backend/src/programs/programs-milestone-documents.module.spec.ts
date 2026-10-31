@@ -21,6 +21,8 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { ProgramsModule } from './programs.module';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 describe('ProgramsModule milestone documents', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -75,6 +77,8 @@ describe('ProgramsModule milestone documents', () => {
       Object,
       SubmissionFilesService,
       Object,
+      MilestoneDocumentRulesService,
+      SubmissionFileRulesService,
     ]);
   });
 

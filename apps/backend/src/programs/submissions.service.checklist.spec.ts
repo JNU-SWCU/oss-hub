@@ -11,6 +11,8 @@ import type {
 } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 import { type ChecklistMilestone } from './submissions.repository';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const githubId = 4242n;
 
@@ -58,7 +60,11 @@ function buildService(
     listChecklistMilestones,
   } as unknown as SubmissionsRepository;
   return {
-    service: new SubmissionsService(repository),
+    service: new SubmissionsService(
+      repository,
+      new ProgramRulesService(),
+      new SubmissionFileRulesService(),
+    ),
     findChecklistApplication,
     listChecklistMilestones,
   };

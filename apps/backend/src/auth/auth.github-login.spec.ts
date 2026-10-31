@@ -1,11 +1,6 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import {
-  LoginHistoryService,
-  AuthService,
-  decodeFlowCookie,
-  toCodeChallenge,
-} from './auth.service';
+import { LoginHistoryService, AuthService } from './auth.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
@@ -13,6 +8,10 @@ import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from './auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 describe('GitHub login account choice', () => {
   const validation = new ValidationPipe({
@@ -27,6 +26,8 @@ describe('GitHub login account choice', () => {
     const module = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        ...STATELESS_PROVIDERS,
+        AuthSessionService,
         UserProfileService,
         AuthService,
         {
@@ -115,7 +116,9 @@ describe('GitHub login account choice', () => {
     (prompt) => {
       const redirect = service.buildAuthorizeRedirect(prompt);
       const url = new URL(redirect.url);
-      const flow = decodeFlowCookie(redirect.flowCookieValue);
+      const flow = authSessionService.decodeFlowCookie(
+        redirect.flowCookieValue,
+      );
 
       expect(url.searchParams.get('prompt')).toBe(prompt ?? null);
       expect(url.searchParams.get('scope')).toBe('read:user user:email');
@@ -127,7 +130,7 @@ describe('GitHub login account choice', () => {
       if (flow === null) throw new Error('Expected valid synthetic flow');
       expect(url.searchParams.get('state')).toBe(flow.state);
       expect(url.searchParams.get('code_challenge')).toBe(
-        toCodeChallenge(flow.verifier),
+        authSessionService.toCodeChallenge(flow.verifier),
       );
     },
   );

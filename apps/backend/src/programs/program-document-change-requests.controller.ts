@@ -10,10 +10,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  toProgramDocumentChangeRequestInput,
-  toProgramDocumentChangeRequestScope,
-} from './milestone-documents.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
@@ -22,6 +18,7 @@ import { ProgramDocumentChangeRequestCountResponseDto } from './dto/program-docu
 import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-program-document-change-request-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -29,6 +26,7 @@ type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class ProgramDocumentChangeRequestsController {
   constructor(
     private readonly changeRequests: ProgramDocumentChangeRequestsService,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   @Get('targets')
@@ -43,7 +41,10 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.targets(
         request.sessionGithubId,
         programId,
-        toProgramDocumentChangeRequestScope(query.scope, query.teamId),
+        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+          query.scope,
+          query.teamId,
+        ),
       ),
     );
   }
@@ -60,7 +61,9 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.requestChanges(
         request.sessionGithubId,
         programId,
-        toProgramDocumentChangeRequestInput(body),
+        this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
+          body,
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApp } from '../../src/platform/configure-http-app.config';
+import { configureHttpApp } from '../../src/configure-http-app';
 import { GithubAppClient } from '../../src/github/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';

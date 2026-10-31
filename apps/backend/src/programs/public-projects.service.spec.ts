@@ -7,11 +7,6 @@ import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
   PublicProjectsService,
-  decodePublicProjectCursor,
-  encodePublicProjectCursor,
-  resolvePublicProjectCursorKey,
-  applicationMode,
-  displayNameOf,
 } from './public-projects.service';
 import { DomainException } from '../platform/error-code.error';
 import type {
@@ -25,12 +20,27 @@ import {
   type PublicProjectRow,
   type PublicUserIdentity,
 } from './public-projects.repository';
+import { RepositoryUrlService } from '../github/repository-url.service';
+
+const publicProjectsService = new PublicProjectsService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  { SESSION_SECRET: 'synthetic-session-secret-synthetic-session-secret' },
+  new RepositoryUrlService(),
+);
 
 function expectedListItem(row: PublicProjectRow) {
+  const { nameWithOwner, ...project } = row;
+  const repositoryUrlService = new RepositoryUrlService();
   return {
-    ...row,
-    applicationMode: applicationMode(row.teamMemberCount),
-    displayName: displayNameOf(row),
+    ...project,
+    repositoryName:
+      repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner),
+    githubUrl:
+      repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner),
+    applicationMode: publicProjectsService.applicationMode(row.teamMemberCount),
+    displayName: publicProjectsService.displayNameOf(row),
   };
 }
 
@@ -285,7 +295,9 @@ describe('public-eligibility.service', () => {
 const SESSION_SECRET = Buffer.from(
   'synthetic-public-projects-service-secret-01',
 ).toString('base64url');
-const CURSOR_KEY = resolvePublicProjectCursorKey({ SESSION_SECRET });
+const CURSOR_KEY = publicProjectsService.resolvePublicProjectCursorKey({
+  SESSION_SECRET,
+});
 
 function githubRepositoryIdFor(id: string): bigint {
   let hash = 9000;
@@ -303,8 +315,7 @@ function row(
   return {
     projectId: githubRepositoryId.toString(),
     githubRepositoryId,
-    repositoryName: `repo-${overrides.id}`,
-    githubUrl: `https://github.com/synthetic-org/${overrides.id}`,
+    nameWithOwner: `synthetic-org/repo-${overrides.id}`,
     publishedAt: new Date('2026-07-20T00:00:00.000Z'),
     programId: 'synthetic-program-1',
     programName: 'synthetic-program',
@@ -354,6 +365,7 @@ function serviceWith(overrides: {
     eligibility,
     collection,
     loadRuntimeConfig({ SESSION_SECRET }),
+    new RepositoryUrlService(),
   );
   return { service, repository, eligibility, collection };
 }
@@ -452,7 +464,12 @@ describe('PublicProjectsService', () => {
       expect(page.items.map((item) => item.id)).toEqual(['b']);
 
       expect(page.nextPageId).not.toBeNull();
-      expect(decodePublicProjectCursor(page.nextPageId!, CURSOR_KEY)).toEqual({
+      expect(
+        publicProjectsService.decodePublicProjectCursor(
+          page.nextPageId!,
+          CURSOR_KEY,
+        ),
+      ).toEqual({
         publishedAt: rawRows[1]!.publishedAt,
         id: rawRows[1]!.id,
       });
@@ -463,7 +480,10 @@ describe('PublicProjectsService', () => {
         publishedAt: new Date('2026-07-20T00:00:00.000Z'),
         id: 'synthetic-repository-1',
       };
-      const pageId = encodePublicProjectCursor(cursor, CURSOR_KEY);
+      const pageId = publicProjectsService.encodePublicProjectCursor(
+        cursor,
+        CURSOR_KEY,
+      );
       const listPage = jest.fn().mockResolvedValue([]);
       const { service } = serviceWith({ listPage });
 
@@ -532,7 +552,12 @@ describe('PublicProjectsService', () => {
 
       const page = await service.findPage(undefined, 2);
 
-      expect(decodePublicProjectCursor(page.nextPageId!, CURSOR_KEY)).toEqual({
+      expect(
+        publicProjectsService.decodePublicProjectCursor(
+          page.nextPageId!,
+          CURSOR_KEY,
+        ),
+      ).toEqual({
         publishedAt: HIDDEN.publishedAt,
         id: HIDDEN.id,
       });
@@ -555,6 +580,7 @@ describe('PublicProjectsService', () => {
             'synthetic-public-projects-other-secret-01',
           ).toString('base64url'),
         }),
+        new RepositoryUrlService(),
       );
 
       await expect(foreign.findPage(page.nextPageId!, 2)).rejects.toThrow(

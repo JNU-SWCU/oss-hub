@@ -3,11 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -30,6 +26,10 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import type { AdminAccessUserRow } from './admin-access-read.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const githubId = 9_700_400_001n;
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -101,6 +101,7 @@ describe('independent authority HTTP contracts', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController],
       providers: [
+        ...STATELESS_PROVIDERS,
         AdminAccessMutationService,
         UserProfileService,
         IndependentAuthorityService,
@@ -140,7 +141,7 @@ describe('independent authority HTTP contracts', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    cookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

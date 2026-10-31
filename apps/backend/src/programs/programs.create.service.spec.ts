@@ -15,6 +15,7 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
@@ -62,6 +63,7 @@ describe('ProgramsService', () => {
     new ProgramsRepository(prisma),
     auditLog,
     new AuditLogMetadataService(),
+    new ProgramRulesService(),
   );
 
   beforeEach(() => {

@@ -16,6 +16,9 @@ import {
 } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
 import { submissionCompletionTargetSelect } from '../programs/submission-completion.config';
+import { MilestoneCompletionService } from '../programs/milestone-completion.service';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');
@@ -106,7 +109,12 @@ describe('StudentDashboardService', () => {
   const repositories = {
     getMyRepositories,
   } as Pick<RepositoriesReadService, 'getMyRepositories'>;
-  const service = new StudentDashboardService(repository, repositories);
+  const service = new StudentDashboardService(
+    repository,
+    repositories,
+    new MilestoneCompletionService(),
+    new ProgramCoverUrlService(),
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -213,6 +221,8 @@ describe('StudentDashboardService', () => {
   it('compiles with the read repository and the concrete repositories read service', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        ...STATELESS_PROVIDERS,
+        MilestoneCompletionService,
         StudentDashboardService,
         StudentDashboardRepository,
         {

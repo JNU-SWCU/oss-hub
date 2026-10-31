@@ -29,6 +29,10 @@ import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -73,6 +77,10 @@ const service = new ProgramTeamsService(
   deletionRepository,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 
 let teamSequence = 0;

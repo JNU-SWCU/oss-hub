@@ -1,10 +1,12 @@
 import { AccountStatus } from '@prisma/client';
-import {
-  buildDeadlineEligibility,
-  deadlineWindow,
-  prepareDeadlineDigest,
-} from './deadline-digest.service';
 import { type DeadlineProgramSource } from './deadline-digest.repository';
+import { DeadlineDigestService } from './deadline-digest.service';
+
+const deadlineDigestService = new DeadlineDigestService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+);
 
 const now = new Date('2026-08-14T00:00:00Z');
 const source: DeadlineProgramSource = {
@@ -36,27 +38,42 @@ const source: DeadlineProgramSource = {
 };
 const context = { now, frontendOrigin: new URL('https://oss.example') };
 const staff = [{ id: 'staff-1', notificationEmail: 'staff@example.com' }];
-const eligibility = buildDeadlineEligibility(source, deadlineWindow(now));
+const eligibility = deadlineDigestService.buildDeadlineEligibility(
+  source,
+  deadlineDigestService.deadlineWindow(now),
+);
 
 describe('confirmed rendered deadline digest', () => {
   it('changes the confirmation when guidance changes', () => {
-    const original = prepareDeadlineDigest(eligibility, staff, {
-      ...context,
-      studentGuidance: 'first',
-    });
+    const original = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      {
+        ...context,
+        studentGuidance: 'first',
+      },
+    );
 
-    const changed = prepareDeadlineDigest(eligibility, staff, {
-      ...context,
-      studentGuidance: 'second',
-    });
+    const changed = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      {
+        ...context,
+        studentGuidance: 'second',
+      },
+    );
 
     expect(changed.previewVersion).not.toBe(original.previewVersion);
   });
 
   it('changes the confirmation when staff recipients change', () => {
-    const original = prepareDeadlineDigest(eligibility, staff, context);
+    const original = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      context,
+    );
 
-    const changed = prepareDeadlineDigest(
+    const changed = deadlineDigestService.prepareDeadlineDigest(
       eligibility,
       [...staff, { id: 'staff-2', notificationEmail: 'other@example.com' }],
       context,
@@ -66,13 +83,21 @@ describe('confirmed rendered deadline digest', () => {
   });
 
   it('changes the confirmation when protected programme facts change', () => {
-    const original = prepareDeadlineDigest(eligibility, staff, context);
-    const changedSource = buildDeadlineEligibility(
+    const original = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      context,
+    );
+    const changedSource = deadlineDigestService.buildDeadlineEligibility(
       { ...source, name: 'Changed programme' },
-      deadlineWindow(now),
+      deadlineDigestService.deadlineWindow(now),
     );
 
-    const changed = prepareDeadlineDigest(changedSource, staff, context);
+    const changed = deadlineDigestService.prepareDeadlineDigest(
+      changedSource,
+      staff,
+      context,
+    );
 
     expect(changed.previewVersion).not.toBe(original.previewVersion);
   });
@@ -84,7 +109,11 @@ describe('confirmed rendered deadline digest', () => {
       staffGuidance: 'staff note',
     };
 
-    const prepared = prepareDeadlineDigest(eligibility, staff, draft);
+    const prepared = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      draft,
+    );
 
     expect(prepared.studentPreviews[0]?.text).toContain(
       source.applications[0]?.applicant.nickname,
@@ -103,12 +132,16 @@ describe('confirmed rendered deadline digest', () => {
   });
 
   it('produces no mail when no required document is eligible', () => {
-    const empty = buildDeadlineEligibility(
+    const empty = deadlineDigestService.buildDeadlineEligibility(
       { ...source, milestones: [] },
-      deadlineWindow(now),
+      deadlineDigestService.deadlineWindow(now),
     );
 
-    const prepared = prepareDeadlineDigest(empty, [], context);
+    const prepared = deadlineDigestService.prepareDeadlineDigest(
+      empty,
+      [],
+      context,
+    );
 
     expect(prepared.studentPreviews).toEqual([]);
     expect(prepared.staffPreview).toBeNull();
@@ -116,7 +149,11 @@ describe('confirmed rendered deadline digest', () => {
   });
 
   it('keeps actionable safe links and identical HTML in each preview and delivery', () => {
-    const prepared = prepareDeadlineDigest(eligibility, staff, context);
+    const prepared = deadlineDigestService.prepareDeadlineDigest(
+      eligibility,
+      staff,
+      context,
+    );
 
     expect(prepared.studentPreviews[0]?.html).toContain(
       'href="https://oss.example/programs/program-1#milestone-milestone-1-name" target="_blank" rel="noopener noreferrer"',

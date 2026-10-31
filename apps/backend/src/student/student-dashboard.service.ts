@@ -11,14 +11,10 @@ import {
   StudentDashboardRepository,
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
-import {
-  collectAxisStatuses,
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-} from '../programs/milestone-completion.config';
-import { projectSubmissionCompletionTargets } from '../programs/submission-completion.config';
+import { MILESTONE_NOT_SUBMITTED } from '../programs/milestone-completion.config';
 import type { MilestoneCompletionStatus } from '../programs/milestone-completion.config';
-import { programCoverImageUrl } from '../programs/program-cover.config';
+import { MilestoneCompletionService } from '../programs/milestone-completion.service';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -90,58 +86,6 @@ interface MilestoneStatuses {
   readonly lateSubmissionDueAt: Date | null;
 }
 
-function milestoneStatusesFor(
-  application: StudentDashboardApplicationRow,
-): ReadonlyMap<string, MilestoneStatuses> {
-  const { submissions, documentSubmissions } =
-    projectSubmissionCompletionTargets(
-      application.milestoneDocumentSubmissions,
-    );
-  const legacyStatusByMilestone = new Map(
-    submissions.map((submission) => [
-      submission.milestoneId,
-      submission.status,
-    ]),
-  );
-  const statusByDocument = new Map(
-    documentSubmissions.map((submission) => [
-      submission.milestoneDocumentId,
-      submission.status,
-    ]),
-  );
-  return new Map(
-    application.program.milestones.map((milestone) => {
-      const input = {
-        submissionAxisInUse: milestone.submissionType !== null,
-        requiredDocumentStatuses: milestone.documents.map(
-          (document) => statusByDocument.get(document.id) ?? null,
-        ),
-        submissionStatus: legacyStatusByMilestone.get(milestone.id) ?? null,
-      };
-      return [
-        milestone.id,
-        {
-          status: milestoneCompletionStatus(input),
-          itemStatuses: collectAxisStatuses(input),
-          lateSubmissionDueAt: milestone.documents.reduce<Date | null>(
-            (latest, document) => {
-              const grace = document.graceDueAt;
-              if (
-                statusByDocument.has(document.id) ||
-                grace === null ||
-                grace <= milestone.dueAt
-              )
-                return latest;
-              return latest === null || grace > latest ? grace : latest;
-            },
-            null,
-          ),
-        },
-      ];
-    }),
-  );
-}
-
 function progressOf(
   milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
 ): StudentDashboardProgress {
@@ -168,6 +112,8 @@ export class StudentDashboardService {
       RepositoriesReadService,
       'getMyRepositories'
     >,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
   async getStudentDashboard(
@@ -196,7 +142,7 @@ export class StudentDashboardService {
 
       const milestoneStatuses =
         application.status === ApplicationStatus.APPROVED
-          ? milestoneStatusesFor(application)
+          ? this.milestoneStatusesFor(application)
           : null;
       const nextMilestone =
         milestoneStatuses === null
@@ -205,7 +151,7 @@ export class StudentDashboardService {
       if (nextMilestone === 'invalid') continue;
 
       items.push({
-        coverImageUrl: programCoverImageUrl(
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           application.program.id,
           application.program.cover?.id,
           application.program.cover?.imageUrl,
@@ -299,5 +245,59 @@ export class StudentDashboardService {
       invitationStatus,
       githubUrl: projectedRepository.githubUrl,
     };
+  }
+
+  private milestoneStatusesFor(
+    application: StudentDashboardApplicationRow,
+  ): ReadonlyMap<string, MilestoneStatuses> {
+    const { submissions, documentSubmissions } =
+      this.milestoneCompletionService.projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
+    const legacyStatusByMilestone = new Map(
+      submissions.map((submission) => [
+        submission.milestoneId,
+        submission.status,
+      ]),
+    );
+    const statusByDocument = new Map(
+      documentSubmissions.map((submission) => [
+        submission.milestoneDocumentId,
+        submission.status,
+      ]),
+    );
+    return new Map(
+      application.program.milestones.map((milestone) => {
+        const input = {
+          submissionAxisInUse: milestone.submissionType !== null,
+          requiredDocumentStatuses: milestone.documents.map(
+            (document) => statusByDocument.get(document.id) ?? null,
+          ),
+          submissionStatus: legacyStatusByMilestone.get(milestone.id) ?? null,
+        };
+        return [
+          milestone.id,
+          {
+            status:
+              this.milestoneCompletionService.milestoneCompletionStatus(input),
+            itemStatuses:
+              this.milestoneCompletionService.collectAxisStatuses(input),
+            lateSubmissionDueAt: milestone.documents.reduce<Date | null>(
+              (latest, document) => {
+                const grace = document.graceDueAt;
+                if (
+                  statusByDocument.has(document.id) ||
+                  grace === null ||
+                  grace <= milestone.dueAt
+                )
+                  return latest;
+                return latest === null || grace > latest ? grace : latest;
+              },
+              null,
+            ),
+          },
+        ];
+      }),
+    );
   }
 }

@@ -11,7 +11,9 @@ import {
   type RepositoryProvisionContext,
   type RepositoryProvisionStateStore,
 } from '../src/github/repository-provision-state-helpers.repository';
-import { buildRepositoryOwnershipMarker } from '../src/github/repository-provision-github.service';
+import { RepositoryProvisionRulesService } from '../src/github/repository-provision-rules.service';
+
+const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -164,7 +166,10 @@ export function githubClientMock(): jest.Mocked<
       name: PROVISION_REPOSITORY.name,
       url: PROVISION_REPOSITORY.url,
       visibility: PROVISION_REPOSITORY.visibility,
-      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+      description:
+        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+          'synthetic-application-id',
+        ),
     }),
     ensureCollaborator: jest.fn().mockResolvedValue('SUCCEEDED'),
     revokeCollaborator: jest.fn().mockResolvedValue(undefined),

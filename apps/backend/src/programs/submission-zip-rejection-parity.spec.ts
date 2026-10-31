@@ -19,6 +19,9 @@ import {
   SubmissionZipRejection,
   type SubmissionZipRejection as SubmissionZipRejectionType,
 } from './submission-zip.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
@@ -95,6 +98,8 @@ function submissionService() {
   return new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
     storage,
+    new ProgramRulesService(),
+    new SubmissionFileRulesService(),
   );
 }
 
@@ -128,6 +133,8 @@ function milestoneDocumentService() {
     storage,
     submissionFiles as unknown as SubmissionFilesService,
     { assertActiveStaff: jest.fn() },
+    new MilestoneDocumentRulesService(new ProgramRulesService()),
+    new SubmissionFileRulesService(),
   );
 }
 

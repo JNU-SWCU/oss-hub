@@ -17,6 +17,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -66,7 +67,10 @@ beforeAll(async () => {
       SubmissionsController,
       SubmissionRepositoryPublishingController,
     ],
-    providers: [{ provide: SubmissionReviewsService, useValue: service }],
+    providers: [
+      ...STATELESS_PROVIDERS,
+      { provide: SubmissionReviewsService, useValue: service },
+    ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
     .overrideGuard(SessionGuard)
@@ -93,6 +97,7 @@ beforeAll(async () => {
   const unauthenticatedModuleRef = await Test.createTestingModule({
     controllers: [SubmissionsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       SessionGuard,
       {
         provide: AuthService,

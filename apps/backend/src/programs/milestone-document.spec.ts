@@ -1,16 +1,15 @@
 import {
-  readMilestoneDocumentSubmittedContent,
-  documentDeliveryStatus,
-  parseMilestoneDocumentContent,
-  isResubmissionAllowedAfter,
-  reviewDecisionToSubmissionStatus,
-} from './milestone-documents.service';
-import {
   MilestoneSubmissionType,
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
+  new ProgramRulesService(),
+);
 
 describe('document-delivery-status', () => {
   const dueAt = new Date('2026-08-14T12:00:00Z');
@@ -62,7 +61,7 @@ describe('document-delivery-status', () => {
         expected: 'MISSING',
       },
     ])('$label', ({ dates, dueAt: deadline, expected }) => {
-      const status = documentDeliveryStatus({
+      const status = milestoneDocumentRulesService.documentDeliveryStatus({
         requiredFirstSubmissions: dates,
         dueAt: deadline,
       });
@@ -76,7 +75,9 @@ describe('milestone-document-content', () => {
   describe('parseMilestoneDocumentContent', () => {
     it('내용만 제출할 수 있다', () => {
       expect(
-        parseMilestoneDocumentContent({ text: '  진행 내용을 적었습니다.  ' }),
+        milestoneDocumentRulesService.parseMilestoneDocumentContent({
+          text: '  진행 내용을 적었습니다.  ',
+        }),
       ).toEqual({
         text: '진행 내용을 적었습니다.',
         fileId: null,
@@ -85,7 +86,9 @@ describe('milestone-document-content', () => {
 
     it('파일만 제출할 수 있다', () => {
       expect(
-        parseMilestoneDocumentContent({ fileId: '  synthetic-file-id  ' }),
+        milestoneDocumentRulesService.parseMilestoneDocumentContent({
+          fileId: '  synthetic-file-id  ',
+        }),
       ).toEqual({
         text: null,
         fileId: 'synthetic-file-id',
@@ -94,7 +97,7 @@ describe('milestone-document-content', () => {
 
     it('내용과 파일을 함께 제출할 수 있다', () => {
       expect(
-        parseMilestoneDocumentContent({
+        milestoneDocumentRulesService.parseMilestoneDocumentContent({
           text: '설명',
           fileId: 'synthetic-file-id',
         }),
@@ -103,7 +106,10 @@ describe('milestone-document-content', () => {
 
     it('내용과 파일이 모두 비어 있으면 거부한다', () => {
       try {
-        parseMilestoneDocumentContent({ text: '  ', fileId: '  ' });
+        milestoneDocumentRulesService.parseMilestoneDocumentContent({
+          text: '  ',
+          fileId: '  ',
+        });
         throw new Error('빈 제출이 거부되지 않았습니다.');
       } catch (error: unknown) {
         expect(error).toMatchObject({
@@ -114,7 +120,7 @@ describe('milestone-document-content', () => {
 
     it('기존 저장 TEXT 본문 모양은 계속 읽을 수 있다', () => {
       expect(
-        readMilestoneDocumentSubmittedContent({
+        milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent({
           type: MilestoneSubmissionType.TEXT,
           text: '기존 본문',
         }),
@@ -130,13 +136,21 @@ describe('milestone-document-review', () => {
       [ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.CHANGES_REQUESTED],
       [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
     ])('%s는 제출 상태 %s에 대응한다', (decision, status) => {
-      expect(reviewDecisionToSubmissionStatus(decision)).toBe(status);
+      expect(
+        milestoneDocumentRulesService.reviewDecisionToSubmissionStatus(
+          decision,
+        ),
+      ).toBe(status);
     });
 
     it('모든 판정 값에 대응 상태가 있다 — 빠진 값이 있으면 undefined가 새어 나간다', () => {
       const decisions = Object.values(ReviewDecision);
 
-      const statuses = decisions.map(reviewDecisionToSubmissionStatus);
+      const statuses = decisions.map((decision) =>
+        milestoneDocumentRulesService.reviewDecisionToSubmissionStatus(
+          decision,
+        ),
+      );
 
       expect(statuses).toHaveLength(decisions.length);
       expect(statuses.every((status) => status !== undefined)).toBe(true);
@@ -145,21 +159,33 @@ describe('milestone-document-review', () => {
 
   describe('isResubmissionAllowedAfter', () => {
     it('판정이 없으면 허용한다 — 첫 제출이거나 아직 아무도 보지 않았다', () => {
-      expect(isResubmissionAllowedAfter(null)).toBe(true);
+      expect(
+        milestoneDocumentRulesService.isResubmissionAllowedAfter(null),
+      ).toBe(true);
     });
 
     it('보완 요청 뒤에는 허용한다 — 「다시 내라」는 뜻이다', () => {
-      expect(isResubmissionAllowedAfter(ReviewDecision.CHANGES_REQUESTED)).toBe(
-        true,
-      );
+      expect(
+        milestoneDocumentRulesService.isResubmissionAllowedAfter(
+          ReviewDecision.CHANGES_REQUESTED,
+        ),
+      ).toBe(true);
     });
 
     it('승인 뒤에는 막는다 — 승인된 서류가 조용히 다른 내용으로 바뀌면 안 된다', () => {
-      expect(isResubmissionAllowedAfter(ReviewDecision.APPROVED)).toBe(false);
+      expect(
+        milestoneDocumentRulesService.isResubmissionAllowedAfter(
+          ReviewDecision.APPROVED,
+        ),
+      ).toBe(false);
     });
 
     it('반려 뒤에는 막는다 — 끝난 판정이다', () => {
-      expect(isResubmissionAllowedAfter(ReviewDecision.REJECTED)).toBe(false);
+      expect(
+        milestoneDocumentRulesService.isResubmissionAllowedAfter(
+          ReviewDecision.REJECTED,
+        ),
+      ).toBe(false);
     });
   });
 });

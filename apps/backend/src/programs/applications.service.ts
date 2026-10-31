@@ -1,11 +1,44 @@
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import {
-  ApplicationReviewEventKind,
   ApplicationStatus,
-  ProgramLifecycle,
+  OutboxEventStatus,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
+  ProgramLifecycle,
+  ApplicationReviewEventKind,
 } from '@prisma/client';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  RepositoryEventAlreadyExistsError,
+  ApplicationDuplicateError,
+  ApplicationTeamMembershipConflictError,
+  ApplicationJoinCodeDigestConflictError,
+  ApplicationPreparationConflictError,
+} from './applications.error';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
+import {
+  ApplicationListItem,
+  ApplicationRepositoryProvisioning,
+  RepositoryProvisioningJobStatus,
+  RepositoryProvisioningSafeErrorClass,
+  ApplicationListAnswers,
+  ApplicationsRepository,
+  ApplicationDecisionCommand,
+  ApplicationDecisionAction,
+  type ApplicationListQuery,
+  type ApplicationListPage,
+  type CreatedApplication,
+  type StaffApplicationDetail,
+  type StaffDashboardSummary,
+  type TeamManagementListPage,
+  type CreateApplicationInput,
+  type ApplicationDecisionResult,
+  type ApplicationDecisionTarget,
+  type ApplicationTransition,
+  type RepositoryProvisionJobSnapshot,
+  type ApplicationListRow,
+  type ApplicationListOutbox,
+  type ApplicationListProvisionJob,
+} from './applications.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
   APPLICATION_DECISION_AUDIT_ACTIONS,
@@ -22,177 +55,9 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import {
-  ApplicationsRepository,
-  ApplicationDecisionCommand,
-  ApplicationDecisionAction,
-  type ApplicationListQuery,
-  type ApplicationListPage,
-  type CreatedApplication,
-  type StaffApplicationDetail,
-  type StaffDashboardSummary,
-  type TeamManagementListPage,
-  type CreateApplicationInput,
-  type ApplicationDecisionResult,
-  type ApplicationDecisionTarget,
-  type ApplicationTransition,
-  type RepositoryProvisionJobSnapshot,
-} from './applications.repository';
-import { APPLICATION_DECISION_ACTIONS } from './applications.config';
-import {
-  ApplicationDuplicateError,
-  ApplicationPreparationConflictError,
-  ApplicationJoinCodeDigestConflictError,
-  ApplicationTeamMembershipConflictError,
-  RepositoryEventAlreadyExistsError,
-} from './applications.error';
-import { parseGithubRepositoryUrl } from '../github/repository-url.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-
-const CLIENT_KEYS = new Set(['title']);
-
-const LEGACY_READ_KEYS = new Set(['summary']);
-
-const READ_KEYS = new Set([...CLIENT_KEYS, ...LEGACY_READ_KEYS]);
-
-export const APPLICATION_ANSWER_MAX_LENGTHS = {
-  title: 200,
-} as const;
-
-export type ApplicationAnswerKey = keyof typeof APPLICATION_ANSWER_MAX_LENGTHS;
-
-export type ApplicationAnswers = {
-  readonly applicantName: string;
-  readonly title: string;
-};
-
-type ApplicationAnswersValidationFailure = {
-  readonly ok: false;
-  readonly reason:
-    'INVALID_SHAPE' | 'UNKNOWN_KEYS' | 'MISSING_REQUIRED' | 'TOO_LONG';
-  readonly unknownKeys?: readonly string[];
-  readonly missingKeys?: readonly string[];
-  readonly tooLongKeys?: readonly ApplicationAnswerKey[];
-};
-
-export type ApplicationAnswersLengthMode = 'enforce-length' | 'skip-length';
-
-const APPLICATION_ANSWER_LABELS = {
-  title: '제목',
-} as const satisfies Readonly<Record<ApplicationAnswerKey, string>>;
-
-export function applicationAnswerTooLongMessage(
-  key: ApplicationAnswerKey,
-): string {
-  const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
-  return `${APPLICATION_ANSWER_LABELS[key]}은(는) ${limit.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`;
-}
-
-type ApplicationAnswersValidationSuccess = {
-  readonly ok: true;
-  readonly answers: ApplicationAnswers;
-};
-
-export type ApplicationAnswersValidationResult =
-  ApplicationAnswersValidationSuccess | ApplicationAnswersValidationFailure;
-
-export type TemplateVersionCheckResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: 'VERSION_MISMATCH' };
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-export function normalizeAndValidateApplicationAnswers(
-  clientAnswers: unknown,
-  applicantName: string,
-  lengthMode: ApplicationAnswersLengthMode,
-): ApplicationAnswersValidationResult {
-  if (!isPlainObject(clientAnswers)) {
-    return { ok: false, reason: 'INVALID_SHAPE' };
-  }
-
-  const allowedKeys = lengthMode === 'skip-length' ? READ_KEYS : CLIENT_KEYS;
-  const clientKeys = Object.keys(clientAnswers).filter(
-    (key) => key !== 'applicantName',
-  );
-  const unknownKeys = clientKeys.filter((key) => !allowedKeys.has(key));
-  if (unknownKeys.length > 0) {
-    return { ok: false, reason: 'UNKNOWN_KEYS', unknownKeys };
-  }
-
-  const title = clientAnswers.title;
-  if (!isNonEmptyString(applicantName)) {
-    const missingKeys: string[] = [];
-    if (!isNonEmptyString(applicantName)) missingKeys.push('applicantName');
-    return { ok: false, reason: 'MISSING_REQUIRED', missingKeys };
-  }
-
-  const answers = {
-    applicantName: applicantName.trim(),
-    title: isNonEmptyString(title) ? title.trim() : '',
-  };
-
-  if (lengthMode === 'enforce-length') {
-    const tooLongKeys = (
-      Object.keys(
-        APPLICATION_ANSWER_MAX_LENGTHS,
-      ) as readonly ApplicationAnswerKey[]
-    ).filter(
-      (key) => answers[key].length > APPLICATION_ANSWER_MAX_LENGTHS[key],
-    );
-    if (tooLongKeys.length > 0) {
-      return { ok: false, reason: 'TOO_LONG', tooLongKeys };
-    }
-  }
-
-  return { ok: true, answers };
-}
-
-export function checkApplicationTemplateVersion(
-  submittedVersion: number,
-  stampedVersion: number,
-): TemplateVersionCheckResult {
-  if (
-    !Number.isInteger(submittedVersion) ||
-    !Number.isInteger(stampedVersion) ||
-    submittedVersion !== stampedVersion
-  ) {
-    return { ok: false, reason: 'VERSION_MISMATCH' };
-  }
-  return { ok: true };
-}
-
-export function applicationDecisionAction(
-  input: ApplicationDecisionCommand,
-): ApplicationDecisionAction {
-  switch (input.action) {
-    case APPLICATION_DECISION_ACTIONS.APPROVE:
-      return { action: APPLICATION_DECISION_ACTIONS.APPROVE };
-    case APPLICATION_DECISION_ACTIONS.REJECT: {
-      const reason = input.reason?.trim();
-      if (!reason) {
-        throw new DomainException(
-          APPLICATIONS_ERROR_CODES[
-            ApplicationsErrorCode.REJECTION_REASON_REQUIRED
-          ],
-        );
-      }
-      return { action: APPLICATION_DECISION_ACTIONS.REJECT, reason };
-    }
-    case APPLICATION_DECISION_ACTIONS.REVERT:
-      return { action: APPLICATION_DECISION_ACTIONS.REVERT };
-    default:
-      throw new DomainException(
-        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.INVALID_DECISION_ACTION],
-      );
-  }
-}
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 type ApplicationDecisionPlan = {
   readonly provisionJob: RepositoryProvisionJobSnapshot | null;
@@ -275,6 +140,8 @@ export class ApplicationsService {
       'generateJoinCode' | 'computeJoinCodeDigest'
     >,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly repositoryUrlService: RepositoryUrlService,
+    private readonly applicationAnswersService: ApplicationAnswersService,
   ) {}
 
   async create(
@@ -311,20 +178,22 @@ export class ApplicationsService {
           throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
         }
 
-        const versionCheck = checkApplicationTemplateVersion(
-          input.applicationTemplateVersion,
-          lockedProgram.applicationTemplateVersion,
-        );
+        const versionCheck =
+          this.applicationAnswersService.checkApplicationTemplateVersion(
+            input.applicationTemplateVersion,
+            lockedProgram.applicationTemplateVersion,
+          );
         if (!versionCheck.ok) {
           throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
         }
 
         const applicantName = (student.name ?? student.nickname).trim();
-        const answersResult = normalizeAndValidateApplicationAnswers(
-          input.answers,
-          applicantName,
-          'enforce-length',
-        );
+        const answersResult =
+          this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+            input.answers,
+            applicantName,
+            'enforce-length',
+          );
         if (!answersResult.ok) {
           if (answersResult.reason === 'TOO_LONG')
             throw new DomainException(
@@ -333,7 +202,10 @@ export class ApplicationsService {
                 fieldErrors: (answersResult.tooLongKeys ?? []).map((key) => ({
                   field: key,
                   code: ApplicationsErrorCode.ANSWER_TOO_LONG,
-                  message: applicationAnswerTooLongMessage(key),
+                  message:
+                    this.applicationAnswersService.applicationAnswerTooLongMessage(
+                      key,
+                    ),
                 })),
               },
             );
@@ -488,7 +360,16 @@ export class ApplicationsService {
       this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
     );
     await this.requireProgram(programId);
-    return this.repository.listApplicationsForProgram(programId, query);
+    const page = await this.repository.listApplicationsForProgram(
+      programId,
+      query,
+    );
+    return {
+      ...page,
+      items: page.items.map((source) =>
+        this.toApplicationListItem(source.row, source.outbox, source.job),
+      ),
+    };
   }
 
   async listTeamManagementForProgram(
@@ -524,7 +405,14 @@ export class ApplicationsService {
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
-    return { application, reviewHistory };
+    return {
+      application: this.toApplicationListItem(
+        application.row,
+        application.outbox,
+        application.job,
+      ),
+      reviewHistory,
+    };
   }
 
   async staffSummary(sessionGithubId: bigint): Promise<StaffDashboardSummary> {
@@ -543,7 +431,8 @@ export class ApplicationsService {
       actorGithubId,
       () => this.error(ApplicationsErrorCode.STAFF_ONLY),
     );
-    const action = applicationDecisionAction(input);
+    const action =
+      this.applicationAnswersService.applicationDecisionAction(input);
     const idempotencyKey = `repository-provision:${applicationId}`;
     try {
       return await this.repository.withTransaction(async (store) => {
@@ -788,7 +677,9 @@ export class ApplicationsService {
           application.repositoryConnectionMode ===
             RepositoryConnectionMode.OWN &&
           (application.repositoryUrl === null ||
-            parseGithubRepositoryUrl(application.repositoryUrl) === null)
+            this.repositoryUrlService.parseGithubRepositoryUrl(
+              application.repositoryUrl,
+            ) === null)
         ) {
           throw this.error(ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED);
         }
@@ -887,4 +778,204 @@ export class ApplicationsService {
   private error(code: ApplicationsErrorCode): DomainException {
     return new DomainException(APPLICATIONS_ERROR_CODES[code]);
   }
+
+  private toApplicationListItem(
+    row: ApplicationListRow,
+    outbox: ApplicationListOutbox | undefined,
+    job: ApplicationListProvisionJob | undefined,
+  ): ApplicationListItem {
+    const team =
+      row.team !== null
+        ? {
+            id: row.team.id,
+            name: row.team.name,
+            memberCount: row.team._count.members,
+          }
+        : null;
+    return {
+      id: row.id,
+      programId: row.programId,
+      status: row.status,
+      submittedAt: row.submittedAt,
+      rejectionReason: row.rejectionReason,
+      repositoryConnectionMode: row.repositoryConnectionMode,
+      repositoryUrl: row.repositoryUrl,
+      repositoryProvisioning:
+        row.status === ApplicationStatus.APPROVED &&
+        row.repository != null &&
+        job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
+        job.repositoryId === row.repository.id &&
+        row.repositoryUrl ===
+          this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+            row.repository.nameWithOwner,
+          )
+          ? {
+              enabled: row.program.repositoryProvisioningEnabled,
+              jobStatus: 'SUCCEEDED',
+              updatedAt: job.updatedAt,
+              safeErrorClass: null,
+            }
+          : resolveRepositoryProvisioning(
+              row.status,
+              row.program.repositoryProvisioningEnabled,
+              row.updatedAt,
+              outbox,
+              job,
+            ),
+      repository: row.repository
+        ? {
+            url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+              row.repository.nameWithOwner,
+            ),
+            visibility: row.repository.visibility,
+          }
+        : null,
+      isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
+      participation: team ? 'TEAM' : 'INDIVIDUAL',
+      applicant: {
+        id: row.applicant.id,
+        nickname: row.applicant.nickname,
+        name: row.applicant.profile?.name ?? null,
+      },
+      team,
+      answers: parseListAnswers(row.answers),
+    };
+  }
+}
+
+function resolveRepositoryProvisioning(
+  applicationStatus: ApplicationStatus,
+  enabled: boolean,
+  applicationUpdatedAt: Date,
+  outbox: ApplicationListOutbox | undefined,
+  job: ApplicationListProvisionJob | undefined,
+): ApplicationRepositoryProvisioning {
+  const anomalous = (): ApplicationRepositoryProvisioning => ({
+    enabled,
+    jobStatus: 'ANOMALOUS',
+    updatedAt: applicationUpdatedAt,
+    safeErrorClass: 'UNKNOWN',
+  });
+  if (applicationStatus !== ApplicationStatus.APPROVED) {
+    if (outbox || job) {
+      return anomalous();
+    }
+    return {
+      enabled,
+      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: null,
+    };
+  }
+
+  if (
+    (job && !outbox) ||
+    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
+    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
+  ) {
+    return anomalous();
+  }
+
+  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
+    const jobStatus = mapProvisionJobStatus(job.status);
+    return {
+      enabled,
+      jobStatus,
+      updatedAt: job.updatedAt,
+      safeErrorClass:
+        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+          ? normalizeSafeErrorClass(job.lastErrorCode)
+          : null,
+    };
+  }
+
+  if (enabled && outbox) {
+    if (
+      outbox.status === OutboxEventStatus.PENDING ||
+      outbox.status === OutboxEventStatus.PROCESSING
+    ) {
+      return {
+        enabled,
+        jobStatus: 'PENDING',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: null,
+      };
+    }
+    if (outbox.status === OutboxEventStatus.FAILED) {
+      return {
+        enabled,
+        jobStatus: 'FAILED',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: 'UNKNOWN',
+      };
+    }
+  }
+
+  if (!outbox && !job) {
+    return {
+      enabled,
+      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: enabled ? 'UNKNOWN' : null,
+    };
+  }
+  return anomalous();
+}
+
+function mapProvisionJobStatus(
+  status: RepositoryProvisionJobStatus,
+): RepositoryProvisioningJobStatus {
+  switch (status) {
+    case RepositoryProvisionJobStatus.PENDING:
+      return 'PENDING';
+    case RepositoryProvisionJobStatus.PROCESSING:
+      return 'PROCESSING';
+    case RepositoryProvisionJobStatus.SUCCEEDED:
+      return 'SUCCEEDED';
+    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
+      return 'RETRYABLE_FAILED';
+    case RepositoryProvisionJobStatus.FAILED_FINAL:
+      return 'FAILED';
+  }
+}
+
+function normalizeSafeErrorClass(
+  errorCode: string | null,
+): RepositoryProvisioningSafeErrorClass {
+  switch (errorCode) {
+    case 'GITHUB_OPERATIONS_CONFIGURATION':
+    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
+    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
+    case 'GITHUB_OPERATIONS_AUTHENTICATION':
+    case 'GITHUB_OPERATIONS_PERMISSION':
+      return 'AUTH';
+    case 'GITHUB_OPERATIONS_RATE_LIMITED':
+    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
+      return 'RATE_LIMIT';
+    case 'GITHUB_OPERATIONS_INVALID_INPUT':
+    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
+    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
+    case 'REPOSITORY_PROVISION_INVALID_EVENT':
+    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
+      return 'UPSTREAM_REJECTED';
+    case 'GITHUB_OPERATIONS_UPSTREAM':
+    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
+    case 'REPOSITORY_PROVISION_INTERNAL':
+    case null:
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+function parseListAnswers(value: unknown): ApplicationListAnswers {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { applicantName: '', title: '', summary: '' };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    applicantName:
+      typeof record.applicantName === 'string' ? record.applicantName : '',
+    title: typeof record.title === 'string' ? record.title : '',
+    summary: typeof record.summary === 'string' ? record.summary : '',
+  };
 }

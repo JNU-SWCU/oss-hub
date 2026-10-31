@@ -139,51 +139,51 @@ export class StorageOrphanReconciliationService {
       skippedReferencedKeys,
     };
   }
-}
 
-export function parseStorageOrphanReconciliationMode(
-  args: readonly string[],
-): StorageOrphanReconciliationMode {
-  if (args.length === 0 || (args.length === 1 && args[0] === '--report')) {
-    return 'report';
+  static parseStorageOrphanReconciliationMode(
+    args: readonly string[],
+  ): StorageOrphanReconciliationMode {
+    if (args.length === 0 || (args.length === 1 && args[0] === '--report')) {
+      return 'report';
+    }
+    if (args.length === 1 && args[0] === '--delete') return 'delete';
+    throw new Error('Exactly one mode is allowed: --report or --delete');
   }
-  if (args.length === 1 && args[0] === '--delete') return 'delete';
-  throw new Error('Exactly one mode is allowed: --report or --delete');
-}
 
-export async function runStorageOrphanReconciliation(
-  mode: StorageOrphanReconciliationMode,
-  references: StorageReferenceRepository,
-  objectStorage: ObjectStoragePort,
-  objectInventory: ObjectInventoryPort,
-): Promise<void> {
-  const inventory: StorageObjectInventory = {
-    listObjects: () => objectInventory.listObjects(KNOWN_STORAGE_PREFIXES),
-    delete: (key) => objectStorage.delete(key),
-  };
-  const reconciliation = new StorageOrphanReconciliationService(
-    references,
-    inventory,
-  );
+  static async runStorageOrphanReconciliation(
+    mode: StorageOrphanReconciliationMode,
+    references: StorageReferenceRepository,
+    objectStorage: ObjectStoragePort,
+    objectInventory: ObjectInventoryPort,
+  ): Promise<void> {
+    const inventory: StorageObjectInventory = {
+      listObjects: () => objectInventory.listObjects(KNOWN_STORAGE_PREFIXES),
+      delete: (key) => objectStorage.delete(key),
+    };
+    const reconciliation = new StorageOrphanReconciliationService(
+      references,
+      inventory,
+    );
 
-  const result = await reconciliation.reconcile({
-    mode,
-    onDeletePlan: (keys) => {
-      process.stdout.write(
-        `${JSON.stringify({ event: 'storage-orphan.delete-plan', keys })}\n`,
-      );
-    },
-  });
-  process.stdout.write(
-    `${JSON.stringify({
-      event: 'storage-orphan.result',
-      mode: result.mode,
-      runStartedAt: result.runStartedAt.toISOString(),
-      cutoffAt: result.cutoffAt.toISOString(),
-      orphanKeys: result.orphanKeys,
-      recentObjectCount: result.recentObjectKeys.length,
-      deletedKeys: result.deletedKeys,
-      skippedReferencedKeys: result.skippedReferencedKeys,
-    })}\n`,
-  );
+    const result = await reconciliation.reconcile({
+      mode,
+      onDeletePlan: (keys) => {
+        process.stdout.write(
+          `${JSON.stringify({ event: 'storage-orphan.delete-plan', keys })}\n`,
+        );
+      },
+    });
+    process.stdout.write(
+      `${JSON.stringify({
+        event: 'storage-orphan.result',
+        mode: result.mode,
+        runStartedAt: result.runStartedAt.toISOString(),
+        cutoffAt: result.cutoffAt.toISOString(),
+        orphanKeys: result.orphanKeys,
+        recentObjectCount: result.recentObjectKeys.length,
+        deletedKeys: result.deletedKeys,
+        skippedReferencedKeys: result.skippedReferencedKeys,
+      })}\n`,
+    );
+  }
 }

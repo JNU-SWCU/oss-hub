@@ -15,33 +15,18 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
-import {
-  type StudentRepositoryUrlContext,
-  type TeamRepositoryUrlContext,
+import type {
+  StudentRepositoryUrlContext,
+  TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
-import { ApplicationStatus } from '@prisma/client';
 import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
+import { ProgramRulesService } from './program-rules.service';
 
 export type StudentRepositoryUrlView = {
   readonly repositoryUrl: string | null;
   readonly canEditRepositoryUrl: boolean;
 };
-
-export function canEditStudentRepositoryUrl(
-  context: {
-    readonly status: ApplicationStatus;
-    readonly endAt: Date;
-    readonly isManager: boolean;
-  },
-  now: Date,
-): boolean {
-  return (
-    context.isManager &&
-    context.status === ApplicationStatus.APPROVED &&
-    now < context.endAt
-  );
-}
 
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;
@@ -74,6 +59,7 @@ export class StudentRepositoryUrlService {
       CollectionTriggerService,
       'collectRepository'
     >,
+    private readonly programRulesService: ProgramRulesService,
   ) {}
 
   async getMine(
@@ -222,7 +208,7 @@ export class StudentRepositoryUrlService {
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
     if (
-      !canEditStudentRepositoryUrl(
+      !this.programRulesService.canEditStudentRepositoryUrl(
         { status: context.status, endAt: context.program.endAt, isManager },
         new Date(),
       )
@@ -236,14 +222,15 @@ export class StudentRepositoryUrlService {
   ): StudentRepositoryUrlView {
     return {
       repositoryUrl: this.url(context),
-      canEditRepositoryUrl: canEditStudentRepositoryUrl(
-        {
-          status: context.status,
-          endAt: context.program.endAt,
-          isManager: context.team.leaderId === studentId,
-        },
-        new Date(),
-      ),
+      canEditRepositoryUrl:
+        this.programRulesService.canEditStudentRepositoryUrl(
+          {
+            status: context.status,
+            endAt: context.program.endAt,
+            isManager: context.team.leaderId === studentId,
+          },
+          new Date(),
+        ),
     };
   }
 

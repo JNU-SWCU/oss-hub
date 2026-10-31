@@ -14,6 +14,9 @@ import {
 } from './application-preparations.service';
 import { ApplicationsService } from './applications.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,10 +35,15 @@ const applications = new ApplicationsService(
   new ApplicationsRepository(prisma),
   audit,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
   new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
 );
 const now = new Date('2026-10-01T00:00:00Z');
 const leader = { id: 'synthetic-preparation-leader', githubId: 8_600_000_001n };

@@ -18,6 +18,7 @@ import {
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
+import { JoinCodeSecretService } from './join-code-secret.service';
 
 @Global()
 @Module({
@@ -36,6 +37,7 @@ import { UserProfileService } from './user-profile.service';
     AuditLogRepository,
     AuditLogMetadataService,
     UserProfileService,
+    JoinCodeSecretService,
     AuditLogService,
   ],
   exports: [
@@ -45,6 +47,7 @@ import { UserProfileService } from './user-profile.service';
     OBJECT_INVENTORY,
     AuditLogMetadataService,
     UserProfileService,
+    JoinCodeSecretService,
     AuditLogService,
   ],
 })

@@ -1,4 +1,3 @@
-import { initialAccountSeed } from './auth.config';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import {
@@ -8,6 +7,7 @@ import {
   buildRow,
   upsertUser,
 } from './auth.repository.spec-support';
+import { INITIAL_ACCOUNT_SEEDS } from './auth.config';
 
 describe('AuthRepository.upsertUser', () => {
   it('미설정 시 부팅 가능한 빈 설정은 역할 시드를 적용하지 않는다', async () => {
@@ -35,7 +35,7 @@ describe('AuthRepository.upsertUser', () => {
   it('이미 확정된 사실이 있는 계정은 초기 시드와 무관하게 유지한다', async () => {
     const { repository, updateMany } = buildRepository(
       buildRow({ hasStaffAccess: true }),
-      initialAccountSeed('ADMIN'),
+      INITIAL_ACCOUNT_SEEDS.ADMIN,
     );
 
     const result = await upsertUser(repository, buildProfile());
@@ -47,7 +47,7 @@ describe('AuthRepository.upsertUser', () => {
   it('확정된 사실이 없는 활성 계정만 조건부 갱신으로 초기 시드를 적용한다', async () => {
     const { repository, updateMany } = buildRepository(
       buildRow(),
-      initialAccountSeed('ADMIN'),
+      INITIAL_ACCOUNT_SEEDS.ADMIN,
     );
     const transactionResult = repository.withTransaction(async (store) => {
       const result = await store.upsertUser(buildProfile());
@@ -77,7 +77,7 @@ describe('AuthRepository.upsertUser', () => {
   it('회수 이력이 있는 계정은 조건부 갱신에서 제외한다', async () => {
     const { repository, updateMany } = buildRepository(
       buildRow(),
-      initialAccountSeed('STAFF'),
+      INITIAL_ACCOUNT_SEEDS.STAFF,
     );
 
     await upsertUser(repository, buildProfile());
@@ -99,7 +99,7 @@ describe('AuthRepository.upsertUser', () => {
       .mockImplementation(() => undefined);
     const { repository } = buildRepository(
       buildRow(),
-      initialAccountSeed('STAFF'),
+      INITIAL_ACCOUNT_SEEDS.STAFF,
       {
         casCount: 0,
         revokedRequest: { id: 'revoked-request' },
@@ -123,7 +123,7 @@ describe('AuthRepository.upsertUser', () => {
       .mockImplementation(() => undefined);
     const { repository } = buildRepository(
       buildRow(),
-      initialAccountSeed('STAFF'),
+      INITIAL_ACCOUNT_SEEDS.STAFF,
       {
         casCount: 0,
       },

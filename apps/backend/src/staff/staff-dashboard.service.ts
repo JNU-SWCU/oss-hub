@@ -1,4 +1,3 @@
-import { programCoverImageUrl } from '../programs/program-cover.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
 import type { ProgramActivitySummary } from '../programs/program-activity-summary.service';
@@ -9,6 +8,7 @@ import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
 } from '../programs/applications.repository';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 
 export type StaffDashboardComposedApplicationCounts =
   StaffDashboardApplicationCounts & {
@@ -64,6 +64,7 @@ export class StaffDashboardService {
       SubmissionDashboardSummaryService,
       'listByProgram'
     >,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
   async summary(
@@ -85,7 +86,7 @@ export class StaffDashboardService {
     return {
       programs: base.programs.map((program) => ({
         ...program,
-        coverImageUrl: programCoverImageUrl(
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           program.id,
           program.coverId,
           program.coverExternalImageUrl,

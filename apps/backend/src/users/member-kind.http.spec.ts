@@ -4,11 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -23,6 +19,9 @@ import { UserAccessController } from '../admin/user-access.controller';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
 import { type AdminAccessActor } from './admin-access-read.repository';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const ADMIN_GITHUB_ID = 9_700_600_001n;
 const sessionSecret = new Uint8Array(32).fill(41);
@@ -213,7 +212,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       'content-type': 'application/json',
     };
     if (githubId !== null) {
-      headers.cookie = `${sessionCookieName(false)}=${await issueSessionToken(
+      headers.cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
         sessionSecret,
         githubId,
         0,

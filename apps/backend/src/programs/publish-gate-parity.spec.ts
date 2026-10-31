@@ -11,6 +11,7 @@ import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
   type ReviewContextRow,
+  type PublishEligibilityRow,
 } from './submission-reviews.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsService } from './submission-reviews.service';
@@ -19,6 +20,10 @@ import {
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
 } from '../github/repository-publish.config';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -173,6 +178,33 @@ function brokenRow(
   return row;
 }
 
+function eligibilityRow(
+  eligibility: RepositoryPublishEligibility,
+): PublishEligibilityRow {
+  return {
+    id: eligibility.repositoryId,
+    visibility: eligibility.visibility,
+    application: {
+      milestoneDocumentSubmissions: [],
+      isRepositoryPublicationPlanned:
+        eligibility.isRepositoryPublicationPlanned,
+      provisionJob:
+        eligibility.provisionStatus === null
+          ? null
+          : {
+              status: eligibility.provisionStatus,
+              repositoryId: eligibility.repositoryId,
+            },
+      program: {
+        endAt: eligibility.programEndAt,
+        milestones: eligibility.requiredMilestonesApproved
+          ? []
+          : [{ id: 'milestone-1', submissionType: 'FILE', documents: [] }],
+      },
+    },
+  };
+}
+
 function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   const repositories = {
     publish: jest.fn().mockResolvedValue({
@@ -186,14 +218,26 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   } as jest.Mocked<Pick<RepositoriesService, 'publish'>>;
   const repository = {
     findReviewContext: jest.fn(),
-    findPublishEligibility: jest.fn().mockResolvedValue(eligibility),
+    findPublishEligibility: jest
+      .fn()
+      .mockResolvedValue(eligibility && eligibilityRow(eligibility)),
     withTransaction: jest.fn(),
   } as unknown as jest.Mocked<SubmissionReviewsRepositoryPort>;
   return {
     repositories,
-    service: new SubmissionReviewsService(repository, repositories, {
-      assertActiveStaff: jest.fn().mockResolvedValue({ actorId: 'reviewer-1' }),
-    }),
+    service: new SubmissionReviewsService(
+      repository,
+      repositories,
+      {
+        assertActiveStaff: jest
+          .fn()
+          .mockResolvedValue({ actorId: 'reviewer-1' }),
+      },
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
+    ),
   };
 }
 
@@ -202,7 +246,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const row = eligibleRow();
     const { service, repositories } = serviceFor(eligibleEligibility());
 
-    const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+    const context = serviceFor(null).service['toReviewContext'](row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     expect(context.repository).toMatchObject({
@@ -220,7 +264,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: NOW,
     });
 
-    const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+    const context = serviceFor(null).service['toReviewContext'](row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
 
     expect(context.repository?.blockedReasons).toEqual([]);
@@ -235,7 +279,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         breakEligibility(eligibleEligibility()),
       );
 
-      const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+      const context = serviceFor(null).service['toReviewContext'](row, NOW);
       const publish = service.publishRepository(
         'repository-1',
         ACTOR_GITHUB_ID,
@@ -257,7 +301,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         scenario.breakRow(repository, application);
     });
 
-    const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+    const context = serviceFor(null).service['toReviewContext'](row, NOW);
 
     expect(new Set(context.repository?.blockedReasons)).toEqual(
       new Set<PublishBlockedReason>(Object.values(PUBLISH_BLOCKED_REASONS)),
@@ -278,7 +322,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: new Date('2026-12-31T00:00:00.000Z'),
     });
 
-    const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+    const context = serviceFor(null).service['toReviewContext'](row, NOW);
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
@@ -330,8 +374,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 
-    expect(eligibility).toEqual({
-      repositoryId: 'repository-1',
+    expect(
+      serviceFor(null).service['toPublishEligibility'](
+        eligibility!.application,
+        eligibility!,
+      ),
+    ).toEqual({
       visibility: RepositoryVisibility.PRIVATE,
       provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
       requiredMilestonesApproved: false,
@@ -360,7 +408,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 
-    expect(eligibility?.provisionStatus).toBeNull();
+    expect(
+      serviceFor(null).service['toPublishEligibility'](
+        eligibility!.application,
+        eligibility!,
+      ).provisionStatus,
+    ).toBeNull();
   });
 
   it('저장소를 찾지 못하면 준비되지 않은 것으로 거절한다', async () => {
@@ -385,7 +438,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       repository.visibility = RepositoryVisibility.PUBLIC;
     });
 
-    const context = SubmissionReviewsRepository.toReviewContext(row, NOW);
+    const context = serviceFor(null).service['toReviewContext'](row, NOW);
 
     expect(context.repository).toMatchObject({
       visibility: RepositoryVisibility.PUBLIC,

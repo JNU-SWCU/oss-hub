@@ -2,11 +2,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -16,6 +12,10 @@ import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
 import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(32).fill(19);
 const allowedOrigin = 'http://frontend.test';
@@ -51,6 +51,8 @@ describe('board authorization HTTP characterization', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [BoardController],
       providers: [
+        ...STATELESS_PROVIDERS,
+        AuthSessionService,
         UserProfileService,
         BoardService,
         {
@@ -88,7 +90,7 @@ describe('board authorization HTTP characterization', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    cookie = `${sessionCookieName(false)}=${await issueSessionToken(sessionSecret, 5001n, 0)}`;
+    cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, 5001n, 0)}`;
   });
   afterAll(async () => application.close());
   beforeEach(() => {

@@ -14,6 +14,9 @@ import {
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';
@@ -246,6 +249,14 @@ function createDb(): MockDb {
   return db as MockDb;
 }
 
+function serviceFor(db: MockDb): RepositoryProvisionStateService {
+  return new RepositoryProvisionStateService(
+    repositoryFor(db),
+    new RepositoryUrlService(),
+    new RepositoryProvisionEventService(),
+  );
+}
+
 function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
   return new RepositoryProvisionStateRepository(db as unknown as PrismaService);
 }
@@ -301,7 +312,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       }),
     );
 
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -320,7 +331,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
 
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       name: 'RepositoryProvisionFailure',
       retryable: false,
@@ -353,7 +364,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       ),
     );
 
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -377,7 +388,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       ),
     );
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
       retryable: false,
@@ -393,7 +404,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
         RepositorySource.EXTERNAL_PUBLIC,
       ),
     );
-    const context = await repositoryFor(db).loadContext(
+    const context = await serviceFor(db).loadContext(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -415,7 +426,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
           : { ...job, repositoryId: 'different-repository' },
       );
 
-      const context = await repositoryFor(db).loadContext(
+      const context = await serviceFor(db).loadContext(
         JOB_ID,
         WORKER_ID,
         REQUEST_ID,
@@ -430,7 +441,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     db.repositoryProvisionJob.findFirst.mockResolvedValue(null);
 
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
 });
@@ -958,6 +969,6 @@ it('loadContext 실패는 재시도하지 않는 provision 실패 타입이다',
   db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
 
   await expect(
-    repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+    serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
   ).rejects.toBeInstanceOf(RepositoryProvisionFailure);
 });

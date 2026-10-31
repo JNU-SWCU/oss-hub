@@ -1,4 +1,27 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import {
+  type TeamActivityView,
+  type RepositoryUrlHistoryCursor,
+  type TeamApplicationView,
+  type TeamRepositoryProvisioningJobStatus,
+  type TeamRepositoryProvisioningSafeErrorClass,
+  type RepositoryUrlHistoryRows,
+  type RepositoryUrlHistoryPage,
+  type DeletedTeamView,
+  type ProgramTeamView,
+  type RenamedTeamView,
+  type StaffTeamDetailView,
+  type StaffTeamView,
+  type RepositoryUrlHistoryRow,
+  type RepositoryUrlHistoryView,
+  type TeamRepositoryContributionsRow,
+  type TeamRepositoryContributionsView,
+} from './program-team-repository-evidence.repository';
+import {
+  ApplicationStatus,
+  OutboxEventStatus,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
   TEAM_DELETED_AUDIT_ACTIONS,
@@ -15,6 +38,7 @@ import {
   type TeamMembershipAuditEvent,
   type TeamMembershipAuditStore,
   type TeamRenameAuditEvent,
+  type TeamApplicationRow,
 } from './program-teams.repository';
 import {
   ProgramTeamDeletionRepository,
@@ -24,27 +48,14 @@ import {
   type TeamDeletionNotificationStore,
 } from './program-team-deletion.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
-import {
-  type RepositoryUrlHistoryCursor,
-  type RepositoryUrlHistoryPage,
-  type TeamActivityView,
-  type DeletedTeamView,
-  type ProgramTeamView,
-  type RenamedTeamView,
-  type StaffTeamDetailView,
-  type StaffTeamView,
-} from './program-team-repository-evidence.repository';
-import { canEditStudentRepositoryUrl } from './student-repository-url.service';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import type { TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
-import type {
-  RepositoryUrlHistoryRow,
-  RepositoryUrlHistoryRows,
-  RepositoryUrlHistoryView,
-} from './program-team-repository-evidence.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
@@ -94,6 +105,10 @@ export class ProgramTeamsService {
       'assertActiveStaff'
     >,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly repositoryPublishService: RepositoryPublishService,
+    private readonly repositoryUrlService: RepositoryUrlService,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
+    private readonly programRulesService: ProgramRulesService,
   ) {}
 
   async getMe(
@@ -381,6 +396,81 @@ export class ProgramTeamsService {
     );
   }
 
+  private toContributionsView(
+    row: TeamRepositoryContributionsRow,
+  ): TeamRepositoryContributionsView {
+    const { nameWithOwner, ...contributions } = row;
+    return {
+      ...contributions,
+      repositoryUrl:
+        this.repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner),
+    };
+  }
+
+  private toTeamApplicationView(row: TeamApplicationRow): TeamApplicationView {
+    const { repository, job } = row;
+    const completionTargets =
+      this.milestoneCompletionService.projectSubmissionCompletionTargets(
+        row.milestoneDocumentSubmissions,
+      );
+    const blockedReasons = repository
+      ? this.repositoryPublishService.publishBlockedReasons(
+          {
+            visibility: repository.visibility,
+            provisionStatus:
+              job?.repositoryId === repository.id ? job.status : null,
+            requiredMilestonesApproved:
+              this.milestoneCompletionService.requiredMilestonesApproved(
+                row.program.milestones,
+                completionTargets.submissions,
+                completionTargets.documentSubmissions,
+              ),
+            isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
+            programEndAt: row.program.endAt,
+          },
+          new Date(),
+        )
+      : [];
+    const repositoryUrl =
+      repository &&
+      this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+        repository.nameWithOwner,
+      );
+    return {
+      id: row.id,
+      status: row.status,
+      repositoryConnectionMode: row.repositoryConnectionMode,
+      repository:
+        repository && repositoryUrl
+          ? {
+              id: repository.id,
+              url: repositoryUrl,
+              visibility: repository.visibility,
+              publishEligible: blockedReasons.length === 0,
+              blockedReasons,
+            }
+          : null,
+      repositoryProvisioning:
+        repository &&
+        row.repositoryUrl === repositoryUrl &&
+        job?.repositoryId === repository.id &&
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED
+          ? {
+              enabled: row.program.repositoryProvisioningEnabled,
+              jobStatus: 'SUCCEEDED',
+              updatedAt: job.updatedAt,
+              safeErrorClass: null,
+            }
+          : resolveTeamRepositoryProvisioning(
+              row.status,
+              row.program.repositoryProvisioningEnabled,
+              row.updatedAt,
+              row.outbox ?? undefined,
+              job ?? undefined,
+            ),
+    };
+  }
+
   private toStaffTeamDetailView(
     programId: string,
     detail: StaffTeamDetailRecord,
@@ -400,8 +490,11 @@ export class ProgramTeamsService {
         ...members.filter((member) => member.isLeader),
         ...members.filter((member) => !member.isLeader),
       ],
-      application: detail.application,
-      repositoryContributions: detail.repositoryContributions,
+      application:
+        detail.application && this.toTeamApplicationView(detail.application),
+      repositoryContributions:
+        detail.repositoryContributions &&
+        this.toContributionsView(detail.repositoryContributions),
       repositoryUrlHistory: this.toRepositoryUrlHistoryPage(
         detail.repositoryUrlHistory,
         {
@@ -425,12 +518,19 @@ export class ProgramTeamsService {
       programId,
       teamId,
     );
+    const activity = await this.repository.readTeamActivity(team);
     return {
-      ...(await this.repository.readTeamActivity(team)),
+      ...activity,
+      repository: activity.repository && {
+        id: activity.repository.id,
+        url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+          activity.repository.nameWithOwner,
+        ),
+      },
 
       canEditRepositoryUrl:
         team.application !== null &&
-        canEditStudentRepositoryUrl(
+        this.programRulesService.canEditStudentRepositoryUrl(
           {
             status: team.application.status,
             endAt: team.program.endAt,
@@ -514,11 +614,14 @@ export class ProgramTeamsService {
     return {
       actorGithubLogin: row.actor.nickname,
       previousRepositoryUrl: metadata.before.nameWithOwner
-        ? repositoryUrlFromNameWithOwner(metadata.before.nameWithOwner)
+        ? this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+            metadata.before.nameWithOwner,
+          )
         : null,
-      newRepositoryUrl: repositoryUrlFromNameWithOwner(
-        metadata.after.nameWithOwner,
-      ),
+      newRepositoryUrl:
+        this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+          metadata.after.nameWithOwner,
+        ),
     };
   }
 
@@ -597,5 +700,140 @@ export class ProgramTeamsService {
 
   private error(code: TeamsErrorCode): DomainException {
     return new DomainException(TEAMS_ERROR_CODES[code]);
+  }
+}
+
+interface TeamProvisionOutbox {
+  readonly status: OutboxEventStatus;
+  readonly createdAt: Date;
+}
+
+interface TeamProvisionJob {
+  readonly status: RepositoryProvisionJobStatus;
+  readonly updatedAt: Date;
+  readonly lastErrorCode: string | null;
+}
+
+function resolveTeamRepositoryProvisioning(
+  applicationStatus: ApplicationStatus,
+  enabled: boolean,
+  applicationUpdatedAt: Date,
+  outbox: TeamProvisionOutbox | undefined,
+  job: TeamProvisionJob | undefined,
+): TeamApplicationView['repositoryProvisioning'] {
+  const anomalous = (): TeamApplicationView['repositoryProvisioning'] => ({
+    enabled,
+    jobStatus: 'ANOMALOUS',
+    updatedAt: applicationUpdatedAt,
+    safeErrorClass: 'UNKNOWN',
+  });
+  if (applicationStatus !== ApplicationStatus.APPROVED) {
+    if (outbox || job) {
+      return anomalous();
+    }
+    return {
+      enabled,
+      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: null,
+    };
+  }
+
+  if (
+    (job && !outbox) ||
+    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
+    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
+  ) {
+    return anomalous();
+  }
+
+  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
+    const jobStatus = mapTeamProvisionJobStatus(job.status);
+    return {
+      enabled,
+      jobStatus,
+      updatedAt: job.updatedAt,
+      safeErrorClass:
+        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+          ? normalizeTeamSafeErrorClass(job.lastErrorCode)
+          : null,
+    };
+  }
+
+  if (enabled && outbox) {
+    if (
+      outbox.status === OutboxEventStatus.PENDING ||
+      outbox.status === OutboxEventStatus.PROCESSING
+    ) {
+      return {
+        enabled,
+        jobStatus: 'PENDING',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: null,
+      };
+    }
+    if (outbox.status === OutboxEventStatus.FAILED) {
+      return {
+        enabled,
+        jobStatus: 'FAILED',
+        updatedAt: outbox.createdAt,
+        safeErrorClass: 'UNKNOWN',
+      };
+    }
+  }
+
+  if (!outbox && !job) {
+    return {
+      enabled,
+      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
+      updatedAt: applicationUpdatedAt,
+      safeErrorClass: enabled ? 'UNKNOWN' : null,
+    };
+  }
+  return anomalous();
+}
+
+function mapTeamProvisionJobStatus(
+  status: RepositoryProvisionJobStatus,
+): TeamRepositoryProvisioningJobStatus {
+  switch (status) {
+    case RepositoryProvisionJobStatus.PENDING:
+      return 'PENDING';
+    case RepositoryProvisionJobStatus.PROCESSING:
+      return 'PROCESSING';
+    case RepositoryProvisionJobStatus.SUCCEEDED:
+      return 'SUCCEEDED';
+    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
+      return 'RETRYABLE_FAILED';
+    case RepositoryProvisionJobStatus.FAILED_FINAL:
+      return 'FAILED';
+  }
+}
+
+function normalizeTeamSafeErrorClass(
+  errorCode: string | null,
+): TeamRepositoryProvisioningSafeErrorClass {
+  switch (errorCode) {
+    case 'GITHUB_OPERATIONS_CONFIGURATION':
+    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
+    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
+    case 'GITHUB_OPERATIONS_AUTHENTICATION':
+    case 'GITHUB_OPERATIONS_PERMISSION':
+      return 'AUTH';
+    case 'GITHUB_OPERATIONS_RATE_LIMITED':
+    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
+      return 'RATE_LIMIT';
+    case 'GITHUB_OPERATIONS_INVALID_INPUT':
+    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
+    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
+    case 'REPOSITORY_PROVISION_INVALID_EVENT':
+    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
+      return 'UPSTREAM_REJECTED';
+    case 'GITHUB_OPERATIONS_UPSTREAM':
+    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
+    case 'REPOSITORY_PROVISION_INTERNAL':
+    case null:
+    default:
+      return 'UNKNOWN';
   }
 }

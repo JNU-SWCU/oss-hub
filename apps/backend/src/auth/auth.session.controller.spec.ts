@@ -3,15 +3,14 @@ import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
 import { AuthController } from './auth.controller';
-import {
-  AuthService,
-  LoginHistoryService,
-  serializeCookie,
-  sessionCookieName,
-  SESSION_MAX_AGE_SECONDS,
-  issueSessionToken,
-} from './auth.service';
+import { AuthService, LoginHistoryService } from './auth.service';
 import { AuthUser, type OptionalSessionRequest } from './http-auth.types';
+import {
+  AuthSessionService,
+  SESSION_MAX_AGE_SECONDS,
+} from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',
@@ -27,10 +26,14 @@ const syntheticUser: AuthUser = {
   isProfileComplete: false,
 };
 const sessionSecret = new Uint8Array(randomBytes(32));
-const clearSessionCookie = serializeCookie(sessionCookieName(true), '', {
-  maxAgeSeconds: 0,
-  secure: true,
-});
+const clearSessionCookie = authSessionService.serializeCookie(
+  authSessionService.sessionCookieName(true),
+  '',
+  {
+    maxAgeSeconds: 0,
+    secure: true,
+  },
+);
 
 function createResponse(): Response & { setHeader: jest.Mock } {
   return { setHeader: jest.fn() } as unknown as Response & {
@@ -82,6 +85,7 @@ function createController(findMe: jest.Mock): AuthController {
       useSecureCookies: true,
     } as unknown as AuthConfig,
     {} as LoginHistoryService,
+    new AuthSessionService(),
   );
 }
 
@@ -90,7 +94,7 @@ function expectInvalidSession(token: string): void {
   const res = createResponse();
 
   const result = createController(findMe).getSession(
-    requestWithCookie(`${sessionCookieName(true)}=${token}`),
+    requestWithCookie(`${authSessionService.sessionCookieName(true)}=${token}`),
     res,
   );
 
@@ -122,7 +126,7 @@ describe('AuthController getSession', () => {
   });
 
   it('서명이 일치하지 않는 쿠키는 익명 상태로 수렴하고 삭제한다', async () => {
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       new Uint8Array(randomBytes(32)),
       syntheticUser.githubId,
       0,
@@ -134,7 +138,7 @@ describe('AuthController getSession', () => {
   it('만료된 쿠키는 익명 상태로 수렴하고 삭제한다', async () => {
     const issuedAt =
       Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60;
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
       0,
@@ -192,7 +196,7 @@ describe('AuthController getSession', () => {
   });
 
   it('유효한 토큰의 사용자가 없으면 익명 상태로 수렴하고 쿠키를 삭제한다', async () => {
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
       0,
@@ -201,7 +205,12 @@ describe('AuthController getSession', () => {
 
     const result = createController(
       jest.fn().mockResolvedValue(null),
-    ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);
+    ).getSession(
+      requestWithCookie(
+        `${authSessionService.sessionCookieName(true)}=${token}`,
+      ),
+      res,
+    );
 
     expect(result).toEqual({ isAuthenticated: false });
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -211,7 +220,7 @@ describe('AuthController getSession', () => {
   });
 
   it('유효한 토큰의 사용자가 비활성화되면 익명 처리하고 기존 쿠키를 삭제한다', async () => {
-    const token = await issueSessionToken(
+    const token = await authSessionService.issueSessionToken(
       sessionSecret,
       syntheticUser.githubId,
       0,
@@ -225,7 +234,12 @@ describe('AuthController getSession', () => {
         hasAdminAccess: false,
         accountStatus: AccountStatus.DEACTIVATED,
       }),
-    ).getSession(requestWithCookie(`${sessionCookieName(true)}=${token}`), res);
+    ).getSession(
+      requestWithCookie(
+        `${authSessionService.sessionCookieName(true)}=${token}`,
+      ),
+      res,
+    );
 
     expect(result).toEqual({ isAuthenticated: false });
     expect(res.setHeader).toHaveBeenCalledWith(

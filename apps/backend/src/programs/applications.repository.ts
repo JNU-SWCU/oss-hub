@@ -19,8 +19,6 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.config';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -175,7 +173,7 @@ export interface CreatedApplication {
   readonly repositoryUrl: string | null;
 }
 
-interface ApplicationListAnswers {
+export interface ApplicationListAnswers {
   readonly applicantName: string;
   readonly title: string;
   readonly summary: string;
@@ -194,7 +192,7 @@ export type RepositoryProvisioningJobStatus =
 export type RepositoryProvisioningSafeErrorClass =
   'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
 
-interface ApplicationRepositoryProvisioning {
+export interface ApplicationRepositoryProvisioning {
   readonly enabled: boolean;
   readonly jobStatus: RepositoryProvisioningJobStatus;
   readonly updatedAt: Date;
@@ -232,6 +230,64 @@ export interface ApplicationListItem {
     readonly memberCount: number;
   } | null;
   readonly answers: ApplicationListAnswers;
+}
+
+export type ApplicationListRow = {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly rejectionReason: string | null;
+  readonly teamId: string | null;
+  readonly answers: Prisma.JsonValue;
+  readonly isRepositoryPublicationPlanned: boolean;
+  readonly repositoryConnectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly repository: {
+    readonly id: string;
+    readonly nameWithOwner: string;
+    readonly visibility: RepositoryVisibility;
+  } | null;
+  readonly program: {
+    readonly repositoryProvisioningEnabled: boolean;
+  };
+  readonly applicant: {
+    readonly id: string;
+    readonly nickname: string;
+    readonly profile: { readonly name: string } | null;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly _count: { readonly members: number };
+  } | null;
+};
+
+export type ApplicationListOutbox = {
+  readonly status: OutboxEventStatus;
+  readonly createdAt: Date;
+};
+
+export type ApplicationListProvisionJob = {
+  readonly repositoryId: string | null;
+  readonly status: RepositoryProvisionJobStatus;
+  readonly updatedAt: Date;
+  readonly lastErrorCode: string | null;
+};
+
+export interface ApplicationListSource {
+  readonly row: ApplicationListRow;
+  readonly outbox: ApplicationListOutbox | undefined;
+  readonly job: ApplicationListProvisionJob | undefined;
+}
+
+export interface ApplicationListSourcePage {
+  readonly items: readonly ApplicationListSource[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
 }
 
 export interface ApplicationListPage {
@@ -577,7 +633,6 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
           outcome: RepositoryIssuanceOutcome.DISCARDED,
           closedAt: discardedAt,
         },
-        parseRepositoryProvisionEvent,
       );
     }
 
@@ -671,7 +726,6 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
           newEventId: event.id,
           now: input.requestedAt,
         },
-        parseRepositoryProvisionEvent,
       );
       return toRepositoryProvisionEvent(event);
     } catch (error) {
@@ -953,7 +1007,7 @@ export class ApplicationsRepository {
   async listApplicationsForProgram(
     programId: string,
     query: ApplicationListQuery,
-  ): Promise<ApplicationListPage> {
+  ): Promise<ApplicationListSourcePage> {
     const where = buildApplicationListWhere(programId, query);
     const [rows, totalItems, outboxEvents, provisionJobs] =
       await this.prisma.$transaction(
@@ -1011,13 +1065,11 @@ export class ApplicationsRepository {
     );
 
     return {
-      items: rows.map((row) =>
-        toApplicationListItem(
-          row,
-          outboxByApplicationId.get(row.id),
-          jobByApplicationId.get(row.id),
-        ),
-      ),
+      items: rows.map((row) => ({
+        row,
+        outbox: outboxByApplicationId.get(row.id),
+        job: jobByApplicationId.get(row.id),
+      })),
       page: query.page,
       pageSize: query.pageSize,
       totalItems,
@@ -1027,7 +1079,7 @@ export class ApplicationsRepository {
 
   async findApplicationForStaff(
     applicationId: string,
-  ): Promise<ApplicationListItem | null> {
+  ): Promise<ApplicationListSource | null> {
     const [row, outbox, job] = await this.prisma.$transaction(
       async (transaction) => {
         const applicationRow = await transaction.application.findUnique({
@@ -1059,7 +1111,7 @@ export class ApplicationsRepository {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
     if (row === null) return null;
-    return toApplicationListItem(row, outbox ?? undefined, job ?? undefined);
+    return { row, outbox: outbox ?? undefined, job: job ?? undefined };
   }
 
   async listReviewHistory(
@@ -1417,245 +1469,6 @@ const APPLICATION_LIST_SELECT = {
     },
   },
 } as const satisfies Prisma.ApplicationSelect;
-
-type ApplicationListRow = {
-  readonly id: string;
-  readonly programId: string;
-  readonly status: ApplicationStatus;
-  readonly submittedAt: Date;
-  readonly updatedAt: Date;
-  readonly rejectionReason: string | null;
-  readonly teamId: string | null;
-  readonly answers: Prisma.JsonValue;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
-  readonly repository: {
-    readonly id: string;
-    readonly nameWithOwner: string;
-    readonly visibility: RepositoryVisibility;
-  } | null;
-  readonly program: {
-    readonly repositoryProvisioningEnabled: boolean;
-  };
-  readonly applicant: {
-    readonly id: string;
-    readonly nickname: string;
-    readonly profile: { readonly name: string } | null;
-  };
-  readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly _count: { readonly members: number };
-  } | null;
-};
-
-type ApplicationListOutbox = {
-  readonly status: OutboxEventStatus;
-  readonly createdAt: Date;
-};
-
-type ApplicationListProvisionJob = {
-  readonly repositoryId: string | null;
-  readonly status: RepositoryProvisionJobStatus;
-  readonly updatedAt: Date;
-  readonly lastErrorCode: string | null;
-};
-
-function toApplicationListItem(
-  row: ApplicationListRow,
-  outbox: ApplicationListOutbox | undefined,
-  job: ApplicationListProvisionJob | undefined,
-): ApplicationListItem {
-  const team =
-    row.team !== null
-      ? {
-          id: row.team.id,
-          name: row.team.name,
-          memberCount: row.team._count.members,
-        }
-      : null;
-  return {
-    id: row.id,
-    programId: row.programId,
-    status: row.status,
-    submittedAt: row.submittedAt,
-    rejectionReason: row.rejectionReason,
-    repositoryConnectionMode: row.repositoryConnectionMode,
-    repositoryUrl: row.repositoryUrl,
-    repositoryProvisioning:
-      row.status === ApplicationStatus.APPROVED &&
-      row.repository != null &&
-      job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-      job.repositoryId === row.repository.id &&
-      row.repositoryUrl ===
-        repositoryUrlFromNameWithOwner(row.repository.nameWithOwner)
-        ? {
-            enabled: row.program.repositoryProvisioningEnabled,
-            jobStatus: 'SUCCEEDED',
-            updatedAt: job.updatedAt,
-            safeErrorClass: null,
-          }
-        : resolveRepositoryProvisioning(
-            row.status,
-            row.program.repositoryProvisioningEnabled,
-            row.updatedAt,
-            outbox,
-            job,
-          ),
-    repository: row.repository
-      ? {
-          url: repositoryUrlFromNameWithOwner(row.repository.nameWithOwner),
-          visibility: row.repository.visibility,
-        }
-      : null,
-    isRepositoryPublicationPlanned: row.isRepositoryPublicationPlanned,
-    participation: team ? 'TEAM' : 'INDIVIDUAL',
-    applicant: {
-      id: row.applicant.id,
-      nickname: row.applicant.nickname,
-      name: row.applicant.profile?.name ?? null,
-    },
-    team,
-    answers: parseListAnswers(row.answers),
-  };
-}
-function resolveRepositoryProvisioning(
-  applicationStatus: ApplicationStatus,
-  enabled: boolean,
-  applicationUpdatedAt: Date,
-  outbox: ApplicationListOutbox | undefined,
-  job: ApplicationListProvisionJob | undefined,
-): ApplicationRepositoryProvisioning {
-  const anomalous = (): ApplicationRepositoryProvisioning => ({
-    enabled,
-    jobStatus: 'ANOMALOUS',
-    updatedAt: applicationUpdatedAt,
-    safeErrorClass: 'UNKNOWN',
-  });
-  if (applicationStatus !== ApplicationStatus.APPROVED) {
-    if (outbox || job) {
-      return anomalous();
-    }
-    return {
-      enabled,
-      jobStatus: enabled ? 'NOT_REQUESTED' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: null,
-    };
-  }
-
-  if (
-    (job && !outbox) ||
-    (job && outbox?.status !== OutboxEventStatus.PROCESSED) ||
-    (!job && outbox?.status === OutboxEventStatus.PROCESSED)
-  ) {
-    return anomalous();
-  }
-
-  if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = mapProvisionJobStatus(job.status);
-    return {
-      enabled,
-      jobStatus,
-      updatedAt: job.updatedAt,
-      safeErrorClass:
-        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
-          ? normalizeSafeErrorClass(job.lastErrorCode)
-          : null,
-    };
-  }
-
-  if (enabled && outbox) {
-    if (
-      outbox.status === OutboxEventStatus.PENDING ||
-      outbox.status === OutboxEventStatus.PROCESSING
-    ) {
-      return {
-        enabled,
-        jobStatus: 'PENDING',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: null,
-      };
-    }
-    if (outbox.status === OutboxEventStatus.FAILED) {
-      return {
-        enabled,
-        jobStatus: 'FAILED',
-        updatedAt: outbox.createdAt,
-        safeErrorClass: 'UNKNOWN',
-      };
-    }
-  }
-
-  if (!outbox && !job) {
-    return {
-      enabled,
-      jobStatus: enabled ? 'ANOMALOUS' : 'DISABLED',
-      updatedAt: applicationUpdatedAt,
-      safeErrorClass: enabled ? 'UNKNOWN' : null,
-    };
-  }
-  return anomalous();
-}
-
-function mapProvisionJobStatus(
-  status: RepositoryProvisionJobStatus,
-): RepositoryProvisioningJobStatus {
-  switch (status) {
-    case RepositoryProvisionJobStatus.PENDING:
-      return 'PENDING';
-    case RepositoryProvisionJobStatus.PROCESSING:
-      return 'PROCESSING';
-    case RepositoryProvisionJobStatus.SUCCEEDED:
-      return 'SUCCEEDED';
-    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
-      return 'RETRYABLE_FAILED';
-    case RepositoryProvisionJobStatus.FAILED_FINAL:
-      return 'FAILED';
-  }
-}
-
-function normalizeSafeErrorClass(
-  errorCode: string | null,
-): RepositoryProvisioningSafeErrorClass {
-  switch (errorCode) {
-    case 'GITHUB_OPERATIONS_CONFIGURATION':
-    case 'GITHUB_OPERATIONS_INSTALLATION_NOT_FOUND':
-    case 'GITHUB_OPERATIONS_ORGANIZATION_MISMATCH':
-    case 'GITHUB_OPERATIONS_AUTHENTICATION':
-    case 'GITHUB_OPERATIONS_PERMISSION':
-      return 'AUTH';
-    case 'GITHUB_OPERATIONS_RATE_LIMITED':
-    case 'GITHUB_OPERATIONS_INVITATION_LIMIT':
-      return 'RATE_LIMIT';
-    case 'GITHUB_OPERATIONS_INVALID_INPUT':
-    case 'REPOSITORY_PROVISION_APPLICATION_NOT_APPROVED':
-    case 'REPOSITORY_PROVISION_FEATURE_DISABLED':
-    case 'REPOSITORY_PROVISION_INVALID_EVENT':
-    case 'REPOSITORY_PROVISION_REPOSITORY_MISMATCH':
-      return 'UPSTREAM_REJECTED';
-    case 'GITHUB_OPERATIONS_UPSTREAM':
-    case 'GITHUB_OPERATIONS_INVALID_RESPONSE':
-    case 'REPOSITORY_PROVISION_INTERNAL':
-    case null:
-    default:
-      return 'UNKNOWN';
-  }
-}
-
-function parseListAnswers(value: Prisma.JsonValue): ApplicationListAnswers {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return { applicantName: '', title: '', summary: '' };
-  }
-  const record = value as Record<string, unknown>;
-  return {
-    applicantName:
-      typeof record.applicantName === 'string' ? record.applicantName : '',
-    title: typeof record.title === 'string' ? record.title : '',
-    summary: typeof record.summary === 'string' ? record.summary : '',
-  };
-}
 
 function toApplicationDecisionTarget(
   application: ApplicationWithProgram,

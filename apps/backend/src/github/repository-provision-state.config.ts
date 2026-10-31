@@ -1,5 +1,3 @@
-import { RepositoryProvisionFailure } from './repository-provision-state.error';
-import { GithubOperationsError } from './github-app.error';
 export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
   'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
 
@@ -40,37 +38,3 @@ export const DEFAULT_PROVISION_OPTIONS: RepositoryProvisionWorkerOptions = {
   maxAttempts: DEFAULT_PROVISION_MAX_ATTEMPTS,
   retryBaseMs: DEFAULT_PROVISION_RETRY_BASE_MS,
 };
-
-export function normalizeProvisionFailure(
-  error: unknown,
-): RepositoryProvisionFailure {
-  if (error instanceof GithubOperationsError) {
-    return new RepositoryProvisionFailure(
-      error.code,
-      error.retryable,
-      error.retryAt,
-    );
-  }
-  if (error instanceof RepositoryProvisionFailure) {
-    return error;
-  }
-  return new RepositoryProvisionFailure(PROVISION_ERROR_CODES.INTERNAL, true);
-}
-
-export function finalProvisionFailure(
-  code: string,
-): RepositoryProvisionFailure {
-  return new RepositoryProvisionFailure(code, false);
-}
-
-export function provisionRetryAt(
-  failure: RepositoryProvisionFailure,
-  attempt: number,
-  now: Date,
-  baseMs: number,
-): Date {
-  if (failure.retryAt !== null && failure.retryAt.getTime() > now.getTime()) {
-    return failure.retryAt;
-  }
-  return new Date(now.getTime() + baseMs * 2 ** Math.max(0, attempt - 1));
-}

@@ -8,6 +8,8 @@ import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsRepository } from './staff-insights.repository';
 import { StaffInsightsService } from './staff-insights.service';
 import { StaffModule } from './staff.module';
+import { RankingModule } from '../ranking/ranking.module';
+import { StaffInsightsQueryService } from './staff-insights-query.service';
 
 describe('StaffModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -20,6 +22,7 @@ describe('StaffModule', () => {
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toEqual([
       AuthModule,
       ProgramsModule,
+      RankingModule,
       UsersModule,
     ]);
   });
@@ -36,6 +39,7 @@ describe('StaffModule', () => {
       StaffDashboardService,
       StaffInsightsRepository,
       StaffInsightsService,
+      StaffInsightsQueryService,
     ]);
   });
 });

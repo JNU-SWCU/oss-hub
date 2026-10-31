@@ -5,18 +5,16 @@ import {
   type AuthRepository,
   type AuthTransactionStore,
 } from './auth.repository';
-import {
-  LoginHistoryService,
-  AuthService,
-  createFlowState,
-  encodeFlowCookie,
-} from './auth.service';
+import { LoginHistoryService, AuthService } from './auth.service';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
 import { UserProfileService } from '../platform/user-profile.service';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 describe('login-history.service', () => {
   const emptyPage: LoginHistoryPage = {
@@ -126,6 +124,7 @@ describe('AuthService', () => {
       buildConfig(),
       repository,
       new UserProfileService(),
+      new AuthSessionService(),
     );
     fetchMock = jest.spyOn(globalThis, 'fetch');
   });
@@ -154,7 +153,7 @@ describe('AuthService', () => {
   });
 
   it('happy path: code 교환 → 프로필·이메일 조회 → upsert, 토큰은 반환값에 없다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse(200, { access_token: 'synthetic-token' }),
@@ -175,7 +174,7 @@ describe('AuthService', () => {
     const login = await service.completeLogin({
       code: 'synthetic-code',
       state: flow.state,
-      flowCookie: encodeFlowCookie(flow),
+      flowCookie: authSessionService.encodeFlowCookie(flow),
     });
 
     expect(login).toEqual({ user: syntheticUser, isNew: true });
@@ -202,7 +201,11 @@ describe('AuthService', () => {
 
   it.each([
     ['flow 쿠키 없음', undefined, 'any-state'],
-    ['state 불일치', encodeFlowCookie(createFlowState()), 'x'.repeat(43)],
+    [
+      'state 불일치',
+      authSessionService.encodeFlowCookie(authSessionService.createFlowState()),
+      'x'.repeat(43),
+    ],
     ['형식 위반 쿠키', 'malformed-cookie', 'x'.repeat(43)],
   ])(
     '%s이면 AUT_001로 거부하고 GitHub를 호출하지 않는다',
@@ -219,13 +222,13 @@ describe('AuthService', () => {
   );
 
   it('code 교환 응답에 access_token이 없으면 실패한다 (DB 쓰기 없음)', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { error: 'bad_code' }));
     await expect(
       service.completeLogin({
         code: 'expired',
         state: flow.state,
-        flowCookie: encodeFlowCookie(flow),
+        flowCookie: authSessionService.encodeFlowCookie(flow),
       }),
     ).rejects.toThrow('access_token');
     expect(withTransaction).not.toHaveBeenCalled();

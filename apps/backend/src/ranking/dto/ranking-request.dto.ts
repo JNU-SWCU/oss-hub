@@ -1,9 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
-import {
-  LEGACY_RANKING_PERIODS,
-  type LegacyRankingPeriod,
-} from '../ranking.service';
+import { LEGACY_RANKING_PERIODS } from '../ranking-year.service';
+import type { LegacyRankingPeriod } from '../ranking-year.service';
 
 const RANKING_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
 

@@ -1,11 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -13,6 +9,10 @@ import { UsersController } from '../users/users.controller';
 import { UsersService } from '../users/users.service';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);
@@ -65,6 +65,8 @@ describe.each(controllerOrders)(
       const moduleRef = await Test.createTestingModule({
         controllers: [...controllers],
         providers: [
+          ...STATELESS_PROVIDERS,
+          AuthSessionService,
           SessionGuard,
           OriginGuard,
           { provide: UsersService, useValue: usersService },
@@ -93,7 +95,7 @@ describe.each(controllerOrders)(
       application.useGlobalFilters(new ProblemDetailFilter());
       await application.listen(0, '127.0.0.1');
       baseUrl = await application.getUrl();
-      sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+      sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
         sessionSecret,
         githubId,
         0,

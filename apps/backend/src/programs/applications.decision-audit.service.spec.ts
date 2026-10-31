@@ -16,6 +16,9 @@ import { ApplicationsService } from './applications.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -114,10 +117,15 @@ function createHarness(
     repository,
     { record } as unknown as AuditLogService,
     { assertActiveStaff },
-    new ApplicationJoinCodeService({
-      TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-    }),
+    new ApplicationJoinCodeService(
+      {
+        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+      },
+      new JoinCodeSecretService(),
+    ),
     new AuditLogMetadataService(),
+    new RepositoryUrlService(),
+    new ApplicationAnswersService(),
   );
   return {
     service,

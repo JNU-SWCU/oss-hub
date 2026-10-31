@@ -1,8 +1,17 @@
-import {
-  fingerprintProgramMilestoneEdit,
-  preflightProgramMilestoneEditDocuments,
-} from './program-editor.service';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
+import { ProgramEditorService } from './program-editor.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const programEditorService = new ProgramEditorService(
+  undefined as never,
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
+);
 
 const operation = {
   startAt: new Date('2026-08-16T00:00:00.000Z'),
@@ -10,7 +19,7 @@ const operation = {
 };
 
 function fingerprint(storageKey: string | null): string {
-  return fingerprintProgramMilestoneEdit({
+  return programEditorService.fingerprintProgramMilestoneEdit({
     operation,
     milestone: {
       id: 'milestone-1',
@@ -51,7 +60,7 @@ describe('fingerprintProgramMilestoneEdit', () => {
 describe('preflightProgramMilestoneEditDocuments', () => {
   it('accepts 20 distinct documents and tokens', () => {
     expect(() =>
-      preflightProgramMilestoneEditDocuments(
+      programEditorService.preflightProgramMilestoneEditDocuments(
         Array.from({ length: 20 }, (_, index) => ({
           id: `document-${index}`,
           templateUploadId: `upload-${index}`,
@@ -76,7 +85,7 @@ describe('preflightProgramMilestoneEditDocuments', () => {
     ],
   ])('reports the indexed field for %s', (_caseName, documents, field) => {
     try {
-      preflightProgramMilestoneEditDocuments(documents);
+      programEditorService.preflightProgramMilestoneEditDocuments(documents);
       throw new Error('Expected duplicate document preflight error.');
     } catch (error) {
       expect(error).toBeInstanceOf(ProgramMilestoneEditValidationError);
@@ -92,7 +101,7 @@ describe('preflightProgramMilestoneEditDocuments', () => {
 
   it('rejects 21 documents', () => {
     expect(() =>
-      preflightProgramMilestoneEditDocuments(
+      programEditorService.preflightProgramMilestoneEditDocuments(
         Array.from({ length: 21 }, () => ({ id: null })),
       ),
     ).toThrow(ProgramMilestoneEditValidationError);

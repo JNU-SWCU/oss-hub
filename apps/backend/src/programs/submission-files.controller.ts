@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OriginGuard } from '../auth/origin.guard';
-import { setDownloadHeaders } from '../platform/download-response.config';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { UploadedSubmissionFileResponseDto } from './dto/uploaded-submission-file-response.dto';
 import {
@@ -28,6 +27,7 @@ import {
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
+import { DownloadResponseService } from './download-response.service';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -51,7 +51,10 @@ const SubmissionFileUploadInterceptor = new MultipartFileUploadInterceptor(
 
 @Controller('submission-files')
 export class SubmissionFilesController {
-  constructor(private readonly service: SubmissionFilesService) {}
+  constructor(
+    private readonly service: SubmissionFilesService,
+    private readonly downloadResponseService: DownloadResponseService,
+  ) {}
 
   @Get(':fileId')
   @UseGuards(SessionGuard)
@@ -62,7 +65,7 @@ export class SubmissionFilesController {
   ): Promise<StreamableFile> {
     const file = await this.service.download(request.sessionGithubId, fileId);
     response.setHeader('Cache-Control', 'private, no-store');
-    setDownloadHeaders(response, file);
+    this.downloadResponseService.setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 

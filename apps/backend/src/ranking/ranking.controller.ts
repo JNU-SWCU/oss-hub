@@ -12,15 +12,15 @@ import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from './dto/ranking-page-response.dto';
-import {
-  RankingService,
-  RANKING_VIEWER_CLASSES,
-  resolveRankingQueryYear,
-} from './ranking.service';
+import { RankingService, RANKING_VIEWER_CLASSES } from './ranking.service';
+import { RankingYearService } from './ranking-year.service';
 
 @Controller('ranking')
 export class RankingController {
-  constructor(private readonly rankingService: RankingService) {}
+  constructor(
+    private readonly rankingService: RankingService,
+    private readonly rankingYearService: RankingYearService,
+  ) {}
 
   @Get()
   @OptionalSession()
@@ -30,7 +30,7 @@ export class RankingController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingPageResponseDto> {
     const page = await this.rankingService.findPage(
-      resolveRankingQueryYear(query),
+      this.rankingYearService.resolveRankingQueryYear(query),
       query.page,
       query.pageSize,
       githubIdFrom(request),

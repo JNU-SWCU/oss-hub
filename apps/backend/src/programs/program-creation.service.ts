@@ -21,11 +21,8 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import {
-  isProgramEndAtUndecided,
-  getProgramTemplate,
-} from './programs.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
 
 export type CreatedProgram = {
   readonly id: string;
@@ -91,6 +88,7 @@ export class ProgramCreationService {
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly programRulesService: ProgramRulesService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
@@ -111,7 +109,9 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = getProgramTemplate(ProgramCategory.BASIC);
+    const template = this.programRulesService.getProgramTemplate(
+      ProgramCategory.BASIC,
+    );
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
     const teamMaxSize = input.teamMaxSize ?? template.teamSize.defaultMax;
     const hasValidApplicationPeriod =
@@ -144,7 +144,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      isProgramEndAtUndecided(endAt) ||
+      this.programRulesService.isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(

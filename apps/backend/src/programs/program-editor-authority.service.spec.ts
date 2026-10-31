@@ -12,8 +12,20 @@ import {
   createProgramEditorServiceHarness,
   editableProgram,
 } from '../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from './program-editor.service';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { ProgramEditorService } from './program-editor.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const programEditorService = new ProgramEditorService(
+  undefined as never,
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new SubmissionFileRulesService(),
+);
 
 describe('ProgramEditorService authority', () => {
   it('loads edit data by canonical program id inside one repository transaction', async () => {
@@ -21,9 +33,10 @@ describe('ProgramEditorService authority', () => {
       createProgramEditorServiceHarness();
     store.findEditableProgramById.mockResolvedValue(editableProgram);
 
-    await expect(service.getProgram(101n, 'program-1')).resolves.toBe(
-      editableProgram,
-    );
+    await expect(service.getProgram(101n, 'program-1')).resolves.toMatchObject({
+      id: editableProgram.id,
+      coverImageUrl: null,
+    });
 
     expect(withTransaction.mock.calls).toHaveLength(1);
     expect(store.findEditableProgramById.mock.calls[0]).toEqual(['program-1']);
@@ -206,7 +219,7 @@ function lockedMilestoneEdit(
 
 function requestFor(locked: ReturnType<typeof lockedMilestoneEdit>) {
   return {
-    expectedFingerprint: fingerprintProgramMilestoneEdit({
+    expectedFingerprint: programEditorService.fingerprintProgramMilestoneEdit({
       operation: locked.view.operation,
       milestone: {
         ...locked.view.milestone,

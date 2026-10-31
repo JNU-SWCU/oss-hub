@@ -12,6 +12,10 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 afterEach(() => jest.clearAllMocks());
 
@@ -22,6 +26,10 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
     undefined as never,
     undefined as never,
     new AuditLogMetadataService(),
+    new RepositoryPublishService(),
+    new RepositoryUrlService(),
+    new MilestoneCompletionService(),
+    new ProgramRulesService(),
   )['toRepositoryUrlHistoryPage'](history!, {
     programId: 'program',
     teamId: 'team',
@@ -86,9 +94,20 @@ it('reports an explicit repository relink as succeeded without inventing a provi
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
-  expect(detail?.application?.repositoryProvisioning.jobStatus).toBe(
-    'SUCCEEDED',
-  );
+  expect(
+    new ProgramTeamsService(
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      new AuditLogMetadataService(),
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new ProgramRulesService(),
+    )['toTeamApplicationView'](detail!.application!).repositoryProvisioning
+      .jobStatus,
+  ).toBe('SUCCEEDED');
 });
 
 it('continues history with timestamp and ID tie-breaking inside the same scope', async () => {
@@ -243,7 +262,7 @@ it('matches numeric GitHub identities and preserves members without observations
   expect(detail).toMatchObject({
     repositoryContributions: {
       repositoryId: 'current-repo',
-      repositoryUrl: 'https://github.com/synthetic/current',
+      nameWithOwner: 'synthetic/current',
       window: { from: '2026-08-01', to: '2026-08-31', timeZone: 'Asia/Seoul' },
       collectionStatus: 'COLLECTED',
       members: [

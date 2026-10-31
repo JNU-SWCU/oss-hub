@@ -8,7 +8,6 @@ import {
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import { publicSubmissionId } from './submission-file.config';
 import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -293,7 +292,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       },
     });
     return submissions.map((submission) => ({
-      id: publicSubmissionId(submission),
+      id: submission.legacySubmissionId ?? submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
       status: submission.status,

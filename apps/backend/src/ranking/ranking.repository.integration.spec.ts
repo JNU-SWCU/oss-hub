@@ -3,6 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { RankingService } from './ranking.service';
 import { RankingRepository } from './ranking.repository';
+import { RankingYearService } from './ranking-year.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -218,7 +219,7 @@ function excludedLogins(): readonly string[] {
 
 describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 학생만 담는다', () => {
   it('공개 페이지의 cohort 항목이 학생 2명뿐이고 실명 칸이 없다', async () => {
-    const service = new RankingService(repository);
+    const service = new RankingService(repository, new RankingYearService());
 
     const items = await collectCohortItems(service, null);
 
@@ -231,7 +232,7 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('pageSize=1로 전 페이지를 순회해도 제외된 계정은 어느 페이지에도 없다', async () => {
-    const service = new RankingService(repository);
+    const service = new RankingService(repository, new RankingYearService());
 
     const firstPage = await service.findPage(YEAR, 1, 1, null);
     const seen: string[] = [];
@@ -249,7 +250,7 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('같은 연도를 두 번 물어도 제외 경계가 그대로다', async () => {
-    const service = new RankingService(repository);
+    const service = new RankingService(repository, new RankingYearService());
 
     const first = await collectCohortItems(service, null);
     const second = await collectCohortItems(service, null);
@@ -261,7 +262,7 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('교직원 열람자에게도 제외 경계와 실명 부착 대상이 학생뿐이다', async () => {
-    const service = new RankingService(repository);
+    const service = new RankingService(repository, new RankingYearService());
     const staffMember = MEMBERS.find((member) => member.key === 'staff');
     const viewerGithubId = staffMember?.githubId ?? null;
 

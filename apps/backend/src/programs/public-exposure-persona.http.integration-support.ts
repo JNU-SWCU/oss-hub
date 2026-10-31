@@ -8,11 +8,7 @@ import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthenticationGuard } from '../auth/authentication.guard';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -38,6 +34,14 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { RankingYearService } from '../ranking/ranking-year.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const authSessionService = new AuthSessionService();
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 
@@ -88,9 +92,11 @@ export class PublicExposurePersonaHttpHarness {
       eligibilityService,
       this.metrics,
       loadRuntimeConfig({ SESSION_SECRET: SYNTHETIC_SESSION_SECRET }),
+      new RepositoryUrlService(),
     );
     const rankingService = new RankingService(
       new RankingRepository(this.prisma),
+      new RankingYearService(),
     );
 
     const github = {
@@ -106,11 +112,16 @@ export class PublicExposurePersonaHttpHarness {
       github,
       auditLogService,
       new AuditLogMetadataService(),
+      new RepositoryUrlService(),
     );
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),
       repositoriesService,
       new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new SubmissionFileRulesService(),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
 
@@ -254,7 +265,7 @@ export class PublicExposurePersonaHttpHarness {
   }
 
   private async cookie(githubId: bigint): Promise<string> {
-    return `${sessionCookieName(false)}=${await issueSessionToken(
+    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

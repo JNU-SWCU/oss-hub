@@ -1,5 +1,4 @@
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { asiaSeoulYear } from './collection-incremental.config';
 import type { PrismaService } from '../platform/prisma.service';
 
 interface MockDb {
@@ -165,16 +164,6 @@ function createFakeGithubRepositoryStore(seed: readonly FakeRepoRow[]) {
     ),
   };
 }
-
-describe('asiaSeoulYear', () => {
-  it('UTC 12/31 15:30(=KST 1/1 00:30)을 다음 해로 계산한다', () => {
-    expect(asiaSeoulYear(new Date('2025-12-31T15:30:00.000Z'))).toBe(2026);
-  });
-
-  it('UTC 12/31 14:30(=KST 12/31 23:30)은 이전 해로 유지한다', () => {
-    expect(asiaSeoulYear(new Date('2025-12-31T14:30:00.000Z'))).toBe(2025);
-  });
-});
 
 describe('CollectionIncrementalRepository — repository identity', () => {
   it('가입자 GitHub ID를 한 번에 읽어 불변 집합으로 돌려준다', async () => {

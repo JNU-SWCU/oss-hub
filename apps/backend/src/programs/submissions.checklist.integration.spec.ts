@@ -22,6 +22,8 @@ import { PrismaService } from '../platform/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
+import { ProgramRulesService } from './program-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,7 +31,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const service = new SubmissionsService(new SubmissionsRepository(prisma));
+const service = new SubmissionsService(
+  new SubmissionsRepository(prisma),
+  new ProgramRulesService(),
+  new SubmissionFileRulesService(),
+);
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');
 const TEAM_APPLICATION_ID = seedId('milestones', 'application', 'team');

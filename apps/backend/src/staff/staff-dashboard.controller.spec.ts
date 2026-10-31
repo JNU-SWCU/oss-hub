@@ -7,6 +7,7 @@ import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import { SessionGuard } from '../auth/session.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
+import { StaffInsightsQueryService } from './staff-insights-query.service';
 
 const SESSION_GITHUB_ID = 4242n;
 
@@ -95,7 +96,11 @@ describe('StaffDashboardController', () => {
       });
       const service: Pick<StaffDashboardService, 'summary'> = { summary };
       const insights = { summarize: jest.fn() };
-      const controller = new StaffDashboardController(service, insights);
+      const controller = new StaffDashboardController(
+        service,
+        insights,
+        new StaffInsightsQueryService(),
+      );
 
       await expect(
         controller.summary({ sessionGithubId: SESSION_GITHUB_ID }),
@@ -158,6 +163,7 @@ describe('StaffDashboardController', () => {
     const controller = new StaffDashboardController(
       { summary: jest.fn() },
       { summarize },
+      new StaffInsightsQueryService(),
     );
     const insightsSummary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,

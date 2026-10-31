@@ -1,13 +1,23 @@
 import { SubmissionStatus } from '@prisma/client';
 import {
-  buildMilestoneDocumentArchivePlan,
   type MilestoneDocumentArchiveLayout,
+  MilestoneDocumentArchiveService,
 } from './milestone-document-archive.service';
 import {
   type MilestoneDocumentArchiveDocument,
   type MilestoneDocumentArchiveSubmission,
   type MilestoneDocumentArchiveTeam,
 } from './milestone-document-archive.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+);
 
 const submittedAt = new Date('2026-08-09T05:00:00.000Z');
 
@@ -59,7 +69,7 @@ function plan(input: {
   submissions?: readonly MilestoneDocumentArchiveSubmission[];
   layout?: MilestoneDocumentArchiveLayout;
 }) {
-  return buildMilestoneDocumentArchivePlan({
+  return milestoneDocumentArchiveService.buildMilestoneDocumentArchivePlan({
     documents: input.documents ?? [document()],
     teams: input.teams ?? [team()],
     submissions: input.submissions ?? [],

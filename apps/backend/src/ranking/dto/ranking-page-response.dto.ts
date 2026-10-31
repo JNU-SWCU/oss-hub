@@ -2,8 +2,8 @@ import type {
   RankingEntry,
   RankingPage,
   RankingViewerClass,
-  RankingYear,
 } from '../ranking.service';
+import type { RankingYear } from '../ranking-year.service';
 
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;

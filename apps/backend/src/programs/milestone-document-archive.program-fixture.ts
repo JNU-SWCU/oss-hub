@@ -7,6 +7,8 @@ import {
   type ArchiveProgram,
   type MilestoneDocumentArchiveSubmission,
 } from './milestone-document-archive.repository';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 export const now = new Date('2026-09-03T00:00:00Z');
 export const fileBody = Buffer.from('synthetic retained image');
@@ -85,6 +87,7 @@ export function fixture() {
           .fn()
           .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
       },
+      new MilestoneDocumentRulesService(new ProgramRulesService()),
     ),
   };
 }

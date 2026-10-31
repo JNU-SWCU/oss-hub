@@ -8,6 +8,10 @@ export class RepositoryProvisionFailure extends Error {
   ) {
     super(code);
   }
+
+  static final(code: string): RepositoryProvisionFailure {
+    return new RepositoryProvisionFailure(code, false);
+  }
 }
 
 export class RepositoryProvisionLeaseLostError extends Error {

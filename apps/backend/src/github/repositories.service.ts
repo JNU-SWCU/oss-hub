@@ -12,6 +12,8 @@ import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import type { RepositoryPublishTargetRow } from './repositories.repository';
+import { RepositoryUrlService } from './repository-url.service';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;
@@ -60,17 +62,38 @@ export class RepositoriesService {
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
     private readonly auditLog: Pick<AuditLogService, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly repositoryUrlService: RepositoryUrlService,
   ) {}
+
+  private toPublishTarget(
+    row: RepositoryPublishTargetRow,
+  ): RepositoryPublishTarget {
+    return {
+      id: row.id,
+      githubRepositoryId: row.githubRepositoryId,
+      name: this.repositoryUrlService.repositoryNameFromNameWithOwner(
+        row.nameWithOwner,
+      ),
+      url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
+        row.nameWithOwner,
+      ),
+      visibility: row.visibility,
+      publishedAt: row.publishedAt,
+    };
+  }
 
   async publish(
     input: PublishRepositoryInput,
     actorGithubId: bigint,
     now = new Date(),
   ): Promise<RepositoryPublishTarget> {
-    const target = await this.repository.findPublishTarget(input.repositoryId);
-    if (target === null) {
+    const targetRow = await this.repository.findPublishTarget(
+      input.repositoryId,
+    );
+    if (targetRow === null) {
       throw new RepositoryNotFoundError();
     }
+    const target = this.toPublishTarget(targetRow);
     if (target.visibility === RepositoryVisibility.PUBLIC) {
       return target;
     }
@@ -94,13 +117,14 @@ export class RepositoriesService {
         if (reloaded === null) {
           throw new RepositoryNotFoundError();
         }
-        return reloaded;
+        return this.toPublishTarget(reloaded);
       }
 
-      const committed = await store.findPublishTarget(target.id);
-      if (committed === null) {
+      const committedRow = await store.findPublishTarget(target.id);
+      if (committedRow === null) {
         throw new RepositoryNotFoundError();
       }
+      const committed = this.toPublishTarget(committedRow);
       await this.auditLog.record(
         {
           actorGithubId,

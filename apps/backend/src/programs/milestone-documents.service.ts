@@ -1,8 +1,6 @@
 import {
-  MilestoneSubmissionType,
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionStatus,
-  ReviewDecision,
 } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -31,354 +29,19 @@ import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-document
 import {
   MilestoneDocumentRecord,
   MilestoneDocumentCollectionApplication,
-  MilestoneDocumentCollectionSubmission,
   MilestoneContext,
   MilestoneDocumentSubmittedContent,
-  DocumentDeliveryStatus,
   MilestoneDocumentContentInput,
-  ProgramDocumentChangeRequestCandidate,
-  ProgramDocumentChangeRequestInput,
-  ProgramDocumentChangeRequestScope,
   type MilestoneDocumentSubmissionDetail,
   type UpsertMilestoneDocumentInput,
 } from './milestone-document-collection-read.repository';
-import { hasProgramDeadlinePassed } from './programs.service';
-import { createHash } from 'node:crypto';
-import { addOneCalendarYear } from './submission-file.config';
-
-export function documentDeliveryStatus(input: {
-  readonly requiredFirstSubmissions: readonly (Date | null)[];
-  readonly dueAt: Date | null;
-}): DocumentDeliveryStatus {
-  if (input.requiredFirstSubmissions.length === 0) return 'NO_REQUIRED_ITEMS';
-  if (
-    input.requiredFirstSubmissions.some((submittedAt) => submittedAt === null)
-  )
-    return 'MISSING';
-  const dueAt = input.dueAt;
-  if (
-    dueAt !== null &&
-    input.requiredFirstSubmissions.some(
-      (submittedAt) => submittedAt !== null && submittedAt > dueAt,
-    )
-  )
-    return 'LATE';
-  return 'COMPLETE';
-}
-
-export function readMilestoneDocumentSubmittedContent(
-  stored: unknown,
-): MilestoneDocumentSubmittedContent | null {
-  if (typeof stored !== 'object' || stored === null) return null;
-  const content = stored as Record<string, unknown>;
-  switch (content.type) {
-    case MilestoneSubmissionType.TEXT:
-      return typeof content.text === 'string'
-        ? { type: MilestoneSubmissionType.TEXT, text: content.text }
-        : null;
-    default:
-      return null;
-  }
-}
-
-export function parseMilestoneDocumentContent(input: {
-  readonly fileId?: string;
-  readonly text?: string;
-}): MilestoneDocumentContentInput {
-  const text = input.text?.trim() || null;
-  const fileId = input.fileId?.trim() || null;
-  if (text === null && fileId === null) throw contentRequired();
-  return { text, fileId };
-}
-
-function contentRequired(): DomainException {
-  return new DomainException(
-    MILESTONE_DOCUMENTS_ERROR_CODES[
-      MilestoneDocumentsErrorCode.CONTENT_REQUIRED
-    ],
-  );
-}
-
-export function reviewDecisionToSubmissionStatus(
-  decision: ReviewDecision,
-): SubmissionStatus {
-  switch (decision) {
-    case ReviewDecision.APPROVED:
-      return SubmissionStatus.APPROVED;
-    case ReviewDecision.CHANGES_REQUESTED:
-      return SubmissionStatus.CHANGES_REQUESTED;
-    case ReviewDecision.REJECTED:
-      return SubmissionStatus.REJECTED;
-  }
-}
-
-export function isResubmissionAllowedAfter(
-  latestDecision: ReviewDecision | null,
-): boolean {
-  if (latestDecision === null) return true;
-  switch (latestDecision) {
-    case ReviewDecision.APPROVED:
-    case ReviewDecision.REJECTED:
-      return false;
-    case ReviewDecision.CHANGES_REQUESTED:
-      return true;
-  }
-}
-
-const OPEN_STATUSES: readonly SubmissionStatus[] = [
-  SubmissionStatus.SUBMITTED,
-  SubmissionStatus.CHANGES_REQUESTED,
-];
-
-const FINAL_STATUSES: readonly SubmissionStatus[] = [
-  SubmissionStatus.APPROVED,
-  SubmissionStatus.REJECTED,
-];
-
-export function changeRequestTargetStatuses(
-  includeFinalDecisions: boolean,
-): readonly SubmissionStatus[] {
-  return includeFinalDecisions
-    ? [...OPEN_STATUSES, ...FINAL_STATUSES]
-    : OPEN_STATUSES;
-}
-
-export function changeRequestTargetsVersion(
-  candidates: readonly ProgramDocumentChangeRequestCandidate[],
-): string {
-  const lines = candidates
-    .map(
-      (candidate) =>
-        `${candidate.milestoneDocumentId}:${candidate.applicationId}:${
-          OPEN_STATUSES.includes(candidate.status) ? 'open' : 'final'
-        }`,
-    )
-    .sort();
-  return createHash('sha256').update(lines.join('\n')).digest('hex');
-}
-
-export function toProgramDocumentChangeRequestScope(
-  scope: ProgramDocumentChangeRequestScope['kind'],
-  teamId: string | null | undefined,
-): ProgramDocumentChangeRequestScope {
-  if (scope === 'PROGRAM' && teamId === undefined) return { kind: 'PROGRAM' };
-  if (scope === 'TEAM' && typeof teamId === 'string') {
-    return { kind: 'TEAM', teamId };
-  }
-  throw new DomainException(
-    MILESTONE_DOCUMENTS_ERROR_CODES[
-      MilestoneDocumentsErrorCode.INVALID_REQUEST
-    ],
-  );
-}
-
-export function toProgramDocumentChangeRequestInput(body: {
-  readonly scope: ProgramDocumentChangeRequestScope['kind'];
-  readonly teamId?: string | null;
-  readonly includeFinalDecisions: boolean;
-  readonly comment: string;
-  readonly resubmissionDueAt: string;
-  readonly expectedVersion: string;
-}): ProgramDocumentChangeRequestInput {
-  const comment = body.comment.trim();
-  if (comment === '') {
-    throw new DomainException(
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED
-      ],
-    );
-  }
-  const resubmissionDueAt = new Date(body.resubmissionDueAt);
-  if (Number.isNaN(resubmissionDueAt.getTime())) {
-    throw new DomainException(
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED
-      ],
-    );
-  }
-  return {
-    scope: toProgramDocumentChangeRequestScope(body.scope, body.teamId),
-    includeFinalDecisions: body.includeFinalDecisions,
-    comment,
-    resubmissionDueAt,
-    expectedVersion: body.expectedVersion,
-  };
-}
-
-export const MILESTONE_DOCUMENT_COLLECTION_FILTERS = [
-  'ALL',
-  'HAS_MISSING',
-  'ZERO_SUBMISSION',
-] as const;
-
-export type MilestoneDocumentCollectionFilter =
-  (typeof MILESTONE_DOCUMENT_COLLECTION_FILTERS)[number];
-
-export interface MilestoneDocumentCollectionQuery {
-  readonly page: number;
-  readonly pageSize: number;
-  readonly filter: MilestoneDocumentCollectionFilter;
-}
-
-export interface MilestoneDocumentCollectionDocumentRule {
-  readonly id: string;
-  readonly required: boolean;
-}
-
-export interface MilestoneDocumentCollectionApplicationRule {
-  readonly applicationId: string;
-}
-
-export interface MilestoneDocumentCollectionSubmissionRule {
-  readonly applicationId: string;
-  readonly milestoneDocumentId: string;
-}
-
-interface MilestoneDocumentCollectionPageRow<
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
-> {
-  readonly application: TApplication;
-  readonly cells: readonly (TSubmission | null)[];
-}
-
-interface MilestoneDocumentCollectionFilterCounts {
-  readonly all: number;
-  readonly hasMissing: number;
-  readonly zeroSubmission: number;
-}
-
-interface MilestoneDocumentCollectionDocumentTotal {
-  readonly documentId: string;
-  readonly submitted: number;
-  readonly total: number;
-}
-
-export interface MilestoneDocumentCollectionPage<
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
-> {
-  readonly rows: readonly MilestoneDocumentCollectionPageRow<
-    TApplication,
-    TSubmission
-  >[];
-  readonly page: number;
-  readonly pageSize: number;
-
-  readonly total: number;
-  readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
-  readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotal[];
-}
-
-export function buildMilestoneDocumentCollectionPage<
-  TDocument extends MilestoneDocumentCollectionDocumentRule,
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
->(
-  documents: readonly TDocument[],
-  applications: readonly TApplication[],
-  submissions: readonly TSubmission[],
-  query: MilestoneDocumentCollectionQuery,
-): MilestoneDocumentCollectionPage<TApplication, TSubmission> {
-  const cellIndex = new Map<string, TSubmission>();
-  for (const submission of submissions) {
-    cellIndex.set(
-      cellKey(submission.applicationId, submission.milestoneDocumentId),
-      submission,
-    );
-  }
-
-  const allRows: readonly MilestoneDocumentCollectionPageRow<
-    TApplication,
-    TSubmission
-  >[] = applications.map((application) => ({
-    application,
-    cells: documents.map(
-      (document) =>
-        cellIndex.get(cellKey(application.applicationId, document.id)) ?? null,
-    ),
-  }));
-
-  const documentTotals = documents.map((document, index) => ({
-    documentId: document.id,
-    submitted: allRows.filter((row) => isSubmittedAt(row, index)).length,
-    total: allRows.length,
-  }));
-  const filterCounts = {
-    all: allRows.length,
-    hasMissing: allRows.filter((row) => hasMissingRequired(row, documents))
-      .length,
-    zeroSubmission: allRows.filter((row) => hasZeroSubmission(row, documents))
-      .length,
-  };
-
-  const filtered = allRows.filter((row) =>
-    matchesFilter(row, documents, query.filter),
-  );
-  const offset = (query.page - 1) * query.pageSize;
-  return {
-    rows: filtered.slice(offset, offset + query.pageSize),
-    page: query.page,
-    pageSize: query.pageSize,
-    total: filtered.length,
-    filterCounts,
-    documentTotals,
-  };
-}
-
-function cellKey(applicationId: string, documentId: string): string {
-  return `${applicationId}::${documentId}`;
-}
-
-function isSubmittedAt(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
-  >,
-  index: number,
-): boolean {
-  return (row.cells[index] ?? null) !== null;
-}
-
-function hasMissingRequired(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
-  >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
-): boolean {
-  return documents.some(
-    (document, index) => document.required && !isSubmittedAt(row, index),
-  );
-}
-
-function hasZeroSubmission(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
-  >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
-): boolean {
-  return documents.length > 0 && row.cells.every((cell) => cell === null);
-}
-
-function matchesFilter(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
-  >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
-  filter: MilestoneDocumentCollectionQuery['filter'],
-): boolean {
-  switch (filter) {
-    case 'HAS_MISSING':
-      return hasMissingRequired(row, documents);
-    case 'ZERO_SUBMISSION':
-      return hasZeroSubmission(row, documents);
-    case 'ALL':
-      return true;
-  }
-}
+import {
+  MilestoneDocumentRulesService,
+  MilestoneDocumentCollectionPage,
+  MilestoneDocumentCollectionCell,
+  MilestoneDocumentCollectionQuery,
+} from './milestone-document-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 interface MilestoneDocumentViewerSubmissionResult {
   readonly submitted: boolean;
@@ -407,22 +70,6 @@ export interface MilestoneDocumentViewerResult extends MilestoneDocumentRecord {
   };
 }
 
-export type MilestoneDocumentCollectionCell = Omit<
-  MilestoneDocumentCollectionSubmission,
-  'content'
-> & {
-  readonly content: MilestoneDocumentSubmittedContent | null;
-};
-
-export function toMilestoneDocumentCollectionCell(
-  submission: MilestoneDocumentCollectionSubmission,
-): MilestoneDocumentCollectionCell {
-  return {
-    ...submission,
-    content: readMilestoneDocumentSubmittedContent(submission.content),
-  };
-}
-
 export interface MilestoneDocumentCollectionResult extends MilestoneDocumentCollectionPage<
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionCell
@@ -446,104 +93,6 @@ export interface MilestoneDocumentHistoryResult {
   readonly isComplete: boolean;
 }
 
-export type MilestoneDocumentSubmissionBlock =
-  | 'MILESTONE_CLOSED'
-  | 'SUBMISSION_REPLACEMENT_CLOSED'
-  | 'RESUBMISSION_NOT_ALLOWED'
-  | 'RESUBMISSION_ALREADY_USED'
-  | 'RESUBMISSION_DUE_AT_PASSED';
-
-export function hasMilestoneDocumentResubmissionDueAtPassed(
-  resubmissionDueAt: Date | null,
-  now: Date,
-): boolean {
-  if (resubmissionDueAt === null) return false;
-  return hasProgramDeadlinePassed(resubmissionDueAt, now);
-}
-
-export function isChangeRequestResubmissionOpen({
-  latestDecision,
-  submissionStatus,
-}: {
-  readonly latestDecision: ReviewDecision | null;
-  readonly submissionStatus: SubmissionStatus | null;
-}): boolean {
-  return (
-    latestDecision === ReviewDecision.CHANGES_REQUESTED &&
-    submissionStatus === SubmissionStatus.CHANGES_REQUESTED
-  );
-}
-
-export function isPostDeadlineResubmissionOpen({
-  latestDecision,
-  submissionStatus,
-  resubmissionDueAt,
-  now,
-}: {
-  readonly latestDecision: ReviewDecision | null;
-  readonly submissionStatus: SubmissionStatus | null;
-  readonly resubmissionDueAt: Date | null;
-  readonly now: Date;
-}): boolean {
-  return (
-    isChangeRequestResubmissionOpen({ latestDecision, submissionStatus }) &&
-    !hasMilestoneDocumentResubmissionDueAtPassed(resubmissionDueAt, now)
-  );
-}
-
-export function milestoneDocumentSubmissionBlock({
-  dueAt,
-  graceDueAt = null,
-  now,
-  hasSubmission,
-  latestDecision,
-  submissionStatus,
-  resubmissionDueAt,
-}: {
-  readonly dueAt: Date;
-  readonly graceDueAt?: Date | null;
-  readonly now: Date;
-  readonly hasSubmission: boolean;
-  readonly latestDecision: ReviewDecision | null;
-
-  readonly submissionStatus: SubmissionStatus | null;
-
-  readonly resubmissionDueAt: Date | null;
-}): MilestoneDocumentSubmissionBlock | null {
-  if (
-    latestDecision === ReviewDecision.APPROVED ||
-    latestDecision === ReviewDecision.REJECTED
-  ) {
-    return 'RESUBMISSION_NOT_ALLOWED';
-  }
-  if (!hasProgramDeadlinePassed(dueAt, now)) return null;
-  if (
-    isPostDeadlineResubmissionOpen({
-      latestDecision,
-      submissionStatus,
-      resubmissionDueAt,
-      now,
-    })
-  ) {
-    return null;
-  }
-
-  if (isChangeRequestResubmissionOpen({ latestDecision, submissionStatus })) {
-    return 'RESUBMISSION_DUE_AT_PASSED';
-  }
-
-  if (latestDecision === ReviewDecision.CHANGES_REQUESTED && hasSubmission) {
-    return 'RESUBMISSION_ALREADY_USED';
-  }
-  if (
-    latestDecision === null &&
-    graceDueAt !== null &&
-    !hasProgramDeadlinePassed(graceDueAt, now)
-  )
-    return null;
-  return hasSubmission ? 'SUBMISSION_REPLACEMENT_CLOSED' : 'MILESTONE_CLOSED';
-}
-
 @Injectable()
 export class MilestoneDocumentsService {
   constructor(
@@ -553,6 +102,8 @@ export class MilestoneDocumentsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
   async listByMilestone(
@@ -671,12 +222,13 @@ export class MilestoneDocumentsService {
       const documentIds = documents.map((document) => document.id);
       const coordinates =
         await store.findSubmissionCoordinatesForCollection(documentIds);
-      const coordinatePage = buildMilestoneDocumentCollectionPage(
-        documents,
-        applications,
-        coordinates,
-        query,
-      );
+      const coordinatePage =
+        this.milestoneDocumentRulesService.buildMilestoneDocumentCollectionPage(
+          documents,
+          applications,
+          coordinates,
+          query,
+        );
       const pageApplicationIds = coordinatePage.rows.map(
         (row) => row.application.applicationId,
       );
@@ -688,7 +240,9 @@ export class MilestoneDocumentsService {
       const detailByCell = new Map(
         submissions.map((submission) => [
           `${submission.applicationId}::${submission.milestoneDocumentId}`,
-          toMilestoneDocumentCollectionCell(submission),
+          this.milestoneDocumentRulesService.toMilestoneDocumentCollectionCell(
+            submission,
+          ),
         ]),
       );
       const collection = {
@@ -736,7 +290,10 @@ export class MilestoneDocumentsService {
         createdAt: item.createdAt,
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
-        content: readMilestoneDocumentSubmittedContent(item.content),
+        content:
+          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+            item.content,
+          ),
       })),
       nextCursor: page.nextCursor,
       isComplete: page.isComplete,
@@ -778,7 +335,10 @@ export class MilestoneDocumentsService {
         createdAt: item.createdAt,
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
-        content: readMilestoneDocumentSubmittedContent(item.content),
+        content:
+          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+            item.content,
+          ),
       })),
       nextCursor: page.nextCursor,
       isComplete: page.isComplete,
@@ -846,7 +406,9 @@ export class MilestoneDocumentsService {
         (!Number.isFinite(graceDueAt.getTime()) ||
           graceDueAt.getTime() <= milestone.dueAt.getTime() ||
           graceDueAt.getTime() >=
-            addOneCalendarYear(milestone.programEndAt).getTime())
+            this.submissionFileRulesService
+              .addOneCalendarYear(milestone.programEndAt)
+              .getTime())
       )
         throw this.error(MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT);
       await store.updateGraceDueAt(documentId, graceDueAt);
@@ -953,15 +515,16 @@ export class MilestoneDocumentsService {
     );
     const latestDecision = latestReview?.decision ?? null;
     const submissionStatus = currentSubmission?.status ?? null;
-    const blocked = milestoneDocumentSubmissionBlock({
-      dueAt: documentContext.dueAt,
-      graceDueAt: documentContext.graceDueAt,
-      now,
-      hasSubmission: currentSubmission !== null,
-      latestDecision,
-      submissionStatus,
-      resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-    });
+    const blocked =
+      this.milestoneDocumentRulesService.milestoneDocumentSubmissionBlock({
+        dueAt: documentContext.dueAt,
+        graceDueAt: documentContext.graceDueAt,
+        now,
+        hasSubmission: currentSubmission !== null,
+        latestDecision,
+        submissionStatus,
+        resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+      });
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
@@ -988,12 +551,13 @@ export class MilestoneDocumentsService {
         deadline: {
           milestoneId,
 
-          allowAfterDeadline: isPostDeadlineResubmissionOpen({
-            latestDecision,
-            submissionStatus,
-            resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-            now,
-          }),
+          allowAfterDeadline:
+            this.milestoneDocumentRulesService.isPostDeadlineResubmissionOpen({
+              latestDecision,
+              submissionStatus,
+              resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+              now,
+            }),
 
           expectedSubmissionStatus: submissionStatus,
         },

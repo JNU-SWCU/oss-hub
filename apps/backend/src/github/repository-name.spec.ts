@@ -1,8 +1,9 @@
 import {
-  buildRepositoryNames,
-  buildRepositoryOwnershipMarker,
+  RepositoryProvisionRulesService,
   GITHUB_REPOSITORY_NAME_MAX_LENGTH,
-} from './repository-provision-github.service';
+} from './repository-provision-rules.service';
+
+const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
 
 describe('buildRepositoryNames', () => {
   it('영문 이름을 ASCII kebab-case 후보로 만든다', () => {
@@ -13,7 +14,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'application-fixture-id',
     };
 
-    const result = buildRepositoryNames(input);
+    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
 
     expect(result).toEqual({
       preferred: 'open-source-camp-team-alpha',
@@ -29,7 +30,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'applicationfixture456',
     };
 
-    const result = buildRepositoryNames(input);
+    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
 
     expect(result).toEqual({
       preferred: 'program-programf-team-applicat',
@@ -45,7 +46,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'application-fixture-id',
     };
 
-    const result = buildRepositoryNames(input);
+    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
 
     expect(result.preferred.length).toBeLessThanOrEqual(
       GITHUB_REPOSITORY_NAME_MAX_LENGTH,
@@ -61,9 +62,18 @@ describe('buildRepositoryOwnershipMarker', () => {
   it('application ID를 노출하지 않는 결정적 marker를 만든다', () => {
     const applicationId = 'application-sensitive-fixture-id';
 
-    const first = buildRepositoryOwnershipMarker(applicationId);
-    const repeated = buildRepositoryOwnershipMarker(applicationId);
-    const different = buildRepositoryOwnershipMarker('other-application-id');
+    const first =
+      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+        applicationId,
+      );
+    const repeated =
+      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+        applicationId,
+      );
+    const different =
+      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+        'other-application-id',
+      );
 
     expect(first).toBe(repeated);
     expect(first).not.toBe(different);

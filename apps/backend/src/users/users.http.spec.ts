@@ -1,11 +1,7 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -15,6 +11,10 @@ import {
 } from './dto/update-my-profile-request.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const githubId = 4242n;
 const allowedOrigin = 'http://frontend.test';
@@ -76,6 +76,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [UsersController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       SessionGuard,
       OriginGuard,
       { provide: UsersService, useValue: usersService },
@@ -110,7 +112,7 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(sessionSecret, githubId, 0)}`;
+  sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
 });
 
 beforeEach(() => jest.clearAllMocks());

@@ -1,4 +1,3 @@
-import { readMilestoneDocumentSubmittedContent } from './milestone-documents.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import type { Readable } from 'node:stream';
@@ -21,11 +20,7 @@ import {
 } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { SubmissionStatus } from '@prisma/client';
-import {
-  milestoneDocumentDownloadFileName,
-  milestoneDocumentTextEntryFileName,
-  milestoneDocumentArchiveFolderName,
-} from './milestone-document-files.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
@@ -92,78 +87,6 @@ export interface BuildMilestoneDocumentArchivePlanInput {
   readonly layout: MilestoneDocumentArchiveLayout;
 }
 
-export function buildMilestoneDocumentArchivePlan(
-  input: BuildMilestoneDocumentArchivePlanInput,
-): MilestoneDocumentArchivePlan {
-  const { documents, teams, submissions, layout } = input;
-
-  const cellIndex = new Map<string, MilestoneDocumentArchiveSubmission>();
-  for (const submission of submissions) {
-    cellIndex.set(
-      cellKey(submission.applicationId, submission.milestoneDocumentId),
-      submission,
-    );
-  }
-
-  const takenPaths = new Set<string>([
-    collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME),
-  ]);
-  const entries: MilestoneDocumentArchiveEntry[] = [];
-  let storedBytes = 0;
-  let inlineBytes = 0;
-
-  const manifest = teams.map((team) => ({
-    team,
-    cells: documents.map((document) => {
-      const submission =
-        cellIndex.get(cellKey(team.applicationId, document.id)) ?? null;
-      if (submission === null) {
-        return {
-          documentId: document.id,
-          state: 'NOT_SUBMITTED' as const,
-          submittedAt: null,
-          path: null,
-          omission: null,
-        };
-      }
-
-      const state = submittedState(submission.status);
-      const cellEntries = buildEntries({ team, document, submission, layout });
-      const omission = archiveOmission(submission);
-      if (cellEntries.length === 0) {
-        return {
-          documentId: document.id,
-          state,
-          submittedAt: submission.submittedAt,
-          path: null,
-          omission: omission ?? ('SUBMISSION_UNAVAILABLE' as const),
-        };
-      }
-
-      const paths = cellEntries.map((entry) => {
-        const path = uniquePath(entry.path, takenPaths);
-        const placed = { ...entry, path };
-        entries.push(placed);
-        if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
-        else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
-        return path;
-      });
-      return {
-        documentId: document.id,
-        state,
-        submittedAt: submission.submittedAt,
-        path:
-          omission === null
-            ? paths.join(' · ')
-            : `${paths.join(' · ')} · ${archiveOmissionLabel(omission)}`,
-        omission,
-      };
-    }),
-  }));
-
-  return { entries, manifest, storedBytes, inlineBytes };
-}
-
 function cellKey(applicationId: string, documentId: string): string {
   return `${applicationId}::${documentId}`;
 }
@@ -172,21 +95,6 @@ function submittedState(
   status: SubmissionStatus,
 ): MilestoneDocumentArchiveCellState {
   return status === SubmissionStatus.SUBMITTED ? 'PENDING' : status;
-}
-
-function archiveOmission(
-  submission: MilestoneDocumentArchiveSubmission,
-): MilestoneDocumentArchiveOmission | null {
-  const contentUnavailable =
-    submission.content !== null &&
-    readMilestoneDocumentSubmittedContent(submission.content) === null;
-  const fileUnavailable =
-    submission.hasCurrentFileEvidence && submission.file === null;
-  if (contentUnavailable && fileUnavailable)
-    return 'CONTENT_AND_FILE_UNAVAILABLE';
-  if (contentUnavailable) return 'CONTENT_UNAVAILABLE';
-  if (fileUnavailable) return 'FILE_UNAVAILABLE';
-  return null;
 }
 
 function archiveOmissionLabel(
@@ -202,59 +110,6 @@ function archiveOmissionLabel(
     case 'SUBMISSION_UNAVAILABLE':
       return '(제출 내용을 가져올 수 없음)';
   }
-}
-
-function buildEntries(input: {
-  readonly team: MilestoneDocumentArchiveTeam;
-  readonly document: MilestoneDocumentArchiveDocument;
-  readonly submission: MilestoneDocumentArchiveSubmission;
-  readonly layout: MilestoneDocumentArchiveLayout;
-}): readonly MilestoneDocumentArchiveEntry[] {
-  const { team, document, submission, layout } = input;
-
-  const prefix =
-    layout === 'FLAT'
-      ? ''
-      : `${archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
-
-  const entries: MilestoneDocumentArchiveEntry[] = [];
-  if (submission.file !== null) {
-    const fileName = milestoneDocumentDownloadFileName({
-      teamName: team.teamName,
-      documentName: document.name,
-      originalFileName: submission.file.originalFileName,
-    });
-    entries.push({
-      kind: 'STORED_FILE',
-      path: `${prefix}${fileName}`,
-      modifiedAt: submission.submittedAt,
-      storageKey: submission.file.storageKey,
-      sizeBytes: submission.file.sizeBytes,
-    });
-  }
-
-  const content = readMilestoneDocumentSubmittedContent(submission.content);
-  if (content !== null) {
-    entries.push({
-      kind: 'INLINE_TEXT',
-      path: `${prefix}${milestoneDocumentTextEntryFileName({
-        teamName: team.teamName,
-        documentName: document.name,
-      })}`,
-      modifiedAt: submission.submittedAt,
-      body: content.text,
-    });
-  }
-  return entries;
-}
-
-function archiveFolderPath(name: string): string {
-  const folder = milestoneDocumentArchiveFolderName(name);
-
-  return collisionKey(folder) ===
-    collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME)
-    ? `${folder} (2)`
-    : folder;
 }
 
 function uniquePath(path: string, taken: Set<string>): string {
@@ -295,16 +150,6 @@ function archiveDocumentsWithStageNames(
   );
 }
 
-function archiveFileName(name: string, dueAt: Date): string {
-  const due = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(dueAt);
-  return `${milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
-}
-
 const CELL_STATE_LABELS: Readonly<
   Record<MilestoneDocumentArchiveCellState, string>
 > = {
@@ -333,40 +178,6 @@ const FORMULA_TRIGGERS = new Set(['=', '+', '-', '@', '\t', '\r']);
 export interface MilestoneDocumentArchiveManifestCsvInput {
   readonly documents: readonly MilestoneDocumentArchiveDocument[];
   readonly rows: readonly MilestoneDocumentArchiveManifestRow[];
-}
-
-export function milestoneDocumentArchiveManifestCsv(
-  input: MilestoneDocumentArchiveManifestCsvInput,
-): string {
-  const header = [
-    '팀',
-    '신청자',
-    '팀원',
-    ...input.documents.flatMap((document) => [
-      `${document.name} 상태`,
-      `${document.name} 제출시각`,
-      `${document.name} ZIP 파일`,
-    ]),
-  ];
-
-  const lines = [
-    header,
-    ...input.rows.map((row) => [
-      row.team.teamName,
-      row.team.applicantName ?? '',
-      row.team.memberNicknames.join(', '),
-
-      ...input.documents.flatMap((document) =>
-        cellColumns(cellOf(row.cells, document.id)),
-      ),
-    ]),
-  ];
-
-  return (
-    BOM +
-    lines.map((line) => line.map(csvField).join(',')).join(ROW_SEPARATOR) +
-    ROW_SEPARATOR
-  );
 }
 
 function cellOf(
@@ -451,6 +262,7 @@ export class MilestoneDocumentArchiveService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async archiveForProgramStaff(
@@ -488,7 +300,7 @@ export class MilestoneDocumentArchiveService {
       documents.map((document) => document.id),
       now,
     );
-    const plan = buildMilestoneDocumentArchivePlan({
+    const plan = this.buildMilestoneDocumentArchivePlan({
       documents,
       teams,
       submissions,
@@ -497,8 +309,8 @@ export class MilestoneDocumentArchiveService {
     const milestone = milestones[0];
     const fileName =
       scope.kind === 'MILESTONE' && milestone !== undefined
-        ? archiveFileName(milestone.name, milestone.dueAt)
-        : `${milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
+        ? this.archiveFileName(milestone.name, milestone.dueAt)
+        : `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
     return this.createArchive(documents, plan, fileName, now);
   }
 
@@ -536,7 +348,7 @@ export class MilestoneDocumentArchiveService {
       now,
     );
 
-    const plan = buildMilestoneDocumentArchivePlan({
+    const plan = this.buildMilestoneDocumentArchivePlan({
       documents,
       teams,
       submissions,
@@ -545,7 +357,7 @@ export class MilestoneDocumentArchiveService {
     return this.createArchive(
       documents,
       plan,
-      archiveFileName(
+      this.archiveFileName(
         scope.kind === 'DOCUMENT'
           ? (documents[0]?.name ?? milestone.name)
           : milestone.name,
@@ -583,7 +395,7 @@ export class MilestoneDocumentArchiveService {
 
     zip.addBuffer(
       Buffer.from(
-        milestoneDocumentArchiveManifestCsv({
+        this.milestoneDocumentArchiveManifestCsv({
           documents,
           rows: plan.manifest,
         }),
@@ -670,6 +482,206 @@ export class MilestoneDocumentArchiveService {
 
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  }
+
+  buildMilestoneDocumentArchivePlan(
+    input: BuildMilestoneDocumentArchivePlanInput,
+  ): MilestoneDocumentArchivePlan {
+    const { documents, teams, submissions, layout } = input;
+
+    const cellIndex = new Map<string, MilestoneDocumentArchiveSubmission>();
+    for (const submission of submissions) {
+      cellIndex.set(
+        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        submission,
+      );
+    }
+
+    const takenPaths = new Set<string>([
+      collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME),
+    ]);
+    const entries: MilestoneDocumentArchiveEntry[] = [];
+    let storedBytes = 0;
+    let inlineBytes = 0;
+
+    const manifest = teams.map((team) => ({
+      team,
+      cells: documents.map((document) => {
+        const submission =
+          cellIndex.get(cellKey(team.applicationId, document.id)) ?? null;
+        if (submission === null) {
+          return {
+            documentId: document.id,
+            state: 'NOT_SUBMITTED' as const,
+            submittedAt: null,
+            path: null,
+            omission: null,
+          };
+        }
+
+        const state = submittedState(submission.status);
+        const cellEntries = this.buildEntries({
+          team,
+          document,
+          submission,
+          layout,
+        });
+        const omission = this.archiveOmission(submission);
+        if (cellEntries.length === 0) {
+          return {
+            documentId: document.id,
+            state,
+            submittedAt: submission.submittedAt,
+            path: null,
+            omission: omission ?? ('SUBMISSION_UNAVAILABLE' as const),
+          };
+        }
+
+        const paths = cellEntries.map((entry) => {
+          const path = uniquePath(entry.path, takenPaths);
+          const placed = { ...entry, path };
+          entries.push(placed);
+          if (placed.kind === 'STORED_FILE') storedBytes += placed.sizeBytes;
+          else inlineBytes += Buffer.byteLength(placed.body, 'utf8');
+          return path;
+        });
+        return {
+          documentId: document.id,
+          state,
+          submittedAt: submission.submittedAt,
+          path:
+            omission === null
+              ? paths.join(' · ')
+              : `${paths.join(' · ')} · ${archiveOmissionLabel(omission)}`,
+          omission,
+        };
+      }),
+    }));
+
+    return { entries, manifest, storedBytes, inlineBytes };
+  }
+
+  private archiveOmission(
+    submission: MilestoneDocumentArchiveSubmission,
+  ): MilestoneDocumentArchiveOmission | null {
+    const contentUnavailable =
+      submission.content !== null &&
+      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+        submission.content,
+      ) === null;
+    const fileUnavailable =
+      submission.hasCurrentFileEvidence && submission.file === null;
+    if (contentUnavailable && fileUnavailable)
+      return 'CONTENT_AND_FILE_UNAVAILABLE';
+    if (contentUnavailable) return 'CONTENT_UNAVAILABLE';
+    if (fileUnavailable) return 'FILE_UNAVAILABLE';
+    return null;
+  }
+
+  private buildEntries(input: {
+    readonly team: MilestoneDocumentArchiveTeam;
+    readonly document: MilestoneDocumentArchiveDocument;
+    readonly submission: MilestoneDocumentArchiveSubmission;
+    readonly layout: MilestoneDocumentArchiveLayout;
+  }): readonly MilestoneDocumentArchiveEntry[] {
+    const { team, document, submission, layout } = input;
+
+    const prefix =
+      layout === 'FLAT'
+        ? ''
+        : `${this.archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
+
+    const entries: MilestoneDocumentArchiveEntry[] = [];
+    if (submission.file !== null) {
+      const fileName =
+        this.milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
+          teamName: team.teamName,
+          documentName: document.name,
+          originalFileName: submission.file.originalFileName,
+        });
+      entries.push({
+        kind: 'STORED_FILE',
+        path: `${prefix}${fileName}`,
+        modifiedAt: submission.submittedAt,
+        storageKey: submission.file.storageKey,
+        sizeBytes: submission.file.sizeBytes,
+      });
+    }
+
+    const content =
+      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+        submission.content,
+      );
+    if (content !== null) {
+      entries.push({
+        kind: 'INLINE_TEXT',
+        path: `${prefix}${this.milestoneDocumentRulesService.milestoneDocumentTextEntryFileName(
+          {
+            teamName: team.teamName,
+            documentName: document.name,
+          },
+        )}`,
+        modifiedAt: submission.submittedAt,
+        body: content.text,
+      });
+    }
+    return entries;
+  }
+
+  private archiveFolderPath(name: string): string {
+    const folder =
+      this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+        name,
+      );
+
+    return collisionKey(folder) ===
+      collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME)
+      ? `${folder} (2)`
+      : folder;
+  }
+
+  private archiveFileName(name: string, dueAt: Date): string {
+    const due = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(dueAt);
+    return `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
+  }
+
+  milestoneDocumentArchiveManifestCsv(
+    input: MilestoneDocumentArchiveManifestCsvInput,
+  ): string {
+    const header = [
+      '팀',
+      '신청자',
+      '팀원',
+      ...input.documents.flatMap((document) => [
+        `${document.name} 상태`,
+        `${document.name} 제출시각`,
+        `${document.name} ZIP 파일`,
+      ]),
+    ];
+
+    const lines = [
+      header,
+      ...input.rows.map((row) => [
+        row.team.teamName,
+        row.team.applicantName ?? '',
+        row.team.memberNicknames.join(', '),
+
+        ...input.documents.flatMap((document) =>
+          cellColumns(cellOf(row.cells, document.id)),
+        ),
+      ]),
+    ];
+
+    return (
+      BOM +
+      lines.map((line) => line.map(csvField).join(',')).join(ROW_SEPARATOR) +
+      ROW_SEPARATOR
+    );
   }
 }
 

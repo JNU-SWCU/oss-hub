@@ -19,21 +19,16 @@ import {
   MilestoneContext,
   MilestoneDocumentRecord,
 } from './milestone-document-collection-read.repository';
-import {
-  type MilestoneDocumentCollectionQuery,
-  type MilestoneDocumentCollectionApplicationRule,
-  type MilestoneDocumentCollectionSubmissionRule,
-  type MilestoneDocumentCollectionPage,
-  type MilestoneDocumentCollectionDocumentRule,
-  type MilestoneDocumentCollectionCell,
-  buildMilestoneDocumentCollectionPage,
-  documentDeliveryStatus,
-  toMilestoneDocumentCollectionCell,
-} from './milestone-documents.service';
-import {
-  safeSubmissionFileContentType,
-  sanitizeSubmissionFileOriginalName,
-} from './submission-file.config';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import type {
+  MilestoneDocumentCollectionQuery,
+  MilestoneDocumentCollectionApplicationRule,
+  MilestoneDocumentCollectionSubmissionRule,
+  MilestoneDocumentCollectionPage,
+  MilestoneDocumentCollectionDocumentRule,
+  MilestoneDocumentCollectionCell,
+} from './milestone-document-rules.service';
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly deliveryStatus?: DocumentDeliveryStatus;
@@ -59,92 +54,6 @@ export type MilestoneDocumentDeliveryPage<
   };
 };
 
-export function buildMilestoneDocumentDeliveryPage<
-  TDocument extends MilestoneDocumentCollectionDocumentRule,
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule & {
-    readonly firstSubmittedAt: Date;
-  },
->(
-  source: {
-    readonly documents: readonly TDocument[];
-    readonly applications: readonly TApplication[];
-    readonly submissions: readonly TSubmission[];
-    readonly dueAt: Date | null;
-  },
-  query: MilestoneDocumentDeliveryQuery,
-): MilestoneDocumentDeliveryPage<TApplication, TSubmission> {
-  const base = buildMilestoneDocumentCollectionPage(
-    source.documents,
-    source.applications,
-    source.submissions,
-    {
-      filter: 'ALL',
-      page: 1,
-      pageSize: Math.max(1, source.applications.length),
-    },
-  );
-  const allRows = base.rows.map((row) => ({
-    ...row,
-    deliveryStatus: documentDeliveryStatus({
-      dueAt: source.dueAt,
-      requiredFirstSubmissions: source.documents.flatMap((document, index) =>
-        document.required ? [row.cells[index]?.firstSubmittedAt ?? null] : [],
-      ),
-    }),
-  }));
-  const deliveryCounts = {
-    missing: allRows.filter((row) => row.deliveryStatus === 'MISSING').length,
-    late: allRows.filter((row) => row.deliveryStatus === 'LATE').length,
-    complete: allRows.filter((row) => row.deliveryStatus === 'COMPLETE').length,
-    noRequiredItems: allRows.filter(
-      (row) => row.deliveryStatus === 'NO_REQUIRED_ITEMS',
-    ).length,
-  };
-  const documentIndex = source.documents.findIndex(
-    (document) => document.id === query.document?.id,
-  );
-  const filtered = allRows.filter((row) => {
-    if (query.document !== undefined) {
-      if (documentIndex < 0) return false;
-      const submitted = row.cells[documentIndex] !== null;
-      if (query.document.submissionState === 'SUBMITTED' && !submitted)
-        return false;
-      if (query.document.submissionState === 'MISSING' && submitted)
-        return false;
-    }
-    if (
-      query.deliveryStatus !== undefined &&
-      row.deliveryStatus !== query.deliveryStatus
-    )
-      return false;
-    switch (query.filter) {
-      case 'ALL':
-        return true;
-      case 'HAS_MISSING':
-        return row.deliveryStatus === 'MISSING';
-      case 'ZERO_SUBMISSION':
-        return (
-          source.documents.length > 0 &&
-          row.cells.every((cell) => cell === null)
-        );
-      default: {
-        const exhaustive: never = query.filter;
-        return exhaustive;
-      }
-    }
-  });
-  const offset = (query.page - 1) * query.pageSize;
-  return {
-    ...base,
-    rows: filtered.slice(offset, offset + query.pageSize),
-    page: query.page,
-    pageSize: query.pageSize,
-    total: filtered.length,
-    deliveryCounts,
-  };
-}
-
 export interface MilestoneDocumentDeliveryCollectionResult extends MilestoneDocumentDeliveryPage<
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionCell
@@ -167,6 +76,7 @@ export class MilestoneDocumentCurrentFileService {
     private readonly repository: MilestoneDocumentCurrentFileReader,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
   async download(
@@ -190,11 +100,15 @@ export class MilestoneDocumentCurrentFileService {
       throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
-    const fileName = sanitizeSubmissionFileOriginalName(file.originalFileName);
+    const fileName =
+      this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
+        file.originalFileName,
+      );
     return {
       body,
       fileName,
-      contentType: safeSubmissionFileContentType(fileName),
+      contentType:
+        this.submissionFileRulesService.safeSubmissionFileContentType(fileName),
       contentLength: file.sizeBytes,
     };
   }
@@ -213,6 +127,7 @@ export class MilestoneDocumentCollectionService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async collectForStaff(
@@ -256,7 +171,7 @@ export class MilestoneDocumentCollectionService {
         documentIds,
         applications.map((application) => application.applicationId),
       );
-      const page = buildMilestoneDocumentDeliveryPage(
+      const page = this.buildMilestoneDocumentDeliveryPage(
         {
           documents,
           applications,
@@ -273,7 +188,9 @@ export class MilestoneDocumentCollectionService {
       const detailByCell = new Map(
         details.map((submission) => [
           `${submission.applicationId}::${submission.milestoneDocumentId}`,
-          toMilestoneDocumentCollectionCell(submission),
+          this.milestoneDocumentRulesService.toMilestoneDocumentCollectionCell(
+            submission,
+          ),
         ]),
       );
       return {
@@ -292,5 +209,98 @@ export class MilestoneDocumentCollectionService {
         })),
       };
     });
+  }
+
+  buildMilestoneDocumentDeliveryPage<
+    TDocument extends MilestoneDocumentCollectionDocumentRule,
+    TApplication extends MilestoneDocumentCollectionApplicationRule,
+    TSubmission extends MilestoneDocumentCollectionSubmissionRule & {
+      readonly firstSubmittedAt: Date;
+    },
+  >(
+    source: {
+      readonly documents: readonly TDocument[];
+      readonly applications: readonly TApplication[];
+      readonly submissions: readonly TSubmission[];
+      readonly dueAt: Date | null;
+    },
+    query: MilestoneDocumentDeliveryQuery,
+  ): MilestoneDocumentDeliveryPage<TApplication, TSubmission> {
+    const base =
+      this.milestoneDocumentRulesService.buildMilestoneDocumentCollectionPage(
+        source.documents,
+        source.applications,
+        source.submissions,
+        {
+          filter: 'ALL',
+          page: 1,
+          pageSize: Math.max(1, source.applications.length),
+        },
+      );
+    const allRows = base.rows.map((row) => ({
+      ...row,
+      deliveryStatus: this.milestoneDocumentRulesService.documentDeliveryStatus(
+        {
+          dueAt: source.dueAt,
+          requiredFirstSubmissions: source.documents.flatMap(
+            (document, index) =>
+              document.required
+                ? [row.cells[index]?.firstSubmittedAt ?? null]
+                : [],
+          ),
+        },
+      ),
+    }));
+    const deliveryCounts = {
+      missing: allRows.filter((row) => row.deliveryStatus === 'MISSING').length,
+      late: allRows.filter((row) => row.deliveryStatus === 'LATE').length,
+      complete: allRows.filter((row) => row.deliveryStatus === 'COMPLETE')
+        .length,
+      noRequiredItems: allRows.filter(
+        (row) => row.deliveryStatus === 'NO_REQUIRED_ITEMS',
+      ).length,
+    };
+    const documentIndex = source.documents.findIndex(
+      (document) => document.id === query.document?.id,
+    );
+    const filtered = allRows.filter((row) => {
+      if (query.document !== undefined) {
+        if (documentIndex < 0) return false;
+        const submitted = row.cells[documentIndex] !== null;
+        if (query.document.submissionState === 'SUBMITTED' && !submitted)
+          return false;
+        if (query.document.submissionState === 'MISSING' && submitted)
+          return false;
+      }
+      if (
+        query.deliveryStatus !== undefined &&
+        row.deliveryStatus !== query.deliveryStatus
+      )
+        return false;
+      switch (query.filter) {
+        case 'ALL':
+          return true;
+        case 'HAS_MISSING':
+          return row.deliveryStatus === 'MISSING';
+        case 'ZERO_SUBMISSION':
+          return (
+            source.documents.length > 0 &&
+            row.cells.every((cell) => cell === null)
+          );
+        default: {
+          const exhaustive: never = query.filter;
+          return exhaustive;
+        }
+      }
+    });
+    const offset = (query.page - 1) * query.pageSize;
+    return {
+      ...base,
+      rows: filtered.slice(offset, offset + query.pageSize),
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filtered.length,
+      deliveryCounts,
+    };
   }
 }

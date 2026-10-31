@@ -10,9 +10,12 @@ import {
 } from './authentication.guard';
 import type { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
-import { type AuthService, sessionCookieName } from './auth.service';
+import { type AuthService } from './auth.service';
 import { type OptionalSessionRequest } from './http-auth.types';
 import { HTTP_AUTH_KINDS } from './auth.config';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const secret = new Uint8Array(randomBytes(32));
 const githubId = 9_007_199_254_740_993n;
@@ -94,7 +97,7 @@ async function resolveOptionalSession(
   readonly findActivePrincipal: jest.Mock;
 }> {
   const token = await signedToken(claimedVersion);
-  const cookie = `${sessionCookieName(true)}=${token}`;
+  const cookie = `${authSessionService.sessionCookieName(true)}=${token}`;
   const { context, request } = optionalSessionContext(cookie);
   const { authService, findActivePrincipal } =
     authServiceWithVersion(liveVersion);
@@ -102,6 +105,7 @@ async function resolveOptionalSession(
     optionalSessionReflector(),
     config(),
     authService,
+    new AuthSessionService(),
   );
 
   await guard.canActivate(context);

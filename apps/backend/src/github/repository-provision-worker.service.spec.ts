@@ -25,8 +25,12 @@ import {
   RepositoryProvisionSupersededError,
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { RepositoryUrlService } from './repository-url.service';
+
+const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
 
 describe('RepositoryProvisionWorkerService success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -42,6 +46,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -66,6 +75,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await expect(worker.runNext('worker-a', PROVISION_NOW)).resolves.toEqual({
@@ -105,6 +119,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -182,6 +201,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-recurring', PROVISION_NOW);
@@ -224,6 +248,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-revoke', PROVISION_NOW);
@@ -276,6 +305,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-order', PROVISION_NOW);
@@ -314,6 +348,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-empty-team', PROVISION_NOW);
@@ -352,6 +391,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-rejoin', PROVISION_NOW);
@@ -382,6 +426,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-revoke-lease', PROVISION_NOW);
@@ -423,6 +472,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-b', PROVISION_NOW);
@@ -468,6 +522,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-current-link', PROVISION_NOW);
@@ -528,6 +587,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-new-external', PROVISION_NOW);
@@ -585,6 +649,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-own-managed', PROVISION_NOW);
@@ -641,7 +710,10 @@ describe('RepositoryProvisionWorkerService success', () => {
       url: PROVISION_REPOSITORY.url,
       nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: PROVISION_REPOSITORY.visibility,
-      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+      description:
+        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+          'synthetic-application-id',
+        ),
     });
     const worker = new RepositoryProvisionWorkerService(
       jobs,
@@ -651,6 +723,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-c', PROVISION_NOW);
@@ -681,6 +758,11 @@ describe('RepositoryProvisionWorkerService success', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext(
@@ -744,6 +826,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository,
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-org-own', PROVISION_NOW);
@@ -834,6 +921,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext(
@@ -888,6 +980,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository,
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-own', PROVISION_NOW);
@@ -959,6 +1056,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await worker.runNext('worker-own-no-write', PROVISION_NOW);
@@ -1018,6 +1120,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository,
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await expect(
@@ -1069,6 +1176,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository,
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await expect(
@@ -1098,6 +1210,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-own-missing', PROVISION_NOW);
@@ -1128,6 +1245,11 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('worker-own-bad-url', PROVISION_NOW);

@@ -7,10 +7,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../github/repository-provision-event.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from '../github/repository-provision-event.config';
 import {
   prisma,
   service,
@@ -180,7 +177,6 @@ it('links a managed organization repository without re-arming provisioning', asy
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
-      parseRepositoryProvisionEvent,
     );
     return event;
   });

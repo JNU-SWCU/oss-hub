@@ -19,12 +19,8 @@ import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,
 } from './student-application-management.config';
-import {
-  type ApplicationAnswers,
-  checkApplicationTemplateVersion,
-  applicationAnswerTooLongMessage,
-  normalizeAndValidateApplicationAnswers,
-} from './applications.service';
+import { ApplicationAnswersService } from './application-answers.service';
+import type { ApplicationAnswers } from './application-answers.service';
 
 export interface StudentApplicationView {
   readonly id: string;
@@ -61,6 +57,7 @@ export class StudentApplicationManagementService {
   constructor(
     private readonly repository: StudentApplicationManagementRepository,
     private readonly applicationsRepository: ApplicationsRepository,
+    private readonly applicationAnswersService: ApplicationAnswersService,
   ) {}
 
   async getMine(
@@ -88,18 +85,20 @@ export class StudentApplicationManagementService {
       now,
       RESUBMITTABLE_STATUSES,
     );
-    const versionCheck = checkApplicationTemplateVersion(
-      input.applicationTemplateVersion,
-      context.policy.applicationTemplateVersion,
-    );
+    const versionCheck =
+      this.applicationAnswersService.checkApplicationTemplateVersion(
+        input.applicationTemplateVersion,
+        context.policy.applicationTemplateVersion,
+      );
     if (!versionCheck.ok) {
       throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
     }
-    const answers = normalizeAndValidateApplicationAnswers(
-      input.answers,
-      this.resolveApplicantName(context.application),
-      'enforce-length',
-    );
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        input.answers,
+        this.resolveApplicantName(context.application),
+        'enforce-length',
+      );
     if (!answers.ok) {
       if (answers.reason === 'TOO_LONG')
         throw new DomainException(
@@ -108,7 +107,10 @@ export class StudentApplicationManagementService {
             fieldErrors: (answers.tooLongKeys ?? []).map((key) => ({
               field: key,
               code: ApplicationsErrorCode.ANSWER_TOO_LONG,
-              message: applicationAnswerTooLongMessage(key),
+              message:
+                this.applicationAnswersService.applicationAnswerTooLongMessage(
+                  key,
+                ),
             })),
           },
         );
@@ -234,11 +236,12 @@ export class StudentApplicationManagementService {
     isManager: boolean,
     editable: boolean,
   ): StudentApplicationView {
-    const answers = normalizeAndValidateApplicationAnswers(
-      application.answers,
-      this.resolveApplicantName(application),
-      'skip-length',
-    );
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        application.answers,
+        this.resolveApplicantName(application),
+        'skip-length',
+      );
     if (!answers.ok) {
       throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
     }

@@ -20,8 +20,6 @@ import {
   SubmissionFileRetentionUnavailableError,
 } from './submission-file.error';
 
-import { addOneCalendarYear } from './submission-file.config';
-
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
 const MAX_RETAINED_FILE_BYTES = 500 * 1024 * 1024;
@@ -52,6 +50,7 @@ export interface CreatePendingSubmissionFileInput {
   readonly mimeType: string;
   readonly sizeBytes: number;
   readonly pendingExpiresAt: Date;
+  readonly resolveExpiresAt: (programEndAt: Date) => Date;
 }
 
 export interface ClaimedSubmissionFile {
@@ -305,7 +304,7 @@ export class SubmissionFilesRepository {
           sizeBytes: input.sizeBytes,
           lifecycle: SubmissionFileLifecycle.PENDING,
           pendingExpiresAt: input.pendingExpiresAt,
-          expiresAt: addOneCalendarYear(program.endAt),
+          expiresAt: input.resolveExpiresAt(program.endAt),
         },
         select: {
           id: true,

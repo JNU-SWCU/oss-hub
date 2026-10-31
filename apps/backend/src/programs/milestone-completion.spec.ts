@@ -1,10 +1,8 @@
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
-import {
-  isMilestoneComplete,
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-  requiredMilestonesApproved,
-} from './milestone-completion.config';
+import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
+import { MilestoneCompletionService } from './milestone-completion.service';
+
+const milestoneCompletionService = new MilestoneCompletionService();
 
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
   it('필수 서류가 없으면 Submission 상태를 그대로 쓴다', () => {
@@ -15,7 +13,7 @@ describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () =
       SubmissionStatus.REJECTED,
     ]) {
       expect(
-        milestoneCompletionStatus({
+        milestoneCompletionService.milestoneCompletionStatus({
           requiredDocumentStatuses: [],
           submissionStatus: status,
         }),
@@ -29,8 +27,10 @@ describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () =
       submissionStatus: null,
     } as const;
 
-    expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
-    expect(isMilestoneComplete(input)).toBe(false);
+    expect(milestoneCompletionService.milestoneCompletionStatus(input)).toBe(
+      MILESTONE_NOT_SUBMITTED,
+    );
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
   });
 });
 
@@ -42,15 +42,17 @@ describe('milestoneCompletionStatus — 제출 없는 안내용 마일스톤', (
       submissionAxisInUse: false,
     } as const;
 
-    expect(milestoneCompletionStatus(input)).toBe(MILESTONE_NOT_SUBMITTED);
-    expect(isMilestoneComplete(input)).toBe(false);
+    expect(milestoneCompletionService.milestoneCompletionStatus(input)).toBe(
+      MILESTONE_NOT_SUBMITTED,
+    );
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
   });
 });
 
 describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스톤', () => {
   it('선택 서류만 있는 마일스톤은 완료할 필수 축이 없으므로 공개를 막지 않는다', () => {
     expect(
-      requiredMilestonesApproved(
+      milestoneCompletionService.requiredMilestonesApproved(
         [
           {
             id: 'optional-only',
@@ -71,9 +73,9 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
       submissionAxisInUse: false,
     } as const;
 
-    expect(isMilestoneComplete(input)).toBe(false);
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
     expect(
-      requiredMilestonesApproved(
+      milestoneCompletionService.requiredMilestonesApproved(
         [{ id: 'informational', submissionType: null, documents: [] }],
         [],
         [],
@@ -90,9 +92,11 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
       },
     ] as const;
 
-    expect(requiredMilestonesApproved(milestones, [], [])).toBe(false);
     expect(
-      requiredMilestonesApproved(
+      milestoneCompletionService.requiredMilestonesApproved(milestones, [], []),
+    ).toBe(false);
+    expect(
+      milestoneCompletionService.requiredMilestonesApproved(
         milestones,
         [],
         [
@@ -107,7 +111,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
 
   it('레거시 서류-only 마일스톤은 남아 있는 submissionType 때문에 내부 제출을 요구하지 않는다', () => {
     expect(
-      requiredMilestonesApproved(
+      milestoneCompletionService.requiredMilestonesApproved(
         [
           {
             id: 'legacy-document-only',
@@ -137,8 +141,10 @@ describe('milestoneCompletionStatus — 서류 축만 쓰는 마일스톤 (#820)
       submissionStatus: null,
     } as const;
 
-    expect(milestoneCompletionStatus(input)).toBe(SubmissionStatus.APPROVED);
-    expect(isMilestoneComplete(input)).toBe(true);
+    expect(milestoneCompletionService.milestoneCompletionStatus(input)).toBe(
+      SubmissionStatus.APPROVED,
+    );
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(true);
   });
 
   it('필수 서류 한 건이라도 승인이 아니면 완료가 아니다', () => {
@@ -153,13 +159,13 @@ describe('milestoneCompletionStatus — 서류 축만 쓰는 마일스톤 (#820)
         submissionStatus: null,
       } as const;
 
-      expect(isMilestoneComplete(input)).toBe(false);
+      expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
     }
   });
 
   it('제출 행이 없는 필수 서류는 미제출로 센다', () => {
     expect(
-      milestoneCompletionStatus({
+      milestoneCompletionService.milestoneCompletionStatus({
         requiredDocumentStatuses: [SubmissionStatus.APPROVED, null],
         submissionStatus: null,
       }),
@@ -168,7 +174,7 @@ describe('milestoneCompletionStatus — 서류 축만 쓰는 마일스톤 (#820)
 
   it('나쁜 쪽이 이긴다 — 반려가 보완 요청·미제출보다 강하다', () => {
     expect(
-      milestoneCompletionStatus({
+      milestoneCompletionService.milestoneCompletionStatus({
         requiredDocumentStatuses: [
           SubmissionStatus.REJECTED,
           SubmissionStatus.CHANGES_REQUESTED,
@@ -178,7 +184,7 @@ describe('milestoneCompletionStatus — 서류 축만 쓰는 마일스톤 (#820)
       }),
     ).toBe(SubmissionStatus.REJECTED);
     expect(
-      milestoneCompletionStatus({
+      milestoneCompletionService.milestoneCompletionStatus({
         requiredDocumentStatuses: [SubmissionStatus.CHANGES_REQUESTED, null],
         submissionStatus: null,
       }),
@@ -193,13 +199,15 @@ describe('milestoneCompletionStatus — 두 축이 다 쓰인 마일스톤', () 
       submissionStatus: SubmissionStatus.SUBMITTED,
     } as const;
 
-    expect(isMilestoneComplete(input)).toBe(false);
-    expect(milestoneCompletionStatus(input)).toBe(SubmissionStatus.SUBMITTED);
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
+    expect(milestoneCompletionService.milestoneCompletionStatus(input)).toBe(
+      SubmissionStatus.SUBMITTED,
+    );
   });
 
   it('두 축이 다 승인이어야 완료다', () => {
     expect(
-      isMilestoneComplete({
+      milestoneCompletionService.isMilestoneComplete({
         requiredDocumentStatuses: [SubmissionStatus.APPROVED],
         submissionStatus: SubmissionStatus.APPROVED,
       }),
@@ -212,7 +220,7 @@ describe('milestoneCompletionStatus — 두 축이 다 쓰인 마일스톤', () 
       submissionStatus: SubmissionStatus.APPROVED,
     } as const;
 
-    expect(isMilestoneComplete(input)).toBe(false);
+    expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
   });
 });
 
@@ -229,7 +237,7 @@ describe('isMilestoneComplete — 공개 자격이 넓어지지 않는다', () =
     for (const submissionStatus of ALL_STATUSES) {
       const legacy = submissionStatus === SubmissionStatus.APPROVED;
       expect(
-        isMilestoneComplete({
+        milestoneCompletionService.isMilestoneComplete({
           requiredDocumentStatuses: [],
           submissionStatus,
         }),
@@ -242,7 +250,7 @@ describe('isMilestoneComplete — 공개 자격이 넓어지지 않는다', () =
       if (submissionStatus === null) continue;
       for (const documentStatus of ALL_STATUSES) {
         const legacy = submissionStatus === SubmissionStatus.APPROVED;
-        const now = isMilestoneComplete({
+        const now = milestoneCompletionService.isMilestoneComplete({
           requiredDocumentStatuses: [documentStatus],
           submissionStatus,
         });

@@ -13,6 +13,9 @@ import { ProgramsRepository } from '../programs/programs.repository';
 import { StudentDashboardRepository } from './student-dashboard.repository';
 import { ProgramsService } from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
+import { MilestoneCompletionService } from '../programs/milestone-completion.service';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { ProgramRulesService } from '../programs/program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -58,8 +61,15 @@ const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
 const dashboard = new StudentDashboardService(
   new StudentDashboardRepository(prisma),
   noRepositories,
+  new MilestoneCompletionService(),
+  new ProgramCoverUrlService(),
 );
-const programs = new ProgramsService(new ProgramsRepository(prisma));
+const programs = new ProgramsService(
+  new ProgramsRepository(prisma),
+  new MilestoneCompletionService(),
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+);
 
 function programRow(programId: string) {
   return {

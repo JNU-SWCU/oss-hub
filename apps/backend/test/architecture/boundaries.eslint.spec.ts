@@ -58,7 +58,7 @@ function edge(
     value: `import { value } from ${source}; export { value };`,
     type: `import type { Shape } from ${source}; export type Result = Shape;`,
     barrel: `export * from ${source};`,
-    dynamic: `export const load = () => import(${source});`,
+    dynamic: `const load = () => import(${source}); void load;`,
     require: `export const value = require(${source});`,
     sideEffect: `import ${source};`,
     importType: `export type Value = import(${source}).Shape;`,
@@ -316,7 +316,6 @@ for (const [target, allowed] of [
   ['runtime-config.config.ts', true],
   ['object-storage.types.ts', true],
   ['s3-object-storage.client.ts', false],
-  ['configure-http-app.config.ts', true],
   ['download-response.types.ts', true],
   ['lock-program-tree.repository.ts', false],
 ] as const) {
@@ -1055,7 +1054,7 @@ for (const [name, code] of envAccess) {
 add(
   'NODE_ENV production branch is accepted',
   'src/programs/node-env-production.service.ts',
-  "export const isProduction = (env: { NODE_ENV: string }) => env.NODE_ENV === 'production';",
+  "export class NodeEnvProductionService { isProduction(env: { NODE_ENV: string }) { return env.NODE_ENV === 'production'; } }",
   null,
 );
 add(

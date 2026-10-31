@@ -1,5 +1,5 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
-import { ProblemDetailFilter } from './problem-detail.filter';
+import { ProblemDetailFilter } from './platform/problem-detail.filter';
 
 export function configureHttpApp(app: INestApplication): void {
   app.setGlobalPrefix('api/v1');

@@ -3,11 +3,7 @@ import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -21,6 +17,11 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -59,7 +60,7 @@ async function getTeamPath(
   path: string,
   teamId = TEAM_ID,
 ): Promise<Response> {
-  const token = await issueSessionToken(
+  const token = await authSessionService.issueSessionToken(
     sessionSecret,
     ACTORS[actor].githubId,
     0,
@@ -69,7 +70,7 @@ async function getTeamPath(
     {
       headers: {
         connection: 'close',
-        cookie: `${sessionCookieName(false)}=${token}`,
+        cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
       },
     },
   );
@@ -86,6 +87,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      RepositoryPublishService,
       ProgramTeamsService,
       ProgramTeamsRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },

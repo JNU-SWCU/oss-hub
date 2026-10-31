@@ -29,6 +29,12 @@ import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.se
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
+import { RepositoryPublishService } from './repository-publish.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
@@ -54,6 +60,12 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
     RepositoryOutboxConsumerService,
     RepositoryProvisionJobRepository,
     RepositoryProvisionStateRepository,
+    RepositoryProvisionEventService,
+    RepositoryProvisionStateService,
+    RepositoryPublishService,
+    RepositoryUrlService,
+    RepositoryProvisionRulesService,
+    RepositoryProvisionGithubService,
     {
       provide: GithubAppTokenClient,
       inject: [GithubOperationsConfig],
@@ -70,17 +82,21 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
       provide: RepositoryProvisionWorkerService,
       inject: [
         RepositoryProvisionJobRepository,
-        RepositoryProvisionStateRepository,
+        RepositoryProvisionStateService,
         GithubAppClient,
         RepositoryOwnEnrollmentService,
         AuditLogMetadataService,
+        RepositoryProvisionRulesService,
+        RepositoryProvisionGithubService,
       ],
       useFactory: (
         jobs: RepositoryProvisionJobRepository,
-        state: RepositoryProvisionStateRepository,
+        state: RepositoryProvisionStateService,
         github: GithubAppClient,
         enrollment: RepositoryOwnEnrollmentService,
         auditLogMetadata: AuditLogMetadataService,
+        provisionRules: RepositoryProvisionRulesService,
+        provisionGithub: RepositoryProvisionGithubService,
       ): RepositoryProvisionWorkerService =>
         new RepositoryProvisionWorkerService(
           jobs,
@@ -88,6 +104,8 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
           github,
           enrollment,
           auditLogMetadata,
+          provisionRules,
+          provisionGithub,
         ),
     },
     {
@@ -97,22 +115,34 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
         GithubAppClient,
         AuditLogService,
         AuditLogMetadataService,
+        RepositoryUrlService,
       ],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
         auditLog: AuditLogService,
         auditLogMetadata: AuditLogMetadataService,
+        repositoryUrl: RepositoryUrlService,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, auditLog, auditLogMetadata),
+        new RepositoriesService(
+          repository,
+          github,
+          auditLog,
+          auditLogMetadata,
+          repositoryUrl,
+        ),
     },
     {
       provide: OwnRepositoryUrlValidationService,
-      inject: [GithubAppClient],
+      inject: [GithubAppClient, RepositoryProvisionGithubService],
       useFactory: (
         github: GithubAppClient,
+        repositoryProvisionGithub: RepositoryProvisionGithubService,
       ): OwnRepositoryUrlValidationService =>
-        new OwnRepositoryUrlValidationService(github),
+        new OwnRepositoryUrlValidationService(
+          github,
+          repositoryProvisionGithub,
+        ),
     },
     RepositoriesReadService,
   ],
@@ -123,6 +153,9 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
     RepositoriesService,
     RepositoriesReadService,
     OwnRepositoryUrlValidationService,
+    RepositoryProvisionEventService,
+    RepositoryPublishService,
+    RepositoryUrlService,
   ],
 })
 export class GithubModule {}

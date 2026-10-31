@@ -13,6 +13,7 @@ import { ApplicationsRepository } from './applications.repository';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const prisma = new PrismaService();
 const namespace = randomBytes(4).toString('hex');
@@ -57,6 +58,7 @@ const service = new StudentRepositoryUrlService(
   { requireCurrent: jest.fn().mockResolvedValue(undefined) },
   audit,
   collectionTrigger,
+  new ProgramRulesService(),
 );
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',

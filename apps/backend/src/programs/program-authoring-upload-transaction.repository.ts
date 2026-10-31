@@ -11,10 +11,7 @@ import {
   PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
   ProgramAuthoringUploadConsumptionRaceError,
 } from './program-authoring.error';
-import {
-  assertProgramTemplateUpload,
-  type ProgramAuthoringUploadToken,
-} from './program-authoring-upload.config';
+import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 
 export type ProgramExternalCover = {
   readonly sourceUrl: string;
@@ -149,7 +146,6 @@ export class ProgramAuthoringUploadTransactionRepository {
       tokenIds,
       uploads,
     );
-    uploads.forEach(assertProgramTemplateUpload);
     return uploads;
   }
 
@@ -213,7 +209,6 @@ export class ProgramAuthoringUploadTransactionRepository {
     );
     for (const consumption of sortedConsumptions) {
       const { milestoneDocumentId, upload } = consumption;
-      assertProgramTemplateUpload(upload);
       const uploadedAt = new Date();
       await transaction.milestoneDocumentTemplateFile.upsert({
         where: { milestoneDocumentId },

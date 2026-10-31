@@ -8,7 +8,7 @@ import {
   type RuntimeConfig,
 } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { readPrivateKeyFile } from '../platform/private-key-file.config';
+import { loadPrivateKeyFileConfig } from '../platform/private-key-file.config';
 
 const PRIVATE_KEY_FILE_ENV_KEY = 'GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE';
 
@@ -53,7 +53,7 @@ export class GithubOperationsConfig {
       return null;
     }
     try {
-      return readPrivateKeyFile(PRIVATE_KEY_FILE_ENV_KEY, filePath);
+      return loadPrivateKeyFileConfig(PRIVATE_KEY_FILE_ENV_KEY, filePath);
     } catch (error) {
       throw new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.CONFIGURATION,

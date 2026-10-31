@@ -17,6 +17,9 @@ import {
   type ProgramListRecord,
 } from './programs.repository';
 import { ProgramsService } from './programs.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -540,6 +543,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     await expect(
@@ -567,6 +573,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     const page = await service.list(
@@ -597,6 +606,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 1n,
@@ -640,6 +652,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 1n,
@@ -677,6 +692,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     const page = await service.list(
@@ -710,6 +728,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 2n,
@@ -750,6 +771,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 3n,
@@ -780,6 +804,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
     const viewer = {
       githubId: 4n,
@@ -812,6 +839,9 @@ describe('ProgramsService list', () => {
     };
     const service = new ProgramsService(
       repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
     );
 
     await expect(service.statusCounts()).resolves.toEqual(counts);

@@ -42,6 +42,14 @@ import { RepositoryProvisionWorkerService } from '../github/repository-provision
 import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionRulesService } from '../github/repository-provision-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+import { RepositoryProvisionGithubService } from '../github/repository-provision-github.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+import { ApplicationAnswersService } from './application-answers.service';
+import { RepositoryProvisionStateService } from '../github/repository-provision-state.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,17 +65,27 @@ const service = new ApplicationsService(
     new AuditLogMetadataService(),
   ),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new ApplicationJoinCodeService({
-    TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
-  }),
+  new ApplicationJoinCodeService(
+    {
+      TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
+    },
+    new JoinCodeSecretService(),
+  ),
   new AuditLogMetadataService(),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
 );
 const outbox = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
+  new RepositoryProvisionEventService(),
 );
 const jobs = new RepositoryProvisionJobRepository(prisma);
-const state = new RepositoryProvisionStateRepository(prisma);
+const state = new RepositoryProvisionStateService(
+  new RepositoryProvisionStateRepository(prisma),
+  new RepositoryUrlService(),
+  new RepositoryProvisionEventService(),
+);
 
 const STAFF_ACTOR_ID = 'synthetic-own-chain-staff';
 const STAFF_GITHUB_ID = 8_400_000_000_001n;
@@ -459,6 +477,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         github,
         ownEnrollment(),
         new AuditLogMetadataService(),
+        new RepositoryProvisionRulesService(),
+        new RepositoryProvisionGithubService(
+          new RepositoryUrlService(),
+          new RepositoryProvisionRulesService(),
+        ),
       );
       const result = await worker.runNext(
         'own-chain-provision-worker',
@@ -534,6 +557,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         github,
         ownEnrollment(),
         new AuditLogMetadataService(),
+        new RepositoryProvisionRulesService(),
+        new RepositoryProvisionGithubService(
+          new RepositoryUrlService(),
+          new RepositoryProvisionRulesService(),
+        ),
       );
       const result = await worker.runNext(
         'own-chain-org-owner-external-provision-worker',
@@ -600,6 +628,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       github,
       ownEnrollment(),
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext(
@@ -677,6 +710,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         github,
         ownEnrollment(),
         new AuditLogMetadataService(),
+        new RepositoryProvisionRulesService(),
+        new RepositoryProvisionGithubService(
+          new RepositoryUrlService(),
+          new RepositoryProvisionRulesService(),
+        ),
       );
       const result = await worker.runNext(
         'own-chain-org-provision-worker',
@@ -718,13 +756,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     const relink = new StudentRepositoryUrlService(
       new StudentRepositoryUrlRepository(prisma),
       repository,
-      new OwnRepositoryUrlValidationService(github),
+      new OwnRepositoryUrlValidationService(
+        github,
+        new RepositoryProvisionGithubService(
+          new RepositoryUrlService(),
+          new RepositoryProvisionRulesService(),
+        ),
+      ),
       new ConsentsService(new ConsentsRepository(prisma)),
       new AuditLogService(
         new AuditLogRepository(prisma),
         new AuditLogMetadataService(),
       ),
       { collectRepository: jest.fn() },
+      new ProgramRulesService(),
     );
     await relink.updateMine(
       APPLICANT_GITHUB_ID,
@@ -745,6 +790,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       github,
       ownEnrollment(),
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     ).runNext('synthetic-late-worker', queueNow);
     await expect(
       prisma.githubRepository.findUniqueOrThrow({
@@ -790,6 +840,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         github,
         ownEnrollment(),
         new AuditLogMetadataService(),
+        new RepositoryProvisionRulesService(),
+        new RepositoryProvisionGithubService(
+          new RepositoryUrlService(),
+          new RepositoryProvisionRulesService(),
+        ),
       ).runNext('synthetic-legacy-provision', queueNow);
       expect(result).toMatchObject({
         kind: 'FAILED_FINAL',

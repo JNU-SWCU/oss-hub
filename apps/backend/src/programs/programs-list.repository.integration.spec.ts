@@ -3,6 +3,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramsService } from './programs.service';
 import { ProgramsRepository } from './programs.repository';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -14,7 +17,12 @@ const TEST_PREFIX = 'program-list-order:';
 const NOW = new Date('2026-08-01T00:00:00.000Z');
 const prisma = new PrismaService();
 const repository = new ProgramsRepository(prisma);
-const service = new ProgramsService(repository);
+const service = new ProgramsService(
+  repository,
+  new MilestoneCompletionService(),
+  new ProgramCoverUrlService(),
+  new ProgramRulesService(),
+);
 
 async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({

@@ -27,6 +27,10 @@ import {
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
@@ -145,6 +149,10 @@ function buildService(overrides: {
       deletionRepository,
       buildAuthority(),
       new AuditLogMetadataService(),
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new ProgramRulesService(),
     ),
     repository,
     deletionRepository,
@@ -570,6 +578,10 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         stubTeamDeletionRepository(),
         buildAuthority(),
         new AuditLogMetadataService(),
+        new RepositoryPublishService(),
+        new RepositoryUrlService(),
+        new MilestoneCompletionService(),
+        new ProgramRulesService(),
       ),
       accessed,
       leave,

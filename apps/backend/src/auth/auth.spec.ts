@@ -2,23 +2,17 @@ import { MemberKind } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { decodeJwt, SignJWT } from 'jose';
 import {
-  selectGithubPrimaryEmail,
-  loginLandingUrl,
-  createFlowState,
-  decodeFlowCookie,
-  encodeFlowCookie,
-  isSameState,
-  toCodeChallenge,
+  AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-  issueSessionToken,
-  verifySessionToken,
-} from './auth.service';
+} from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 describe('github-primary-email', () => {
   describe('selectGithubPrimaryEmail', () => {
     it('primary+verified를 최우선으로 고른다', () => {
       expect(
-        selectGithubPrimaryEmail([
+        authSessionService.selectGithubPrimaryEmail([
           { email: 'other@example.com', primary: false, verified: true },
           { email: 'primary@example.com', primary: true, verified: true },
           { email: 'unverified@example.com', primary: true, verified: false },
@@ -28,7 +22,7 @@ describe('github-primary-email', () => {
 
     it('primary+verified가 없으면 primary를 고른다', () => {
       expect(
-        selectGithubPrimaryEmail([
+        authSessionService.selectGithubPrimaryEmail([
           { email: 'verified@example.com', primary: false, verified: true },
           { email: 'primary@example.com', primary: true, verified: false },
         ]),
@@ -37,7 +31,7 @@ describe('github-primary-email', () => {
 
     it('primary가 없으면 첫 verified를 고른다', () => {
       expect(
-        selectGithubPrimaryEmail([
+        authSessionService.selectGithubPrimaryEmail([
           { email: 'first@example.com', primary: false, verified: true },
           { email: 'second@example.com', primary: false, verified: true },
         ]),
@@ -46,11 +40,11 @@ describe('github-primary-email', () => {
 
     it('후보가 없으면 null이다', () => {
       expect(
-        selectGithubPrimaryEmail([
+        authSessionService.selectGithubPrimaryEmail([
           { email: 'a@example.com', primary: false, verified: false },
         ]),
       ).toBeNull();
-      expect(selectGithubPrimaryEmail([])).toBeNull();
+      expect(authSessionService.selectGithubPrimaryEmail([])).toBeNull();
     });
   });
 });
@@ -83,7 +77,7 @@ describe('login-landing', () => {
       '온보딩을 마친 %s 재로그인 사용자는 랜딩으로 보낸다',
       (_label, identity) => {
         expect(
-          loginLandingUrl(frontendUrl, {
+          authSessionService.loginLandingUrl(frontendUrl, {
             user: { ...identity, isProfileComplete: true },
             isNew: false,
           }),
@@ -93,7 +87,7 @@ describe('login-landing', () => {
 
     it('접근 권한이 없는 완료된 STAFF는 온보딩 입구로 돌아간다', () => {
       expect(
-        loginLandingUrl(frontendUrl, {
+        authSessionService.loginLandingUrl(frontendUrl, {
           user: {
             memberKind: MemberKind.STAFF,
             hasStaffAccess: false,
@@ -107,7 +101,7 @@ describe('login-landing', () => {
 
     it('확정된 사실이 하나도 없으면 온보딩 입구로 보낸다', () => {
       expect(
-        loginLandingUrl(frontendUrl, {
+        authSessionService.loginLandingUrl(frontendUrl, {
           user: { ...UNSETTLED, isProfileComplete: false },
           isNew: false,
         }),
@@ -116,7 +110,7 @@ describe('login-landing', () => {
 
     it('신규 가입자는 온보딩 입구로 보낸다', () => {
       expect(
-        loginLandingUrl(frontendUrl, {
+        authSessionService.loginLandingUrl(frontendUrl, {
           user: { ...UNSETTLED, isProfileComplete: false },
           isNew: true,
         }),
@@ -127,7 +121,7 @@ describe('login-landing', () => {
       '초기 시드로 %s이 설정된 신규 가입자도 온보딩 입구를 거친다',
       (_label, identity) => {
         expect(
-          loginLandingUrl(frontendUrl, {
+          authSessionService.loginLandingUrl(frontendUrl, {
             user: { ...identity, isProfileComplete: true },
             isNew: true,
           }),
@@ -139,7 +133,7 @@ describe('login-landing', () => {
       '확정된 사실이 있어도 프로필이 미완료인 %s는 온보딩 입구로 보낸다',
       (_label, identity) => {
         expect(
-          loginLandingUrl(frontendUrl, {
+          authSessionService.loginLandingUrl(frontendUrl, {
             user: { ...identity, isProfileComplete: false },
             isNew: false,
           }),
@@ -149,7 +143,7 @@ describe('login-landing', () => {
 
     it('frontendUrl 뒤에 경로만 붙이고 출처는 바꾸지 않는다', () => {
       expect(
-        loginLandingUrl('https://other.example', {
+        authSessionService.loginLandingUrl('https://other.example', {
           user: { ...UNSETTLED, isProfileComplete: false },
           isNew: false,
         }),
@@ -161,15 +155,19 @@ describe('login-landing', () => {
 describe('oauth-flow', () => {
   describe('oauth-flow', () => {
     it('생성된 state·verifier는 각각 43자 base64url이다', () => {
-      const flow = createFlowState();
+      const flow = authSessionService.createFlowState();
       expect(flow.state).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(flow.verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(flow.state).not.toBe(flow.verifier);
     });
 
     it('encode → decode 왕복이 보존된다', () => {
-      const flow = createFlowState();
-      expect(decodeFlowCookie(encodeFlowCookie(flow))).toEqual(flow);
+      const flow = authSessionService.createFlowState();
+      expect(
+        authSessionService.decodeFlowCookie(
+          authSessionService.encodeFlowCookie(flow),
+        ),
+      ).toEqual(flow);
     });
 
     it.each([
@@ -182,22 +180,26 @@ describe('oauth-flow', () => {
       ['base64url 밖 문자(+)', `${'a'.repeat(42)}+.${'b'.repeat(43)}`],
       ['padding(=) 포함', `${'a'.repeat(42)}=.${'b'.repeat(43)}`],
     ])('형식 위반 쿠키는 null: %s', (_label, value) => {
-      expect(decodeFlowCookie(value)).toBeNull();
+      expect(authSessionService.decodeFlowCookie(value)).toBeNull();
     });
 
     it('state 비교: 동일하면 true, 다르거나 길이가 다르면 false', () => {
-      const { state } = createFlowState();
+      const { state } = authSessionService.createFlowState();
       const mutated = `${state.slice(0, 42)}${state[42] === 'A' ? 'B' : 'A'}`;
       expect(mutated).toHaveLength(43);
       expect(mutated).not.toBe(state);
-      expect(isSameState(state, state)).toBe(true);
-      expect(isSameState(state, mutated)).toBe(false);
-      expect(isSameState(state, state.slice(0, 42))).toBe(false);
+      expect(authSessionService.isSameState(state, state)).toBe(true);
+      expect(authSessionService.isSameState(state, mutated)).toBe(false);
+      expect(authSessionService.isSameState(state, state.slice(0, 42))).toBe(
+        false,
+      );
     });
 
     it('code_challenge는 RFC 7636 S256 테스트 벡터와 일치한다', () => {
       expect(
-        toCodeChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'),
+        authSessionService.toCodeChallenge(
+          'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+        ),
       ).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
     });
   });
@@ -224,8 +226,14 @@ describe('session-token', () => {
 
   describe('session-token', () => {
     it('발급 → 검증 왕복에서 githubId가 보존된다 (2^53 초과 값 포함)', async () => {
-      const token = await issueSessionToken(secret, githubId, 0);
-      await expect(verifySessionToken(secret, token)).resolves.toEqual({
+      const token = await authSessionService.issueSessionToken(
+        secret,
+        githubId,
+        0,
+      );
+      await expect(
+        authSessionService.verifySessionToken(secret, token),
+      ).resolves.toEqual({
         githubId,
         sessionVersion: 0,
       });
@@ -241,14 +249,18 @@ describe('session-token', () => {
       async (_label, payload) => {
         const token = await signSessionProfile(payload);
 
-        await expect(verifySessionToken(secret, token)).resolves.toBeNull();
+        await expect(
+          authSessionService.verifySessionToken(secret, token),
+        ).resolves.toBeNull();
       },
     );
 
     it('0 이상의 정수 sessionVersion claim은 검증한다', async () => {
       const token = await signSessionProfile({ sessionVersion: 7 });
 
-      await expect(verifySessionToken(secret, token)).resolves.toEqual({
+      await expect(
+        authSessionService.verifySessionToken(secret, token),
+      ).resolves.toEqual({
         githubId,
         sessionVersion: 7,
       });
@@ -257,7 +269,11 @@ describe('session-token', () => {
     it('새로 발급한 토큰은 전달된 0 이상의 정수 sessionVersion을 싣는다', async () => {
       const sessionVersion = 7;
 
-      const token = await issueSessionToken(secret, githubId, sessionVersion);
+      const token = await authSessionService.issueSessionToken(
+        secret,
+        githubId,
+        sessionVersion,
+      );
       const issuedVersion = decodeJwt(token).sessionVersion;
 
       expect(issuedVersion).toBe(sessionVersion);
@@ -267,17 +283,37 @@ describe('session-token', () => {
 
     it('발급 시 sessionVersion 누락은 runtime에서도 거부한다', async () => {
       await expect(
-        Reflect.apply(issueSessionToken, undefined, [secret, githubId]),
+        Reflect.apply(
+          (secret, githubId, sessionVersion, nowEpochSeconds) =>
+            authSessionService.issueSessionToken(
+              secret,
+              githubId,
+              sessionVersion,
+              nowEpochSeconds,
+            ),
+          undefined,
+          [secret, githubId],
+        ),
       ).rejects.toThrow('sessionVersion must be a nonnegative integer');
     });
 
     it('다른 키로 서명된 토큰은 거부한다', async () => {
-      const token = await issueSessionToken(otherSecret, githubId, 0);
-      await expect(verifySessionToken(secret, token)).resolves.toBeNull();
+      const token = await authSessionService.issueSessionToken(
+        otherSecret,
+        githubId,
+        0,
+      );
+      await expect(
+        authSessionService.verifySessionToken(secret, token),
+      ).resolves.toBeNull();
     });
 
     it('각 segment 변조를 거부한다', async () => {
-      const token = await issueSessionToken(secret, githubId, 0);
+      const token = await authSessionService.issueSessionToken(
+        secret,
+        githubId,
+        0,
+      );
       const [header = '', payload = '', signature = ''] = token.split('.');
 
       const tamper = (value: string): string =>
@@ -289,14 +325,23 @@ describe('session-token', () => {
         `${header}.${payload}`,
         '',
       ]) {
-        await expect(verifySessionToken(secret, tampered)).resolves.toBeNull();
+        await expect(
+          authSessionService.verifySessionToken(secret, tampered),
+        ).resolves.toBeNull();
       }
     });
 
     it('만료된 토큰을 거부한다', async () => {
       const past = Math.floor(Date.now() / 1000) - SESSION_MAX_AGE_SECONDS - 60;
-      const token = await issueSessionToken(secret, githubId, 0, past);
-      await expect(verifySessionToken(secret, token)).resolves.toBeNull();
+      const token = await authSessionService.issueSessionToken(
+        secret,
+        githubId,
+        0,
+        past,
+      );
+      await expect(
+        authSessionService.verifySessionToken(secret, token),
+      ).resolves.toBeNull();
     });
 
     it('서명이 유효해도 profile 위반은 거부한다 — 잘못된 iss/aud, 비정수 sub, 7일 초과 수명', async () => {
@@ -327,7 +372,9 @@ describe('session-token', () => {
         negativeSub,
         tooLongLife,
       ]) {
-        await expect(verifySessionToken(secret, token)).resolves.toBeNull();
+        await expect(
+          authSessionService.verifySessionToken(secret, token),
+        ).resolves.toBeNull();
       }
     });
   });

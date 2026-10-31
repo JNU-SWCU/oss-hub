@@ -3,11 +3,7 @@ import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
@@ -27,6 +23,14 @@ import {
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramRulesService } from './program-rules.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
@@ -159,6 +163,10 @@ const service = new ProgramTeamsService(
   stubTeamDeletionRepository(),
   new UsersAuthorityService({ findActorByGithubId: findUnique }),
   new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new ProgramRulesService(),
 );
 
 const listForStaff = jest.fn(
@@ -245,14 +253,20 @@ async function getTeams(
 }
 
 async function sessionCookieFor(githubId: bigint): Promise<string> {
-  const token = await issueSessionToken(sessionSecret, githubId, 0);
-  return `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    githubId,
+    0,
+  );
+  return `${authSessionService.sessionCookieName(false)}=${token}`;
 }
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       { provide: ProgramTeamsService, useValue: { listForStaff, getForStaff } },
       SessionGuard,
       OriginGuard,
@@ -387,7 +401,9 @@ it('세션 쿠키가 없으면 401 이고 권한 조회까지 가지 않는다',
 });
 
 it('세션 쿠키가 위조되면 401 이다', async () => {
-  const response = await getTeams(`${sessionCookieName(false)}=not-a-token`);
+  const response = await getTeams(
+    `${authSessionService.sessionCookieName(false)}=not-a-token`,
+  );
 
   expect(response.status).toBe(401);
   expect(listForStaff).not.toHaveBeenCalled();

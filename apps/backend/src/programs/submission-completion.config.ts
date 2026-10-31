@@ -27,35 +27,3 @@ export interface SubmissionCompletionProjections {
     readonly status: SubmissionStatus;
   }[];
 }
-
-export function projectSubmissionCompletionTargets(
-  targetRows: readonly SubmissionCompletionTargetRow[],
-): SubmissionCompletionProjections {
-  const submissions: {
-    milestoneId: string;
-    status: SubmissionStatus;
-  }[] = [];
-  const documentSubmissions: {
-    milestoneDocumentId: string;
-    status: SubmissionStatus;
-  }[] = [];
-
-  for (const targetRow of targetRows) {
-    switch (targetRow.milestoneDocument.kind) {
-      case MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION:
-        submissions.push({
-          milestoneId: targetRow.milestoneDocument.milestoneId,
-          status: targetRow.status,
-        });
-        break;
-      case MilestoneDocumentKind.DOCUMENT:
-        documentSubmissions.push({
-          milestoneDocumentId: targetRow.milestoneDocument.id,
-          status: targetRow.status,
-        });
-        break;
-    }
-  }
-
-  return { submissions, documentSubmissions };
-}

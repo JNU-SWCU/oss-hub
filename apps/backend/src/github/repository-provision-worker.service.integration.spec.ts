@@ -14,10 +14,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import {
-  parseRepositoryProvisionEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-} from './repository-provision-event.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -44,6 +41,11 @@ import { CollectionIncrementalRepository } from './collection-incremental.reposi
 import { RepositoryOwnEnrollmentService } from './repositories.service';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionStateService } from './repository-provision-state.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -54,9 +56,14 @@ const prisma = new PrismaService();
 const outbox = new RepositoryOutboxConsumerService(
   new RepositoriesRepository(prisma),
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
+  new RepositoryProvisionEventService(),
 );
 const jobs = new RepositoryProvisionJobRepository(prisma);
-const state = new RepositoryProvisionStateRepository(prisma);
+const state = new RepositoryProvisionStateService(
+  new RepositoryProvisionStateRepository(prisma),
+  new RepositoryUrlService(),
+  new RepositoryProvisionEventService(),
+);
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-worker-applicant-id';
 const APPLICANT_GITHUB_ID = 8_300_000_000_001n;
@@ -252,6 +259,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-a', NOW);
@@ -348,6 +360,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await expect(
@@ -405,7 +422,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
       await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: r2At },
-        parseRepositoryProvisionEvent,
       );
     });
     const afterR2 = await prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -462,6 +478,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
     await expect(
       worker.runNext('worker-r2', new Date(r2At.getTime() + 2)),
@@ -532,6 +553,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-current-relink', NOW);
@@ -599,6 +625,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-new-external', NOW);
@@ -653,6 +684,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-own-managed', NOW);
@@ -710,6 +746,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository,
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-own-org-create', NOW);
@@ -774,6 +815,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
     await worker.runNext('provision-worker-b', NOW);
 
@@ -816,6 +862,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
     await worker.runNext('provision-worker-cap-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
@@ -852,6 +903,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
     await worker.runNext('provision-worker-exhaust-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
@@ -911,6 +967,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
       github,
       ownEnrollment(),
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     const result = await worker.runNext('provision-worker-own', NOW);
@@ -978,7 +1039,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
       await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         { applicationId, newEventId: event.id, now: NOW },
-        parseRepositoryProvisionEvent,
       );
       return event;
     });
@@ -1021,6 +1081,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
     );
 
     await expect(
@@ -1573,7 +1638,6 @@ async function createApplicationAndEvent(
     await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
-      parseRepositoryProvisionEvent,
     );
   });
 }

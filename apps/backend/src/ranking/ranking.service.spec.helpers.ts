@@ -1,6 +1,7 @@
 import type { CollectionScheduleService } from '../github/collection-schedule.service';
 import type { RankingMetricRow, RankingRepository } from './ranking.repository';
 import { RankingService, type RankingViewerClass } from './ranking.service';
+import { RankingYearService } from './ranking-year.service';
 
 const mockNextScheduledCollectionAt = jest.fn<
   ReturnType<typeof CollectionScheduleService.nextScheduledCollectionAt>,
@@ -90,7 +91,7 @@ export function setupRankingService(): {
   } as unknown as RankingRepository;
 
   return {
-    service: new RankingService(ranking),
+    service: new RankingService(ranking, new RankingYearService()),
     findMetrics,
     listYears,
     findDataAsOf,

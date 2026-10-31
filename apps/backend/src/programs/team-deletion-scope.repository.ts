@@ -12,6 +12,30 @@ type DeletionScopeCountsRow = Readonly<{
 }>;
 
 export class TeamDeletionScopeRepository {
+  static sameCounts(
+    left: TeamDeletionScopeCounts,
+    right: TeamDeletionScopeCounts,
+  ): boolean {
+    return (
+      TeamDeletionScopeRepository.sameCountValues(left, right) &&
+      left.scopeFingerprint === right.scopeFingerprint
+    );
+  }
+
+  static sameCountValues(
+    left: TeamDeletionScopeCounts,
+    right: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>,
+  ): boolean {
+    return (
+      left.applications === right.applications &&
+      left.members === right.members &&
+      left.invitations === right.invitations &&
+      left.submissions === right.submissions &&
+      left.submissionEvents === right.submissionEvents &&
+      left.detachedRepositories === right.detachedRepositories
+    );
+  }
+
   static async readTeamDeletionScopeCounts(
     transaction: PrismaTypes.TransactionClient,
     teamId: string,

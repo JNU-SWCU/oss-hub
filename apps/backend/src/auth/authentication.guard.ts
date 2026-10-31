@@ -9,9 +9,10 @@ import type { Request, Response } from 'express';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
-import { AuthService, resolveSession } from './auth.service';
+import { AuthService } from './auth.service';
 
 import type { ActiveAccountPrincipal } from './http-auth.types';
+import { AuthSessionService } from './auth-session.service';
 
 export const AUTH_ROUTE_ACCESS = {
   PUBLIC: 'PUBLIC',
@@ -48,6 +49,7 @@ export class AuthenticationGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly config: AuthConfig,
     private readonly authService: AuthService,
+    private readonly authSessionService: AuthSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -66,10 +68,11 @@ export class AuthenticationGuard implements CanActivate {
     http
       .getResponse<Response | undefined>()
       ?.setHeader('Cache-Control', 'private, no-store');
-    const { githubId, sessionVersion, hasSessionCookie } = await resolveSession(
-      this.config,
-      request.headers.cookie,
-    );
+    const { githubId, sessionVersion, hasSessionCookie } =
+      await this.authSessionService.resolveSession(
+        this.config,
+        request.headers.cookie,
+      );
     const optionalSession =
       this.reflector.getAllAndOverride<boolean>(
         OPTIONAL_SESSION_ROUTE_METADATA,

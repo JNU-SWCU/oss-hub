@@ -1,5 +1,5 @@
 import { activity, setupRankingService } from './ranking.service.spec.helpers';
-import { RANKING_YEAR_ALL } from './ranking.service';
+import { RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingService cache and year scope', () => {
   let harness: ReturnType<typeof setupRankingService>;

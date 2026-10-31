@@ -3,7 +3,7 @@ import {
   type RuntimeConfig,
   type RuntimeEnvKey,
 } from '../platform/runtime-config.config';
-import { readPrivateKeyFile } from '../platform/private-key-file.config';
+import { loadPrivateKeyFileConfig } from '../platform/private-key-file.config';
 
 const DEFAULT_API_BASE = 'https://api.github.com';
 const DEFAULT_MAX_PAGES = 100;
@@ -151,7 +151,7 @@ function resolvePrivateKey(
     throw new CollectionAppConfigError(envNames.privateKeyFile);
   }
   try {
-    return readPrivateKeyFile(envNames.privateKeyFile, filePath);
+    return loadPrivateKeyFileConfig(envNames.privateKeyFile, filePath);
   } catch (error) {
     throw new CollectionAppConfigError(envNames.privateKeyFile, {
       cause: error,

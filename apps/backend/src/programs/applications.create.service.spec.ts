@@ -26,6 +26,8 @@ import {
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { ApplicationAnswersService } from './application-answers.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -178,6 +180,8 @@ function buildService(overrides: {
       { assertActiveStaff },
       joinCodeService,
       new AuditLogMetadataService(),
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
     ),
     repository,
     store,

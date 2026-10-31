@@ -1,12 +1,12 @@
-import {
-  JoinCodeSecretError,
-  computeJoinCodeDigest,
-} from '../platform/join-code-secret.config';
+import { JoinCodeSecretError } from '../platform/join-code-secret.config';
 import {
   ApplicationJoinCodeService,
   ApplicationPreparationsService,
 } from './application-preparations.service';
 import type { ApplicationPreparationsRepository } from './application-preparations.repository';
+import { JoinCodeSecretService } from '../platform/join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 describe('ApplicationPreparationsService.get', () => {
   function serviceWith(found: unknown) {
@@ -40,28 +40,43 @@ describe('application-join-code.service', () => {
       (secret) => {
         expect(
           () =>
-            new ApplicationJoinCodeService({ TEAM_JOIN_CODE_SECRET: secret }),
+            new ApplicationJoinCodeService(
+              { TEAM_JOIN_CODE_SECRET: secret },
+              new JoinCodeSecretService(),
+            ),
         ).toThrow(JoinCodeSecretError);
       },
     );
 
     it('설정된 secret으로 참여코드 digest를 만든다', () => {
-      const service = new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
-      });
+      const service = new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
+        },
+        new JoinCodeSecretService(),
+      );
 
       expect(service.computeJoinCodeDigest('SYNTHETIC-CODE')).toBe(
-        computeJoinCodeDigest('SYNTHETIC-CODE', 'synthetic-secret-a'),
+        joinCodeSecretService.computeJoinCodeDigest(
+          'SYNTHETIC-CODE',
+          'synthetic-secret-a',
+        ),
       );
       expect(service.computeJoinCodeDigest('SYNTHETIC-CODE')).not.toBe(
-        computeJoinCodeDigest('SYNTHETIC-CODE', 'synthetic-secret-b'),
+        joinCodeSecretService.computeJoinCodeDigest(
+          'SYNTHETIC-CODE',
+          'synthetic-secret-b',
+        ),
       );
     });
 
     it('8자 대문자 base64url 참여코드를 매번 새로 만든다', () => {
-      const service = new ApplicationJoinCodeService({
-        TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
-      });
+      const service = new ApplicationJoinCodeService(
+        {
+          TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
+        },
+        new JoinCodeSecretService(),
+      );
       const codes = Array.from({ length: 20 }, () =>
         service.generateJoinCode(),
       );

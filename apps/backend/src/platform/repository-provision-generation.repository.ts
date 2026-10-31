@@ -13,9 +13,28 @@ interface RepositoryProvisionHistoryPayload {
   readonly requestedAt: string;
 }
 
-export type RepositoryProvisionHistoryPayloadParser = (
-  value: unknown,
-) => RepositoryProvisionHistoryPayload;
+function readHistoryPayload(value: unknown): RepositoryProvisionHistoryPayload {
+  const payload =
+    typeof value === 'object' && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  const { applicationId, repositoryConnectionMode, requestedAt } = payload;
+  if (
+    typeof applicationId !== 'string' ||
+    typeof requestedAt !== 'string' ||
+    Number.isNaN(Date.parse(requestedAt))
+  ) {
+    throw new InvalidRepositoryProvisionHistoryEventError();
+  }
+  return {
+    applicationId,
+    repositoryConnectionMode:
+      repositoryConnectionMode === RepositoryConnectionMode.OWN
+        ? RepositoryConnectionMode.OWN
+        : RepositoryConnectionMode.NEW,
+    requestedAt,
+  };
+}
 
 interface LockedProvisionGenerationRow {
   readonly id: string;
@@ -41,7 +60,6 @@ export class RepositoryProvisionGenerationRepository {
   static async writeRepositoryIssuanceHistory(
     transaction: Prisma.TransactionClient,
     input: RepositoryIssuanceHistoryInput,
-    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     const event = await transaction.outboxEvent.findUnique({
       where: { id: input.requestId },
@@ -55,7 +73,7 @@ export class RepositoryProvisionGenerationRepository {
       throw new InvalidRepositoryProvisionHistoryEventError();
     }
 
-    const payload = parsePayload(event.payload);
+    const payload = readHistoryPayload(event.payload);
     if (
       event.aggregateType !== 'Application' ||
       event.aggregateId !== input.applicationId ||
@@ -89,7 +107,6 @@ export class RepositoryProvisionGenerationRepository {
       readonly newEventId: string;
       readonly now: Date;
     },
-    parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<{ readonly jobId: string }> {
     const rows = await transaction.$queryRaw<LockedProvisionGenerationRow[]>(
       Prisma.sql`
@@ -117,7 +134,6 @@ export class RepositoryProvisionGenerationRepository {
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: input.now,
         },
-        parsePayload,
       );
     }
 
@@ -160,7 +176,6 @@ export class RepositoryProvisionGenerationRepository {
       readonly repositoryId: string;
       readonly now: Date;
     },
-    parseEvent: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     const existing = (
       await transaction.$queryRaw<readonly SynchronousProvisionGenerationRow[]>(
@@ -188,7 +203,6 @@ export class RepositoryProvisionGenerationRepository {
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: input.now,
         },
-        parseEvent,
       );
     }
     if (

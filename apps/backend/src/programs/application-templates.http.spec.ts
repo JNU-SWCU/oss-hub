@@ -12,7 +12,9 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
-import { ProgramsService, V1_APPLICATION_FIELDS } from './programs.service';
+import { ProgramsService } from './programs.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { V1_APPLICATION_FIELDS } from './program-rules.service';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -25,6 +27,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ApplicationTemplatesController, ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       {
         provide: ProgramCreationService,
         useValue: { create: jest.fn() },

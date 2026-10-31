@@ -11,6 +11,7 @@ import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 jest.mock('./submission-upload.config', () => ({
   ...jest.requireActual<Record<string, unknown>>('./submission-upload.config'),
@@ -31,6 +32,7 @@ beforeAll(async () => {
       ProgramSubmissionsController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
       SubmissionsService,
       ProgramAuthoringService,
       { provide: AuditLogService, useValue: { record: jest.fn() } },

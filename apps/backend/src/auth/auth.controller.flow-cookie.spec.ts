@@ -6,13 +6,9 @@ import {
   recordLogin,
   requestWithCookie,
 } from './auth.controller.spec.helpers';
-import {
-  flowCookieName,
-  serializeCookie,
-  sessionCookieName,
-  createFlowState,
-  encodeFlowCookie,
-} from './auth.service';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 describe('AuthController github callback flow cookie contract', () => {
   beforeEach(() => {
@@ -21,23 +17,29 @@ describe('AuthController github callback flow cookie contract', () => {
   });
 
   it('OAuth denial은 state가 일치할 때만 flow cookie를 삭제한다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
 
     await createController().githubCallback(
       undefined,
       flow.state,
       'access_denied',
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
     expect(res.setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
-      serializeCookie(flowCookieName(true), '', {
-        maxAgeSeconds: 0,
-        secure: true,
-      }),
+      authSessionService.serializeCookie(
+        authSessionService.flowCookieName(true),
+        '',
+        {
+          maxAgeSeconds: 0,
+          secure: true,
+        },
+      ),
     );
     expect(res.redirect).toHaveBeenCalledWith(
       302,
@@ -49,14 +51,16 @@ describe('AuthController github callback flow cookie contract', () => {
     ['missing state', undefined],
     ['mismatched state', 'x'.repeat(43)],
   ])('%s이면 unrelated flow cookie를 보존한다', async (_label, state) => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
 
     await createController().githubCallback(
       undefined,
       state,
       'access_denied',
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -71,7 +75,7 @@ describe('AuthController github callback flow cookie contract', () => {
   });
 
   it('code가 있는 mismatched callback 실패도 unrelated flow cookie를 보존한다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const completeLogin = jest
       .fn()
@@ -81,7 +85,9 @@ describe('AuthController github callback flow cookie contract', () => {
       'synthetic-code',
       'x'.repeat(43),
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -96,7 +102,7 @@ describe('AuthController github callback flow cookie contract', () => {
   });
 
   it('state가 일치한 callback의 provider 실패는 flow cookie를 삭제한다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const completeLogin = jest
       .fn()
@@ -106,21 +112,27 @@ describe('AuthController github callback flow cookie contract', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
     expect(res.setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
-      serializeCookie(flowCookieName(true), '', {
-        maxAgeSeconds: 0,
-        secure: true,
-      }),
+      authSessionService.serializeCookie(
+        authSessionService.flowCookieName(true),
+        '',
+        {
+          maxAgeSeconds: 0,
+          secure: true,
+        },
+      ),
     );
   });
 
   it('비활성 계정은 OAuth callback에서도 세션·LOGIN 이력을 만들지 않는다', async () => {
-    const flow = createFlowState();
+    const flow = authSessionService.createFlowState();
     const res = createResponse();
     const issueSession = jest
       .fn()
@@ -132,7 +144,9 @@ describe('AuthController github callback flow cookie contract', () => {
       'synthetic-code',
       flow.state,
       undefined,
-      requestWithCookie(`${flowCookieName(true)}=${encodeFlowCookie(flow)}`),
+      requestWithCookie(
+        `${authSessionService.flowCookieName(true)}=${authSessionService.encodeFlowCookie(flow)}`,
+      ),
       res,
     );
 
@@ -140,7 +154,9 @@ describe('AuthController github callback flow cookie contract', () => {
     expect(res.setHeader).not.toHaveBeenCalledWith(
       'Set-Cookie',
       expect.arrayContaining([
-        expect.stringContaining(`${sessionCookieName(true)}=`),
+        expect.stringContaining(
+          `${authSessionService.sessionCookieName(true)}=`,
+        ),
       ]),
     );
     expect(res.redirect).toHaveBeenCalledWith(

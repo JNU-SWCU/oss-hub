@@ -23,6 +23,8 @@ import {
   type MatrixRowResult,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,6 +34,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
   new SubmissionMatrixRepository(prisma),
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 
 const PROGRAM_ID = seedId('milestones', 'program');

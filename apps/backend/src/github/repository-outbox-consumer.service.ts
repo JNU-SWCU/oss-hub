@@ -3,13 +3,10 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import { RepositoriesRepository } from './repositories.repository';
-import {
-  parseRepositoryAccessSyncEvent,
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  parseRepositoryProvisionEvent,
-} from './repository-provision-event.config';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
+import { RepositoryProvisionEventService } from './repository-provision-event.service';
 
 const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 const PROVISION_POLL_INTERVAL_MS = 5_000;
@@ -35,6 +32,7 @@ export class RepositoryOutboxConsumerService {
     private readonly repository: RepositoriesRepository,
     @Inject(RepositoryProvisionWorkerService)
     private readonly worker: Pick<RepositoryProvisionWorkerService, 'runNext'>,
+    private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
@@ -88,7 +86,10 @@ export class RepositoryOutboxConsumerService {
 
       try {
         if (event.type === REPOSITORY_PROVISION_EVENT_TYPE) {
-          const payload = parseRepositoryProvisionEvent(event.payload);
+          const payload =
+            this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+              event.payload,
+            );
           if (payload.applicationId !== event.aggregateId) {
             throw new InvalidRepositoryProvisionEventError();
           }
@@ -108,7 +109,7 @@ export class RepositoryOutboxConsumerService {
           return { kind: 'CONSUMED', eventId: event.id, jobId: job.id };
         }
 
-        const payload = parseEventPayload(event.type, event.payload);
+        const payload = this.parseEventPayload(event.type, event.payload);
         if (payload.applicationId !== event.aggregateId) {
           throw new InvalidRepositoryProvisionEventError();
         }
@@ -129,14 +130,16 @@ export class RepositoryOutboxConsumerService {
       }
     });
   }
-}
 
-function parseEventPayload(
-  type: string,
-  payload: unknown,
-): { readonly applicationId: string } {
-  if (type === REPOSITORY_ACCESS_SYNC_EVENT_TYPE) {
-    return parseRepositoryAccessSyncEvent(payload);
+  private parseEventPayload(
+    type: string,
+    payload: unknown,
+  ): { readonly applicationId: string } {
+    if (type === REPOSITORY_ACCESS_SYNC_EVENT_TYPE) {
+      return this.repositoryProvisionEventService.parseRepositoryAccessSyncEvent(
+        payload,
+      );
+    }
+    throw new InvalidRepositoryProvisionEventError();
   }
-  throw new InvalidRepositoryProvisionEventError();
 }

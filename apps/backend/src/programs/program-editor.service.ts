@@ -1,4 +1,3 @@
-import { validateProgramCoverChoice } from './program-authoring-upload.service';
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -16,6 +15,8 @@ import {
   type ProgramEditorTransactionStore,
   type ProgramMilestoneInput,
   type LockedProgramMilestoneEdit,
+  type EditableProgramRow,
+  type EditableProgramView,
 } from './program-editor.repository';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import {
@@ -25,11 +26,13 @@ import {
 import { createHash } from 'node:crypto';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { CreateProgramCommand } from './program-creation.service';
-import { type ProgramExternalCover } from './program-authoring-upload-transaction.repository';
-import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
-import { addOneCalendarYear } from './submission-file.config';
+import type { ProgramExternalCover } from './program-authoring-upload-transaction.repository';
+import type { ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
-import { isProgramEndAtUndecided } from './programs.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly endAt?: string | null;
@@ -82,72 +85,6 @@ export type ProgramMilestoneFingerprintInput = {
   };
   readonly documents: readonly ProgramMilestoneFingerprintDocument[];
 };
-
-export function fingerprintProgramMilestoneEdit(
-  input: ProgramMilestoneFingerprintInput,
-): string {
-  const documents = [...input.documents]
-    .sort((left, right) =>
-      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
-    )
-    .map((document) => [
-      document.id,
-      document.name,
-      document.required,
-      document.sortOrder,
-      document.updatedAt.toISOString(),
-      document.storageKey === null
-        ? null
-        : ['storage-key', document.storageKey],
-    ]);
-  const payload = [
-    1,
-    [
-      input.operation.startAt.toISOString(),
-      input.operation.endAt.toISOString(),
-    ],
-    [
-      input.milestone.id,
-      input.milestone.name,
-      input.milestone.startAt.toISOString(),
-      input.milestone.dueAt.toISOString(),
-      input.milestone.submissionType,
-      input.milestone.instructions,
-      input.milestone.updatedAt.toISOString(),
-    ],
-    documents,
-  ];
-  return createHash('sha256')
-    .update(JSON.stringify(payload), 'utf8')
-    .digest('hex');
-}
-
-export function preflightProgramMilestoneEditDocuments(
-  documents: readonly {
-    readonly id: string | null;
-    readonly templateUploadId?: string;
-  }[],
-): void {
-  if (documents.length > 20) {
-    throw new ProgramMilestoneEditValidationError('documents', 'MAX_SIZE');
-  }
-  assertDistinct(
-    documents.flatMap((document, index) =>
-      document.id === null ? [] : [{ value: document.id, index }],
-    ),
-    'id',
-    'DUPLICATE_DOCUMENT_ID',
-  );
-  assertDistinct(
-    documents.flatMap((document, index) =>
-      document.templateUploadId === undefined
-        ? []
-        : [{ value: document.templateUploadId, index }],
-    ),
-    'templateUploadId',
-    'DUPLICATE_UPLOAD_TOKEN',
-  );
-}
 
 function assertDistinct(
   values: readonly { readonly value: string; readonly index: number }[],
@@ -233,14 +170,30 @@ export class ProgramEditorService {
       ProgramEditorRepository,
       'withTransaction'
     >,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
+    private readonly programRulesService: ProgramRulesService,
+    private readonly programUploadRulesService: ProgramUploadRulesService,
+    private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
+
+  private toEditableProgramView(row: EditableProgramRow): EditableProgramView {
+    const { coverId, coverExternalImageUrl, ...program } = row;
+    return {
+      ...program,
+      coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
+        row.id,
+        coverId,
+        coverExternalImageUrl,
+      ),
+    };
+  }
 
   getProgram(githubId: bigint, programId: string) {
     return this.repository.withTransaction(async (store) => {
       await this.requireEditor(store, githubId);
       const program = await store.findEditableProgramById(programId);
       if (program === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
-      return program;
+      return this.toEditableProgramView(program);
     });
   }
 
@@ -267,7 +220,7 @@ export class ProgramEditorService {
           : new Date(requestedEndAt);
       const liveFileExpiresAt =
         endAt.getTime() !== new Date(existing.endAt).getTime()
-          ? addOneCalendarYear(endAt)
+          ? this.submissionFileRulesService.addOneCalendarYear(endAt)
           : null;
       const teamSize = resolveTeamSize(input, existing);
 
@@ -320,7 +273,8 @@ export class ProgramEditorService {
       if (
         !Number.isFinite(endAt.getTime()) ||
         startAt >= endAt ||
-        (input.endAt !== undefined && isProgramEndAtUndecided(endAt))
+        (input.endAt !== undefined &&
+          this.programRulesService.isProgramEndAtUndecided(endAt))
       ) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
@@ -366,8 +320,9 @@ export class ProgramEditorService {
         this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
       }
       try {
-        const externalCover = validateProgramCoverChoice(input);
-        return await store.updateProgram({
+        const externalCover =
+          this.programUploadRulesService.validateProgramCoverChoice(input);
+        const updated = await store.updateProgram({
           ...(externalCover !== undefined
             ? { coverChange: { actorId: actor.id, externalCover } }
             : input.coverUploadId === undefined
@@ -376,6 +331,10 @@ export class ProgramEditorService {
                   coverChange: {
                     actorId: actor.id,
                     uploadId: input.coverUploadId,
+                    assertUpload: (upload) =>
+                      this.programUploadRulesService.assertProgramCoverUpload(
+                        upload,
+                      ),
                   },
                 }),
           programId,
@@ -395,6 +354,7 @@ export class ProgramEditorService {
           notifyOnDeadline: input.notifyOnDeadline,
           description,
         });
+        return this.toEditableProgramView(updated);
       } catch (error) {
         if (error instanceof ProgramAuthoringValidationError) {
           this.fail(ProgramErrorCode.VALIDATION_ERROR, {
@@ -478,7 +438,7 @@ export class ProgramEditorService {
     return this.repository.withTransaction(async (store) => {
       const actor = await this.requireEditor(store, githubId);
       try {
-        preflightProgramMilestoneEditDocuments(input.documents);
+        this.preflightProgramMilestoneEditDocuments(input.documents);
       } catch (error) {
         if (!(error instanceof ProgramMilestoneEditValidationError))
           throw error;
@@ -543,6 +503,9 @@ export class ProgramEditorService {
       let uploads: readonly ProgramAuthoringUploadToken[];
       try {
         uploads = await store.lockAttachableUploads(actor.id, tokenIds);
+        uploads.forEach((upload) =>
+          this.programUploadRulesService.assertProgramTemplateUpload(upload),
+        );
       } catch (error) {
         if (!(error instanceof ProgramAuthoringUploadTokenError)) throw error;
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
@@ -607,7 +570,7 @@ export class ProgramEditorService {
   ): ProgramMilestoneEditView {
     return {
       ...locked.view,
-      fingerprint: fingerprintProgramMilestoneEdit({
+      fingerprint: this.fingerprintProgramMilestoneEdit({
         operation: locked.view.operation,
         milestone: {
           ...locked.view.milestone,
@@ -713,6 +676,72 @@ export class ProgramEditorService {
     extensions: ProblemDetailExtensions = {},
   ): never {
     throw new DomainException(PROGRAM_ERROR_CODES[code], extensions);
+  }
+
+  fingerprintProgramMilestoneEdit(
+    input: ProgramMilestoneFingerprintInput,
+  ): string {
+    const documents = [...input.documents]
+      .sort((left, right) =>
+        left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+      )
+      .map((document) => [
+        document.id,
+        document.name,
+        document.required,
+        document.sortOrder,
+        document.updatedAt.toISOString(),
+        document.storageKey === null
+          ? null
+          : ['storage-key', document.storageKey],
+      ]);
+    const payload = [
+      1,
+      [
+        input.operation.startAt.toISOString(),
+        input.operation.endAt.toISOString(),
+      ],
+      [
+        input.milestone.id,
+        input.milestone.name,
+        input.milestone.startAt.toISOString(),
+        input.milestone.dueAt.toISOString(),
+        input.milestone.submissionType,
+        input.milestone.instructions,
+        input.milestone.updatedAt.toISOString(),
+      ],
+      documents,
+    ];
+    return createHash('sha256')
+      .update(JSON.stringify(payload), 'utf8')
+      .digest('hex');
+  }
+
+  preflightProgramMilestoneEditDocuments(
+    documents: readonly {
+      readonly id: string | null;
+      readonly templateUploadId?: string;
+    }[],
+  ): void {
+    if (documents.length > 20) {
+      throw new ProgramMilestoneEditValidationError('documents', 'MAX_SIZE');
+    }
+    assertDistinct(
+      documents.flatMap((document, index) =>
+        document.id === null ? [] : [{ value: document.id, index }],
+      ),
+      'id',
+      'DUPLICATE_DOCUMENT_ID',
+    );
+    assertDistinct(
+      documents.flatMap((document, index) =>
+        document.templateUploadId === undefined
+          ? []
+          : [{ value: document.templateUploadId, index }],
+      ),
+      'templateUploadId',
+      'DUPLICATE_UPLOAD_TOKEN',
+    );
   }
 }
 

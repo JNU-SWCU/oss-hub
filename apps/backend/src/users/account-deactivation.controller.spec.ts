@@ -5,7 +5,9 @@ import type { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationController } from './account-deactivation.controller';
-import { serializeClearedSessionCookie } from '../auth/auth.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 describe('AccountDeactivationController', () => {
   it('requires a live session and same-origin mutation', () => {
@@ -27,9 +29,13 @@ describe('AccountDeactivationController', () => {
       accountStatus: AccountStatus.DEACTIVATED,
     });
     const setHeader = jest.fn();
-    const controller = new AccountDeactivationController({ deactivate }, {
-      useSecureCookies: true,
-    } as AuthConfig);
+    const controller = new AccountDeactivationController(
+      { deactivate },
+      {
+        useSecureCookies: true,
+      } as AuthConfig,
+      new AuthSessionService(),
+    );
 
     await expect(
       controller.deactivate({ sessionGithubId: 42n }, {
@@ -39,7 +45,7 @@ describe('AccountDeactivationController', () => {
     expect(deactivate).toHaveBeenCalledWith(42n);
     expect(setHeader).toHaveBeenCalledWith(
       'Set-Cookie',
-      serializeClearedSessionCookie(true),
+      authSessionService.serializeClearedSessionCookie(true),
     );
   });
 });

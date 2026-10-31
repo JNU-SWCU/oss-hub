@@ -2,11 +2,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
@@ -15,6 +11,10 @@ import {
 } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './program-submissions.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(32).fill(29);
 const allowedOrigin = 'http://frontend.test';
@@ -102,6 +102,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramSubmissionsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       SubmissionMatrixService,
       SessionGuard,
       {
@@ -141,7 +142,7 @@ afterAll(async () => {
 });
 
 async function cookie(githubId: bigint): Promise<string> {
-  return `${sessionCookieName(false)}=${await issueSessionToken(
+  return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
     sessionSecret,
     githubId,
     0,

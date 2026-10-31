@@ -18,6 +18,7 @@ import {
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverService } from './program-creation.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXuoAAAAASUVORK5CYII=',
@@ -39,6 +40,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramAuthoringController, ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
       ProgramAuthoringUploadService,
       ProgramCoverService,
       ProgramAuthoringService,

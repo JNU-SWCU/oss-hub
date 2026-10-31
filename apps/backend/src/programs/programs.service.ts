@@ -3,7 +3,6 @@ import {
   ApplicationStatus,
   type MilestoneSubmissionType,
   SubmissionStatus,
-  ProgramCategory,
   type ProgramTrackType,
   type ProgramLifecycle,
 } from '@prisma/client';
@@ -18,12 +17,15 @@ import {
   ProgramListRecord,
   type ProgramStatusCounts,
 } from './programs.repository';
+import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
+import type { ProgramListQuery } from './program-list-status-filter.repository';
+import type { SubmissionCompletionTargetRow } from './submission-completion.config';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
 import {
-  MILESTONE_NOT_SUBMITTED,
-  milestoneCompletionStatus,
-} from './milestone-completion.config';
-import { type ProgramListQuery } from './program-list-status-filter.repository';
-import { programCoverImageUrl } from './program-cover.config';
+  ProgramRulesService,
+  PROGRAM_PARTICIPATION,
+} from './program-rules.service';
 
 export interface ProgramListItemNote {
   readonly text: string;
@@ -104,132 +106,6 @@ export interface ProgramDetailResult {
   readonly milestones: readonly ProgramMilestoneResult[];
 }
 
-const SEOUL_TIME_ZONE = 'Asia/Seoul';
-
-function calendarDayNumber(value: Date): number {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: SEOUL_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(value);
-  const year = Number(parts.find((part) => part.type === 'year')?.value);
-  const month = Number(parts.find((part) => part.type === 'month')?.value);
-  const day = Number(parts.find((part) => part.type === 'day')?.value);
-  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
-}
-
-export function programDeadline(
-  dueAt: Date,
-  now: Date,
-): {
-  readonly dDay: number;
-  readonly label: string;
-} {
-  const dDay = calendarDayNumber(dueAt) - calendarDayNumber(now);
-  const label = dDay < 0 ? '마감 지남' : dDay === 0 ? '오늘 마감' : `D-${dDay}`;
-  return { dDay, label };
-}
-
-export function hasProgramDeadlinePassed(dueAt: Date, now: Date): boolean {
-  return now.getTime() > dueAt.getTime();
-}
-
-const PROGRAM_END_AT_UNDECIDED_TIME = Date.UTC(9999, 11, 31, 23, 59, 59, 999);
-
-export function isProgramEndAtUndecided(value: Date): boolean {
-  return value.getTime() === PROGRAM_END_AT_UNDECIDED_TIME;
-}
-
-const PROGRAM_PARTICIPATION = {
-  TEAM: 'TEAM',
-} as const;
-
-export type ProgramParticipation =
-  (typeof PROGRAM_PARTICIPATION)[keyof typeof PROGRAM_PARTICIPATION];
-
-const APPLICATION_FIELD_TYPES = {
-  AUTO: 'auto',
-  TEXT: 'text',
-  TEXTAREA: 'textarea',
-} as const;
-
-type ApplicationFieldType =
-  (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
-
-type ApplicationFieldKey = 'applicantName';
-
-export interface FieldDef {
-  readonly key: ApplicationFieldKey;
-  readonly type: ApplicationFieldType;
-  readonly label: string;
-  readonly required: boolean;
-}
-
-export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
-  {
-    key: 'applicantName',
-    type: APPLICATION_FIELD_TYPES.AUTO,
-    label: '신청자',
-    required: true,
-  },
-] as const;
-
-export interface ProgramTemplate {
-  readonly key: string;
-  readonly version: number;
-  readonly name: string;
-  readonly participation: ProgramParticipation;
-  readonly teamSize: {
-    readonly defaultMin: number;
-    readonly defaultMax: number;
-    readonly editable: boolean;
-  };
-  readonly fields: readonly FieldDef[];
-}
-
-function template(key: string, name: string): ProgramTemplate {
-  return {
-    key,
-    version: 1,
-    name,
-    participation: PROGRAM_PARTICIPATION.TEAM,
-    teamSize: { defaultMin: 1, defaultMax: 1, editable: true },
-    fields: V1_APPLICATION_FIELDS,
-  };
-}
-
-const PROGRAM_TEMPLATES: Readonly<Record<ProgramCategory, ProgramTemplate>> = {
-  [ProgramCategory.BASIC]: template('basic', '기본 신청서'),
-  [ProgramCategory.SW_VALUE_SPREAD]: template(
-    'sw-value-spread',
-    'SW가치확산 신청서',
-  ),
-  [ProgramCategory.OSS_CONTEST]: template('oss-contest', 'OSS경진대회 신청서'),
-  [ProgramCategory.CAPSTONE]: template('capstone', '캡스톤 신청서'),
-  [ProgramCategory.SW_CONVERGENCE]: template('sw-convergence', 'SW융합 신청서'),
-  [ProgramCategory.GLOBAL_MAKERTHON]: template(
-    'global-makerthon',
-    '글로벌메이커톤 신청서',
-  ),
-  [ProgramCategory.CORPORATE_INTERNSHIP]: template(
-    'corporate-internship',
-    '기업인턴십 신청서',
-  ),
-};
-
-export function getProgramTemplate(category: ProgramCategory): ProgramTemplate {
-  return PROGRAM_TEMPLATES[category];
-}
-
-export function listProgramTemplates(): readonly ProgramTemplate[] {
-  return Object.values(PROGRAM_TEMPLATES);
-}
-
-export function getTemplateByKey(key: string): ProgramTemplate | undefined {
-  return listProgramTemplates().find((item) => item.key === key);
-}
-
 type SubmissionRecord = {
   readonly milestoneId: string;
   readonly status: SubmissionStatus;
@@ -239,29 +115,6 @@ type DocumentSubmissionRecord = {
   readonly milestoneDocumentId: string;
   readonly status: SubmissionStatus;
 };
-
-function milestoneStatusFor(
-  milestone: {
-    readonly id: string;
-    readonly submissionType: MilestoneSubmissionType | null;
-    readonly documents: readonly { readonly id: string }[];
-  },
-  submissions: readonly SubmissionRecord[],
-  documentSubmissions: readonly DocumentSubmissionRecord[],
-) {
-  return milestoneCompletionStatus({
-    submissionAxisInUse: milestone.submissionType !== null,
-    requiredDocumentStatuses: milestone.documents.map(
-      (document) =>
-        documentSubmissions.find(
-          (submission) => submission.milestoneDocumentId === document.id,
-        )?.status ?? null,
-    ),
-    submissionStatus:
-      submissions.find((submission) => submission.milestoneId === milestone.id)
-        ?.status ?? null,
-  });
-}
 
 const ANONYMOUS_VIEWER: ProgramViewer = {
   githubId: null,
@@ -277,18 +130,6 @@ const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
   REJECTED: '아쉽지만 이번에는 함께하지 못합니다',
 };
 
-function isTeamProgram(item: ProgramListRecord): boolean {
-  const template = getTemplateByKey(item.applicationTemplateKey);
-  return template?.participation === PROGRAM_PARTICIPATION.TEAM;
-}
-
-function noteWithTeamIcon(
-  text: string,
-  item: ProgramListRecord,
-): ProgramListItemNote {
-  return isTeamProgram(item) ? { text, icon: 'team' } : { text };
-}
-
 const EMPTY_SUMMARY = {
   notSubmitted: 0,
   submitted: 0,
@@ -300,7 +141,36 @@ const EMPTY_SUMMARY = {
 
 @Injectable()
 export class ProgramsService {
-  constructor(private readonly repository: ProgramsRepository) {}
+  constructor(
+    private readonly repository: ProgramsRepository,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
+    private readonly programCoverUrlService: ProgramCoverUrlService,
+    private readonly programRulesService: ProgramRulesService,
+  ) {}
+
+  private async findStudentApplicationAxes(programId: string, userId: string) {
+    const application = await this.repository.findStudentApplication(
+      programId,
+      userId,
+    );
+    return application && this.toTargetSubmissionAxes(application);
+  }
+
+  private toTargetSubmissionAxes<
+    T extends {
+      readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+    },
+  >(application: T) {
+    const { submissions, documentSubmissions } =
+      this.milestoneCompletionService.projectSubmissionCompletionTargets(
+        application.milestoneDocumentSubmissions,
+      );
+    return {
+      ...application,
+      submissions,
+      milestoneDocumentSubmissions: documentSubmissions,
+    };
+  }
 
   async list(
     query: ProgramListQuery,
@@ -314,7 +184,7 @@ export class ProgramsService {
     return {
       items: (await this.personalize(rawItems, viewer)).map((item) => ({
         ...item,
-        coverImageUrl: programCoverImageUrl(
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           item.id,
           item.coverId,
           item.coverExternalImageUrl,
@@ -345,7 +215,10 @@ export class ProgramsService {
         return {
           ...item,
           viewerApplicationStatus: status,
-          note: noteWithTeamIcon(STUDENT_APPLICATION_STATUS_NOTE[status], item),
+          note: this.noteWithTeamIcon(
+            STUDENT_APPLICATION_STATUS_NOTE[status],
+            item,
+          ),
         };
       });
     }
@@ -364,7 +237,7 @@ export class ProgramsService {
           ...item,
           applicationCount: bucket.total,
           pendingApplicationCount: bucket.pending,
-          note: noteWithTeamIcon(text, item),
+          note: this.noteWithTeamIcon(text, item),
         };
       });
     }
@@ -392,19 +265,18 @@ export class ProgramsService {
 
       const studentApplication =
         viewer.role === 'STUDENT' && viewer.userId
-          ? await this.repository.findStudentApplication(
-              programId,
-              viewer.userId,
-            )
+          ? await this.findStudentApplicationAxes(programId, viewer.userId)
           : null;
       const staffApplications =
         viewer.role === 'STAFF' || viewer.role === 'ADMIN'
-          ? await this.repository.findApprovedApplications(programId)
+          ? (await this.repository.findApprovedApplications(programId)).map(
+              (application) => this.toTargetSubmissionAxes(application),
+            )
           : null;
 
       return {
         id: program.id,
-        coverImageUrl: programCoverImageUrl(
+        coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           program.id,
           program.cover?.id,
           program.cover?.imageUrl,
@@ -429,7 +301,10 @@ export class ProgramsService {
           applicationStatus: studentApplication?.status ?? null,
         },
         milestones: program.milestones.map((milestone) => {
-          const deadline = programDeadline(milestone.dueAt, now);
+          const deadline = this.programRulesService.programDeadline(
+            milestone.dueAt,
+            now,
+          );
           return {
             id: milestone.id,
             name: milestone.name,
@@ -442,7 +317,7 @@ export class ProgramsService {
             submissionItemCount: milestone._count.documents,
             viewerSubmissionStatus:
               milestone.submissionType !== null && studentApplication
-                ? milestoneStatusFor(
+                ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
                     studentApplication.milestoneDocumentSubmissions,
@@ -474,7 +349,7 @@ export class ProgramsService {
   ): ApplicationSubmissionSummaryResult {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
     for (const application of applications) {
-      const status = milestoneStatusFor(
+      const status = this.milestoneStatusFor(
         milestone,
         application.submissions,
         application.milestoneDocumentSubmissions,
@@ -487,5 +362,43 @@ export class ProgramsService {
       else summary.rejected += 1;
     }
     return summary;
+  }
+
+  private milestoneStatusFor(
+    milestone: {
+      readonly id: string;
+      readonly submissionType: MilestoneSubmissionType | null;
+      readonly documents: readonly { readonly id: string }[];
+    },
+    submissions: readonly SubmissionRecord[],
+    documentSubmissions: readonly DocumentSubmissionRecord[],
+  ) {
+    return this.milestoneCompletionService.milestoneCompletionStatus({
+      submissionAxisInUse: milestone.submissionType !== null,
+      requiredDocumentStatuses: milestone.documents.map(
+        (document) =>
+          documentSubmissions.find(
+            (submission) => submission.milestoneDocumentId === document.id,
+          )?.status ?? null,
+      ),
+      submissionStatus:
+        submissions.find(
+          (submission) => submission.milestoneId === milestone.id,
+        )?.status ?? null,
+    });
+  }
+
+  private isTeamProgram(item: ProgramListRecord): boolean {
+    const template = this.programRulesService.getTemplateByKey(
+      item.applicationTemplateKey,
+    );
+    return template?.participation === PROGRAM_PARTICIPATION.TEAM;
+  }
+
+  private noteWithTeamIcon(
+    text: string,
+    item: ProgramListRecord,
+  ): ProgramListItemNote {
+    return this.isTeamProgram(item) ? { text, icon: 'team' } : { text };
   }
 }

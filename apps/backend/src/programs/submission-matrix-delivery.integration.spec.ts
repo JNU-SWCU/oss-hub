@@ -10,6 +10,8 @@ import {
   createMatrixDeliveryHttp,
   matrixSessionHeaders,
 } from './submission-matrix-delivery.http-fixture';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -17,7 +19,10 @@ assertIsolatedIntegrationDatabase({
 });
 const harness = createDeadlineDigestIntegrationHarness();
 const repository = new SubmissionMatrixRepository(harness.prisma);
-const service = new SubmissionMatrixService(repository);
+const service = new SubmissionMatrixService(
+  repository,
+  new MilestoneDocumentRulesService(new ProgramRulesService()),
+);
 const first = new Date(fixture.dueSoon.getTime() - 1);
 const late = new Date(fixture.dueSoon.getTime() + 1);
 let application: INestApplication;

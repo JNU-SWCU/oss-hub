@@ -21,6 +21,7 @@ import {
   type CollectionSyncRunResult,
 } from './collection-sync.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -326,6 +327,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     repository,
     () => runtime,
     resolveGithubOrganizationId,
+    new RepositoryUrlService(),
   );
 
   const commitWrites: number[] = [];

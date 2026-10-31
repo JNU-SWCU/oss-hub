@@ -141,7 +141,6 @@ import {
   type TeamActivityView,
 } from '../../src/programs/program-team-repository-evidence.repository';
 import {
-  listProgramTemplates,
   type ProgramListPageItem,
   type ProgramDetailResult,
 } from '../../src/programs/programs.service';
@@ -157,6 +156,9 @@ import {
 import { PublicProjectApplicationMode } from '../../src/programs/public-projects.config';
 import { type SubmissionReviewContext } from '../../src/programs/submission-reviews.repository';
 import { type SentTeamInvitationRecord } from '../../src/programs/team-invitations.repository';
+import { ProgramRulesService } from '../../src/programs/program-rules.service';
+
+const programRulesService = new ProgramRulesService();
 
 const at = (iso: string): Date => new Date(iso);
 
@@ -850,22 +852,27 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         invitee: sentInvitation.invitee,
       }),
   ],
-  ...listProgramTemplates().flatMap(
-    (template): ReadonlyArray<readonly [string, () => unknown]> => [
+  ...programRulesService
+    .listProgramTemplates()
+    .flatMap((template): ReadonlyArray<readonly [string, () => unknown]> => [
       [
         `ApplicationTemplateResponseDto ${template.key}`,
         () => ApplicationTemplateResponseDto.from(template),
       ],
-    ],
-  ),
+    ]),
   [
     'ApplicationFieldResponseDto',
     () =>
-      ApplicationFieldResponseDto.from(listProgramTemplates()[0]!.fields[0]!),
+      ApplicationFieldResponseDto.from(
+        programRulesService.listProgramTemplates()[0]!.fields[0]!,
+      ),
   ],
   [
     'ApplicationTemplateListResponseDto',
-    () => ApplicationTemplateListResponseDto.from(listProgramTemplates()),
+    () =>
+      ApplicationTemplateListResponseDto.from(
+        programRulesService.listProgramTemplates(),
+      ),
   ],
   ['BoardPostResponseDto', () => BoardPostResponseDto.from(boardPost)],
   [

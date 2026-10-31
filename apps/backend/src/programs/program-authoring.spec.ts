@@ -7,15 +7,25 @@ import {
 } from './program-authoring-upload.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { type ProgramAuthoringRequest } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringService } from './program-authoring.service';
 import {
-  canonicalProgramAuthoringPayload,
-  hashProgramAuthoringPayload,
-  buildProgramAuthoringPlan,
-} from './program-authoring.service';
-import {
+  ProgramUploadRulesService,
   PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
-  validateProgramAuthoringUpload,
-} from './program-authoring-upload.service';
+} from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const programAuthoringService = new ProgramAuthoringService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+);
+const programUploadRulesService = new ProgramUploadRulesService(
+  new SubmissionFileRulesService(),
+);
 
 describe('program-authoring-payload-hash', () => {
   function request(): ProgramAuthoringRequest {
@@ -61,14 +71,19 @@ describe('program-authoring-payload-hash', () => {
 
   describe('Program authoring canonical payload hash', () => {
     it('distinguishes curricular and extracurricular creation requests', () => {
-      const curricular = buildProgramAuthoringPlan(request());
-      const extracurricular = buildProgramAuthoringPlan({
-        ...request(),
-        trackType: ProgramTrackType.EXTRACURRICULAR,
-      });
+      const curricular =
+        programAuthoringService.buildProgramAuthoringPlan(request());
+      const extracurricular = programAuthoringService.buildProgramAuthoringPlan(
+        {
+          ...request(),
+          trackType: ProgramTrackType.EXTRACURRICULAR,
+        },
+      );
 
-      expect(hashProgramAuthoringPayload(curricular)).not.toBe(
-        hashProgramAuthoringPayload(extracurricular),
+      expect(
+        programAuthoringService.hashProgramAuthoringPayload(curricular),
+      ).not.toBe(
+        programAuthoringService.hashProgramAuthoringPayload(extracurricular),
       );
     });
 
@@ -79,8 +94,11 @@ describe('program-authoring-payload-hash', () => {
         imageUrl: 'https://sojoong.kr/wp-content/uploads/synthetic.jpg',
       };
       const hash = (cover: typeof externalCover) =>
-        hashProgramAuthoringPayload(
-          buildProgramAuthoringPlan({ ...request(), externalCover: cover }),
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan({
+            ...request(),
+            externalCover: cover,
+          }),
         );
       expect(
         hash({
@@ -95,36 +113,45 @@ describe('program-authoring-payload-hash', () => {
         }),
       ).not.toBe(hash(externalCover));
       expect(
-        hashProgramAuthoringPayload(
-          buildProgramAuthoringPlan({ ...request(), externalCover: null }),
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan({
+            ...request(),
+            externalCover: null,
+          }),
         ),
-      ).toBe(hashProgramAuthoringPayload(buildProgramAuthoringPlan(request())));
+      ).toBe(
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan(request()),
+        ),
+      );
     });
     it('normalizes no-cover requests and includes a selected cover token', () => {
-      const original = buildProgramAuthoringPlan(request());
-      const empty = buildProgramAuthoringPlan({
+      const original =
+        programAuthoringService.buildProgramAuthoringPlan(request());
+      const empty = programAuthoringService.buildProgramAuthoringPlan({
         ...request(),
         coverUploadId: null,
       });
-      const covered = buildProgramAuthoringPlan({
+      const covered = programAuthoringService.buildProgramAuthoringPlan({
         ...request(),
         coverUploadId: 'cover-upload',
       });
-      expect(canonicalProgramAuthoringPayload(original)).not.toHaveProperty(
-        'coverUploadId',
+      expect(
+        programAuthoringService.toCanonicalProgramAuthoringPayload(original),
+      ).not.toHaveProperty('coverUploadId');
+      expect(programAuthoringService.hashProgramAuthoringPayload(empty)).toBe(
+        programAuthoringService.hashProgramAuthoringPayload(original),
       );
-      expect(hashProgramAuthoringPayload(empty)).toBe(
-        hashProgramAuthoringPayload(original),
-      );
-      expect(hashProgramAuthoringPayload(covered)).not.toBe(
-        hashProgramAuthoringPayload(original),
-      );
+      expect(
+        programAuthoringService.hashProgramAuthoringPayload(covered),
+      ).not.toBe(programAuthoringService.hashProgramAuthoringPayload(original));
       expect(covered.uploadTokenIds).toContain('cover-upload');
     });
 
     it('gives semantically equivalent normalized requests one canonical hash', () => {
-      const implicit = buildProgramAuthoringPlan(request());
-      const explicit = buildProgramAuthoringPlan({
+      const implicit =
+        programAuthoringService.buildProgramAuthoringPlan(request());
+      const explicit = programAuthoringService.buildProgramAuthoringPlan({
         ...request(),
         name: 'Program',
         organizer: 'Organizer',
@@ -150,10 +177,15 @@ describe('program-authoring-payload-hash', () => {
         })),
       });
 
-      const implicitHash = hashProgramAuthoringPayload(implicit);
-      const explicitHash = hashProgramAuthoringPayload(explicit);
+      const implicitHash =
+        programAuthoringService.hashProgramAuthoringPayload(implicit);
+      const explicitHash =
+        programAuthoringService.hashProgramAuthoringPayload(explicit);
 
-      expect(canonicalProgramAuthoringPayload(implicit).schemaVersion).toBe(2);
+      expect(
+        programAuthoringService.toCanonicalProgramAuthoringPayload(implicit)
+          .schemaVersion,
+      ).toBe(2);
       expect(implicitHash).toMatch(/^[0-9a-f]{64}$/);
       expect(explicitHash).toBe(implicitHash);
     });
@@ -193,22 +225,24 @@ describe('program-authoring-payload-hash', () => {
             ]
           : original.milestones,
       };
-      const originalHash = hashProgramAuthoringPayload(
-        buildProgramAuthoringPlan(original),
+      const originalHash = programAuthoringService.hashProgramAuthoringPayload(
+        programAuthoringService.buildProgramAuthoringPlan(original),
       );
 
       expect(
-        hashProgramAuthoringPayload(
-          buildProgramAuthoringPlan(reversedMilestones),
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan(reversedMilestones),
         ),
       ).not.toBe(originalHash);
       expect(
-        hashProgramAuthoringPayload(
-          buildProgramAuthoringPlan(reversedDocuments),
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan(reversedDocuments),
         ),
       ).not.toBe(originalHash);
       expect(
-        hashProgramAuthoringPayload(buildProgramAuthoringPlan(changedToken)),
+        programAuthoringService.hashProgramAuthoringPayload(
+          programAuthoringService.buildProgramAuthoringPlan(changedToken),
+        ),
       ).not.toBe(originalHash);
     });
   });
@@ -260,7 +294,10 @@ describe('program-authoring-upload-validation', () => {
       async (name, mimeType, signature) => {
         const upload = file({ name, mimeType, signature });
 
-        const validated = await validateProgramAuthoringUpload(upload);
+        const validated =
+          await programUploadRulesService.validateProgramAuthoringUpload(
+            upload,
+          );
 
         expect(validated).toMatchObject({
           originalFileName: name,
@@ -280,12 +317,13 @@ describe('program-authoring-upload-validation', () => {
       async (mimetype) => {
         const archive = signatureValidZip([{ name: 'plan.pdf' }]);
 
-        const validated = await validateProgramAuthoringUpload({
-          buffer: archive,
-          originalname: 'bundle.zip',
-          mimetype,
-          size: archive.byteLength,
-        });
+        const validated =
+          await programUploadRulesService.validateProgramAuthoringUpload({
+            buffer: archive,
+            originalname: 'bundle.zip',
+            mimetype,
+            size: archive.byteLength,
+          });
 
         expect(validated).toMatchObject({
           originalFileName: 'bundle.zip',
@@ -300,7 +338,7 @@ describe('program-authoring-upload-validation', () => {
       const nested = signatureValidZip([{ name: 'nested.zip' }]);
 
       await expect(
-        validateProgramAuthoringUpload({
+        programUploadRulesService.validateProgramAuthoringUpload({
           buffer: nested,
           originalname: 'bundle.zip',
           mimetype: 'application/zip',
@@ -319,7 +357,7 @@ describe('program-authoring-upload-validation', () => {
       });
 
       await expect(
-        validateProgramAuthoringUpload(upload),
+        programUploadRulesService.validateProgramAuthoringUpload(upload),
       ).rejects.toMatchObject({
         code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
       });
@@ -329,7 +367,7 @@ describe('program-authoring-upload-validation', () => {
       const mojibake = Buffer.from('신청-양식.pdf', 'utf8').toString('latin1');
 
       await expect(
-        validateProgramAuthoringUpload(
+        programUploadRulesService.validateProgramAuthoringUpload(
           file({
             name: mojibake,
             mimeType: 'application/pdf',
@@ -347,7 +385,8 @@ describe('program-authoring-upload-validation', () => {
         actualSize: PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
       });
 
-      const validated = await validateProgramAuthoringUpload(upload);
+      const validated =
+        await programUploadRulesService.validateProgramAuthoringUpload(upload);
 
       expect(validated.sizeBytes).toBe(5 * 1024 * 1024);
     });
@@ -373,7 +412,9 @@ describe('program-authoring-upload-validation', () => {
         }),
       ],
     ])('rejects %s', async (_caseName, upload) => {
-      await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
+      await expect(
+        programUploadRulesService.validateProgramAuthoringUpload(upload),
+      ).rejects.toEqual(
         expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
         }),
@@ -388,7 +429,9 @@ describe('program-authoring-upload-validation', () => {
         actualSize: PROGRAM_AUTHORING_UPLOAD_MAX_BYTES + 1,
       });
 
-      await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
+      await expect(
+        programUploadRulesService.validateProgramAuthoringUpload(upload),
+      ).rejects.toEqual(
         expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
         }),
@@ -413,7 +456,9 @@ describe('program-authoring-upload-validation', () => {
       async (name, mimeType, signature) => {
         const upload = file({ name, mimeType, signature });
 
-        await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
+        await expect(
+          programUploadRulesService.validateProgramAuthoringUpload(upload),
+        ).rejects.toEqual(
           expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
             code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
           }),

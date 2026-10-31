@@ -13,10 +13,6 @@ import {
   type ReviewDecision,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  publicSubmissionId,
-  safeSubmissionFileContentType,
-} from './submission-file.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -54,6 +50,8 @@ export interface SubmissionFileMetadata {
   readonly expiresAt: Date;
 }
 
+type SubmissionFileRow = Omit<SubmissionFileMetadata, 'contentType'>;
+
 export interface ChecklistMilestone {
   readonly id: string;
   readonly name: string;
@@ -64,7 +62,7 @@ export interface ChecklistMilestone {
     readonly status: SubmissionStatus;
     readonly currentRevision: number;
     readonly latestReview: ChecklistLatestReview | null;
-    readonly file: SubmissionFileMetadata | null;
+    readonly file: SubmissionFileRow | null;
   } | null;
 }
 
@@ -87,7 +85,7 @@ type ChecklistTargetSubmission = NonNullable<
 
 function currentRevisionFile(
   submission: ChecklistTargetSubmission,
-): SubmissionFileMetadata | null {
+): SubmissionFileRow | null {
   const currentHistory = submission.histories[0] ?? null;
   if (currentHistory?.revision !== submission.revision) return null;
   const file = currentHistory?.files[0] ?? null;
@@ -95,7 +93,6 @@ function currentRevisionFile(
   return {
     fileId: file.id,
     fileName: file.originalFileName,
-    contentType: safeSubmissionFileContentType(file.originalFileName),
     size: file.sizeBytes,
     expiresAt: file.expiresAt,
   };
@@ -552,7 +549,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
       return null;
     }
     return {
-      id: publicSubmissionId(submission),
+      id: submission.legacySubmissionId ?? submission.id,
       submissionRecordId: submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
@@ -751,7 +748,9 @@ export class SubmissionsRepository implements SubmissionsStore {
       status: application.status,
       existingSubmission: application.milestoneDocumentSubmissions[0]
         ? {
-            id: publicSubmissionId(application.milestoneDocumentSubmissions[0]),
+            id:
+              application.milestoneDocumentSubmissions[0].legacySubmissionId ??
+              application.milestoneDocumentSubmissions[0].id,
             status: application.milestoneDocumentSubmissions[0].status,
           }
         : null,
@@ -770,7 +769,7 @@ export class SubmissionsRepository implements SubmissionsStore {
       submissionType: record.submissionType,
       submission: submission
         ? {
-            id: publicSubmissionId(submission),
+            id: submission.legacySubmissionId ?? submission.id,
             status: submission.status,
             currentRevision: submission.revision,
             latestReview: submission.reviewHistories[0] ?? null,

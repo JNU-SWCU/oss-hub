@@ -12,11 +12,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -42,6 +38,10 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 describe('milestone-document-current-file.controller', () => {
   const SESSION_GITHUB_ID = 342_900_002n;
@@ -63,6 +63,7 @@ describe('milestone-document-current-file.controller', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [MilestoneDocumentsController],
       providers: [
+        ...STATELESS_PROVIDERS,
         SessionGuard,
         {
           provide: AuthConfig,
@@ -105,8 +106,14 @@ describe('milestone-document-current-file.controller', () => {
   }
 
   async function authenticatedHeaders(): Promise<{ readonly cookie: string }> {
-    const token = await issueSessionToken(SESSION_SECRET, SESSION_GITHUB_ID, 0);
-    return { cookie: `${sessionCookieName(false)}=${token}` };
+    const token = await authSessionService.issueSessionToken(
+      SESSION_SECRET,
+      SESSION_GITHUB_ID,
+      0,
+    );
+    return {
+      cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
+    };
   }
 
   it('같은 current bytes와 안전한 attachment 헤더 및 no-store를 반환한다', async () => {
@@ -323,6 +330,7 @@ beforeAll(async () => {
       MilestoneDocumentFilesController,
     ],
     providers: [
+      ...STATELESS_PROVIDERS,
       {
         provide: MilestoneDocumentCollectionService,
         useValue: { collectForStaff },

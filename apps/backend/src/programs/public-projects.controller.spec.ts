@@ -1,16 +1,23 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
 import { PublicProjectsController } from './public-projects.controller';
-import type {
-  PublicProjectListItem,
+import {
+  type PublicProjectListItem,
   PublicProjectsService,
 } from './public-projects.service';
-import { type PublicProjectRow } from './public-projects.repository';
-import { applicationMode, displayNameOf } from './public-projects.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+
+const publicProjectsService = new PublicProjectsService(
+  undefined as never,
+  undefined as never,
+  undefined as never,
+  { SESSION_SECRET: 'synthetic-session-secret-synthetic-session-secret' },
+  new RepositoryUrlService(),
+);
 
 function row(
-  overrides: Partial<PublicProjectRow> & { id: string },
+  overrides: Partial<PublicProjectListItem> & { id: string },
 ): PublicProjectListItem {
-  const base: PublicProjectRow = {
+  const base: Omit<PublicProjectListItem, 'applicationMode' | 'displayName'> = {
     projectId: '9001',
     githubRepositoryId: 9001n,
     repositoryName: 'synthetic-repo',
@@ -26,8 +33,10 @@ function row(
   };
   return {
     ...base,
-    applicationMode: applicationMode(base.teamMemberCount),
-    displayName: displayNameOf(base),
+    applicationMode: publicProjectsService.applicationMode(
+      base.teamMemberCount,
+    ),
+    displayName: publicProjectsService.displayNameOf(base),
   };
 }
 

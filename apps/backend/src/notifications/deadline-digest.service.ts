@@ -110,159 +110,6 @@ function missingNickname(
     : `${source.nickname} (${EXCLUSION_SUFFIXES[excluded]})`;
 }
 
-export function deadlineWindow(now: Date): DeadlineWindow {
-  return {
-    from: new Date(now),
-    to: new Date(now.getTime() + DEADLINE_LEAD_TIME_MS),
-  };
-}
-
-export function buildDeadlineEligibility(
-  source: DeadlineProgramSource,
-  window: DeadlineWindow,
-): DeadlineEligibility {
-  const milestones = source.milestones
-    .flatMap((milestone) => {
-      const requiredDocumentIds = milestone.documents
-        .filter((document) => document.required)
-        .map((document) => document.id)
-        .sort();
-      return milestone.dueAt >= window.from &&
-        milestone.dueAt <= window.to &&
-        requiredDocumentIds.length > 0
-        ? [
-            {
-              id: milestone.id,
-              programId: source.id,
-              programName: source.name,
-              milestoneName: milestone.name,
-              dueAt: milestone.dueAt,
-              missingDocumentIds: requiredDocumentIds,
-            },
-          ]
-        : [];
-    })
-    .sort(compareMilestones);
-  const recipients = new Map<string, RecipientAccumulator>();
-  const eligibleApplicationIds: string[] = [];
-
-  for (const application of source.applications) {
-    const submitted = new Set(application.submittedDocumentIds);
-    const missingMilestones = milestones.flatMap((milestone) => {
-      const missingDocumentIds = milestone.missingDocumentIds.filter(
-        (documentId) => !submitted.has(documentId),
-      );
-      return missingDocumentIds.length === 0
-        ? []
-        : [{ ...milestone, missingDocumentIds }];
-    });
-    if (missingMilestones.length === 0) continue;
-    eligibleApplicationIds.push(application.id);
-
-    const applicationRecipients = new Map(
-      [application.applicant, ...application.members].map((recipient) => [
-        recipient.id,
-        recipient,
-      ]),
-    );
-    for (const recipient of applicationRecipients.values()) {
-      const current = recipients.get(recipient.id) ?? {
-        source: recipient,
-        milestones: new Map<string, EligibleDeadlineMilestone>(),
-      };
-      for (const milestone of missingMilestones) {
-        const existing = current.milestones.get(milestone.id);
-        current.milestones.set(
-          milestone.id,
-          existing === undefined
-            ? milestone
-            : {
-                ...milestone,
-                missingDocumentIds: [
-                  ...new Set([
-                    ...existing.missingDocumentIds,
-                    ...milestone.missingDocumentIds,
-                  ]),
-                ].sort(),
-              },
-        );
-      }
-      recipients.set(recipient.id, current);
-    }
-  }
-
-  const orderedCandidates = [...recipients.values()].sort((left, right) =>
-    left.source.id.localeCompare(right.source.id),
-  );
-  const counts = { inactive: 0, optedOut: 0, noEmail: 0 };
-  const deliverableRecipients: EligibleDeadlineRecipient[] = [];
-  const missingNicknames = new Map<string, string[]>();
-  for (const candidate of orderedCandidates) {
-    const classification = classifyCandidate(candidate.source);
-    const label = missingNickname(candidate.source, classification.excluded);
-
-    for (const milestoneId of candidate.milestones.keys()) {
-      missingNicknames.set(milestoneId, [
-        ...(missingNicknames.get(milestoneId) ?? []),
-        label,
-      ]);
-    }
-    if (classification.excluded !== null) {
-      counts[classification.excluded] += 1;
-      continue;
-    }
-    deliverableRecipients.push({
-      id: candidate.source.id,
-      nickname: candidate.source.nickname,
-      notificationEmail: classification.notificationEmail,
-      milestones: [...candidate.milestones.values()].sort(compareMilestones),
-    });
-  }
-  const staffMilestones = milestones.flatMap((milestone) => {
-    const missing = missingNicknames.get(milestone.id) ?? [];
-    return missing.length === 0
-      ? []
-      : [{ ...milestone, missingNicknames: missing }];
-  });
-
-  const summary = {
-    applicationCount: eligibleApplicationIds.length,
-    milestoneCount: milestones.length,
-    recipientCount: deliverableRecipients.length,
-    inactiveCount: counts.inactive,
-    optedOutCount: counts.optedOut,
-    noEmailCount: counts.noEmail,
-  };
-
-  const canonical = {
-    programId: source.id,
-    enabled: source.notifyOnDeadline,
-    milestones: milestones.map(canonicalMilestone),
-    applicationIds: eligibleApplicationIds.sort(),
-    candidates: orderedCandidates.map((candidate) => ({
-      id: candidate.source.id,
-      accountStatus: candidate.source.accountStatus,
-      notifyEnabled: candidate.source.notifyEnabled,
-      notificationEmail: candidate.source.notificationEmail,
-      milestones: [...candidate.milestones.values()]
-        .sort(compareMilestones)
-        .map(canonicalMilestone),
-    })),
-  };
-  return {
-    programId: source.id,
-    enabled: source.notifyOnDeadline,
-    milestones,
-    recipients: deliverableRecipients,
-    staffMilestones,
-    applicationCount: eligibleApplicationIds.length,
-    summary,
-    previewVersion: createHash('sha256')
-      .update(JSON.stringify(canonical))
-      .digest('hex'),
-  };
-}
-
 function compareMilestones(
   left: EligibleDeadlineMilestone,
   right: EligibleDeadlineMilestone,
@@ -293,23 +140,6 @@ export interface BuiltDeadlineMail {
   readonly subject: string;
   readonly text: string;
   readonly html: string;
-}
-
-export function parseFrontendOrigin(value: string | undefined): URL {
-  const trimmed = value?.trim();
-  if (!trimmed || !URL.canParse(trimmed)) throw new FrontendOriginError();
-  const url = new URL(trimmed);
-  if (
-    (url.protocol !== 'http:' && url.protocol !== 'https:') ||
-    url.username !== '' ||
-    url.password !== '' ||
-    url.pathname !== '/' ||
-    url.search !== '' ||
-    url.hash !== ''
-  ) {
-    throw new FrontendOriginError();
-  }
-  return url;
 }
 
 function escapeHtml(value: string): string {
@@ -389,111 +219,6 @@ ${items}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
-export function buildStudentDeadlineMail(input: {
-  readonly displayName: string;
-  readonly milestones: readonly [
-    DeadlineMailMilestone,
-    ...DeadlineMailMilestone[],
-  ];
-  readonly now: Date;
-  readonly frontendOrigin: URL;
-  readonly guidance?: string;
-}): BuiltDeadlineMail {
-  const first = input.milestones[0];
-  const title =
-    input.milestones.length === 1
-      ? `${deadlineHeadline(first.dueAt, input.now)} · ${first.milestoneName}`
-      : `마감 임박 제출 ${input.milestones.length}건`;
-  const lead = `제출 마감이 임박한 마일스톤이 ${input.milestones.length}건 있습니다.`;
-  const items = input.milestones.map((milestone) => {
-    const ctaUrl = routeUrl(
-      input.frontendOrigin,
-      `/programs/${encodeURIComponent(milestone.programId)}#milestone-${encodeURIComponent(milestone.id)}-name`,
-    );
-    return {
-      rows: [
-        { label: '프로그램', value: milestone.programName },
-        { label: '마일스톤', value: milestone.milestoneName },
-        { label: '마감일시', value: formatDueAt(milestone.dueAt) },
-      ],
-      ctaLabel: '제출하러 가기',
-      ctaUrl,
-    } as const;
-  });
-  const text = [
-    `안녕하세요, ${input.displayName}님.`,
-    '',
-    lead,
-    '',
-    ...(input.guidance ? [input.guidance, ''] : []),
-    ...items.flatMap((item) => [
-      ...item.rows.map(({ label, value }) => `${label}: ${value}`),
-      `제출하러 가기: ${item.ctaUrl}`,
-      '',
-    ]),
-  ].join('\n');
-  return {
-    subject: `[oss-hub] ${title}`,
-    text,
-    html: renderHtml({
-      title,
-      greeting: `안녕하세요, ${input.displayName}님.`,
-      lead,
-      guidance: input.guidance,
-      items,
-    }),
-  };
-}
-
-export function buildStaffDeadlineMail(input: {
-  readonly milestones: readonly (DeadlineMailMilestone & {
-    readonly missingNicknames: readonly string[];
-  })[];
-  readonly now: Date;
-  readonly frontendOrigin: URL;
-  readonly guidance?: string;
-}): BuiltDeadlineMail {
-  const first = input.milestones[0];
-  const title =
-    input.milestones.length === 1 && first
-      ? `${deadlineHeadline(first.dueAt, input.now)} · ${first.milestoneName}`
-      : `마감 임박 마일스톤 ${input.milestones.length}건`;
-  const ctaUrl = routeUrl(input.frontendOrigin, '/dashboard');
-  const rows = input.milestones.flatMap((milestone) => [
-    {
-      label: '프로그램 / 마일스톤',
-      value: `${milestone.programName} / ${milestone.milestoneName}`,
-    },
-    { label: '마감일시', value: formatDueAt(milestone.dueAt) },
-    {
-      label: '미제출자',
-      value: milestone.missingNicknames.join(', ') || '없음',
-    },
-  ]);
-  const lead = `마감이 임박한 마일스톤이 ${input.milestones.length}건 있습니다.`;
-  const text = [
-    '안녕하세요, 운영진님.',
-    '',
-    lead,
-    '',
-    ...(input.guidance ? [input.guidance, ''] : []),
-    ...rows.map(({ label, value }) => `${label}: ${value}`),
-    '',
-    `대시보드 열기: ${ctaUrl}`,
-  ].join('\n');
-  return {
-    subject: `[oss-hub] ${title}`,
-    text,
-    html: renderHtml({
-      title,
-      greeting: '안녕하세요, 운영진님.',
-      lead,
-      guidance: input.guidance,
-      items: [{ rows, ctaLabel: '대시보드 열기', ctaUrl }],
-    }),
-  };
-}
-
 export interface DeadlineDigestGuidance {
   readonly studentGuidance?: string;
   readonly staffGuidance?: string;
@@ -509,80 +234,6 @@ export interface PreparedDeadlineMail {
 
 export interface PersonalizedDeadlinePreview extends BuiltDeadlineMail {
   readonly displayName: string;
-}
-
-export function prepareDeadlineDigest(
-  eligibility: DeadlineEligibility,
-  staffRecipients: readonly NotifiableStaffRecipient[],
-  draft: DeadlineDigestGuidance & {
-    readonly now: Date;
-    readonly frontendOrigin: URL;
-  },
-): {
-  readonly deliveries: readonly PreparedDeadlineMail[];
-  readonly studentPreviews: readonly PersonalizedDeadlinePreview[];
-  readonly staffPreview: BuiltDeadlineMail | null;
-  readonly previewVersion: string;
-} {
-  const students = eligibility.recipients.flatMap((recipient) => {
-    const first = recipient.milestones[0];
-    if (first === undefined) return [];
-    const mail = buildStudentDeadlineMail({
-      displayName: recipient.nickname,
-      milestones: [first, ...recipient.milestones.slice(1)],
-      now: draft.now,
-      frontendOrigin: draft.frontendOrigin,
-      guidance: draft.studentGuidance,
-    });
-    return [{ recipient, mail }];
-  });
-  const staffPreview =
-    staffRecipients.length > 0 && eligibility.staffMilestones.length > 0
-      ? buildStaffDeadlineMail({
-          milestones: eligibility.staffMilestones,
-          now: draft.now,
-          frontendOrigin: draft.frontendOrigin,
-          guidance: draft.staffGuidance,
-        })
-      : null;
-  const deliveries: readonly PreparedDeadlineMail[] = [
-    ...students.map(({ recipient, mail }) => ({
-      audience: 'STUDENT' as const,
-      recipientId: recipient.id,
-      to: recipient.notificationEmail,
-      milestoneCount: recipient.milestones.length,
-      mail,
-    })),
-    ...(staffPreview === null
-      ? []
-      : staffRecipients.map((recipient) => ({
-          audience: 'STAFF' as const,
-          recipientId: recipient.id,
-          to: recipient.notificationEmail,
-          milestoneCount: eligibility.staffMilestones.length,
-          mail: staffPreview,
-        }))),
-  ];
-  const previewVersion = createHash('sha256')
-    .update(
-      JSON.stringify({
-        eligibility: eligibility.previewVersion,
-        previewedAt: draft.now.toISOString(),
-        studentGuidance: draft.studentGuidance ?? '',
-        staffGuidance: draft.staffGuidance ?? '',
-        deliveries,
-      }),
-    )
-    .digest('hex');
-  return {
-    deliveries,
-    studentPreviews: students.map(({ recipient, mail }) => ({
-      displayName: recipient.nickname,
-      ...mail,
-    })),
-    staffPreview,
-    previewVersion,
-  };
 }
 
 export type DeadlineDigestPreview = DeadlineEligibilitySummary & {
@@ -704,10 +355,12 @@ export class DeadlineDigestService {
       eligibility.staffMilestones.length === 0
         ? []
         : await this.repository.findNotifiableStaff();
-    const prepared = prepareDeadlineDigest(eligibility, staffRecipients, {
+    const prepared = this.prepareDeadlineDigest(eligibility, staffRecipients, {
       ...guidance,
       now,
-      frontendOrigin: parseFrontendOrigin(this.runtimeConfig.FRONTEND_URL),
+      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+        this.runtimeConfig.FRONTEND_URL,
+      ),
     });
     return {
       ...eligibility.summary,
@@ -743,10 +396,12 @@ export class DeadlineDigestService {
         ? []
         : await this.repository.findNotifiableStaff();
 
-    const prepared = prepareDeadlineDigest(eligibility, staffRecipients, {
+    const prepared = this.prepareDeadlineDigest(eligibility, staffRecipients, {
       ...preview,
       now: previewedAt,
-      frontendOrigin: parseFrontendOrigin(this.runtimeConfig.FRONTEND_URL),
+      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+        this.runtimeConfig.FRONTEND_URL,
+      ),
     });
     if (prepared.previewVersion !== preview.previewVersion)
       this.fail(NotificationsErrorCode.DEADLINE_PREVIEW_STALE);
@@ -788,17 +443,19 @@ export class DeadlineDigestService {
   }
 
   async sendDeadlineDigests(now: Date = new Date()): Promise<void> {
-    const window = deadlineWindow(now);
+    const window = this.deadlineWindow(now);
     const programIds = await this.repository.findAutomaticProgramIds(window);
     for (const programId of programIds) {
       const source = await this.repository.findDeadlineProgram(programId);
       if (source === null || !source.notifyOnDeadline) continue;
-      const prepared = prepareDeadlineDigest(
-        buildDeadlineEligibility(source, window),
+      const prepared = this.prepareDeadlineDigest(
+        this.buildDeadlineEligibility(source, window),
         [],
         {
           now,
-          frontendOrigin: parseFrontendOrigin(this.runtimeConfig.FRONTEND_URL),
+          frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+            this.runtimeConfig.FRONTEND_URL,
+          ),
         },
       );
       await dispatchDeadlineDigest(
@@ -824,11 +481,420 @@ export class DeadlineDigestService {
     if (source === null) this.fail(NotificationsErrorCode.PROGRAM_NOT_FOUND);
     if (!source.notifyOnDeadline)
       this.fail(NotificationsErrorCode.DEADLINE_DISABLED);
-    return buildDeadlineEligibility(source, deadlineWindow(now));
+    return this.buildDeadlineEligibility(source, this.deadlineWindow(now));
   }
 
   private fail(code: NotificationsErrorCode): never {
     throw new DomainException(NOTIFICATIONS_ERROR_CODES[code]);
+  }
+
+  deadlineWindow(now: Date): DeadlineWindow {
+    return {
+      from: new Date(now),
+      to: new Date(now.getTime() + DEADLINE_LEAD_TIME_MS),
+    };
+  }
+
+  buildDeadlineEligibility(
+    source: DeadlineProgramSource,
+    window: DeadlineWindow,
+  ): DeadlineEligibility {
+    const milestones = source.milestones
+      .flatMap((milestone) => {
+        const requiredDocumentIds = milestone.documents
+          .filter((document) => document.required)
+          .map((document) => document.id)
+          .sort();
+        return milestone.dueAt >= window.from &&
+          milestone.dueAt <= window.to &&
+          requiredDocumentIds.length > 0
+          ? [
+              {
+                id: milestone.id,
+                programId: source.id,
+                programName: source.name,
+                milestoneName: milestone.name,
+                dueAt: milestone.dueAt,
+                missingDocumentIds: requiredDocumentIds,
+              },
+            ]
+          : [];
+      })
+      .sort(compareMilestones);
+    const recipients = new Map<string, RecipientAccumulator>();
+    const eligibleApplicationIds: string[] = [];
+
+    for (const application of source.applications) {
+      const submitted = new Set(application.submittedDocumentIds);
+      const missingMilestones = milestones.flatMap((milestone) => {
+        const missingDocumentIds = milestone.missingDocumentIds.filter(
+          (documentId) => !submitted.has(documentId),
+        );
+        return missingDocumentIds.length === 0
+          ? []
+          : [{ ...milestone, missingDocumentIds }];
+      });
+      if (missingMilestones.length === 0) continue;
+      eligibleApplicationIds.push(application.id);
+
+      const applicationRecipients = new Map(
+        [application.applicant, ...application.members].map((recipient) => [
+          recipient.id,
+          recipient,
+        ]),
+      );
+      for (const recipient of applicationRecipients.values()) {
+        const current = recipients.get(recipient.id) ?? {
+          source: recipient,
+          milestones: new Map<string, EligibleDeadlineMilestone>(),
+        };
+        for (const milestone of missingMilestones) {
+          const existing = current.milestones.get(milestone.id);
+          current.milestones.set(
+            milestone.id,
+            existing === undefined
+              ? milestone
+              : {
+                  ...milestone,
+                  missingDocumentIds: [
+                    ...new Set([
+                      ...existing.missingDocumentIds,
+                      ...milestone.missingDocumentIds,
+                    ]),
+                  ].sort(),
+                },
+          );
+        }
+        recipients.set(recipient.id, current);
+      }
+    }
+
+    const orderedCandidates = [...recipients.values()].sort((left, right) =>
+      left.source.id.localeCompare(right.source.id),
+    );
+    const counts = { inactive: 0, optedOut: 0, noEmail: 0 };
+    const deliverableRecipients: EligibleDeadlineRecipient[] = [];
+    const missingNicknames = new Map<string, string[]>();
+    for (const candidate of orderedCandidates) {
+      const classification = classifyCandidate(candidate.source);
+      const label = missingNickname(candidate.source, classification.excluded);
+
+      for (const milestoneId of candidate.milestones.keys()) {
+        missingNicknames.set(milestoneId, [
+          ...(missingNicknames.get(milestoneId) ?? []),
+          label,
+        ]);
+      }
+      if (classification.excluded !== null) {
+        counts[classification.excluded] += 1;
+        continue;
+      }
+      deliverableRecipients.push({
+        id: candidate.source.id,
+        nickname: candidate.source.nickname,
+        notificationEmail: classification.notificationEmail,
+        milestones: [...candidate.milestones.values()].sort(compareMilestones),
+      });
+    }
+    const staffMilestones = milestones.flatMap((milestone) => {
+      const missing = missingNicknames.get(milestone.id) ?? [];
+      return missing.length === 0
+        ? []
+        : [{ ...milestone, missingNicknames: missing }];
+    });
+
+    const summary = {
+      applicationCount: eligibleApplicationIds.length,
+      milestoneCount: milestones.length,
+      recipientCount: deliverableRecipients.length,
+      inactiveCount: counts.inactive,
+      optedOutCount: counts.optedOut,
+      noEmailCount: counts.noEmail,
+    };
+
+    const canonical = {
+      programId: source.id,
+      enabled: source.notifyOnDeadline,
+      milestones: milestones.map(canonicalMilestone),
+      applicationIds: eligibleApplicationIds.sort(),
+      candidates: orderedCandidates.map((candidate) => ({
+        id: candidate.source.id,
+        accountStatus: candidate.source.accountStatus,
+        notifyEnabled: candidate.source.notifyEnabled,
+        notificationEmail: candidate.source.notificationEmail,
+        milestones: [...candidate.milestones.values()]
+          .sort(compareMilestones)
+          .map(canonicalMilestone),
+      })),
+    };
+    return {
+      programId: source.id,
+      enabled: source.notifyOnDeadline,
+      milestones,
+      recipients: deliverableRecipients,
+      staffMilestones,
+      applicationCount: eligibleApplicationIds.length,
+      summary,
+      previewVersion: createHash('sha256')
+        .update(JSON.stringify(canonical))
+        .digest('hex'),
+    };
+  }
+
+  static parseFrontendOrigin(value: string | undefined): URL {
+    const trimmed = value?.trim();
+    if (!trimmed || !URL.canParse(trimmed)) throw new FrontendOriginError();
+    const url = new URL(trimmed);
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username !== '' ||
+      url.password !== '' ||
+      url.pathname !== '/' ||
+      url.search !== '' ||
+      url.hash !== ''
+    ) {
+      throw new FrontendOriginError();
+    }
+    return url;
+  }
+
+  static buildStudentDeadlineMail(input: {
+    readonly displayName: string;
+    readonly milestones: readonly [
+      DeadlineMailMilestone,
+      ...DeadlineMailMilestone[],
+    ];
+    readonly now: Date;
+    readonly frontendOrigin: URL;
+    readonly guidance?: string;
+  }): BuiltDeadlineMail {
+    const first = input.milestones[0];
+    const title =
+      input.milestones.length === 1
+        ? `${deadlineHeadline(first.dueAt, input.now)} · ${first.milestoneName}`
+        : `마감 임박 제출 ${input.milestones.length}건`;
+    const lead = `제출 마감이 임박한 마일스톤이 ${input.milestones.length}건 있습니다.`;
+    const items = input.milestones.map((milestone) => {
+      const ctaUrl = routeUrl(
+        input.frontendOrigin,
+        `/programs/${encodeURIComponent(milestone.programId)}#milestone-${encodeURIComponent(milestone.id)}-name`,
+      );
+      return {
+        rows: [
+          { label: '프로그램', value: milestone.programName },
+          { label: '마일스톤', value: milestone.milestoneName },
+          { label: '마감일시', value: formatDueAt(milestone.dueAt) },
+        ],
+        ctaLabel: '제출하러 가기',
+        ctaUrl,
+      } as const;
+    });
+    const text = [
+      `안녕하세요, ${input.displayName}님.`,
+      '',
+      lead,
+      '',
+      ...(input.guidance ? [input.guidance, ''] : []),
+      ...items.flatMap((item) => [
+        ...item.rows.map(({ label, value }) => `${label}: ${value}`),
+        `제출하러 가기: ${item.ctaUrl}`,
+        '',
+      ]),
+    ].join('\n');
+    return {
+      subject: `[oss-hub] ${title}`,
+      text,
+      html: renderHtml({
+        title,
+        greeting: `안녕하세요, ${input.displayName}님.`,
+        lead,
+        guidance: input.guidance,
+        items,
+      }),
+    };
+  }
+
+  buildStaffDeadlineMail(input: {
+    readonly milestones: readonly (DeadlineMailMilestone & {
+      readonly missingNicknames: readonly string[];
+    })[];
+    readonly now: Date;
+    readonly frontendOrigin: URL;
+    readonly guidance?: string;
+  }): BuiltDeadlineMail {
+    const first = input.milestones[0];
+    const title =
+      input.milestones.length === 1 && first
+        ? `${deadlineHeadline(first.dueAt, input.now)} · ${first.milestoneName}`
+        : `마감 임박 마일스톤 ${input.milestones.length}건`;
+    const ctaUrl = routeUrl(input.frontendOrigin, '/dashboard');
+    const rows = input.milestones.flatMap((milestone) => [
+      {
+        label: '프로그램 / 마일스톤',
+        value: `${milestone.programName} / ${milestone.milestoneName}`,
+      },
+      { label: '마감일시', value: formatDueAt(milestone.dueAt) },
+      {
+        label: '미제출자',
+        value: milestone.missingNicknames.join(', ') || '없음',
+      },
+    ]);
+    const lead = `마감이 임박한 마일스톤이 ${input.milestones.length}건 있습니다.`;
+    const text = [
+      '안녕하세요, 운영진님.',
+      '',
+      lead,
+      '',
+      ...(input.guidance ? [input.guidance, ''] : []),
+      ...rows.map(({ label, value }) => `${label}: ${value}`),
+      '',
+      `대시보드 열기: ${ctaUrl}`,
+    ].join('\n');
+    return {
+      subject: `[oss-hub] ${title}`,
+      text,
+      html: renderHtml({
+        title,
+        greeting: '안녕하세요, 운영진님.',
+        lead,
+        guidance: input.guidance,
+        items: [{ rows, ctaLabel: '대시보드 열기', ctaUrl }],
+      }),
+    };
+  }
+
+  prepareDeadlineDigest(
+    eligibility: DeadlineEligibility,
+    staffRecipients: readonly NotifiableStaffRecipient[],
+    draft: DeadlineDigestGuidance & {
+      readonly now: Date;
+      readonly frontendOrigin: URL;
+    },
+  ): {
+    readonly deliveries: readonly PreparedDeadlineMail[];
+    readonly studentPreviews: readonly PersonalizedDeadlinePreview[];
+    readonly staffPreview: BuiltDeadlineMail | null;
+    readonly previewVersion: string;
+  } {
+    const students = eligibility.recipients.flatMap((recipient) => {
+      const first = recipient.milestones[0];
+      if (first === undefined) return [];
+      const mail = DeadlineDigestService.buildStudentDeadlineMail({
+        displayName: recipient.nickname,
+        milestones: [first, ...recipient.milestones.slice(1)],
+        now: draft.now,
+        frontendOrigin: draft.frontendOrigin,
+        guidance: draft.studentGuidance,
+      });
+      return [{ recipient, mail }];
+    });
+    const staffPreview =
+      staffRecipients.length > 0 && eligibility.staffMilestones.length > 0
+        ? this.buildStaffDeadlineMail({
+            milestones: eligibility.staffMilestones,
+            now: draft.now,
+            frontendOrigin: draft.frontendOrigin,
+            guidance: draft.staffGuidance,
+          })
+        : null;
+    const deliveries: readonly PreparedDeadlineMail[] = [
+      ...students.map(({ recipient, mail }) => ({
+        audience: 'STUDENT' as const,
+        recipientId: recipient.id,
+        to: recipient.notificationEmail,
+        milestoneCount: recipient.milestones.length,
+        mail,
+      })),
+      ...(staffPreview === null
+        ? []
+        : staffRecipients.map((recipient) => ({
+            audience: 'STAFF' as const,
+            recipientId: recipient.id,
+            to: recipient.notificationEmail,
+            milestoneCount: eligibility.staffMilestones.length,
+            mail: staffPreview,
+          }))),
+    ];
+    const previewVersion = createHash('sha256')
+      .update(
+        JSON.stringify({
+          eligibility: eligibility.previewVersion,
+          previewedAt: draft.now.toISOString(),
+          studentGuidance: draft.studentGuidance ?? '',
+          staffGuidance: draft.staffGuidance ?? '',
+          deliveries,
+        }),
+      )
+      .digest('hex');
+    return {
+      deliveries,
+      studentPreviews: students.map(({ recipient, mail }) => ({
+        displayName: recipient.nickname,
+        ...mail,
+      })),
+      staffPreview,
+      previewVersion,
+    };
+  }
+
+  static resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
+    const mode = runtimeConfig.MAIL_MODE;
+    if (mode !== 'send' && mode !== 'dry-run') {
+      throw new Error(
+        `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
+      );
+    }
+    if (mode === 'dry-run') return new LogMailClient();
+    const config = gmailConfigFromRuntime(runtimeConfig);
+    if (!config) {
+      throw new Error(
+        'MAIL_MODE=send requires GMAIL_SENDER and GMAIL_OAUTH_* credentials.',
+      );
+    }
+    return new GmailMailClient(config);
+  }
+
+  static async sendForcedDeadlineDigest(
+    runtime: RuntimeConfig,
+    forceToValue: string,
+    logger: Logger,
+  ): Promise<void> {
+    const forceTo = parseDigestForceTo(forceToValue);
+    const mailer = DeadlineDigestService.resolveMailSender(runtime);
+    const usingGmail = !isDryRunMailSender(mailer);
+    if (!usingGmail) {
+      logger.warn(
+        'MAIL_MODE=dry-run — dry-run 로그만 남깁니다. 실수신을 원하면 MAIL_MODE=send 와 GMAIL_* 4종을 채우세요.',
+      );
+    }
+    const now = new Date();
+    const mail = DeadlineDigestService.buildStudentDeadlineMail({
+      displayName: '합성 로컬 스모크 수신자',
+      milestones: [
+        {
+          id: 'synthetic-local-smoke-milestone',
+          programId: 'synthetic-local-smoke-program',
+          programName: '합성 로컬 점검 프로그램',
+          milestoneName: '강제 발송 스모크 마일스톤',
+          dueAt: new Date(now.getTime() + 3_600_000),
+        },
+      ],
+      now,
+      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+        runtime.FRONTEND_URL,
+      ),
+    });
+    await mailer.send({
+      to: forceTo,
+      subject: mail.subject,
+      body: mail.text,
+      html: mail.html,
+    });
+    logger.log(
+      usingGmail
+        ? '강제 실발송 완료 (수신 주소는 로그에 전체 노출하지 않음)'
+        : '강제 dry-run 완료',
+    );
   }
 }
 
@@ -857,28 +923,11 @@ function isDryRunMailSender(mailSender: MailSender): boolean {
   return mailSender instanceof LogMailClient;
 }
 
-export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
-  const mode = runtimeConfig.MAIL_MODE;
-  if (mode !== 'send' && mode !== 'dry-run') {
-    throw new Error(
-      `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
-    );
-  }
-  if (mode === 'dry-run') return new LogMailClient();
-  const config = gmailConfigFromRuntime(runtimeConfig);
-  if (!config) {
-    throw new Error(
-      'MAIL_MODE=send requires GMAIL_SENDER and GMAIL_OAUTH_* credentials.',
-    );
-  }
-  return new GmailMailClient(config);
-}
-
 export const mailSenderProvider: Provider = {
   provide: MAIL_SENDER,
   inject: [RUNTIME_CONFIG],
   useFactory: (runtimeConfig: RuntimeConfig) =>
-    resolveMailSender(runtimeConfig),
+    DeadlineDigestService.resolveMailSender(runtimeConfig),
 };
 
 function parseDigestForceTo(value: string): string {
@@ -896,45 +945,4 @@ function parseDigestForceTo(value: string): string {
     throw new InvalidDigestForceToError();
   }
   return trimmed;
-}
-
-export async function sendForcedDeadlineDigest(
-  runtime: RuntimeConfig,
-  forceToValue: string,
-  logger: Logger,
-): Promise<void> {
-  const forceTo = parseDigestForceTo(forceToValue);
-  const mailer = resolveMailSender(runtime);
-  const usingGmail = !isDryRunMailSender(mailer);
-  if (!usingGmail) {
-    logger.warn(
-      'MAIL_MODE=dry-run — dry-run 로그만 남깁니다. 실수신을 원하면 MAIL_MODE=send 와 GMAIL_* 4종을 채우세요.',
-    );
-  }
-  const now = new Date();
-  const mail = buildStudentDeadlineMail({
-    displayName: '합성 로컬 스모크 수신자',
-    milestones: [
-      {
-        id: 'synthetic-local-smoke-milestone',
-        programId: 'synthetic-local-smoke-program',
-        programName: '합성 로컬 점검 프로그램',
-        milestoneName: '강제 발송 스모크 마일스톤',
-        dueAt: new Date(now.getTime() + 3_600_000),
-      },
-    ],
-    now,
-    frontendOrigin: parseFrontendOrigin(runtime.FRONTEND_URL),
-  });
-  await mailer.send({
-    to: forceTo,
-    subject: mail.subject,
-    body: mail.text,
-    html: mail.html,
-  });
-  logger.log(
-    usingGmail
-      ? '강제 실발송 완료 (수신 주소는 로그에 전체 노출하지 않음)'
-      : '강제 dry-run 완료',
-  );
 }

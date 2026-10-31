@@ -2,17 +2,17 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { ApplicationStatus, RepositoryConnectionMode } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  issueSessionToken,
-  sessionCookieName,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { ApplicationsService } from './applications.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+
+const authSessionService = new AuthSessionService();
 
 const allowedOrigin = 'http://frontend.test';
 const syntheticGithubId = 515151n;
@@ -59,6 +59,8 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramApplicationsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      AuthSessionService,
       { provide: ApplicationsService, useValue: { create } },
       SessionGuard,
       OriginGuard,
@@ -90,8 +92,12 @@ beforeAll(async () => {
   application.useGlobalFilters(new ProblemDetailFilter());
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
-  const token = await issueSessionToken(sessionSecret, syntheticGithubId, 0);
-  sessionCookie = `${sessionCookieName(false)}=${token}`;
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    syntheticGithubId,
+    0,
+  );
+  sessionCookie = `${authSessionService.sessionCookieName(false)}=${token}`;
 });
 
 beforeEach(() => {

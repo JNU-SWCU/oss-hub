@@ -2,42 +2,44 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { MAX_FILE_BYTES } from './submission-files.service';
 import {
-  isAllowedSubmissionFileType,
-  hasValidSubmissionFileSignature,
-  safeSubmissionFileContentType,
-} from './submission-file.config';
-import {
   SUBMISSION_UPLOAD_ACCEPT,
   SUBMISSION_UPLOAD_FORMAT_LABEL,
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
   SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
 } from './submission-upload.config';
-import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from './program-authoring-upload.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from './program-upload-rules.service';
+
+const submissionFileRulesService = new SubmissionFileRulesService();
 
 describe('submission-file-content-type', () => {
   describe('submission file content type policy', () => {
     it.each(['report.PDF', 'report.hwp', 'archive.zip'])(
       'accepts the allowed extension in %s',
       (fileName) => {
-        expect(isAllowedSubmissionFileType(fileName)).toBe(true);
+        expect(
+          submissionFileRulesService.isAllowedSubmissionFileType(fileName),
+        ).toBe(true);
       },
     );
 
     it.each(['report.exe', 'report', '.pdf', 'notes.txt'])(
       'rejects the unsupported name %s',
       (fileName) => {
-        expect(isAllowedSubmissionFileType(fileName)).toBe(false);
+        expect(
+          submissionFileRulesService.isAllowedSubmissionFileType(fileName),
+        ).toBe(false);
       },
     );
 
     it('maps an allowed extension to its canonical download type', () => {
-      expect(safeSubmissionFileContentType('report.pdf')).toBe(
-        'application/pdf',
-      );
-      expect(safeSubmissionFileContentType('bundle.ZIP')).toBe(
-        'application/zip',
-      );
+      expect(
+        submissionFileRulesService.safeSubmissionFileContentType('report.pdf'),
+      ).toBe('application/pdf');
+      expect(
+        submissionFileRulesService.safeSubmissionFileContentType('bundle.ZIP'),
+      ).toBe('application/zip');
     });
 
     it.each([
@@ -47,15 +49,19 @@ describe('submission-file-content-type', () => {
     ])(
       'rejects new image uploads while preserving stored %s downloads',
       (name, mime) => {
-        expect(isAllowedSubmissionFileType(name)).toBe(false);
-        expect(safeSubmissionFileContentType(name)).toBe(mime);
+        expect(
+          submissionFileRulesService.isAllowedSubmissionFileType(name),
+        ).toBe(false);
+        expect(
+          submissionFileRulesService.safeSubmissionFileContentType(name),
+        ).toBe(mime);
       },
     );
 
     it('falls back to octet-stream when the extension is not allowed', () => {
-      expect(safeSubmissionFileContentType('report.html')).toBe(
-        'application/octet-stream',
-      );
+      expect(
+        submissionFileRulesService.safeSubmissionFileContentType('report.html'),
+      ).toBe('application/octet-stream');
     });
   });
 });
@@ -67,9 +73,12 @@ describe('submission-file-signature', () => {
       ['photo.jpeg', [0xff, 0xd8, 0xff]],
       ['image.png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
     ])('rejects %s even when the image signature is valid', (name, bytes) => {
-      expect(hasValidSubmissionFileSignature(Buffer.from(bytes), name)).toBe(
-        false,
-      );
+      expect(
+        submissionFileRulesService.hasValidSubmissionFileSignature(
+          Buffer.from(bytes),
+          name,
+        ),
+      ).toBe(false);
     });
 
     it.each([
@@ -80,7 +89,9 @@ describe('submission-file-signature', () => {
       ],
       ['report.zip', Buffer.from([0x50, 0x4b, 0x03, 0x04])],
     ])('keeps the supported %s signature', (name, bytes) => {
-      expect(hasValidSubmissionFileSignature(bytes, name)).toBe(true);
+      expect(
+        submissionFileRulesService.hasValidSubmissionFileSignature(bytes, name),
+      ).toBe(true);
     });
   });
 });
@@ -107,13 +118,21 @@ describe('submission-upload', () => {
       expect(extensions.length).toBeGreaterThan(0);
       for (const extension of extensions) {
         expect(extension.startsWith('.')).toBe(true);
-        expect(isAllowedSubmissionFileType(`파일${extension}`)).toBe(true);
+        expect(
+          submissionFileRulesService.isAllowedSubmissionFileType(
+            `파일${extension}`,
+          ),
+        ).toBe(true);
       }
     });
 
     it('입장 검사가 막는 확장자는 accept 목록에 없다', () => {
       for (const extension of ['.exe', '.txt', '.docx', '.sh']) {
-        expect(isAllowedSubmissionFileType(`파일${extension}`)).toBe(false);
+        expect(
+          submissionFileRulesService.isAllowedSubmissionFileType(
+            `파일${extension}`,
+          ),
+        ).toBe(false);
         expect(SUBMISSION_UPLOAD_ACCEPT.split(',')).not.toContain(extension);
       }
     });

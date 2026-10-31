@@ -1,11 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
@@ -17,6 +13,9 @@ import {
   type ProgramDocumentArchiveScope,
 } from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 export async function startArchiveHttp(
   fixture: ProgramArchiveIntegrationFixture,
@@ -44,7 +43,11 @@ export async function startArchiveHttp(
   app.useGlobalFilters(new ProblemDetailFilter());
   await app.listen(0, '127.0.0.1');
   const base = await app.getUrl();
-  const token = await issueSessionToken(sessionSecret, 960000001135099n, 0);
+  const token = await authSessionService.issueSessionToken(
+    sessionSecret,
+    960000001135099n,
+    0,
+  );
   return {
     close: () => app.close(),
     request: (
@@ -60,7 +63,9 @@ export async function startArchiveHttp(
         `${base}/api/v1/programs/${programId}/documents/collection/archive?${query}`,
         {
           headers: authenticated
-            ? { cookie: `${sessionCookieName(false)}=${token}` }
+            ? {
+                cookie: `${authSessionService.sessionCookieName(false)}=${token}`,
+              }
             : {},
         },
       );

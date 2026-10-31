@@ -4,6 +4,9 @@ import {
 } from './github-app.error';
 import type { GithubAppClient } from './github-app.client';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { RepositoryUrlService } from './repository-url.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 
 function githubMock(): jest.Mocked<
   Pick<GithubAppClient, 'findRepository' | 'findPublicRepository'>
@@ -28,7 +31,13 @@ describe('OwnRepositoryUrlValidationService', () => {
       defaultBranch: 'main',
       description: null,
     });
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/eco-external-org/econovation-repo'),
@@ -45,7 +54,13 @@ describe('OwnRepositoryUrlValidationService', () => {
       visibility: 'PRIVATE',
       description: null,
     });
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/synthetic-org/org-repo'),
@@ -54,7 +69,13 @@ describe('OwnRepositoryUrlValidationService', () => {
 
   it('존재하지 않는 외부 저장소는 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/synthetic-student/missing-repo'),
@@ -73,7 +94,13 @@ describe('OwnRepositoryUrlValidationService', () => {
       defaultBranch: 'main',
       description: null,
     });
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/synthetic-student/private-repo'),
@@ -82,7 +109,13 @@ describe('OwnRepositoryUrlValidationService', () => {
 
   it('접근할 수 없는 조직 저장소도 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/synthetic-org/inaccessible-repo'),
@@ -97,7 +130,13 @@ describe('OwnRepositoryUrlValidationService', () => {
     'https://github.com/owner',
   ])('형식이 잘못된 URL(%s)은 INVALID_FORMAT이다', async (malformed) => {
     const github = githubMock();
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(service.validate(malformed)).resolves.toEqual({
       kind: 'INVALID_FORMAT',
@@ -112,7 +151,13 @@ describe('OwnRepositoryUrlValidationService', () => {
         true,
       ),
     );
-    const service = new OwnRepositoryUrlValidationService(github);
+    const service = new OwnRepositoryUrlValidationService(
+      github,
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
+    );
 
     await expect(
       service.validate('https://github.com/synthetic-student/synthetic-repo'),

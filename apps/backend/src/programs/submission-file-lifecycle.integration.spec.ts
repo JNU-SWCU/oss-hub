@@ -20,8 +20,11 @@ import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
-import { addOneCalendarYear } from './submission-file.config';
 import { signatureValidZip } from './submission-zip-builder.fixture';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramRulesService } from './program-rules.service';
+
+const submissionFileRulesService = new SubmissionFileRulesService();
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -109,7 +112,9 @@ async function createPending(options: {
       lifecycle: SubmissionFileLifecycle.PENDING,
       pendingExpiresAt:
         options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
-      expiresAt: options.expiresAt ?? addOneCalendarYear(BASE),
+      expiresAt:
+        options.expiresAt ??
+        submissionFileRulesService.addOneCalendarYear(BASE),
     },
   });
 }
@@ -424,7 +429,7 @@ describeIntegration(
       const row = await createPending({
         suffix: 'attach-expiry-race',
         pendingExpiresAt: BASE,
-        expiresAt: addOneCalendarYear(BASE),
+        expiresAt: submissionFileRulesService.addOneCalendarYear(BASE),
       });
       const submission = await createSubmissionHistory('attach-expiry-race');
 
@@ -486,7 +491,12 @@ describeIntegration(
         },
       });
 
-      const filesService = new SubmissionFilesService(files, storage);
+      const filesService = new SubmissionFilesService(
+        files,
+        storage,
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
+      );
       const downloaded = await filesService.download(
         seedGithubId(USER_ID),
         row.id,
@@ -501,7 +511,12 @@ describeIntegration(
     });
 
     it('판정만 하는 요청은 제출과 같은 코드로 거절하고 행·감사·아웃박스·객체를 남기지 않는다', async () => {
-      const filesService = new SubmissionFilesService(files, storage);
+      const filesService = new SubmissionFilesService(
+        files,
+        storage,
+        new ProgramRulesService(),
+        new SubmissionFileRulesService(),
+      );
       const zipUpload = (buffer: Buffer) => ({
         buffer,
         originalname: 'plan.zip',

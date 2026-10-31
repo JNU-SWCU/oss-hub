@@ -2,10 +2,6 @@ import { Injectable } from '@nestjs/common';
 import type { ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from '../github/repository-url.config';
-import {
   PUBLIC_PROJECT_YEAR_MIN,
   PUBLIC_PROJECT_YEAR_MAX,
 } from './public-projects.config';
@@ -32,8 +28,7 @@ export interface PublicProjectRow {
 
   readonly projectId: string;
   readonly githubRepositoryId: bigint;
-  readonly repositoryName: string;
-  readonly githubUrl: string;
+  readonly nameWithOwner: string;
   readonly publishedAt: Date;
   readonly programId: string;
   readonly programName: string;
@@ -96,8 +91,7 @@ function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
     id: row.id,
     projectId: row.githubRepositoryId.toString(),
     githubRepositoryId: row.githubRepositoryId,
-    repositoryName: repositoryNameFromNameWithOwner(row.nameWithOwner),
-    githubUrl: repositoryUrlFromNameWithOwner(row.nameWithOwner),
+    nameWithOwner: row.nameWithOwner,
     publishedAt: row.publishedAt!,
     programId: row.programId!,
     programName: row.program!.name,

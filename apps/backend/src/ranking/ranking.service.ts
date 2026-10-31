@@ -1,50 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { RankingRepository } from './ranking.repository';
-
-export interface ActivityCounts {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
-export function activityTotal(activity: ActivityCounts): number {
-  return (
-    activity.commitCount +
-    activity.pullRequestCount +
-    activity.issueCount +
-    activity.repositoryCount +
-    activity.starCount
-  );
-}
-
-const ASIA_SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-export function rankingYearInAsiaSeoul(date: Date): number {
-  return new Date(date.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
-}
-
-export function rankingYearStartInAsiaSeoul(year: number): Date {
-  return new Date(Date.UTC(year, 0, 1) - ASIA_SEOUL_OFFSET_MS);
-}
-
-export const RANKING_YEAR_ALL = 'all' as const;
-
-export const RANKING_YEAR_MIN = 2000;
-
-export const RANKING_YEAR_MAX = 2100;
-
-export type RankingYear = number | typeof RANKING_YEAR_ALL;
-
-export const LEGACY_RANKING_PERIODS = {
-  THIS_YEAR: 'THIS_YEAR',
-  ALL: 'ALL',
-} as const;
-
-export type LegacyRankingPeriod =
-  (typeof LEGACY_RANKING_PERIODS)[keyof typeof LEGACY_RANKING_PERIODS];
+import {
+  RankingYearService,
+  RankingYear,
+  RANKING_YEAR_ALL,
+} from './ranking-year.service';
 
 export const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
@@ -86,47 +47,6 @@ export interface RankingPage {
   readonly nextCycleAt: Date | null;
 }
 
-export function resolveRankingYearFromQuery(
-  year: RankingYear | undefined,
-  period: LegacyRankingPeriod | undefined,
-  now: Date = new Date(),
-): RankingYear {
-  if (year !== undefined) return year;
-  if (period === LEGACY_RANKING_PERIODS.THIS_YEAR) {
-    return rankingYearInAsiaSeoul(now);
-  }
-  if (period === LEGACY_RANKING_PERIODS.ALL) return RANKING_YEAR_ALL;
-  return rankingYearInAsiaSeoul(now);
-}
-
-export function resolveRankingQueryYear(
-  query: {
-    readonly year?: string;
-    readonly period?: LegacyRankingPeriod;
-  },
-  now: Date = new Date(),
-): RankingYear {
-  return resolveRankingYearFromQuery(
-    parseYearParam(query.year),
-    query.period,
-    now,
-  );
-}
-
-function parseYearParam(raw: string | undefined): RankingYear | undefined {
-  if (raw === undefined || raw === '') return undefined;
-  if (raw.toLowerCase() === RANKING_YEAR_ALL) return RANKING_YEAR_ALL;
-  const year = Number(raw);
-  if (!Number.isInteger(year)) return undefined;
-
-  if (year < RANKING_YEAR_MIN || year > RANKING_YEAR_MAX) {
-    throw new BadRequestException(
-      `year must be "${RANKING_YEAR_ALL}" or an integer between ${RANKING_YEAR_MIN} and ${RANKING_YEAR_MAX}`,
-    );
-  }
-  return year;
-}
-
 interface RankedPublicEntry extends RankingEntry {
   readonly githubId: bigint;
 }
@@ -138,7 +58,10 @@ export class RankingService {
     Promise<readonly RankedPublicEntry[]>
   >();
 
-  constructor(private readonly ranking: RankingRepository) {}
+  constructor(
+    private readonly ranking: RankingRepository,
+    private readonly rankingYearService: RankingYearService,
+  ) {}
 
   async findPage(
     year: RankingYear,
@@ -229,7 +152,7 @@ export class RankingService {
       issueCount: row.issueCount,
       repositoryCount: row.repositoryCount,
       starCount: row.starCount,
-      total: activityTotal(row),
+      total: this.rankingYearService.activityTotal(row),
     }));
 
     return [...candidates]

@@ -13,6 +13,7 @@ import {
 } from '../programs/applications-error-code.error';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffModule } from './staff.module';
+import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 
 describe('StaffDashboardService', () => {
   const syntheticSessionSecret = Buffer.from(
@@ -85,6 +86,7 @@ describe('StaffDashboardService', () => {
       { staffSummary: applicationSummary },
       { summarize: activitySummary },
       { listByProgram: submissionSummary },
+      new ProgramCoverUrlService(),
     );
 
     const summary = await service.summary(4242n);
@@ -194,6 +196,7 @@ describe('StaffDashboardService', () => {
       { staffSummary: applicationSummary },
       { summarize },
       { listByProgram },
+      new ProgramCoverUrlService(),
     );
 
     await expect(service.summary(4242n)).rejects.toBe(error);

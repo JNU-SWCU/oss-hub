@@ -27,6 +27,7 @@ import type {
 import type { CollectionAppTokenClient } from './collection-app-token.client';
 import { CollectionAppClientError } from './collection-app.error';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import { RepositoryUrlService } from './repository-url.service';
 
 type Row = Record<string, unknown>;
 
@@ -737,6 +738,7 @@ function createService(
     new CollectionIncrementalRepository(db),
     () => runtimeFor(client),
     () => Promise.resolve(GITHUB_ORG_ID),
+    new RepositoryUrlService(),
     overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
     overrides.createRunId ?? (() => 'run-1'),
   );
@@ -751,6 +753,7 @@ function createServiceWithExternal(
     new CollectionIncrementalRepository(db),
     () => runtimeFor(externalClient),
     () => Promise.resolve(GITHUB_ORG_ID),
+    new RepositoryUrlService(),
     overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
     overrides.createRunId ?? (() => 'run-1'),
     () => runtimeFor(externalClient),
@@ -1469,6 +1472,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
         queue,
       }),
       () => Promise.resolve(GITHUB_ORG_ID),
+      new RepositoryUrlService(),
       () => new Date('2026-08-01T00:00:00.000Z'),
       () => `run-${processedOrder.length}`,
     );
@@ -3394,6 +3398,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       new CollectionIncrementalRepository(db),
       () => runtime,
       () => Promise.resolve(GITHUB_ORG_ID),
+      new RepositoryUrlService(),
       () => NOW,
       () => 'run-1',
     );

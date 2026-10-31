@@ -16,14 +16,13 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
 import { AuthConfig } from './auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from './auth.service';
+import { AuthService } from './auth.service';
 import type { AuthUser } from './http-auth.types';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { OptionalSession, Public } from './authentication.guard';
+import { AuthSessionService } from './auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
@@ -138,7 +137,7 @@ describe('global default-deny authentication boundary', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    sessionCookie = `${sessionCookieName(false)}=${await issueSessionToken(
+    sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

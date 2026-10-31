@@ -5,7 +5,19 @@ import {
   inspectE2eProgramAdoption,
   type E2eProgramAdoptionCandidate,
 } from './e2e-program-authoring-graph-adoption';
-import { buildProgramAuthoringPlan } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { ProgramRulesService } from '../../src/programs/program-rules.service';
+import { ProgramUploadRulesService } from '../../src/programs/program-upload-rules.service';
+import { SubmissionFileRulesService } from '../../src/programs/submission-file-rules.service';
+
+const programAuthoringService = new ProgramAuthoringService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+);
 
 const PREFIX = 'e2e:program-authoring:';
 const PROGRAM_ID = 'generated-program-id';
@@ -17,7 +29,7 @@ type PersistedAuthoredCandidate = E2eProgramAdoptionCandidate & {
 };
 
 function authoredCandidate(): PersistedAuthoredCandidate {
-  const plan = buildProgramAuthoringPlan({
+  const plan = programAuthoringService.buildProgramAuthoringPlan({
     name: `${PREFIX}happy-program`,
     organizer: `${PREFIX}organizer`,
     trackType: ProgramTrackType.EXTRACURRICULAR,

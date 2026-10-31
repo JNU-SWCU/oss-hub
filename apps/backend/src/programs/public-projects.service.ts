@@ -11,6 +11,7 @@ import {
   type PublicProjectRow,
   type PublicUserIdentity,
   type PublicProjectCursor,
+  type PublicEligibilityInput,
 } from './public-projects.repository';
 import { PublicProjectApplicationMode } from './public-projects.config';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
@@ -22,19 +23,16 @@ import {
   createCipheriv,
   createDecipheriv,
 } from 'node:crypto';
-import type { PublicEligibilityInput } from './public-projects.repository';
+import { RepositoryUrlService } from '../github/repository-url.service';
 
-export interface PublicProjectListItem extends PublicProjectRow {
+export interface PublicProjectListItem extends Omit<
+  PublicProjectRow,
+  'nameWithOwner'
+> {
+  readonly repositoryName: string;
+  readonly githubUrl: string;
   readonly applicationMode: PublicProjectApplicationMode;
   readonly displayName: string;
-}
-
-function toPublicProjectListItem(row: PublicProjectRow): PublicProjectListItem {
-  return {
-    ...row,
-    applicationMode: applicationMode(row.teamMemberCount),
-    displayName: displayNameOf(row),
-  };
 }
 
 export interface PublicProjectPageResult {
@@ -97,96 +95,8 @@ export type PublicProjectCursorKey = Buffer;
 
 const derivedKeyCache = new Map<string, PublicProjectCursorKey>();
 
-export function resolvePublicProjectCursorKey(config: {
-  readonly SESSION_SECRET?: string;
-}): PublicProjectCursorKey {
-  const raw = config.SESSION_SECRET;
-  if (raw === undefined || raw.trim() === '') {
-    throw new PublicProjectCursorSecretError('SESSION_SECRET이 비어 있습니다.');
-  }
-  const cached = derivedKeyCache.get(raw);
-  if (cached !== undefined) return cached;
-
-  const secret = Buffer.from(raw, 'base64url');
-  if (secret.length < MIN_SESSION_SECRET_BYTES) {
-    throw new PublicProjectCursorSecretError(
-      `SESSION_SECRET은 base64url로 ${MIN_SESSION_SECRET_BYTES}바이트 이상이어야 합니다.`,
-    );
-  }
-  const key = Buffer.from(
-    hkdfSync('sha256', secret, CURSOR_KEY_SALT, CURSOR_KEY_INFO, KEY_BYTES),
-  );
-  derivedKeyCache.set(raw, key);
-  return key;
-}
-
 function versionAad(): Buffer {
   return Buffer.from([CURSOR_VERSION]);
-}
-
-export function encodePublicProjectCursor(
-  cursor: PublicProjectCursor,
-  key: PublicProjectCursorKey,
-): string {
-  const json = JSON.stringify({
-    p: cursor.publishedAt.toISOString(),
-    i: cursor.id,
-  });
-  const paddedLength =
-    Math.ceil(json.length / PAYLOAD_PAD_BLOCK) * PAYLOAD_PAD_BLOCK;
-  const payload = Buffer.from(json.padEnd(paddedLength, ' '), 'utf8');
-
-  const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(versionAad());
-  const ciphertext = Buffer.concat([cipher.update(payload), cipher.final()]);
-  return Buffer.concat([
-    versionAad(),
-    iv,
-    cipher.getAuthTag(),
-    ciphertext,
-  ]).toString('base64url');
-}
-
-export function decodePublicProjectCursor(
-  pageId: string,
-  key: PublicProjectCursorKey,
-): PublicProjectCursor {
-  try {
-    const token = Buffer.from(pageId, 'base64url');
-    if (token.length <= 1 + IV_BYTES + TAG_BYTES) {
-      throw new Error('malformed cursor length');
-    }
-    if (token[0] !== CURSOR_VERSION) {
-      throw new Error('unsupported cursor version');
-    }
-    const iv = token.subarray(1, 1 + IV_BYTES);
-    const tag = token.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES);
-    const ciphertext = token.subarray(1 + IV_BYTES + TAG_BYTES);
-
-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(versionAad());
-    decipher.setAuthTag(tag);
-    const payload = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]).toString('utf8');
-
-    const decoded = JSON.parse(payload) as { p: unknown; i: unknown };
-    if (typeof decoded.p !== 'string' || typeof decoded.i !== 'string') {
-      throw new Error('malformed cursor shape');
-    }
-    const publishedAt = new Date(decoded.p);
-    if (Number.isNaN(publishedAt.getTime())) {
-      throw new Error('malformed cursor date');
-    }
-    return { publishedAt, id: decoded.i };
-  } catch (error) {
-    if (error instanceof PublicProjectCursorSecretError) throw error;
-    throw new DomainException(
-      PUBLIC_PROJECTS_ERROR_CODES[PublicProjectsErrorCode.INVALID_PAGE_ID],
-    );
-  }
 }
 
 export interface PublicEligibilityCandidate {
@@ -197,6 +107,19 @@ export interface PublicEligibilityCandidate {
 @Injectable()
 export class PublicEligibilityService {
   constructor(private readonly metrics: PublicEligibilityRepository) {}
+
+  isPublicEligible(input: PublicEligibilityInput): boolean {
+    if (!input.platformPublic || input.publishedAt === null) return false;
+
+    const observation = input.observation;
+    if (observation === null || observation.observedAt === null) return true;
+
+    const isPrivateOrMissing =
+      observation.visibility === 'PRIVATE' || observation.presence === 'ABSENT';
+    if (!isPrivateOrMissing) return true;
+
+    return observation.observedAt.getTime() <= input.publishedAt.getTime();
+  }
 
   async filterEligibleRepositoryIds(
     candidates: readonly PublicEligibilityCandidate[],
@@ -217,7 +140,7 @@ export class PublicEligibilityService {
       const metric = observationByRepositoryId.get(
         candidate.githubRepositoryId,
       );
-      const decision = isPublicEligible({
+      const decision = this.isPublicEligible({
         platformPublic: true,
         publishedAt: candidate.publishedAt,
         observation:
@@ -250,8 +173,9 @@ export class PublicProjectsService {
     private readonly metrics: PublicProjectMetricsRepository,
     @Inject(RUNTIME_CONFIG)
     runtimeConfig: Pick<RuntimeConfig, 'SESSION_SECRET'>,
+    private readonly repositoryUrlService: RepositoryUrlService,
   ) {
-    this.cursorKey = resolvePublicProjectCursorKey(runtimeConfig);
+    this.cursorKey = this.resolvePublicProjectCursorKey(runtimeConfig);
   }
 
   async findPage(
@@ -262,7 +186,7 @@ export class PublicProjectsService {
     const cursor =
       pageId === undefined
         ? null
-        : decodePublicProjectCursor(pageId, this.cursorKey);
+        : this.decodePublicProjectCursor(pageId, this.cursorKey);
     const rows = await this.repository.listPage(cursor, pageSize + 1, year);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
@@ -275,12 +199,12 @@ export class PublicProjectsService {
     );
     const items = pageRows
       .filter((row) => eligible.has(row.githubRepositoryId))
-      .map(toPublicProjectListItem);
+      .map((row) => this.toPublicProjectListItem(row));
 
     const lastRawRow = pageRows[pageRows.length - 1];
     const nextPageId =
       hasMore && lastRawRow !== undefined
-        ? encodePublicProjectCursor(
+        ? this.encodePublicProjectCursor(
             {
               publishedAt: lastRawRow.publishedAt,
               id: lastRawRow.id,
@@ -321,7 +245,7 @@ export class PublicProjectsService {
     const metric = metricsRows[0];
 
     return {
-      row: toPublicProjectListItem(row),
+      row: this.toPublicProjectListItem(row),
       metrics: {
         commitCount: metric?.commitCount ?? 0,
         pullRequestCount: metric?.pullRequestCount ?? 0,
@@ -394,7 +318,7 @@ export class PublicProjectsService {
         const repositoryMetric = observedByRepository.get(key);
         if (repositoryMetric === undefined) {
           return {
-            row: toPublicProjectListItem(project),
+            row: this.toPublicProjectListItem(project),
             observed: false,
             hasCollectedData: false,
             dataAsOf: null,
@@ -403,7 +327,7 @@ export class PublicProjectsService {
         }
         const own = ownContributionByRepository.get(key);
         return {
-          row: toPublicProjectListItem(project),
+          row: this.toPublicProjectListItem(project),
           observed: true,
           hasCollectedData: repositoryMetric.hasCollectedData,
           dataAsOf: repositoryMetric.dataAsOf,
@@ -431,34 +355,126 @@ export class PublicProjectsService {
 
     return { identity, projects: profileProjects, observedTotals };
   }
-}
 
-export function isPublicEligible(input: PublicEligibilityInput): boolean {
-  if (!input.platformPublic || input.publishedAt === null) return false;
+  private toPublicProjectListItem(
+    row: PublicProjectRow,
+  ): PublicProjectListItem {
+    const { nameWithOwner, ...project } = row;
+    return {
+      ...project,
+      repositoryName:
+        this.repositoryUrlService.repositoryNameFromNameWithOwner(
+          nameWithOwner,
+        ),
+      githubUrl:
+        this.repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner),
+      applicationMode: this.applicationMode(row.teamMemberCount),
+      displayName: this.displayNameOf(row),
+    };
+  }
 
-  const observation = input.observation;
-  if (observation === null || observation.observedAt === null) return true;
+  resolvePublicProjectCursorKey(config: {
+    readonly SESSION_SECRET?: string;
+  }): PublicProjectCursorKey {
+    const raw = config.SESSION_SECRET;
+    if (raw === undefined || raw.trim() === '') {
+      throw new PublicProjectCursorSecretError(
+        'SESSION_SECRET이 비어 있습니다.',
+      );
+    }
+    const cached = derivedKeyCache.get(raw);
+    if (cached !== undefined) return cached;
 
-  const isPrivateOrMissing =
-    observation.visibility === 'PRIVATE' || observation.presence === 'ABSENT';
-  if (!isPrivateOrMissing) return true;
+    const secret = Buffer.from(raw, 'base64url');
+    if (secret.length < MIN_SESSION_SECRET_BYTES) {
+      throw new PublicProjectCursorSecretError(
+        `SESSION_SECRET은 base64url로 ${MIN_SESSION_SECRET_BYTES}바이트 이상이어야 합니다.`,
+      );
+    }
+    const key = Buffer.from(
+      hkdfSync('sha256', secret, CURSOR_KEY_SALT, CURSOR_KEY_INFO, KEY_BYTES),
+    );
+    derivedKeyCache.set(raw, key);
+    return key;
+  }
 
-  return observation.observedAt.getTime() <= input.publishedAt.getTime();
-}
+  encodePublicProjectCursor(
+    cursor: PublicProjectCursor,
+    key: PublicProjectCursorKey,
+  ): string {
+    const json = JSON.stringify({
+      p: cursor.publishedAt.toISOString(),
+      i: cursor.id,
+    });
+    const paddedLength =
+      Math.ceil(json.length / PAYLOAD_PAD_BLOCK) * PAYLOAD_PAD_BLOCK;
+    const payload = Buffer.from(json.padEnd(paddedLength, ' '), 'utf8');
 
-export function applicationMode(
-  teamMemberCount: number,
-): PublicProjectApplicationMode {
-  return teamMemberCount > 1
-    ? PublicProjectApplicationMode.TEAM
-    : PublicProjectApplicationMode.PERSONAL;
-}
+    const iv = randomBytes(IV_BYTES);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(versionAad());
+    const ciphertext = Buffer.concat([cipher.update(payload), cipher.final()]);
+    return Buffer.concat([
+      versionAad(),
+      iv,
+      cipher.getAuthTag(),
+      ciphertext,
+    ]).toString('base64url');
+  }
 
-export function displayNameOf(row: {
-  readonly teamName: string | null;
-  readonly teamMemberCount: number;
-  readonly applicantNickname: string;
-}): string {
-  if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
-  return row.applicantNickname;
+  decodePublicProjectCursor(
+    pageId: string,
+    key: PublicProjectCursorKey,
+  ): PublicProjectCursor {
+    try {
+      const token = Buffer.from(pageId, 'base64url');
+      if (token.length <= 1 + IV_BYTES + TAG_BYTES) {
+        throw new Error('malformed cursor length');
+      }
+      if (token[0] !== CURSOR_VERSION) {
+        throw new Error('unsupported cursor version');
+      }
+      const iv = token.subarray(1, 1 + IV_BYTES);
+      const tag = token.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES);
+      const ciphertext = token.subarray(1 + IV_BYTES + TAG_BYTES);
+
+      const decipher = createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAAD(versionAad());
+      decipher.setAuthTag(tag);
+      const payload = Buffer.concat([
+        decipher.update(ciphertext),
+        decipher.final(),
+      ]).toString('utf8');
+
+      const decoded = JSON.parse(payload) as { p: unknown; i: unknown };
+      if (typeof decoded.p !== 'string' || typeof decoded.i !== 'string') {
+        throw new Error('malformed cursor shape');
+      }
+      const publishedAt = new Date(decoded.p);
+      if (Number.isNaN(publishedAt.getTime())) {
+        throw new Error('malformed cursor date');
+      }
+      return { publishedAt, id: decoded.i };
+    } catch (error) {
+      if (error instanceof PublicProjectCursorSecretError) throw error;
+      throw new DomainException(
+        PUBLIC_PROJECTS_ERROR_CODES[PublicProjectsErrorCode.INVALID_PAGE_ID],
+      );
+    }
+  }
+
+  applicationMode(teamMemberCount: number): PublicProjectApplicationMode {
+    return teamMemberCount > 1
+      ? PublicProjectApplicationMode.TEAM
+      : PublicProjectApplicationMode.PERSONAL;
+  }
+
+  displayNameOf(row: {
+    readonly teamName: string | null;
+    readonly teamMemberCount: number;
+    readonly applicantNickname: string;
+  }): string {
+    if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
+    return row.applicantNickname;
+  }
 }

@@ -1,12 +1,14 @@
 import type {
-  DepartmentCohort,
-  InsightsYearScope,
   StaffInsightsCohortRow,
   StaffInsightsDepartmentRow,
   StaffInsightsMetrics,
   StaffInsightsProgramRow,
   StaffInsightsSummary,
 } from '../staff-insights.service';
+import type {
+  DepartmentCohort,
+  InsightsYearScope,
+} from '../staff-insights-query.service';
 
 export class StaffInsightsScopeResponseDto {
   declare readonly kind: InsightsYearScope['kind'];

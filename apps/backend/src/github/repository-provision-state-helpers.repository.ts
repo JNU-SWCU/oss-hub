@@ -16,11 +16,6 @@ import {
 } from './repository-provision-state.error';
 import type { GithubRepositoryMetadata } from './github-app.client';
 import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
-import {
-  repositoryNameFromNameWithOwner,
-  repositoryUrlFromNameWithOwner,
-} from './repository-url.config';
-import { canonicalGithubLogins } from './repository-provision-event.config';
 import type { RepositoryConnectionAuditMetadata } from '../platform/repository-audit-metadata.config';
 
 export interface ProvisionedRepository {
@@ -181,21 +176,38 @@ export interface ProvisionedRepositoryRow {
   readonly visibility: RepositoryVisibility;
 }
 
+export interface OwnedProvisionedRepositoryRow extends ProvisionedRepositoryRow {
+  readonly applicationId: string;
+}
+
 export class RepositoryProvisionStateHelpersRepository {
-  static toProvisionedRepository(
+  static assertOwnedRepository(
     row: ProvisionedRepositoryRow,
-  ): ProvisionedRepository {
+  ): OwnedProvisionedRepositoryRow {
     if (row.applicationId === null) {
       throw new RepositoryProvisionLeaseLostError();
     }
-    return {
-      id: row.id,
-      applicationId: row.applicationId,
-      githubRepositoryId: row.githubRepositoryId,
-      name: repositoryNameFromNameWithOwner(row.nameWithOwner),
-      url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
-      visibility: row.visibility,
-    };
+    return { ...row, applicationId: row.applicationId };
+  }
+
+  static canonicalGithubLogin(login: string | null | undefined): string {
+    return (login ?? '').trim().toLowerCase();
+  }
+
+  static canonicalGithubLogins(
+    logins: readonly (string | null | undefined)[],
+  ): readonly string[] {
+    return [
+      ...new Set(
+        logins
+          .map((login) =>
+            RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
+              login,
+            ),
+          )
+          .filter((login) => login.length > 0),
+      ),
+    ].sort();
   }
 
   static claimedJobWhere(jobId: string, workerId: string) {
@@ -454,7 +466,9 @@ export class RepositoryProvisionStateHelpersRepository {
   static loginsFromTeamMembers(
     members: readonly { readonly user: { readonly nickname: string } }[],
   ): readonly string[] {
-    return canonicalGithubLogins(members.map((member) => member.user.nickname));
+    return RepositoryProvisionStateHelpersRepository.canonicalGithubLogins(
+      members.map((member) => member.user.nickname),
+    );
   }
 
   static async lockClaimedProvisionJob(
@@ -475,14 +489,13 @@ export class RepositoryProvisionStateHelpersRepository {
   }
 
   static matchesProvisionedMetadata(
-    repository: ProvisionedRepository,
+    repository: OwnedProvisionedRepositoryRow,
     input: RecordProvisionedRepositoryInput,
   ): boolean {
     return (
       repository.applicationId === input.applicationId &&
       repository.githubRepositoryId === input.metadata.githubRepositoryId &&
-      repository.name === input.metadata.name &&
-      repository.url === input.metadata.url &&
+      repository.nameWithOwner === input.metadata.nameWithOwner &&
       repository.visibility === input.metadata.visibility
     );
   }

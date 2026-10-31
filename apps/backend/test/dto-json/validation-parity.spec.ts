@@ -15,22 +15,22 @@ import {
 import { ProgramDocumentChangeRequestTargetsRequestDto } from '../../src/programs/dto/program-document-change-request-targets-request.dto';
 import { UpdateStudentRepositoryUrlRequestDto } from '../../src/programs/dto/update-student-repository-url-request.dto';
 import { RankingRequestDto } from '../../src/ranking/dto/ranking-request.dto';
-import { resolveRankingQueryYear } from '../../src/ranking/ranking.service';
-import {
-  parseMilestoneDocumentContent,
-  toProgramDocumentChangeRequestInput,
-  toProgramDocumentChangeRequestScope,
-} from '../../src/programs/milestone-documents.service';
-import {
-  toCreateSubmissionInput,
-  toResubmitSubmissionInput,
-} from '../../src/programs/submissions.service';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
 } from '../../src/staff/dto/access-requests-list-request.dto';
 import { ActivityTimelineRequestDto } from '../../src/student/dto/activity-timeline-request.dto';
 import { UpdateMyProfileRequestDto } from '../../src/users/dto/update-my-profile-request.dto';
+import { MilestoneDocumentRulesService } from '../../src/programs/milestone-document-rules.service';
+import { SubmissionInputService } from '../../src/programs/submission-input.service';
+import { RankingYearService } from '../../src/ranking/ranking-year.service';
+import { ProgramRulesService } from '../../src/programs/program-rules.service';
+
+const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
+  new ProgramRulesService(),
+);
+const submissionInputService = new SubmissionInputService();
+const rankingYearService = new RankingYearService();
 
 const pipe = new ValidationPipe({
   transform: true,
@@ -303,7 +303,7 @@ parityCases(
     'bad period': { period: 'NOPE' },
     'page out of range': { page: '0', pageSize: '101' },
   },
-  (dto) => resolveRankingQueryYear(dto, FIXED_NOW),
+  (dto) => rankingYearService.resolveRankingQueryYear(dto, FIXED_NOW),
 );
 parityCases(UpdateStudentRepositoryUrlRequestDto, {
   valid: { repositoryUrl: ' https://github.com/owner/repo ' },
@@ -345,7 +345,7 @@ parityCases(
       content: 'x',
     },
   },
-  toCreateSubmissionInput,
+  (body) => submissionInputService.toCreateSubmissionInput(body),
 );
 parityCases(
   CreateResubmissionRequestDto,
@@ -359,7 +359,7 @@ parityCases(
     'bad revision': { baseRevision: 0, content: { type: 'TEXT', text: 'x' } },
     missing: {},
   },
-  toResubmitSubmissionInput,
+  (body) => submissionInputService.toResubmitSubmissionInput(body),
 );
 parityCases(
   CreateMilestoneDocumentSubmissionRequestDto,
@@ -372,7 +372,8 @@ parityCases(
     missing: {},
     'long file id': { content: { fileId: 'f'.repeat(129) } },
   },
-  (dto) => parseMilestoneDocumentContent(dto.content),
+  (dto) =>
+    milestoneDocumentRulesService.parseMilestoneDocumentContent(dto.content),
 );
 const CHANGE_REQUEST_BASE = {
   scope: 'PROGRAM',
@@ -399,7 +400,8 @@ parityCases(
     'bad scope': { ...CHANGE_REQUEST_BASE, scope: 'NOPE' },
     missing: {},
   },
-  toProgramDocumentChangeRequestInput,
+  (body) =>
+    milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(body),
 );
 parityCases(
   ProgramDocumentChangeRequestTargetsRequestDto,
@@ -411,5 +413,9 @@ parityCases(
     'bad scope': { scope: 'NOPE' },
     missing: {},
   },
-  (dto) => toProgramDocumentChangeRequestScope(dto.scope, dto.teamId),
+  (dto) =>
+    milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+      dto.scope,
+      dto.teamId,
+    ),
 );

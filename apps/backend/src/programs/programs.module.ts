@@ -114,6 +114,17 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ApplicationAnswersService } from './application-answers.service';
+import { DownloadResponseService } from './download-response.service';
+import { GithubRepositoryUrlConstraintService } from './github-repository-url-constraint.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { SubmissionInputService } from './submission-input.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
 
 @Module({
   imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
@@ -144,6 +155,16 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
     MilestoneDocumentFilesController,
   ],
   providers: [
+    ProgramCoverUrlService,
+    ApplicationAnswersService,
+    DownloadResponseService,
+    GithubRepositoryUrlConstraintService,
+    MilestoneCompletionService,
+    MilestoneDocumentRulesService,
+    ProgramRulesService,
+    ProgramUploadRulesService,
+    SubmissionFileRulesService,
+    SubmissionInputService,
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
@@ -195,6 +216,8 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
         UsersAuthorityService,
         ApplicationJoinCodeService,
         AuditLogMetadataService,
+        RepositoryUrlService,
+        ApplicationAnswersService,
       ],
       useFactory: (
         repository: ApplicationsRepository,
@@ -202,6 +225,8 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
         authority: UsersAuthorityService,
         joinCodes: ApplicationJoinCodeService,
         auditLogMetadata: AuditLogMetadataService,
+        repositoryUrl: RepositoryUrlService,
+        answers: ApplicationAnswersService,
       ): ApplicationsService =>
         new ApplicationsService(
           repository,
@@ -209,6 +234,8 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
           authority,
           joinCodes,
           auditLogMetadata,
+          repositoryUrl,
+          answers,
         ),
     },
     StudentApplicationManagementRepository,
@@ -242,6 +269,9 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
     MilestoneDocumentArchiveRepository,
   ],
   exports: [
+    MilestoneCompletionService,
+    MilestoneDocumentRulesService,
+    ProgramCoverUrlService,
     ProgramActivityService,
     ProgramViewerService,
     ProgramActivitySummaryService,

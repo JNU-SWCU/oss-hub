@@ -1,9 +1,11 @@
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { inspectSubmissionZipMetadata } from './submission-files.service';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,
   SubmissionZipRejection,
 } from './submission-zip.error';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const submissionFileRulesService = new SubmissionFileRulesService();
 
 const MIB = 1024 * 1024;
 
@@ -135,7 +137,8 @@ describe('inspectSubmissionZipMetadata — 거절 사유를 갈래별로 돌려�
   it('중첩·비밀번호 없이 한도 안에 있는 .zip은 통과한다', async () => {
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
 
-    const rejection = await inspectSubmissionZipMetadata(archive);
+    const rejection =
+      await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
 
     expect(rejection).toBeNull();
   });
@@ -145,7 +148,8 @@ describe('inspectSubmissionZipMetadata — 거절 사유를 갈래별로 돌려�
     async (_scenario, expected, build) => {
       const archive = build();
 
-      const rejection = await inspectSubmissionZipMetadata(archive);
+      const rejection =
+        await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
 
       expect(rejection).toBe(expected);
     },
@@ -161,10 +165,16 @@ describe('막는 기준은 그대로다', () => {
         })),
       );
 
-    expect(await inspectSubmissionZipMetadata(build(1_000))).toBeNull();
-    expect(await inspectSubmissionZipMetadata(build(1_001))).toBe(
-      SubmissionZipRejection.TOO_MANY_ENTRIES,
-    );
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(1_000),
+      ),
+    ).toBeNull();
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(1_001),
+      ),
+    ).toBe(SubmissionZipRejection.TOO_MANY_ENTRIES);
   });
 
   it('항목 하나가 100 MiB까지는 통과하고 1바이트만 넘어도 막는다', async () => {
@@ -178,10 +188,16 @@ describe('막는 기준은 그대로다', () => {
         },
       ]);
 
-    expect(await inspectSubmissionZipMetadata(build(100 * MIB))).toBeNull();
-    expect(await inspectSubmissionZipMetadata(build(100 * MIB + 1))).toBe(
-      SubmissionZipRejection.CONTENT_TOO_LARGE,
-    );
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * MIB),
+      ),
+    ).toBeNull();
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * MIB + 1),
+      ),
+    ).toBe(SubmissionZipRejection.CONTENT_TOO_LARGE);
   });
 
   it('총합 200 MiB까지는 통과하고 넘으면 막는다', async () => {
@@ -195,10 +211,16 @@ describe('막는 기준은 그대로다', () => {
         })),
       );
 
-    expect(await inspectSubmissionZipMetadata(build(100 * MIB))).toBeNull();
-    expect(await inspectSubmissionZipMetadata(build(100 * MIB + 1))).toBe(
-      SubmissionZipRejection.CONTENT_TOO_LARGE,
-    );
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * MIB),
+      ),
+    ).toBeNull();
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * MIB + 1),
+      ),
+    ).toBe(SubmissionZipRejection.CONTENT_TOO_LARGE);
   });
 
   it('압축률 100배까지는 통과하고 넘으면 막는다', async () => {
@@ -212,10 +234,16 @@ describe('막는 기준은 그대로다', () => {
         },
       ]);
 
-    expect(await inspectSubmissionZipMetadata(build(100 * 1_024))).toBeNull();
-    expect(await inspectSubmissionZipMetadata(build(100 * 1_024 + 1))).toBe(
-      SubmissionZipRejection.EXPANDS_TOO_MUCH,
-    );
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * 1_024),
+      ),
+    ).toBeNull();
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(
+        build(100 * 1_024 + 1),
+      ),
+    ).toBe(SubmissionZipRejection.EXPANDS_TOO_MUCH);
   });
 
   it.each([0, 8])('압축 방식 %i은 그대로 받는다', async (compressionMethod) => {
@@ -223,7 +251,9 @@ describe('막는 기준은 그대로다', () => {
       { name: 'entry.txt', compressionMethod },
     ]);
 
-    expect(await inspectSubmissionZipMetadata(archive)).toBeNull();
+    expect(
+      await submissionFileRulesService.inspectSubmissionZipMetadata(archive),
+    ).toBeNull();
   });
 });
 
@@ -252,7 +282,8 @@ describe('학생이 읽는 문장', () => {
   it('압축 안 항목의 이름을 밖으로 내보내지 않는다', async () => {
     const archive = signatureValidZip([{ name: '개인정보-동의서-원본.ZIP' }]);
 
-    const rejection = await inspectSubmissionZipMetadata(archive);
+    const rejection =
+      await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
 
     expect(rejection).toBe(SubmissionZipRejection.NESTED_ARCHIVE);
     expect(

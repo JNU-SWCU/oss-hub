@@ -1,5 +1,5 @@
 import { activity, setupRankingService } from './ranking.service.spec.helpers';
-import { RANKING_YEAR_ALL } from './ranking.service';
+import { RANKING_YEAR_ALL } from './ranking-year.service';
 
 describe('RankingService deterministic ordering', () => {
   it('orders every tie level and uses normalized login then numeric GitHub id', async () => {

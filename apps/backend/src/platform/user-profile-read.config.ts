@@ -42,9 +42,6 @@ export type UserProfileNameSource = {
   readonly profile: { readonly name: string } | null;
 };
 
-export type UserProfileDepartmentSource = {
-  readonly profile: { readonly department: string } | null;
-};
 export const STUDENT_MEMBER_WHERE = {
   profile: { is: { memberKind: 'STUDENT' } },
 } as const;

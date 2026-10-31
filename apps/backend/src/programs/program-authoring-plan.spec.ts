@@ -5,7 +5,19 @@ import {
   type ProgramAuthoringMilestoneRequest,
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
-import { buildProgramAuthoringPlan } from './program-authoring.service';
+import { ProgramAuthoringService } from './program-authoring.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { ProgramRulesService } from './program-rules.service';
+import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileRulesService } from './submission-file-rules.service';
+
+const programAuthoringService = new ProgramAuthoringService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+  new ProgramRulesService(),
+  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+);
 
 function request(): ProgramAuthoringRequest {
   return {
@@ -75,7 +87,7 @@ function expectValidationCodes(
   codes: readonly string[],
 ): void {
   try {
-    buildProgramAuthoringPlan(input);
+    programAuthoringService.buildProgramAuthoringPlan(input);
   } catch (error: unknown) {
     expect(error).toBeInstanceOf(ProgramAuthoringValidationError);
     if (!(error instanceof ProgramAuthoringValidationError)) throw error;
@@ -94,10 +106,11 @@ describe('buildProgramAuthoringPlan', () => {
         'https://sojoong.kr/wp-content/uploads/kboard_attached/1/202609/synthetic.jpg',
     };
     const input = { ...request(), externalCover };
-    const plan = buildProgramAuthoringPlan(input);
+    const plan = programAuthoringService.buildProgramAuthoringPlan(input);
     expect(plan).toHaveProperty('externalCover', externalCover);
     expect(plan.uploadTokenIds).toEqual(
-      buildProgramAuthoringPlan(request()).uploadTokenIds,
+      programAuthoringService.buildProgramAuthoringPlan(request())
+        .uploadTokenIds,
     );
   });
 
@@ -109,7 +122,7 @@ describe('buildProgramAuthoringPlan', () => {
   it('normalizes attachment filenames and preserves their required values', () => {
     const input = request();
 
-    const plan = buildProgramAuthoringPlan(input);
+    const plan = programAuthoringService.buildProgramAuthoringPlan(input);
 
     expect(plan.program).toMatchObject({
       name: 'Synthetic Program',
@@ -171,9 +184,10 @@ describe('buildProgramAuthoringPlan', () => {
       ],
     };
 
-    expect(buildProgramAuthoringPlan(input).milestones[0]?.documents).toEqual(
-      [],
-    );
+    expect(
+      programAuthoringService.buildProgramAuthoringPlan(input).milestones[0]
+        ?.documents,
+    ).toEqual([]);
   });
 
   it('requires at least one milestone without repository provisioning', () => {
@@ -193,7 +207,9 @@ describe('buildProgramAuthoringPlan', () => {
       startAt: '2026-08-10T09:00:00+09:00',
     };
 
-    expect(buildProgramAuthoringPlan(input).program).toMatchObject({
+    expect(
+      programAuthoringService.buildProgramAuthoringPlan(input).program,
+    ).toMatchObject({
       applicationEndAt: new Date('2026-08-15T00:00:00.000Z'),
       startAt: new Date('2026-08-10T00:00:00.000Z'),
     });
@@ -236,7 +252,10 @@ describe('buildProgramAuthoringPlan', () => {
     (_case, endAt) => {
       let thrown: unknown;
       try {
-        buildProgramAuthoringPlan({ ...request(), endAt });
+        programAuthoringService.buildProgramAuthoringPlan({
+          ...request(),
+          endAt,
+        });
       } catch (error: unknown) {
         thrown = error;
       }
@@ -362,6 +381,8 @@ describe('buildProgramAuthoringPlan', () => {
       ],
     };
 
-    expect(() => buildProgramAuthoringPlan(input)).not.toThrow();
+    expect(() =>
+      programAuthoringService.buildProgramAuthoringPlan(input),
+    ).not.toThrow();
   });
 });

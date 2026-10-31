@@ -5,11 +5,7 @@ import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
-import {
-  AuthService,
-  sessionCookieName,
-  issueSessionToken,
-} from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -20,6 +16,9 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
+import { AuthSessionService } from '../auth/auth-session.service';
+
+const authSessionService = new AuthSessionService();
 
 const sessionSecret = new Uint8Array(32).fill(17);
 const ADMIN_ACCESS_ALLOWED_ORIGIN = 'http://frontend.test';
@@ -145,7 +144,7 @@ export class AdminAccessHttpHarness {
   }
 
   private async cookie(githubId: bigint): Promise<string> {
-    return `${sessionCookieName(false)}=${await issueSessionToken(
+    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
       sessionSecret,
       githubId,
       0,

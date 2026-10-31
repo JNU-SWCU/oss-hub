@@ -22,8 +22,12 @@ import {
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
-import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
+import { RepositoryProvisionGithubService } from './repository-provision-github.service';
+import { RepositoryUrlService } from './repository-url.service';
+
+const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 
@@ -39,6 +43,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -65,6 +74,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -101,6 +115,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -133,6 +152,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -170,6 +194,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -193,7 +222,10 @@ describe('RepositoryProvisionWorkerService failure', () => {
       url: PROVISION_REPOSITORY.url,
       nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: 'PUBLIC',
-      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+      description:
+        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+          'synthetic-application-id',
+        ),
     });
     const worker = new RepositoryProvisionWorkerService(
       jobs,
@@ -201,6 +233,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -226,7 +263,10 @@ describe('RepositoryProvisionWorkerService failure', () => {
       url: PROVISION_REPOSITORY.url,
       nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: 'PUBLIC',
-      description: buildRepositoryOwnershipMarker('synthetic-application-id'),
+      description:
+        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+          'synthetic-application-id',
+        ),
     });
     const worker = new RepositoryProvisionWorkerService(
       jobs,
@@ -234,6 +274,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -270,6 +315,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -300,6 +350,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -334,6 +389,11 @@ describe('RepositoryProvisionWorkerService failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -375,6 +435,11 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -413,6 +478,11 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -441,6 +511,11 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -465,6 +540,11 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -505,6 +585,11 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -556,6 +641,11 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -621,6 +711,11 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
@@ -670,6 +765,11 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       github,
       { enrollExternalRepository: jest.fn() },
       new AuditLogMetadataService(),
+      new RepositoryProvisionRulesService(),
+      new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+        new RepositoryProvisionRulesService(),
+      ),
       OPTIONS,
     );
 
