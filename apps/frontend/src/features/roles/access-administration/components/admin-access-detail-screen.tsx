@@ -1,12 +1,18 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { featureKey } from '@/lib/query-keys';
+import { useEffect, useState } from 'react';
+import {
+  skipToken,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
 import {
   fetchAdminAccessHistory,
   parseAdminAccessConflictProjection,
+  type AdminAccessHistory,
+  type AdminAccessHistoryParams,
 } from '../admin-access-api';
 import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
@@ -15,6 +21,7 @@ import {
 } from '../admin-access-detail-api';
 import {
   adminAccessDetailKey,
+  adminAccessHistoryKey,
   invalidateAdminAccess,
   useAdminAccessDetailQuery,
 } from '../queries';
@@ -48,32 +55,52 @@ function AdminAccessDetailScreenForUser({
 }) {
   const client = useQueryClient();
   const query = useAdminAccessDetailQuery(userId);
+  const [historyPage, setHistoryPage] = useState<{
+    readonly source: AdminAccessDetailData;
+    readonly kind: 'staffAccessRequest' | 'login';
+    readonly params: AdminAccessHistoryParams;
+    readonly previousKey: QueryKey;
+  } | null>(null);
+  const selectedHistory =
+    historyPage?.source === query.data ? historyPage : null;
+  const historyKey = adminAccessHistoryKey(
+    userId,
+    query.dataUpdatedAt,
+    selectedHistory?.params ?? null,
+  );
+  const historyQuery = useQuery({
+    queryKey: historyKey,
+    queryFn: selectedHistory
+      ? ({ signal }) =>
+          fetchAdminAccessHistory(userId, selectedHistory.params, signal)
+      : skipToken,
+  });
+  const previousHistoryQuery = useQuery<AdminAccessHistory>({
+    queryKey: selectedHistory?.previousKey ?? historyKey,
+    queryFn: skipToken,
+  });
+  const history =
+    historyQuery.data ?? previousHistoryQuery.data ?? query.data?.history;
   const state: AdminAccessDetailState =
-    query.data !== undefined
-      ? { kind: 'ready', ...query.data }
+    query.data !== undefined && history !== undefined
+      ? { kind: 'ready', ...query.data, history }
       : query.isError
         ? query.error instanceof AdminAccessDetailNotFoundError
           ? { kind: 'not-found' }
           : { kind: 'error' }
         : { kind: 'loading' };
   const retry = () => void query.refetch();
-  const historyLifetime = useRef(new AbortController());
-  useEffect(() => {
-    const controller = new AbortController();
-    historyLifetime.current = controller;
-    return () => controller.abort();
-  }, []);
-  const historyMutation = useMutation({
-    mutationFn: async ({
+  const historyLoading = historyQuery.isFetching;
+  const historyFailure = historyQuery.isError ? selectedHistory : null;
+  const changeHistoryPage = (
+    kind: 'staffAccessRequest' | 'login',
+    page: number,
+  ) => {
+    if (state.kind !== 'ready' || query.data === undefined) return;
+    setHistoryPage({
+      source: query.data,
       kind,
-      page,
-    }: {
-      readonly kind: 'staffAccessRequest' | 'login';
-      readonly page: number;
-    }) => {
-      if (state.kind !== 'ready') return;
-      const lifetimeSignal = historyLifetime.current.signal;
-      const params = {
+      params: {
         staffAccessRequestPage:
           kind === 'staffAccessRequest'
             ? page
@@ -81,30 +108,9 @@ function AdminAccessDetailScreenForUser({
         staffAccessRequestLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
         loginPage: kind === 'login' ? page : state.history.loginHistory.page,
         loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
-      };
-      const history = await client.fetchQuery({
-        queryKey: featureKey('admin-access', 'history', userId, params),
-        queryFn: ({ signal }) =>
-          fetchAdminAccessHistory(userId, params, signal),
-        staleTime: 0,
-      });
-      if (!lifetimeSignal.aborted) {
-        client.setQueryData<AdminAccessDetailData>(
-          adminAccessDetailKey(userId),
-          (current) => (current ? { ...current, history } : current),
-        );
-      }
-    },
-  });
-  const historyLoading = historyMutation.isPending;
-  const historyFailure = historyMutation.isError
-    ? historyMutation.variables
-    : null;
-  const changeHistoryPage = (
-    kind: 'staffAccessRequest' | 'login',
-    page: number,
-  ) => {
-    historyMutation.mutate({ kind, page });
+      },
+      previousKey: historyFailure?.previousKey ?? historyKey,
+    });
   };
 
   const [confirmAction, setConfirmAction] =
@@ -264,11 +270,7 @@ function AdminAccessDetailScreenForUser({
         historyFailure
           ? {
               message: `${historyFailure.kind === 'login' ? '로그인' : '요청'} 이력을 불러오지 못했습니다. 이전 목록은 그대로 남아 있습니다.`,
-              onRetry: () =>
-                void changeHistoryPage(
-                  historyFailure.kind,
-                  historyFailure.page,
-                ),
+              onRetry: () => void historyQuery.refetch(),
             }
           : null
       }
