@@ -3,7 +3,6 @@ import { isRecord } from '@/lib/is-record';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
-  type MemberRankingItem,
   type PublicRankingItem,
   type RankingPage,
   type RankingTimeline,
@@ -82,20 +81,6 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
     return null;
   }
 
-  return {
-    rank: value.rank,
-    githubLogin: value.githubLogin,
-    commitCount: value.commitCount,
-    pullRequestCount: value.pullRequestCount,
-  };
-}
-
-function parseMemberRankingItem(value: unknown): MemberRankingItem | null {
-  const base = parsePublicRankingItem(value);
-  if (base === null || !isRecord(value)) {
-    return null;
-  }
-
   const issueCount = readOptionalCount(value.issueCount);
   const repositoryCount = readOptionalCount(value.repositoryCount);
   const starCount = readOptionalCount(value.starCount);
@@ -109,7 +94,16 @@ function parseMemberRankingItem(value: unknown): MemberRankingItem | null {
     return null;
   }
 
-  return { ...base, issueCount, repositoryCount, starCount, total };
+  return {
+    rank: value.rank,
+    githubLogin: value.githubLogin,
+    commitCount: value.commitCount,
+    pullRequestCount: value.pullRequestCount,
+    issueCount,
+    repositoryCount,
+    starCount,
+    total,
+  };
 }
 
 function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
@@ -216,7 +210,7 @@ export function parseRankingPage(value: unknown): RankingPage {
       return {
         ...envelope,
         viewerClass,
-        items: parseRankingItems(value.items, parseMemberRankingItem),
+        items: parseRankingItems(value.items, parsePublicRankingItem),
       };
     case RANKING_VIEWER_CLASSES.STAFF:
       return {

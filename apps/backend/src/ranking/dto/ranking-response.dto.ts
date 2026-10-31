@@ -11,24 +11,6 @@ class PublicRankingEntryResponseDto {
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
-
-  private constructor(entry: RankingEntry) {
-    this.rank = entry.rank;
-    this.githubLogin = entry.githubLogin;
-    this.commitCount = entry.commitCount;
-    this.pullRequestCount = entry.pullRequestCount;
-  }
-
-  static from(entry: RankingEntry): PublicRankingEntryResponseDto {
-    return new PublicRankingEntryResponseDto(entry);
-  }
-}
-
-class MemberRankingEntryResponseDto {
-  readonly rank: number;
-  readonly githubLogin: string;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
@@ -45,8 +27,8 @@ class MemberRankingEntryResponseDto {
     this.total = entry.total;
   }
 
-  static from(entry: RankingEntry): MemberRankingEntryResponseDto {
-    return new MemberRankingEntryResponseDto(entry);
+  static from(entry: RankingEntry): PublicRankingEntryResponseDto {
+    return new PublicRankingEntryResponseDto(entry);
   }
 }
 
@@ -83,19 +65,14 @@ class StaffRankingEntryResponseDto {
 }
 
 type RankingEntryResponseDto =
-  | PublicRankingEntryResponseDto
-  | MemberRankingEntryResponseDto
-  | StaffRankingEntryResponseDto;
+  PublicRankingEntryResponseDto | StaffRankingEntryResponseDto;
 
 function projectItems(page: RankingPage): readonly RankingEntryResponseDto[] {
   switch (page.viewerClass) {
     case RANKING_VIEWER_CLASSES.PUBLIC:
-      return page.items.map((entry) =>
-        PublicRankingEntryResponseDto.from(entry),
-      );
     case RANKING_VIEWER_CLASSES.MEMBER:
       return page.items.map((entry) =>
-        MemberRankingEntryResponseDto.from(entry),
+        PublicRankingEntryResponseDto.from(entry),
       );
     case RANKING_VIEWER_CLASSES.STAFF:
       return page.items.map((entry) =>

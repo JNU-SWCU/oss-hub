@@ -74,6 +74,10 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+    total: 15,
   });
   expect(page.viewerClass).toBe('public');
   expect(page.nextCycleAt).toBeNull();
@@ -127,19 +131,12 @@ test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    total: 4,
   });
   expect(page.items[0]).not.toHaveProperty('releaseCount');
-  expect(page.items[0]).not.toHaveProperty('total');
-});
-
-test('public 항목에서는 total 을 읽지 않는다 — 합계는 구성원 계층부터다', () => {
-  const base = rankingPage(2026);
-  const page = parseRankingPage({
-    ...base,
-    items: [{ ...base.items[0], total: 99 }],
-  });
-
-  expect(page.items[0]).not.toHaveProperty('total');
 });
 
 test('member 항목은 지표 여덟 칸을 읽고 빠진 지표는 0 으로 떨어뜨린다', () => {
@@ -317,7 +314,7 @@ test('viewerClass 가 public|member|staff 가 아니면 거부한다', () => {
   ).toThrow(RankingResponseError);
 });
 
-test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
+test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
   const base = rankingPage(2026);
   const publicPage = parseRankingPage(base);
   const staffPage = parseRankingPage({
@@ -329,8 +326,12 @@ test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유�
   expect(Object.keys(publicPage.items[0] ?? {}).sort()).toEqual([
     'commitCount',
     'githubLogin',
+    'issueCount',
     'pullRequestCount',
     'rank',
+    'repositoryCount',
+    'starCount',
+    'total',
   ]);
 
   for (const identity of ['name', 'department', 'displayName']) {
