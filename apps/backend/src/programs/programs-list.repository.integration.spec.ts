@@ -593,8 +593,29 @@ describe('ProgramsRepository list ordering integration', () => {
     ]);
   });
 
-  it('returns no ended years when the public catalog is empty', async () => {
-    await expect(service.endedYears(NOW)).resolves.toEqual([]);
+  it('returns no ended years when no program has ended by the requested time', async () => {
+    await prisma.program.create({
+      data: {
+        id: `${TEST_PREFIX}not-ended-yet`,
+        name: 'Not ended yet',
+        organizer: 'OSS Hub',
+        trackType: 'CURRICULAR',
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'capstone-v1',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-08-02T00:00:00.000Z'),
+        startAt: new Date('2026-08-03T00:00:00.000Z'),
+        endAt: new Date('2026-12-31T00:00:00.000Z'),
+        teamMinSize: 1,
+        teamMaxSize: 4,
+        description: 'Program that has not ended at the requested time',
+      },
+    });
+
+    await expect(
+      service.endedYears(new Date('1999-12-31T00:00:00.000Z')),
+    ).resolves.toEqual([]);
   });
 
   describe('ended program years and current status', () => {
