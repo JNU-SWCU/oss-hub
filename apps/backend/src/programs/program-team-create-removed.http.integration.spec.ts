@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProgramCategory } from '@prisma/client';
@@ -49,7 +50,10 @@ async function cleanup(): Promise<void> {
 beforeAll(async () => {
   await prisma.$connect();
   const service = new ProgramTeamsService(
-    new ProgramTeamsRepository(prisma),
+    new ProgramTeamsRepository(
+      prisma,
+      new ProgramTeamRepositoryEvidenceRepository(prisma),
+    ),
     new AuditLogService(
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),

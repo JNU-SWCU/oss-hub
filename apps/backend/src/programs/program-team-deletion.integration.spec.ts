@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
@@ -70,7 +71,10 @@ const auditLog = new AuditLogService(
   new AuditLogMetadataService(),
 );
 const service = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ),
   auditLog,
   deletionRepository,
   new AuditLogMetadataService(),

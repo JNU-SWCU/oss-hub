@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -19,7 +20,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),

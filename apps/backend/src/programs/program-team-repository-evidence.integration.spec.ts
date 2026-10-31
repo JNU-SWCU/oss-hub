@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -24,7 +25,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const teamsService = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
@@ -180,10 +184,10 @@ it('projects only linked repository facts inside the program window while retain
     ],
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    programId,
-    teamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ).findStaffTeamDetail(programId, teamId);
 
   expect(detail?.repositoryContributions?.members).toEqual([
     {
@@ -299,7 +303,10 @@ it('shows the outsider totals only while they were counted for this program wind
       observedAt: new Date('2026-09-01T00:00:00Z'),
     },
   });
-  const teams = new ProgramTeamsRepository(prisma);
+  const teams = new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  );
   const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
 
   expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
@@ -397,10 +404,10 @@ it('reads contributions of a program that never set an end date', async () => {
     },
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    scopedProgramId,
-    scopedTeamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(detail?.repositoryContributions).toMatchObject({
     window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
@@ -510,10 +517,10 @@ it('counts issues for team members, so an issue-only member has observations', a
     ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    scopedProgramId,
-    scopedTeamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(
     [...(detail?.repositoryContributions?.members ?? [])].sort((a, b) =>

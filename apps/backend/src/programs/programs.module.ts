@@ -35,6 +35,7 @@ import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
@@ -188,6 +189,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     ProgramLifecycleRepository,
     ProgramTeamsService,
     ProgramTeamsRepository,
+    ProgramTeamRepositoryEvidenceRepository,
     ProgramTeamDeletionRepository,
     BoardService,
     BoardRepository,

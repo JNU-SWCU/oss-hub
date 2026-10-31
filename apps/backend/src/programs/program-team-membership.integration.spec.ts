@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   ApplicationStatus,
@@ -66,7 +67,10 @@ const JOINED_FIRST = new Date('2026-08-02T00:00:00.000Z');
 const JOINED_SECOND = new Date('2026-08-03T00:00:00.000Z');
 
 const prisma = new PrismaService();
-const repository = new ProgramTeamsRepository(prisma);
+const repository = new ProgramTeamsRepository(
+  prisma,
+  new ProgramTeamRepositoryEvidenceRepository(prisma),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),

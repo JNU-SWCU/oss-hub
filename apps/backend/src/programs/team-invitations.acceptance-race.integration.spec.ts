@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -147,6 +148,9 @@ function startPausedLeaderLeave(): {
   const release = deferred();
   const teams = new ProgramTeamsRepository(
     pidCapturingPrisma(prisma, leaveBackend.capture),
+    new ProgramTeamRepositoryEvidenceRepository(
+      pidCapturingPrisma(prisma, leaveBackend.capture),
+    ),
   );
   const leaving = trackPaused(
     teams.leave(PROGRAM_ID, LEADER_ID, async () => {

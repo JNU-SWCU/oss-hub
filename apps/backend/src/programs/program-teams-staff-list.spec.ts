@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { StaffProgramTeamResponseDto } from './dto/program-team-response.dto';
@@ -222,7 +223,10 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
     const findMany = jest.fn().mockResolvedValue(rows);
     const prisma = { team: { findMany } };
     return {
-      repository: new ProgramTeamsRepository(prisma as never),
+      repository: new ProgramTeamsRepository(
+        prisma as never,
+        new ProgramTeamRepositoryEvidenceRepository(prisma as never),
+      ),
       findMany,
     };
   }

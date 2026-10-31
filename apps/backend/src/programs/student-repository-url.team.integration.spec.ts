@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -129,6 +130,7 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
   });
   const history = await new ProgramTeamsRepository(
     prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
   ).findStaffRepositoryUrlHistory(programId, teamId);
   expect(history?.rows).toMatchObject([
     {
