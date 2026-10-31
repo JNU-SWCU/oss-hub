@@ -13,7 +13,7 @@ import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { V1_APPLICATION_FIELDS } from './program-rules.service';
+import { V1_APPLICATION_FIELDS } from './program-templates.service';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;

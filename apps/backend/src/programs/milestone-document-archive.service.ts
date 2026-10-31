@@ -21,7 +21,8 @@ import {
 } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { SubmissionStatus } from '@prisma/client';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
@@ -268,7 +269,8 @@ export class MilestoneDocumentArchiveService {
     private readonly storage: ObjectStoragePort,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
+    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
     private readonly downloadResponseService: DownloadResponseService,
   ) {}
 
@@ -424,7 +426,7 @@ export class MilestoneDocumentArchiveService {
     const fileName =
       scope.kind === 'MILESTONE' && milestone !== undefined
         ? this.archiveFileName(milestone.name, milestone.dueAt)
-        : `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
+        : `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
     return this.createArchive(documents, plan, fileName, now);
   }
 
@@ -676,7 +678,7 @@ export class MilestoneDocumentArchiveService {
   ): MilestoneDocumentArchiveOmission | null {
     const contentUnavailable =
       submission.content !== null &&
-      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
         submission.content,
       ) === null;
     const fileUnavailable =
@@ -704,11 +706,13 @@ export class MilestoneDocumentArchiveService {
     const entries: MilestoneDocumentArchiveEntry[] = [];
     if (submission.file !== null) {
       const fileName =
-        this.milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
-          teamName: team.teamName,
-          documentName: document.name,
-          originalFileName: submission.file.originalFileName,
-        });
+        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
+          {
+            teamName: team.teamName,
+            documentName: document.name,
+            originalFileName: submission.file.originalFileName,
+          },
+        );
       entries.push({
         kind: 'STORED_FILE',
         path: `${prefix}${fileName}`,
@@ -719,13 +723,13 @@ export class MilestoneDocumentArchiveService {
     }
 
     const content =
-      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
         submission.content,
       );
     if (content !== null) {
       entries.push({
         kind: 'INLINE_TEXT',
-        path: `${prefix}${this.milestoneDocumentRulesService.milestoneDocumentTextEntryFileName(
+        path: `${prefix}${this.milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName(
           {
             teamName: team.teamName,
             documentName: document.name,
@@ -740,7 +744,7 @@ export class MilestoneDocumentArchiveService {
 
   private archiveFolderPath(name: string): string {
     const folder =
-      this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         name,
       );
 
@@ -757,7 +761,7 @@ export class MilestoneDocumentArchiveService {
       month: '2-digit',
       day: '2-digit',
     }).format(dueAt);
-    return `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
+    return `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
   }
 
   milestoneDocumentArchiveManifestCsv(

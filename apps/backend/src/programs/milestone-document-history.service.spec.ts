@@ -1,3 +1,6 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
@@ -5,9 +8,6 @@ import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
@@ -37,8 +37,11 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
@@ -78,8 +81,11 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     await expect(
       new MilestoneDocumentsService(
         repository,
-        new MilestoneDocumentRulesService(new ProgramRulesService()),
-        new SubmissionFileRulesService(),
+        new MilestoneDocumentSubmissionWindowService(
+          new ProgramScheduleService(),
+        ),
+        new MilestoneDocumentCollectionService({} as never),
+        new ProgramScheduleService(),
         new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
       ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
@@ -141,8 +147,11 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
@@ -169,8 +178,11 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
@@ -196,8 +208,11 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: null,
         }),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 

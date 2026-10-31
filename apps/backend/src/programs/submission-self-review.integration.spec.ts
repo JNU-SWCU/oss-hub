@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
@@ -19,11 +20,8 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -39,7 +37,6 @@ const documentReviews = new MilestoneDocumentReviewsService(
     new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     new MilestoneDocumentCollectionReadRepository(fixture.prisma),
   ),
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 const legacyReviews = new SubmissionReviewsService(
@@ -52,7 +49,7 @@ const legacyReviews = new SubmissionReviewsService(
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
 );
 const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];

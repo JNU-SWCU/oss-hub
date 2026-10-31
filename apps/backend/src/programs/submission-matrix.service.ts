@@ -15,7 +15,7 @@ import {
 } from './submissions-error-code.error';
 import { type SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
   readonly page: number;
@@ -68,7 +68,7 @@ export class SubmissionMatrixService {
   constructor(
     @Inject(SubmissionMatrixRepository)
     private readonly repository: SubmissionMatrixRepositoryPort,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
   ) {}
 
   matrixQueryFromRequest(
@@ -181,7 +181,7 @@ export class SubmissionMatrixService {
           index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
         ),
         deliveryStatus:
-          this.milestoneDocumentRulesService.documentDeliveryStatus({
+          this.milestoneDocumentCollectionService.documentDeliveryStatus({
             dueAt: milestone.dueAt,
             requiredFirstSubmissions: milestone.requiredDocumentIds.map(
               (documentId) =>

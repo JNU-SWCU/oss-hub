@@ -1,4 +1,3 @@
-import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
 import {
   ApplicationStatus,
   CollectionRepositoryPresence,
@@ -42,7 +41,6 @@ import { CollectionIncrementalRepository } from './collection-incremental.reposi
 import { RepositoryOwnEnrollmentService } from './repositories.service';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 import { RepositoryProvisionEventService } from './repository-provision-event.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
@@ -65,19 +63,15 @@ const outbox = new RepositoryOutboxConsumerService(
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
   new RepositoryProvisionEventService(),
 );
-const jobs = new RepositoryProvisionJobRepository(
-  prisma,
-  new RepositoryProvisionStateHelpersRepository(),
-);
+const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateService(
   new RepositoryProvisionStateRepository(
     prisma,
     new RepositoryProvisionGenerationRepository(),
-    new RepositoryProvisionStateHelpersRepository(),
+    new RepositoryProvisionJobRepository(prisma),
   ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
-  new RepositoryProvisionStateHelpersRepository(),
 );
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-worker-applicant-id';
@@ -274,11 +268,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-a', NOW);
@@ -375,11 +365,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -494,11 +480,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await expect(
       worker.runNext('worker-r2', new Date(r2At.getTime() + 2)),
@@ -569,11 +551,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-current-relink', NOW);
@@ -641,11 +619,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-new-external', NOW);
@@ -700,11 +674,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-own-managed', NOW);
@@ -762,11 +732,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-own-org-create', NOW);
@@ -831,11 +797,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-b', NOW);
 
@@ -878,11 +840,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-cap-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
@@ -919,11 +877,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-exhaust-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
@@ -983,11 +937,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       github as unknown as GithubAppClient,
       ownEnrollment(),
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('provision-worker-own', NOW);
@@ -1098,11 +1048,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(

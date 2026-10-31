@@ -19,7 +19,20 @@ import {
   type ProgramAuthoringUploadFile,
   type ProgramAuthoringUploadResponse,
 } from './program-authoring-upload.error';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import {
+  SUBMISSION_UPLOAD_MAX_BYTES,
+  PROGRAM_COVER_MAX_BYTES,
+} from './submission-upload.config';
+import type { ProgramExternalCover } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
+import { ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import { DomainException } from '../platform/error-code.error';
+import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { randomUUID, createHash } from 'node:crypto';
+import { extname } from 'node:path';
 
 const PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 
@@ -36,10 +49,175 @@ export class ProgramAuthoringUploadService {
     private readonly repository: ProgramAuthoringUploadStore,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ProgramAuthoringUploadStorage,
-    private readonly programUploadRulesService: ProgramUploadRulesService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
+    private readonly noticeClient: ProgramNoticeFetchClient,
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  createProgramAuthoringObjectKey(): string {
+    return `program-authoring/${randomUUID()}`;
+  }
+
+  async validateProgramAuthoringUpload(
+    file: ProgramAuthoringUploadFile | undefined,
+  ): Promise<ValidatedProgramAuthoringUpload> {
+    if (
+      file === undefined ||
+      !Buffer.isBuffer(file.buffer) ||
+      file.buffer.byteLength === 0 ||
+      file.size !== file.buffer.byteLength
+    ) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
+      );
+    }
+    if (file.buffer.byteLength > PROGRAM_AUTHORING_UPLOAD_MAX_BYTES) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
+      );
+    }
+
+    const originalFileName =
+      this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
+        this.submissionFileAdmissionService.normalizeMultipartFileName(
+          file.originalname,
+        ),
+      );
+    if (
+      !this.submissionFileAdmissionService.hasValidSubmissionTemplateSignature(
+        file.buffer,
+        originalFileName,
+      )
+    ) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
+      );
+    }
+
+    if (
+      originalFileName.toLowerCase().endsWith('.zip') &&
+      (await this.submissionFileAdmissionService.inspectSubmissionZipMetadata(
+        file.buffer,
+      )) !== null
+    ) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
+      );
+    }
+
+    return {
+      body: file.buffer,
+      originalFileName,
+      mimeType: file.mimetype.toLowerCase(),
+      sizeBytes: file.buffer.byteLength,
+      sha256: createHash('sha256').update(file.buffer).digest('hex'),
+    };
+  }
+
+  createProgramCoverObjectKey(): string {
+    return `${PROGRAM_COVER_STORAGE_PREFIX}${randomUUID()}`;
+  }
+
+  validateProgramCoverUpload(
+    file: ProgramAuthoringUploadFile | undefined,
+  ): ValidatedProgramAuthoringUpload {
+    if (
+      file === undefined ||
+      !Buffer.isBuffer(file.buffer) ||
+      file.buffer.byteLength === 0 ||
+      file.size !== file.buffer.byteLength
+    ) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
+      );
+    }
+    if (file.size > PROGRAM_COVER_MAX_BYTES) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
+      );
+    }
+    const originalFileName =
+      this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
+        this.submissionFileAdmissionService.normalizeMultipartFileName(
+          file.originalname,
+        ),
+      );
+    const extension = extname(originalFileName).toLowerCase();
+    const mimeType =
+      extension === '.png'
+        ? 'image/png'
+        : extension === '.jpg' || extension === '.jpeg'
+          ? 'image/jpeg'
+          : null;
+    if (
+      mimeType === null ||
+      file.mimetype.toLowerCase() !== mimeType ||
+      !this.submissionFileAdmissionService.hasValidSubmissionTemplateSignature(
+        file.buffer,
+        originalFileName,
+      )
+    ) {
+      throw new ProgramAuthoringUploadError(
+        PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
+      );
+    }
+    return {
+      body: file.buffer,
+      originalFileName,
+      mimeType,
+      sizeBytes: file.size,
+      sha256: createHash('sha256').update(file.buffer).digest('hex'),
+    };
+  }
+
+  validateProgramCoverChoice(input: {
+    readonly coverUploadId?: string | null;
+    readonly externalCover?: ProgramExternalCover | null;
+  }): ProgramExternalCover | null | undefined {
+    if (
+      input.coverUploadId !== undefined &&
+      input.externalCover !== undefined
+    ) {
+      throw new ProgramAuthoringValidationError([
+        { path: 'externalCover', code: 'CONFLICTING_COVER_CHOICES' },
+      ]);
+    }
+    if (input.externalCover == null) return input.externalCover;
+    try {
+      const source = this.noticeClient.parseProgramNoticeUrl(
+        input.externalCover.sourceUrl,
+      );
+      const image = this.noticeClient.parseProgramNoticeImageUrl(
+        input.externalCover.imageUrl,
+        source,
+      );
+      if (image !== null)
+        return { sourceUrl: source.href, imageUrl: image.href };
+    } catch (error) {
+      if (!(error instanceof DomainException)) throw error;
+    }
+    throw new ProgramAuthoringValidationError([
+      { path: 'externalCover', code: 'INVALID_EXTERNAL_COVER' },
+    ]);
+  }
+
+  assertProgramTemplateUpload(upload: ProgramAuthoringUploadToken): void {
+    if (!upload.storageKey.startsWith('program-authoring/')) {
+      throw new ProgramAuthoringUploadTokenError('WRONG_PURPOSE', [upload.id]);
+    }
+  }
+
+  assertProgramCoverUpload(upload: ProgramAuthoringUploadToken): void {
+    if (
+      !upload.storageKey.startsWith(PROGRAM_COVER_STORAGE_PREFIX) ||
+      !['image/jpeg', 'image/png'].includes(upload.mimeType) ||
+      upload.sizeBytes < 1 ||
+      upload.sizeBytes > PROGRAM_COVER_MAX_BYTES
+    ) {
+      throw new ProgramAuthoringUploadTokenError('WRONG_PURPOSE', [upload.id]);
+    }
+  }
 
   async uploadFromRequest(
     actorId: string,
@@ -80,10 +258,9 @@ export class ProgramAuthoringUploadService {
         PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
       );
     }
-    const validated =
-      await this.programUploadRulesService.validateProgramAuthoringUpload(file);
+    const validated = await this.validateProgramAuthoringUpload(file);
     return this.storeUpload(actorId, validated, () =>
-      this.programUploadRulesService.createProgramAuthoringObjectKey(),
+      this.createProgramAuthoringObjectKey(),
     );
   }
 
@@ -98,8 +275,8 @@ export class ProgramAuthoringUploadService {
     }
     return this.storeUpload(
       actorId,
-      this.programUploadRulesService.validateProgramCoverUpload(file),
-      () => this.programUploadRulesService.createProgramCoverObjectKey(),
+      this.validateProgramCoverUpload(file),
+      () => this.createProgramCoverObjectKey(),
     );
   }
 
@@ -201,3 +378,5 @@ function uploadHttpError(error: unknown): Error {
       return new BadRequestException('Upload is invalid.');
   }
 }
+
+export const PROGRAM_AUTHORING_UPLOAD_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;

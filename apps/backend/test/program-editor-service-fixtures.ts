@@ -1,3 +1,6 @@
+import { ProgramScheduleService } from '../src/programs/program-schedule.service';
+import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
+import { ProgramAuthoringUploadService } from '../src/programs/program-authoring-upload.service';
 import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import {
   AccountStatus,
@@ -14,9 +17,6 @@ import type {
   ProgramEditorTransactionStore,
 } from '../src/programs/program-editor.repository';
 import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
-import { ProgramRulesService } from '../src/programs/program-rules.service';
-import { ProgramUploadRulesService } from '../src/programs/program-upload-rules.service';
-import { SubmissionFileRulesService } from '../src/programs/submission-file-rules.service';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
@@ -115,12 +115,13 @@ export function createProgramEditorServiceHarness(): {
     service: new ProgramEditorService(
       repository,
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
-      new ProgramUploadRulesService(
-        new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new ProgramAuthoringUploadService(
+        {} as never,
+        {} as never,
+        new SubmissionFileAdmissionService(),
         new ProgramNoticeFetchClient(),
       ),
-      new SubmissionFileRulesService(),
     ),
     store,
     withTransaction,

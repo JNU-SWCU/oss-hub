@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
@@ -6,8 +7,6 @@ import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   type ProgramAuthoringUploadFile,
 } from './program-authoring-upload.error';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-08-10T00:00:00.000Z');
 const EXPIRES_AT = new Date('2026-08-11T00:00:00.000Z');
@@ -52,10 +51,8 @@ function setup() {
     service: new ProgramAuthoringUploadService(
       repository,
       storage,
-      new ProgramUploadRulesService(
-        new SubmissionFileRulesService(),
-        new ProgramNoticeFetchClient(),
-      ),
+      new SubmissionFileAdmissionService(),
+      new ProgramNoticeFetchClient(),
       () => NOW,
     ),
   };

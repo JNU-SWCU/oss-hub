@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionInputService } from './submission-input.service';
 import {
   ApplicationStatus,
@@ -12,8 +14,6 @@ import type {
 } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 import { type ChecklistMilestone } from './submissions.repository';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const githubId = 4242n;
 
@@ -63,8 +63,8 @@ function buildService(
   return {
     service: new SubmissionsService(
       repository,
-      new ProgramRulesService(),
-      new SubmissionFileRulesService(),
+      new ProgramScheduleService(),
+      new SubmissionFileAdmissionService(),
       new SubmissionInputService(),
     ),
     findChecklistApplication,

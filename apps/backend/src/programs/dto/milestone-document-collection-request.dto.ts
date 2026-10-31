@@ -10,8 +10,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { type DocumentDeliveryStatus } from '../milestone-document-collection-read.repository';
-import type { MilestoneDocumentCollectionFilter } from '../milestone-document-rules.service';
-import { MILESTONE_DOCUMENT_COLLECTION_FILTERS } from '../milestone-document-rules.service';
+import type { MilestoneDocumentCollectionFilter } from '../milestone-document-collection.service';
+import { MILESTONE_DOCUMENT_COLLECTION_FILTERS } from '../milestone-document-collection.service';
 const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;
 
 export class MilestoneDocumentCollectionRequestDto {

@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -40,7 +41,6 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -136,7 +136,7 @@ export class PublicExposurePersonaHttpHarness {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
 

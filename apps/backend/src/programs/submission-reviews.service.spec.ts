@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -20,7 +21,6 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import type { RepositoryPublishEligibility } from '../github/repository-publish.config';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
@@ -98,7 +98,7 @@ describe('SubmissionReviewsService.review', () => {
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new SubmissionFileRulesService(),
+        new SubmissionFileAdmissionService(),
       );
 
       await expect(
@@ -137,7 +137,7 @@ describe('SubmissionReviewsService.review', () => {
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new SubmissionFileRulesService(),
+        new SubmissionFileAdmissionService(),
       );
 
       const result = await service.review(
@@ -184,7 +184,7 @@ describe('SubmissionReviewsService.review', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const review = service.review('reviewer-1', 'submission-1', {
@@ -211,7 +211,7 @@ describe('SubmissionReviewsService.review', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const review = service.review('reviewer-1', 'submission-1', {
@@ -253,7 +253,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const result = await service.publishRepository(
@@ -292,7 +292,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -327,7 +327,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -362,7 +362,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -398,7 +398,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -433,7 +433,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     await expect(

@@ -22,8 +22,9 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { ProgramsModule } from './programs.module';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 describe('ProgramsModule milestone documents', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -77,8 +78,9 @@ describe('ProgramsModule milestone documents', () => {
       MilestoneDocumentsRepository,
       Object,
       SubmissionFilesService,
-      MilestoneDocumentRulesService,
-      SubmissionFileRulesService,
+      MilestoneDocumentSubmissionWindowService,
+      MilestoneDocumentFileNameService,
+      SubmissionFileAdmissionService,
       DownloadResponseService,
     ]);
   });

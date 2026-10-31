@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -8,7 +10,6 @@ import { ProgramsService } from './programs.service';
 import { ProgramsRepository } from './programs.repository';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,7 +29,8 @@ const service = new ProgramsService(
   repository,
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
   Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 
@@ -591,12 +593,34 @@ describe('ProgramsRepository list ordering integration', () => {
     ]);
   });
 
-  it('returns no ended years when the public catalog is empty', async () => {
-    await expect(service.endedYears(NOW)).resolves.toEqual([]);
-  });
-
   describe('ended program years and current status', () => {
     const endedNow = new Date('2028-01-01T00:00:00.000Z');
+    const yearProgram = (fixture: {
+      readonly id: string;
+      readonly endAt: string;
+      readonly lifecycle?: 'ARCHIVED';
+      readonly applicationStartAt?: string;
+      readonly applicationEndAt?: string;
+    }) => ({
+      organizer: 'OSS Hub',
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date(
+        fixture.applicationStartAt ?? '2025-01-01T00:00:00.000Z',
+      ),
+      applicationEndAt: new Date(
+        fixture.applicationEndAt ?? '2025-02-01T00:00:00.000Z',
+      ),
+      startAt: new Date('2025-03-01T00:00:00.000Z'),
+      teamMinSize: 1,
+      teamMaxSize: 4,
+      description: 'Program year fixture',
+      lifecycle: fixture.lifecycle ?? ('PUBLISHED' as const),
+      id: `${TEST_PREFIX}${fixture.id}`,
+      name: `YearFixture ${fixture.id}`,
+      endAt: new Date(fixture.endAt),
+    });
 
     beforeEach(async () => {
       await prisma.program.createMany({
@@ -622,26 +646,7 @@ describe('ProgramsRepository list ordering integration', () => {
             applicationEndAt: '2028-03-01T00:00:00.000Z',
           },
           { id: 'exact-now', endAt: endedNow.toISOString() },
-        ].map((fixture) => ({
-          organizer: 'OSS Hub',
-          category: ProgramCategory.BASIC,
-          applicationTemplateKey: 'basic',
-          applicationTemplateVersion: 1,
-          applicationStartAt: new Date(
-            fixture.applicationStartAt ?? '2025-01-01T00:00:00.000Z',
-          ),
-          applicationEndAt: new Date(
-            fixture.applicationEndAt ?? '2025-02-01T00:00:00.000Z',
-          ),
-          startAt: new Date('2025-03-01T00:00:00.000Z'),
-          teamMinSize: 1,
-          teamMaxSize: 4,
-          description: 'Program year fixture',
-          lifecycle: fixture.lifecycle ?? 'PUBLISHED',
-          id: `${TEST_PREFIX}${fixture.id}`,
-          name: `YearFixture ${fixture.id}`,
-          endAt: new Date(fixture.endAt),
-        })),
+        ].map(yearProgram),
       });
     });
 
@@ -699,19 +704,62 @@ describe('ProgramsRepository list ordering integration', () => {
       },
     );
 
-    it('returns distinct descending Seoul years including archived programs only from the ended catalog', async () => {
-      await expect(service.endedYears(endedNow)).resolves.toEqual([
-        2029, 2027, 2026,
-      ]);
-    });
+    describe('selectable years for rows in this file', () => {
+      const queryNow = new Date('2085-01-01T00:00:00.000Z');
+      const ownYears = async () =>
+        (await service.endedYears(queryNow)).filter(
+          (year) => year >= 2081 && year <= 2087,
+        );
 
-    it('excludes the archived undecided end date from selectable years', async () => {
-      await prisma.program.update({
-        where: { id: `${TEST_PREFIX}archived` },
-        data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
+      beforeEach(async () => {
+        await prisma.program.createMany({
+          data: [
+            { id: 'year-2081', endAt: '2081-12-31T14:59:59.999Z' },
+            { id: 'year-2082-a', endAt: '2081-12-31T15:00:00.000Z' },
+            { id: 'year-2082-b', endAt: '2081-12-31T15:30:00.000Z' },
+            {
+              id: 'year-archived',
+              endAt: '2087-06-01T00:00:00.000Z',
+              lifecycle: 'ARCHIVED' as const,
+            },
+            {
+              id: 'year-recruiting',
+              endAt: '2086-06-01T00:00:00.000Z',
+              applicationEndAt: '2085-02-01T00:00:00.000Z',
+            },
+            { id: 'year-in-progress', endAt: '2086-06-01T00:00:00.000Z' },
+            {
+              id: 'year-upcoming',
+              endAt: '2086-06-01T00:00:00.000Z',
+              applicationStartAt: '2085-02-01T00:00:00.000Z',
+              applicationEndAt: '2085-03-01T00:00:00.000Z',
+            },
+            { id: 'year-exact-now', endAt: queryNow.toISOString() },
+          ].map(yearProgram),
+        });
       });
 
-      await expect(service.endedYears(endedNow)).resolves.toEqual([2027, 2026]);
+      it('leaves out years of programs that have not ended by the requested time', async () => {
+        const years = await ownYears();
+
+        expect(years).not.toContain(2086);
+        expect(years).not.toContain(2085);
+      });
+
+      it('returns distinct descending Seoul years including archived programs', async () => {
+        await expect(ownYears()).resolves.toEqual([2087, 2082, 2081]);
+      });
+
+      it('excludes the archived undecided end date from selectable years', async () => {
+        await prisma.program.update({
+          where: { id: `${TEST_PREFIX}year-archived` },
+          data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
+        });
+
+        const years = await service.endedYears(queryNow);
+        expect(years.filter((year) => year > 2100)).toEqual([]);
+        await expect(ownYears()).resolves.toEqual([2082, 2081]);
+      });
     });
 
     it('keeps recruiting, upcoming, in-progress and the exact end boundary in current', async () => {

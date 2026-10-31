@@ -16,9 +16,10 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { AuthSessionService } from '../platform/auth-session.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -73,9 +74,10 @@ describe('authenticated milestone document list filename contract', () => {
         { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,
-        MilestoneDocumentRulesService,
-        ProgramRulesService,
-        SubmissionFileRulesService,
+        MilestoneDocumentFileNameService,
+        MilestoneDocumentSubmissionWindowService,
+        ProgramScheduleService,
+        SubmissionFileAdmissionService,
         AuthSessionService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         {

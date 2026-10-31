@@ -6,7 +6,6 @@ import type { GithubAppClient } from './github-app.client';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
-import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 
 function githubMock(): jest.Mocked<
   Pick<GithubAppClient, 'findRepository' | 'findPublicRepository'>
@@ -33,10 +32,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     });
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -56,10 +52,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     });
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -71,10 +64,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -96,10 +86,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     });
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -111,10 +98,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -132,10 +116,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(service.validate(malformed)).resolves.toEqual({
@@ -153,10 +134,7 @@ describe('OwnRepositoryUrlValidationService', () => {
     );
     const service = new OwnRepositoryUrlValidationService(
       github as unknown as GithubAppClient,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(

@@ -1,3 +1,4 @@
+import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { EventEmitter, once } from 'node:events';
@@ -11,7 +12,6 @@ import {
   type CreatePendingSubmissionFileInput,
   SubmissionFilesRepository,
 } from './submission-files.repository';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -52,7 +52,7 @@ function pendingInput(
   return {
     ...pendingRow(suffix, sizeBytes),
     resolveExpiresAt: (programEndAt: Date) =>
-      new SubmissionFileRulesService().addOneCalendarYear(programEndAt),
+      new ProgramScheduleService().addOneCalendarYear(programEndAt),
   };
 }
 

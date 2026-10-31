@@ -14,6 +14,7 @@ import {
   injectableRoleClass,
   serviceExports,
 } from './module-exports.mjs';
+import { noGenericRoleFileNames } from './no-generic-role-file-names.mjs';
 import { requestDtoNoMethods } from './request-dto-no-methods.mjs';
 import { thinController } from './thin-controller.mjs';
 
@@ -642,6 +643,7 @@ export async function createRailsConfig(rootDir) {
             'config-exports': configExports,
             'service-exports': serviceExports,
             'injectable-role-class': injectableRoleClass,
+            'no-generic-role-file-names': noGenericRoleFileNames,
             'request-dto-no-methods': requestDtoNoMethods,
             'thin-controller': thinController,
             'types-only': typesOnly,
@@ -882,7 +884,10 @@ export async function createRailsConfig(rootDir) {
         'src/**/*.guard.ts',
         'src/**/*.interceptor.ts',
       ],
-      rules: { 'architecture/injectable-role-class': 'error' },
+      rules: {
+        'architecture/injectable-role-class': 'error',
+        'architecture/no-generic-role-file-names': 'error',
+      },
     },
     {
       files: ['src/**/*.controller.ts'],

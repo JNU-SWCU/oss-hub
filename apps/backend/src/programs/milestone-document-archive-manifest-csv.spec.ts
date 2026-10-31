@@ -1,3 +1,5 @@
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { DownloadResponseService } from './download-response.service';
 import {
   type MilestoneDocumentArchiveCell,
@@ -9,14 +11,13 @@ import {
   type MilestoneDocumentArchiveDocument,
   type MilestoneDocumentArchiveTeam,
 } from './milestone-document-archive.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
   undefined as never,
   undefined as never,
   undefined as never,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new MilestoneDocumentFileNameService(),
   new DownloadResponseService(),
 );
 

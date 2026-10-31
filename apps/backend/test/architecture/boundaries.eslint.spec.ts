@@ -11,6 +11,7 @@ const exportGrammarRules: ReadonlySet<string> = new Set([
   repositoryExportsRule,
   'architecture/service-exports',
   'architecture/config-exports',
+  'architecture/no-generic-role-file-names',
 ]);
 const layers = [
   'controller',

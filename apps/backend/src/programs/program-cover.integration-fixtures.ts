@@ -1,3 +1,7 @@
+import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
@@ -15,9 +19,6 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
@@ -36,12 +37,13 @@ export const editor = new ProgramEditorService(
     ),
   ),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(
-    new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
-  new SubmissionFileRulesService(),
 );
 export const publicCovers = new ProgramCoverRepository(
   prisma,
@@ -120,9 +122,17 @@ beforeAll(async () => {
       ProgramAuthoringService,
       ProgramAuthoringRepository,
       AuditLogMetadataService,
-      ProgramRulesService,
-      ProgramUploadRulesService,
-      SubmissionFileRulesService,
+      ProgramScheduleService,
+      ProgramTemplatesService,
+      {
+        provide: ProgramAuthoringUploadService,
+        useValue: new ProgramAuthoringUploadService(
+          {} as never,
+          {} as never,
+          new SubmissionFileAdmissionService(),
+          new ProgramNoticeFetchClient(),
+        ),
+      },
       { provide: PrismaService, useValue: prisma },
       { provide: AuditLogService, useValue: { record } },
     ],

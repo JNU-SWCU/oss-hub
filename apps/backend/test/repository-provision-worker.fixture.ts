@@ -1,19 +1,22 @@
 import {
+  type ProvisionedRepository,
+  type RepositoryInvitationWork,
+  type RepositoryProvisionContext,
+  type RepositoryProvisionStateStore,
+} from '../src/github/repository-provision-state.repository';
+import { RepositoryProvisionGithubService } from '../src/github/repository-provision-github.service';
+import { RepositoryUrlService } from '../src/github/repository-url.service';
+import {
   ApplicationStatus,
   RepositoryInvitationStatus,
   RepositoryVisibility,
 } from '@prisma/client';
 import type { GithubAppClient } from '../src/github/github-app.client';
 import type { RepositoryProvisionJobRepository } from '../src/github/repository-provision-job.repository';
-import {
-  type ProvisionedRepository,
-  type RepositoryInvitationWork,
-  type RepositoryProvisionContext,
-  type RepositoryProvisionStateStore,
-} from '../src/github/repository-provision-state-helpers.repository';
-import { RepositoryProvisionRulesService } from '../src/github/repository-provision-rules.service';
 
-const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
+const repositoryProvisionGithubService = new RepositoryProvisionGithubService(
+  new RepositoryUrlService(),
+);
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -167,7 +170,7 @@ export function githubClientMock(): jest.Mocked<
       url: PROVISION_REPOSITORY.url,
       visibility: PROVISION_REPOSITORY.visibility,
       description:
-        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+        repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
           'synthetic-application-id',
         ),
     }),

@@ -1,4 +1,3 @@
-import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
 import {
   ApplicationStatus,
   MemberKind,
@@ -22,10 +21,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new RepositoryProvisionJobRepository(
-  prisma,
-  new RepositoryProvisionStateHelpersRepository(),
-);
+const repository = new RepositoryProvisionJobRepository(prisma);
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const LEASE_MS = 5 * 60_000;
 const APPLICANT_ID = 'synthetic-provision-job-applicant';

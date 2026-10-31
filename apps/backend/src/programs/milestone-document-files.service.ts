@@ -18,8 +18,9 @@ import {
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 export interface UploadedMilestoneDocumentFileResponse {
   readonly fileId: string;
@@ -67,8 +68,9 @@ export class MilestoneDocumentFilesService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFiles: SubmissionFilesService,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
+    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
     private readonly downloadResponseService: DownloadResponseService,
   ) {}
 
@@ -151,21 +153,23 @@ export class MilestoneDocumentFilesService {
     ]);
 
     const blocked =
-      this.milestoneDocumentRulesService.milestoneDocumentSubmissionBlock({
-        dueAt: documentContext.dueAt,
-        graceDueAt: documentContext.graceDueAt,
-        now,
-        hasSubmission: currentSubmission !== null,
-        latestDecision: latestReview?.decision ?? null,
-        submissionStatus: currentSubmission?.status ?? null,
-        resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-      });
+      this.milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
+        {
+          dueAt: documentContext.dueAt,
+          graceDueAt: documentContext.graceDueAt,
+          now,
+          hasSubmission: currentSubmission !== null,
+          latestDecision: latestReview?.decision ?? null,
+          submissionStatus: currentSubmission?.status ?? null,
+          resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+        },
+      );
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
 
     const objectKey =
-      this.submissionFileRulesService.createSubmissionFileObjectKey();
+      this.submissionFileAdmissionService.createSubmissionFileObjectKey();
 
     let created;
     try {
@@ -239,7 +243,7 @@ export class MilestoneDocumentFilesService {
     }
 
     const objectKey =
-      this.submissionFileRulesService.createSubmissionFileObjectKey();
+      this.submissionFileAdmissionService.createSubmissionFileObjectKey();
     const now = new Date();
 
     try {
@@ -326,7 +330,7 @@ export class MilestoneDocumentFilesService {
       body,
       fileName: template.originalFileName,
       contentType:
-        this.submissionFileRulesService.safeSubmissionFileContentType(
+        this.submissionFileAdmissionService.safeSubmissionFileContentType(
           template.originalFileName,
         ),
       contentLength: template.sizeBytes,
@@ -373,13 +377,15 @@ export class MilestoneDocumentFilesService {
     return {
       body,
       fileName:
-        this.milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
-          teamName: file.teamName,
-          documentName: documentContext.name,
-          originalFileName: file.originalFileName,
-        }),
+        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
+          {
+            teamName: file.teamName,
+            documentName: documentContext.name,
+            originalFileName: file.originalFileName,
+          },
+        ),
       contentType:
-        this.submissionFileRulesService.safeSubmissionFileContentType(
+        this.submissionFileAdmissionService.safeSubmissionFileContentType(
           file.originalFileName,
         ),
       contentLength: file.sizeBytes,
@@ -397,19 +403,19 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
     }
     const normalizedFileName =
-      this.submissionFileRulesService.normalizeMultipartFileName(
+      this.submissionFileAdmissionService.normalizeMultipartFileName(
         file.originalname,
       );
     const valid =
       purpose === 'TEMPLATE'
-        ? this.submissionFileRulesService.hasValidSubmissionTemplateSignature(
+        ? this.submissionFileAdmissionService.hasValidSubmissionTemplateSignature(
             file.buffer,
             normalizedFileName,
           )
-        : this.submissionFileRulesService.isAllowedSubmissionFileType(
+        : this.submissionFileAdmissionService.isAllowedSubmissionFileType(
             normalizedFileName,
           ) &&
-          this.submissionFileRulesService.hasValidSubmissionFileSignature(
+          this.submissionFileAdmissionService.hasValidSubmissionFileSignature(
             file.buffer,
             normalizedFileName,
           );
@@ -419,7 +425,7 @@ export class MilestoneDocumentFilesService {
 
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
       const zipRejection =
-        await this.submissionFileRulesService.inspectSubmissionZipMetadata(
+        await this.submissionFileAdmissionService.inspectSubmissionZipMetadata(
           file.buffer,
         );
       if (zipRejection !== null) {
@@ -428,7 +434,7 @@ export class MilestoneDocumentFilesService {
         );
       }
     }
-    return this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
+    return this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
       normalizedFileName,
     );
   }

@@ -1,10 +1,10 @@
+import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<PlatformRepository['lockSubmissionMembership']>,
@@ -410,7 +410,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     sizeBytes: 1024,
     pendingExpiresAt: new Date('2026-07-26T12:00:00.000Z'),
     resolveExpiresAt: (programEndAt: Date) =>
-      new SubmissionFileRulesService().addOneCalendarYear(programEndAt),
+      new ProgramScheduleService().addOneCalendarYear(programEndAt),
   };
 
   const queryRaw = jest.fn<Promise<unknown[]>, [Prisma.Sql]>();

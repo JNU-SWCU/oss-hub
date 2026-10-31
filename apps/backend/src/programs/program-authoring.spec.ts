@@ -1,3 +1,10 @@
+import {
+  PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
+  ProgramAuthoringUploadService,
+} from './program-authoring-upload.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
@@ -10,27 +17,26 @@ import {
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { type ProgramAuthoringRequest } from './program-authoring-upload-transaction.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
-import {
-  ProgramUploadRulesService,
-  PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
-} from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(
-    new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
   new ProgramAuthoringUploadTransactionRepository(),
 );
-const programUploadRulesService = new ProgramUploadRulesService(
-  new SubmissionFileRulesService(),
+const programAuthoringUploadService = new ProgramAuthoringUploadService(
+  {} as never,
+  {} as never,
+  new SubmissionFileAdmissionService(),
   new ProgramNoticeFetchClient(),
 );
 
@@ -302,7 +308,7 @@ describe('program-authoring-upload-validation', () => {
         const upload = file({ name, mimeType, signature });
 
         const validated =
-          await programUploadRulesService.validateProgramAuthoringUpload(
+          await programAuthoringUploadService.validateProgramAuthoringUpload(
             upload,
           );
 
@@ -325,7 +331,7 @@ describe('program-authoring-upload-validation', () => {
         const archive = signatureValidZip([{ name: 'plan.pdf' }]);
 
         const validated =
-          await programUploadRulesService.validateProgramAuthoringUpload({
+          await programAuthoringUploadService.validateProgramAuthoringUpload({
             buffer: archive,
             originalname: 'bundle.zip',
             mimetype,
@@ -345,7 +351,7 @@ describe('program-authoring-upload-validation', () => {
       const nested = signatureValidZip([{ name: 'nested.zip' }]);
 
       await expect(
-        programUploadRulesService.validateProgramAuthoringUpload({
+        programAuthoringUploadService.validateProgramAuthoringUpload({
           buffer: nested,
           originalname: 'bundle.zip',
           mimetype: 'application/zip',
@@ -364,7 +370,7 @@ describe('program-authoring-upload-validation', () => {
       });
 
       await expect(
-        programUploadRulesService.validateProgramAuthoringUpload(upload),
+        programAuthoringUploadService.validateProgramAuthoringUpload(upload),
       ).rejects.toMatchObject({
         code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
       });
@@ -374,7 +380,7 @@ describe('program-authoring-upload-validation', () => {
       const mojibake = Buffer.from('신청-양식.pdf', 'utf8').toString('latin1');
 
       await expect(
-        programUploadRulesService.validateProgramAuthoringUpload(
+        programAuthoringUploadService.validateProgramAuthoringUpload(
           file({
             name: mojibake,
             mimeType: 'application/pdf',
@@ -393,7 +399,9 @@ describe('program-authoring-upload-validation', () => {
       });
 
       const validated =
-        await programUploadRulesService.validateProgramAuthoringUpload(upload);
+        await programAuthoringUploadService.validateProgramAuthoringUpload(
+          upload,
+        );
 
       expect(validated.sizeBytes).toBe(5 * 1024 * 1024);
     });
@@ -420,7 +428,7 @@ describe('program-authoring-upload-validation', () => {
       ],
     ])('rejects %s', async (_caseName, upload) => {
       await expect(
-        programUploadRulesService.validateProgramAuthoringUpload(upload),
+        programAuthoringUploadService.validateProgramAuthoringUpload(upload),
       ).rejects.toEqual(
         expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
@@ -437,7 +445,7 @@ describe('program-authoring-upload-validation', () => {
       });
 
       await expect(
-        programUploadRulesService.validateProgramAuthoringUpload(upload),
+        programAuthoringUploadService.validateProgramAuthoringUpload(upload),
       ).rejects.toEqual(
         expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
@@ -464,7 +472,7 @@ describe('program-authoring-upload-validation', () => {
         const upload = file({ name, mimeType, signature });
 
         await expect(
-          programUploadRulesService.validateProgramAuthoringUpload(upload),
+          programAuthoringUploadService.validateProgramAuthoringUpload(upload),
         ).rejects.toEqual(
           expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
             code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,

@@ -1,3 +1,6 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import {
   ExecutionContext,
   ValidationPipe,
@@ -99,6 +102,15 @@ beforeAll(async () => {
       protectedRouteGuardStub({ canActivate: sessionGuard }),
       ...STATELESS_PROVIDERS,
       ProgramEditorService,
+      {
+        provide: ProgramAuthoringUploadService,
+        useValue: new ProgramAuthoringUploadService(
+          {} as never,
+          {} as never,
+          new SubmissionFileAdmissionService(),
+          new ProgramNoticeFetchClient(),
+        ),
+      },
       { provide: ProgramEditorRepository, useValue: repository },
     ],
   })

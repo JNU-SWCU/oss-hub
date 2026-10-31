@@ -1,3 +1,5 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { ProgramViewer } from './program-viewer.service';
@@ -21,7 +23,6 @@ import {
 import { ProgramsService } from './programs.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 
@@ -198,6 +199,12 @@ describe('ProgramsRepository list', () => {
     count.mockReset();
     transaction.mockReset();
     queryRaw.mockReset();
+  });
+
+  it('returns no ended years when the query finds no rows', async () => {
+    queryRaw.mockResolvedValue([]);
+
+    await expect(repository.findEndedYears(NOW)).resolves.toEqual([]);
   });
 
   it('applies search and recruiting filters before the page boundary', async () => {
@@ -563,6 +570,21 @@ function listRecord(
 }
 
 describe('ProgramsService list', () => {
+  it('returns no ended years when the repository finds none', async () => {
+    const repository = { findEndedYears: jest.fn().mockResolvedValue([]) };
+    const service = new ProgramsService(
+      repository as unknown as ProgramsRepository,
+      new MilestoneCompletionService(),
+      new ProgramCoverUrlService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
+    );
+
+    await expect(service.endedYears(NOW)).resolves.toEqual([]);
+    expect(repository.findEndedYears).toHaveBeenCalledWith(NOW);
+  });
+
   it('returns page metadata from the repository count', async () => {
     const repository = {
       listPrograms: jest.fn().mockResolvedValue([[], 21]),
@@ -571,7 +593,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -602,7 +625,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -636,7 +660,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -683,7 +708,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -724,7 +750,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
@@ -761,7 +788,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -805,7 +833,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -839,7 +868,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
@@ -875,7 +905,8 @@ describe('ProgramsService list', () => {
       repository as unknown as ProgramsRepository,
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
-      new ProgramRulesService(),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
       Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 

@@ -1,3 +1,4 @@
+import { ApplicationStatus } from '@prisma/client';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { Inject, Injectable } from '@nestjs/common';
@@ -19,7 +20,6 @@ import type {
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
-import { ProgramRulesService } from './program-rules.service';
 
 export type StudentRepositoryUrlView = {
   readonly repositoryUrl: string | null;
@@ -57,9 +57,23 @@ export class StudentRepositoryUrlService {
       CollectionTriggerService,
       'collectRepository'
     >,
-    private readonly programRulesService: ProgramRulesService,
     private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
   ) {}
+
+  canEditStudentRepositoryUrl(
+    context: {
+      readonly status: ApplicationStatus;
+      readonly endAt: Date;
+      readonly isManager: boolean;
+    },
+    now: Date,
+  ): boolean {
+    return (
+      context.isManager &&
+      context.status === ApplicationStatus.APPROVED &&
+      now < context.endAt
+    );
+  }
 
   async getMine(
     githubId: bigint,
@@ -207,7 +221,7 @@ export class StudentRepositoryUrlService {
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
     if (
-      !this.programRulesService.canEditStudentRepositoryUrl(
+      !this.canEditStudentRepositoryUrl(
         { status: context.status, endAt: context.program.endAt, isManager },
         new Date(),
       )
@@ -221,15 +235,14 @@ export class StudentRepositoryUrlService {
   ): StudentRepositoryUrlView {
     return {
       repositoryUrl: this.url(context),
-      canEditRepositoryUrl:
-        this.programRulesService.canEditStudentRepositoryUrl(
-          {
-            status: context.status,
-            endAt: context.program.endAt,
-            isManager: context.team.leaderId === studentId,
-          },
-          new Date(),
-        ),
+      canEditRepositoryUrl: this.canEditStudentRepositoryUrl(
+        {
+          status: context.status,
+          endAt: context.program.endAt,
+          isManager: context.team.leaderId === studentId,
+        },
+        new Date(),
+      ),
     };
   }
 

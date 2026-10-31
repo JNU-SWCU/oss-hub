@@ -34,7 +34,7 @@ import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
@@ -62,7 +62,7 @@ export class SubmissionReviewsService {
     private readonly repositoryPublishService: RepositoryPublishService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
   ) {}
 
   reviewInputFromRequest(request: {
@@ -381,7 +381,7 @@ export class SubmissionReviewsService {
         fileId: file.id,
         fileName: file.originalFileName,
         contentType:
-          this.submissionFileRulesService.safeSubmissionFileContentType(
+          this.submissionFileAdmissionService.safeSubmissionFileContentType(
             file.originalFileName,
           ),
         size: file.sizeBytes,
