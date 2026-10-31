@@ -7,6 +7,7 @@ import {
 } from './member-onboarding.repository';
 import {
   ConsentsService,
+  CONSENT_POLICY_VERSION,
   CONSENT_ITEM_KEYS,
   CURRENT_CONSENT_POLICY,
 } from './consents.service';
@@ -117,7 +118,7 @@ describe('ConsentsService.getCurrent', () => {
       const status = await service.getCurrent(syntheticGithubId);
 
       expect(status.consented).toBe(false);
-      expect(status.policy.policyVersion).toBe('2026-11-01');
+      expect(status.policy.policyVersion).toBe(CONSENT_POLICY_VERSION);
       await expect(
         service.requireCurrent(syntheticGithubId),
       ).rejects.toMatchObject({
@@ -197,7 +198,7 @@ describe('ConsentsService.requireCurrent', () => {
     });
 
     await service.accept(syntheticGithubId, {
-      policyVersion: '2026-11-01',
+      policyVersion: CONSENT_POLICY_VERSION,
       acceptedItems: allRequiredKeys,
     });
 
