@@ -13,7 +13,11 @@ import {
   type PublicProjectCursor,
   type PublicEligibilityInput,
 } from './public-projects.repository';
-import { PublicProjectApplicationMode } from './public-projects.config';
+import {
+  PublicProjectApplicationMode,
+  PUBLIC_PROJECT_YEAR_MAX,
+  PUBLIC_PROJECT_YEAR_MIN,
+} from './public-projects.config';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { PublicProjectCursorSecretError } from './public-project-cursor.error';
@@ -126,11 +130,9 @@ export class PublicEligibilityService {
   ): Promise<ReadonlySet<bigint>> {
     if (candidates.length === 0) return new Set();
 
-    const metrics = await this.metrics.getRepositoryMetrics({
-      repositoryIds: candidates.map(
-        (candidate) => candidate.githubRepositoryId,
-      ),
-    });
+    const metrics = await this.metrics.findRepositoryObservations(
+      candidates.map((candidate) => candidate.githubRepositoryId),
+    );
     const observationByRepositoryId = new Map(
       metrics.map((metric) => [metric.repositoryId, metric]),
     );
@@ -187,6 +189,14 @@ export class PublicProjectsService {
       pageId === undefined
         ? null
         : this.decodePublicProjectCursor(pageId, this.cursorKey);
+    if (
+      year !== undefined &&
+      (year < PUBLIC_PROJECT_YEAR_MIN || year > PUBLIC_PROJECT_YEAR_MAX)
+    ) {
+      throw new RangeError(
+        `year must be between ${PUBLIC_PROJECT_YEAR_MIN} and ${PUBLIC_PROJECT_YEAR_MAX}`,
+      );
+    }
     const rows = await this.repository.listPage(cursor, pageSize + 1, year);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);

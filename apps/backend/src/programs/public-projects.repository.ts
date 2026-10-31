@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  PUBLIC_PROJECT_YEAR_MIN,
-  PUBLIC_PROJECT_YEAR_MAX,
-} from './public-projects.config';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
@@ -75,11 +71,6 @@ type ProjectRowSelection = {
 };
 
 function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
-  if (year < PUBLIC_PROJECT_YEAR_MIN || year > PUBLIC_PROJECT_YEAR_MAX) {
-    throw new RangeError(
-      `year must be between ${PUBLIC_PROJECT_YEAR_MIN} and ${PUBLIC_PROJECT_YEAR_MAX}`,
-    );
-  }
   return [
     new Date(Date.UTC(year, 0, 1) - 9 * 60 * 60 * 1000),
     new Date(Date.UTC(year + 1, 0, 1) - 9 * 60 * 60 * 1000),
