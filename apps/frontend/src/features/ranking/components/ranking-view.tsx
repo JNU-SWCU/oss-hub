@@ -23,10 +23,8 @@ import {
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
-import {
-  RankingBumpChart,
-  RankingBumpChartLoading,
-} from './ranking-bump-chart';
+import { RankingBumpChartLoading } from './ranking-bump-chart';
+import { RankingChartTabs } from './ranking-chart-tabs';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -250,7 +248,7 @@ function RankingTimelineSection({
         </Alert>
       );
     case 'ready':
-      return <RankingBumpChart timeline={state.timeline} />;
+      return <RankingChartTabs timeline={state.timeline} />;
   }
 }
 

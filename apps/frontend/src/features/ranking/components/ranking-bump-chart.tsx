@@ -714,10 +714,8 @@ export function RankingBumpChart({
     () => buildRows(points, series, revealedPoints),
     [points, series, revealedPoints],
   );
-  const ticks = useMemo(
-    () => rankTicks(rankDomainMax(seriesCount)),
-    [seriesCount],
-  );
+  const domainMax = useMemo(() => rankDomainMax(series), [series]);
+  const ticks = useMemo(() => rankTicks(domainMax), [domainMax]);
   const chips = useMemo(
     () => labelCandidates(series, viewerOrder),
     [series, viewerOrder],
@@ -904,7 +902,7 @@ export function RankingBumpChart({
                 <YAxis
                   reversed
                   width={Y_AXIS_WIDTH}
-                  domain={[1, rankDomainMax(seriesCount)]}
+                  domain={[1, domainMax]}
                   ticks={ticks}
                   allowDecimals={false}
                   tickLine={false}

@@ -6,6 +6,7 @@ import type { RankingTimeline } from '../types';
 import {
   biggestClimb,
   buildRows,
+  rankDomainMax,
   rankTicks,
   stackLabels,
 } from './ranking-bump-chart-model';
@@ -459,6 +460,17 @@ describe('RankingBumpChart', () => {
 });
 
 describe('ranking bump chart model', () => {
+  it('순위 축은 사람 수가 아니라 실제 순위 값까지 늘린다', () => {
+    expect(
+      rankDomainMax([
+        { githubLogin: 'a', ranks: [260, 8] },
+        { githubLogin: 'b', ranks: [null, 1] },
+      ]),
+    ).toBe(260);
+    expect(rankDomainMax([{ githubLogin: 'a', ranks: [1] }])).toBe(5);
+    expect(rankDomainMax([])).toBe(5);
+  });
+
   it('순위 눈금은 14칸을 넘지 않게 간격을 고른다', () => {
     expect(rankTicks(10)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     expect(rankTicks(50)).toEqual([1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]);

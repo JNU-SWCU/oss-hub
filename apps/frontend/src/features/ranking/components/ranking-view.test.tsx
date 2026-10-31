@@ -12,6 +12,10 @@ import {
 import { parseRankingPage } from '../api';
 import { RankingView } from './ranking-view';
 
+vi.mock('./ranking-chart-tabs', () => ({
+  RankingChartTabs: () => <div data-chart-tabs="" />,
+}));
+
 vi.mock('./ranking-bump-chart', () => ({
   RankingBumpChart: () => <div data-bump-chart="" />,
   RankingBumpChartLoading: () => <div data-bump-chart-loading="" />,
@@ -1034,8 +1038,8 @@ function timelineMarkup(
 test('순위 변화 그래프는 순위표보다 위에 그린다', () => {
   const html = timelineMarkup({ kind: 'ready', timeline: timelineFixture });
 
-  expect(html).toContain('data-bump-chart');
-  expect(html.indexOf('data-bump-chart')).toBeLessThan(
+  expect(html).toContain('data-chart-tabs');
+  expect(html.indexOf('data-chart-tabs')).toBeLessThan(
     html.indexOf('data-row-keys'),
   );
 });
@@ -1045,7 +1049,7 @@ test('그래프를 못 불러왔어도 순위표는 그대로 남는다', () => 
 
   expect(html).toContain('data-timeline-error');
   expect(html).toContain('data-row-keys="1"');
-  expect(html).not.toContain('data-bump-chart=');
+  expect(html).not.toContain('data-chart-tabs=');
 });
 
 test('그래프 로드 중에도 순위표는 비지 않는다', () => {
@@ -1058,6 +1062,7 @@ test('그래프 로드 중에도 순위표는 비지 않는다', () => {
 test('타임라인이 없으면 그래프 자리를 비우고 표만 그린다', () => {
   const html = timelineMarkup(undefined);
 
+  expect(html).not.toContain('data-chart-tabs');
   expect(html).not.toContain('data-bump-chart');
   expect(html).not.toContain('data-timeline-error');
   expect(html).toContain('data-row-keys="1"');

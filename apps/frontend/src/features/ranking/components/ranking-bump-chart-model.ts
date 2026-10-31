@@ -129,8 +129,18 @@ export function buildRows(
   });
 }
 
-export function rankDomainMax(seriesCount: number): number {
-  return Math.max(seriesCount, RANK_DOMAIN_FLOOR);
+export function rankDomainMax(
+  series: readonly RankingTimelineSeries[],
+): number {
+  let deepest = 0;
+  for (const item of series) {
+    for (const rank of item.ranks) {
+      if (rank !== null && rank !== undefined && rank > deepest) {
+        deepest = rank;
+      }
+    }
+  }
+  return Math.max(deepest, series.length, RANK_DOMAIN_FLOOR);
 }
 
 export function rankTicks(domainMax: number): number[] {
