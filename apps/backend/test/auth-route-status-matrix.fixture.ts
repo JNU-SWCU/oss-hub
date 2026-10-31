@@ -8,7 +8,6 @@ import { AuthController } from '../src/auth/auth.controller';
 import { AuthService, LoginHistoryService } from '../src/auth/auth.service';
 import type { AuthUser } from '../src/auth/http-auth.types';
 import { OriginGuard } from '../src/auth/origin.guard';
-import { SessionGuard } from '../src/auth/session.guard';
 import { ProblemDetailFilter } from '../src/platform/problem-detail.filter';
 import { HealthController } from '../src/platform/health.controller';
 import { HealthService } from '../src/platform/health.service';
@@ -148,7 +147,6 @@ export class AuthRouteStatusHarness {
       providers: [
         ...STATELESS_PROVIDERS,
         AuthenticationGuard,
-        SessionGuard,
         OriginGuard,
         { provide: AuthService, useValue: authService },
         {

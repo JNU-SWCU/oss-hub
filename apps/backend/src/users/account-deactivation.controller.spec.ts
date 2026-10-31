@@ -3,7 +3,6 @@ import type { Response } from 'express';
 import { AccountStatus } from '@prisma/client';
 import type { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AuthSessionService } from '../auth/auth-session.service';
 
@@ -19,7 +18,6 @@ describe('AccountDeactivationController', () => {
       throw new TypeError('deactivate controller method is missing');
     }
     expect(Reflect.getMetadata(GUARDS_METADATA, deactivateMethod)).toEqual([
-      SessionGuard,
       OriginGuard,
     ]);
   });

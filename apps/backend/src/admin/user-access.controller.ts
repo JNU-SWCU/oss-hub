@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { AdminAccessService } from '../users/admin-access.service';
 import { AdminProfileService } from '../users/admin-profile.service';
 import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
@@ -30,6 +29,7 @@ import { IndependentAuthorityService } from '../users/independent-authority.serv
 import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
 import { MemberKindService } from '../users/member-kind.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -58,7 +58,7 @@ export class UserAccessController {
 
   @Get('access')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async list(
     @Req() request: SessionIdentity,
     @Query() query: AdminAccessListRequestDto,
@@ -70,7 +70,7 @@ export class UserAccessController {
 
   @Get('access/facets')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async facets(
     @Req() request: SessionIdentity,
     @Query() query: AdminAccessListRequestDto,
@@ -81,7 +81,8 @@ export class UserAccessController {
   }
 
   @Patch(':id/access')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async patchAccess(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -98,7 +99,8 @@ export class UserAccessController {
   }
 
   @Patch(':id/profile')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async patchProfile(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -115,7 +117,8 @@ export class UserAccessController {
   }
 
   @Patch(':id/admin-access')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async patchAdminAccess(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -132,7 +135,8 @@ export class UserAccessController {
   }
 
   @Patch(':id/member-kind')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async patchMemberKind(
     @Req() request: SessionIdentity,
     @Param('id') id: string,

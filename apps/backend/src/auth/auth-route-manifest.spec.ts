@@ -12,11 +12,8 @@ import {
   DuplicateMetadataController,
   DynamicController,
   ForwardRefRootModule,
-  GuardFallbackController,
-  GuardMigrationController,
   MaskedClassDuplicateController,
   MaskedClassInvalidController,
-  MethodOverrideMigrationController,
   MissingMetadataController,
   UnsupportedRootModule,
 } from '../../test/auth-route-manifest-validation.fixture';
@@ -48,35 +45,6 @@ describe('authentication route metadata manifest', () => {
     expect(() =>
       createAuthRouteManifest([MaskedClassInvalidController]),
     ).toThrow(/invalid authentication metadata.*class/i);
-  });
-
-  it('keeps transitional SessionGuard enforcement separate from declared access', () => {
-    expect(createAuthRouteManifest([GuardMigrationController])).toEqual([
-      {
-        access: 'PUBLIC',
-        method: 'GET',
-        path: '/api/v1/fixture/guard-migration',
-      },
-    ]);
-    expect(
-      createAuthRouteManifest([MethodOverrideMigrationController]),
-    ).toEqual([
-      {
-        access: 'PROTECTED',
-        method: 'GET',
-        path: '/api/v1/fixture/method-override-migration',
-      },
-    ]);
-  });
-
-  it('classifies a route with only the current SessionGuard as protected', () => {
-    expect(createAuthRouteManifest([GuardFallbackController])).toEqual([
-      {
-        access: 'PROTECTED',
-        method: 'GET',
-        path: '/api/v1/fixture/guard-fallback',
-      },
-    ]);
   });
 
   it('fails closed on unsupported module import shapes', () => {

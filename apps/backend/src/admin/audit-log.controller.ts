@@ -1,16 +1,16 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 import { AuditLogPageResponseDto } from './dto/audit-log-page-response.dto';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('audit-logs')
 export class AuditLogController {
   constructor(private readonly service: AuditLogService) {}
 
   @Get()
-  @UseGuards(SessionGuard)
+  @Protected()
   async list(
     @Req() request: AuthenticatedRequest,
     @Query() query: AuditLogListRequestDto,

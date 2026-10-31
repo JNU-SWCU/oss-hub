@@ -6,7 +6,6 @@ import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -23,6 +22,7 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramRulesService } from './program-rules.service';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -69,7 +69,7 @@ beforeAll(async () => {
     providers: [
       { provide: ProgramTeamsService, useValue: service },
       AuthSessionService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
         provide: AuthService,

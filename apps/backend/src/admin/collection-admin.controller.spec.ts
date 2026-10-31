@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 
 import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../github/collection-admin.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -92,8 +91,6 @@ describe('CollectionAdminController', () => {
         },
       ],
     })
-      .overrideGuard(SessionGuard)
-      .useValue({ canActivate: () => true })
       .overrideGuard(OriginGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -246,7 +243,7 @@ describe('CollectionAdminController', () => {
       handler,
     );
 
-    expect(guards).toEqual([SessionGuard, OriginGuard]);
+    expect(guards).toEqual([OriginGuard]);
     expect(statusCode).toBe(202);
   });
 

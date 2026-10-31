@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import {
   ProgramMilestoneEditResponseDto,
   ProgramMilestoneResponseDto,
@@ -25,6 +24,7 @@ import {
   ProgramEditorService,
   type MilestoneUpdateCommand,
 } from './program-editor.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -63,7 +63,8 @@ export const milestoneUpdatePipe = {
 } satisfies PipeTransform<unknown, Promise<MilestoneUpdateCommand>>;
 
 @Controller('milestones')
-@UseGuards(SessionGuard, OriginGuard)
+@Protected()
+@UseGuards(OriginGuard)
 export class MilestonesController {
   constructor(private readonly editor: ProgramEditorService) {}
 

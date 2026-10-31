@@ -2,7 +2,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   archiveId,
@@ -15,6 +14,7 @@ import {
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { DownloadResponseService } from './download-response.service';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -31,7 +31,7 @@ export async function startArchiveHttp(
     providers: [
       AuthSessionService,
       DownloadResponseService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       { provide: AuthConfig, useValue: { sessionSecret } },
       {
         provide: AuthService,

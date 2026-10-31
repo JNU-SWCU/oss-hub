@@ -22,7 +22,6 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
@@ -53,6 +52,7 @@ import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
 } from './program-authoring.error';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -82,7 +82,7 @@ export class ProgramAuthoringController {
   ) {}
 
   @Get('upload-policy')
-  @UseGuards(SessionGuard)
+  @Protected()
   async uploadPolicy(
     @Req() request: SessionIdentity,
   ): Promise<ProgramAuthoringUploadPolicyResponseDto> {
@@ -91,7 +91,8 @@ export class ProgramAuthoringController {
   }
 
   @Post('uploads')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: SUBMISSION_UPLOAD_MAX_BYTES },
@@ -114,7 +115,8 @@ export class ProgramAuthoringController {
   }
 
   @Post('cover-uploads')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: PROGRAM_COVER_MAX_BYTES, files: 1 },
@@ -138,7 +140,8 @@ export class ProgramAuthoringController {
 
   @Delete('uploads/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async deleteUpload(
     @Req() request: SessionIdentity,
     @Param('id') uploadId: string,
@@ -154,7 +157,8 @@ export class ProgramAuthoringController {
   }
 
   @Post('programs')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionIdentity,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
@@ -206,7 +210,8 @@ export class ProgramAuthoringController {
 
   @Post('notice-preview')
   @HttpCode(200)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async preview(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Body() input: ProgramNoticePreviewRequestDto,

@@ -1,6 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 
 function guards(
@@ -19,10 +18,10 @@ function guards(
 
 describe('ApplicationDecisionNotificationsController', () => {
   it('keeps reads session-scoped and writes origin-protected', () => {
-    expect(guards('listUnread')).toEqual([SessionGuard]);
-    expect(guards('markRead')).toEqual([SessionGuard, OriginGuard]);
-    expect(guards('listUnreadTeamDeletions')).toEqual([SessionGuard]);
-    expect(guards('markTeamDeletionRead')).toEqual([SessionGuard, OriginGuard]);
+    expect(guards('listUnread')).toEqual([]);
+    expect(guards('markRead')).toEqual([OriginGuard]);
+    expect(guards('listUnreadTeamDeletions')).toEqual([]);
+    expect(guards('markTeamDeletionRead')).toEqual([OriginGuard]);
   });
 
   it('forwards the session identity instead of accepting a user id', async () => {

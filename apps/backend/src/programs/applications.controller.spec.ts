@@ -4,7 +4,6 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsController } from './applications.controller';
 import {
@@ -101,15 +100,12 @@ describe('ApplicationsController', () => {
 
   it('PATCH 처리에 세션·Origin guard를 적용한다', () => {
     expect(readGuards(ApplicationsController.prototype, 'decide')).toEqual([
-      SessionGuard,
       OriginGuard,
     ]);
   });
 
   it('신청 상세 조회에 세션 guard를 적용한다', () => {
-    expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([
-      SessionGuard,
-    ]);
+    expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([]);
   });
 
   it('신청 상세를 목록 항목과 같은 응답 모양으로 변환한다', async () => {

@@ -1,5 +1,4 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { SessionGuard } from '../auth/session.guard';
 import { ProgramActivityService } from '../programs/program-activity.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
@@ -150,9 +149,7 @@ describe('StudentDashboardController', () => {
     ]);
   });
 
-  it('keeps unauthenticated handling with SessionGuard metadata', () => {
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler())).toEqual([
-      SessionGuard,
-    ]);
+  it('leaves unauthenticated handling to the global authentication guard', () => {
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler())).toBeUndefined();
   });
 });

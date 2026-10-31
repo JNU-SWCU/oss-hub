@@ -9,15 +9,15 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';
 import { RepositoryPublishResponseDto } from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
+import { Protected } from '../auth/authentication.guard';
 
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('repositories')
-@UseGuards(SessionGuard)
+@Protected()
 export class SubmissionRepositoryPublishingController {
   constructor(private readonly service: SubmissionReviewsService) {}
 

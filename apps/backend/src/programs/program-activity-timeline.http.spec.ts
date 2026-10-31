@@ -1,7 +1,6 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import { ProgramActivityRepository } from './program-activity.repository';
 import { ProgramActivityService } from './program-activity.service';
@@ -13,6 +12,7 @@ import { ProgramsService } from './programs.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { StudentDashboardService } from '../student/student-dashboard.service';
 import { MilestoneDocumentFeedbackService } from '../student/milestone-document-feedback.service';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -38,6 +38,7 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController, StudentDashboardController],
     providers: [
+      protectedRouteGuardStub({ canActivate: () => true }),
       ProgramActivityService,
       { provide: StudentDashboardService, useValue: {} },
       { provide: MilestoneDocumentFeedbackService, useValue: {} },
@@ -86,8 +87,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({ canActivate: () => true })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();

@@ -4,7 +4,6 @@ import { AccountStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   MilestoneDocumentArchiveService,
@@ -19,6 +18,7 @@ import {
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -41,7 +41,7 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       { provide: AuthConfig, useValue: { sessionSecret: secret } },
       {
         provide: AuthService,

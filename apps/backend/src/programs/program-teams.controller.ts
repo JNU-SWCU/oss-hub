@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { MyProgramTeamResponseDto } from './dto/my-program-team-response.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
@@ -31,6 +30,7 @@ import {
   StaffProgramTeamResponseDto,
 } from './dto/program-team-response.dto';
 import { ProgramTeamsService } from './program-teams.service';
+import { Protected } from '../auth/authentication.guard';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -56,7 +56,7 @@ export class ProgramTeamsController {
   ) {}
 
   @Get('me')
-  @UseGuards(SessionGuard)
+  @Protected()
   async me(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -69,7 +69,8 @@ export class ProgramTeamsController {
 
   @Delete('me')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async leave(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -79,7 +80,8 @@ export class ProgramTeamsController {
 
   @Delete('me/members/:userId')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async removeMember(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -89,7 +91,7 @@ export class ProgramTeamsController {
   }
 
   @Get()
-  @UseGuards(SessionGuard)
+  @Protected()
   async list(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -100,7 +102,7 @@ export class ProgramTeamsController {
   }
 
   @Get(':teamId')
-  @UseGuards(SessionGuard)
+  @Protected()
   async detail(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -116,7 +118,7 @@ export class ProgramTeamsController {
   }
 
   @Get(':teamId/activity')
-  @UseGuards(SessionGuard)
+  @Protected()
   async activity(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -132,7 +134,7 @@ export class ProgramTeamsController {
   }
 
   @Get(':teamId/repository-url-history')
-  @UseGuards(SessionGuard)
+  @Protected()
   async repositoryUrlHistory(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -150,7 +152,8 @@ export class ProgramTeamsController {
   }
 
   @Patch(':teamId')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async rename(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -169,7 +172,8 @@ export class ProgramTeamsController {
 
   @Delete(':teamId/members/:userId')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async removeMemberForStaff(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -186,7 +190,8 @@ export class ProgramTeamsController {
 
   @Patch(':teamId/leader')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async transferLeaderForStaff(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
@@ -202,7 +207,8 @@ export class ProgramTeamsController {
   }
 
   @Delete(':teamId')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async remove(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,

@@ -4,13 +4,13 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramApplicationsController } from './program-applications.controller';
 import { ApplicationsService } from './applications.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -62,7 +62,7 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       AuthSessionService,
       { provide: ApplicationsService, useValue: { create } },
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
         provide: AuthService,

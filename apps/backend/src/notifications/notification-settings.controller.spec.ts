@@ -1,6 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { NotificationSettingsController } from './notification-settings.controller';
 import type { NotificationSettingsService } from './application-decision-notifications.service';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';
@@ -18,15 +17,12 @@ function readGuards(
 }
 
 describe('NotificationSettingsController', () => {
-  it('PATCH를 SessionGuard·OriginGuard로 보호한다(역할 무관 본인 설정)', () => {
-    expect(readGuards('updateMyNotificationEmail')).toEqual([
-      SessionGuard,
-      OriginGuard,
-    ]);
+  it('PATCH를 OriginGuard로 보호한다(역할 무관 본인 설정)', () => {
+    expect(readGuards('updateMyNotificationEmail')).toEqual([OriginGuard]);
   });
 
-  it('GET을 SessionGuard로 보호한다(OriginGuard 없음)', () => {
-    expect(readGuards('getMyNotificationSettings')).toEqual([SessionGuard]);
+  it('GET에는 로컬 가드를 두지 않는다(OriginGuard 없음)', () => {
+    expect(readGuards('getMyNotificationSettings')).toEqual([]);
   });
 
   it('세션 githubId와 입력으로 service를 호출하고 응답 DTO로 변환한다', async () => {

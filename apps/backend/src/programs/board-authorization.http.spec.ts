@@ -4,7 +4,6 @@ import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -14,6 +13,7 @@ import { BoardService } from './board.service';
 import { UserProfileService } from '../platform/user-profile.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -61,7 +61,7 @@ describe('board authorization HTTP characterization', () => {
             findActorByGithubId: () => prisma.user.findUnique(),
           }),
         },
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
         { provide: BoardRepository, useValue: repository },
         { provide: PrismaService, useValue: prisma },

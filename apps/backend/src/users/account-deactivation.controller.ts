@@ -11,10 +11,10 @@ import type { Response } from 'express';
 import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -29,7 +29,8 @@ export class AccountDeactivationController {
 
   @Patch('deactivate')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async deactivate(
     @Req() request: SessionIdentity,
     @Res({ passthrough: true }) response: Response,

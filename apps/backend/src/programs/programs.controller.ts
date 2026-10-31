@@ -23,7 +23,6 @@ import {
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../auth/auth.config';
-import { SessionGuard } from '../auth/session.guard';
 import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
 import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
 import {
@@ -108,7 +107,8 @@ export class ProgramsController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionIdentity,
     @Body() input: CreateProgramRequestDto,
@@ -128,7 +128,7 @@ export class ProgramsController {
   }
 
   @Get(':id/viewer')
-  @UseGuards(SessionGuard)
+  @Protected()
   async viewerDetail(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
@@ -147,7 +147,7 @@ export class ProgramsController {
   }
 
   @Get(':id/activity')
-  @UseGuards(SessionGuard)
+  @Protected()
   async programActivity(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
@@ -177,7 +177,8 @@ export class ProgramsController {
   }
 
   @Delete(':id/purge')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async purge(
     @Param('id') programId: string,
     @Body() body: PurgeProgramRequestDto,
@@ -193,7 +194,8 @@ export class ProgramsController {
   }
 
   @Delete(':id')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async delete(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
@@ -204,7 +206,7 @@ export class ProgramsController {
   }
 
   @Get(':id/edit')
-  @UseGuards(SessionGuard)
+  @Protected()
   async get(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -214,7 +216,8 @@ export class ProgramsController {
   }
 
   @Patch(':id')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async update(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
@@ -229,7 +232,8 @@ export class ProgramsController {
   }
 
   @Post(':id/milestones')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async createMilestone(
     @Req() request: SessionIdentity,
     @Param('id') id: string,

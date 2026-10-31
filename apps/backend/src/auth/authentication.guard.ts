@@ -125,7 +125,7 @@ function attachAnonymousAuth(
   });
 }
 
-export function attachAuthenticatedPrincipal(
+function attachAuthenticatedPrincipal(
   request: Request,
   principal: ActiveAccountPrincipal,
   verifiedGithubId: bigint,

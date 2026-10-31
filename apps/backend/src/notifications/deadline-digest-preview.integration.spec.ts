@@ -7,7 +7,6 @@ import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestService } from './deadline-digest.service';
@@ -16,6 +15,7 @@ import {
   DIGEST_FIXTURE,
   RecordingMailSender,
 } from './deadline-digest.integration-support';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,18 +32,17 @@ beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [DeadlineDigestController],
     providers: [
+      protectedRouteGuardStub({
+        canActivate(context: ExecutionContext) {
+          context
+            .switchToHttp()
+            .getRequest<AuthenticatedRequest>().sessionGithubId = githubId;
+          return true;
+        },
+      }),
       { provide: DeadlineDigestService, useValue: harness.service(sender) },
     ],
   })
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate(context: ExecutionContext) {
-        context
-          .switchToHttp()
-          .getRequest<AuthenticatedRequest>().sessionGithubId = githubId;
-        return true;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();

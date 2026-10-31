@@ -6,7 +6,6 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import type { AdminAccessService } from '../users/admin-access.service';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { AccessRequestsController } from './access-requests.controller';
@@ -24,9 +23,9 @@ const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
 
 describe('AccessRequestsController routes', () => {
   it.each([
-    ['listRequests', RequestMethod.GET, 'access/requests', [SessionGuard]],
-    ['get', RequestMethod.GET, ':id/access', [SessionGuard]],
-    ['getHistory', RequestMethod.GET, ':id/access/history', [SessionGuard]],
+    ['listRequests', RequestMethod.GET, 'access/requests', undefined],
+    ['get', RequestMethod.GET, ':id/access', undefined],
+    ['getHistory', RequestMethod.GET, ':id/access/history', undefined],
   ] as const)(
     '%s owns the fixed method/path/guard contract',
     (name, method, path, guards) => {

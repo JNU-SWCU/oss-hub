@@ -10,10 +10,10 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { NotificationSettingsResponseDto } from './dto/notification-settings-response.dto';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';
 import { NotificationSettingsService } from './application-decision-notifications.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -29,7 +29,7 @@ export class NotificationSettingsController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getMyNotificationSettings(
     @Req() request: SessionIdentity,
   ): Promise<NotificationSettingsResponseDto> {
@@ -39,7 +39,8 @@ export class NotificationSettingsController {
   }
 
   @Patch()
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async updateMyNotificationEmail(
     @Req() request: SessionIdentity,
     @Body() body: UpdateNotificationEmailRequestDto,

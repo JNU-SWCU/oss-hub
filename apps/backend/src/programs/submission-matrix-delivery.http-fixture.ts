@@ -2,11 +2,11 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './program-submissions.controller';
 import { AuthSessionService } from '../auth/auth-session.service';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -19,7 +19,7 @@ export async function createMatrixDeliveryHttp(
     controllers: [ProgramSubmissionsController],
     providers: [
       AuthSessionService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       { provide: SubmissionMatrixService, useValue: service },
       { provide: AuthConfig, useValue: { sessionSecret } },
       {

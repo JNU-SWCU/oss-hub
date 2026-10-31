@@ -5,7 +5,6 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -20,6 +19,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { AuthSessionService } from '../auth/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -100,7 +100,7 @@ beforeAll(async () => {
           TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
         }),
       },
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       UsersAuthorityService,
       UsersAuthorityRepository,

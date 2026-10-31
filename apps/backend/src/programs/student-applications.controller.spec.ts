@@ -1,7 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import type { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
@@ -54,8 +53,8 @@ function present<T>(value: T | undefined, what: string): T {
 }
 
 describe('StudentApplicationsController', () => {
-  it('모든 학생 신청 관리 요청에 SessionGuard를 적용한다', () => {
-    expect(guards(StudentApplicationsController)).toEqual([SessionGuard]);
+  it('학생 신청 관리 컨트롤러에 로컬 인증 가드를 두지 않는다', () => {
+    expect(guards(StudentApplicationsController)).toEqual([]);
   });
 
   it('수정과 취소 요청에 OriginGuard를 적용한다', () => {

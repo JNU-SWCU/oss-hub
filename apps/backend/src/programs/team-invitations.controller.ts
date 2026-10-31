@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { AcceptTeamInvitationResponseDto } from './dto/accept-team-invitation-response.dto';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
 import { InvitationCandidateResponseDto } from './dto/invitation-candidate-response.dto';
@@ -19,9 +18,10 @@ import { ReceivedTeamInvitationResponseDto } from './dto/received-team-invitatio
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationResponseDto } from './dto/team-invitation-response.dto';
 import { TeamInvitationsService } from './team-invitations.service';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('team-invitations')
-@UseGuards(SessionGuard)
+@Protected()
 export class TeamInvitationsController {
   constructor(private readonly service: TeamInvitationsService) {}
 

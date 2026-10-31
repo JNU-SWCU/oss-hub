@@ -5,7 +5,6 @@ import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { AuthenticationGuard } from '../auth/authentication.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -105,9 +104,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     });
     moduleBuilder.overrideProvider(AuthService).useValue({
       getMe: jest.fn().mockResolvedValue({ id: 'actor', sessionVersion: 0 }),
-    });
-    moduleBuilder.overrideGuard(AuthenticationGuard).useValue({
-      canActivate: () => true,
     });
     application = (await moduleBuilder.compile()).createNestApplication();
     application.setGlobalPrefix('api/v1');

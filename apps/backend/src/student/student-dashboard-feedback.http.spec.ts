@@ -2,7 +2,6 @@ import type { INestApplication } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { SessionGuard } from '../auth/session.guard';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
@@ -12,6 +11,7 @@ import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentDashboardService } from './student-dashboard.service';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -61,7 +61,7 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {
         provide: AuthConfig,
         useValue: {
@@ -130,7 +130,7 @@ it('미인증 요청은 판정을 읽기 전에 AUT_003 401로 거부한다', as
   expect(recentForParticipant).not.toHaveBeenCalled();
 });
 
-it('학생 대시보드와 같이 SessionGuard 하나만 붙인다', () => {
+it('학생 대시보드와 같이 로컬 가드 없이 전역 인증 가드에 맡긴다', () => {
   const handler: unknown = Object.getOwnPropertyDescriptor(
     StudentDashboardController.prototype,
     'recentFeedback',
@@ -138,5 +138,5 @@ it('학생 대시보드와 같이 SessionGuard 하나만 붙인다', () => {
 
   expect(typeof handler).toBe('function');
   if (typeof handler !== 'function') return;
-  expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([SessionGuard]);
+  expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
 });

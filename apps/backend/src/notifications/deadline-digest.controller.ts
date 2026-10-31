@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { DeadlineDigestPreviewResponseDto } from './dto/deadline-digest-preview-response.dto';
 import { DeadlineDigestSendResponseDto } from './dto/deadline-digest-send-response.dto';
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -24,7 +24,8 @@ export class DeadlineDigestController {
 
   @Post('preview')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async preview(
     @Req() request: SessionIdentity,
     @Param('programId') programId: string,
@@ -42,7 +43,8 @@ export class DeadlineDigestController {
 
   @Post('send')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async send(
     @Req() request: SessionIdentity,
     @Param('programId') programId: string,

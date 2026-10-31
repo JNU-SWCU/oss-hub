@@ -7,7 +7,6 @@ import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
 import { AuthController } from './auth.controller';
 import { OriginGuard } from './origin.guard';
-import { SessionGuard } from './session.guard';
 import { AuthSessionService } from './auth-session.service';
 
 @Module({
@@ -21,15 +20,8 @@ import { AuthSessionService } from './auth-session.service';
     LoginHistoryService,
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
-    SessionGuard,
     OriginGuard,
   ],
-  exports: [
-    AuthConfig,
-    AuthSessionService,
-    AuthService,
-    SessionGuard,
-    OriginGuard,
-  ],
+  exports: [AuthConfig, AuthSessionService, AuthService, OriginGuard],
 })
 export class AuthModule {}

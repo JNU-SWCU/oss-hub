@@ -2,7 +2,7 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { PROTECTED_ROUTE_METADATA } from '../auth/authentication.guard';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { ProgramsController } from './programs.controller';
@@ -55,13 +55,11 @@ describe('program-editor.controller', () => {
         .useMocker((token) => (token === Function ? undefined : {}))
         .overrideGuard(OriginGuard)
         .useValue({ canActivate: jest.fn() })
-        .overrideGuard(SessionGuard)
-        .useValue({ canActivate: jest.fn() })
         .compile();
       controller = module.get(ProgramsController);
     });
 
-    it('keeps edit reads behind SessionGuard without replacing public detail', async () => {
+    it('keeps edit reads behind the global authentication guard without replacing public detail', async () => {
       const editable = {
         id: 'program-1',
         name: 'OSS',
@@ -91,8 +89,8 @@ describe('program-editor.controller', () => {
       expect(result.endAt).toBe('2026-08-31T00:00:00.000Z');
       expect(editor.getProgram).toHaveBeenCalledWith(101n, 'program-1');
       expect(
-        Reflect.getMetadata(GUARDS_METADATA, controllerMethod('get')),
-      ).toContain(SessionGuard);
+        Reflect.getMetadata(PROTECTED_ROUTE_METADATA, controllerMethod('get')),
+      ).toBe(true);
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('detail')),
       ).toBeUndefined();
@@ -122,16 +120,16 @@ describe('program-editor.controller', () => {
       );
       await module.close();
     });
-    it('keeps mutations behind SessionGuard and OriginGuard', () => {
+    it('keeps mutations behind OriginGuard', () => {
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('update')),
-      ).toEqual([SessionGuard, OriginGuard]);
+      ).toEqual([OriginGuard]);
       expect(
         Reflect.getMetadata(
           GUARDS_METADATA,
           controllerMethod('createMilestone'),
         ),
-      ).toEqual([SessionGuard, OriginGuard]);
+      ).toEqual([OriginGuard]);
     });
   });
 });
@@ -163,8 +161,6 @@ describe('program-lifecycle.controller', () => {
         ],
       })
         .useMocker((token) => (token === Function ? undefined : {}))
-        .overrideGuard(SessionGuard)
-        .useValue({ canActivate: () => true })
         .overrideGuard(OriginGuard)
         .useValue({ canActivate: () => true })
         .compile();
@@ -187,7 +183,7 @@ describe('program-lifecycle.controller', () => {
       expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
-      ).toEqual([SessionGuard, OriginGuard]);
+      ).toEqual([OriginGuard]);
     });
 
     it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
@@ -218,7 +214,7 @@ describe('program-lifecycle.controller', () => {
       );
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
-      ).toEqual([SessionGuard, OriginGuard]);
+      ).toEqual([OriginGuard]);
     });
   });
 });
@@ -312,8 +308,6 @@ describe('ProgramsController read boundaries', () => {
     })
       .useMocker((token) => (token === Function ? undefined : {}))
       .overrideGuard(OriginGuard)
-      .useValue({ canActivate: jest.fn(() => true) })
-      .overrideGuard(SessionGuard)
       .useValue({ canActivate: jest.fn(() => true) })
       .compile();
     moduleRef = module;
@@ -474,7 +468,7 @@ describe('ProgramsController read boundaries', () => {
   it('프로그램 생성은 공용 세션·origin guard 뒤에 있다', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),
-    ).toEqual([SessionGuard, OriginGuard]);
+    ).toEqual([OriginGuard]);
   });
 
   it('returns ended years over HTTP before matching the detail route', async () => {
@@ -578,7 +572,7 @@ describe('ProgramsController read boundaries', () => {
     expect(viewers.fromGithubId).toHaveBeenCalledWith(101n, 'program-1', true);
   });
 
-  it('viewer 상세와 활동 조회는 SessionGuard 뒤에서만 private viewer를 해석한다', async () => {
+  it('viewer 상세와 활동 조회는 전역 인증 가드 뒤에서만 private viewer를 해석한다', async () => {
     const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
     viewers.fromGithubId.mockResolvedValue(viewer);
     programs.detail.mockResolvedValue(publicDetail);
@@ -592,10 +586,16 @@ describe('ProgramsController read boundaries', () => {
     expect(programs.detail).toHaveBeenCalledWith('program-1', viewer);
     expect(activity.activity).toHaveBeenCalledWith('program-1', viewer);
     expect(
-      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('viewerDetail')),
-    ).toContain(SessionGuard);
+      Reflect.getMetadata(
+        PROTECTED_ROUTE_METADATA,
+        controllerMethod('viewerDetail'),
+      ),
+    ).toBe(true);
     expect(
-      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('programActivity')),
-    ).toContain(SessionGuard);
+      Reflect.getMetadata(
+        PROTECTED_ROUTE_METADATA,
+        controllerMethod('programActivity'),
+      ),
+    ).toBe(true);
   });
 });

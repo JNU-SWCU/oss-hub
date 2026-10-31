@@ -4,9 +4,7 @@ import {
   forwardRef,
   Get,
   Module,
-  UseGuards,
 } from '@nestjs/common';
-import { SessionGuard } from '../src/auth/session.guard';
 import {
   OptionalSession,
   Protected,
@@ -49,30 +47,6 @@ Reflect.defineMetadata(
   'invalid-public-marker',
   MaskedClassInvalidController,
 );
-
-@Controller('fixture/guard-migration')
-@UseGuards(SessionGuard)
-export class GuardMigrationController {
-  @Get()
-  @Public()
-  get(): void {}
-}
-
-@Public()
-@Controller('fixture/method-override-migration')
-@UseGuards(SessionGuard)
-export class MethodOverrideMigrationController {
-  @Get()
-  @Protected()
-  get(): void {}
-}
-
-@Controller('fixture/guard-fallback')
-@UseGuards(SessionGuard)
-export class GuardFallbackController {
-  @Get()
-  get(): void {}
-}
 
 @Controller('fixture/dynamic')
 export class DynamicController {}

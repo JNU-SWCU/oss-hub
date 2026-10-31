@@ -8,7 +8,6 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { UserAccessController } from './user-access.controller';
 import { AdminAccessService } from '../users/admin-access.service';
@@ -31,20 +30,10 @@ describe('admin-access.controller', () => {
 
   describe('UserAccessController routes', () => {
     it.each([
-      ['list', RequestMethod.GET, 'access', [SessionGuard]],
-      ['facets', RequestMethod.GET, 'access/facets', [SessionGuard]],
-      [
-        'patchAccess',
-        RequestMethod.PATCH,
-        ':id/access',
-        [SessionGuard, OriginGuard],
-      ],
-      [
-        'patchProfile',
-        RequestMethod.PATCH,
-        ':id/profile',
-        [SessionGuard, OriginGuard],
-      ],
+      ['list', RequestMethod.GET, 'access', undefined],
+      ['facets', RequestMethod.GET, 'access/facets', undefined],
+      ['patchAccess', RequestMethod.PATCH, ':id/access', [OriginGuard]],
+      ['patchProfile', RequestMethod.PATCH, ':id/profile', [OriginGuard]],
     ] as const)(
       '%s owns the fixed method/path/guard contract',
       (name, method, path, guards) => {
@@ -310,7 +299,6 @@ describe('independent-authority.controller', () => {
       );
       expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(path);
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-        SessionGuard,
         OriginGuard,
       ]);
     },

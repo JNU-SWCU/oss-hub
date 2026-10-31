@@ -11,10 +11,10 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ApplicationDecisionNotificationsService } from './application-decision-notifications.service';
 import { ApplicationDecisionNotificationResponseDto } from './dto/application-decision-notification-response.dto';
 import { TeamDeletionNotificationResponseDto } from './dto/team-deletion-notification-response.dto';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -33,7 +33,7 @@ export class ApplicationDecisionNotificationsController {
 
   @Get('application-decisions')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async listUnread(
     @Req() request: SessionIdentity,
   ): Promise<readonly ApplicationDecisionNotificationResponseDto[]> {
@@ -45,7 +45,8 @@ export class ApplicationDecisionNotificationsController {
 
   @Patch('application-decisions/:notificationId/read')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async markRead(
     @Req() request: SessionIdentity,
     @Param('notificationId') notificationId: string,
@@ -55,7 +56,7 @@ export class ApplicationDecisionNotificationsController {
 
   @Get('team-deletions')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async listUnreadTeamDeletions(
     @Req() request: SessionIdentity,
   ): Promise<readonly TeamDeletionNotificationResponseDto[]> {
@@ -68,7 +69,8 @@ export class ApplicationDecisionNotificationsController {
 
   @Patch('team-deletions/:notificationId/read')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async markTeamDeletionRead(
     @Req() request: SessionIdentity,
     @Param('notificationId') notificationId: string,

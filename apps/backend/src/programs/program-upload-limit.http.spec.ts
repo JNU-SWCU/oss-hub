@@ -1,7 +1,6 @@
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
@@ -12,6 +11,7 @@ import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 jest.mock('./submission-upload.config', () => ({
   ...jest.requireActual<Record<string, unknown>>('./submission-upload.config'),
@@ -32,6 +32,15 @@ beforeAll(async () => {
       ProgramSubmissionsController,
     ],
     providers: [
+      protectedRouteGuardStub({
+        canActivate(context: ExecutionContext): boolean {
+          context
+            .switchToHttp()
+            .getRequest<{ sessionGithubId: bigint }>().sessionGithubId =
+            999_001n;
+          return authenticated;
+        },
+      }),
       ...STATELESS_PROVIDERS,
       SubmissionsService,
       ProgramAuthoringService,
@@ -84,15 +93,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate(context: ExecutionContext): boolean {
-        context
-          .switchToHttp()
-          .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 999_001n;
-        return authenticated;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();

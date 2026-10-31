@@ -5,7 +5,6 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { TeamsErrorCode } from './teams-error-code.error';
@@ -24,6 +23,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramRulesService } from './program-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -252,7 +252,7 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       AuthSessionService,
       { provide: ProgramTeamsService, useValue: { deleteForStaff } },
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
         provide: AuthService,

@@ -10,13 +10,13 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import {
   RoleSelectionResponseDto,
   MemberKindSelectionStateResponseDto,
 } from './dto/role-selection-response.dto';
 import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -32,7 +32,7 @@ export class OnboardingController {
 
   @Get('role')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getMySelection(
     @Req() request: SessionIdentity,
   ): Promise<MemberKindSelectionStateResponseDto> {
@@ -42,7 +42,8 @@ export class OnboardingController {
   }
 
   @Post('role')
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async selectRole(
     @Req() request: SessionIdentity,
     @Body() body: SelectRoleRequestDto,

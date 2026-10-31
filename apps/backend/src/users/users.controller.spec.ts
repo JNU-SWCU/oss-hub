@@ -1,6 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -106,7 +105,7 @@ it('PATCH는 정규화된 DTO를 서비스에 전달한다', async () => {
 });
 
 it('GET과 쓰기 메서드에 읽기/쓰기 가드를 구분해 선언한다', () => {
-  expect(readGuards('getMyProfile')).toEqual([SessionGuard]);
-  expect(readGuards('completeMyProfile')).toEqual([SessionGuard, OriginGuard]);
-  expect(readGuards('patchMyProfile')).toEqual([SessionGuard, OriginGuard]);
+  expect(readGuards('getMyProfile')).toEqual([]);
+  expect(readGuards('completeMyProfile')).toEqual([OriginGuard]);
+  expect(readGuards('patchMyProfile')).toEqual([OriginGuard]);
 });

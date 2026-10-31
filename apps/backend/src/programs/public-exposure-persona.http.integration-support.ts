@@ -10,7 +10,6 @@ import { AuthConfig } from '../auth/auth.config';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -144,7 +143,6 @@ export class PublicExposurePersonaHttpHarness {
         { provide: AuditLogService, useValue: auditLogService },
         AuthSessionService,
         AuthenticationGuard,
-        SessionGuard,
         OriginGuard,
         { provide: PrismaService, useValue: this.prisma },
         {
