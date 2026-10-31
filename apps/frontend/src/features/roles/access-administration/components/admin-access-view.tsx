@@ -1,5 +1,4 @@
 import { EmptyState, PageHeader } from '@/components';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 import type {
@@ -12,10 +11,16 @@ import type {
 } from '../admin-access-api';
 import type { AccessWorkspace } from '../admin-access-list-query';
 import { AdminAccessFilters } from './admin-access-filters';
+import {
+  AdminAccessInlineNotices,
+  AdminAccessListErrorAlert,
+  type AdminAccessInlineActions,
+} from './admin-access-inline-actions';
 import { AdminAccessTable } from './admin-access-table';
 
 export interface AdminAccessViewProps {
   readonly workspace: AccessWorkspace;
+  readonly inlineActions: AdminAccessInlineActions;
   readonly items: readonly AdminAccessListItem[];
   readonly query: string;
   readonly role: AdminAccessRoleFilter | '';
@@ -54,6 +59,9 @@ export function AdminAccessView(props: AdminAccessViewProps) {
     props.query.trim() !== '' ||
     (!isQueue && (props.role !== '' || props.accountStatus !== ''));
   const isEmptyInbox = isQueue && props.items.length === 0 && !hasActiveFilters;
+  const listError = props.errorMessage
+    ? { message: props.errorMessage, onRetry: props.onRetry }
+    : null;
 
   return (
     <section className="flex flex-col gap-6 p-4 sm:p-6">
@@ -65,15 +73,8 @@ export function AdminAccessView(props: AdminAccessViewProps) {
             : '역할·계정 상태·마지막 로그인을 조회하고 변경합니다.'
         }
       />
-      {props.errorMessage ? (
-        <Alert variant="destructive">
-          <AlertDescription className="flex items-center justify-between gap-3">
-            <span>{props.errorMessage}</span>
-            <Button className="h-11" variant="outline" onClick={props.onRetry}>
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
+      {isQueue && listError ? (
+        <AdminAccessListErrorAlert error={listError} />
       ) : null}
       <AdminAccessFilters
         isQueue={isQueue}
@@ -85,9 +86,14 @@ export function AdminAccessView(props: AdminAccessViewProps) {
         onRoleChange={props.onRoleChange}
         onAccountStatusChange={props.onAccountStatusChange}
       />
+      <AdminAccessInlineNotices
+        inlineActions={props.inlineActions}
+        listError={isQueue ? null : listError}
+      />
       <AdminAccessTable
         workspace={props.workspace}
         listSearch={props.listSearch}
+        inlineActions={props.inlineActions}
         items={props.items}
         sort={props.sort}
         direction={props.direction}

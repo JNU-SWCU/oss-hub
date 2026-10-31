@@ -1,4 +1,8 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
@@ -19,6 +23,9 @@ describe('admin access response DTO allowlists', () => {
           githubLogin: 'synthetic-target',
           name: '합성 사용자',
           role: 'STUDENT' as const,
+          memberKind: MemberKind.STUDENT,
+          hasStaffAccess: false,
+          hasAdminAccess: false,
           accountStatus: AccountStatus.ACTIVE,
           isSelf: false,
           isProfileComplete: true,
@@ -43,6 +50,9 @@ describe('admin access response DTO allowlists', () => {
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
       role: 'STUDENT',
+      memberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,

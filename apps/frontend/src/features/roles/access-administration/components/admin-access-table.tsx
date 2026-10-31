@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '@/components';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 import type {
   AdminAccessListItem,
@@ -10,6 +11,11 @@ import type {
   AdminAccessSortField,
 } from '../admin-access-api';
 import type { AccessWorkspace } from '../admin-access-list-query';
+import { isAdminAccessDirectoryItem } from '../independent-authority-api';
+import {
+  AdminAccessInlineControls,
+  type AdminAccessInlineActions,
+} from './admin-access-inline-actions';
 import {
   AccountStatusBadge,
   AdminAccessUserCell,
@@ -24,11 +30,14 @@ interface AdminAccessTableProps {
   readonly direction: AdminAccessSortDirection;
   readonly isLoading: boolean;
   readonly emptyState: ReactNode;
+  readonly inlineActions: AdminAccessInlineActions;
   readonly onSortToggle: (field: AdminAccessSortField) => void;
   readonly onRowClick: (item: AdminAccessListItem) => void;
 
   readonly listSearch?: string;
 }
+
+const DIRECTORY_SEVEN_COLUMN_CELL_PADDING = 'px-4';
 
 function sortAriaValue(
   active: boolean,
@@ -82,6 +91,7 @@ function sortableColumn(
   muted = false,
   id: string = field,
 ): DataTableColumn<AdminAccessListItem> {
+  const isDirectory = props.workspace === 'directory';
   return {
     id,
     header: (
@@ -96,10 +106,16 @@ function sortableColumn(
     headProps: {
       'aria-sort': sortAriaValue(props.sort === field, props.direction),
     },
-    headClassName: 'hidden lg:table-cell',
-    cellClassName: muted
-      ? 'hidden lg:table-cell text-muted-foreground'
-      : 'hidden lg:table-cell',
+    headClassName: cn(
+      'hidden lg:table-cell',
+      isDirectory && DIRECTORY_SEVEN_COLUMN_CELL_PADDING,
+    ),
+    cellClassName: cn(
+      'hidden lg:table-cell',
+      muted && 'text-muted-foreground',
+      isDirectory && DIRECTORY_SEVEN_COLUMN_CELL_PADDING,
+      isDirectory && muted && 'whitespace-normal',
+    ),
     cell,
   };
 }
@@ -108,6 +124,7 @@ function adminAccessColumns(
   props: AdminAccessTableProps,
 ): DataTableColumn<AdminAccessListItem>[] {
   const isQueue = props.workspace === 'queue';
+  const density = isQueue ? undefined : DIRECTORY_SEVEN_COLUMN_CELL_PADDING;
   const columns: DataTableColumn<AdminAccessListItem>[] = [
     {
       id: 'user',
@@ -123,12 +140,14 @@ function adminAccessColumns(
       headProps: {
         'aria-sort': sortAriaValue(props.sort === 'name', props.direction),
       },
-      cellClassName: 'whitespace-normal',
+      headClassName: density,
+      cellClassName: cn('whitespace-normal', density),
       cell: (item) => (
         <AdminAccessUserCell
           item={item}
           workspace={props.workspace}
           listSearch={props.listSearch}
+          inlineActions={props.inlineActions}
         />
       ),
     },
@@ -147,12 +166,42 @@ function adminAccessColumns(
     );
   } else {
     columns.push(
-      sortableColumn(props, 'role', '역할', (item) => (
-        <RoleBadge role={item.role} />
-      )),
-      sortableColumn(props, 'accountStatus', '계정 상태', (item) => (
-        <AccountStatusBadge status={item.accountStatus} />
-      )),
+      sortableColumn(props, 'role', '회원 유형', (item) =>
+        isAdminAccessDirectoryItem(item) ? (
+          <AdminAccessInlineControls
+            item={item}
+            kind="memberKind"
+            inlineActions={props.inlineActions}
+          />
+        ) : (
+          <RoleBadge role={item.role} />
+        ),
+      ),
+      {
+        id: 'adminAccess',
+        header: '관리자 접근',
+        headClassName: cn('hidden lg:table-cell', density),
+        cellClassName: cn('hidden lg:table-cell', density),
+        cell: (item) =>
+          isAdminAccessDirectoryItem(item) ? (
+            <AdminAccessInlineControls
+              item={item}
+              kind="adminAccess"
+              inlineActions={props.inlineActions}
+            />
+          ) : null,
+      },
+      sortableColumn(props, 'accountStatus', '계정 상태', (item) =>
+        isAdminAccessDirectoryItem(item) ? (
+          <AdminAccessInlineControls
+            item={item}
+            kind="accountStatus"
+            inlineActions={props.inlineActions}
+          />
+        ) : (
+          <AccountStatusBadge status={item.accountStatus} />
+        ),
+      ),
       sortableColumn(
         props,
         'createdAt',
@@ -173,8 +222,8 @@ function adminAccessColumns(
   columns.push({
     id: 'chevron',
     header: <span className="sr-only">상세</span>,
-    headClassName: 'w-8',
-    cellClassName: 'w-8 text-right',
+    headClassName: cn('w-8', isQueue ? undefined : 'px-2'),
+    cellClassName: cn('w-8 text-right', isQueue ? undefined : 'px-2'),
     cell: () => (
       <ChevronRight
         aria-hidden="true"

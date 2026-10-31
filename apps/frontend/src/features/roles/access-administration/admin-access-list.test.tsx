@@ -1,13 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { ACCOUNT_STATUS_LABEL, roleLabel } from '@/lib/status-vocabulary';
+
 import {
   ADMIN_ACCESS_DEFAULT_FILTER_STATE,
   ADMIN_ACCESS_LIST_LIMIT,
   buildAdminAccessListParams,
 } from './admin-access-list-query';
+import type { AdminAccessInlineActions } from './components/admin-access-inline-actions';
 import { AdminAccessView } from './components/admin-access-view';
 import type { AdminAccessListItem } from './admin-access-api';
+import type { AdminAccessDirectoryItem } from './independent-authority-api';
 
 const noOp = () => undefined;
 
@@ -29,8 +33,28 @@ function item(
   };
 }
 
+function directoryItem(
+  overrides: Partial<AdminAccessDirectoryItem> = {},
+): AdminAccessDirectoryItem {
+  return {
+    ...item(),
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+    ...overrides,
+  };
+}
+
+const noInlineActions: AdminAccessInlineActions = {
+  onRequestAction: noOp,
+  successMessage: null,
+  conflictNotice: null,
+  actionError: null,
+};
+
 const baseViewProps = {
   workspace: 'directory' as const,
+  inlineActions: noInlineActions,
   items: [item()],
   query: '',
   role: '' as const,
@@ -387,6 +411,154 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).toContain('승인 대기 중인 요청이 없습니다');
     expect(html).not.toContain('검색 결과가 없습니다');
     expect(html).not.toContain('필터 초기화');
+  });
+
+  it('권한 필드가 있는 행은 세 드롭다운을 렌더링하고 역할 정렬은 회원 유형 머리글에 붙는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        items={[directoryItem()]}
+        sort="role"
+        direction="asc"
+      />,
+    );
+
+    expect(html).toContain('aria-label="합성 사용자 회원 유형"');
+    expect(html).toContain('aria-label="합성 사용자 관리자 접근"');
+    expect(html).toContain('aria-label="합성 사용자 계정 상태"');
+    expect(html).toMatch(
+      /<th[^>]*aria-sort="ascending"[^>]*>[\s\S]*?회원 유형/,
+    );
+    expect(html).toMatch(/<th[^>]*>관리자 접근<\/th>/);
+    expect(html).not.toMatch(/<button[^>]*>역할</);
+  });
+
+  it('권한 필드가 없는 행은 드롭다운 대신 기존 역할·계정 상태 배지를 렌더링한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView {...baseViewProps} items={[item()]} />,
+    );
+
+    expect(html).not.toContain('aria-label="합성 사용자');
+    expect(html).toMatch(
+      new RegExp(`data-slot="status-badge"[^>]*>${roleLabel('STAFF')}<`),
+    );
+    expect(html).toMatch(
+      new RegExp(
+        `data-slot="status-badge"[^>]*>${ACCOUNT_STATUS_LABEL.ACTIVE}<`,
+      ),
+    );
+  });
+
+  it('권한 필드가 있는 행은 lg 미만에서 라벨이 보이는 stacked 컨트롤과 가입 일시를 함께 렌더링한다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView {...baseViewProps} items={[directoryItem()]} />,
+    );
+
+    expect(html).toMatch(
+      /lg:hidden[\s\S]*?<label[^>]*for="admin-access-row-synthetic-user-stacked-member-kind-control"[^>]*>회원 유형<\/label>/,
+    );
+    expect(html).toMatch(/lg:hidden[\s\S]*?가입 일시/);
+    for (const id of [
+      'admin-access-row-synthetic-user-member-kind-control',
+      'admin-access-row-synthetic-user-stacked-member-kind-control',
+    ]) {
+      expect(html.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
+    }
+  });
+
+  it('가입 신청 화면 마크업에는 select-trigger가 하나도 없다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        workspace="queue"
+        items={[
+          directoryItem({
+            pendingRequest: {
+              id: 'synthetic-request',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(html.match(/data-slot="select-trigger"/g) ?? []).toHaveLength(0);
+  });
+
+  it('성공 알림은 sticky 영역 안에 role="status"로, 충돌과 실패 알림은 role="alert"로 표시한다', () => {
+    const success = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        inlineActions={{
+          ...noInlineActions,
+          successMessage: '처리를 완료했습니다.',
+        }}
+      />,
+    );
+    expect(success).toMatch(
+      /sticky top-0[\s\S]*?role="status"[^>]*>[\s\S]*?처리를 완료했습니다\./,
+    );
+    expect(success).not.toContain('role="alert"');
+
+    const conflict = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        inlineActions={{
+          ...noInlineActions,
+          conflictNotice: '다른 처리자가 먼저 변경했습니다.',
+        }}
+      />,
+    );
+    expect(conflict).toMatch(
+      /sticky top-0[\s\S]*?role="alert"[\s\S]*?다른 처리자가 먼저 변경했습니다\./,
+    );
+
+    const failure = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        inlineActions={{
+          ...noInlineActions,
+          actionError: '요청을 처리하지 못했습니다.',
+        }}
+      />,
+    );
+    expect(failure).toMatch(
+      /sticky top-0[\s\S]*?role="alert"[\s\S]*?요청을 처리하지 못했습니다\./,
+    );
+
+    expect(
+      renderToStaticMarkup(<AdminAccessView {...baseViewProps} />),
+    ).not.toContain('sticky top-0');
+  });
+
+  it('사용자 목록의 조회 오류는 sticky 영역 안에 role="alert"와 다시 시도로 표시하고 가입 신청은 기존 위치를 유지한다', () => {
+    const directory = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        errorMessage="목록을 다시 불러오지 못했습니다."
+      />,
+    );
+    expect(directory).toMatch(
+      /sticky top-0[\s\S]*?role="alert"[\s\S]*?목록을 다시 불러오지 못했습니다\.[\s\S]*?다시 시도/,
+    );
+    expect(directory.indexOf('sticky top-0')).toBeGreaterThan(
+      directory.indexOf('</form>'),
+    );
+    expect(directory.match(/다시 시도/g)).toHaveLength(1);
+
+    const queue = renderToStaticMarkup(
+      <AdminAccessView
+        {...baseViewProps}
+        workspace="queue"
+        items={[]}
+        errorMessage="목록을 다시 불러오지 못했습니다."
+      />,
+    );
+    expect(queue).toMatch(
+      /role="alert"[\s\S]*?목록을 다시 불러오지 못했습니다\.[\s\S]*?다시 시도[\s\S]*?<form/,
+    );
+    expect(queue).not.toContain('sticky top-0');
   });
 
   it('가입 신청이라도 검색어 필터가 걸려 있으면 기존 검색 실패 안내를 유지한다', () => {

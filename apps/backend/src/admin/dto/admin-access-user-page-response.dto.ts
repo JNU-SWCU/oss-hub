@@ -29,6 +29,9 @@ export class AdminAccessUserResponseDto {
   declare readonly githubLogin: string;
   declare readonly name: string | null;
   declare readonly role: AuthorityLabel | null;
+  declare readonly memberKind: AdminAccessUser['memberKind'];
+  declare readonly hasStaffAccess: boolean;
+  declare readonly hasAdminAccess: boolean;
   declare readonly accountStatus: AccountStatus;
   declare readonly isSelf: boolean;
   declare readonly isProfileComplete: boolean;
@@ -42,6 +45,9 @@ export class AdminAccessUserResponseDto {
       githubLogin: user.githubLogin,
       name: user.name,
       role: user.role,
+      memberKind: user.memberKind,
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
       accountStatus: user.accountStatus,
       isSelf: user.isSelf,
       isProfileComplete: user.isProfileComplete,

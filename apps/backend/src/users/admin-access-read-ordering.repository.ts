@@ -59,6 +59,9 @@ export type AdminAccessUser = {
   readonly githubLogin: string;
   readonly name: string | null;
   readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
