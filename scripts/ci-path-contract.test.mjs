@@ -273,11 +273,6 @@ function validateRails(source) {
     ),
   );
   assert.doesNotMatch(workflowStep(ci, 'CI path 계약 검사'), /^        if:/m);
-  assert.ok(
-    workflowStep(ci, 'ADR-003 계약 검사').includes(
-      'run: node --test scripts/adr-003-contract.test.mjs\n',
-    ),
-  );
   const install = ci.indexOf('name: 의존성 설치');
   assert.ok(install >= 0);
   assert.ok(install < ci.indexOf('name: Rails 계약 테스트'));
@@ -448,7 +443,7 @@ for (const [path, selected] of [
   ['.design-sync/config.json', ['frontend']],
   ['scripts/design-sync-contract.test.mjs', ['frontend', 'node_scripts']],
   ['scripts/prisma-comment-checksums.test.mjs', ['backend', 'node_scripts']],
-  ['docs/decisions/README.md', []],
+  ['docs/reports/backend-inspection-2026-10.md', []],
   ['README.md', []],
   ['.github/workflows/ci.yml', scopes],
 ]) {

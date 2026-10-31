@@ -32,9 +32,10 @@ function snapshot(
 ): CollectionIncrementalStatusSnapshotDto {
   return {
     trackedRepositoryCount: 2,
-    readyStreamCount: 6,
+    readyStreamCount: 8,
     backfillingStreamCount: 0,
-    partialStreamCount: 0,
+    pendingStreamCount: 0,
+    verifyingStreamCount: 0,
     retryPendingStreamCount: 0,
     oldestReadyCheckpointAt: new Date('2026-07-25T10:00:00.000Z'),
     latestCheckpointAt: new Date('2026-07-25T11:00:00.000Z'),
@@ -103,7 +104,7 @@ describe('SystemStatusService', () => {
         health: 'NORMAL',
         dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
         trackedRepositoryCount: 2,
-        readyStreamCount: 6,
+        readyStreamCount: 8,
         backfillingStreamCount: 0,
         partialStreamCount: 0,
         retryPendingStreamCount: 0,
@@ -179,7 +180,7 @@ describe('SystemStatusService', () => {
 
   it('재시도 대기 중인 stream이 있으면 partial 진행 상황보다 FAILED를 우선한다', async () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
-      snapshot({ retryPendingStreamCount: 1, partialStreamCount: 2 }),
+      snapshot({ retryPendingStreamCount: 1, pendingStreamCount: 2 }),
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
       collection: { health: 'FAILED', safeReason: 'UPSTREAM_RATE_LIMITED' },
@@ -188,7 +189,7 @@ describe('SystemStatusService', () => {
 
   it('partialStreamCount가 있으면 PARTIAL이다', async () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
-      snapshot({ partialStreamCount: 3 }),
+      snapshot({ pendingStreamCount: 3 }),
     );
     await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
       collection: { health: 'PARTIAL', safeReason: 'RUN_INCOMPLETE' },
@@ -251,22 +252,22 @@ describe('SystemStatusService', () => {
         streams: [
           {
             streamType: 'COMMIT',
-            bucket: 'READY',
-            lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+            status: 'READY',
+            lastRunAt: new Date('2026-07-25T10:00:00.000Z'),
             lastErrorCode: null,
             lastErrorAt: null,
           },
           {
             streamType: 'PULL_REQUEST',
-            bucket: 'RETRY_PENDING',
-            lastSuccessAt: null,
+            status: 'BACKFILLING',
+            lastRunAt: null,
             lastErrorCode: 'COL_RATE_LIMITED',
             lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
           },
           {
             streamType: 'RELEASE',
-            bucket: 'PARTIAL',
-            lastSuccessAt: null,
+            status: 'PENDING',
+            lastRunAt: null,
             lastErrorCode: null,
             lastErrorAt: null,
           },
@@ -298,6 +299,13 @@ describe('SystemStatusService', () => {
           },
           {
             streamType: 'RELEASE',
+            bucket: 'PARTIAL',
+            lastSuccessAt: null,
+            lastErrorCode: null,
+            lastErrorAt: null,
+          },
+          {
+            streamType: 'ISSUE',
             bucket: 'PARTIAL',
             lastSuccessAt: null,
             lastErrorCode: null,

@@ -7,13 +7,7 @@ import {
   ValidateIf,
   ValidateBy,
 } from 'class-validator';
-import { DomainException } from '../../platform/error-code.error';
-import { SystemErrorCode } from '../../platform/system-error-code.error';
-import type { MemberKindMutationCommand } from '../../users/member-kind.service';
-import {
-  MEMBER_KINDS,
-  PROFILE_TEXT_PATTERN,
-} from '../../users/profile-validation.config';
+import { PROFILE_TEXT_PATTERN } from '../../users/profile-validation.config';
 
 export class PatchMemberKindRequestDto {
   @IsDefined()
@@ -47,48 +41,6 @@ export class PatchMemberKindRequestDto {
   @IsString()
   @IsProfileText('isValidStaffNumber')
   declare readonly staffNumber?: string | null;
-
-  toCommand(): MemberKindMutationCommand {
-    return {
-      memberKind: parseMemberKind(this.memberKind),
-      expectedMemberKind: parseMemberKind(this.expectedMemberKind),
-      expectedHasStaffAccess: parseExpectedStaffAccess(
-        this.expectedHasStaffAccess,
-      ),
-      ...(this.studentId !== undefined ? { studentId: this.studentId } : {}),
-      ...(this.department !== undefined ? { department: this.department } : {}),
-      ...(this.staffNumber !== undefined
-        ? { staffNumber: this.staffNumber }
-        : {}),
-    };
-  }
-}
-
-function parseMemberKind(
-  value: string,
-): MemberKindMutationCommand['memberKind'] {
-  switch (value) {
-    case MEMBER_KINDS.STUDENT:
-    case MEMBER_KINDS.STAFF:
-      return value;
-    default:
-      throw validationError('지원하지 않는 회원 유형입니다.');
-  }
-}
-
-function parseExpectedStaffAccess(value: boolean): boolean {
-  if (typeof value !== 'boolean') {
-    throw validationError('기대하는 교직원 접근 상태가 올바르지 않습니다.');
-  }
-  return value;
-}
-
-function validationError(message: string): DomainException {
-  return new DomainException({
-    code: SystemErrorCode.VALIDATION_FAILED,
-    status: 400,
-    message,
-  });
 }
 
 function transformStaffNumber({ value }: { readonly value: unknown }): unknown {

@@ -156,6 +156,7 @@ describe('역할별 필수 항목', () => {
         affiliationName: input.department,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        requestsStaffAccess: true,
       },
       expect.any(Function),
     );
@@ -232,6 +233,7 @@ describe('역할별 필수 항목', () => {
         affiliationName: input.department,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        requestsStaffAccess: false,
       },
       expect.any(Function),
     );

@@ -2115,7 +2115,7 @@ describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', (
   });
 });
 
-describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-009)', () => {
+describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () => {
   const MEMBER_ID = 11n;
   const OUTSIDER_ID = '99';
 

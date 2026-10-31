@@ -117,7 +117,6 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { DownloadResponseService } from './download-response.service';
-import { GithubRepositoryUrlConstraintService } from './github-repository-url-constraint.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
@@ -159,7 +158,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     ProgramCoverUrlService,
     ApplicationAnswersService,
     DownloadResponseService,
-    GithubRepositoryUrlConstraintService,
     MilestoneCompletionService,
     MilestoneDocumentRulesService,
     ProgramRulesService,

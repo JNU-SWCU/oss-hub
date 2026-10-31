@@ -7,7 +7,11 @@ import { DomainException } from '../platform/error-code.error';
 import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { OnboardingController } from './onboarding.controller';
 import { RolesErrorCode } from './roles-error-code.error';
-import type { MemberOnboardingService } from './member-onboarding.service';
+import { MemberOnboardingService } from './member-onboarding.service';
+
+const onboardingRequestParser = Object.create(
+  MemberOnboardingService.prototype,
+) as MemberOnboardingService;
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,
@@ -40,7 +44,12 @@ function createOnboardingController(
   getMySelection: MemberOnboardingService['getMySelection'] = () =>
     Promise.resolve({ selectedMemberKind: null }),
 ): OnboardingController {
-  return new OnboardingController({ selectMemberKind, getMySelection });
+  return new OnboardingController({
+    selectMemberKind,
+    getMySelection,
+    memberKindFromRequest: (request) =>
+      onboardingRequestParser.memberKindFromRequest(request),
+  });
 }
 
 describe('OnboardingController', () => {
@@ -82,7 +91,7 @@ describe('OnboardingController', () => {
 
     let caught: unknown;
     try {
-      body.toMemberKind();
+      onboardingRequestParser.memberKindFromRequest(body);
     } catch (error: unknown) {
       caught = error;
     }

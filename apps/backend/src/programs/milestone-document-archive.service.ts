@@ -265,6 +265,63 @@ export class MilestoneDocumentArchiveService {
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
+  programArchiveScopeFromRequest(request: {
+    readonly scope: ProgramDocumentArchiveScope['kind'];
+    readonly groupBy?: 'TEAM' | 'DOCUMENT';
+    readonly milestoneId?: string;
+    readonly teamId?: string;
+  }): ProgramDocumentArchiveScope {
+    const grouping =
+      request.groupBy === undefined ? {} : { grouping: request.groupBy };
+    if (
+      request.scope === 'PROGRAM' &&
+      request.milestoneId === undefined &&
+      request.teamId === undefined
+    ) {
+      return { kind: 'PROGRAM', ...grouping };
+    }
+    if (
+      request.scope === 'MILESTONE' &&
+      request.milestoneId !== undefined &&
+      request.teamId === undefined
+    ) {
+      return {
+        kind: 'MILESTONE',
+        milestoneId: request.milestoneId,
+        ...grouping,
+      };
+    }
+    if (
+      request.scope === 'TEAM' &&
+      request.teamId !== undefined &&
+      request.milestoneId === undefined
+    ) {
+      return { kind: 'TEAM', teamId: request.teamId, ...grouping };
+    }
+    throw new DomainException(
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.INVALID_REQUEST
+      ],
+    );
+  }
+
+  milestoneArchiveScopeFromRequest(request: {
+    readonly groupBy?: MilestoneDocumentArchiveGrouping;
+    readonly documentId?: string;
+  }): MilestoneDocumentArchiveScope {
+    if (request.documentId === undefined) {
+      return { kind: 'ALL', grouping: request.groupBy ?? 'TEAM' };
+    }
+    if (request.groupBy !== undefined) {
+      throw new DomainException(
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.INVALID_REQUEST
+        ],
+      );
+    }
+    return { kind: 'DOCUMENT', documentId: request.documentId };
+  }
+
   async archiveForProgramStaff(
     sessionGithubId: bigint,
     programId: string,

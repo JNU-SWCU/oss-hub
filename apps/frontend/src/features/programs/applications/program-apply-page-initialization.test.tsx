@@ -443,8 +443,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await renderPage('program-team-race');
     await enterText('#apply-team-name', '합성 팀');
     await act(async () => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
+      window.dispatchEvent(new Event('focus'));
     });
     await act(async () => inviteTrigger().click());
     expect(loadProgramApplyContextMock).toHaveBeenCalledTimes(3);
@@ -960,8 +959,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).not.toContain('member-nick');
 
     await act(async () => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
+      window.dispatchEvent(new Event('focus'));
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -988,8 +986,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await enterTitle('사용자가 작성한 제목');
 
     await act(async () => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
+      window.dispatchEvent(new Event('focus'));
       await Promise.resolve();
       await Promise.resolve();
     });

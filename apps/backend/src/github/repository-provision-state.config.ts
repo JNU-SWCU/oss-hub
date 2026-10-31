@@ -1,3 +1,11 @@
+import { RepositoryInvitationStatus } from '@prisma/client';
+export const REVOCATION_INVITATION_STATUSES = [
+  RepositoryInvitationStatus.REVOKE_REQUIRED,
+  RepositoryInvitationStatus.REVOKED,
+  RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
+  RepositoryInvitationStatus.REVOKE_FAILED_FINAL,
+] as const;
+
 export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
   'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
 

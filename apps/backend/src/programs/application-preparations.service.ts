@@ -3,7 +3,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { DomainException, type ErrorCode } from '../platform/error-code.error';
-import { ApplicationPreparationsRepository } from './application-preparations.repository';
+import {
+  ApplicationPreparationsRepository,
+  type PreparationRow,
+} from './application-preparations.repository';
 import {
   PreparationConflict,
   type PreparationFailure,
@@ -87,6 +90,20 @@ const ERRORS = {
 export class ApplicationPreparationsService {
   constructor(private readonly repository: ApplicationPreparationsRepository) {}
 
+  private async authorizedPreparation(
+    preparationId: string,
+    actorId: string,
+    leaderOnly: boolean,
+  ): Promise<PreparationRow> {
+    const row = await this.repository.findPreparation(preparationId);
+    if (!row) throw new PreparationConflict('not-found');
+    if (!row.participants.some((member) => member.userId === actorId))
+      throw new PreparationConflict('member-required');
+    if (leaderOnly && row.leaderId !== actorId)
+      throw new PreparationConflict('leader-required');
+    return row;
+  }
+
   private async run<T>(
     githubId: bigint,
     operation: (actorId: string) => Promise<T>,
@@ -119,12 +136,16 @@ export class ApplicationPreparationsService {
   }
   listSent(githubId: bigint, preparationId: string) {
     return this.run(githubId, (actorId) =>
-      this.repository.listSent(preparationId, actorId),
+      this.authorizedPreparation(preparationId, actorId, false).then(
+        (preparation) => this.repository.listSent(preparation),
+      ),
     );
   }
   search(githubId: bigint, preparationId: string, query: string) {
     return this.run(githubId, (actorId) =>
-      this.repository.search(preparationId, actorId, query),
+      this.authorizedPreparation(preparationId, actorId, true).then(
+        (preparation) => this.repository.search(preparation, actorId, query),
+      ),
     );
   }
   invite(
@@ -134,7 +155,16 @@ export class ApplicationPreparationsService {
     now = new Date(),
   ) {
     return this.run(githubId, (actorId) =>
-      this.repository.invite(preparationId, actorId, inviteeId, now),
+      this.authorizedPreparation(preparationId, actorId, true).then(
+        (preparation) =>
+          this.repository.invite(
+            preparationId,
+            preparation.programId,
+            actorId,
+            inviteeId,
+            now,
+          ),
+      ),
     );
   }
   respond(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
@@ -57,6 +57,12 @@ function AdminAccessDetailScreenForUser({
           : { kind: 'error' }
         : { kind: 'loading' };
   const retry = () => void query.refetch();
+  const historyLifetime = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    historyLifetime.current = controller;
+    return () => controller.abort();
+  }, []);
   const historyMutation = useMutation({
     mutationFn: async ({
       kind,
@@ -66,6 +72,7 @@ function AdminAccessDetailScreenForUser({
       readonly page: number;
     }) => {
       if (state.kind !== 'ready') return;
+      const lifetimeSignal = historyLifetime.current.signal;
       const params = {
         staffAccessRequestPage:
           kind === 'staffAccessRequest'
@@ -81,10 +88,12 @@ function AdminAccessDetailScreenForUser({
           fetchAdminAccessHistory(userId, params, signal),
         staleTime: 0,
       });
-      client.setQueryData<AdminAccessDetailData>(
-        adminAccessDetailKey(userId),
-        (current) => (current ? { ...current, history } : current),
-      );
+      if (!lifetimeSignal.aborted) {
+        client.setQueryData<AdminAccessDetailData>(
+          adminAccessDetailKey(userId),
+          (current) => (current ? { ...current, history } : current),
+        );
+      }
     },
   });
   const historyLoading = historyMutation.isPending;

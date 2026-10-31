@@ -69,7 +69,13 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
         UserProfileService,
         SessionGuard,
         OriginGuard,
-        { provide: UsersService, useValue: usersService },
+        {
+          provide: UsersService,
+          useValue: Object.assign(
+            Object.create(UsersService.prototype) as UsersService,
+            usersService,
+          ),
+        },
         { provide: AdminAccessService, useValue: adminAccessService },
         { provide: AdminProfileService, useValue: adminProfileService },
         {

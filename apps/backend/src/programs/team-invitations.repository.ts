@@ -88,7 +88,16 @@ export interface InvitationCandidateRecord {
   readonly avatarUrl: string | null;
 }
 
-export type InviteeEligibility = 'eligible' | 'not-found' | 'not-eligible';
+export interface StaffAuthorityRow {
+  readonly accountStatus: AccountStatus;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+}
+
+export interface InviteeAccountRow {
+  readonly accountStatus: AccountStatus;
+  readonly profile: { readonly memberKind: MemberKind } | null;
+}
 
 export type AcceptInvitationOutcome =
   | { readonly kind: 'not-found' }
@@ -313,12 +322,25 @@ export class TeamInvitationsRepository {
     return member !== null;
   }
 
-  async isActiveStaff(userId: string): Promise<boolean> {
-    return isActiveStaffActor(this.prisma, userId);
+  findStaffAuthority(userId: string): Promise<StaffAuthorityRow | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        accountStatus: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      },
+    });
   }
 
-  async getInviteeEligibility(userId: string): Promise<InviteeEligibility> {
-    return getInviteeEligibility(this.prisma, userId);
+  findInviteeAccount(userId: string): Promise<InviteeAccountRow | null> {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        accountStatus: true,
+        profile: { select: { memberKind: true } },
+      },
+    });
   }
 
   async searchCandidates(
@@ -675,24 +697,6 @@ async function isActiveStaffActor(
   });
   if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
   return user.hasStaffAccess || user.hasAdminAccess;
-}
-
-async function getInviteeEligibility(
-  prisma: Pick<PrismaService, 'user'>,
-  userId: string,
-): Promise<InviteeEligibility> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      accountStatus: true,
-      profile: { select: { memberKind: true } },
-    },
-  });
-  if (!user) return 'not-found';
-  return user.profile?.memberKind === MemberKind.STUDENT &&
-    user.accountStatus === AccountStatus.ACTIVE
-    ? 'eligible'
-    : 'not-eligible';
 }
 
 type AccessSyncTx = Pick<

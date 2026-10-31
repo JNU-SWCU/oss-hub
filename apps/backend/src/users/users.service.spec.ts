@@ -258,6 +258,7 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
       affiliationName: input.department,
       hasStaffAccess: false,
       hasAdminAccess: false,
+      requestsStaffAccess: false,
     },
     expect.any(Function),
   );

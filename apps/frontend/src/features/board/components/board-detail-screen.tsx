@@ -35,20 +35,21 @@ export function BoardDetailScreen({
   const queryClient = useQueryClient();
   const query = useBoardPostQuery(programId, postId);
   const state: BoardDetailState =
-    query.data !== undefined
-      ? { kind: 'ready', post: query.data }
-      : query.isError
-        ? query.error instanceof ApiError &&
-          query.error.problem.code === 'BRD_002'
-          ? { kind: 'not-found' }
-          : {
+    query.isError &&
+    query.error instanceof ApiError &&
+    query.error.problem.code === 'BRD_002'
+      ? { kind: 'not-found' }
+      : query.data !== undefined
+        ? { kind: 'ready', post: query.data }
+        : query.isError
+          ? {
               kind: 'error',
               message:
                 query.error instanceof ApiError
                   ? mapBoardError(query.error.problem)
                   : '잠시 후 다시 시도해 주세요.',
             }
-        : { kind: 'loading' };
+          : { kind: 'loading' };
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
@@ -134,6 +135,10 @@ export function BoardDetailScreen({
     setDeleteError(null);
     deleteBoardPost(programId, postId)
       .then(() => {
+        queryClient.removeQueries({
+          queryKey: boardPostKey(programId, postId),
+          exact: true,
+        });
         void invalidateBoard(queryClient, programId, postId);
         router.push(boardListHref(programId));
       })

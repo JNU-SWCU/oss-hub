@@ -1,9 +1,14 @@
 import { ReviewDecision } from '@prisma/client';
-import { DomainException } from '../../platform/error-code.error';
-import { CreateSubmissionReviewRequestDto } from './create-submission-review-request.dto';
-import { SubmissionReviewsErrorCode } from '../submission-reviews-error-code.error';
+import { DomainException } from '../platform/error-code.error';
+import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
+import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 
-describe('CreateSubmissionReviewRequestDto', () => {
+const service = Object.create(
+  SubmissionReviewsService.prototype,
+) as SubmissionReviewsService;
+
+describe('SubmissionReviewsService.reviewInputFromRequest', () => {
   it.each([ReviewDecision.CHANGES_REQUESTED, ReviewDecision.REJECTED] as const)(
     '%s는 비어 있지 않은 comment를 요구한다',
     (decision) => {
@@ -14,7 +19,7 @@ describe('CreateSubmissionReviewRequestDto', () => {
       });
 
       try {
-        dto.toInput();
+        service.reviewInputFromRequest(dto);
         throw new Error('DomainException이 발생해야 합니다.');
       } catch (error) {
         if (!(error instanceof DomainException)) {
@@ -34,7 +39,7 @@ describe('CreateSubmissionReviewRequestDto', () => {
       comment: '  확인했습니다  ',
     });
 
-    const input = dto.toInput();
+    const input = service.reviewInputFromRequest(dto);
 
     expect(input).toEqual({
       revision: 2,

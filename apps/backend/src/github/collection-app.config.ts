@@ -158,3 +158,7 @@ function resolvePrivateKey(
     });
   }
 }
+
+export const COLLECTION_FAILURE_BACKOFF_BASE_MS = 60 * 60 * 1000;
+
+export const COLLECTION_FAILURE_BACKOFF_MAX_MS = 6 * 60 * 60 * 1000;

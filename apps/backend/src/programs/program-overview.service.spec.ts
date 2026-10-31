@@ -33,6 +33,40 @@ const currentMilestone: CurrentSubmissionMilestone = {
   requiredDocumentIds: ['doc-1', 'doc-2'],
 };
 
+function completionRows(
+  teams: readonly {
+    readonly members: number;
+    readonly submitted: readonly string[];
+  }[],
+) {
+  return {
+    findProgramApplications: jest.fn().mockResolvedValue(
+      teams.map((_, index) => ({
+        id: `app-${index}`,
+        teamId: `team-${index}`,
+      })),
+    ),
+    findSubmittedDocumentPairs: jest.fn(
+      (_applicationIds: readonly string[], documentIds: readonly string[]) =>
+        Promise.resolve(
+          teams.flatMap((team, index) =>
+            team.submitted
+              .filter((documentId) => documentIds.includes(documentId))
+              .map((documentId) => ({
+                applicationId: `app-${index}`,
+                milestoneDocumentId: documentId,
+              })),
+          ),
+        ),
+    ),
+    countTeamMembers: jest
+      .fn()
+      .mockResolvedValue(
+        new Map(teams.map((team, index) => [`team-${index}`, team.members])),
+      ),
+  };
+}
+
 const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
   {
     milestoneId: 'cuid-synthetic-milestone-1',
@@ -82,10 +116,7 @@ describe('ProgramOverviewService', () => {
           findSubmittedDocumentIds: jest
             .fn()
             .mockResolvedValue(new Set(['doc-1'])),
-          countFullySubmittedTeamsByMilestone: jest
-            .fn()
-            .mockResolvedValue(new Map()),
-          countFullySubmittedParticipants: jest.fn().mockResolvedValue(0),
+          ...completionRows([]),
           findMilestoneSchedules: jest.fn().mockResolvedValue([]),
         } as unknown as ProgramOverviewRepository;
         const result = await new ProgramOverviewService(
@@ -296,25 +327,24 @@ describe('ProgramOverviewService', () => {
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
-      const countFullySubmittedParticipants = jest.fn().mockResolvedValue(128);
+      const completion = completionRows([
+        ...Array.from({ length: 11 }, () => ({
+          members: 10,
+          submitted: ['doc-1', 'doc-2'],
+        })),
+        { members: 18, submitted: ['doc-1', 'doc-2'] },
+      ]);
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
-      const countFullySubmittedTeamsByMilestone = jest.fn().mockResolvedValue(
-        new Map([
-          [currentMilestone.milestoneId, 12],
-          ['cuid-synthetic-milestone-4', 0],
-        ]),
-      );
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
-        countFullySubmittedParticipants,
         findMilestoneDocumentCatalog,
-        countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
+        ...completion,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(
         repository,
@@ -326,14 +356,13 @@ describe('ProgramOverviewService', () => {
         syntheticGithubId,
       );
 
-      expect(countFullySubmittedParticipants).toHaveBeenCalledWith(
-        syntheticProgramId,
+      expect(completion.findSubmittedDocumentPairs).toHaveBeenCalledWith(
+        expect.any(Array),
         currentMilestone.requiredDocumentIds,
       );
-
-      expect(countFullySubmittedTeamsByMilestone).toHaveBeenCalledWith(
-        syntheticProgramId,
-        [milestoneDocumentCatalog[1], milestoneDocumentCatalog[2]],
+      expect(completion.findSubmittedDocumentPairs).toHaveBeenCalledWith(
+        expect.any(Array),
+        ['doc-1', 'doc-2', 'doc-4', 'doc-5'],
       );
       expect(result.viewer).toEqual({
         role: 'STAFF',
@@ -368,22 +397,24 @@ describe('ProgramOverviewService', () => {
       const findCurrentSubmissionMilestone = jest
         .fn()
         .mockResolvedValue(currentMilestone);
-      const countFullySubmittedParticipants = jest.fn().mockResolvedValue(10);
+      const completion = completionRows([
+        ...Array.from({ length: 8 }, () => ({
+          members: 1,
+          submitted: ['doc-1', 'doc-2'],
+        })),
+        { members: 2, submitted: ['doc-1', 'doc-2'] },
+      ]);
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
-      const countFullySubmittedTeamsByMilestone = jest
-        .fn()
-        .mockResolvedValue(new Map([[currentMilestone.milestoneId, 9]]));
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
       const repository = {
         findByProgramId,
         findViewerIdentity,
         findCurrentSubmissionMilestone,
-        countFullySubmittedParticipants,
         findMilestoneDocumentCatalog,
-        countFullySubmittedTeamsByMilestone,
         findMilestoneSchedules,
+        ...completion,
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(
         repository,

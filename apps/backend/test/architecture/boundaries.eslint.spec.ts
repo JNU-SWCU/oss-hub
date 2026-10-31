@@ -7,6 +7,11 @@ import type { Linter } from 'eslint';
 const backendRoot = path.resolve(__dirname, '../..');
 const dependencyRule = 'boundaries/dependencies';
 const repositoryExportsRule = 'architecture/repository-exports';
+const exportGrammarRules: ReadonlySet<string> = new Set([
+  repositoryExportsRule,
+  'architecture/service-exports',
+  'architecture/config-exports',
+]);
 const layers = [
   'controller',
   'service',
@@ -1171,8 +1176,9 @@ describe('backend structural lint rails', () => {
     ({ rule, index }) => {
       const actual = messages[index]?.filter(
         (message) =>
-          rule === repositoryExportsRule ||
-          message.ruleId !== repositoryExportsRule,
+          message.ruleId === rule ||
+          message.ruleId === null ||
+          !exportGrammarRules.has(message.ruleId),
       );
       expect(actual).toBeDefined();
       expect(actual?.filter((message) => message.fatal)).toEqual([]);

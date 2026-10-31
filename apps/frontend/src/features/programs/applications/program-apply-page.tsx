@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { featureKey, programFeatureKey } from '@/lib/query-keys';
+import { useWindowFocusRefetch } from '@/lib/use-window-focus-refetch';
 import { invalidateProgram } from '../catalog/queries';
 import { EmptyState, FailureState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
@@ -142,6 +143,10 @@ export function ProgramApplyPage({
     refetchInterval:
       state.kind === 'ready' && !submitting ? BACKGROUND_REFRESH_MS : false,
   });
+  useWindowFocusRefetch(
+    contextQuery.refetch,
+    state.kind === 'ready' && !submitting,
+  );
 
   function currentMutationIdentity(): MutationIdentity {
     return {

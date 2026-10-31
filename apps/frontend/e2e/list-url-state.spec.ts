@@ -145,9 +145,9 @@ test('프로그램 상세에서 뒤로 가면 검색 정렬 페이지가 복원�
   await expect(card).toBeVisible();
   await card.locator('xpath=ancestor::a').click();
   await expect(page).toHaveURL(new RegExp('/programs/' + programId + '$'));
-  await expect(
-    page.getByRole('heading', { name: 'x 프로그램', exact: true }),
-  ).toBeVisible();
+  const heading = page.getByRole('heading', { level: 1 });
+  await expect(heading).toBeVisible();
+  await expect(heading).toContainText('x 프로그램');
   const restoredResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (

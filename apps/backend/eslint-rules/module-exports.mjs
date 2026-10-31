@@ -1,20 +1,43 @@
+const TYPE_WRAPPERS = new Set([
+  'TSAsExpression',
+  'TSSatisfiesExpression',
+  'TSNonNullExpression',
+  'TSTypeAssertion',
+]);
+
+function unwrap(expression) {
+  let current = expression;
+  while (current && TYPE_WRAPPERS.has(current.type))
+    current = current.expression;
+  return current;
+}
+
 function isFunctionValue(init) {
+  const value = unwrap(init);
   return (
-    init?.type === 'ArrowFunctionExpression' ||
-    init?.type === 'FunctionExpression'
+    value?.type === 'ArrowFunctionExpression' ||
+    value?.type === 'FunctionExpression'
   );
 }
 
-function isFunctionBinding(context, specifier) {
-  const name = specifier.local.name;
-  let scope = context.sourceCode.getScope(specifier);
+function isFunctionBinding(context, node, name, seen = new Set()) {
+  if (seen.has(name)) return false;
+  seen.add(name);
+  let scope = context.sourceCode.getScope(node);
   while (scope && !scope.set.has(name)) scope = scope.upper;
   const definition = scope?.set.get(name)?.defs[0];
   if (!definition) return false;
   if (definition.type === 'FunctionName') return true;
-  return (
-    definition.type === 'Variable' && isFunctionValue(definition.node.init)
-  );
+  if (definition.type === 'ImportBinding')
+    return (
+      definition.parent.importKind !== 'type' &&
+      definition.node.importKind !== 'type'
+    );
+  if (definition.type !== 'Variable') return false;
+  const init = unwrap(definition.node.init);
+  if (init?.type === 'Identifier')
+    return isFunctionBinding(context, definition.node, init.name, seen);
+  return isFunctionValue(init);
 }
 
 function exportedFunctionRule(message, isAllowed) {
@@ -29,13 +52,23 @@ function exportedFunctionRule(message, isAllowed) {
         if (!isAllowed(name)) context.report({ node, messageId: 'forbidden' });
       };
       return {
+        ExportAllDeclaration(node) {
+          if (node.exportKind !== 'type') check(node, '');
+        },
         ExportDefaultDeclaration(node) {
-          const { declaration } = node;
+          const declaration = unwrap(node.declaration);
           if (
             declaration.type === 'FunctionDeclaration' ||
             isFunctionValue(declaration)
-          )
+          ) {
             check(node, declaration.id?.name ?? '');
+            return;
+          }
+          if (
+            declaration.type === 'Identifier' &&
+            isFunctionBinding(context, node, declaration.name)
+          )
+            check(node, declaration.name);
         },
         ExportNamedDeclaration(node) {
           if (node.exportKind === 'type') return;
@@ -51,13 +84,11 @@ function exportedFunctionRule(message, isAllowed) {
             }
             return;
           }
-          if (node.source) return;
           for (const specifier of node.specifiers) {
-            if (
-              specifier.exportKind !== 'type' &&
-              isFunctionBinding(context, specifier)
-            )
-              check(specifier, specifier.local.name);
+            if (specifier.exportKind === 'type') continue;
+            const name = specifier.local.name ?? specifier.local.value;
+            if (node.source || isFunctionBinding(context, specifier, name))
+              check(specifier, name);
           }
         },
       };

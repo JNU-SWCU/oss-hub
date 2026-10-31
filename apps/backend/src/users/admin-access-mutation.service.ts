@@ -488,6 +488,23 @@ type MutationInput = {
 
 const USER_ID_PATTERN = /^[A-Za-z0-9:_-]{1,128}$/;
 
+export interface AdminAccessPatchRequest {
+  readonly expectedRole: string | null;
+  readonly desiredRole: string | null;
+  readonly expectedAccountStatus: string;
+  readonly desiredAccountStatus: string;
+  readonly expectedHasStaffAccess?: boolean;
+  readonly expectedHasAdminAccess?: boolean;
+  readonly expectedPendingRequest: {
+    readonly id: string;
+    readonly status: string;
+  } | null;
+  readonly requestDecision?: {
+    readonly decision: string;
+    readonly reason?: string;
+  };
+}
+
 @Injectable()
 export class AdminAccessMutationService {
   constructor(
@@ -621,6 +638,114 @@ export class AdminAccessMutationService {
         ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ID],
       );
     }
+  }
+
+  commandFromPatchAccessRequest(
+    request: AdminAccessPatchRequest,
+  ): AdminAccessMutationCommand {
+    return {
+      expectedRole: this.parsePatchRole(request.expectedRole),
+      desiredRole: this.parsePatchRole(request.desiredRole),
+      expectedAccountStatus: this.parsePatchAccountStatus(
+        request.expectedAccountStatus,
+      ),
+      desiredAccountStatus: this.parsePatchAccountStatus(
+        request.desiredAccountStatus,
+      ),
+      expectedPendingRequest:
+        request.expectedPendingRequest === null
+          ? null
+          : this.parseExpectedPendingRequest(request.expectedPendingRequest),
+      ...this.parseExpectedCanonicalAuthority(request),
+      ...(request.requestDecision
+        ? {
+            requestDecision: this.parseRequestDecision(request.requestDecision),
+          }
+        : {}),
+    };
+  }
+
+  private parseExpectedPendingRequest(request: {
+    readonly id: string;
+    readonly status: string;
+  }): AdminAccessExpectedPendingRequest {
+    if (request.status !== StaffAccessRequestStatus.PENDING) {
+      throw this.invalidAccessRequestDecision();
+    }
+    return { id: request.id, status: StaffAccessRequestStatus.PENDING };
+  }
+
+  private parseRequestDecision(request: {
+    readonly decision: string;
+    readonly reason?: string;
+  }): AdminAccessRequestDecision {
+    switch (request.decision) {
+      case ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE:
+        return { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE };
+      case ADMIN_ACCESS_REQUEST_DECISIONS.REJECT: {
+        const reason = request.reason?.trim();
+        if (!reason) {
+          throw new DomainException(
+            ROLES_ERROR_CODES[RolesErrorCode.REJECTION_REASON_REQUIRED],
+          );
+        }
+        return { decision: ADMIN_ACCESS_REQUEST_DECISIONS.REJECT, reason };
+      }
+      default:
+        throw this.invalidAccessRequestDecision();
+    }
+  }
+
+  private parseExpectedCanonicalAuthority(request: {
+    readonly expectedHasStaffAccess?: boolean;
+    readonly expectedHasAdminAccess?: boolean;
+  }): Pick<
+    AdminAccessMutationCommand,
+    'expectedHasStaffAccess' | 'expectedHasAdminAccess'
+  > {
+    const hasStaff = request.expectedHasStaffAccess;
+    const hasAdmin = request.expectedHasAdminAccess;
+    if (hasStaff === undefined && hasAdmin === undefined) {
+      return {};
+    }
+    if (typeof hasStaff !== 'boolean' || typeof hasAdmin !== 'boolean') {
+      throw this.invalidAccessRequestDecision();
+    }
+    return {
+      expectedHasStaffAccess: hasStaff,
+      expectedHasAdminAccess: hasAdmin,
+    };
+  }
+
+  private parsePatchRole(value: string | null): AuthorityLabel | null {
+    switch (value) {
+      case null:
+        return null;
+      case 'STUDENT':
+      case 'STAFF':
+      case 'ADMIN':
+        return value;
+      default:
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ROLE],
+        );
+    }
+  }
+
+  private parsePatchAccountStatus(value: string): AccountStatus {
+    switch (value) {
+      case AccountStatus.ACTIVE:
+      case AccountStatus.DEACTIVATED:
+        return value;
+      default:
+        throw this.invalidAccessRequestDecision();
+    }
+  }
+
+  private invalidAccessRequestDecision(): DomainException {
+    return new DomainException(
+      ROLES_ERROR_CODES[RolesErrorCode.INVALID_ACCESS_REQUEST_DECISION],
+    );
   }
 
   toAdminAccessUserRecord(row: AdminAccessUserRow): AdminAccessUserRecord {

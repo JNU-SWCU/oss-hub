@@ -35,6 +35,15 @@ export type MemberKindMutationCommand = {
 
 export type MemberKindMutationResult = IndependentAuthorityMutationResult;
 
+export interface MemberKindPatchRequest {
+  readonly memberKind: string;
+  readonly expectedMemberKind: string;
+  readonly expectedHasStaffAccess: boolean;
+  readonly studentId?: string;
+  readonly department?: string;
+  readonly staffNumber?: string | null;
+}
+
 @Injectable()
 export class MemberKindService {
   constructor(
@@ -46,6 +55,58 @@ export class MemberKindService {
     private readonly userProfileService: UserProfileService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
+
+  commandFromRequest(
+    request: MemberKindPatchRequest,
+  ): MemberKindMutationCommand {
+    return {
+      memberKind: this.parseRequestedMemberKind(request.memberKind),
+      expectedMemberKind: this.parseRequestedMemberKind(
+        request.expectedMemberKind,
+      ),
+      expectedHasStaffAccess: this.parseExpectedStaffAccess(
+        request.expectedHasStaffAccess,
+      ),
+      ...(request.studentId !== undefined
+        ? { studentId: request.studentId }
+        : {}),
+      ...(request.department !== undefined
+        ? { department: request.department }
+        : {}),
+      ...(request.staffNumber !== undefined
+        ? { staffNumber: request.staffNumber }
+        : {}),
+    };
+  }
+
+  private parseRequestedMemberKind(
+    value: string,
+  ): MemberKindMutationCommand['memberKind'] {
+    switch (value) {
+      case MemberKind.STUDENT:
+      case MemberKind.STAFF:
+        return value;
+      default:
+        throw this.requestValidationError('지원하지 않는 회원 유형입니다.');
+    }
+  }
+
+  private parseExpectedStaffAccess(value: boolean): boolean {
+    if (typeof value !== 'boolean') {
+      throw this.requestValidationError(
+        '기대하는 교직원 접근 상태가 올바르지 않습니다.',
+      );
+    }
+    return value;
+  }
+
+  private requestValidationError(message: string): DomainException {
+    return new DomainException({
+      code: SystemErrorCode.VALIDATION_FAILED,
+      status: 400,
+      message,
+    });
+  }
 
   patchMemberKind(
     actorGithubId: bigint,

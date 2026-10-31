@@ -28,6 +28,21 @@ export class MemberOnboardingService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
+  memberKindFromRequest(request: {
+    readonly selectedRole: string;
+  }): SelectableMemberKind {
+    switch (request.selectedRole) {
+      case MemberKind.STUDENT:
+        return MemberKind.STUDENT;
+      case MemberKind.STAFF:
+        return MemberKind.STAFF;
+      default:
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.INVALID_ROLE_SELECTION],
+        );
+    }
+  }
+
   async selectMemberKind(
     githubId: bigint,
     selectedMemberKind: SelectableMemberKind,
@@ -45,16 +60,14 @@ export class MemberOnboardingService {
       );
 
       if (
+        selectedMemberKind === MemberKind.STAFF &&
+        !recorded.hasStaffAccess &&
         this.userProfileService.isCompleteProfileFields(
           recorded.profile,
           selectedMemberKind,
         )
       ) {
-        await store.requestStaffAccess({
-          id: recorded.id,
-          memberKind: selectedMemberKind,
-          hasStaffAccess: recorded.hasStaffAccess,
-        });
+        await store.requestStaffAccess(recorded.id);
       }
 
       return { selectedMemberKind, redirectTo: '/onboarding/profile' };

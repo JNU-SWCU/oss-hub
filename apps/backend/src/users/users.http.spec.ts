@@ -80,7 +80,13 @@ beforeAll(async () => {
       AuthSessionService,
       SessionGuard,
       OriginGuard,
-      { provide: UsersService, useValue: usersService },
+      {
+        provide: UsersService,
+        useValue: Object.assign(
+          Object.create(UsersService.prototype) as UsersService,
+          usersService,
+        ),
+      },
       {
         provide: AuthService,
         useValue: {

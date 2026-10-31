@@ -190,26 +190,6 @@ export class RepositoryProvisionStateHelpersRepository {
     return { ...row, applicationId: row.applicationId };
   }
 
-  static canonicalGithubLogin(login: string | null | undefined): string {
-    return (login ?? '').trim().toLowerCase();
-  }
-
-  static canonicalGithubLogins(
-    logins: readonly (string | null | undefined)[],
-  ): readonly string[] {
-    return [
-      ...new Set(
-        logins
-          .map((login) =>
-            RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
-              login,
-            ),
-          )
-          .filter((login) => login.length > 0),
-      ),
-    ].sort();
-  }
-
   static claimedJobWhere(jobId: string, workerId: string) {
     return {
       id: jobId,
@@ -449,28 +429,6 @@ export class RepositoryProvisionStateHelpersRepository {
     return repository;
   }
 
-  static invitationIntent(
-    status: RepositoryInvitationStatus,
-  ): 'GRANT' | 'REVOKE' {
-    return (
-      REVOCATION_INVITATION_STATUSES as readonly RepositoryInvitationStatus[]
-    ).includes(status)
-      ? 'REVOKE'
-      : 'GRANT';
-  }
-
-  static membershipFingerprint(logins: readonly string[]): string {
-    return JSON.stringify(logins);
-  }
-
-  static loginsFromTeamMembers(
-    members: readonly { readonly user: { readonly nickname: string } }[],
-  ): readonly string[] {
-    return RepositoryProvisionStateHelpersRepository.canonicalGithubLogins(
-      members.map((member) => member.user.nickname),
-    );
-  }
-
   static async lockClaimedProvisionJob(
     transaction: Prisma.TransactionClient,
     jobId: string,
@@ -512,10 +470,3 @@ export class RepositoryProvisionStateHelpersRepository {
     user: { select: { nickname: true } },
   } as const;
 }
-
-const REVOCATION_INVITATION_STATUSES = [
-  RepositoryInvitationStatus.REVOKE_REQUIRED,
-  RepositoryInvitationStatus.REVOKED,
-  RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
-  RepositoryInvitationStatus.REVOKE_FAILED_FINAL,
-] as const;
