@@ -393,8 +393,8 @@ const rankingTimeline = (viewerClass: 'public' | 'member' | 'staff') => ({
     { date: '2026-02-28', starEstimated: false },
   ],
   series: [
-    { githubLogin: 'mina', ranks: [1, 2] },
-    { githubLogin: 'suho', ranks: [2, 1] },
+    { githubLogin: 'mina', ranks: [1, 2], totals: [10, 20] },
+    { githubLogin: 'suho', ranks: [2, 1], totals: [5, 30] },
   ],
 });
 
@@ -416,11 +416,10 @@ test('공개 타임라인 응답을 화면 계약으로 변환한다', () => {
       { date: '2026-02-28', starEstimated: false },
     ],
     series: [
-      { githubLogin: 'mina', ranks: [1, 2] },
-      { githubLogin: 'suho', ranks: [2, 1] },
+      { githubLogin: 'mina', ranks: [1, 2], totals: [10, 20] },
+      { githubLogin: 'suho', ranks: [2, 1], totals: [5, 30] },
     ],
   });
-  expect(timeline.series[0]).not.toHaveProperty('totals');
 });
 
 test('타임라인 응답의 모르는 필드는 무시하고 viewerGithubLogin 은 그대로 읽는다', () => {
@@ -434,10 +433,14 @@ test('타임라인 응답의 모르는 필드는 무시하고 viewerGithubLogin 
   });
 
   expect(timeline.viewerGithubLogin).toBe('mina');
-  expect(timeline.series[0]).toEqual({ githubLogin: 'mina', ranks: [1, 2] });
+  expect(timeline.series[0]).toEqual({
+    githubLogin: 'mina',
+    ranks: [1, 2],
+    totals: [10, 20],
+  });
 });
 
-test.each(['member', 'staff'] as const)(
+test.each(['public', 'member', 'staff'] as const)(
   '%s 타임라인은 totals 를 읽고 순위 없는 달은 null 로 유지한다',
   (viewerClass) => {
     const timeline = parseRankingTimeline(
@@ -455,8 +458,8 @@ test.each(['member', 'staff'] as const)(
   },
 );
 
-test('public 계층 series 에 totals 키가 있으면 거부한다 — 합계는 구성원 계층부터다', () => {
-  for (const totals of [[10, 11], null, undefined]) {
+test('series 에 totals 가 없으면 거부한다 — 합계는 모든 계층에 실린다', () => {
+  for (const totals of [null, undefined]) {
     expect(() =>
       parseRankingTimeline(
         withSeries('public', [{ githubLogin: 'mina', ranks: [1, 2], totals }]),
@@ -468,13 +471,17 @@ test('public 계층 series 에 totals 키가 있으면 거부한다 — 합계�
 test('ranks·totals 길이가 points 길이와 다르면 거부한다', () => {
   expect(() =>
     parseRankingTimeline(
-      withSeries('public', [{ githubLogin: 'mina', ranks: [1] }]),
+      withSeries('public', [
+        { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
+      ]),
     ),
   ).toThrow(RankingResponseError);
 
   expect(() =>
     parseRankingTimeline(
-      withSeries('public', [{ githubLogin: 'mina', ranks: [1, 2, 3] }]),
+      withSeries('public', [
+        { githubLogin: 'mina', ranks: [1, 2, 3], totals: [10, 20] },
+      ]),
     ),
   ).toThrow(RankingResponseError);
 
@@ -506,7 +513,7 @@ test.each([
     parseRankingTimeline({
       ...base,
       points: [{ date, starEstimated: false }],
-      series: [{ githubLogin: 'mina', ranks: [1] }],
+      series: [{ githubLogin: 'mina', ranks: [1], totals: [10] }],
     }),
   ).toThrow(RankingResponseError);
 });
@@ -522,7 +529,9 @@ test.each([
 ] as const)('순위(%s)가 양의 정수도 null 도 아니면 거부한다', (rank) => {
   expect(() =>
     parseRankingTimeline(
-      withSeries('public', [{ githubLogin: 'mina', ranks: [rank, 2] }]),
+      withSeries('public', [
+        { githubLogin: 'mina', ranks: [rank, 2], totals: [10, 20] },
+      ]),
     ),
   ).toThrow(RankingResponseError);
 });
@@ -597,7 +606,9 @@ test('타임라인 지점·계열의 필수 필드는 형이 어긋나면 거부
 
   expect(() =>
     parseRankingTimeline(
-      withSeries('public', [{ githubLogin: 42, ranks: [1, 2] }]),
+      withSeries('public', [
+        { githubLogin: 42, ranks: [1, 2], totals: [10, 20] },
+      ]),
     ),
   ).toThrow(RankingResponseError);
 
@@ -607,7 +618,9 @@ test('타임라인 지점·계열의 필수 필드는 형이 어긋나면 거부
 
   expect(() =>
     parseRankingTimeline(
-      withSeries('public', [{ githubLogin: 'mina', ranks: { 0: 1 } }]),
+      withSeries('public', [
+        { githubLogin: 'mina', ranks: { 0: 1 }, totals: [10, 20] },
+      ]),
     ),
   ).toThrow(RankingResponseError);
 
@@ -673,7 +686,9 @@ test('타임라인 응답이 계약을 벗어나면 조회가 거부된다', asy
     .mockResolvedValue(
       new Response(
         JSON.stringify(
-          withSeries('public', [{ githubLogin: 'mina', ranks: [1] }]),
+          withSeries('public', [
+            { githubLogin: 'mina', ranks: [1], totals: [10, 20] },
+          ]),
         ),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ),

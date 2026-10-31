@@ -12,13 +12,9 @@ import {
 import { parseRankingPage } from '../api';
 import { RankingView } from './ranking-view';
 
-vi.mock('./ranking-chart-tabs', () => ({
-  RankingChartTabs: () => <div data-chart-tabs="" />,
-}));
-
-vi.mock('./ranking-bump-chart', () => ({
-  RankingBumpChart: () => <div data-bump-chart="" />,
-  RankingBumpChartLoading: () => <div data-bump-chart-loading="" />,
+vi.mock('./ranking-history-chart', () => ({
+  RankingHistoryChart: () => <div data-history-chart="ready" />,
+  RankingHistoryChartLoading: () => <div data-history-chart="loading" />,
 }));
 
 vi.mock('@/components', async (importOriginal) => {
@@ -133,7 +129,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).not.toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-8,change:w-12 text-right,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
   expect(html).toContain(githubLogin);
@@ -726,16 +722,16 @@ const staffTierRow = (): StaffRankingItem =>
     department: STAFF_ROW.department,
   });
 
-test('공개 화면은 rank·login·commit·PR 네 열만 렌더한다 — 신원도 Issue·Repo·Star·합계도 없다', () => {
+test('공개 화면은 rank·변화·login·commit·PR 다섯 열만 렌더한다 — 신원도 Issue·Repo·Star·합계도 없다', () => {
   const html = personAxisMarkup([publicTierRow()], {
     dataAsOf: null,
     viewerClass: 'public',
   });
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-8,change:w-12 text-right,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
   );
-  for (const column of ['rank', 'member', 'commit', 'pr']) {
+  for (const column of ['rank', 'change', 'member', 'commit', 'pr']) {
     expect(html).toContain(`data-column-head="${column}"`);
     expect(html).toContain(`data-column-id="${column}"`);
   }
@@ -789,7 +785,7 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
   expect(html).toContain(STAFF_ROW.department);
   expect(html).toContain('CSV 다운로드');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8,change:w-12 text-right,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
 });
 
@@ -960,11 +956,11 @@ function memberAxisMarkup(
   );
 }
 
-test('member 화면은 공개 4열에 Issue·Repo·Star·합계를 더한 8열이다 — 이름·학과는 없다', () => {
+test('member 화면은 공개 5열에 Issue·Repo·Star·합계를 더한 9열이다 — 이름·학과는 없다', () => {
   const html = memberAxisMarkup([memberPersonAxisItem()]);
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8,change:w-12 text-right,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   for (const value of ['128', '24', '17', '9', '213', '391']) {
     expect(html).toContain(`>${value}<`);
@@ -1009,7 +1005,7 @@ const timelineFixture: RankingTimeline = {
   viewerGithubLogin: null,
   dataAsOf: null,
   points: [{ date: '2026-03-19', starEstimated: false }],
-  series: [{ githubLogin: 'synthetic-top', ranks: [1] }],
+  series: [{ githubLogin: 'synthetic-top', ranks: [1], totals: [42] }],
 };
 
 function timelineMarkup(
@@ -1038,8 +1034,8 @@ function timelineMarkup(
 test('순위 변화 그래프는 순위표보다 위에 그린다', () => {
   const html = timelineMarkup({ kind: 'ready', timeline: timelineFixture });
 
-  expect(html).toContain('data-chart-tabs');
-  expect(html.indexOf('data-chart-tabs')).toBeLessThan(
+  expect(html).toContain('data-history-chart="ready"');
+  expect(html.indexOf('data-history-chart')).toBeLessThan(
     html.indexOf('data-row-keys'),
   );
 });
@@ -1049,21 +1045,20 @@ test('그래프를 못 불러왔어도 순위표는 그대로 남는다', () => 
 
   expect(html).toContain('data-timeline-error');
   expect(html).toContain('data-row-keys="1"');
-  expect(html).not.toContain('data-chart-tabs=');
+  expect(html).not.toContain('data-history-chart');
 });
 
 test('그래프 로드 중에도 순위표는 비지 않는다', () => {
   const html = timelineMarkup({ kind: 'loading' });
 
-  expect(html).toContain('data-bump-chart-loading');
+  expect(html).toContain('data-history-chart="loading"');
   expect(html).toContain('data-row-keys="1"');
 });
 
 test('타임라인이 없으면 그래프 자리를 비우고 표만 그린다', () => {
   const html = timelineMarkup(undefined);
 
-  expect(html).not.toContain('data-chart-tabs');
-  expect(html).not.toContain('data-bump-chart');
+  expect(html).not.toContain('data-history-chart');
   expect(html).not.toContain('data-timeline-error');
   expect(html).toContain('data-row-keys="1"');
 });

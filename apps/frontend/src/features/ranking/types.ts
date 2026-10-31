@@ -80,7 +80,7 @@ export interface RankingTimelinePoint {
 export interface RankingTimelineSeries {
   readonly githubLogin: string;
   readonly ranks: readonly (number | null)[];
-  readonly totals?: readonly (number | null)[];
+  readonly totals: readonly (number | null)[];
 }
 
 export interface RankingTimeline {

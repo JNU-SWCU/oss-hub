@@ -304,25 +304,20 @@ function readAlignedValues(
 function parseTimelineSeries(
   value: unknown,
   pointCount: number,
-  totalsAllowed: boolean,
 ): RankingTimelineSeries | null {
   if (!isRecord(value) || typeof value.githubLogin !== 'string') {
     return null;
   }
 
   const ranks = readAlignedValues(value.ranks, pointCount, isPositiveInteger);
-  if (ranks === null) return null;
-
-  const series = { githubLogin: value.githubLogin, ranks };
-  if (!('totals' in value)) return series;
-  if (!totalsAllowed) return null;
-
   const totals = readAlignedValues(
     value.totals,
     pointCount,
     isNonNegativeInteger,
   );
-  return totals === null ? null : { ...series, totals };
+  if (ranks === null || totals === null) return null;
+
+  return { githubLogin: value.githubLogin, ranks, totals };
 }
 
 export function parseRankingTimeline(value: unknown): RankingTimeline {
@@ -351,10 +346,9 @@ export function parseRankingTimeline(value: unknown): RankingTimeline {
     points.push(point);
   }
 
-  const totalsAllowed = viewerClass !== RANKING_VIEWER_CLASSES.PUBLIC;
   const series: RankingTimelineSeries[] = [];
   for (const rawSeries of value.series) {
-    const parsed = parseTimelineSeries(rawSeries, points.length, totalsAllowed);
+    const parsed = parseTimelineSeries(rawSeries, points.length);
     if (parsed === null) {
       throw new RankingResponseError();
     }

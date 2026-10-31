@@ -23,8 +23,15 @@ import {
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
-import { RankingBumpChartLoading } from './ranking-bump-chart';
-import { RankingChartTabs } from './ranking-chart-tabs';
+import {
+  RankingHistoryChart,
+  RankingHistoryChartLoading,
+} from './ranking-history-chart';
+import {
+  formatRankChange,
+  rankingRankChanges,
+  type RankingRankChange,
+} from './ranking-history-model';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -58,6 +65,40 @@ const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
   cell: (item) => item.rank,
   headClassName: 'w-8',
 };
+
+type RankChanges = ReadonlyMap<string, RankingRankChange>;
+
+const UNKNOWN_CHANGE: RankingRankChange = { kind: 'unknown' };
+
+const CHANGE_CLASS = {
+  up: 'text-accent',
+  down: 'text-destructive',
+  new: 'text-muted-foreground',
+  same: 'text-muted-foreground',
+  unknown: 'text-muted-foreground',
+} as const;
+
+function changeColumn<T extends PublicRankingItem>(
+  changes: RankChanges,
+): DataTableColumn<T> {
+  return {
+    id: 'change',
+    header: '변화',
+    cell: (item) => {
+      const change = changes.get(item.githubLogin) ?? UNKNOWN_CHANGE;
+      return (
+        <span
+          data-rank-change={change.kind}
+          className={CHANGE_CLASS[change.kind]}
+        >
+          {formatRankChange(change)}
+        </span>
+      );
+    },
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  };
+}
 
 const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'member',
@@ -129,51 +170,66 @@ const MEMBER_METRIC_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
   },
 ];
 
-const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
-  RANK_COLUMN,
-  MEMBER_COLUMN,
-  ...OPEN_METRIC_COLUMNS,
-];
+const NAME_COLUMN: DataTableColumn<StaffRankingItem> = {
+  id: 'name',
+  header: '이름',
+  cell: (item) =>
+    item.name === null || item.name.trim().length === 0 ? (
+      <span className="text-muted-foreground" aria-label="이름 미입력">
+        {EMPTY_CELL}
+      </span>
+    ) : (
+      <span className="break-keep whitespace-normal font-medium">
+        {item.name}
+      </span>
+    ),
+  headClassName: 'w-24',
+};
 
-const MEMBER_RANKING_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
-  ...PUBLIC_RANKING_COLUMNS,
-  ...MEMBER_METRIC_COLUMNS,
-];
+const DEPARTMENT_COLUMN: DataTableColumn<StaffRankingItem> = {
+  id: 'department',
+  header: '학과',
+  cell: (item) =>
+    item.department === null || item.department.trim().length === 0 ? (
+      <span className="text-muted-foreground" aria-label="학과 미입력">
+        {EMPTY_CELL}
+      </span>
+    ) : (
+      <span className="break-keep whitespace-normal">{item.department}</span>
+    ),
+  headClassName: 'w-20',
+};
 
-const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
-  RANK_COLUMN,
-  {
-    id: 'name',
-    header: '이름',
-    cell: (item) =>
-      item.name === null || item.name.trim().length === 0 ? (
-        <span className="text-muted-foreground" aria-label="이름 미입력">
-          {EMPTY_CELL}
-        </span>
-      ) : (
-        <span className="break-keep whitespace-normal font-medium">
-          {item.name}
-        </span>
-      ),
-    headClassName: 'w-24',
-  },
-  MEMBER_COLUMN,
-  {
-    id: 'department',
-    header: '학과',
-    cell: (item) =>
-      item.department === null || item.department.trim().length === 0 ? (
-        <span className="text-muted-foreground" aria-label="학과 미입력">
-          {EMPTY_CELL}
-        </span>
-      ) : (
-        <span className="break-keep whitespace-normal">{item.department}</span>
-      ),
-    headClassName: 'w-20',
-  },
-  ...OPEN_METRIC_COLUMNS,
-  ...MEMBER_METRIC_COLUMNS,
-];
+function publicColumns(
+  changes: RankChanges,
+): DataTableColumn<PublicRankingItem>[] {
+  return [
+    RANK_COLUMN,
+    changeColumn<PublicRankingItem>(changes),
+    MEMBER_COLUMN,
+    ...OPEN_METRIC_COLUMNS,
+  ];
+}
+
+function memberColumns(
+  changes: RankChanges,
+): DataTableColumn<MemberRankingItem>[] {
+  return [...publicColumns(changes), ...MEMBER_METRIC_COLUMNS];
+}
+
+function staffColumns(
+  changes: RankChanges,
+): DataTableColumn<StaffRankingItem>[] {
+  return [
+    RANK_COLUMN,
+    changeColumn<StaffRankingItem>(changes),
+    NAME_COLUMN,
+    MEMBER_COLUMN,
+    DEPARTMENT_COLUMN,
+    ...OPEN_METRIC_COLUMNS,
+    ...MEMBER_METRIC_COLUMNS,
+  ];
+}
 
 const RANKING_TABLE_CLASS = cn(
   '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
@@ -185,9 +241,11 @@ const RANKING_TABLE_CLASS = cn(
 function RankingTable({
   ranking,
   isLoading,
+  changes,
 }: {
   readonly ranking: RankingPage | null;
   readonly isLoading: boolean;
+  readonly changes: RankChanges;
 }) {
   const shared = {
     className: RANKING_TABLE_CLASS,
@@ -198,14 +256,14 @@ function RankingTable({
     emptyState: '표시할 데이터가 없습니다.',
   };
   if (ranking === null) {
-    return <DataTable {...shared} columns={PUBLIC_RANKING_COLUMNS} data={[]} />;
+    return <DataTable {...shared} columns={publicColumns(changes)} data={[]} />;
   }
   switch (ranking.viewerClass) {
     case RANKING_VIEWER_CLASSES.PUBLIC:
       return (
         <DataTable
           {...shared}
-          columns={PUBLIC_RANKING_COLUMNS}
+          columns={publicColumns(changes)}
           data={[...ranking.items]}
         />
       );
@@ -213,7 +271,7 @@ function RankingTable({
       return (
         <DataTable
           {...shared}
-          columns={MEMBER_RANKING_COLUMNS}
+          columns={memberColumns(changes)}
           data={[...ranking.items]}
         />
       );
@@ -221,7 +279,7 @@ function RankingTable({
       return (
         <DataTable
           {...shared}
-          columns={STAFF_RANKING_COLUMNS}
+          columns={staffColumns(changes)}
           data={[...ranking.items]}
         />
       );
@@ -236,7 +294,7 @@ function RankingTimelineSection({
   if (state === undefined) return null;
   switch (state.kind) {
     case 'loading':
-      return <RankingBumpChartLoading />;
+      return <RankingHistoryChartLoading />;
     case 'error':
       return (
         <Alert variant="destructive" data-timeline-error>
@@ -248,7 +306,7 @@ function RankingTimelineSection({
         </Alert>
       );
     case 'ready':
-      return <RankingChartTabs timeline={state.timeline} />;
+      return <RankingHistoryChart timeline={state.timeline} />;
   }
 }
 
@@ -319,6 +377,9 @@ export function RankingView({
     ? Math.max(1, Math.ceil(ranking.total / ranking.pageSize))
     : 1;
   const notice = ranking ? collectionNotice(ranking) : null;
+  const changes = rankingRankChanges(
+    timeline?.kind === 'ready' ? timeline.timeline : null,
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
@@ -392,6 +453,7 @@ export function RankingView({
             <RankingTable
               ranking={ranking}
               isLoading={state.kind === 'loading'}
+              changes={changes}
             />
           )}
         </>
