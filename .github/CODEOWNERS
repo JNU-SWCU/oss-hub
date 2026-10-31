@@ -1,7 +1,5 @@
 
-/AGENTS.md       @GoBeromsu
 /docs/rules/     @GoBeromsu
-/docs/decisions/ @GoBeromsu
 /.github/        @GoBeromsu
 /scripts/         @GoBeromsu
 /scripts/check-env-example-coverage*.mjs     @GoBeromsu

@@ -1,1 +1,0 @@
-- [ADR-003: Backend module structure, naming, and DTO conventions](./ADR-003-backend-architecture.en.md)

@@ -422,7 +422,7 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
-  it('author가 null인 fact 는 어떤 행도 만들지 않는다 — 귀속을 모르는 기여는 적재하지 않는다(ADR-010 §5)', async () => {
+  it('author가 null인 fact 는 어떤 행도 만들지 않는다 — 귀속을 모르는 기여는 적재하지 않는다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(1);
