@@ -5,11 +5,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { DomainException } from '../../platform/error-code.error';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from '../milestone-documents-error-code.error';
 import { type ProgramDocumentArchiveScope } from '../milestone-document-archive.service';
 
 export class ProgramDocumentArchiveRequestDto {
@@ -31,41 +26,4 @@ export class ProgramDocumentArchiveRequestDto {
   @MinLength(1)
   @MaxLength(200)
   declare readonly teamId?: string;
-
-  toScope(): ProgramDocumentArchiveScope {
-    if (
-      this.scope === 'PROGRAM' &&
-      this.milestoneId === undefined &&
-      this.teamId === undefined
-    ) {
-      return { kind: 'PROGRAM', ...this.grouping() };
-    }
-    if (
-      this.scope === 'MILESTONE' &&
-      this.milestoneId !== undefined &&
-      this.teamId === undefined
-    ) {
-      return {
-        kind: 'MILESTONE',
-        milestoneId: this.milestoneId,
-        ...this.grouping(),
-      };
-    }
-    if (
-      this.scope === 'TEAM' &&
-      this.teamId !== undefined &&
-      this.milestoneId === undefined
-    ) {
-      return { kind: 'TEAM', teamId: this.teamId, ...this.grouping() };
-    }
-    throw new DomainException(
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.INVALID_REQUEST
-      ],
-    );
-  }
-
-  private grouping(): { readonly grouping?: 'TEAM' | 'DOCUMENT' } {
-    return this.groupBy === undefined ? {} : { grouping: this.groupBy };
-  }
 }

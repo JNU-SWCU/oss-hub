@@ -1,3 +1,4 @@
+import { UsersService } from '../../src/users/users.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
@@ -42,6 +43,7 @@ const adminAccessMutationService = new AdminAccessMutationService(
 const independentAuthorityService = Object.create(
   IndependentAuthorityService.prototype,
 ) as IndependentAuthorityService;
+const usersService = Object.create(UsersService.prototype) as UsersService;
 const memberKindService = Object.create(
   MemberKindService.prototype,
 ) as MemberKindService;
@@ -297,7 +299,7 @@ parityCases(
     },
     'blank name': { name: ' ', department: '학과' },
   },
-  (dto) => dto.toInput(),
+  (dto) => usersService.profileInputFromRequest(dto),
 );
 parityCases(ActivityTimelineRequestDto, {
   default: {},

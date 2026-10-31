@@ -3,7 +3,11 @@ import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto';
 import { UsersController } from './users.controller';
-import type { UsersService } from './users.service';
+import { UsersService } from './users.service';
+
+const profileRequestParser = Object.create(
+  UsersService.prototype,
+) as UsersService;
 
 const githubId = 4242n;
 const profile = {
@@ -21,11 +25,16 @@ function controller() {
   const patchMyProfile = jest.fn().mockResolvedValue(profile);
   const service: Pick<
     UsersService,
-    'getMyProfile' | 'completeMyProfile' | 'patchMyProfile'
+    | 'getMyProfile'
+    | 'completeMyProfile'
+    | 'patchMyProfile'
+    | 'profileInputFromRequest'
   > = {
     getMyProfile,
     completeMyProfile,
     patchMyProfile,
+    profileInputFromRequest: (request) =>
+      profileRequestParser.profileInputFromRequest(request),
   };
   return {
     controller: new UsersController(service),

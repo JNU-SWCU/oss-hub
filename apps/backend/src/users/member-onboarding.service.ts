@@ -28,6 +28,21 @@ export class MemberOnboardingService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
+  memberKindFromRequest(request: {
+    readonly selectedRole: string;
+  }): SelectableMemberKind {
+    switch (request.selectedRole) {
+      case MemberKind.STUDENT:
+        return MemberKind.STUDENT;
+      case MemberKind.STAFF:
+        return MemberKind.STAFF;
+      default:
+        throw new DomainException(
+          ROLES_ERROR_CODES[RolesErrorCode.INVALID_ROLE_SELECTION],
+        );
+    }
+  }
+
   async selectMemberKind(
     githubId: bigint,
     selectedMemberKind: SelectableMemberKind,

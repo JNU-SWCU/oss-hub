@@ -1,5 +1,4 @@
 import { Transform } from 'class-transformer';
-import { AffiliationKind } from '@prisma/client';
 import {
   IsOptional,
   IsString,
@@ -7,14 +6,11 @@ import {
   ValidateIf,
   ValidateBy,
 } from 'class-validator';
-import { DomainException } from '../../platform/error-code.error';
-import { SystemErrorCode } from '../../platform/system-error-code.error';
 import {
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
   PROFILE_TEXT_PATTERN,
 } from '../profile-validation.config';
-import { type PatchUserProfileInput } from '../users.service';
 
 export { USER_DEPARTMENT_MAX_LENGTH, USER_NAME_MAX_LENGTH };
 
@@ -68,47 +64,11 @@ export class UpdateMyProfileRequestDto {
   @IsString()
   @IsProfileText('isValidAffiliationName')
   declare readonly affiliationName?: string;
-
-  toInput(): PatchUserProfileInput {
-    return {
-      name: this.name,
-      ...(typeof this.studentId === 'string'
-        ? { studentId: this.studentId }
-        : {}),
-      ...(typeof this.department === 'string'
-        ? { department: this.department }
-        : {}),
-      ...(typeof this.phone === 'string' ? { phone: this.phone } : {}),
-      ...(this.staffNumber !== undefined
-        ? { staffNumber: this.staffNumber }
-        : {}),
-      ...(typeof this.affiliationKind === 'string'
-        ? { affiliationKind: parseAffiliationKind(this.affiliationKind) }
-        : {}),
-      ...(typeof this.affiliationName === 'string'
-        ? { affiliationName: this.affiliationName }
-        : {}),
-    };
-  }
 }
 
 function transformStaffNumber({ value }: { value: unknown }): unknown {
   const normalized = transformProfileText({ value });
   return normalized === '' ? null : normalized;
-}
-
-function parseAffiliationKind(value: string): AffiliationKind {
-  switch (value) {
-    case AffiliationKind.DEPARTMENT:
-    case AffiliationKind.PROGRAM_OFFICE:
-      return value;
-    default:
-      throw new DomainException({
-        code: SystemErrorCode.VALIDATION_FAILED,
-        status: 400,
-        message: '지원하지 않는 소속 유형입니다.',
-      });
-  }
 }
 
 function trimString({ value }: { value: unknown }): unknown {

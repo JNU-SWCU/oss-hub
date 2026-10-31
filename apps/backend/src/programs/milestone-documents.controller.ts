@@ -117,7 +117,7 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const scope = query.toScope();
+    const scope = this.archiveService.milestoneArchiveScopeFromRequest(query);
     const archive = await this.archiveService.archiveForStaff(
       request.sessionGithubId,
       milestoneId,

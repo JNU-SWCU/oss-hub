@@ -363,7 +363,12 @@ beforeAll(async () => {
       },
       {
         provide: MilestoneDocumentArchiveService,
-        useValue: { archiveForStaff },
+        useValue: Object.assign(
+          Object.create(
+            MilestoneDocumentArchiveService.prototype,
+          ) as MilestoneDocumentArchiveService,
+          { archiveForStaff },
+        ),
       },
     ],
   })

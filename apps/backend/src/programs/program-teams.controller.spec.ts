@@ -11,6 +11,11 @@ import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamsService } from './program-teams.service';
+
+const teamsRequestParser = Object.create(
+  ProgramTeamsService.prototype,
+) as ProgramTeamsService;
 
 type ControllerMethodName =
   | 'me'
@@ -64,6 +69,8 @@ function serviceStub(
     getForStaff: jest.fn(),
     getActivity: jest.fn(),
     getRepositoryUrlHistory: jest.fn(),
+    repositoryUrlHistoryCursorFromRequest: (request) =>
+      teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
     rename: jest.fn(),
     deleteForStaff: jest.fn(),
     removeMemberForStaff: jest.fn(),

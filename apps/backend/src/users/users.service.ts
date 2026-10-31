@@ -96,6 +96,16 @@ function invalidProfile(message: string): DomainException {
   });
 }
 
+export interface UpdateMyProfileRequest {
+  readonly name: string;
+  readonly studentId?: string;
+  readonly phone?: string;
+  readonly staffNumber?: string | null;
+  readonly department?: string;
+  readonly affiliationKind?: string;
+  readonly affiliationName?: string;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -108,6 +118,48 @@ export class UsersService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
+
+  profileInputFromRequest(
+    request: UpdateMyProfileRequest,
+  ): PatchUserProfileInput {
+    return {
+      name: request.name,
+      ...(typeof request.studentId === 'string'
+        ? { studentId: request.studentId }
+        : {}),
+      ...(typeof request.department === 'string'
+        ? { department: request.department }
+        : {}),
+      ...(typeof request.phone === 'string' ? { phone: request.phone } : {}),
+      ...(request.staffNumber !== undefined
+        ? { staffNumber: request.staffNumber }
+        : {}),
+      ...(typeof request.affiliationKind === 'string'
+        ? {
+            affiliationKind: this.parseRequestedAffiliationKind(
+              request.affiliationKind,
+            ),
+          }
+        : {}),
+      ...(typeof request.affiliationName === 'string'
+        ? { affiliationName: request.affiliationName }
+        : {}),
+    };
+  }
+
+  private parseRequestedAffiliationKind(value: string): AffiliationKind {
+    switch (value) {
+      case AffiliationKind.DEPARTMENT:
+      case AffiliationKind.PROGRAM_OFFICE:
+        return value;
+      default:
+        throw new DomainException({
+          code: SystemErrorCode.VALIDATION_FAILED,
+          status: 400,
+          message: '지원하지 않는 소속 유형입니다.',
+        });
+    }
+  }
 
   async getMyProfile(githubId: bigint): Promise<UserProfile> {
     await this.consentsService.requireCurrent(githubId);
