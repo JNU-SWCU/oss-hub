@@ -9,9 +9,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
@@ -57,7 +55,6 @@ beforeAll(async () => {
       new AuditLogMetadataService(),
     ),
     new ProgramTeamDeletionRepository(prisma),
-    new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),

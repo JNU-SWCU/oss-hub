@@ -1,4 +1,5 @@
 import { RequestMethod } from '@nestjs/common';
+import { RolesGuard } from '../platform/roles.guard';
 import {
   GUARDS_METADATA,
   HTTP_CODE_METADATA,
@@ -98,8 +99,8 @@ describe('ProgramTeamsController', () => {
     expect(readGuards('me')).toEqual([]);
   });
 
-  it('list(교직원 팀 목록) 에 로컬 가드를 두지 않는다', () => {
-    expect(readGuards('list')).toEqual([]);
+  it('list(교직원 팀 목록) 에는 역할 가드만 둔다', () => {
+    expect(readGuards('list')).toEqual([RolesGuard]);
   });
 
   it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
@@ -205,12 +206,9 @@ describe('ProgramTeamsController', () => {
       serviceStub({ listForStaff }),
     );
 
-    const response = await controller.list(
-      { sessionGithubId: 4242n },
-      'program-1',
-    );
+    const response = await controller.list('program-1');
 
-    expect(listForStaff).toHaveBeenCalledWith(4242n, 'program-1');
+    expect(listForStaff).toHaveBeenCalledWith('program-1');
     expect(response).toEqual([
       {
         teamId: 'team-1',
@@ -328,8 +326,8 @@ describe('ProgramTeamsController', () => {
     });
   });
 
-  it('detail(교직원 팀 상세) 에 로컬 가드를 두지 않는다', () => {
-    expect(readGuards('detail')).toEqual([]);
+  it('detail(교직원 팀 상세) 에는 역할 가드만 둔다', () => {
+    expect(readGuards('detail')).toEqual([RolesGuard]);
   });
 
   it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
@@ -357,13 +355,9 @@ describe('ProgramTeamsController', () => {
     });
     const controller = new ProgramTeamsController(serviceStub({ getForStaff }));
 
-    const response = await controller.detail(
-      { sessionGithubId: 4242n },
-      'program-1',
-      'team-1',
-    );
+    const response = await controller.detail('program-1', 'team-1');
 
-    expect(getForStaff).toHaveBeenCalledWith(4242n, 'program-1', 'team-1');
+    expect(getForStaff).toHaveBeenCalledWith('program-1', 'team-1');
     expect(response).toEqual({
       teamId: 'team-1',
       name: '오픈소스팀',

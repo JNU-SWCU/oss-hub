@@ -35,7 +35,7 @@ async function cleanHistories() {
 }
 beforeAll(async () => {
   await harness.connect();
-  application = await createMatrixDeliveryHttp(service);
+  application = await createMatrixDeliveryHttp(service, harness.prisma);
   baseUrl = await application.getUrl();
 });
 beforeEach(async () => {
@@ -164,16 +164,12 @@ it.each([
       data: { required, kind },
     });
 
-    const matrix = await service.matrix(
-      fixture.staffOnGithub,
-      fixture.notifyProgram,
-      {
-        q: '',
-        applicationMode: null,
-        page: 1,
-        pageSize: 20,
-      },
-    );
+    const matrix = await service.matrix(fixture.notifyProgram, {
+      q: '',
+      applicationMode: null,
+      page: 1,
+      pageSize: 20,
+    });
 
     expect(matrix.rows).toHaveLength(4);
     expect(
@@ -208,16 +204,12 @@ it('does not mistake an unrelated history event or later revision for the first 
     },
   });
 
-  const matrix = await service.matrix(
-    fixture.staffOnGithub,
-    fixture.notifyProgram,
-    {
-      q: '',
-      applicationMode: null,
-      page: 1,
-      pageSize: 20,
-    },
-  );
+  const matrix = await service.matrix(fixture.notifyProgram, {
+    q: '',
+    applicationMode: null,
+    page: 1,
+    pageSize: 20,
+  });
 
   expect(
     matrix.rows.find(
@@ -232,16 +224,12 @@ it('excludes a rejected application and keeps the other program isolated', async
     data: { status: 'REJECTED' },
   });
 
-  const matrix = await service.matrix(
-    fixture.staffOnGithub,
-    fixture.notifyProgram,
-    {
-      q: '',
-      applicationMode: null,
-      page: 1,
-      pageSize: 20,
-    },
-  );
+  const matrix = await service.matrix(fixture.notifyProgram, {
+    q: '',
+    applicationMode: null,
+    page: 1,
+    pageSize: 20,
+  });
 
   expect(matrix.total).toBe(3);
   expect(matrix.rows.map((row) => row.applicationId)).not.toContain(

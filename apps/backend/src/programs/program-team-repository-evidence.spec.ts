@@ -24,7 +24,6 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
     undefined as never,
     undefined as never,
     undefined as never,
-    undefined as never,
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
@@ -96,7 +95,6 @@ it('reports an explicit repository relink as succeeded without inventing a provi
 
   expect(
     new ProgramTeamsService(
-      undefined as never,
       undefined as never,
       undefined as never,
       undefined as never,

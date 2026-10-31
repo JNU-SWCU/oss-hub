@@ -13,8 +13,21 @@ import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-pub
 import { RepositoryPublishResponseDto } from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { Protected } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { DomainException } from '../platform/error-code.error';
+import {
+  SUBMISSION_REVIEWS_ERROR_CODES,
+  SubmissionReviewsErrorCode,
+} from './submission-reviews-error-code.error';
 
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffApprovalRequired = () =>
+  new DomainException(
+    SUBMISSION_REVIEWS_ERROR_CODES[
+      SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED
+    ],
+  );
 
 @Controller('repositories')
 @Protected()
@@ -23,6 +36,7 @@ export class SubmissionRepositoryPublishingController {
 
   @Post(':repositoryId/publish')
   @HttpCode(200)
+  @Roles(STAFF_AUDIENCE, staffApprovalRequired)
   @UseGuards(OriginGuard)
   async publish(
     @Req() request: PublishActorRequest,

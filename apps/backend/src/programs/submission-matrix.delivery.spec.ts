@@ -108,7 +108,7 @@ it.each([
     const { service } = setup(times);
 
     const result = SubmissionMatrixResponseDto.from(
-      await service.matrix(1136n, 'program', query),
+      await service.matrix('program', query),
       'program',
     );
 
@@ -140,7 +140,7 @@ it('does not treat another application or unrelated document as a required submi
     ]);
 
   const result = SubmissionMatrixResponseDto.from(
-    await service.matrix(1136n, 'program', query),
+    await service.matrix('program', query),
     'program',
   );
 
@@ -150,7 +150,7 @@ it('does not treat another application or unrelated document as a required submi
 it('reads first-submission coordinates once for only the selected page and required items', async () => {
   const { service, calls } = setup([onTime, dueAt]);
 
-  await service.matrix(1136n, 'program', query);
+  await service.matrix('program', query);
 
   expect(calls).toEqual([
     {

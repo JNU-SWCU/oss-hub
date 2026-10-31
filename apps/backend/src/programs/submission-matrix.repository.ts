@@ -1,6 +1,5 @@
 import {
   Prisma,
-  AccountStatus,
   ApplicationStatus,
   MilestoneDocumentKind,
   SubmissionStatus,
@@ -98,9 +97,6 @@ export interface MatrixApplicationPage {
 }
 
 export interface SubmissionMatrixRepositoryPort {
-  findActiveStaffOrAdmin(
-    githubId: bigint,
-  ): Promise<SubmissionMatrixViewer | null>;
   programExists(programId: string): Promise<boolean>;
   findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]>;
   findApprovedApplications(
@@ -172,19 +168,6 @@ function toMatrixApplication(
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
-
-  findActiveStaffOrAdmin(
-    githubId: bigint,
-  ): Promise<SubmissionMatrixViewer | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        githubId,
-        accountStatus: AccountStatus.ACTIVE,
-        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
-      },
-      select: { id: true },
-    });
-  }
 
   async programExists(programId: string): Promise<boolean> {
     const program = await this.prisma.program.findUnique({

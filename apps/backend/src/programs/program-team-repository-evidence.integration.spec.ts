@@ -30,7 +30,6 @@ const teamsService = new ProgramTeamsService(
     new AuditLogMetadataService(),
   ),
   new ProgramTeamDeletionRepository(prisma),
-  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
@@ -200,7 +199,7 @@ it('projects only linked repository facts inside the program window while retain
 
   expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
   expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
-  const view = await teamsService.getForStaff(githubId, programId, teamId);
+  const view = await teamsService.getForStaff(programId, teamId);
   expect(view.repositoryUrlHistory.items).toHaveLength(1);
   expect(view.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
     'actor-before-rename',

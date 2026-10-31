@@ -1,9 +1,11 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   ApplicationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { OriginGuard } from '../platform/origin.guard';
+import { RolesGuard } from '../platform/roles.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsController } from './applications.controller';
 import {
@@ -14,6 +16,11 @@ import { type ApplicationsService } from './applications.service';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 import { type ApplicationListItem } from './applications.repository';
 import { ApplicationAnswersService } from './application-answers.service';
+
+const STAFF = {
+  id: 'synthetic-staff',
+  githubId: 4242n,
+} as AuthenticatedRequest['principal'];
 
 const applicationAnswersService = new ApplicationAnswersService();
 
@@ -58,12 +65,12 @@ describe('ApplicationsController', () => {
     });
 
     const response = await controller.decide(
-      { sessionGithubId: 4242n },
+      { principal: STAFF },
       'synthetic-application',
       body,
     );
 
-    expect(decide).toHaveBeenCalledWith(4242n, 'synthetic-application', body);
+    expect(decide).toHaveBeenCalledWith(STAFF, 'synthetic-application', body);
 
     expect(response).toEqual({
       applicationId: 'synthetic-application',
@@ -101,11 +108,14 @@ describe('ApplicationsController', () => {
   it('PATCH 처리에 세션·Origin guard를 적용한다', () => {
     expect(readGuards(ApplicationsController.prototype, 'decide')).toEqual([
       OriginGuard,
+      RolesGuard,
     ]);
   });
 
   it('신청 상세 조회에 세션 guard를 적용한다', () => {
-    expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([]);
+    expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([
+      RolesGuard,
+    ]);
   });
 
   it('신청 상세를 목록 항목과 같은 응답 모양으로 변환한다', async () => {
@@ -139,12 +149,9 @@ describe('ApplicationsController', () => {
       .mockResolvedValue({ application: item, reviewHistory: [] });
     const controller = new ApplicationsController(stubService({ getForStaff }));
 
-    const response = await controller.detail(
-      { sessionGithubId: 4242n },
-      'synthetic-application',
-    );
+    const response = await controller.detail('synthetic-application');
 
-    expect(getForStaff).toHaveBeenCalledWith(4242n, 'synthetic-application');
+    expect(getForStaff).toHaveBeenCalledWith('synthetic-application');
     expect(response.submittedAt).toBe('2026-08-05T05:32:00.000Z');
     expect(response.repositoryProvisioning.updatedAt).toBe(
       '2026-08-06T01:00:00.000Z',
@@ -169,10 +176,7 @@ describe('ApplicationsController', () => {
 
     let thrown: unknown;
     try {
-      await controller.detail(
-        { sessionGithubId: 4242n },
-        'missing-application',
-      );
+      await controller.detail('missing-application');
     } catch (error) {
       thrown = error;
     }

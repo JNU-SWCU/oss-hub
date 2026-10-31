@@ -20,6 +20,7 @@ import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
   protectedRouteGuardStub,
+  SYNTHETIC_STAFF_PRINCIPAL,
 } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
@@ -75,6 +76,7 @@ beforeAll(async () => {
         canActivate: (context: ExecutionContext) => {
           Object.assign(context.switchToHttp().getRequest<object>(), {
             sessionGithubId: 9_600_000_000_100_001n,
+            principal: SYNTHETIC_STAFF_PRINCIPAL,
           });
           return true;
         },
@@ -181,7 +183,7 @@ it('판정 저장 API가 201과 현재 Submission 상태를 반환한다', async
     submissionStatus: SubmissionStatus.APPROVED,
   });
   expect(service.review).toHaveBeenCalledWith(
-    9_600_000_000_100_001n,
+    'synthetic-staff',
     'submission-1',
     {
       revision: 2,
