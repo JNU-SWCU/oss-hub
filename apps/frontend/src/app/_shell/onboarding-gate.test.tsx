@@ -4,6 +4,7 @@ type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api-client';
+import { featureKey } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => {
   const replace = vi.fn();
@@ -132,6 +133,9 @@ describe('OnboardingGate consent-required dialog', () => {
       await act(async () => completion?.click());
       expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
       expect(container.querySelector('button')).toBeNull();
+      expect(
+        root.queryClient.getQueryData(featureKey('consents')),
+      ).toMatchObject({ consented: true });
       await act(async () => root.render(null));
       await act(async () => root.render(home));
       expect(container.querySelector('[data-testid="home"]')).not.toBeNull();

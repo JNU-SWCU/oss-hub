@@ -6,8 +6,11 @@ import {
   takeLoginDestination,
 } from '@/features/auth/login-destination';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { getCurrentConsent } from '@/features/consents/api';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { CurrentConsent } from '@/features/consents/api';
+import { useCurrentConsentQuery } from '@/features/consents/queries';
+import { featureKey } from '@/lib/query-keys';
 import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
 import { BottomTabBar } from './bottom-tab-bar';
 import { ProductShell, ShellMenuProvider } from './product-shell';
@@ -55,41 +58,28 @@ function SessionAppFrame({
   const pathname = usePathname();
   const session = useSessionRole();
   const { status, isProfileComplete } = session;
-  const [consentStatus, setConsentStatus] = useState<
-    'checking' | 'required' | 'complete' | 'error'
-  >('checking');
+  const queryClient = useQueryClient();
   const shouldCheckConsent =
     status === 'assigned' && !SIGNUP_FLOW_PATHS.has(pathname);
-  const checkConsent = useCallback((signal?: AbortSignal) => {
-    setConsentStatus('checking');
-    getCurrentConsent(signal)
-      .then((consent) => {
-        if (!signal?.aborted) {
-          setConsentStatus(consent.consented ? 'complete' : 'required');
-        }
-      })
-      .catch(() => {
-        if (!signal?.aborted) setConsentStatus('error');
-      });
-  }, []);
+  const consent = useCurrentConsentQuery(shouldCheckConsent);
+  const consentStatus = consent.isError
+    ? 'error'
+    : consent.data === undefined
+      ? 'checking'
+      : consent.data.consented
+        ? 'complete'
+        : 'required';
 
-  useEffect(() => {
-    if (!shouldCheckConsent) return;
-    const controller = new AbortController();
-    checkConsent(controller.signal);
-    return () => controller.abort();
-  }, [checkConsent, shouldCheckConsent]);
-
-  const handleConsentCompleted = useCallback(
-    () => setConsentStatus('complete'),
-    [],
-  );
+  const handleConsentCompleted = useCallback(() => {
+    queryClient.setQueryData<CurrentConsent>(
+      featureKey('consents'),
+      (current) => current && { ...current, consented: true },
+    );
+  }, [queryClient]);
   const consentRequiredDialog = shouldCheckConsent ? (
     <ConsentRequiredDialog
       open={consentStatus === 'required'}
-      onOpenChange={(open) => {
-        if (open) setConsentStatus('required');
-      }}
+      onOpenChange={() => {}}
       onCompleted={handleConsentCompleted}
     />
   ) : null;
@@ -99,7 +89,7 @@ function SessionAppFrame({
     consentStatus === 'complete' ? (
       children
     ) : consentStatus === 'error' ? (
-      <SessionError onRetry={() => checkConsent()} />
+      <SessionError onRetry={() => void consent.refetch()} />
     ) : (
       <p className="p-6 text-sm text-muted-foreground" role="status">
         확인 중…
