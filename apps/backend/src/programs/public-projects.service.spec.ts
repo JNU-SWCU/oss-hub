@@ -5,14 +5,12 @@ import type {
 import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
+  type ProgramContributorCumulativeMetrics,
+  type ProgramRepositoryCumulativeMetrics,
   PublicProjectsService,
 } from './public-projects.service';
 import { DomainException } from '../platform/error-code.error';
-import type {
-  ProgramContributorCumulativeMetrics,
-  PublicProjectMetricsRepository,
-  ProgramRepositoryCumulativeMetrics,
-} from './public-project-metrics.repository';
+import type { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import {
   type PublicProjectsRepository,
@@ -323,13 +321,52 @@ function serviceWith(overrides: {
       jest.fn().mockResolvedValue(new Set()),
     isEligible: overrides.isEligible ?? jest.fn().mockResolvedValue(false),
   } as unknown as PublicEligibilityService;
+  const repositoryMetrics =
+    overrides.getRepositoryCumulativeMetrics ?? jest.fn().mockResolvedValue([]);
+  const contributorMetrics =
+    overrides.getContributorCumulativeMetrics ??
+    jest.fn().mockResolvedValue([]);
+  let loginByGithubId = new Map<bigint, string>();
   const collection = {
-    getRepositoryCumulativeMetrics:
-      overrides.getRepositoryCumulativeMetrics ??
-      jest.fn().mockResolvedValue([]),
-    getContributorCumulativeMetrics:
-      overrides.getContributorCumulativeMetrics ??
-      jest.fn().mockResolvedValue([]),
+    findRepositoryContributionRows: async (repositoryIds: readonly bigint[]) =>
+      (
+        (await repositoryMetrics({
+          repositoryIds,
+        })) as readonly ProgramRepositoryCumulativeMetrics[]
+      ).map((metric) => ({
+        repositoryId: metric.repositoryId,
+        inventoryObservedAt: metric.hasCollectedData ? metric.dataAsOf : null,
+        contributions: [
+          {
+            commitCount: metric.commitCount,
+            pullRequestCount: metric.pullRequestCount,
+            releaseCount: metric.releaseCount,
+            updatedAt: metric.dataAsOf,
+          },
+        ],
+      })),
+    findContributorContributionRows: async (
+      repositoryIds: readonly bigint[],
+    ) => {
+      const contributors = (await contributorMetrics({
+        repositoryIds,
+      })) as readonly ProgramContributorCumulativeMetrics[];
+      loginByGithubId = new Map(
+        contributors.map((contributor) => [
+          contributor.githubUserId,
+          contributor.githubLogin,
+        ]),
+      );
+      return contributors.map((contributor) => ({
+        repositoryId: contributor.repositoryId,
+        githubUserId: contributor.githubUserId,
+        commitCount: contributor.commitCount,
+        pullRequestCount: contributor.pullRequestCount,
+        releaseCount: contributor.releaseCount,
+        updatedAt: contributor.dataAsOf,
+      }));
+    },
+    findGithubLogins: () => Promise.resolve(loginByGithubId),
   } as unknown as PublicProjectMetricsRepository;
   const service = new PublicProjectsService(
     repository,

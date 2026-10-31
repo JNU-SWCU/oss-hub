@@ -3,31 +3,22 @@ import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 
-export interface ProgramRepositoryCumulativeMetricsQuery {
-  readonly repositoryIds: readonly bigint[];
-}
-
-export interface ProgramRepositoryCumulativeMetrics {
-  readonly repositoryId: bigint;
-  readonly dataAsOf: Date;
+export interface ContributionCountsRow {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;
-  readonly hasCollectedData: boolean;
+  readonly updatedAt: Date;
 }
 
-export interface ProgramContributorCumulativeMetricsQuery {
-  readonly repositoryIds: readonly bigint[];
+export interface RepositoryContributionRows {
+  readonly repositoryId: bigint;
+  readonly inventoryObservedAt: Date | null;
+  readonly contributions: readonly ContributionCountsRow[];
 }
 
-export interface ProgramContributorCumulativeMetrics {
+export interface ContributorContributionRow extends ContributionCountsRow {
   readonly repositoryId: bigint;
   readonly githubUserId: bigint;
-  readonly githubLogin: string;
-  readonly dataAsOf: Date;
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly releaseCount: number;
 }
 
 function programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
@@ -43,7 +34,7 @@ function programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
 export class PublicProjectMetricsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async resolveGithubLogins(
+  async findGithubLogins(
     githubIds: readonly bigint[],
   ): Promise<ReadonlyMap<bigint, string>> {
     const unique = [...new Set(githubIds)];
@@ -55,14 +46,12 @@ export class PublicProjectMetricsRepository {
     return new Map(users.map((user) => [user.githubId, user.nickname]));
   }
 
-  async getRepositoryCumulativeMetrics(
-    query: ProgramRepositoryCumulativeMetricsQuery,
-  ): Promise<readonly ProgramRepositoryCumulativeMetrics[]> {
-    if (query.repositoryIds.length === 0) return [];
-
+  async findRepositoryContributionRows(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly RepositoryContributionRows[]> {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
-        githubRepositoryId: { in: [...query.repositoryIds] },
+        githubRepositoryId: { in: [...repositoryIds] },
         visibility: 'PUBLIC',
         presence: 'PRESENT',
         ...PlatformRepository.linkedRepositoryFilter(),
@@ -80,45 +69,20 @@ export class PublicProjectMetricsRepository {
         },
       },
     });
-
-    return repositories.map((repository) => {
-      const dataAsOf = repository.contributions.reduce<Date | null>(
-        (latest, aggregate) =>
-          latest === null || aggregate.updatedAt > latest
-            ? aggregate.updatedAt
-            : latest,
-        null,
-      );
-      return {
-        repositoryId: repository.githubRepositoryId,
-        dataAsOf:
-          dataAsOf ?? repository.lastCompleteInventoryObservedAt ?? new Date(),
-        hasCollectedData: repository.lastCompleteInventoryObservedAt !== null,
-        commitCount: repository.contributions.reduce(
-          (sum, aggregate) => sum + aggregate.commitCount,
-          0,
-        ),
-        pullRequestCount: repository.contributions.reduce(
-          (sum, aggregate) => sum + aggregate.pullRequestCount,
-          0,
-        ),
-        releaseCount: repository.contributions.reduce(
-          (sum, aggregate) => sum + aggregate.releaseCount,
-          0,
-        ),
-      };
-    });
+    return repositories.map((repository) => ({
+      repositoryId: repository.githubRepositoryId,
+      inventoryObservedAt: repository.lastCompleteInventoryObservedAt,
+      contributions: repository.contributions,
+    }));
   }
 
-  async getContributorCumulativeMetrics(
-    query: ProgramContributorCumulativeMetricsQuery,
-  ): Promise<readonly ProgramContributorCumulativeMetrics[]> {
-    if (query.repositoryIds.length === 0) return [];
-
+  async findContributorContributionRows(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly ContributorContributionRow[]> {
     const rows = await this.prisma.contribution.findMany({
       where: {
         repository: {
-          githubRepositoryId: { in: [...query.repositoryIds] },
+          githubRepositoryId: { in: [...repositoryIds] },
           visibility: 'PUBLIC',
           presence: 'PRESENT',
           ...programLinkedRepositoryFilter(),
@@ -133,47 +97,13 @@ export class PublicProjectMetricsRepository {
         repository: { select: { githubRepositoryId: true } },
       },
     });
-
-    const byContributor = new Map<
-      string,
-      {
-        repositoryId: bigint;
-        githubUserId: bigint;
-        githubLogin: string;
-        dataAsOf: Date;
-        commitCount: number;
-        pullRequestCount: number;
-        releaseCount: number;
-      }
-    >();
-    for (const row of rows) {
-      const key = `${row.repository.githubRepositoryId.toString()}:${row.githubId.toString()}`;
-      const current = byContributor.get(key);
-      byContributor.set(key, {
-        repositoryId: row.repository.githubRepositoryId,
-        githubUserId: row.githubId,
-        githubLogin: '',
-        dataAsOf:
-          current === undefined || row.updatedAt > current.dataAsOf
-            ? row.updatedAt
-            : current.dataAsOf,
-        commitCount: (current?.commitCount ?? 0) + row.commitCount,
-        pullRequestCount:
-          (current?.pullRequestCount ?? 0) + row.pullRequestCount,
-        releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
-      });
-    }
-
-    const contributors = [...byContributor.values()].filter(
-      (entry) =>
-        entry.commitCount + entry.pullRequestCount + entry.releaseCount > 0,
-    );
-    const logins = await this.resolveGithubLogins(
-      contributors.map((entry) => entry.githubUserId),
-    );
-    return contributors.map((entry) => ({
-      ...entry,
-      githubLogin: logins.get(entry.githubUserId) ?? '',
+    return rows.map((row) => ({
+      repositoryId: row.repository.githubRepositoryId,
+      githubUserId: row.githubId,
+      commitCount: row.commitCount,
+      pullRequestCount: row.pullRequestCount,
+      releaseCount: row.releaseCount,
+      updatedAt: row.updatedAt,
     }));
   }
 }
