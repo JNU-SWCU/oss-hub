@@ -13,6 +13,7 @@ import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
 import { type AdminAccessActor } from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;
 const TARGET_GITHUB_ID = 9_700_500_002n;
@@ -100,7 +101,11 @@ describe('MemberKindService', () => {
   it('maps STAFF to access=true, preserves studentId, and treats staffNumber as opaque text', async () => {
     const repository = new InMemoryMemberKindRepository();
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -160,7 +165,11 @@ describe('MemberKindService', () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget({ hasStaffAccess: false });
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -180,7 +189,11 @@ describe('MemberKindService', () => {
   it('adds one revoked history row only when staff access changes true to false', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+    );
 
     await expect(
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -221,7 +234,11 @@ describe('MemberKindService', () => {
     async (_label, target, code, status) => {
       const repository = new InMemoryMemberKindRepository();
       repository.target = target;
-      const service = new MemberKindService(repository, auditHarness());
+      const service = new MemberKindService(
+        repository,
+        auditHarness(),
+        new AuditLogMetadataService(),
+      );
 
       const error = await captureDomainException(() =>
         service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -240,7 +257,11 @@ describe('MemberKindService', () => {
   it('requires a department when a valid existing studentId is used for a STUDENT transition', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -258,7 +279,11 @@ describe('MemberKindService', () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget({ studentId: '123456' });
     const audit = auditHarness();
-    const service = new MemberKindService(repository, audit);
+    const service = new MemberKindService(
+      repository,
+      audit,
+      new AuditLogMetadataService(),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -282,6 +307,7 @@ describe('MemberKindService', () => {
     const matchingService = new MemberKindService(
       matchingRepository,
       auditHarness(),
+      new AuditLogMetadataService(),
     );
 
     await expect(
@@ -300,6 +326,7 @@ describe('MemberKindService', () => {
     const missingService = new MemberKindService(
       missingRepository,
       auditHarness(),
+      new AuditLogMetadataService(),
     );
 
     await expect(
@@ -317,7 +344,11 @@ describe('MemberKindService', () => {
   it('rejects a newly supplied invalid studentId before persistence', async () => {
     const repository = new InMemoryMemberKindRepository();
     repository.target = staffTarget();
-    const service = new MemberKindService(repository, auditHarness());
+    const service = new MemberKindService(
+      repository,
+      auditHarness(),
+      new AuditLogMetadataService(),
+    );
 
     const error = await captureDomainException(() =>
       service.patchMemberKind(ADMIN_GITHUB_ID, 'target', {
@@ -363,7 +394,11 @@ describe('MemberKindService', () => {
       if ('target' in options) {
         repository.target = options.target;
       }
-      const service = new MemberKindService(repository, auditHarness());
+      const service = new MemberKindService(
+        repository,
+        auditHarness(),
+        new AuditLogMetadataService(),
+      );
       const expectedHasStaffAccess =
         'expected' in options ? options.expected : false;
 

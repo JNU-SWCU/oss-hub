@@ -12,6 +12,8 @@ import {
   auditLogHarness,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 describe('AdminAccessService mutation guards', () => {
   it('locks active admins before the target and preserves the final admin', async () => {
@@ -23,7 +25,11 @@ describe('AdminAccessService mutation guards', () => {
       hasAdminAccess: true,
     });
     const audit = auditLogHarness();
-    const service = new AdminAccessService(repository, audit.service);
+    const service = new AdminAccessService(
+      repository,
+      audit.service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
+    );
 
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'other-admin', {
@@ -62,6 +68,7 @@ describe('AdminAccessService mutation guards', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(
@@ -101,7 +108,11 @@ describe('AdminAccessService mutation guards', () => {
       const repository = new InMemoryAdminAccessRepository();
       repository.actorAfterLock = actor;
       const audit = auditLogHarness();
-      const service = new AdminAccessService(repository, audit.service);
+      const service = new AdminAccessService(
+        repository,
+        audit.service,
+        new AdminAccessMutationService(new AuditLogMetadataService()),
+      );
 
       await expect(
         service.patchAccess(ADMIN_GITHUB_ID, 'target', {
@@ -130,6 +141,7 @@ describe('AdminAccessService mutation guards', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
@@ -153,6 +165,7 @@ describe('AdminAccessService mutation guards', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(

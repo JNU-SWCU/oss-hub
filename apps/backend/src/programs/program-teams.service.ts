@@ -1,10 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AuditLogService,
-  createTeamDeletedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-  createTeamRenamedAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
@@ -41,6 +36,15 @@ import {
 } from './program-team-repository-evidence.repository';
 import { canEditStudentRepositoryUrl } from './student-repository-url.service';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
+import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
+import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
+import type {
+  RepositoryUrlHistoryRow,
+  RepositoryUrlHistoryRows,
+  RepositoryUrlHistoryView,
+} from './program-team-repository-evidence.repository';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
@@ -72,6 +76,12 @@ async function recordTeamDeletionNotification(
   );
 }
 
+interface RepositoryUrlHistoryScope {
+  readonly programId: string;
+  readonly teamId: string;
+  readonly applicationId: string | null;
+}
+
 @Injectable()
 export class ProgramTeamsService {
   constructor(
@@ -83,6 +93,7 @@ export class ProgramTeamsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async getMe(
@@ -243,7 +254,7 @@ export class ProgramTeamsService {
         action: TEAM_RENAMED_AUDIT_ACTIONS.TEAM_RENAMED,
         targetType: 'TEAM',
         targetId: event.teamId,
-        metadata: createTeamRenamedAuditMetadata({
+        metadata: this.auditLogMetadataService.createTeamRenamedAuditMetadata({
           programName: event.programName,
           teamName: event.nextName,
           previousName: event.previousName,
@@ -264,14 +275,15 @@ export class ProgramTeamsService {
         action: TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED,
         targetType: 'TEAM',
         targetId: event.teamId,
-        metadata: createTeamMembershipAuditMetadata({
-          programName: event.programName,
-          teamName: event.teamName,
-          operation: event.operation,
-          removedUserId: event.removedUserId,
-          previousLeaderId: event.previousLeaderId,
-          nextLeaderId: event.nextLeaderId,
-        }),
+        metadata:
+          this.auditLogMetadataService.createTeamMembershipAuditMetadata({
+            programName: event.programName,
+            teamName: event.teamName,
+            operation: event.operation,
+            removedUserId: event.removedUserId,
+            previousLeaderId: event.previousLeaderId,
+            nextLeaderId: event.nextLeaderId,
+          }),
       },
       store.auditLogWriter,
     );
@@ -305,6 +317,7 @@ export class ProgramTeamsService {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     }
     return this.toStaffTeamDetailView(
+      programId,
       detail,
       await this.deletionRepository.readScopeCounts(teamId),
     );
@@ -358,7 +371,7 @@ export class ProgramTeamsService {
         action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
         targetType: 'TEAM',
         targetId: event.teamId,
-        metadata: createTeamDeletedAuditMetadata({
+        metadata: this.auditLogMetadataService.createTeamDeletedAuditMetadata({
           programName: event.programName,
           teamName: event.teamName,
           deletedCounts: event.deletedCounts,
@@ -369,6 +382,7 @@ export class ProgramTeamsService {
   }
 
   private toStaffTeamDetailView(
+    programId: string,
     detail: StaffTeamDetailRecord,
     deletionScope: TeamDeletionScopeCounts,
   ): StaffTeamDetailView {
@@ -388,7 +402,14 @@ export class ProgramTeamsService {
       ],
       application: detail.application,
       repositoryContributions: detail.repositoryContributions,
-      repositoryUrlHistory: detail.repositoryUrlHistory,
+      repositoryUrlHistory: this.toRepositoryUrlHistoryPage(
+        detail.repositoryUrlHistory,
+        {
+          programId,
+          teamId: detail.id,
+          applicationId: detail.application?.id ?? null,
+        },
+      ),
       deletionScope,
     };
   }
@@ -433,7 +454,72 @@ export class ProgramTeamsService {
       cursor,
     );
     if (!history) throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
-    return history;
+    return this.toRepositoryUrlHistoryPage(history, {
+      programId,
+      teamId,
+      applicationId: history.applicationId,
+    });
+  }
+
+  private toRepositoryUrlHistoryPage(
+    history: RepositoryUrlHistoryRows,
+    scope: RepositoryUrlHistoryScope,
+  ): RepositoryUrlHistoryPage {
+    const items = history.rows.map((row) => ({
+      id: row.id,
+      occurredAt: row.occurredAt.toISOString(),
+      ...this.repositoryUrlChange(row, scope),
+    }));
+    const last = items.at(-1);
+    return {
+      items,
+      nextCursor:
+        history.hasMore && last ? `${last.occurredAt}_${last.id}` : null,
+    };
+  }
+
+  private repositoryUrlChange(
+    row: RepositoryUrlHistoryRow,
+    scope: RepositoryUrlHistoryScope,
+  ): Omit<RepositoryUrlHistoryView, 'id' | 'occurredAt'> {
+    if (
+      row.action !==
+      REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED
+    ) {
+      const metadata =
+        this.auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+          row.metadata,
+        );
+      if (
+        metadata?.programId === scope.programId &&
+        metadata.teamId === scope.teamId
+      )
+        return {
+          actorGithubLogin: metadata.actorGithubLogin,
+          previousRepositoryUrl: metadata.before.repositoryUrl,
+          newRepositoryUrl: metadata.after.repositoryUrl,
+        };
+      throw new InvalidRepositoryUrlHistoryError();
+    }
+
+    const metadata =
+      this.auditLogMetadataService.parseRepositoryConnectionAuditMetadata(
+        row.metadata,
+      );
+    if (
+      metadata?.applicationId !== scope.applicationId ||
+      !metadata.after.nameWithOwner
+    )
+      throw new InvalidRepositoryUrlHistoryError();
+    return {
+      actorGithubLogin: row.actor.nickname,
+      previousRepositoryUrl: metadata.before.nameWithOwner
+        ? repositoryUrlFromNameWithOwner(metadata.before.nameWithOwner)
+        : null,
+      newRepositoryUrl: repositoryUrlFromNameWithOwner(
+        metadata.after.nameWithOwner,
+      ),
+    };
   }
 
   private async requireTeamReader(

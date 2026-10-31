@@ -1,9 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import {
-  AuditLogService,
-  createAccessAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -15,6 +12,7 @@ import {
   type AccountDeactivationRepositoryPort,
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export interface AccountDeactivationResult {
   readonly accountStatus: typeof AccountStatus.DEACTIVATED;
@@ -28,6 +26,7 @@ export class AccountDeactivationService {
     @Inject(AccountDeactivationRepository)
     private readonly repository: AccountDeactivationRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
@@ -67,7 +66,7 @@ export class AccountDeactivationService {
           action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
           targetType: 'USER',
           targetId: account.id,
-          metadata: createAccessAuditMetadata({
+          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
             actor: person,
             target: person,

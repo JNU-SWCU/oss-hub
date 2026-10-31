@@ -23,6 +23,7 @@ import { RepositoryProvisionWorkerService } from './repository-provision-worker.
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 import { buildRepositoryOwnershipMarker } from './repository-provision-github.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const OPTIONS = { leaseMs: 300_000, maxAttempts: 3, retryBaseMs: 60_000 };
 
@@ -37,6 +38,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -62,6 +64,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -97,6 +100,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -128,6 +132,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -164,6 +169,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -194,6 +200,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -226,6 +233,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -261,6 +269,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -290,6 +299,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -323,6 +333,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -363,6 +374,7 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -400,6 +412,7 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -427,6 +440,7 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -450,6 +464,7 @@ describe('RepositoryProvisionWorkerService failure membership guard', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -489,6 +504,7 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -539,6 +555,7 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -603,6 +620,7 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 
@@ -651,6 +669,7 @@ describe('RepositoryProvisionWorkerService revocation failure', () => {
       state,
       github,
       { enrollExternalRepository: jest.fn() },
+      new AuditLogMetadataService(),
       OPTIONS,
     );
 

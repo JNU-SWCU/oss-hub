@@ -10,6 +10,8 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,7 +21,11 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AdminAccessMutationService(new AuditLogMetadataService()),
 );
 const prefix = 'test:pr04a:admin-access-sorting:';
 const queryFragment = 'synthetic-pr04a-sort';

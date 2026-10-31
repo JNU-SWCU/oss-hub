@@ -28,6 +28,7 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -62,12 +63,16 @@ const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
   auditLog,
   deletionRepository,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new AuditLogMetadataService(),
 );
 
 let teamSequence = 0;

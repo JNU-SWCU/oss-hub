@@ -1,9 +1,8 @@
-import { createUserProfileAuditMetadata } from './audit-log.service';
-import {
-  parseAuditLogMetadata,
-  USER_PROFILE_AUDIT_FIELDS,
-} from './audit-log-metadata.config';
+import { USER_PROFILE_AUDIT_FIELDS } from './audit-log-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 const ACTOR = {
   displayName: '합성 관리자',
@@ -17,7 +16,7 @@ const TARGET = {
 it('round-trips a staff-number profile field change', () => {
   expect(USER_PROFILE_AUDIT_FIELDS.STAFF_NUMBER).toBe('staffNumber');
 
-  const metadata = createUserProfileAuditMetadata({
+  const metadata = auditLogMetadataService.createUserProfileAuditMetadata({
     actor: ACTOR,
     target: TARGET,
     changes: [
@@ -29,7 +28,11 @@ it('round-trips a staff-number profile field change', () => {
     ],
   });
 
-  expect(parseAuditLogMetadata(JSON.parse(JSON.stringify(metadata)))).toEqual({
+  expect(
+    auditLogMetadataService.parseAuditLogMetadata(
+      JSON.parse(JSON.stringify(metadata)),
+    ),
+  ).toEqual({
     legacy: false,
     metadata,
   });
@@ -77,7 +80,7 @@ it.each([
     }),
   ],
 ] as const)('rejects malformed profile metadata when %s', (_name, mutate) => {
-  const metadata = createUserProfileAuditMetadata({
+  const metadata = auditLogMetadataService.createUserProfileAuditMetadata({
     actor: ACTOR,
     target: TARGET,
     changes: [
@@ -89,9 +92,11 @@ it.each([
     ],
   });
 
-  expect(() => parseAuditLogMetadata(mutate(metadata))).toThrow(
-    InvalidAuditLogMetadataError,
-  );
+  expect(() =>
+    auditLogMetadataService.parseAuditLogMetadata(mutate(metadata)),
+  ).toThrow(InvalidAuditLogMetadataError);
 });
 
-type ProfileMetadataFixture = ReturnType<typeof createUserProfileAuditMetadata>;
+type ProfileMetadataFixture = ReturnType<
+  AuditLogMetadataService['createUserProfileAuditMetadata']
+>;

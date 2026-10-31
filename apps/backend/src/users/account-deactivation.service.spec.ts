@@ -9,6 +9,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 describe('AccountDeactivationService', () => {
   const account = {
@@ -40,9 +41,13 @@ describe('AccountDeactivationService', () => {
     const record = jest
       .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
       .mockResolvedValue(undefined);
-    const service = new AccountDeactivationService(repository, {
-      record,
-    } as unknown as AuditLogService);
+    const service = new AccountDeactivationService(
+      repository,
+      {
+        record,
+      } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
+    );
 
     await expect(service.deactivate(42n)).resolves.toEqual({
       accountStatus: AccountStatus.DEACTIVATED,
@@ -95,6 +100,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
     );
 
     await service.deactivate(42n);
@@ -123,6 +129,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -148,6 +155,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -173,6 +181,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
     );
 
     await expect(service.deactivate(42n)).resolves.toEqual({

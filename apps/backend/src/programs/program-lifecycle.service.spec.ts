@@ -10,6 +10,7 @@ import { ProgramLifecycleService } from './program-lifecycle.service';
 import { type AuditLogRecordInput } from '../platform/audit-log.repository';
 import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { type ProgramDeletionScopeCounts } from './program-deletion-scope.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 function createDeleteService(
   overrides: {
@@ -134,6 +135,7 @@ function createDeleteService(
   const service = new ProgramLifecycleService(
     new ProgramLifecycleRepository(prisma),
     auditLog,
+    new AuditLogMetadataService(),
   );
   return {
     service,
@@ -675,6 +677,7 @@ function createPurgeService(
   const service = new ProgramLifecycleService(
     new ProgramLifecycleRepository(prisma),
     auditLog,
+    new AuditLogMetadataService(),
   );
   return {
     service,

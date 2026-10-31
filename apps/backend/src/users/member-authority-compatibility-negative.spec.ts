@@ -8,6 +8,7 @@ import {
   type PatchUserProfileInput,
   buildProfileCompletion,
 } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {
@@ -105,6 +106,7 @@ describe('member authority completion negative contract', () => {
       repository,
       { requireCurrent: () => Promise.resolve(undefined) },
       { record: jest.fn() },
+      new AuditLogMetadataService(),
     );
 
     const completion = service.completeMyProfile(801020n, validStudentInput);

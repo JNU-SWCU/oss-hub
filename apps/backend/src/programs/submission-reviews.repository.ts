@@ -492,7 +492,6 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         displayName:
           row.application.team?.name ??
           row.application.applicant.profile?.name ??
-          null ??
           row.application.applicant.nickname,
       },
       milestone: row.milestoneDocument.milestone,

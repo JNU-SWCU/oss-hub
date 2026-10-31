@@ -3,11 +3,11 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from './prisma.service';
 import { AuditLogErrorCode } from './audit-log-error-code.error';
 import { AuditLogRepository } from './audit-log.repository';
-import {
-  createAccessAuditMetadata,
-  AuditLogService,
-} from './audit-log.service';
+import { AuditLogService } from './audit-log.service';
 import { ACCESS_AUDIT_EVENT_KINDS } from './audit-log-metadata.config';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -21,7 +21,10 @@ const STAFF_GITHUB_ID = 9_132_000_002n;
 
 describe('Audit log integration', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogService(new AuditLogRepository(prisma));
+  const service = new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  );
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -54,7 +57,7 @@ describe('Audit log integration', () => {
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       targetType: 'ROLE_REQUEST',
       targetId: `${TEST_PREFIX}request`,
-      metadata: createAccessAuditMetadata({
+      metadata: auditLogMetadataService.createAccessAuditMetadata({
         eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
         actor: {
           displayName: null,

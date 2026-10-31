@@ -13,6 +13,8 @@ import {
   staffActor,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {
@@ -25,6 +27,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     const result = await service.list(ADMIN_GITHUB_ID, {
@@ -43,6 +46,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     const [facets, history] = await Promise.all([
@@ -82,6 +86,7 @@ describe('AdminAccessService reads', () => {
       const service = new AdminAccessService(
         repository,
         auditLogHarness().service,
+        new AdminAccessMutationService(new AuditLogMetadataService()),
       );
 
       await expect(
@@ -96,6 +101,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(
@@ -123,6 +129,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(
@@ -149,6 +156,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(service.get(STAFF_GITHUB_ID, 'target')).rejects.toMatchObject({
@@ -174,6 +182,7 @@ describe('AdminAccessService reads', () => {
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
     );
 
     await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject(

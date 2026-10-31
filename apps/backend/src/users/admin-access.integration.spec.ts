@@ -14,6 +14,8 @@ import { PatchAdminAccessRequestDto } from '../admin/dto/patch-admin-access-requ
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -22,8 +24,15 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
-const service = new AdminAccessService(repository, auditLog);
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
+const service = new AdminAccessService(
+  repository,
+  auditLog,
+  new AdminAccessMutationService(new AuditLogMetadataService()),
+);
 const AUDIT_FAILURE_FUNCTION = 'fail_admin_access_audit_insert';
 const AUDIT_FAILURE_TRIGGER = 'fail_admin_access_audit_insert_trigger';
 const AUDIT_FAILURE_MESSAGE = 'synthetic admin access audit failure';
@@ -57,6 +66,7 @@ describe('Admin access real PostgreSQL transactions', () => {
         new IndependentAuthorityRepository(prisma),
       ),
       auditLog,
+      new AuditLogMetadataService(),
     );
 
     const demote = (actorGithubId: bigint, targetId: string) =>

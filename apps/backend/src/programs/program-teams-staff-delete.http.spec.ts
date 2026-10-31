@@ -21,6 +21,7 @@ import type {
 import type { TeamDeletionResult } from './program-team-deletion.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
@@ -130,6 +131,7 @@ const service = new ProgramTeamsService(
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
   { assertActiveStaff: jest.fn() },
+  new AuditLogMetadataService(),
 );
 
 const deleteForStaff = jest.fn(

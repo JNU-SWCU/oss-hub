@@ -11,6 +11,7 @@ import {
   type UsersRepositoryPort,
 } from './users.repository';
 import { isCompleteUserProfile } from './profile-validation.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,7 +58,11 @@ const repository = new UsersRepository(prisma);
 const service = new UsersService(
   repository,
   { requireCurrent: () => Promise.resolve() },
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
 );
 const recordPhoneAudit = jest
   .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
@@ -696,6 +701,7 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
     repository,
     { requireCurrent: () => Promise.resolve() },
     { record: jest.fn().mockRejectedValue(failure) },
+    new AuditLogMetadataService(),
   );
   await expect(
     rejectingService.patchMyProfile(rollbackGithubId, {

@@ -9,6 +9,7 @@ import {
 import { ProgramTeamsService } from './program-teams.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
@@ -72,6 +73,7 @@ function buildService(overrides: {
     { record: jest.fn() } as unknown as AuditLogService,
     deletionRepository,
     new UsersAuthorityService({ findActorByGithubId }),
+    new AuditLogMetadataService(),
   );
   return {
     service,
@@ -89,7 +91,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-b',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [
           { userId: 'user-a', nickname: 'login-a', name: '가나다' },
           { userId: 'user-b', nickname: 'login-b', name: '라마바' },
@@ -124,7 +126,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-a',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -191,7 +193,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         name: '오픈소스팀',
         leaderId: 'user-a',
         repositoryContributions: null,
-        repositoryUrlHistory: { items: [], nextCursor: null },
+        repositoryUrlHistory: { rows: [], hasMore: false },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -274,7 +276,7 @@ describe('ProgramTeamsService.getForStaff 권한', () => {
     name: '오픈소스팀',
     leaderId: 'user-a',
     repositoryContributions: null,
-    repositoryUrlHistory: { items: [], nextCursor: null },
+    repositoryUrlHistory: { rows: [], hasMore: false },
     members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
     application: null,
   };

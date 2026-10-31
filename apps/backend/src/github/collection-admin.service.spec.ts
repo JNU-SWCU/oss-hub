@@ -1,6 +1,7 @@
 import { AccountStatus } from '@prisma/client';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionAdminService } from './collection-admin.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const deniedActors = [
   {
@@ -41,6 +42,7 @@ describe('CollectionAdminService authorization', () => {
       { record: work },
       { run: work },
       authority,
+      new AuditLogMetadataService(),
     );
     const action = service.trigger(4242n);
     await expect(action).rejects.toMatchObject({

@@ -21,6 +21,7 @@ import type {
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoryProvisionStateError } from './repository-provision-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 describe('repository-own-enrollment.service', () => {
   const INPUT = {
@@ -139,7 +140,12 @@ function dependencies() {
 }
 
 function serviceFrom(deps: ReturnType<typeof dependencies>) {
-  return new RepositoriesService(deps.repository, deps.github, deps.auditLog);
+  return new RepositoriesService(
+    deps.repository,
+    deps.github,
+    deps.auditLog,
+    new AuditLogMetadataService(),
+  );
 }
 
 function readServiceFrom(deps: ReturnType<typeof dependencies>) {

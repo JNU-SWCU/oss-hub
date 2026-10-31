@@ -8,6 +8,8 @@ import { RolesErrorCode } from './roles-error-code.error';
 import { PausingActorRevalidationAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -16,7 +18,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const TEST_PREFIX = 'test:687:admin-access-actor-toctou:';
 const GITHUB_ID_BASE = 9_006_870_000n;
 let sequence = 0;
@@ -42,6 +47,7 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
       },
     }),
     auditLog,
+    new AdminAccessMutationService(new AuditLogMetadataService()),
   );
 
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
@@ -100,6 +106,7 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
       },
     ),
     auditLog,
+    new AdminAccessMutationService(new AuditLogMetadataService()),
   );
 
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {

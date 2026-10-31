@@ -21,6 +21,7 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramTeamsController } from './program-teams.controller';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -48,9 +49,13 @@ beforeAll(async () => {
   await prisma.$connect();
   const service = new ProgramTeamsService(
     new ProgramTeamsRepository(prisma),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(
+      new AuditLogRepository(prisma),
+      new AuditLogMetadataService(),
+    ),
     new ProgramTeamDeletionRepository(prisma),
     new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+    new AuditLogMetadataService(),
   );
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],

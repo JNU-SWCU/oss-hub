@@ -23,12 +23,14 @@ import {
   ProgramAuthoringUploadTokenError,
 } from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
     new ProgramAuthoringRepository(harness.prisma),
     { record: jest.fn() } as unknown as AuditLogService,
+    new AuditLogMetadataService(),
   );
 
   beforeAll(async () => {

@@ -65,6 +65,9 @@ import { AdminProfileService } from '../../src/users/admin-profile.service';
 import { UsersAuthorityService } from '../../src/users/users-authority.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
+import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
+import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
 
 type Actor = {
   readonly label: string;
@@ -282,6 +285,9 @@ describe('Audience authorization HTTP characterization', () => {
         AdminProfileService,
         IndependentAuthorityService,
         MemberKindService,
+        AuditLogMetadataService,
+        AdminAccessMutationService,
+        AdminProfileMutationService,
         AuditLogService,
         SystemStatusService,
         {
@@ -432,7 +438,7 @@ describe('Audience authorization HTTP characterization', () => {
           provide: AuditLogRepository,
           useValue: {
             findActorByGithubId: findActor,
-            list: () => Promise.resolve({ items: [], total: 0 }),
+            list: () => Promise.resolve({ rows: [], total: 0 }),
             record: () => Promise.resolve({}),
           },
         },

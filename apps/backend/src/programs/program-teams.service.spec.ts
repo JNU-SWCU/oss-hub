@@ -26,6 +26,7 @@ import {
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
@@ -143,6 +144,7 @@ function buildService(overrides: {
       { record } as unknown as AuditLogService,
       deletionRepository,
       buildAuthority(),
+      new AuditLogMetadataService(),
     ),
     repository,
     deletionRepository,
@@ -567,6 +569,7 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
         buildAuthority(),
+        new AuditLogMetadataService(),
       ),
       accessed,
       leave,

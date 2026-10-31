@@ -8,6 +8,7 @@ import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -69,6 +70,7 @@ describe('ApplicationsService.staffSummary', () => {
       new ApplicationJoinCodeService({
         TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
       }),
+      new AuditLogMetadataService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual(
@@ -90,6 +92,7 @@ describe('ApplicationsService.staffSummary', () => {
       new ApplicationJoinCodeService({
         TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
       }),
+      new AuditLogMetadataService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual({
@@ -112,6 +115,7 @@ describe('ApplicationsService.staffSummary', () => {
       new ApplicationJoinCodeService({
         TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
       }),
+      new AuditLogMetadataService(),
     );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).rejects.toMatchObject(

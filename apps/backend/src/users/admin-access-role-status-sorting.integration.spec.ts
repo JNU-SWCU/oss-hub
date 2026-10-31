@@ -6,6 +6,8 @@ import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { type AdminAccessSortDirection } from './admin-access-read-ordering.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -15,7 +17,11 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AdminAccessMutationService(new AuditLogMetadataService()),
 );
 const prefix = 'test:admin-access-role-status-sort:';
 const queryFragment = 'synthetic-role-status-sort';

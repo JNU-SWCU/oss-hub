@@ -20,6 +20,7 @@ import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -88,6 +89,7 @@ beforeAll(async () => {
       ProgramTeamsService,
       ProgramTeamsRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },
+      AuditLogMetadataService,
       { provide: AuditLogService, useValue: {} },
       {
         provide: RUNTIME_CONFIG,

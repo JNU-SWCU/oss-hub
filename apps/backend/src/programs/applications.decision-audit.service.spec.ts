@@ -15,6 +15,7 @@ import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -116,6 +117,7 @@ function createHarness(
     new ApplicationJoinCodeService({
       TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
     }),
+    new AuditLogMetadataService(),
   );
   return {
     service,

@@ -21,6 +21,7 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -31,11 +32,15 @@ const prisma = new PrismaService();
 const repository = new ApplicationsRepository(prisma);
 const service = new ApplicationsService(
   repository,
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new ApplicationJoinCodeService({
     TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
   }),
+  new AuditLogMetadataService(),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
@@ -351,13 +356,17 @@ describe('ApplicationsService integration', () => {
       });
       const applicantService = new ApplicationsService(
         new ApplicationsRepository(applicantPrisma),
-        new AuditLogService(new AuditLogRepository(applicantPrisma)),
+        new AuditLogService(
+          new AuditLogRepository(applicantPrisma),
+          new AuditLogMetadataService(),
+        ),
         new UsersAuthorityService(
           new UsersAuthorityRepository(applicantPrisma),
         ),
         new ApplicationJoinCodeService({
           TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
         }),
+        new AuditLogMetadataService(),
       );
       let releaseEditor!: () => void;
       const editorRelease = new Promise<void>((resolve) => {

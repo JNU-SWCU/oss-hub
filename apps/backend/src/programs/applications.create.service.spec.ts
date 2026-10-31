@@ -25,6 +25,7 @@ import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -176,6 +177,7 @@ function buildService(overrides: {
       { record } as unknown as AuditLogService,
       { assertActiveStaff },
       joinCodeService,
+      new AuditLogMetadataService(),
     ),
     repository,
     store,

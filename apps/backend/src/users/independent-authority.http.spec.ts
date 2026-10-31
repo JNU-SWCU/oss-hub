@@ -27,6 +27,7 @@ import {
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
 } from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const githubId = 9_700_400_001n;
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -99,6 +100,7 @@ describe('independent authority HTTP contracts', () => {
       controllers: [UserAccessController],
       providers: [
         IndependentAuthorityService,
+        AuditLogMetadataService,
         SessionGuard,
         OriginGuard,
         { provide: IndependentAuthorityRepository, useValue: store },

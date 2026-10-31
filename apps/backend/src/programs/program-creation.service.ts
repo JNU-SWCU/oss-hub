@@ -13,10 +13,7 @@ import {
   ProgramCategory,
   type ProgramTrackType,
 } from '@prisma/client';
-import {
-  AuditLogService,
-  createProgramCreatedAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
@@ -28,6 +25,7 @@ import {
   isProgramEndAtUndecided,
   getProgramTemplate,
 } from './programs.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export type CreatedProgram = {
   readonly id: string;
@@ -92,6 +90,7 @@ export class ProgramCreationService {
   constructor(
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
@@ -179,9 +178,10 @@ export class ProgramCreationService {
           action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
           targetType: 'PROGRAM',
           targetId: program.id,
-          metadata: createProgramCreatedAuditMetadata({
-            programName: program.name,
-          }),
+          metadata:
+            this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+              programName: program.name,
+            }),
         },
         writer,
       );

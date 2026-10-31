@@ -38,6 +38,7 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -48,12 +49,16 @@ const prisma = new PrismaService();
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const repositoriesRepository = new RepositoriesRepository(prisma);
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLog,
+  new AuditLogMetadataService(),
 );
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
@@ -386,6 +391,7 @@ describe('SubmissionReviewsService integration', () => {
       barrierRepository,
       github,
       auditLog,
+      new AuditLogMetadataService(),
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');
     github.publishRepository.mockResolvedValue({

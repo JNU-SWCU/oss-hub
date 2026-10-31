@@ -15,6 +15,7 @@ import {
   type CollectionUserActivitySweepResult,
 } from '../github/collection-user-activity.service';
 import { type AuditLogRecord } from '../platform/audit-log.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const authority = {
   assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
@@ -27,7 +28,14 @@ function createController(
   activity: CollectionUserActivityService,
 ): CollectionAdminController {
   return new CollectionAdminController(
-    new CollectionAdminService(sync, cutover, audit, activity, authority),
+    new CollectionAdminService(
+      sync,
+      cutover,
+      audit,
+      activity,
+      authority,
+      new AuditLogMetadataService(),
+    ),
   );
 }
 
@@ -76,6 +84,7 @@ describe('CollectionAdminController', () => {
         { provide: UsersAuthorityService, useValue: authority },
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        AuditLogMetadataService,
         { provide: AuditLogService, useValue: { record } },
         {
           provide: CollectionUserActivityService,

@@ -1,15 +1,20 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
-import { createIndependentAuthorityAuditMetadata } from './audit-log.service';
-import {
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
-  parseAuditLogMetadata,
-} from './audit-log-metadata.config';
+import { INDEPENDENT_AUTHORITY_AUDIT_COMMANDS } from './audit-log-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 import {
-  createIndependentAuthorityAudit,
   type IndependentAuthorityCommand,
+  IndependentAuthorityService,
 } from '../users/independent-authority.service';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const independentAuthorityService = new IndependentAuthorityService(
+  undefined as never,
+  undefined as never,
+  new AuditLogMetadataService(),
+);
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 const actorGithubId = 9_700_700_001n;
 
@@ -47,7 +52,9 @@ it.each([
       role,
     });
 
-    expect(parseAuditLogMetadata(storageRoundTrip(stored))).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
+    ).toEqual({
       legacy: false,
       metadata: {
         schemaVersion: 2,
@@ -81,33 +88,36 @@ it.each([
 );
 
 it('round-trips a member-kind command with every canonical state field', () => {
-  const stored = createIndependentAuthorityAuditMetadata({
-    command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
-    actor: {
-      displayName: '합성 관리자',
-      githubLogin: 'synthetic-admin',
-    },
-    target: {
-      displayName: '합성 학생',
-      githubLogin: 'synthetic-target',
-    },
-    before: {
-      memberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      role: 'STUDENT',
-      accountStatus: AccountStatus.ACTIVE,
-    },
-    after: {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      role: 'STAFF',
-      accountStatus: AccountStatus.ACTIVE,
-    },
-  });
+  const stored =
+    auditLogMetadataService.createIndependentAuthorityAuditMetadata({
+      command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
+      actor: {
+        displayName: '합성 관리자',
+        githubLogin: 'synthetic-admin',
+      },
+      target: {
+        displayName: '합성 학생',
+        githubLogin: 'synthetic-target',
+      },
+      before: {
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        role: 'STUDENT',
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      after: {
+        memberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        role: 'STAFF',
+        accountStatus: AccountStatus.ACTIVE,
+      },
+    });
 
-  expect(parseAuditLogMetadata(storageRoundTrip(stored))).toEqual({
+  expect(
+    auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
+  ).toEqual({
     legacy: false,
     metadata: stored,
   });
@@ -165,9 +175,9 @@ it.each([
     },
   );
 
-  expect(() => parseAuditLogMetadata(mutate(valid))).toThrow(
-    InvalidAuditLogMetadataError,
-  );
+  expect(() =>
+    auditLogMetadataService.parseAuditLogMetadata(mutate(valid)),
+  ).toThrow(InvalidAuditLogMetadataError);
 });
 
 type MetadataFixture = ReturnType<typeof createStoredMetadata>;
@@ -177,7 +187,7 @@ function createStoredMetadata(
   after: Partial<IndependentAuthorityUserRecord>,
 ) {
   const before = targetUser();
-  const audit = createIndependentAuthorityAudit({
+  const audit = independentAuthorityService.createIndependentAuthorityAudit({
     actorGithubId,
     actor: {
       name: '합성 관리자',

@@ -21,6 +21,7 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsService } from './program-teams.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -64,12 +65,16 @@ const JOINED_SECOND = new Date('2026-08-03T00:00:00.000Z');
 
 const prisma = new PrismaService();
 const repository = new ProgramTeamsRepository(prisma);
-const auditLog = new AuditLogService(new AuditLogRepository(prisma));
+const auditLog = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const service = new ProgramTeamsService(
   repository,
   auditLog,
   new ProgramTeamDeletionRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new AuditLogMetadataService(),
 );
 const invitations = new TeamInvitationsRepository(prisma);
 

@@ -28,6 +28,7 @@ import {
 import { RepositoryOutboxConsumerService } from './repository-outbox-consumer.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, AuthModule, UsersModule],
@@ -72,24 +73,38 @@ import { RepositoryProvisionWorkerService } from './repository-provision-worker.
         RepositoryProvisionStateRepository,
         GithubAppClient,
         RepositoryOwnEnrollmentService,
+        AuditLogMetadataService,
       ],
       useFactory: (
         jobs: RepositoryProvisionJobRepository,
         state: RepositoryProvisionStateRepository,
         github: GithubAppClient,
         enrollment: RepositoryOwnEnrollmentService,
+        auditLogMetadata: AuditLogMetadataService,
       ): RepositoryProvisionWorkerService =>
-        new RepositoryProvisionWorkerService(jobs, state, github, enrollment),
+        new RepositoryProvisionWorkerService(
+          jobs,
+          state,
+          github,
+          enrollment,
+          auditLogMetadata,
+        ),
     },
     {
       provide: RepositoriesService,
-      inject: [RepositoriesRepository, GithubAppClient, AuditLogService],
+      inject: [
+        RepositoriesRepository,
+        GithubAppClient,
+        AuditLogService,
+        AuditLogMetadataService,
+      ],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
         auditLog: AuditLogService,
+        auditLogMetadata: AuditLogMetadataService,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, auditLog),
+        new RepositoriesService(repository, github, auditLog, auditLogMetadata),
     },
     {
       provide: OwnRepositoryUrlValidationService,

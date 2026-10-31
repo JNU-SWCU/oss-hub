@@ -252,7 +252,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
               currentRepositoryUrl: input.currentRepositoryUrl,
               connectionMode: input.connectionMode,
               repositoryUrl: input.repositoryUrl,
-              auditActorGithubId: input.auditActorGithubId,
+              connectionAudit: input.connectionAudit,
             },
           );
         const provisioned =

@@ -16,6 +16,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,7 +27,11 @@ const FIXTURE_PREFIX = 'test:member-kind:';
 const prisma = new PrismaService();
 const service = new MemberKindService(
   new MemberKindRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
 );
 let sequence = 0;
 
@@ -393,6 +398,7 @@ describe('member-kind persistence contract', () => {
           .fn()
           .mockRejectedValue(new Error('synthetic audit failure')),
       },
+      new AuditLogMetadataService(),
     );
 
     await expect(

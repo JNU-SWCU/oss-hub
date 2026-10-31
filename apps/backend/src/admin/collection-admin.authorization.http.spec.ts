@@ -20,6 +20,7 @@ import { CollectionCutoverRepository } from '../github/repository-provision-job.
 import { CollectionSyncService } from '../github/collection-sync.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const roles = [
   ['ADMIN', true, true, AccountStatus.ACTIVE],
@@ -93,6 +94,7 @@ describe('Collection admin authorization HTTP characterization', () => {
           provide: CollectionCutoverRepository,
           useValue: { isQuiesced: () => false },
         },
+        AuditLogMetadataService,
         { provide: AuditLogService, useValue: { record: () => undefined } },
       ],
     }).compile();

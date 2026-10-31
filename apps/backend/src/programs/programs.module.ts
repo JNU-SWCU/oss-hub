@@ -113,6 +113,7 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Module({
   imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
@@ -193,14 +194,22 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
         AuditLogService,
         UsersAuthorityService,
         ApplicationJoinCodeService,
+        AuditLogMetadataService,
       ],
       useFactory: (
         repository: ApplicationsRepository,
         auditLog: AuditLogService,
         authority: UsersAuthorityService,
         joinCodes: ApplicationJoinCodeService,
+        auditLogMetadata: AuditLogMetadataService,
       ): ApplicationsService =>
-        new ApplicationsService(repository, auditLog, authority, joinCodes),
+        new ApplicationsService(
+          repository,
+          auditLog,
+          authority,
+          joinCodes,
+          auditLogMetadata,
+        ),
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,

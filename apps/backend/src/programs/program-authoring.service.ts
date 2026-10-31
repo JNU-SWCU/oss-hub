@@ -13,10 +13,7 @@ import {
   parseProgramNoticeUrl,
 } from './program-notice-fetch.client';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
-import {
-  AuditLogService,
-  createProgramCreatedAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   ProgramAuthoringUploadTransactionRepository,
@@ -45,6 +42,7 @@ import {
   getProgramTemplate,
 } from './programs.service';
 import { createHash } from 'node:crypto';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
   return {
@@ -387,6 +385,7 @@ export class ProgramAuthoringService {
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async requireAuthor(githubId: bigint): Promise<string> {
@@ -475,9 +474,10 @@ export class ProgramAuthoringService {
         action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
         targetType: 'PROGRAM',
         targetId: program.id,
-        metadata: createProgramCreatedAuditMetadata({
-          programName: program.name,
-        }),
+        metadata:
+          this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+            programName: program.name,
+          }),
       },
       store.auditLogWriter,
     );

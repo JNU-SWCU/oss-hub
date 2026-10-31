@@ -176,8 +176,8 @@ it('projects only linked repository facts inside the program window while retain
   ]);
 
   expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
-  expect(detail?.repositoryUrlHistory.items).toHaveLength(1);
-  expect(detail?.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
+  expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
+  expect(detail?.repositoryUrlHistory.rows[0]?.actor.nickname).toBe(
     'actor-before-rename',
   );
   expect(

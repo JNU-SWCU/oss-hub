@@ -37,6 +37,7 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 
@@ -97,12 +98,14 @@ export class PublicExposurePersonaHttpHarness {
     } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
     const auditLogService = new AuditLogService(
       new AuditLogRepository(this.prisma),
+      new AuditLogMetadataService(),
     );
     const repositoriesRepository = new RepositoriesRepository(this.prisma);
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
       github,
       auditLogService,
+      new AuditLogMetadataService(),
     );
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),

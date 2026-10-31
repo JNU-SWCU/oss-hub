@@ -9,11 +9,7 @@ import {
 } from './profile-validation.config';
 import { authorityLabel } from './authority-label.config';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AuditLogService,
-  createIndependentAuthorityAuditMetadata,
-  createUserProfileAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
@@ -38,6 +34,7 @@ import {
   roleError,
   staleAccessError,
 } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export type MemberKindMutationCommand = {
   readonly memberKind: MemberKind;
@@ -57,6 +54,7 @@ export class MemberKindService {
     private readonly repository: MemberKindRepositoryPort,
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   patchMemberKind(
@@ -130,25 +128,28 @@ export class MemberKindService {
             action: INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.SET_MEMBER_KIND,
             targetType: 'USER',
             targetId: before.id,
-            metadata: createIndependentAuthorityAuditMetadata({
-              command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
-              actor: {
-                displayName: actor.name,
-                githubLogin: actor.githubLogin,
-              },
-              target: {
-                displayName: before.name,
-                githubLogin: before.githubLogin,
-              },
-              before: {
-                memberKind: before.memberKind,
-                hasStaffAccess: before.hasStaffAccess,
-                hasAdminAccess: before.hasAdminAccess,
-                role: before.role,
-                accountStatus: before.accountStatus,
-              },
-              after,
-            }),
+            metadata:
+              this.auditLogMetadataService.createIndependentAuthorityAuditMetadata(
+                {
+                  command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
+                  actor: {
+                    displayName: actor.name,
+                    githubLogin: actor.githubLogin,
+                  },
+                  target: {
+                    displayName: before.name,
+                    githubLogin: before.githubLogin,
+                  },
+                  before: {
+                    memberKind: before.memberKind,
+                    hasStaffAccess: before.hasStaffAccess,
+                    hasAdminAccess: before.hasAdminAccess,
+                    role: before.role,
+                    accountStatus: before.accountStatus,
+                  },
+                  after,
+                },
+              ),
           },
           store.auditLogWriter,
         );
@@ -160,17 +161,18 @@ export class MemberKindService {
             action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
             targetType: 'USER',
             targetId: before.id,
-            metadata: createUserProfileAuditMetadata({
-              actor: {
-                displayName: actor.name,
-                githubLogin: actor.githubLogin,
-              },
-              target: {
-                displayName: before.name,
-                githubLogin: before.githubLogin,
-              },
-              changes: update.profileChanges,
-            }),
+            metadata:
+              this.auditLogMetadataService.createUserProfileAuditMetadata({
+                actor: {
+                  displayName: actor.name,
+                  githubLogin: actor.githubLogin,
+                },
+                target: {
+                  displayName: before.name,
+                  githubLogin: before.githubLogin,
+                },
+                changes: update.profileChanges,
+              }),
           },
           store.auditLogWriter,
         );

@@ -7,15 +7,14 @@ import {
 import type { PrismaService } from './prisma.service';
 import { AuditLogRepository } from './audit-log.repository';
 import {
-  createAccessAuditMetadata,
-  createProgramCreatedAuditMetadata,
-  createProgramLifecycleAuditMetadata,
-  createTeamCreatedAuditMetadata,
-} from './audit-log.service';
-import {
   PROGRAM_LIFECYCLE_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from './audit-log-metadata.config';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { AuditLogService } from './audit-log.service';
+import type { AuditLogListQuery } from './audit-log-query.types';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
   schemaVersion: 1,
@@ -30,7 +29,20 @@ const LEGACY_APPLICATION_DECISION_V1_METADATA = {
   after: { status: 'APPROVED' },
 } as const;
 
-describe('AuditLogRepository', () => {
+function listRecords(repository: AuditLogRepository, query: AuditLogListQuery) {
+  jest.spyOn(repository, 'findActorByGithubId').mockResolvedValue({
+    id: 'admin',
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  return new AuditLogService(repository, new AuditLogMetadataService()).list(
+    1n,
+    query,
+  );
+}
+
+describe('AuditLogService record mapping', () => {
   it('필터를 AND로 적용하고 발생 시각 최신순으로 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
@@ -38,7 +50,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    await repository.list({
+    await listRecords(repository, {
       actor: 'synthetic-admin',
       action: 'STAFF_ROLE_REQUEST_APPROVED',
       from: '2026-07-24',
@@ -134,7 +146,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -183,7 +195,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -194,7 +206,7 @@ describe('AuditLogRepository', () => {
   });
 
   it('새 감사 행은 현재 User가 아니라 metadata의 이벤트 시점 행위자·대상 정체성을 반환한다', async () => {
-    const metadata = createAccessAuditMetadata({
+    const metadata = auditLogMetadataService.createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
       actor: {
         displayName: '이벤트 시점 관리자',
@@ -233,7 +245,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -248,11 +260,12 @@ describe('AuditLogRepository', () => {
   });
 
   it('PROGRAM_ARCHIVED가 schemaVersion 2(이름 스냅샷) metadata면 join 없이 스냅샷 이름을 target으로 쓴다', async () => {
-    const metadata = createProgramLifecycleAuditMetadata({
-      programName: '스냅샷 프로그램 이름',
-      before: { lifecycle: ProgramLifecycle.PUBLISHED },
-      after: { lifecycle: ProgramLifecycle.ARCHIVED },
-    });
+    const metadata =
+      auditLogMetadataService.createProgramLifecycleAuditMetadata({
+        programName: '스냅샷 프로그램 이름',
+        before: { lifecycle: ProgramLifecycle.PUBLISHED },
+        after: { lifecycle: ProgramLifecycle.ARCHIVED },
+      });
     const programFindMany = jest.fn();
     const prisma = {
       auditLog: {
@@ -273,7 +286,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(programFindMany).not.toHaveBeenCalled();
     expect(result.items).toEqual([
@@ -309,7 +322,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(programFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['program-2'] } },
@@ -346,7 +359,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -393,7 +406,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(programFindMany).toHaveBeenCalledTimes(1);
     expect(programFindMany).toHaveBeenCalledWith({
@@ -434,7 +447,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(repositoryFindMany).not.toHaveBeenCalled();
     expect(result.items).toEqual([
@@ -468,7 +481,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(repositoryFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['repository-legacy'] } },
@@ -500,7 +513,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -537,7 +550,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(applicationFindMany).not.toHaveBeenCalled();
     expect(result.items).toEqual([
@@ -573,7 +586,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(applicationFindMany).toHaveBeenCalledWith({
       where: { id: { in: ['application-legacy'] } },
@@ -618,7 +631,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(applicationFindMany.mock.calls[0]?.[0].select).not.toHaveProperty(
       'applicant',
@@ -654,7 +667,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -705,7 +718,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(repositoryFindMany).toHaveBeenCalledTimes(1);
     expect(applicationFindMany).toHaveBeenCalledTimes(1);
@@ -716,7 +729,7 @@ describe('AuditLogRepository', () => {
   });
 
   it('teamName+programName compose wins over programName-only', async () => {
-    const metadata = createTeamCreatedAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamCreatedAuditMetadata({
       programName: '스냅샷 프로그램',
       teamName: '스냅샷 팀',
     });
@@ -740,7 +753,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(teamFindMany).not.toHaveBeenCalled();
     expect(result.items).toEqual([
@@ -776,7 +789,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(applicationFindMany).not.toHaveBeenCalled();
     expect(result.items).toEqual([
@@ -787,7 +800,7 @@ describe('AuditLogRepository', () => {
   });
 
   it('if View drops teamName, compose fails (program name only)', async () => {
-    const metadata = createProgramCreatedAuditMetadata({
+    const metadata = auditLogMetadataService.createProgramCreatedAuditMetadata({
       programName: '스냅샷 프로그램',
     });
     const prisma = {
@@ -808,7 +821,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({ page: 1, limit: 20 });
+    const result = await listRecords(repository, { page: 1, limit: 20 });
 
     expect(result.items).toEqual([
       expect.objectContaining({ target: '스냅샷 프로그램' }),
@@ -823,7 +836,7 @@ describe('AuditLogRepository', () => {
     } as unknown as PrismaService;
     const repository = new AuditLogRepository(prisma);
 
-    const result = await repository.list({
+    const result = await listRecords(repository, {
       actor: 'synthetic-admin',
       page: 2,
       limit: 10,
@@ -845,6 +858,6 @@ describe('AuditLogRepository', () => {
         occurredAt: undefined,
       },
     });
-    expect(result).toEqual({ items: [], total: 21 });
+    expect(result).toMatchObject({ items: [], total: 21 });
   });
 });

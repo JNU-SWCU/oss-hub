@@ -3,7 +3,6 @@ import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { createUserProfileAuditMetadata } from '../platform/audit-log.service';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_FIELDS,
@@ -19,6 +18,8 @@ import {
 } from './admin-profile.repository';
 import { requireActiveAdmin, roleError } from './admin-access-mutation.service';
 import { isValidStudentId } from './profile-validation.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { Injectable } from '@nestjs/common';
 
 type AdminProfileFields = {
   readonly name: string | null;
@@ -47,35 +48,6 @@ type AdminProfileAudit = {
   readonly targetId: string;
   readonly metadata: UserProfileAuditMetadata;
 };
-
-function createAdminProfileAudit(input: {
-  readonly actor: AdminProfileActor;
-  readonly target: AdminProfileTargetRecord;
-  readonly before: AdminProfileFields;
-  readonly after: AdminProfileFields;
-}): AdminProfileAudit | null {
-  const changes = diffAdminProfileFields(input.before, input.after);
-  if (changes.length === 0) {
-    return null;
-  }
-  return {
-    action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
-    targetType: 'USER',
-    targetId: input.target.id,
-    metadata: createUserProfileAuditMetadata({
-      actor: {
-        displayName: input.actor.name,
-        githubLogin: input.actor.githubLogin,
-      },
-
-      target: {
-        displayName: input.target.name,
-        githubLogin: input.target.githubLogin,
-      },
-      changes,
-    }),
-  };
-}
 
 function diffAdminProfileFields(
   before: AdminProfileFields,
@@ -117,8 +89,13 @@ type MutationInput = {
   readonly command: AdminProfileUpdateCommand;
 };
 
+@Injectable()
 export class AdminProfileMutationService {
-  static async mutateAdminUserProfile(
+  constructor(
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+  ) {}
+
+  async mutateAdminUserProfile(
     dependencies: MutationDependencies,
     input: MutationInput,
   ): Promise<AdminProfileUpdateResult> {
@@ -213,7 +190,7 @@ export class AdminProfileMutationService {
         department: nextDepartment,
       };
 
-      const audit = createAdminProfileAudit({
+      const audit = this.createAdminProfileAudit({
         actor: { name: actor.name, githubLogin: actor.githubLogin },
         target: before,
         before,
@@ -234,5 +211,34 @@ export class AdminProfileMutationService {
 
       return { id: input.userId, ...after };
     });
+  }
+
+  private createAdminProfileAudit(input: {
+    readonly actor: AdminProfileActor;
+    readonly target: AdminProfileTargetRecord;
+    readonly before: AdminProfileFields;
+    readonly after: AdminProfileFields;
+  }): AdminProfileAudit | null {
+    const changes = diffAdminProfileFields(input.before, input.after);
+    if (changes.length === 0) {
+      return null;
+    }
+    return {
+      action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+      targetType: 'USER',
+      targetId: input.target.id,
+      metadata: this.auditLogMetadataService.createUserProfileAuditMetadata({
+        actor: {
+          displayName: input.actor.name,
+          githubLogin: input.actor.githubLogin,
+        },
+
+        target: {
+          displayName: input.target.name,
+          githubLogin: input.target.githubLogin,
+        },
+        changes,
+      }),
+    };
   }
 }

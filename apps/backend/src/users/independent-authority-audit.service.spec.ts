@@ -13,6 +13,7 @@ import {
 } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { type AdminAccessActor } from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const actorGithubId = 9_700_600_001n;
 
@@ -113,7 +114,11 @@ it.each([
         });
       });
     const auditLog = { record } satisfies Pick<AuditLogService, 'record'>;
-    const service = new IndependentAuthorityService(store, auditLog);
+    const service = new IndependentAuthorityService(
+      store,
+      auditLog,
+      new AuditLogMetadataService(),
+    );
 
     if (family === 'staff') {
       await service.patchStaffAccess(actorGithubId, 'target', { command });
@@ -166,7 +171,11 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
     store.events.push('audit');
     return Promise.resolve({});
   });
-  const service = new IndependentAuthorityService(store, { record });
+  const service = new IndependentAuthorityService(
+    store,
+    { record },
+    new AuditLogMetadataService(),
+  );
 
   await service.patchStaffAccess(actorGithubId, 'target', {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
@@ -186,7 +195,11 @@ it('does not write a phantom audit for a same-state command it rejects', async (
   const store = new AuditAuthorityStore();
   store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
   const record = jest.fn();
-  const service = new IndependentAuthorityService(store, { record });
+  const service = new IndependentAuthorityService(
+    store,
+    { record },
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -201,9 +214,13 @@ it('does not write a phantom audit for a same-state command it rejects', async (
 it('propagates audit failure so the authority transaction rolls back', async () => {
   const store = new AuditAuthorityStore();
   const auditFailure = new Error('synthetic audit failure');
-  const service = new IndependentAuthorityService(store, {
-    record: jest.fn().mockRejectedValue(auditFailure),
-  });
+  const service = new IndependentAuthorityService(
+    store,
+    {
+      record: jest.fn().mockRejectedValue(auditFailure),
+    },
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
@@ -220,7 +237,11 @@ it('does not update or audit when the final-admin guard fails', async () => {
   store.activeAdminCount = 1;
   store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
   const record = jest.fn();
-  const service = new IndependentAuthorityService(store, { record });
+  const service = new IndependentAuthorityService(
+    store,
+    { record },
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -237,7 +258,11 @@ it('does not audit when the authority update fails', async () => {
   const updateFailure = new Error('synthetic update failure');
   store.updateError = updateFailure;
   const record = jest.fn();
-  const service = new IndependentAuthorityService(store, { record });
+  const service = new IndependentAuthorityService(
+    store,
+    { record },
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {

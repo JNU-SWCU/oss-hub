@@ -14,6 +14,8 @@ import { FailingDecisionAdminAccessRepository } from './admin-access.integration
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -61,7 +63,11 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   const realRepository = new AdminAccessRepository(prisma);
   const service = new AdminAccessService(
     new FailingDecisionAdminAccessRepository(realRepository),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(
+      new AuditLogRepository(prisma),
+      new AuditLogMetadataService(),
+    ),
+    new AdminAccessMutationService(new AuditLogMetadataService()),
   );
 
   await expect(

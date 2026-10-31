@@ -16,6 +16,7 @@ import {
   RUNTIME_CONFIG,
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
 
 @Global()
 @Module({
@@ -32,6 +33,7 @@ import { S3ObjectInventoryClient } from './s3-object-inventory.client';
     HealthRepository,
     HealthService,
     AuditLogRepository,
+    AuditLogMetadataService,
     AuditLogService,
   ],
   exports: [
@@ -39,6 +41,7 @@ import { S3ObjectInventoryClient } from './s3-object-inventory.client';
     PrismaService,
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
+    AuditLogMetadataService,
     AuditLogService,
   ],
 })

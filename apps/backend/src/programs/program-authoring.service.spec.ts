@@ -28,6 +28,7 @@ import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 describe('program-notice-preview.service', () => {
   const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';
@@ -221,7 +222,11 @@ function setup() {
     repository,
     transaction,
     record,
-    service: new ProgramAuthoringService(repository, auditLog),
+    service: new ProgramAuthoringService(
+      repository,
+      auditLog,
+      new AuditLogMetadataService(),
+    ),
   };
 }
 
@@ -312,6 +317,7 @@ describe('ProgramAuthoringService', () => {
       providers: [
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
+        AuditLogMetadataService,
         { provide: AuditLogService, useValue: { record: jest.fn() } },
       ],
     }).compile();

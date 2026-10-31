@@ -15,15 +15,13 @@ import {
   GithubRepositoryClaimConflictError,
 } from './repository-provision-state.error';
 import type { GithubRepositoryMetadata } from './github-app.client';
-import {
-  createRepositoryConnectionAuditMetadata,
-  REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../platform/repository-audit-metadata.config';
+import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from './repository-url.config';
 import { canonicalGithubLogins } from './repository-provision-event.config';
+import type { RepositoryConnectionAuditMetadata } from '../platform/repository-audit-metadata.config';
 
 export interface ProvisionedRepository {
   readonly id: string;
@@ -75,7 +73,7 @@ export interface RecordProvisionedRepositoryInput {
   readonly repositoryUrl: string | null;
   readonly currentConnectionMode: RepositoryConnectionMode;
   readonly currentRepositoryUrl: string | null;
-  readonly auditActorGithubId?: bigint;
+  readonly connectionAudit?: RepositoryConnectionAudit;
 
   readonly source: RepositorySource;
   readonly metadata: GithubRepositoryMetadata;
@@ -166,6 +164,13 @@ interface LockedRepositoryClaimTarget {
   readonly id: string;
   readonly applicationId: string | null;
   readonly source: RepositorySource;
+}
+
+export interface RepositoryConnectionAudit {
+  readonly actorGithubId: bigint;
+  readonly buildMetadata: (
+    change: Omit<RepositoryConnectionAuditMetadata, 'schemaVersion'>,
+  ) => RepositoryConnectionAuditMetadata;
 }
 
 export interface ProvisionedRepositoryRow {
@@ -303,7 +308,7 @@ export class RepositoryProvisionStateHelpersRepository {
       readonly currentRepositoryUrl: string | null;
       readonly connectionMode: RepositoryConnectionMode;
       readonly repositoryUrl: string | null;
-      readonly auditActorGithubId?: bigint;
+      readonly connectionAudit?: RepositoryConnectionAudit;
     },
   ): Promise<ProvisionedRepositoryRow> {
     const target =
@@ -398,9 +403,9 @@ export class RepositoryProvisionStateHelpersRepository {
         repositoryUrl: input.repositoryUrl,
       },
     });
-    if (input.auditActorGithubId !== undefined) {
+    if (input.connectionAudit !== undefined) {
       const auditActor = await transaction.user.findUniqueOrThrow({
-        where: { githubId: input.auditActorGithubId },
+        where: { githubId: input.connectionAudit.actorGithubId },
         select: { id: true },
       });
       await transaction.auditLog.create({
@@ -410,7 +415,7 @@ export class RepositoryProvisionStateHelpersRepository {
             REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED,
           targetType: 'APPLICATION',
           targetId: input.applicationId,
-          metadata: createRepositoryConnectionAuditMetadata({
+          metadata: input.connectionAudit.buildMetadata({
             applicationId: input.applicationId,
             before: {
               repositoryId: current?.id ?? null,

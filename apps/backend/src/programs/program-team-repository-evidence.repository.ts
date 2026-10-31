@@ -1,11 +1,8 @@
 import type { ApplicationStatus } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
-  parseApplicationRepositoryUrlAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-  parseRepositoryConnectionAuditMetadata,
 } from '../platform/repository-audit-metadata.config';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-url.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
@@ -43,12 +40,25 @@ export interface TeamOutsiderContributionsView {
   readonly issueCount: number;
 }
 
-interface RepositoryUrlHistoryView {
+export interface RepositoryUrlHistoryView {
   readonly id: string;
   readonly occurredAt: string;
   readonly actorGithubLogin: string;
   readonly previousRepositoryUrl: string | null;
   readonly newRepositoryUrl: string;
+}
+
+export interface RepositoryUrlHistoryRow {
+  readonly id: string;
+  readonly action: string;
+  readonly occurredAt: Date;
+  readonly metadata: unknown;
+  readonly actor: { readonly nickname: string };
+}
+
+export interface RepositoryUrlHistoryRows {
+  readonly rows: readonly RepositoryUrlHistoryRow[];
+  readonly hasMore: boolean;
 }
 
 export interface TeamRepositoryEvidenceView {
@@ -215,7 +225,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       readonly applicationId: string;
     },
     cursor?: RepositoryUrlHistoryCursor,
-  ): Promise<RepositoryUrlHistoryPage> {
+  ): Promise<RepositoryUrlHistoryRows> {
     const rows = await this.prisma.auditLog.findMany({
       where: {
         targetType: 'APPLICATION',
@@ -264,17 +274,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: 21,
     });
-    const items = rows.slice(0, 20).map((row) => ({
-      id: row.id,
-      occurredAt: row.occurredAt.toISOString(),
-      ...repositoryUrlChange(row, scope),
-    }));
-    const last = items.at(-1);
-    return {
-      items,
-      nextCursor:
-        rows.length > 20 && last ? `${last.occurredAt}_${last.id}` : null,
-    };
+    return { rows: rows.slice(0, 20), hasMore: rows.length > 20 };
   }
 
   async contributions(
@@ -477,47 +477,4 @@ function collectionStatus(repository: {
 }): 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR' {
   if (repository.failureCount > 0) return 'ERROR';
   return repository.lastSuccessAt ? 'COLLECTED' : 'NOT_COLLECTED';
-}
-
-function repositoryUrlChange(
-  row: {
-    readonly action: string;
-    readonly metadata: unknown;
-    readonly actor: { readonly nickname: string };
-  },
-  scope: {
-    readonly programId: string;
-    readonly teamId: string;
-    readonly applicationId: string;
-  },
-): Omit<RepositoryUrlHistoryView, 'id' | 'occurredAt'> {
-  if (row.action !== REPOSITORY_CONNECTION_CHANGED) {
-    const metadata = parseApplicationRepositoryUrlAuditMetadata(row.metadata);
-    if (
-      metadata?.programId === scope.programId &&
-      metadata.teamId === scope.teamId
-    )
-      return {
-        actorGithubLogin: metadata.actorGithubLogin,
-        previousRepositoryUrl: metadata.before.repositoryUrl,
-        newRepositoryUrl: metadata.after.repositoryUrl,
-      };
-    throw new InvalidRepositoryUrlHistoryError();
-  }
-
-  const metadata = parseRepositoryConnectionAuditMetadata(row.metadata);
-  if (
-    metadata?.applicationId !== scope.applicationId ||
-    !metadata.after.nameWithOwner
-  )
-    throw new InvalidRepositoryUrlHistoryError();
-  return {
-    actorGithubLogin: row.actor.nickname,
-    previousRepositoryUrl: metadata.before.nameWithOwner
-      ? repositoryUrlFromNameWithOwner(metadata.before.nameWithOwner)
-      : null,
-    newRepositoryUrl: repositoryUrlFromNameWithOwner(
-      metadata.after.nameWithOwner,
-    ),
-  };
 }

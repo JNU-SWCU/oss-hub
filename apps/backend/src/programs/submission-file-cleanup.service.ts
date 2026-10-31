@@ -1,19 +1,18 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import {
-  AuditLogService,
-  createSubmissionFileCleanupAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Injectable()
 export class SubmissionFileCleanupRetryService {
   constructor(
     private readonly files: SubmissionFilesRepository,
     private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async retry(operatorId: string, fileId: string): Promise<void> {
@@ -36,7 +35,10 @@ export class SubmissionFileCleanupRetryService {
         SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS.SUBMISSION_FILE_CLEANUP_RETRY_RESET,
       targetType: 'SUBMISSION_FILE',
       targetId: fileId,
-      metadata: createSubmissionFileCleanupAuditMetadata({ fileId }),
+      metadata:
+        this.auditLogMetadataService.createSubmissionFileCleanupAuditMetadata({
+          fileId,
+        }),
     });
   }
 }

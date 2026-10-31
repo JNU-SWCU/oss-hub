@@ -1,9 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AuditLogService,
-  createUserPhoneAuditMetadata,
-  createUserProfileAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PHONE_AUDIT_TRANSITIONS,
@@ -37,6 +33,7 @@ import {
   isValidStaffNumber,
 } from './profile-validation.config';
 import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export interface UserProfile {
   readonly name: string;
@@ -290,6 +287,7 @@ export class UsersService {
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async getMyProfile(githubId: bigint): Promise<UserProfile> {
@@ -459,7 +457,7 @@ export class UsersService {
         action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
         targetType: 'USER',
         targetId: change.user.id,
-        metadata: createUserProfileAuditMetadata({
+        metadata: this.auditLogMetadataService.createUserProfileAuditMetadata({
           actor: {
             displayName: change.user.name,
             githubLogin: change.user.githubLogin,
@@ -491,7 +489,7 @@ export class UsersService {
         action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
         targetType: 'USER',
         targetId: change.user.id,
-        metadata: createUserPhoneAuditMetadata({
+        metadata: this.auditLogMetadataService.createUserPhoneAuditMetadata({
           actor: {
             displayName: change.user.name,
             githubLogin: change.user.githubLogin,

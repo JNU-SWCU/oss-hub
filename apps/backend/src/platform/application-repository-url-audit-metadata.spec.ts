@@ -1,5 +1,7 @@
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
-import { parseAuditLogMetadata } from './audit-log-metadata.config';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 describe('application repository URL audit', () => {
   const metadata = {
@@ -20,7 +22,7 @@ describe('application repository URL audit', () => {
   };
 
   it('preserves the committed repository identities and reason', () => {
-    const result = parseAuditLogMetadata(metadata);
+    const result = auditLogMetadataService.parseAuditLogMetadata(metadata);
     expect(result).toEqual({ legacy: false, metadata });
   });
 
@@ -34,7 +36,7 @@ describe('application repository URL audit', () => {
       before: metadata.before,
       after: metadata.after,
     };
-    expect(parseAuditLogMetadata(current)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(current)).toEqual({
       legacy: false,
       metadata: current,
     });
@@ -46,7 +48,7 @@ describe('application repository URL audit', () => {
     (length) => {
       const input = { ...metadata, reason: '😀'.repeat(length) };
 
-      const result = parseAuditLogMetadata(input);
+      const result = auditLogMetadataService.parseAuditLogMetadata(input);
 
       expect(result).toEqual({ legacy: false, metadata: input });
     },
@@ -55,7 +57,7 @@ describe('application repository URL audit', () => {
   it('rejects a reason with 501 astral characters', () => {
     const input = { ...metadata, reason: '😀'.repeat(501) };
 
-    const parse = () => parseAuditLogMetadata(input);
+    const parse = () => auditLogMetadataService.parseAuditLogMetadata(input);
 
     expect(parse).toThrow(InvalidAuditLogMetadataError);
   });

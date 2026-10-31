@@ -12,6 +12,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './applications.repository';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const prisma = new PrismaService();
 const namespace = randomBytes(4).toString('hex');
@@ -28,7 +29,10 @@ let caseNumber = 0;
 let targetGithubId = 0n;
 const repository = new StudentRepositoryUrlRepository(prisma);
 const applications = new ApplicationsRepository(prisma);
-const audit = new AuditLogService(new AuditLogRepository(prisma));
+const audit = new AuditLogService(
+  new AuditLogRepository(prisma),
+  new AuditLogMetadataService(),
+);
 const resolver = {
   resolve: jest.fn().mockResolvedValue({
     kind: 'EXTERNAL',

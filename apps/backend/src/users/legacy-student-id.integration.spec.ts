@@ -7,6 +7,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { UsersErrorCode } from './users-error-code.error';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -37,7 +38,11 @@ const service = new UsersService(
   {
     requireCurrent: () => Promise.resolve(),
   },
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
 );
 
 function readProfileRow(): Promise<StoredProfileFields[]> {

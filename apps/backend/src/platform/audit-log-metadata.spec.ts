@@ -7,29 +7,11 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import {
-  createAccessAuditMetadata,
-  createApplicationDecisionAuditMetadata,
-  createCollectionTriggerAuditMetadata,
-  createApplicationSubmittedAuditMetadata,
-  createProgramCreatedAuditMetadata,
-  createProgramDeletionAuditMetadata,
-  createProgramLifecycleAuditMetadata,
-  createTeamCreatedAuditMetadata,
-  createTeamDeletedAuditMetadata,
-  createTeamJoinedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-  createTeamRenamedAuditMetadata,
-  createRepositoryPublishAuditMetadata,
-  createSubmissionFileCleanupAuditMetadata,
-  createUserPhoneAuditMetadata,
-} from './audit-log.service';
-import {
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
   APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
   APPLICATION_DECISION_AUDIT_SCHEMA_VERSION_V1,
-  parseAuditLogMetadata,
   APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
   PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
   PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
@@ -44,8 +26,10 @@ import {
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1,
 } from './audit-log-metadata.config';
-import { createRepositoryConnectionAuditMetadata } from './repository-audit-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 const STATE = {
   role: 'STUDENT',
@@ -55,11 +39,14 @@ const STATE = {
 
 describe('parseAuditLogMetadata', () => {
   it('레거시 빈 객체 metadata를 legacy 증거로 매핑한다', () => {
-    expect(parseAuditLogMetadata({})).toEqual({ legacy: true, metadata: null });
+    expect(auditLogMetadataService.parseAuditLogMetadata({})).toEqual({
+      legacy: true,
+      metadata: null,
+    });
   });
 
   it('schemaVersion 2(대상 스냅샷 포함) metadata를 그대로 통과시킨다', () => {
-    const metadata = createAccessAuditMetadata({
+    const metadata = auditLogMetadataService.createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
       actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
       target: { displayName: '합성 대상', githubLogin: 'synthetic-target' },
@@ -68,7 +55,7 @@ describe('parseAuditLogMetadata', () => {
     });
 
     expect(metadata.schemaVersion).toBe(ACCESS_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
@@ -83,7 +70,9 @@ describe('parseAuditLogMetadata', () => {
       after: STATE,
     } as const;
 
-    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(legacyV1Metadata),
+    ).toEqual({
       legacy: false,
       metadata: legacyV1Metadata,
     });
@@ -98,9 +87,9 @@ describe('parseAuditLogMetadata', () => {
       after: STATE,
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('알 수 없는 schemaVersion은 거부한다', () => {
@@ -113,14 +102,14 @@ describe('parseAuditLogMetadata', () => {
       after: STATE,
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('ROLE_REQUEST_REJECTED가 아닌데 rejectionReason이 섞여 있으면 거부한다', () => {
     const malformed = {
-      ...createAccessAuditMetadata({
+      ...auditLogMetadataService.createAccessAuditMetadata({
         eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
         actor: { displayName: null, githubLogin: 'synthetic-admin' },
         target: { displayName: null, githubLogin: 'synthetic-target' },
@@ -130,27 +119,27 @@ describe('parseAuditLogMetadata', () => {
       rejectionReason: '섞이면 안 되는 필드',
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('StaffAccessRequest 관련 없는 필드 이름·타입이 어긋나면 거부한다', () => {
-    expect(() => parseAuditLogMetadata({ schemaVersion: 2 })).toThrow(
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata({ schemaVersion: 2 }),
+    ).toThrow(InvalidAuditLogMetadataError);
+    expect(() => auditLogMetadataService.parseAuditLogMetadata(null)).toThrow(
       InvalidAuditLogMetadataError,
     );
-    expect(() => parseAuditLogMetadata(null)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
-    expect(() => parseAuditLogMetadata('not-an-object')).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata('not-an-object'),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 });
 
 describe('createAccessAuditMetadata', () => {
   it('현재 스키마 버전(schemaVersion 2)으로 도장을 찍는다', () => {
-    const metadata = createAccessAuditMetadata({
+    const metadata = auditLogMetadataService.createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
       actor: { displayName: null, githubLogin: 'synthetic-admin' },
       target: { displayName: null, githubLogin: 'synthetic-target' },
@@ -171,13 +160,13 @@ describe('createUserPhoneAuditMetadata / parseAuditLogMetadata — USER_PHONE_UP
   it.each(['SET', 'REPLACED'] as const)(
     'schemaVersion 1 %s metadata를 값 없이 읽어낸다',
     (transition) => {
-      const metadata = createUserPhoneAuditMetadata({
+      const metadata = auditLogMetadataService.createUserPhoneAuditMetadata({
         actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
         target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
         transition,
       });
 
-      const evidence = parseAuditLogMetadata(metadata);
+      const evidence = auditLogMetadataService.parseAuditLogMetadata(metadata);
 
       expect(evidence).toEqual({ legacy: false, metadata });
       expect(JSON.stringify(evidence)).not.toMatch(
@@ -192,7 +181,7 @@ describe('createUserPhoneAuditMetadata / parseAuditLogMetadata — USER_PHONE_UP
     'transition %p은 USER_PHONE_UPDATED metadata로 받지 않는다',
     (transition) => {
       expect(() =>
-        parseAuditLogMetadata({
+        auditLogMetadataService.parseAuditLogMetadata({
           schemaVersion: 1,
           actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
           target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
@@ -205,14 +194,17 @@ describe('createUserPhoneAuditMetadata / parseAuditLogMetadata — USER_PHONE_UP
   it.each(['value', 'hash', 'suffix', 'mask'] as const)(
     '연락처 파생 필드 %s가 섞이면 fail closed 한다',
     (key) => {
-      const metadata = createUserPhoneAuditMetadata({
+      const metadata = auditLogMetadataService.createUserPhoneAuditMetadata({
         actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
         target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
         transition: 'SET',
       });
 
       expect(() =>
-        parseAuditLogMetadata({ ...metadata, [key]: '2'.repeat(11) }),
+        auditLogMetadataService.parseAuditLogMetadata({
+          ...metadata,
+          [key]: '2'.repeat(11),
+        }),
       ).toThrow(InvalidAuditLogMetadataError);
     },
   );
@@ -220,14 +212,15 @@ describe('createUserPhoneAuditMetadata / parseAuditLogMetadata — USER_PHONE_UP
 
 describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRAM_LIFECYCLE', () => {
   it('현재 스키마 버전(schemaVersion 2)으로 프로그램 이름 스냅샷을 도장 찍는다', () => {
-    const metadata = createProgramLifecycleAuditMetadata({
-      programName: '합성 프로그램 이름',
-      before: { lifecycle: ProgramLifecycle.PUBLISHED },
-      after: { lifecycle: ProgramLifecycle.ARCHIVED },
-    });
+    const metadata =
+      auditLogMetadataService.createProgramLifecycleAuditMetadata({
+        programName: '합성 프로그램 이름',
+        before: { lifecycle: ProgramLifecycle.PUBLISHED },
+        after: { lifecycle: ProgramLifecycle.ARCHIVED },
+      });
 
     expect(metadata.schemaVersion).toBe(PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
@@ -240,7 +233,9 @@ describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRA
       after: { lifecycle: ProgramLifecycle.ARCHIVED },
     } as const;
 
-    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(legacyV1Metadata),
+    ).toEqual({
       legacy: false,
       metadata: legacyV1Metadata,
     });
@@ -253,45 +248,49 @@ describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRA
       after: { lifecycle: ProgramLifecycle.ARCHIVED },
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 });
 
 describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM_DELETED (#875)', () => {
   it('삭제 시점 프로그램 이름·lifecycle·차단 카운트 스냅샷을 도장 찍는다', () => {
-    const metadata = createProgramDeletionAuditMetadata({
-      programName: '합성 삭제 대상 프로그램',
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      blockingCounts: {
-        applications: 0,
-        teams: 0,
-        submissions: 0,
-        boardPosts: 0,
+    const metadata = auditLogMetadataService.createProgramDeletionAuditMetadata(
+      {
+        programName: '합성 삭제 대상 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        blockingCounts: {
+          applications: 0,
+          teams: 0,
+          submissions: 0,
+          boardPosts: 0,
+        },
       },
-    });
+    );
 
     expect(metadata.schemaVersion).toBe(PROGRAM_DELETION_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
   });
 
   it('Program 행이 삭제된 뒤에도 조회가 깨지지 않고 programName을 그대로 읽어낸다 — join fallback이 불가능한 경우다', () => {
-    const metadata = createProgramDeletionAuditMetadata({
-      programName: '이미 삭제된 프로그램',
-      lifecycle: ProgramLifecycle.ARCHIVED,
-      blockingCounts: {
-        applications: 0,
-        teams: 0,
-        submissions: 0,
-        boardPosts: 0,
+    const metadata = auditLogMetadataService.createProgramDeletionAuditMetadata(
+      {
+        programName: '이미 삭제된 프로그램',
+        lifecycle: ProgramLifecycle.ARCHIVED,
+        blockingCounts: {
+          applications: 0,
+          teams: 0,
+          submissions: 0,
+          boardPosts: 0,
+        },
       },
-    });
+    );
 
-    const result = parseAuditLogMetadata(metadata);
+    const result = auditLogMetadataService.parseAuditLogMetadata(metadata);
     expect(result.legacy).toBe(false);
     expect(result.metadata).toMatchObject({
       programName: '이미 삭제된 프로그램',
@@ -307,9 +306,9 @@ describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM
       blockingCounts: { applications: 0, teams: 0, submissions: 0 },
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('programName이 없으면 거부한다', () => {
@@ -324,22 +323,24 @@ describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM
       },
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('사람 신원(실명·GitHub 로그인·학번)을 담지 않는다 — 대상은 targetId로만 식별한다', () => {
-    const metadata = createProgramDeletionAuditMetadata({
-      programName: '합성 프로그램',
-      lifecycle: ProgramLifecycle.PUBLISHED,
-      blockingCounts: {
-        applications: 0,
-        teams: 0,
-        submissions: 0,
-        boardPosts: 0,
+    const metadata = auditLogMetadataService.createProgramDeletionAuditMetadata(
+      {
+        programName: '합성 프로그램',
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        blockingCounts: {
+          applications: 0,
+          teams: 0,
+          submissions: 0,
+          boardPosts: 0,
+        },
       },
-    });
+    );
 
     expect(Object.keys(metadata).sort()).toEqual(
       ['blockingCounts', 'lifecycle', 'programName', 'schemaVersion'].sort(),
@@ -349,30 +350,31 @@ describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM
 
 describe('createRepositoryConnectionAuditMetadata / parseAuditLogMetadata', () => {
   it('연결 전후 current tuple을 그대로 보존한다', () => {
-    const metadata = createRepositoryConnectionAuditMetadata({
-      applicationId: 'synthetic-application',
-      before: {
-        repositoryId: 'synthetic-old',
-        nameWithOwner: 'synthetic-owner/old',
-        connectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl: 'https://github.com/synthetic-owner/old',
-      },
-      after: {
-        repositoryId: 'synthetic-new',
-        nameWithOwner: 'synthetic-org/new',
-        connectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
-      },
-    });
+    const metadata =
+      auditLogMetadataService.createRepositoryConnectionAuditMetadata({
+        applicationId: 'synthetic-application',
+        before: {
+          repositoryId: 'synthetic-old',
+          nameWithOwner: 'synthetic-owner/old',
+          connectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl: 'https://github.com/synthetic-owner/old',
+        },
+        after: {
+          repositoryId: 'synthetic-new',
+          nameWithOwner: 'synthetic-org/new',
+          connectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
+        },
+      });
 
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
   });
 
   it('allowlist 밖 연결 metadata key를 읽기 경계에서 버린다', () => {
-    const parsed = parseAuditLogMetadata({
+    const parsed = auditLogMetadataService.parseAuditLogMetadata({
       schemaVersion: 1,
       applicationId: 'synthetic-application',
       before: {
@@ -398,20 +400,21 @@ describe('createRepositoryConnectionAuditMetadata / parseAuditLogMetadata', () =
 
 describe('createRepositoryPublishAuditMetadata / parseAuditLogMetadata — REPOSITORY_PUBLISH', () => {
   it('현재 스키마 버전(schemaVersion 2)으로 저장소 전체 이름 스냅샷을 도장 찍는다', () => {
-    const metadata = createRepositoryPublishAuditMetadata({
-      repositoryId: 'synthetic-repository',
-      repositoryFullName: 'synthetic-org/synthetic-repo',
-      before: { visibility: RepositoryVisibility.PRIVATE },
-      after: {
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: '2026-07-24T04:00:00.000Z',
-      },
-    });
+    const metadata =
+      auditLogMetadataService.createRepositoryPublishAuditMetadata({
+        repositoryId: 'synthetic-repository',
+        repositoryFullName: 'synthetic-org/synthetic-repo',
+        before: { visibility: RepositoryVisibility.PRIVATE },
+        after: {
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: '2026-07-24T04:00:00.000Z',
+        },
+      });
 
     expect(metadata.schemaVersion).toBe(
       REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
     );
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
@@ -428,7 +431,9 @@ describe('createRepositoryPublishAuditMetadata / parseAuditLogMetadata — REPOS
       },
     } as const;
 
-    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(legacyV1Metadata),
+    ).toEqual({
       legacy: false,
       metadata: legacyV1Metadata,
     });
@@ -445,54 +450,60 @@ describe('createRepositoryPublishAuditMetadata / parseAuditLogMetadata — REPOS
       },
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 });
 
 describe('parseAuditLogMetadata — #547 신규 typed action', () => {
   it('수집 트리거 metadata를 읽되 runId는 응답 형태에서 뺀다', () => {
-    const metadata = createCollectionTriggerAuditMetadata({
-      runId: 'synthetic-run-id',
-    });
+    const metadata =
+      auditLogMetadataService.createCollectionTriggerAuditMetadata({
+        runId: 'synthetic-run-id',
+      });
 
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata: { schemaVersion: 1 },
     });
-    expect(JSON.stringify(parseAuditLogMetadata(metadata))).not.toMatch(
-      /runId|synthetic-run-id/,
-    );
+    expect(
+      JSON.stringify(auditLogMetadataService.parseAuditLogMetadata(metadata)),
+    ).not.toMatch(/runId|synthetic-run-id/);
   });
 
   it('파일 정리 재시도 reset metadata를 그대로 읽어낸다', () => {
-    const metadata = createSubmissionFileCleanupAuditMetadata({
-      fileId: 'synthetic-file-id',
-    });
+    const metadata =
+      auditLogMetadataService.createSubmissionFileCleanupAuditMetadata({
+        fileId: 'synthetic-file-id',
+      });
 
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata: { schemaVersion: 1, fileId: 'synthetic-file-id' },
     });
   });
 
   it('신청 승인·거절 metadata를 그대로 읽어낸다', () => {
-    const approved = createApplicationDecisionAuditMetadata({
-      programName: '합성 프로그램',
-      applicantGithubLogin: 'synthetic-applicant',
-      before: { status: ApplicationStatus.SUBMITTED },
-      after: { status: ApplicationStatus.APPROVED },
-    });
-    const rejected = createApplicationDecisionAuditMetadata({
-      programName: '합성 프로그램',
-      applicantGithubLogin: 'synthetic-applicant',
-      before: { status: ApplicationStatus.SUBMITTED },
-      after: { status: ApplicationStatus.REJECTED },
-    });
+    const approved =
+      auditLogMetadataService.createApplicationDecisionAuditMetadata({
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
+        before: { status: ApplicationStatus.SUBMITTED },
+        after: { status: ApplicationStatus.APPROVED },
+      });
+    const rejected =
+      auditLogMetadataService.createApplicationDecisionAuditMetadata({
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
+        before: { status: ApplicationStatus.SUBMITTED },
+        after: { status: ApplicationStatus.REJECTED },
+      });
 
-    expect(parseAuditLogMetadata(approved)).toMatchObject({ legacy: false });
-    expect(parseAuditLogMetadata(rejected)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(approved),
+    ).toMatchObject({ legacy: false });
+    expect(auditLogMetadataService.parseAuditLogMetadata(rejected)).toEqual({
       legacy: false,
       metadata: {
         schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
@@ -504,14 +515,15 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     });
   });
   it('신청 되돌리기 metadata를 그대로 읽어낸다', () => {
-    const reverted = createApplicationDecisionAuditMetadata({
-      programName: '합성 프로그램',
-      applicantGithubLogin: 'synthetic-applicant',
-      before: { status: ApplicationStatus.APPROVED },
-      after: { status: ApplicationStatus.SUBMITTED },
-    });
+    const reverted =
+      auditLogMetadataService.createApplicationDecisionAuditMetadata({
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
+        before: { status: ApplicationStatus.APPROVED },
+        after: { status: ApplicationStatus.SUBMITTED },
+      });
 
-    expect(parseAuditLogMetadata(reverted)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(reverted)).toEqual({
       legacy: false,
       metadata: {
         schemaVersion: APPLICATION_DECISION_AUDIT_SCHEMA_VERSION,
@@ -530,7 +542,9 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
       after: { status: ApplicationStatus.APPROVED },
     } as const;
 
-    expect(parseAuditLogMetadata(legacyV1Metadata)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(legacyV1Metadata),
+    ).toEqual({
       legacy: false,
       metadata: legacyV1Metadata,
     });
@@ -544,14 +558,14 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
       after: { status: ApplicationStatus.APPROVED },
     };
 
-    expect(() => parseAuditLogMetadata(malformed)).toThrow(
-      InvalidAuditLogMetadataError,
-    );
+    expect(() =>
+      auditLogMetadataService.parseAuditLogMetadata(malformed),
+    ).toThrow(InvalidAuditLogMetadataError);
   });
 
   it('알 수 없는 status가 담긴 판정 metadata는 거부한다', () => {
     expect(() =>
-      parseAuditLogMetadata({
+      auditLogMetadataService.parseAuditLogMetadata({
         schemaVersion: 1,
         before: { status: 'NOT_A_STATUS' },
         after: { status: ApplicationStatus.APPROVED },
@@ -560,12 +574,13 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
   });
 
   it('판정 metadata는 반려 사유 원문을 담지 않는다', () => {
-    const rejected = createApplicationDecisionAuditMetadata({
-      programName: '합성 프로그램',
-      applicantGithubLogin: 'synthetic-applicant',
-      before: { status: ApplicationStatus.SUBMITTED },
-      after: { status: ApplicationStatus.REJECTED },
-    });
+    const rejected =
+      auditLogMetadataService.createApplicationDecisionAuditMetadata({
+        programName: '합성 프로그램',
+        applicantGithubLogin: 'synthetic-applicant',
+        before: { status: ApplicationStatus.SUBMITTED },
+        after: { status: ApplicationStatus.REJECTED },
+      });
 
     expect(Object.keys(rejected).sort()).toEqual([
       'after',
@@ -579,7 +594,7 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
 
   it('반려 사유 원문이 섞인 판정 metadata는 읽기에서도 거부한다', () => {
     expect(() =>
-      parseAuditLogMetadata({
+      auditLogMetadataService.parseAuditLogMetadata({
         schemaVersion: 1,
         before: { status: ApplicationStatus.SUBMITTED },
         after: { status: ApplicationStatus.REJECTED },
@@ -590,7 +605,7 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
 });
 
 describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', () => {
-  const ACCESS_V2 = createAccessAuditMetadata({
+  const ACCESS_V2 = auditLogMetadataService.createAccessAuditMetadata({
     eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
     actor: { displayName: '합성 관리자', githubLogin: 'synthetic-admin' },
     target: { displayName: '합성 대상', githubLogin: 'synthetic-target' },
@@ -605,7 +620,7 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
       studentId: 'synthetic-student-id',
     };
 
-    const evidence = parseAuditLogMetadata(stored);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(stored);
 
     expect(evidence).toEqual({ legacy: false, metadata: ACCESS_V2 });
     expect(JSON.stringify(evidence)).not.toMatch(
@@ -620,7 +635,7 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
       before: { ...ACCESS_V2.before, studentId: 'synthetic-student-id' },
     };
 
-    const evidence = parseAuditLogMetadata(stored);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(stored);
 
     expect(evidence).toEqual({ legacy: false, metadata: ACCESS_V2 });
     expect(JSON.stringify(evidence)).not.toMatch(
@@ -629,7 +644,7 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
   });
 
   it('ROLE_REQUEST_REJECTED 행의 반려 사유 원문을 응답 형태에서 뺀다', () => {
-    const stored = createAccessAuditMetadata({
+    const stored = auditLogMetadataService.createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
       actor: { displayName: null, githubLogin: 'synthetic-admin' },
       target: { displayName: null, githubLogin: 'synthetic-target' },
@@ -638,7 +653,7 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
       rejectionReason: '합성 반려 사유',
     });
 
-    const evidence = parseAuditLogMetadata(stored);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(stored);
 
     expect(evidence).toEqual({
       legacy: false,
@@ -657,7 +672,7 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
   });
 
   it('등록한 필드는 그대로 남긴다 — 관문은 metadata를 비우는 장치가 아니다', () => {
-    const evidence = parseAuditLogMetadata(ACCESS_V2);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(ACCESS_V2);
 
     expect(evidence).toEqual({ legacy: false, metadata: ACCESS_V2 });
   });
@@ -665,12 +680,12 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
 
 describe('createProgramCreatedAuditMetadata / parseAuditLogMetadata — PROGRAM_CREATED', () => {
   it('schemaVersion 1로 프로그램 이름만 도장 찍는다', () => {
-    const metadata = createProgramCreatedAuditMetadata({
+    const metadata = auditLogMetadataService.createProgramCreatedAuditMetadata({
       programName: '합성 프로그램',
     });
 
     expect(metadata.schemaVersion).toBe(PROGRAM_CREATED_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
@@ -687,7 +702,7 @@ describe('createProgramCreatedAuditMetadata / parseAuditLogMetadata — PROGRAM_
       'rejectionReason',
     ]) {
       expect(() =>
-        parseAuditLogMetadata({
+        auditLogMetadataService.parseAuditLogMetadata({
           schemaVersion: PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
           programName: '합성 프로그램',
           [key]: 'forbidden',
@@ -699,13 +714,13 @@ describe('createProgramCreatedAuditMetadata / parseAuditLogMetadata — PROGRAM_
 
 describe('createTeamCreatedAuditMetadata / parseAuditLogMetadata — TEAM_CREATED', () => {
   it('allowlists both programName and teamName', () => {
-    const metadata = createTeamCreatedAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamCreatedAuditMetadata({
       programName: '합성 프로그램',
       teamName: '합성 팀',
     });
 
     expect(metadata.schemaVersion).toBe(TEAM_CREATED_AUDIT_SCHEMA_VERSION);
-    const evidence = parseAuditLogMetadata(metadata);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(metadata);
     expect(evidence).toEqual({ legacy: false, metadata });
     expect(evidence.metadata).toEqual({
       schemaVersion: 1,
@@ -716,14 +731,14 @@ describe('createTeamCreatedAuditMetadata / parseAuditLogMetadata — TEAM_CREATE
 
   it('strips unregistered keys from the view', () => {
     const stored = {
-      ...createTeamCreatedAuditMetadata({
+      ...auditLogMetadataService.createTeamCreatedAuditMetadata({
         programName: '합성 프로그램',
         teamName: '합성 팀',
       }),
       joinCode: 'LEAK',
     };
 
-    expect(() => parseAuditLogMetadata(stored)).toThrow(
+    expect(() => auditLogMetadataService.parseAuditLogMetadata(stored)).toThrow(
       InvalidAuditLogMetadataError,
     );
   });
@@ -731,13 +746,13 @@ describe('createTeamCreatedAuditMetadata / parseAuditLogMetadata — TEAM_CREATE
 
 describe('createTeamJoinedAuditMetadata / parseAuditLogMetadata — TEAM_JOINED', () => {
   it('allowlists both programName and teamName', () => {
-    const metadata = createTeamJoinedAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamJoinedAuditMetadata({
       programName: '합성 프로그램',
       teamName: '합성 팀',
     });
 
     expect(metadata.schemaVersion).toBe(TEAM_JOINED_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(metadata)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(metadata)).toEqual({
       legacy: false,
       metadata,
     });
@@ -745,7 +760,7 @@ describe('createTeamJoinedAuditMetadata / parseAuditLogMetadata — TEAM_JOINED'
 
   it('forbidden keys fail closed', () => {
     expect(() =>
-      parseAuditLogMetadata({
+      auditLogMetadataService.parseAuditLogMetadata({
         schemaVersion: TEAM_JOINED_AUDIT_SCHEMA_VERSION,
         programName: '합성 프로그램',
         teamName: '합성 팀',
@@ -756,14 +771,15 @@ describe('createTeamJoinedAuditMetadata / parseAuditLogMetadata — TEAM_JOINED'
 });
 
 describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEMBERSHIP_CHANGED', () => {
-  const LEAVE_WITH_SUCCESSION = createTeamMembershipAuditMetadata({
-    programName: '합성 프로그램',
-    teamName: '합성 팀',
-    operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
-    removedUserId: 'synthetic-leader',
-    previousLeaderId: 'synthetic-leader',
-    nextLeaderId: 'synthetic-successor',
-  });
+  const LEAVE_WITH_SUCCESSION =
+    auditLogMetadataService.createTeamMembershipAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+      operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
+      removedUserId: 'synthetic-leader',
+      previousLeaderId: 'synthetic-leader',
+      nextLeaderId: 'synthetic-successor',
+    });
 
   it('action 상수를 TEAM_MEMBERSHIP_CHANGED로 노출한다', () => {
     expect(TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED).toBe(
@@ -775,14 +791,16 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
     expect(LEAVE_WITH_SUCCESSION.schemaVersion).toBe(
       TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
     );
-    expect(parseAuditLogMetadata(LEAVE_WITH_SUCCESSION)).toEqual({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(LEAVE_WITH_SUCCESSION),
+    ).toEqual({
       legacy: false,
       metadata: LEAVE_WITH_SUCCESSION,
     });
   });
 
   it('내보내기와 팀 삭제(nextLeaderId null)도 같은 계약으로 되읽는다', () => {
-    const removal = createTeamMembershipAuditMetadata({
+    const removal = auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: '합성 프로그램',
       teamName: '합성 팀',
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE,
@@ -790,27 +808,30 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
       previousLeaderId: 'synthetic-leader',
       nextLeaderId: 'synthetic-leader',
     });
-    const teamDeleted = createTeamMembershipAuditMetadata({
-      programName: '합성 프로그램',
-      teamName: '합성 팀',
-      operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
-      removedUserId: 'synthetic-sole',
-      previousLeaderId: 'synthetic-sole',
-      nextLeaderId: null,
-    });
+    const teamDeleted =
+      auditLogMetadataService.createTeamMembershipAuditMetadata({
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
+        removedUserId: 'synthetic-sole',
+        previousLeaderId: 'synthetic-sole',
+        nextLeaderId: null,
+      });
 
-    expect(parseAuditLogMetadata(removal)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(removal)).toEqual({
       legacy: false,
       metadata: removal,
     });
-    expect(parseAuditLogMetadata(teamDeleted)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(teamDeleted)).toEqual({
       legacy: false,
       metadata: teamDeleted,
     });
   });
 
   it('일반 팀 상태 parser가 팀 구성 변경 필드를 먼저 삼키지 않는다', () => {
-    const evidence = parseAuditLogMetadata(LEAVE_WITH_SUCCESSION);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(
+      LEAVE_WITH_SUCCESSION,
+    );
 
     expect(evidence.metadata).toMatchObject({
       operation: 'LEAVE',
@@ -833,9 +854,9 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
         operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
       },
     ]) {
-      expect(() => parseAuditLogMetadata(broken)).toThrow(
-        InvalidAuditLogMetadataError,
-      );
+      expect(() =>
+        auditLogMetadataService.parseAuditLogMetadata(broken),
+      ).toThrow(InvalidAuditLogMetadataError);
     }
   });
 
@@ -845,7 +866,10 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
     );
     for (const key of ['name', 'email', 'studentId', 'joinCodeDigest']) {
       expect(() =>
-        parseAuditLogMetadata({ ...LEAVE_WITH_SUCCESSION, [key]: 'forbidden' }),
+        auditLogMetadataService.parseAuditLogMetadata({
+          ...LEAVE_WITH_SUCCESSION,
+          [key]: 'forbidden',
+        }),
       ).toThrow(InvalidAuditLogMetadataError);
     }
   });
@@ -853,10 +877,11 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
 
 describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — APPLICATION_SUBMITTED', () => {
   it('allowlists both names and never snapshots applicantGithubLogin', () => {
-    const metadata = createApplicationSubmittedAuditMetadata({
-      programName: '합성 프로그램',
-      teamName: '합성 팀',
-    });
+    const metadata =
+      auditLogMetadataService.createApplicationSubmittedAuditMetadata({
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+      });
 
     expect(metadata.schemaVersion).toBe(
       APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
@@ -864,14 +889,14 @@ describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — AP
     expect(Object.keys(metadata).sort()).toEqual(
       ['programName', 'schemaVersion', 'teamName'].sort(),
     );
-    const evidence = parseAuditLogMetadata(metadata);
+    const evidence = auditLogMetadataService.parseAuditLogMetadata(metadata);
     expect(evidence).toEqual({ legacy: false, metadata });
     expect(JSON.stringify(evidence)).not.toContain('applicantGithubLogin');
   });
 
   it('fails closed when applicantGithubLogin is present', () => {
     expect(() =>
-      parseAuditLogMetadata({
+      auditLogMetadataService.parseAuditLogMetadata({
         schemaVersion: APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
         programName: '합성 프로그램',
         teamName: '합성 팀',
@@ -882,7 +907,7 @@ describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — AP
 });
 
 describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAMED', () => {
-  const RENAMED = createTeamRenamedAuditMetadata({
+  const RENAMED = auditLogMetadataService.createTeamRenamedAuditMetadata({
     programName: '합성 프로그램',
     teamName: '알잘딱팀',
     previousName: '합성 팀',
@@ -890,14 +915,16 @@ describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAME
 
   it('바뀐 이름과 바뀌기 전 이름을 한 스냅샷에 함께 도장 찍는다', () => {
     expect(RENAMED.schemaVersion).toBe(TEAM_RENAMED_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(RENAMED)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(RENAMED)).toEqual({
       legacy: false,
       metadata: RENAMED,
     });
   });
 
   it('일반 팀 상태 parser가 이름 변경 필드를 먼저 삼키지 않는다', () => {
-    expect(parseAuditLogMetadata(RENAMED).metadata).toMatchObject({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(RENAMED).metadata,
+    ).toMatchObject({
       previousName: '합성 팀',
       teamName: '알잘딱팀',
     });
@@ -909,15 +936,15 @@ describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAME
       { ...RENAMED, previousName: 42 },
       { ...RENAMED, previousName: {} },
     ]) {
-      expect(() => parseAuditLogMetadata(broken)).toThrow(
-        InvalidAuditLogMetadataError,
-      );
+      expect(() =>
+        auditLogMetadataService.parseAuditLogMetadata(broken),
+      ).toThrow(InvalidAuditLogMetadataError);
     }
   });
 });
 
 describe('createTeamDeletedAuditMetadata / parseAuditLogMetadata — TEAM_DELETED', () => {
-  const DELETED = createTeamDeletedAuditMetadata({
+  const DELETED = auditLogMetadataService.createTeamDeletedAuditMetadata({
     programName: '합성 프로그램',
     teamName: '합성 팀',
     deletedCounts: {
@@ -932,14 +959,16 @@ describe('createTeamDeletedAuditMetadata / parseAuditLogMetadata — TEAM_DELETE
 
   it('함께 사라진 것의 수치를 한 스냅샷에 도장 찍는다', () => {
     expect(DELETED.schemaVersion).toBe(TEAM_DELETED_AUDIT_SCHEMA_VERSION);
-    expect(parseAuditLogMetadata(DELETED)).toEqual({
+    expect(auditLogMetadataService.parseAuditLogMetadata(DELETED)).toEqual({
       legacy: false,
       metadata: DELETED,
     });
   });
 
   it('일반 팀 상태 parser가 삭제 수치를 먼저 삼키지 않는다', () => {
-    expect(parseAuditLogMetadata(DELETED).metadata).toMatchObject({
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(DELETED).metadata,
+    ).toMatchObject({
       deletedCounts: { members: 3, detachedRepositories: 1 },
       teamName: '합성 팀',
     });
@@ -962,9 +991,9 @@ describe('createTeamDeletedAuditMetadata / parseAuditLogMetadata — TEAM_DELETE
         deletedCounts: { ...DELETED.deletedCounts, unexpected: 0 },
       },
     ]) {
-      expect(() => parseAuditLogMetadata(broken)).toThrow(
-        InvalidAuditLogMetadataError,
-      );
+      expect(() =>
+        auditLogMetadataService.parseAuditLogMetadata(broken),
+      ).toThrow(InvalidAuditLogMetadataError);
     }
   });
 });

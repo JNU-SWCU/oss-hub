@@ -10,11 +10,8 @@ import {
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
-import {
-  createRepositoryPublishAuditMetadata,
-  deriveRepositoryFullName,
-} from '../platform/audit-log.service';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export interface OwnRepositoryEnrollmentInput {
   readonly applicantGithubId: bigint;
@@ -62,6 +59,7 @@ export class RepositoriesService {
     >,
     private readonly github: Pick<GithubAppClient, 'publishRepository'>,
     private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async publish(
@@ -109,18 +107,20 @@ export class RepositoriesService {
           action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
           targetType: 'REPOSITORY',
           targetId: target.id,
-          metadata: createRepositoryPublishAuditMetadata({
-            repositoryId: target.id,
-            repositoryFullName: deriveRepositoryFullName(
-              committed.name,
-              committed.url,
-            ),
-            before: { visibility: RepositoryVisibility.PRIVATE },
-            after: {
-              visibility: RepositoryVisibility.PUBLIC,
-              publishedAt: now.toISOString(),
-            },
-          }),
+          metadata:
+            this.auditLogMetadataService.createRepositoryPublishAuditMetadata({
+              repositoryId: target.id,
+              repositoryFullName:
+                this.auditLogMetadataService.deriveRepositoryFullName(
+                  committed.name,
+                  committed.url,
+                ),
+              before: { visibility: RepositoryVisibility.PRIVATE },
+              after: {
+                visibility: RepositoryVisibility.PUBLIC,
+                publishedAt: now.toISOString(),
+              },
+            }),
         },
         store.auditLogWriter,
       );

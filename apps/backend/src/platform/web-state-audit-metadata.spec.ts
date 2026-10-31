@@ -1,17 +1,11 @@
 import {
-  createTeamCreatedAuditMetadata,
-  createTeamJoinedAuditMetadata,
-  createTeamMembershipAuditMetadata,
-} from './audit-log.service';
-import {
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
-  parseApplicationSubmittedAuditMetadata,
-  parseTeamCreatedAuditMetadata,
-  parseTeamJoinedAuditMetadata,
-  parseTeamMembershipAuditMetadata,
   TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
   TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
 } from './audit-log-metadata.config';
+import { AuditLogMetadataService } from './audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 const PROGRAM_NAME = '합성 프로그램';
 const TEAM_NAME = '합성 팀';
@@ -20,7 +14,7 @@ function membership(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    ...createTeamMembershipAuditMetadata({
+    ...auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
@@ -34,7 +28,7 @@ function membership(
 
 describe('createTeamMembershipAuditMetadata', () => {
   it('한 번의 팀 구성 변경을 schemaVersion 1 스냅샷 한 행으로 봉인한다', () => {
-    const metadata = createTeamMembershipAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE,
@@ -64,7 +58,7 @@ describe('createTeamMembershipAuditMetadata', () => {
 
 describe('parseTeamMembershipAuditMetadata', () => {
   it('탈퇴 후 다른 팀원에게 팀장이 승계된 사실을 그대로 되읽는다', () => {
-    const metadata = createTeamMembershipAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
@@ -73,11 +67,13 @@ describe('parseTeamMembershipAuditMetadata', () => {
       nextLeaderId: 'synthetic-successor',
     });
 
-    expect(parseTeamMembershipAuditMetadata(metadata)).toEqual(metadata);
+    expect(
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(metadata),
+    ).toEqual(metadata);
   });
 
   it('팀원 내보내기는 팀장이 그대로 유지된 사실을 남긴다', () => {
-    const metadata = createTeamMembershipAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE,
@@ -86,7 +82,9 @@ describe('parseTeamMembershipAuditMetadata', () => {
       nextLeaderId: 'synthetic-leader',
     });
 
-    expect(parseTeamMembershipAuditMetadata(metadata)).toMatchObject({
+    expect(
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(metadata),
+    ).toMatchObject({
       operation: 'REMOVE',
       removedUserId: 'synthetic-member',
       previousLeaderId: 'synthetic-leader',
@@ -95,7 +93,7 @@ describe('parseTeamMembershipAuditMetadata', () => {
   });
 
   it('마지막 인원이 미제출 팀을 떠나 팀이 사라진 행은 nextLeaderId를 null로 보존한다', () => {
-    const metadata = createTeamMembershipAuditMetadata({
+    const metadata = auditLogMetadataService.createTeamMembershipAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
       operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
@@ -104,7 +102,8 @@ describe('parseTeamMembershipAuditMetadata', () => {
       nextLeaderId: null,
     });
 
-    const view = parseTeamMembershipAuditMetadata(metadata);
+    const view =
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(metadata);
 
     expect(view).toEqual(metadata);
     expect(view?.nextLeaderId).toBeNull();
@@ -112,7 +111,7 @@ describe('parseTeamMembershipAuditMetadata', () => {
 
   it('등록하지 않은 키는 읽기 형태에서 떨어져 나간다', () => {
     expect(
-      parseTeamMembershipAuditMetadata(
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
         membership({ leftAtCursor: 'synthetic-cursor' }),
       ),
     ).toEqual(membership());
@@ -120,51 +119,71 @@ describe('parseTeamMembershipAuditMetadata', () => {
 
   it('알 수 없는 operation은 거부한다', () => {
     expect(
-      parseTeamMembershipAuditMetadata(membership({ operation: 'PROMOTE' })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ operation: 'PROMOTE' }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ operation: 'leave' })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ operation: 'leave' }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ operation: null })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ operation: null }),
+      ),
     ).toBeNull();
   });
 
   it('식별자 필드의 타입이 어긋나면 거부한다', () => {
     expect(
-      parseTeamMembershipAuditMetadata(membership({ removedUserId: null })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ removedUserId: null }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ removedUserId: 42 })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ removedUserId: 42 }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ previousLeaderId: null })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ previousLeaderId: null }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ nextLeaderId: 7 })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ nextLeaderId: 7 }),
+      ),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ nextLeaderId: undefined })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ nextLeaderId: undefined }),
+      ),
     ).toBeNull();
   });
 
   it('필드가 통째로 빠진 팀 상태 metadata는 팀 구성 변경으로 읽지 않는다', () => {
     expect(
-      parseTeamMembershipAuditMetadata({
+      auditLogMetadataService.parseTeamMembershipAuditMetadata({
         schemaVersion: TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
         programName: PROGRAM_NAME,
         teamName: TEAM_NAME,
       }),
     ).toBeNull();
     expect(
-      parseTeamMembershipAuditMetadata(membership({ teamName: undefined })),
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(
+        membership({ teamName: undefined }),
+      ),
     ).toBeNull();
   });
 
   it('금지 키가 섞이면 열지 않는다', () => {
     for (const key of ['name', 'email', 'studentId', 'joinCode', 'target']) {
       expect(
-        parseTeamMembershipAuditMetadata(membership({ [key]: 'forbidden' })),
+        auditLogMetadataService.parseTeamMembershipAuditMetadata(
+          membership({ [key]: 'forbidden' }),
+        ),
       ).toBeNull();
     }
   });
@@ -174,10 +193,18 @@ describe('팀 상태 parser 경계 — 팀 구성 변경 필드가 통째로 잘
   it('검증에 실패한 팀 구성 payload를 TEAM_CREATED/TEAM_JOINED/APPLICATION_SUBMITTED로 격하하지 않는다', () => {
     const malformed = membership({ operation: 'PROMOTE' });
 
-    expect(parseTeamMembershipAuditMetadata(malformed)).toBeNull();
-    expect(parseTeamCreatedAuditMetadata(malformed)).toBeNull();
-    expect(parseTeamJoinedAuditMetadata(malformed)).toBeNull();
-    expect(parseApplicationSubmittedAuditMetadata(malformed)).toBeNull();
+    expect(
+      auditLogMetadataService.parseTeamMembershipAuditMetadata(malformed),
+    ).toBeNull();
+    expect(
+      auditLogMetadataService.parseTeamCreatedAuditMetadata(malformed),
+    ).toBeNull();
+    expect(
+      auditLogMetadataService.parseTeamJoinedAuditMetadata(malformed),
+    ).toBeNull();
+    expect(
+      auditLogMetadataService.parseApplicationSubmittedAuditMetadata(malformed),
+    ).toBeNull();
   });
 
   it('예약 키 하나만 섞여 있어도 일반 팀 상태 parser는 닫힌다', () => {
@@ -188,30 +215,40 @@ describe('팀 상태 parser 경계 — 팀 구성 변경 필드가 통째로 잘
       'nextLeaderId',
     ]) {
       const stored = {
-        ...createTeamCreatedAuditMetadata({
+        ...auditLogMetadataService.createTeamCreatedAuditMetadata({
           programName: PROGRAM_NAME,
           teamName: TEAM_NAME,
         }),
         [key]: 'synthetic',
       };
 
-      expect(parseTeamCreatedAuditMetadata(stored)).toBeNull();
-      expect(parseTeamJoinedAuditMetadata(stored)).toBeNull();
-      expect(parseApplicationSubmittedAuditMetadata(stored)).toBeNull();
+      expect(
+        auditLogMetadataService.parseTeamCreatedAuditMetadata(stored),
+      ).toBeNull();
+      expect(
+        auditLogMetadataService.parseTeamJoinedAuditMetadata(stored),
+      ).toBeNull();
+      expect(
+        auditLogMetadataService.parseApplicationSubmittedAuditMetadata(stored),
+      ).toBeNull();
     }
   });
 
   it('진짜 TEAM_CREATED·TEAM_JOINED 행은 예약 키 도입 뒤에도 그대로 읽힌다', () => {
-    const created = createTeamCreatedAuditMetadata({
+    const created = auditLogMetadataService.createTeamCreatedAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
     });
-    const joined = createTeamJoinedAuditMetadata({
+    const joined = auditLogMetadataService.createTeamJoinedAuditMetadata({
       programName: PROGRAM_NAME,
       teamName: TEAM_NAME,
     });
 
-    expect(parseTeamCreatedAuditMetadata(created)).toEqual(created);
-    expect(parseTeamJoinedAuditMetadata(joined)).toEqual(joined);
+    expect(
+      auditLogMetadataService.parseTeamCreatedAuditMetadata(created),
+    ).toEqual(created);
+    expect(
+      auditLogMetadataService.parseTeamJoinedAuditMetadata(joined),
+    ).toEqual(joined);
   });
 });

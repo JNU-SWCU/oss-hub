@@ -9,6 +9,8 @@ import {
   auditLogHarness,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {
@@ -20,7 +22,11 @@ describe('AdminAccessService pending request CAS', () => {
     });
     repository.authoritativeTarget = accessUser({ role: null });
     const audit = auditLogHarness();
-    const service = new AdminAccessService(repository, audit.service);
+    const service = new AdminAccessService(
+      repository,
+      audit.service,
+      new AdminAccessMutationService(new AuditLogMetadataService()),
+    );
 
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {

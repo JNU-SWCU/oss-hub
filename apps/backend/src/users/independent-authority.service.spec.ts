@@ -17,6 +17,7 @@ import {
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
 } from './admin-access-read.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const actorGithubId = 9_700_100_001n;
 
@@ -83,7 +84,11 @@ it.each([
   async (command, hasStaffAccess, hasAdminAccess) => {
     const store = new AuthorityStore();
     store.target = target({ hasStaffAccess: true, hasAdminAccess: true });
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+    );
 
     const result =
       command === STAFF_ACCESS_COMMANDS.REVOKE
@@ -115,7 +120,11 @@ it.each([
   async (_label, command, before) => {
     const store = new AuthorityStore();
     store.target = before;
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+    );
 
     const request =
       command === ADMIN_ACCESS_COMMANDS.GRANT
@@ -143,7 +152,11 @@ it('rejects a non-admin actor before writing', async () => {
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
   };
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
@@ -159,7 +172,11 @@ it('rejects revoking the final active admin', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 1;
   store.target = target({ hasAdminAccess: true, role: 'ADMIN' });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
@@ -174,7 +191,11 @@ it('rejects revoking the final active admin', async () => {
 it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력 한 행을 남긴다', async () => {
   const store = new AuthorityStore();
   store.target = target({ hasStaffAccess: true, role: 'STAFF' });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+  );
 
   await service.patchStaffAccess(actorGithubId, 'target', {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
@@ -200,7 +221,11 @@ it.each([
   async (_label, command, before) => {
     const store = new AuthorityStore();
     store.target = before;
-    const service = new IndependentAuthorityService(store, noopAuditLog());
+    const service = new IndependentAuthorityService(
+      store,
+      noopAuditLog(),
+      new AuditLogMetadataService(),
+    );
 
     if (command === ADMIN_ACCESS_COMMANDS.REVOKE) {
       await service.patchAdminAccess(actorGithubId, 'target', { command });
@@ -222,7 +247,11 @@ it('rejects revoking the actor own admin access', async () => {
     hasStaffAccess: true,
     role: 'ADMIN',
   });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchAdminAccess(actorGithubId, 'actor', {
@@ -246,7 +275,11 @@ it('still allows the actor to revoke their own staff access', async () => {
     hasStaffAccess: true,
     role: 'ADMIN',
   });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+  const service = new IndependentAuthorityService(
+    store,
+    noopAuditLog(),
+    new AuditLogMetadataService(),
+  );
 
   await expect(
     service.patchStaffAccess(actorGithubId, 'actor', {

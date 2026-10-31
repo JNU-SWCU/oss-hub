@@ -1,10 +1,7 @@
 import { authorityLabel } from './authority-label.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import {
-  AuditLogService,
-  createIndependentAuthorityAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import type {
   AuditLogRecordInput,
   IndependentAuthorityAuditAction,
@@ -38,6 +35,7 @@ import {
   roleError,
   staleAccessError,
 } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export function resolveIndependentAuthorityTransition(
   before: IndependentAuthorityState,
@@ -72,31 +70,6 @@ export type IndependentAuthorityAuditRecordInput = Omit<
   readonly metadata: IndependentAuthorityAuditMetadata;
 };
 
-export function createIndependentAuthorityAudit(input: {
-  readonly actorGithubId: bigint;
-  readonly actor: AdminAccessActor;
-  readonly before: IndependentAuthorityUserRecord;
-  readonly after: IndependentAuthorityTransition;
-  readonly command: IndependentAuthorityCommand;
-}): IndependentAuthorityAuditRecordInput {
-  const { actor, actorGithubId, before: target, after, command } = input;
-  const action: IndependentAuthorityAuditAction = command.command;
-
-  return {
-    actorGithubId,
-    action,
-    targetType: 'USER',
-    targetId: target.id,
-    metadata: createIndependentAuthorityAuditMetadata({
-      command: command.command,
-      actor: personSnapshot(actor),
-      target: personSnapshot(target),
-      before: authorityState(target, target.accountStatus),
-      after: authorityState(after, target.accountStatus),
-    }),
-  };
-}
-
 function personSnapshot(person: {
   readonly name: string | null;
   readonly githubLogin: string;
@@ -130,6 +103,7 @@ export class IndependentAuthorityService {
     private readonly repository: IndependentAuthorityRepositoryPort,
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   patchStaffAccess(
@@ -212,7 +186,7 @@ export class IndependentAuthorityService {
         });
       }
       await this.auditLog.record(
-        createIndependentAuthorityAudit({
+        this.createIndependentAuthorityAudit({
           actorGithubId,
           actor,
           before,
@@ -229,6 +203,32 @@ export class IndependentAuthorityService {
         hasAdminAccess: transition.hasAdminAccess,
       };
     });
+  }
+
+  createIndependentAuthorityAudit(input: {
+    readonly actorGithubId: bigint;
+    readonly actor: AdminAccessActor;
+    readonly before: IndependentAuthorityUserRecord;
+    readonly after: IndependentAuthorityTransition;
+    readonly command: IndependentAuthorityCommand;
+  }): IndependentAuthorityAuditRecordInput {
+    const { actor, actorGithubId, before: target, after, command } = input;
+    const action: IndependentAuthorityAuditAction = command.command;
+
+    return {
+      actorGithubId,
+      action,
+      targetType: 'USER',
+      targetId: target.id,
+      metadata:
+        this.auditLogMetadataService.createIndependentAuthorityAuditMetadata({
+          command: command.command,
+          actor: personSnapshot(actor),
+          target: personSnapshot(target),
+          before: authorityState(target, target.accountStatus),
+          after: authorityState(after, target.accountStatus),
+        }),
+    };
   }
 }
 

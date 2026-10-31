@@ -14,6 +14,8 @@ import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -55,7 +57,11 @@ describe('accountStatus migration regression', () => {
   );
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(
+      new AuditLogRepository(prisma),
+      new AuditLogMetadataService(),
+    ),
+    new AdminAccessMutationService(new AuditLogMetadataService()),
   );
 
   beforeAll(async () => {

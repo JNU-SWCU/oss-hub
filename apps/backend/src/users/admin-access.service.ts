@@ -44,6 +44,7 @@ export class AdminAccessService {
     @Inject(AdminAccessRepository)
     private readonly repository: AdminAccessRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   async list(
@@ -125,7 +126,7 @@ export class AdminAccessService {
     userId: string,
     command: AdminAccessMutationCommand,
   ): Promise<AdminAccessMutationResult> {
-    return AdminAccessMutationService.mutateAdminAccess(
+    return this.adminAccessMutationService.mutateAdminAccess(
       { repository: this.repository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );

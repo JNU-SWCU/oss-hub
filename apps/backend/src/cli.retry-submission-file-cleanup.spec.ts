@@ -5,6 +5,7 @@ import { PrismaService } from './platform/prisma.service';
 import { SubmissionFileCleanupRetryService } from './programs/submission-file-cleanup.service';
 import { SubmissionFilesRepository } from './programs/submission-files.repository';
 import { retrySubmissionFileCleanup } from './cli';
+import { AuditLogMetadataService } from './platform/audit-log-metadata.service';
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: { createApplicationContext: jest.fn() },
@@ -36,9 +37,13 @@ function installContext(): Harness {
     submissionFile: { updateMany },
   } as unknown as PrismaService);
   const resetDeleteAttempts = jest.spyOn(files, 'resetDeleteAttempts');
-  const retry = new SubmissionFileCleanupRetryService(files, {
-    record,
-  } as unknown as AuditLogService);
+  const retry = new SubmissionFileCleanupRetryService(
+    files,
+    {
+      record,
+    } as unknown as AuditLogService,
+    new AuditLogMetadataService(),
+  );
   const context = {
     close,
     get: (token: unknown): unknown => {

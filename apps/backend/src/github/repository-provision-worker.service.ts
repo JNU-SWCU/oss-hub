@@ -36,6 +36,7 @@ import {
   finalProvisionFailure,
   provisionRetryAt,
 } from './repository-provision-state.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 export type RepositoryProvisionResult =
   | { readonly kind: 'EMPTY' }
@@ -83,6 +84,7 @@ export class RepositoryProvisionWorkerService {
       RepositoryOwnEnrollmentService,
       'enrollExternalRepository'
     >,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly options: RepositoryProvisionWorkerOptions = DEFAULT_PROVISION_OPTIONS,
   ) {}
 
@@ -395,7 +397,15 @@ export class RepositoryProvisionWorkerService {
       currentRepositoryUrl: context.currentRepositoryUrl,
       ...(context.requestedByGithubId === null
         ? {}
-        : { auditActorGithubId: context.requestedByGithubId }),
+        : {
+            connectionAudit: {
+              actorGithubId: context.requestedByGithubId,
+              buildMetadata: (change) =>
+                this.auditLogMetadataService.createRepositoryConnectionAuditMetadata(
+                  change,
+                ),
+            },
+          }),
       source,
       metadata,
     });

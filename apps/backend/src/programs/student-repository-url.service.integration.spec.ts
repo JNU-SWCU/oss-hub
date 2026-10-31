@@ -7,7 +7,6 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { parseApplicationRepositoryUrlAuditMetadata } from '../platform/repository-audit-metadata.config';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
@@ -27,6 +26,9 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+
+const auditLogMetadataService = new AuditLogMetadataService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -297,7 +299,9 @@ it('serializes different targets into a continuous audit chain', async () => {
     where: { targetId: applicationId },
   });
   const history = rows.map((row) =>
-    parseApplicationRepositoryUrlAuditMetadata(row.metadata),
+    auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+      row.metadata,
+    ),
   );
   expect(history).toHaveLength(2);
   const first = history.find((entry) => entry?.before.repositoryId === oldId);

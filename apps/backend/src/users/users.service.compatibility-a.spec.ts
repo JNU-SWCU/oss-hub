@@ -6,6 +6,7 @@ import type {
   UsersRepositoryPort,
 } from './users.repository';
 import { UsersService, type PatchUserProfileInput } from './users.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
@@ -72,7 +73,12 @@ function buildService(
   };
   const record = jest.fn().mockResolvedValue(undefined);
   return {
-    service: new UsersService(repository, { requireCurrent }, { record }),
+    service: new UsersService(
+      repository,
+      { requireCurrent },
+      { record },
+      new AuditLogMetadataService(),
+    ),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,

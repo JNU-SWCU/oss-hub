@@ -5,7 +5,6 @@ import {
   type TeamActivityView,
   type TeamRepositoryEvidenceView,
   type RepositoryUrlHistoryCursor,
-  type RepositoryUrlHistoryPage,
   type TeamApplicationView,
   type TeamRepositoryProvisioningJobStatus,
   type TeamRepositoryProvisioningSafeErrorClass,
@@ -33,6 +32,7 @@ import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
 } from './submission-completion.config';
+import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 
 export interface TeamStudentActor {
   readonly id: string;
@@ -76,7 +76,15 @@ export interface StaffTeamRecord {
   }[];
 }
 
-export interface StaffTeamDetailRecord extends TeamRepositoryEvidenceView {
+export interface RepositoryUrlHistoryScopedRows extends RepositoryUrlHistoryRows {
+  readonly applicationId: string | null;
+}
+
+export interface StaffTeamDetailRecord extends Omit<
+  TeamRepositoryEvidenceView,
+  'repositoryUrlHistory'
+> {
+  readonly repositoryUrlHistory: RepositoryUrlHistoryRows;
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
@@ -497,7 +505,7 @@ export class ProgramTeamsRepository {
         ? await new ProgramTeamRepositoryEvidenceRepository(
             this.prisma,
           ).history({ programId, teamId, applicationId: application.id })
-        : { items: [], nextCursor: null },
+        : { rows: [], hasMore: false },
     };
   }
 
@@ -505,7 +513,7 @@ export class ProgramTeamsRepository {
     programId: string,
     teamId: string,
     cursor?: RepositoryUrlHistoryCursor,
-  ): Promise<RepositoryUrlHistoryPage | null> {
+  ): Promise<RepositoryUrlHistoryScopedRows | null> {
     const team = await this.prisma.team.findFirst({
       where: { id: teamId, programId },
       select: { id: true },
@@ -515,11 +523,13 @@ export class ProgramTeamsRepository {
       where: { programId, teamId },
       select: { id: true },
     });
-    if (!application) return { items: [], nextCursor: null };
-    return new ProgramTeamRepositoryEvidenceRepository(this.prisma).history(
-      { programId, teamId, applicationId: application.id },
-      cursor,
-    );
+    if (!application) return { applicationId: null, rows: [], hasMore: false };
+    return {
+      applicationId: application.id,
+      ...(await new ProgramTeamRepositoryEvidenceRepository(
+        this.prisma,
+      ).history({ programId, teamId, applicationId: application.id }, cursor)),
+    };
   }
 
   async findTeamActivityScope(

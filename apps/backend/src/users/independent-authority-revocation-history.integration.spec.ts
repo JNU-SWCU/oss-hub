@@ -10,6 +10,7 @@ import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { STAFF_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -19,7 +20,11 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const authority = new IndependentAuthorityService(
   new IndependentAuthorityRepository(prisma),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogMetadataService(),
+  ),
+  new AuditLogMetadataService(),
 );
 
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {

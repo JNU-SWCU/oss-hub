@@ -16,6 +16,7 @@ export class AdminProfileService {
     @Inject(AdminProfileRepository)
     private readonly profileRepository: AdminProfileRepositoryPort,
     private readonly auditLog: AuditLogService,
+    private readonly adminProfileMutationService: AdminProfileMutationService,
   ) {}
 
   patchProfile(
@@ -23,7 +24,7 @@ export class AdminProfileService {
     userId: string,
     command: AdminProfileUpdateCommand,
   ): Promise<AdminProfileUpdateResult> {
-    return AdminProfileMutationService.mutateAdminUserProfile(
+    return this.adminProfileMutationService.mutateAdminUserProfile(
       { repository: this.profileRepository, auditLog: this.auditLog },
       { actorGithubId, userId, command },
     );

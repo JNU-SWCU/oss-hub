@@ -6,12 +6,7 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import {
-  AuditLogService,
-  createApplicationDecisionAuditMetadata,
-  createApplicationSubmittedAuditMetadata,
-  createTeamCreatedAuditMetadata,
-} from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import {
   APPLICATION_DECISION_AUDIT_ACTIONS,
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
@@ -52,6 +47,7 @@ import {
   RepositoryEventAlreadyExistsError,
 } from './applications.error';
 import { parseGithubRepositoryUrl } from '../github/repository-url.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const CLIENT_KEYS = new Set(['title']);
 
@@ -278,6 +274,7 @@ export class ApplicationsService {
       ApplicationJoinCodeService,
       'generateJoinCode' | 'computeJoinCodeDigest'
     >,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
   async create(
@@ -441,10 +438,11 @@ export class ApplicationsService {
               action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
               targetType: 'TEAM',
               targetId: createdTeam.id,
-              metadata: createTeamCreatedAuditMetadata({
-                programName: program.name,
-                teamName: createdTeam.name,
-              }),
+              metadata:
+                this.auditLogMetadataService.createTeamCreatedAuditMetadata({
+                  programName: program.name,
+                  teamName: createdTeam.name,
+                }),
             },
             store.auditLogWriter,
           );
@@ -455,10 +453,13 @@ export class ApplicationsService {
             action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
             targetType: 'APPLICATION',
             targetId: application.id,
-            metadata: createApplicationSubmittedAuditMetadata({
-              programName: program.name,
-              teamName: applicationTeam.name,
-            }),
+            metadata:
+              this.auditLogMetadataService.createApplicationSubmittedAuditMetadata(
+                {
+                  programName: program.name,
+                  teamName: applicationTeam.name,
+                },
+              ),
           },
           store.auditLogWriter,
         );
@@ -601,12 +602,15 @@ export class ApplicationsService {
             action: this.auditActionFor(plan.kind),
             targetType: 'APPLICATION',
             targetId: applicationId,
-            metadata: createApplicationDecisionAuditMetadata({
-              programName: application.programName,
-              applicantGithubLogin: application.applicantGithubLogin,
-              before: { status: application.status },
-              after: { status: plan.nextStatus },
-            }),
+            metadata:
+              this.auditLogMetadataService.createApplicationDecisionAuditMetadata(
+                {
+                  programName: application.programName,
+                  applicantGithubLogin: application.applicantGithubLogin,
+                  before: { status: application.status },
+                  after: { status: plan.nextStatus },
+                },
+              ),
           },
           store.auditLogWriter,
         );
