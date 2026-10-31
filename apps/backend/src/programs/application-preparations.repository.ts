@@ -54,7 +54,7 @@ const INVITATION_SELECT = {
   user: { select: USER_SELECT },
   preparation: { select: PREPARATION_SELECT },
 } as const satisfies Prisma.ApplicationPreparationParticipantSelect;
-type PreparationRow = Prisma.ApplicationPreparationGetPayload<{
+export type PreparationRow = Prisma.ApplicationPreparationGetPayload<{
   select: typeof PREPARATION_SELECT;
 }>;
 type InvitationRow = Prisma.ApplicationPreparationParticipantGetPayload<{
@@ -218,38 +218,32 @@ export class ApplicationPreparationsRepository {
     });
   }
 
-  private async requirePreparation(
-    preparationId: string,
-    actorId: string,
-    leaderOnly: boolean,
-  ): Promise<PreparationRow> {
-    const row = await this.prisma.applicationPreparation.findUnique({
+  findPreparation(preparationId: string): Promise<PreparationRow | null> {
+    return this.prisma.applicationPreparation.findUnique({
       where: { id: preparationId },
       select: PREPARATION_SELECT,
     });
-    if (!row) throw new PreparationConflict('not-found');
-    if (!row.participants.some((member) => member.userId === actorId))
-      throw new PreparationConflict('member-required');
-    if (leaderOnly && row.leaderId !== actorId)
-      throw new PreparationConflict('leader-required');
-    return row;
   }
 
   async listSent(
-    preparationId: string,
-    actorId: string,
+    preparation: Pick<PreparationRow, 'id' | 'leaderId'>,
   ): Promise<readonly PreparationInvitation[]> {
-    const row = await this.requirePreparation(preparationId, actorId, false);
     const rows = await this.prisma.applicationPreparationParticipant.findMany({
-      where: { preparationId, userId: { not: row.leaderId } },
+      where: {
+        preparationId: preparation.id,
+        userId: { not: preparation.leaderId },
+      },
       orderBy: { invitedAt: 'desc' },
       select: INVITATION_SELECT,
     });
     return rows.map(invitation);
   }
 
-  async search(preparationId: string, actorId: string, query: string) {
-    const row = await this.requirePreparation(preparationId, actorId, true);
+  async search(
+    row: Pick<PreparationRow, 'programId'>,
+    actorId: string,
+    query: string,
+  ) {
     if (!query.trim()) return [];
     const users = await this.prisma.user.findMany({
       where: {
@@ -279,13 +273,13 @@ export class ApplicationPreparationsRepository {
 
   async invite(
     preparationId: string,
+    programId: string,
     actorId: string,
     inviteeId: string,
     now: Date,
   ): Promise<PreparationInvitation> {
-    const initial = await this.requirePreparation(preparationId, actorId, true);
     return this.prisma.$transaction(async (tx) => {
-      await lockProgram(tx, initial.programId);
+      await lockProgram(tx, programId);
       const row = await tx.applicationPreparation.findUnique({
         where: { id: preparationId },
         select: PREPARATION_SELECT,
