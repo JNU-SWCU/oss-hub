@@ -710,7 +710,9 @@ for (const syntax of [
   );
   edge(
     `${syntax} may import domain`,
-    `src/programs/${syntax}-allowed.service.ts`,
+    syntax === 'barrel'
+      ? 'src/programs/barrel-allowed.error.ts'
+      : `src/programs/${syntax}-allowed.service.ts`,
     'src/ranking/target.error.ts',
     true,
     syntax,

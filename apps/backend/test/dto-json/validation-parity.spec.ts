@@ -31,6 +31,9 @@ import { MilestoneDocumentRulesService } from '../../src/programs/milestone-docu
 import { SubmissionInputService } from '../../src/programs/submission-input.service';
 import { RankingYearService } from '../../src/ranking/ranking-year.service';
 import { ProgramRulesService } from '../../src/programs/program-rules.service';
+import { useContainer } from 'class-validator';
+import { GithubRepositoryUrlConstraintService } from '../../src/programs/github-repository-url-constraint.service';
+import { RepositoryUrlService } from '../../src/github/repository-url.service';
 
 const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
   new ProgramRulesService(),
@@ -54,6 +57,18 @@ const pipe = new ValidationPipe({
   whitelist: true,
   forbidNonWhitelisted: true,
 });
+const githubRepositoryUrlConstraint = new GithubRepositoryUrlConstraintService(
+  new RepositoryUrlService(),
+);
+useContainer(
+  {
+    get: (target: unknown) =>
+      target === GithubRepositoryUrlConstraintService
+        ? githubRepositoryUrlConstraint
+        : undefined,
+  },
+  { fallback: true },
+);
 
 const payloads: ReadonlyArray<readonly [string, unknown]> = [
   ['valid', { title: 'Title', body: 'Body' }],
