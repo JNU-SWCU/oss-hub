@@ -16,7 +16,6 @@ import {
   type FailRepositoryInvitationInput,
   type FailRepositoryProvisionJobInput,
   type RecordProvisionedRepositoryInput,
-  type RepositoryInvitationWork,
 } from './repository-provision-state-helpers.repository';
 import {
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
@@ -59,6 +58,16 @@ function rearmedProvisionJobData(
     finishedAt: null,
   };
 }
+
+export interface RepositoryInvitationRow {
+  readonly id: string;
+  readonly githubLogin: string;
+  readonly status: RepositoryInvitationStatus;
+}
+
+export type MembershipCurrencyCheck = (
+  memberLogins: readonly string[],
+) => boolean;
 
 @Injectable()
 export class RepositoryProvisionStateRepository {
@@ -214,12 +223,12 @@ export class RepositoryProvisionStateRepository {
     workerId: string,
     requestId: string,
     repositoryId: string,
-    githubLogins: readonly string[],
+    planInvitations: (rows: readonly RepositoryInvitationRow[]) => {
+      readonly createLogins: readonly string[];
+      readonly revokeIds: readonly string[];
+      readonly rejoinIds: readonly string[];
+    },
   ): Promise<void> {
-    const desired =
-      RepositoryProvisionStateHelpersRepository.canonicalGithubLogins(
-        githubLogins,
-      );
     await this.prisma.$transaction(async (transaction) => {
       await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
@@ -232,37 +241,18 @@ export class RepositoryProvisionStateRepository {
         where: { repositoryId },
         select: { id: true, githubLogin: true, status: true },
       });
-      const desiredSet = new Set(desired);
-      const known = new Set(
-        rows.map((row) =>
-          RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
-            row.githubLogin,
-          ),
-        ),
-      );
-      const isRevocation = (status: RepositoryInvitationStatus): boolean =>
-        RepositoryProvisionStateHelpersRepository.invitationIntent(status) ===
-        'REVOKE';
+      const plan = planInvitations(rows);
 
       await transaction.repositoryInvitation.createMany({
-        data: desired
-          .filter((githubLogin) => !known.has(githubLogin))
-          .map((githubLogin) => ({ repositoryId, githubLogin })),
+        data: plan.createLogins.map((githubLogin) => ({
+          repositoryId,
+          githubLogin,
+        })),
         skipDuplicates: true,
       });
 
-      const revokeIds = rows
-        .filter(
-          (row) =>
-            !desiredSet.has(
-              RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
-                row.githubLogin,
-              ),
-            ) && !isRevocation(row.status),
-        )
-        .map((row) => row.id);
       await transaction.repositoryInvitation.updateMany({
-        where: { repositoryId, id: { in: revokeIds } },
+        where: { repositoryId, id: { in: [...plan.revokeIds] } },
         data: {
           status: RepositoryInvitationStatus.REVOKE_REQUIRED,
           attemptCount: 0,
@@ -273,18 +263,8 @@ export class RepositoryProvisionStateRepository {
         },
       });
 
-      const rejoinIds = rows
-        .filter(
-          (row) =>
-            desiredSet.has(
-              RepositoryProvisionStateHelpersRepository.canonicalGithubLogin(
-                row.githubLogin,
-              ),
-            ) && isRevocation(row.status),
-        )
-        .map((row) => row.id);
       await transaction.repositoryInvitation.updateMany({
-        where: { repositoryId, id: { in: rejoinIds } },
+        where: { repositoryId, id: { in: [...plan.rejoinIds] } },
         data: {
           status: RepositoryInvitationStatus.PENDING,
           attemptCount: 0,
@@ -302,7 +282,7 @@ export class RepositoryProvisionStateRepository {
     workerId: string,
     _requestId: string,
     repositoryId: string,
-  ): Promise<readonly RepositoryInvitationWork[]> {
+  ): Promise<readonly RepositoryInvitationRow[]> {
     await RepositoryProvisionStateHelpersRepository.assertProvisionLease(
       this.prisma,
       jobId,
@@ -329,18 +309,7 @@ export class RepositoryProvisionStateRepository {
       select: { id: true, githubLogin: true, status: true },
     });
 
-    const work = rows.map((row) => ({
-      id: row.id,
-      githubLogin: row.githubLogin,
-      status: row.status,
-      intent: RepositoryProvisionStateHelpersRepository.invitationIntent(
-        row.status,
-      ),
-    }));
-    return [
-      ...work.filter((item) => item.intent === 'REVOKE'),
-      ...work.filter((item) => item.intent === 'GRANT'),
-    ];
+    return rows;
   }
 
   async completeInvitation(
@@ -455,7 +424,7 @@ export class RepositoryProvisionStateRepository {
     repositoryId: string,
     now: Date,
     nextReconciliationAt: Date | undefined,
-    expectedMembershipFingerprint: string | undefined,
+    isMembershipCurrent: MembershipCurrencyCheck | undefined,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
@@ -467,12 +436,11 @@ export class RepositoryProvisionStateRepository {
           requestId,
         );
       const stale =
-        expectedMembershipFingerprint === undefined
+        isMembershipCurrent === undefined
           ? false
-          : (await this.currentMembershipFingerprint(
-              transaction,
-              applicationId,
-            )) !== expectedMembershipFingerprint;
+          : !isMembershipCurrent(
+              await this.currentMemberLogins(transaction, applicationId),
+            );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
           jobId,
@@ -517,31 +485,28 @@ export class RepositoryProvisionStateRepository {
     });
   }
 
-  private async currentMembershipFingerprint(
+  private async currentMemberLogins(
     transaction: Prisma.TransactionClient,
     applicationId: string,
-  ): Promise<string> {
+  ): Promise<readonly string[]> {
     const application = await transaction.application.findUnique({
       where: { id: applicationId },
       select: { teamId: true },
     });
     if (application?.teamId == null) {
-      return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
-        [],
-      );
+      return [];
     }
     const members = await transaction.teamMember.findMany({
       where: { teamId: application.teamId },
       select:
         RepositoryProvisionStateHelpersRepository.teamMemberLoginSelection,
     });
-    return RepositoryProvisionStateHelpersRepository.membershipFingerprint(
-      RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(members),
-    );
+    return members.map((member) => member.user.nickname);
   }
 
   async failJob(
     input: FailRepositoryProvisionJobInput,
+    isMembershipCurrent: MembershipCurrencyCheck | undefined,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
@@ -553,12 +518,11 @@ export class RepositoryProvisionStateRepository {
           input.requestId,
         );
       const stale =
-        input.expectedMembershipFingerprint === undefined
+        isMembershipCurrent === undefined
           ? false
-          : (await this.currentMembershipFingerprint(
-              transaction,
-              applicationId,
-            )) !== input.expectedMembershipFingerprint;
+          : !isMembershipCurrent(
+              await this.currentMemberLogins(transaction, applicationId),
+            );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: RepositoryProvisionStateHelpersRepository.claimedJobWhere(
           input.jobId,

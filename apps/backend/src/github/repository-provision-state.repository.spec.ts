@@ -20,9 +20,6 @@ import { RepositoryProvisionEventService } from './repository-provision-event.se
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 
-const parseProvisionPayload = (payload: unknown) =>
-  new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
-
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';
 const WORKER_ID = 'worker-1';
@@ -482,7 +479,7 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
       },
     ]);
 
-    await repositoryFor(db).prepareInvitations(
+    await serviceFor(db).prepareInvitations(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -529,7 +526,7 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
       },
     ]);
 
-    await repositoryFor(db).prepareInvitations(
+    await serviceFor(db).prepareInvitations(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -573,7 +570,7 @@ describe('RepositoryProvisionStateRepository.findInvitationWork', () => {
       },
     ]);
 
-    const work = await repositoryFor(db).findInvitationWork(
+    const work = await serviceFor(db).findInvitationWork(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -758,7 +755,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     db.teamMember.findMany.mockResolvedValue(members(['Alpha', 'zeta']));
     const nextAt = new Date(NOW.getTime() + 900_000);
 
-    await repositoryFor(db).completeJob(
+    await serviceFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -766,7 +763,6 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       nextAt,
       JSON.stringify(['alpha', 'zeta']),
-      parseProvisionPayload,
     );
 
     expect(
@@ -788,7 +784,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue(members(['alpha']));
 
-    await repositoryFor(db).completeJob(
+    await serviceFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -796,7 +792,6 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       new Date(NOW.getTime() + 900_000),
       JSON.stringify(['alpha', 'zeta']),
-      parseProvisionPayload,
     );
 
     expect(
@@ -838,7 +833,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       return Promise.resolve([]);
     });
 
-    await repositoryFor(db).completeJob(
+    await serviceFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
@@ -846,7 +841,6 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       NOW,
       undefined,
       '[]',
-      parseProvisionPayload,
     );
 
     expect(order).toEqual(['lock-job', 'read-application', 'read-members']);
@@ -858,15 +852,12 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
   it('지문이 없는 OWN 완료는 멤버십을 다시 읽지 않는다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).completeJob(
+    await serviceFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
       REQUEST_ID,
       REPOSITORY_ID,
       NOW,
-      undefined,
-      undefined,
-      parseProvisionPayload,
     );
 
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
@@ -883,15 +874,12 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     db.$queryRaw.mockResolvedValue([]);
 
     await expect(
-      repositoryFor(db).completeJob(
+      serviceFor(db).completeJob(
         JOB_ID,
         WORKER_ID,
         REQUEST_ID,
         REPOSITORY_ID,
         NOW,
-        undefined,
-        undefined,
-        parseProvisionPayload,
       ),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
     expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
@@ -914,13 +902,10 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
-    await repositoryFor(db).failJob(
-      {
-        ...failInput,
-        expectedMembershipFingerprint: JSON.stringify(['alpha', 'zeta']),
-      },
-      parseProvisionPayload,
-    );
+    await serviceFor(db).failJob({
+      ...failInput,
+      expectedMembershipFingerprint: JSON.stringify(['alpha', 'zeta']),
+    });
 
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
@@ -941,13 +926,10 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
-    await repositoryFor(db).failJob(
-      {
-        ...failInput,
-        expectedMembershipFingerprint: JSON.stringify(['alpha']),
-      },
-      parseProvisionPayload,
-    );
+    await serviceFor(db).failJob({
+      ...failInput,
+      expectedMembershipFingerprint: JSON.stringify(['alpha']),
+    });
 
     expect(
       db.repositoryProvisionJob.updateMany.mock.calls[0]?.[0].data,
@@ -961,10 +943,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
   it('지문 없는 실패는 멤버십을 읽지 않고 job 행만 잠그고 기록한다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).failJob(
-      { ...failInput, final: false },
-      parseProvisionPayload,
-    );
+    await serviceFor(db).failJob({ ...failInput, final: false });
 
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
@@ -980,9 +959,9 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
     const db = createDb();
     db.$queryRaw.mockResolvedValue([]);
 
-    await expect(
-      repositoryFor(db).failJob(failInput, parseProvisionPayload),
-    ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
+    await expect(serviceFor(db).failJob(failInput)).rejects.toBeInstanceOf(
+      RepositoryProvisionLeaseLostError,
+    );
     expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
   });
 });
