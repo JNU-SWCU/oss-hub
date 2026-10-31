@@ -21,7 +21,7 @@ import {
 } from '../admin-access-list-query';
 import { isAdminAccessDirectoryItem } from '../independent-authority-api';
 import {
-  AdminAccessInlineControlStack,
+  AdminAccessInlineControls,
   type AdminAccessInlineActions,
 } from './admin-access-inline-actions';
 
@@ -110,7 +110,7 @@ export function AdminAccessUserCell({
             )}
           >
             {directoryItem ? (
-              <AdminAccessInlineControlStack
+              <AdminAccessInlineControls
                 item={directoryItem}
                 inlineActions={inlineActions}
               />

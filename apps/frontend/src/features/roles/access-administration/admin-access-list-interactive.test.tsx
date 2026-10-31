@@ -170,23 +170,17 @@ function dialogButton(label: string): HTMLButtonElement {
 }
 
 function nextFocus(element: HTMLElement): Promise<void> {
-  return new Promise((resolve) => {
-    element.addEventListener('focus', () => resolve(), { once: true });
+  return new Promise((resolve, reject) => {
+    const onFocus = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      element.removeEventListener('focus', onFocus);
+      reject(new Error('포커스 복귀 신호를 받지 못했습니다.'));
+    }, 2_000);
+    element.addEventListener('focus', onFocus, { once: true });
   });
-}
-
-function rejectAfter(ms: number): {
-  promise: Promise<never>;
-  cancel: () => void;
-} {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const promise = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error('포커스 복귀 신호를 받지 못했습니다.')),
-      ms,
-    );
-  });
-  return { promise, cancel: () => clearTimeout(timer) };
 }
 
 describe('AdminAccessView — 행 클릭 상호작용', () => {
@@ -580,13 +574,11 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
     const detail = Promise.withResolvers<Response>();
     const fetch = vi
       .fn()
-      .mockReturnValueOnce(Promise.resolve(listResponse([directoryItem()])))
+      .mockResolvedValueOnce(listResponse([directoryItem()]))
       .mockReturnValueOnce(detail.promise)
-      .mockReturnValueOnce(Promise.resolve(mutationResponse()))
-      .mockReturnValueOnce(
-        Promise.resolve(
-          listResponse([directoryItem({ accountStatus: 'DEACTIVATED' })]),
-        ),
+      .mockResolvedValueOnce(mutationResponse())
+      .mockResolvedValueOnce(
+        listResponse([directoryItem({ accountStatus: 'DEACTIVATED' })]),
       );
     vi.stubGlobal('fetch', fetch);
     await render();
@@ -628,10 +620,10 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
     const detail = Promise.withResolvers<Response>();
     const fetch = vi
       .fn()
-      .mockReturnValueOnce(Promise.resolve(listResponse([directoryItem()])))
+      .mockResolvedValueOnce(listResponse([directoryItem()]))
       .mockReturnValueOnce(detail.promise)
-      .mockReturnValueOnce(Promise.resolve(listResponse([directoryItem()])))
-      .mockReturnValueOnce(Promise.resolve(listResponse([directoryItem()])));
+      .mockResolvedValueOnce(listResponse([directoryItem()]))
+      .mockResolvedValueOnce(listResponse([directoryItem()]));
     vi.stubGlobal('fetch', fetch);
     await render();
 
@@ -656,20 +648,16 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
 
   describe('조용한 갱신', () => {
     async function start(page = 2) {
-      const initial = Promise.withResolvers<Response>();
       const detail = Promise.withResolvers<Response>();
       const refresh = Promise.withResolvers<Response>();
       const fetch = vi
         .fn()
-        .mockReturnValueOnce(initial.promise)
+        .mockResolvedValueOnce(listResponse([directoryItem()], page))
         .mockReturnValueOnce(detail.promise)
-        .mockReturnValueOnce(Promise.resolve(mutationResponse()))
+        .mockResolvedValueOnce(mutationResponse())
         .mockReturnValueOnce(refresh.promise);
       vi.stubGlobal('fetch', fetch);
       await render({ page: String(page), role: 'STAFF' });
-      await act(async () =>
-        initial.resolve(listResponse([directoryItem()], page)),
-      );
       return { detail, refresh, fetch };
     }
 
@@ -722,13 +710,8 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       expect(dialog()).not.toBeNull();
 
       const refocused = nextFocus(statusTrigger);
-      const refocusTimeout = rejectAfter(2_000);
-      try {
-        await act(async () => dialogButton('비활성화 확정').click());
-        await Promise.race([refocused, refocusTimeout.promise]);
-      } finally {
-        refocusTimeout.cancel();
-      }
+      await act(async () => dialogButton('비활성화 확정').click());
+      await refocused;
 
       expect(dialog()).toBeNull();
       expect(document.activeElement).toBe(statusTrigger);

@@ -35,8 +35,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
   const [conflictNotice, setConflictNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const busy = useRef(false);
-  const processing = useRef(false);
+  const phase = useRef<'idle' | 'pending' | 'processing'>('idle');
   const lifetime = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -57,8 +56,9 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
     returnFocusTo: HTMLElement | null,
   ) => {
     const controller = lifetime.current;
-    if (busy.current || !controller || controller.signal.aborted) return;
-    busy.current = true;
+    if (phase.current !== 'idle' || !controller || controller.signal.aborted)
+      return;
+    phase.current = 'pending';
     setOpeningUserId(item.id);
     setDialogError(null);
     setConflictNotice(null);
@@ -76,7 +76,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
         detail.accountStatus !== item.accountStatus ||
         detail.pendingRequest?.id !== item.pendingRequest?.id
       ) {
-        busy.current = false;
+        phase.current = 'idle';
         setConflictNotice(conflictMessage);
         onChanged();
         return;
@@ -84,7 +84,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
       setPending({ action, detail, returnFocusTo });
     } catch (error) {
       if (controller.signal.aborted) return;
-      busy.current = false;
+      phase.current = 'idle';
       setActionError(adminAccessMutationErrorMessage(error));
     } finally {
       if (!controller.signal.aborted) setOpeningUserId(null);
@@ -92,8 +92,8 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
   };
 
   const cancel = () => {
-    if (processing.current) return;
-    busy.current = false;
+    if (phase.current === 'processing') return;
+    phase.current = 'idle';
     setPending(null);
     setDialogError(null);
   };
@@ -102,12 +102,12 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
     const controller = lifetime.current;
     if (
       !pending ||
-      processing.current ||
+      phase.current === 'processing' ||
       !controller ||
       controller.signal.aborted
     )
       return;
-    processing.current = true;
+    phase.current = 'processing';
     setIsProcessing(true);
     setDialogError(null);
     const { action, detail } = pending;
@@ -120,17 +120,17 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
         memberKindFields: fields,
       });
       if (controller.signal.aborted) return;
+      if (outcome.kind !== 'error') {
+        phase.current = 'idle';
+        setPending(null);
+      }
       switch (outcome.kind) {
         case 'success':
-          busy.current = false;
-          setPending(null);
           setSuccessMessage(
             adminAccessMutationSuccessMessage(action, detail.githubLogin),
           );
           break;
         case 'conflict':
-          busy.current = false;
-          setPending(null);
           setConflictNotice(conflictMessage);
           break;
         case 'error':
@@ -140,7 +140,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
       onChanged();
     } finally {
       if (!controller.signal.aborted) {
-        processing.current = false;
+        if (phase.current === 'processing') phase.current = 'pending';
         setIsProcessing(false);
       }
     }

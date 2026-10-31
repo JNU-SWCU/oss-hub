@@ -11,11 +11,7 @@ import { ROLE_LABEL } from '@/lib/status-vocabulary';
 
 import { deriveAdminAccessGuards } from '../admin-access-detail-api';
 import type { AdminAccessDirectoryItem } from '../independent-authority-api';
-import {
-  AccountStatusAccessControl,
-  AdminAccessStateControl,
-  MemberKindAccessControl,
-} from './admin-access-controls';
+import { AdminAccessControl } from './admin-access-controls';
 
 const PENDING_REQUEST = {
   id: 'req-1',
@@ -74,9 +70,9 @@ function renderAll(
   act(() => {
     root.render(
       <div>
-        <MemberKindAccessControl {...common} />
-        <AdminAccessStateControl {...common} />
-        <AccountStatusAccessControl {...common} />
+        <AdminAccessControl kind="memberKind" {...common} />
+        <AdminAccessControl kind="adminAccess" {...common} />
+        <AdminAccessControl kind="accountStatus" {...common} />
       </div>,
     );
   });
@@ -142,7 +138,8 @@ function blockedReasonTooltip(element: HTMLElement): string | null {
 function fieldMemberKindReason(target: AdminAccessDirectoryItem): string {
   act(() => {
     root.render(
-      <MemberKindAccessControl
+      <AdminAccessControl
+        kind="memberKind"
         target={target}
         disabled={false}
         onRequestAction={vi.fn()}

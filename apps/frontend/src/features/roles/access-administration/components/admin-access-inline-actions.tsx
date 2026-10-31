@@ -1,19 +1,14 @@
 'use client';
 
-import type { ComponentType, MouseEvent } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
-import type { AdminAccessMutationAction } from '../admin-access-mutation-policy';
 import type { AdminAccessDirectoryItem } from '../independent-authority-api';
 import {
-  AccountStatusAccessControl,
-  AdminAccessStateControl,
-  MemberKindAccessControl,
-  type AdminAccessControlLayout,
-  type AdminAccessControlProps,
+  AdminAccessControl,
+  type AdminAccessControlKind,
 } from './admin-access-controls';
 import type { InlineAdminAccessMutationAction } from './use-inline-admin-access-mutation';
 
@@ -33,77 +28,36 @@ export interface AdminAccessListError {
   readonly onRetry: () => void;
 }
 
-function isInlineAdminAccessMutationAction(
-  action: AdminAccessMutationAction,
-): action is InlineAdminAccessMutationAction {
-  return action !== 'APPROVE' && action !== 'REJECT';
-}
-
-function stopRowClick(event: MouseEvent<HTMLDivElement>) {
-  event.stopPropagation();
-}
-
-function inlineControlProps(
-  item: AdminAccessDirectoryItem,
-  inlineActions: AdminAccessInlineActions,
-  layout: AdminAccessControlLayout,
-  idPrefix: string,
-): AdminAccessControlProps {
-  return {
-    target: item,
-    disabled: false,
-    layout,
-    idPrefix,
-    onRequestAction: (action, trigger) => {
-      if (isInlineAdminAccessMutationAction(action)) {
-        inlineActions.onRequestAction(item, action, trigger ?? null);
-      }
-    },
-  };
-}
-
-export function AdminAccessInlineControlCell({
+export function AdminAccessInlineControls({
   item,
-  control: Control,
+  kind,
   inlineActions,
 }: {
   readonly item: AdminAccessDirectoryItem;
-  readonly control: ComponentType<AdminAccessControlProps>;
+  readonly kind?: AdminAccessControlKind;
   readonly inlineActions: AdminAccessInlineActions;
 }) {
+  const kinds = kind
+    ? [kind]
+    : (['memberKind', 'adminAccess', 'accountStatus'] as const);
   return (
-    <div className="w-fit" onClick={stopRowClick}>
-      <Control
-        {...inlineControlProps(
-          item,
-          inlineActions,
-          'cell',
-          `admin-access-row-${item.id}`,
-        )}
-      />
-    </div>
-  );
-}
-
-export function AdminAccessInlineControlStack({
-  item,
-  inlineActions,
-}: {
-  readonly item: AdminAccessDirectoryItem;
-  readonly inlineActions: AdminAccessInlineActions;
-}) {
-  const props = inlineControlProps(
-    item,
-    inlineActions,
-    'stacked',
-    `admin-access-row-${item.id}-stacked`,
-  );
-
-  return (
-    <div className="grid basis-full gap-2" onClick={stopRowClick}>
-      <MemberKindAccessControl {...props} />
-      <AdminAccessStateControl {...props} />
-      <AccountStatusAccessControl {...props} />
+    <div
+      className={kind ? 'w-fit' : 'grid basis-full gap-2'}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {kinds.map((controlKind) => (
+        <AdminAccessControl
+          key={controlKind}
+          kind={controlKind}
+          target={item}
+          disabled={false}
+          layout={kind ? 'cell' : 'stacked'}
+          idPrefix={`admin-access-row-${item.id}${kind ? '' : '-stacked'}`}
+          onRequestAction={(action, trigger) =>
+            inlineActions.onRequestAction(item, action, trigger ?? null)
+          }
+        />
+      ))}
     </div>
   );
 }

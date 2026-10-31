@@ -88,7 +88,6 @@ interface PatchRecord {
 interface AdminUsersStore {
   rows: readonly SyntheticAdminUserRow[];
   readonly details: Record<string, SyntheticAdminUserDetail>;
-  listGets: number;
   detailGets: number;
   readonly patches: PatchRecord[];
   failNextListGetWith: Problem | null;
@@ -105,7 +104,6 @@ function createStore(includeAuthorityFields = true): AdminUsersStore {
     details: Object.fromEntries(
       adminUsersPage1Rows.map((row) => [row.id, adminUsersDetailById[row.id]]),
     ),
-    listGets: 0,
     detailGets: 0,
     patches: [],
     failNextListGetWith: null,
@@ -236,7 +234,6 @@ async function handlePatch(
 function adminUsersHandlers(store: AdminUsersStore): MemberAccessApiHandlers {
   const handlers: Record<string, (route: Route) => Promise<void>> = {
     'GET /api/v1/users/access': async (route) => {
-      store.listGets += 1;
       const failure = store.failNextListGetWith;
       if (failure) {
         store.failNextListGetWith = null;
@@ -308,6 +305,18 @@ async function choose(trigger: Locator, option: string): Promise<void> {
     .click();
 }
 
+async function refreshAfterClick(control: Locator): Promise<void> {
+  const refreshed = control
+    .page()
+    .waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/users/access' &&
+        response.request().method() === 'GET',
+    );
+  await control.click();
+  await refreshed;
+}
+
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await expect(page.getByText('사용자 목록을 불러오는 중…')).toHaveCount(0);
@@ -363,8 +372,9 @@ test('행에서 학생을 교직원으로 바꾸면 확인 후 PATCH 하고 목�
   await expect(dialog).toContainText('교직원 접근 권한이 부여됩니다.');
   expect(store.detailGets).toBe(1);
   expect(store.patches).toEqual([]);
-  const listGets = store.listGets;
-  await dialog.getByRole('button', { name: '변경', exact: true }).click();
+  await refreshAfterClick(
+    dialog.getByRole('button', { name: '변경', exact: true }),
+  );
   await expect(dialog).toBeHidden();
 
   expect(store.patches).toEqual([
@@ -378,7 +388,6 @@ test('행에서 학생을 교직원으로 바꾸면 확인 후 PATCH 하고 목�
       },
     },
   ]);
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
   await expect(trigger).toHaveText('교직원');
   await expect(panel(page).getByRole('status')).toHaveText(
     adminAccessMutationSuccessMessage('SET_MEMBER_STAFF', 'synthetic-user-01'),
@@ -418,8 +427,9 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
   await expect(dialog.getByText('저장된 학과를 사용합니다.')).toBeVisible();
   await expect(dialog.locator('#admin-member-kind-department')).toHaveCount(0);
   await dialog.locator('#admin-member-kind-student-id').fill('123456');
-  const listGets = store.listGets;
-  await dialog.getByRole('button', { name: '변경', exact: true }).click();
+  await refreshAfterClick(
+    dialog.getByRole('button', { name: '변경', exact: true }),
+  );
   await expect(dialog).toBeHidden();
 
   expect(store.patches).toEqual([
@@ -434,7 +444,6 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
       },
     },
   ]);
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
   await expect(trigger).toHaveText('학생');
   await expect(panel(page).getByRole('status')).toHaveText(
     adminAccessMutationSuccessMessage(
@@ -470,8 +479,9 @@ for (const width of [MOBILE.width, 1280] as const) {
     await choose(trigger, '비활성');
     const dialog = dialogNamed(page, '계정 비활성화');
     await expect(dialog).toBeVisible();
-    const listGets = store.listGets;
-    await dialog.getByRole('button', { name: '비활성화 확정' }).click();
+    await refreshAfterClick(
+      dialog.getByRole('button', { name: '비활성화 확정' }),
+    );
     await expect(dialog).toBeHidden();
 
     const notice = panel(page).getByRole('status');
@@ -482,7 +492,6 @@ for (const width of [MOBILE.width, 1280] as const) {
       ),
     );
     await expect(notice).toBeInViewport();
-    await expect.poll(() => store.listGets).toBe(listGets + 1);
     await expect(trigger).toHaveText('비활성');
     await expect(trigger).toBeInViewport();
     await expect(trigger).toBeFocused();
@@ -539,9 +548,7 @@ test('조용한 갱신이 실패하면 오류 알림이 sticky 영역에 보이�
   await expect(trigger).toBeInViewport();
   expect(store.patches).toHaveLength(1);
 
-  const listGets = store.listGets;
-  await retry.click();
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
+  await refreshAfterClick(retry);
   await expect(alert).toBeHidden();
   await expect(cellControl(page, '합성 사용자 14', '계정 상태')).toHaveText(
     '비활성',
@@ -631,15 +638,15 @@ test('409 응답은 충돌 알림을 띄우고 목록을 다시 조회한다 (12
       'ROL_014',
     ),
   };
-  const listGets = store.listGets;
-  await dialog.getByRole('button', { name: '변경', exact: true }).click();
+  await refreshAfterClick(
+    dialog.getByRole('button', { name: '변경', exact: true }),
+  );
 
   const conflict = panel(page)
     .getByRole('alert')
     .filter({ hasText: CONFLICT_NOTICE });
   await expect(conflict).toBeVisible();
   await expect(dialog).toBeHidden();
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
   expect(store.patches).toHaveLength(1);
   await expect(trigger).toHaveText('학생');
   await expect(trigger).toBeFocused();
@@ -674,12 +681,12 @@ test('500 응답은 다이얼로그 안에 서버 문구를 보이고 그 사이
         accountStatus: 'DEACTIVATED',
       }),
   };
-  const listGets = store.listGets;
-  await dialog.getByRole('button', { name: '비활성화 확정' }).click();
+  await refreshAfterClick(
+    dialog.getByRole('button', { name: '비활성화 확정' }),
+  );
 
   await expect(dialog.getByRole('alert')).toHaveText(detail);
   await expect(dialog).toBeVisible();
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
   await expect(
     page.locator('#admin-access-row-synthetic-id-10-access-status-control'),
   ).toHaveText('비활성');
@@ -709,13 +716,13 @@ test('사전 조회 값이 행과 다르면 PATCH 없이 충돌 알림만 띄운
   changeOnServerAfterListLoaded(store, 'synthetic-id-13', {
     accountStatus: 'DEACTIVATED',
   });
-  const listGets = store.listGets;
-
-  await choose(trigger, '비활성');
+  await trigger.click();
+  await refreshAfterClick(
+    page.getByRole('option', { name: '비활성', exact: true }),
+  );
   await expect(
     panel(page).getByRole('alert').filter({ hasText: CONFLICT_NOTICE }),
   ).toBeVisible();
-  await expect.poll(() => store.listGets).toBe(listGets + 1);
   expect(store.detailGets).toBe(1);
   expect(store.patches).toEqual([]);
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -767,23 +774,7 @@ test('권한 필드가 없는 목록 응답은 배지로 렌더링되고 오류�
   audit.assertClean();
 });
 
-interface LayoutMetrics {
-  readonly document: {
-    readonly scrollWidth: number;
-    readonly clientWidth: number;
-  };
-  readonly scroller: {
-    readonly scrollWidth: number;
-    readonly clientWidth: number;
-  };
-  readonly table: {
-    readonly scrollWidth: number;
-    readonly clientWidth: number;
-  };
-  readonly rowHeights: readonly number[];
-}
-
-function layoutMetrics(page: Page): Promise<LayoutMetrics> {
+function layoutMetrics(page: Page) {
   return page.evaluate(() => {
     const root = document.documentElement;
     const main = document.getElementById('main-content');
@@ -804,17 +795,6 @@ function layoutMetrics(page: Page): Promise<LayoutMetrics> {
       ),
     };
   });
-}
-
-interface CaptureTarget {
-  readonly dir: string;
-  readonly extendedDir: string;
-}
-
-async function prepareCaptures(dir: string): Promise<CaptureTarget> {
-  const extendedDir = path.join(dir, 'pw');
-  await mkdir(extendedDir, { recursive: true });
-  return { dir, extendedDir };
 }
 
 async function captureFull(
@@ -844,38 +824,38 @@ async function growViewportUntilScrollerFits(
 
 async function captureWidth(
   page: Page,
-  target: CaptureTarget,
+  dir: string,
   viewport: { readonly width: number; readonly height: number },
 ): Promise<void> {
   if (viewport.width !== DESKTOP.width && viewport.width !== MOBILE.width) {
-    await captureFull(page, target.dir, `width-${viewport.width}`);
+    await captureFull(page, dir, `width-${viewport.width}`);
     return;
   }
-  await captureFull(page, target.dir, `full-${viewport.width}`);
+  await captureFull(page, dir, `full-${viewport.width}`);
   await growViewportUntilScrollerFits(page, viewport);
   if (viewport.width === DESKTOP.width) {
     await page.locator(TABLE_CONTAINER).screenshot({
-      path: path.join(target.dir, `${CAPTURE_PREFIX}-element-table-1440.png`),
+      path: path.join(dir, `${CAPTURE_PREFIX}-element-table-1440.png`),
       animations: 'disabled',
     });
   }
   await captureFull(
     page,
-    target.extendedDir,
+    path.join(dir, 'pw'),
     `full-${viewport.width}-extended`,
   );
   await page.setViewportSize(viewport);
   await settle(page);
 }
 
-async function captureDialog(page: Page, target: CaptureTarget): Promise<void> {
+async function captureDialog(page: Page, dir: string): Promise<void> {
   await page.setViewportSize(DESKTOP);
   await settle(page);
   const trigger = cellControl(page, '합성 사용자 01', '회원 유형');
   await choose(trigger, '교직원');
   const dialog = dialogNamed(page, '교직원으로 변경');
   await expect(dialog).toBeVisible();
-  await captureFull(page, target.dir, 'dialog-1440');
+  await captureFull(page, dir, 'dialog-1440');
   await dialog.getByRole('button', { name: '취소' }).click();
   await expect(dialog).toBeHidden();
 }
@@ -885,7 +865,8 @@ test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크
 }, testInfo) => {
   const audit = installBrowserAudit(page);
   await openDirectory(page, DESKTOP);
-  const captures = CAPTURE_DIR ? await prepareCaptures(CAPTURE_DIR) : null;
+  if (CAPTURE_DIR)
+    await mkdir(path.join(CAPTURE_DIR, 'pw'), { recursive: true });
 
   for (const width of LAYOUT_WIDTHS) {
     const viewport =
@@ -924,8 +905,8 @@ test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크
         ).toBeVisible();
       }
     }
-    if (captures) await captureWidth(page, captures, viewport);
+    if (CAPTURE_DIR) await captureWidth(page, CAPTURE_DIR, viewport);
   }
-  if (captures) await captureDialog(page, captures);
+  if (CAPTURE_DIR) await captureDialog(page, CAPTURE_DIR);
   audit.assertClean();
 });

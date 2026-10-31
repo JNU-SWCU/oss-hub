@@ -39,59 +39,6 @@ export interface SyntheticAdminUserDetail extends SyntheticAdminUserRow {
   readonly profile: SyntheticAdminUserProfile;
 }
 
-interface SyntheticFacetCounts {
-  readonly roles: {
-    readonly unassigned: number;
-    readonly student: number;
-    readonly staff: number;
-    readonly admin: number;
-  };
-  readonly accountStatuses: {
-    readonly active: number;
-    readonly deactivated: number;
-  };
-  readonly pendingRequests: {
-    readonly none: number;
-    readonly pending: number;
-  };
-}
-
-export interface SyntheticAdminUsersListPage {
-  readonly items: readonly SyntheticAdminUserRow[];
-  readonly page: number;
-  readonly limit: number;
-  readonly total: number;
-  readonly facets: SyntheticFacetCounts;
-}
-
-export interface SyntheticAdminUserHistory {
-  readonly staffAccessRequests: {
-    readonly items: readonly {
-      readonly id: string;
-      readonly status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
-      readonly rejectionReason: string | null;
-      readonly decidedAt: string | null;
-      readonly decidedBy: string | null;
-      readonly createdAt: string;
-    }[];
-    readonly page: number;
-    readonly limit: number;
-    readonly total: number;
-  };
-  readonly loginHistory: {
-    readonly items: readonly {
-      readonly id: string;
-      readonly event: 'LOGIN' | 'LOGOUT';
-      readonly provider: 'github';
-      readonly success: boolean;
-      readonly loginAt: string;
-    }[];
-    readonly page: number;
-    readonly limit: number;
-    readonly total: number;
-  };
-}
-
 export const SYNTHETIC_SELF = {
   githubLogin: 'synthetic-member-access',
   name: '합성 권한 사용자',
@@ -298,18 +245,16 @@ export const adminUsersPage1Rows: readonly SyntheticAdminUserRow[] = [
   }),
 ];
 
-const adminUsersFacets: SyntheticFacetCounts = {
-  roles: { unassigned: 2, student: 27, staff: 8, admin: 4 },
-  accountStatuses: { active: 39, deactivated: 2 },
-  pendingRequests: { none: 38, pending: 3 },
-};
-
-export const adminUsersListPage: SyntheticAdminUsersListPage = {
+export const adminUsersListPage = {
   items: adminUsersPage1Rows,
   page: 1,
   limit: ADMIN_USERS_PAGE_LIMIT,
   total: ADMIN_USERS_TOTAL,
-  facets: adminUsersFacets,
+  facets: {
+    roles: { unassigned: 2, student: 27, staff: 8, admin: 4 },
+    accountStatuses: { active: 39, deactivated: 2 },
+    pendingRequests: { none: 38, pending: 3 },
+  },
 };
 
 function profileFor(item: SyntheticAdminUserRow): SyntheticAdminUserProfile {
@@ -349,9 +294,7 @@ export const adminUsersDetailById: Readonly<
   ]),
 );
 
-export function adminUserHistoryFor(
-  item: SyntheticAdminUserRow,
-): SyntheticAdminUserHistory {
+export function adminUserHistoryFor(item: SyntheticAdminUserRow) {
   return {
     staffAccessRequests: {
       items: item.pendingRequest

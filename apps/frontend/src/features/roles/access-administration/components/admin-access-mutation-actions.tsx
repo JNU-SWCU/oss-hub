@@ -19,11 +19,7 @@ import {
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
 import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
-import {
-  AccountStatusAccessControl,
-  AdminAccessStateControl,
-  MemberKindAccessControl,
-} from './admin-access-controls';
+import { AdminAccessControl } from './admin-access-controls';
 
 interface AdminAccessMutationActionsProps {
   readonly detail: CanonicalAdminAccessDetail;
@@ -53,9 +49,9 @@ export function AdminAccessMutationActions({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">
-        <MemberKindAccessControl {...controlProps} />
-        <AdminAccessStateControl {...controlProps} />
-        <AccountStatusAccessControl {...controlProps} />
+        <AdminAccessControl kind="memberKind" {...controlProps} />
+        <AdminAccessControl kind="adminAccess" {...controlProps} />
+        <AdminAccessControl kind="accountStatus" {...controlProps} />
       </CardContent>
     </Card>
   );

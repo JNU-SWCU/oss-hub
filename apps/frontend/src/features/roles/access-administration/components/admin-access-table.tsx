@@ -13,12 +13,7 @@ import type {
 import type { AccessWorkspace } from '../admin-access-list-query';
 import { isAdminAccessDirectoryItem } from '../independent-authority-api';
 import {
-  AccountStatusAccessControl,
-  AdminAccessStateControl,
-  MemberKindAccessControl,
-} from './admin-access-controls';
-import {
-  AdminAccessInlineControlCell,
+  AdminAccessInlineControls,
   type AdminAccessInlineActions,
 } from './admin-access-inline-actions';
 import {
@@ -173,9 +168,9 @@ function adminAccessColumns(
     columns.push(
       sortableColumn(props, 'role', '회원 유형', (item) =>
         isAdminAccessDirectoryItem(item) ? (
-          <AdminAccessInlineControlCell
+          <AdminAccessInlineControls
             item={item}
-            control={MemberKindAccessControl}
+            kind="memberKind"
             inlineActions={props.inlineActions}
           />
         ) : (
@@ -189,18 +184,18 @@ function adminAccessColumns(
         cellClassName: cn('hidden lg:table-cell', density),
         cell: (item) =>
           isAdminAccessDirectoryItem(item) ? (
-            <AdminAccessInlineControlCell
+            <AdminAccessInlineControls
               item={item}
-              control={AdminAccessStateControl}
+              kind="adminAccess"
               inlineActions={props.inlineActions}
             />
           ) : null,
       },
       sortableColumn(props, 'accountStatus', '계정 상태', (item) =>
         isAdminAccessDirectoryItem(item) ? (
-          <AdminAccessInlineControlCell
+          <AdminAccessInlineControls
             item={item}
-            control={AccountStatusAccessControl}
+            kind="accountStatus"
             inlineActions={props.inlineActions}
           />
         ) : (
