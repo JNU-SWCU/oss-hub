@@ -57,13 +57,19 @@ describe('RankingTimelineQueryRequestDto year', () => {
     },
   );
 
-  it.each(['all', 'ALL', '1999', '2101', 'abc', ''] as const)(
-    'rejects year=%s',
-    async (year) => {
-      const errors = await validateTimelineYear(year);
-      expect(errors.some((error) => error.property === 'year')).toBe(true);
-    },
-  );
+  it.each([
+    'all',
+    'ALL',
+    '1999',
+    '2101',
+    'abc',
+    '',
+    '0x7ea',
+    ' 2026 ',
+  ] as const)('rejects year=%s', async (year) => {
+    const errors = await validateTimelineYear(year);
+    expect(errors.some((error) => error.property === 'year')).toBe(true);
+  });
 
   it('질의 문자열 연도를 정수로 바꿔 싣는다', () => {
     expect(

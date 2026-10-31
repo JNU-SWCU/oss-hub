@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 import {
   LEGACY_RANKING_PERIODS,
@@ -36,7 +36,9 @@ export class RankingQueryRequestDto {
 
 export class RankingTimelineQueryRequestDto {
   @IsOptional()
-  @Type(() => Number)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && /^\d{4}$/.test(value) ? Number(value) : value,
+  )
   @IsInt()
   @Min(RANKING_YEAR_MIN)
   @Max(RANKING_YEAR_MAX)

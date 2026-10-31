@@ -70,8 +70,11 @@ export function RankingHistoryChart({
     if (focused !== null) return focused === line.githubLogin ? 1 : 0.12;
     return line.faded ? FADED_OPACITY : 1;
   };
-  if (chart.lines.length === 0 || chart.rows.length < 2) {
+  if (chart.lines.length === 0) {
     return <Note state="empty" text="아직 그릴 활동 기록이 없습니다." />;
+  }
+  if (chart.rows.length < 2) {
+    return <Note state="empty" text="그래프는 두 번째 달부터 그려집니다." />;
   }
 
   return (
