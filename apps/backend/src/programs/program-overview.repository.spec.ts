@@ -1,4 +1,49 @@
 import { ProgramOverviewRepository } from './program-overview.repository';
+import { ProgramOverviewService } from './program-overview.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+function staffOverviewRepository(prisma: object): ProgramOverviewRepository {
+  return new ProgramOverviewRepository(prisma as never);
+}
+
+async function completedTeamsByMilestone(
+  repository: ProgramOverviewRepository,
+  milestones: readonly { milestoneId: string; requiredDocumentIds: string[] }[],
+): Promise<ReadonlyMap<string, number>> {
+  Object.assign(repository, {
+    findByProgramId: jest.fn().mockResolvedValue({ teamCount: 0 }),
+    findViewerIdentity: jest.fn().mockResolvedValue({
+      userId: 'synthetic-staff',
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    }),
+    findCurrentSubmissionMilestone: jest.fn().mockResolvedValue({
+      milestoneId: 'synthetic-current',
+      documentIds: ['doc-current'],
+      requiredDocumentIds: [],
+    }),
+    findMilestoneDocumentCatalog: jest.fn().mockResolvedValue(
+      milestones.map((milestone) => ({
+        milestoneId: milestone.milestoneId,
+        title: milestone.milestoneId,
+        documentIds: ['synthetic-document'],
+        requiredDocumentIds: milestone.requiredDocumentIds,
+      })),
+    ),
+    findMilestoneSchedules: jest.fn().mockResolvedValue([]),
+  });
+  const overview = await new ProgramOverviewService(
+    repository,
+    new UserProfileService(),
+  ).getOverview(syntheticProgramId, 1n);
+  return new Map(
+    (overview.viewer.milestoneDocuments ?? []).map((entry) => [
+      entry.milestoneId,
+      entry.completed,
+    ]),
+  );
+}
 
 const syntheticProgramId = 'cuid-synthetic-program';
 
@@ -36,7 +81,7 @@ describe('ProgramOverviewRepository', () => {
     });
   });
 
-  describe('countFullySubmittedTeamsByMilestone', () => {
+  describe('교직원 개요의 마일스톤별 완료 팀 수 (서비스 + 실제 repository)', () => {
     it('마일스톤이 여럿이어도 제출 groupBy는 1회이고 쿼리 수는 상수다', async () => {
       const applications = [
         { id: 'app-team-a', teamId: 'team-a' },
@@ -55,8 +100,9 @@ describe('ProgramOverviewRepository', () => {
       const prisma = {
         application: { findMany: applicationFindMany },
         milestoneDocumentSubmission: { groupBy: submissionGroupBy },
+        teamMember: { groupBy: jest.fn().mockResolvedValue([]) },
       };
-      const repository = new ProgramOverviewRepository(prisma as never);
+      const repository = staffOverviewRepository(prisma);
 
       const milestones = [
         {
@@ -73,12 +119,9 @@ describe('ProgramOverviewRepository', () => {
         },
       ];
 
-      const result = await repository.countFullySubmittedTeamsByMilestone(
-        syntheticProgramId,
-        milestones,
-      );
+      const result = await completedTeamsByMilestone(repository, milestones);
 
-      expect(applicationFindMany).toHaveBeenCalledTimes(1);
+      expect(applicationFindMany).toHaveBeenCalledTimes(2);
       expect(submissionGroupBy).toHaveBeenCalledTimes(1);
       expect(submissionGroupBy).toHaveBeenCalledWith({
         by: ['milestoneDocumentId', 'applicationId'],
@@ -110,13 +153,13 @@ describe('ProgramOverviewRepository', () => {
       const prisma = {
         application: { findMany: applicationFindMany },
         milestoneDocumentSubmission: { groupBy: submissionGroupBy },
+        teamMember: { groupBy: jest.fn().mockResolvedValue([]) },
       };
-      const repository = new ProgramOverviewRepository(prisma as never);
+      const repository = staffOverviewRepository(prisma);
 
-      const result = await repository.countFullySubmittedTeamsByMilestone(
-        syntheticProgramId,
-        [{ milestoneId: 'm-optional-only', requiredDocumentIds: [] }],
-      );
+      const result = await completedTeamsByMilestone(repository, [
+        { milestoneId: 'm-optional-only', requiredDocumentIds: [] },
+      ]);
 
       expect(submissionGroupBy).not.toHaveBeenCalled();
       expect(result.get('m-optional-only')).toBe(2);
