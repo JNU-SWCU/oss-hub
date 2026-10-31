@@ -2,10 +2,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  CollectionAppClient,
-  requestFingerprintKey,
-} from './collection-app.client';
+import { CollectionAppClient } from './collection-app.client';
 import {
   CollectionAppConfig,
   CollectionAppConfigError,
@@ -23,6 +20,11 @@ const config: CollectionAppConfigValues = {
   maxPages: 100,
   deadlineMs: 30_000,
 };
+
+const fingerprintClient = new CollectionAppClient(config, {
+  getToken: () => Promise.resolve('synthetic-token'),
+  clear: () => undefined,
+});
 type Fetcher = jest.Mock<
   Promise<Response>,
   [input: string | URL, init?: RequestInit]
@@ -796,8 +798,10 @@ describe('CollectionAppClient incremental contract', () => {
           json([commitFixture('head1', '2026-01-01T00:00:00Z')]),
         ),
       ).listCommitsUntilKnownSha('o', 'r', 'main', new Set());
-      expect(requestFingerprintKey(probe.fingerprint)).not.toEqual(
-        requestFingerprintKey(traversal.fingerprint),
+      expect(
+        fingerprintClient.requestFingerprintKey(probe.fingerprint),
+      ).not.toEqual(
+        fingerprintClient.requestFingerprintKey(traversal.fingerprint),
       );
     });
   });
@@ -1020,8 +1024,10 @@ describe('CollectionAppClient incremental contract', () => {
           json([releaseFixture(9, false, '2026-01-02T00:00:00Z')]),
         ),
       ).listChangedPublishedReleases('o', 'r');
-      expect(requestFingerprintKey(probe.fingerprint)).not.toEqual(
-        requestFingerprintKey(listing.fingerprint),
+      expect(
+        fingerprintClient.requestFingerprintKey(probe.fingerprint),
+      ).not.toEqual(
+        fingerprintClient.requestFingerprintKey(listing.fingerprint),
       );
     });
   });

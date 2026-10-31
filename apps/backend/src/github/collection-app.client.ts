@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { CollectionAppConfigValues } from './collection-app.config';
 import { CollectionAppClientError } from './collection-app.error';
 
@@ -9,18 +10,6 @@ export interface RequestFingerprint {
   readonly pageSize: number;
   readonly accept: string;
   readonly apiVersion: string;
-}
-
-export function requestFingerprintKey(fingerprint: RequestFingerprint): string {
-  return [
-    fingerprint.endpoint,
-    fingerprint.ref ?? '',
-    fingerprint.query,
-    fingerprint.order ?? '',
-    String(fingerprint.pageSize),
-    fingerprint.accept,
-    fingerprint.apiVersion,
-  ].join('\u001f');
 }
 
 export interface PullRequestFrontier {
@@ -188,6 +177,7 @@ function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
   return result;
 }
 
+@Injectable()
 export class CollectionAppClient {
   constructor(
     private readonly config: CollectionAppConfigValues,
@@ -195,6 +185,18 @@ export class CollectionAppClient {
     private readonly fetcher: Fetcher = globalThis.fetch,
     private readonly now: () => number = Date.now,
   ) {}
+
+  requestFingerprintKey(fingerprint: RequestFingerprint): string {
+    return [
+      fingerprint.endpoint,
+      fingerprint.ref ?? '',
+      fingerprint.query,
+      fingerprint.order ?? '',
+      String(fingerprint.pageSize),
+      fingerprint.accept,
+      fingerprint.apiVersion,
+    ].join('\u001f');
+  }
 
   listInstallationRepositories(): Promise<CollectionRepository[]> {
     return this.pages(

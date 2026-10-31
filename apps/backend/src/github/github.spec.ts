@@ -1,7 +1,13 @@
 import {
+  CollectionAppClient,
   RequestFingerprint,
-  requestFingerprintKey,
 } from './collection-app.client';
+import type { CollectionAppConfigValues } from './collection-app.config';
+
+const client = new CollectionAppClient({} as CollectionAppConfigValues, {
+  getToken: () => Promise.resolve('synthetic-token'),
+  clear: () => undefined,
+});
 
 describe('collection-app-frontier', () => {
   const base: RequestFingerprint = {
@@ -16,8 +22,8 @@ describe('collection-app-frontier', () => {
 
   describe('requestFingerprintKey', () => {
     it('produces identical keys for identical fingerprints', () => {
-      expect(requestFingerprintKey(base)).toEqual(
-        requestFingerprintKey({ ...base }),
+      expect(client.requestFingerprintKey(base)).toEqual(
+        client.requestFingerprintKey({ ...base }),
       );
     });
 
@@ -32,14 +38,14 @@ describe('collection-app-frontier', () => {
     ] as const)(
       'differs when %s differs so an ETag is never shared across fingerprints',
       (_field, changed) => {
-        expect(requestFingerprintKey(changed)).not.toEqual(
-          requestFingerprintKey(base),
+        expect(client.requestFingerprintKey(changed)).not.toEqual(
+          client.requestFingerprintKey(base),
         );
       },
     );
 
     it('never embeds a NUL byte (Postgres text columns reject 0x00 unconditionally)', () => {
-      expect(requestFingerprintKey(base)).not.toContain('\u0000');
+      expect(client.requestFingerprintKey(base)).not.toContain('\u0000');
     });
 
     it('does not collide when a field boundary shifts (separator injection safety)', () => {
@@ -53,8 +59,8 @@ describe('collection-app-frontier', () => {
         endpoint: '/repos/o/ra',
         ref: 'bc',
       };
-      expect(requestFingerprintKey(shiftedLeft)).not.toEqual(
-        requestFingerprintKey(shiftedRight),
+      expect(client.requestFingerprintKey(shiftedLeft)).not.toEqual(
+        client.requestFingerprintKey(shiftedRight),
       );
     });
   });
