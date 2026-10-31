@@ -239,6 +239,49 @@ describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
   });
 });
 
+describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () => {
+  it('PRIVATE 기여로 하위 학생이 상위를 역전하고 행이 없는 학생은 그대로다', async () => {
+    const service = new RankingService(repository, new RankingYearService());
+    const summarize = async () =>
+      (await collectCohortItems(service, null)).map((item) => ({
+        githubLogin: item.githubLogin,
+        total: item.total,
+      }));
+
+    const before = await summarize();
+    await prisma.githubUserActivityHistory.create({
+      data: {
+        githubId: 8_961_000_000_002n,
+        githubLogin: `${PREFIX}-student-admin`,
+        year: YEAR,
+        visibility: ActivityVisibility.PRIVATE,
+        commitCount: 10,
+        observedAt: OBSERVED_AT,
+      },
+    });
+    let after: Awaited<ReturnType<typeof summarize>>;
+    try {
+      after = await summarize();
+    } finally {
+      await prisma.githubUserActivityHistory.deleteMany({
+        where: {
+          githubId: 8_961_000_000_002n,
+          visibility: ActivityVisibility.PRIVATE,
+        },
+      });
+    }
+
+    expect(before).toEqual([
+      { githubLogin: `${PREFIX}-student`, total: 11 },
+      { githubLogin: `${PREFIX}-student-admin`, total: 9 },
+    ]);
+    expect(after).toEqual([
+      { githubLogin: `${PREFIX}-student-admin`, total: 19 },
+      { githubLogin: `${PREFIX}-student`, total: 11 },
+    ]);
+  });
+});
+
 async function collectCohortItems(
   service: RankingService,
   githubId: bigint | null,
