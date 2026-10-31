@@ -94,7 +94,7 @@ function stageHrefWithCurrentQuery(
   return `${targetPath}${query ? `?${query}` : ''}`;
 }
 
-function ProgramScopeSidebarNav({
+export function ProgramScopeSidebarNav({
   groups,
   pathname,
   search,

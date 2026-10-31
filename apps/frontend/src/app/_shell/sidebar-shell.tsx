@@ -24,7 +24,7 @@ import { ShellIcon } from './shell-icons';
 
 export const SIDEBAR_ASIDE_ID = 'app-sidebar-aside';
 
-type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
+export type SidebarShellKind = 'app-sidebar' | 'program-scope-sidebar';
 
 const FOOT_SLOT: Readonly<Record<SidebarShellKind, string>> = {
   'app-sidebar': 'app-sidebar-foot',

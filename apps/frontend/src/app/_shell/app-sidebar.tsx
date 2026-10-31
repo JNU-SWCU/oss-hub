@@ -84,7 +84,7 @@ interface AppSidebarNavProps {
   readonly countsPending?: boolean;
 }
 
-function AppSidebarNav({
+export function AppSidebarNav({
   groups,
   pathname,
   search = '',
