@@ -18,4 +18,4 @@ exports[`users response DTO JSON RoleRequestResponseDto rejected 1`] = `"{"reque
 
 exports[`users response DTO JSON RoleSelectionResponseDto 1`] = `"{"selectedRole":"STUDENT","redirectTo":"/onboarding/profile"}"`;
 
-exports[`users response DTO JSON UserProfileResponseDto 1`] = `"{"name":"Octo Cat","studentId":"2026000001","staffNumber":null,"department":"Computer Science","phone":"010-0000-0000","isComplete":true}"`;
+exports[`users response DTO JSON UserProfileResponseDto 1`] = `"{"name":"Octo Cat","studentId":"2026000001","staffNumber":null,"department":"Computer Science","phone":"redacted-synthetic-phone","isComplete":true}"`;

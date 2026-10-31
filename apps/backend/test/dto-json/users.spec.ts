@@ -90,7 +90,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         name: 'Octo Cat',
         studentId: '2026000001',
         department: 'Computer Science',
-        phone: '010-0000-0000',
+        phone: 'redacted-synthetic-phone',
         staffNumber: null,
         isComplete: true,
       }),
