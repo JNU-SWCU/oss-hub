@@ -1,11 +1,17 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { notifyManager } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  renderWithQuery,
+  createTestQueryClient,
+} from '../../../test-support/render-with-query';
+import { programFeatureKey } from '@/lib/query-keys';
 
 import { createReview, getReviewContext, publishRepository } from './api';
 import { SubmissionReviewScreen } from './components/submission-review-screen';
 import type { SubmissionReviewViewProps } from './components/submission-review-view';
 import type { ReviewContext } from './types';
+import { deferred } from './review-screen-test-support';
 
 const reviewView = vi.hoisted(() => ({
   props: null as SubmissionReviewViewProps | null,
@@ -59,29 +65,119 @@ function currentProps(): SubmissionReviewViewProps {
   return reviewView.props;
 }
 
-let root: Root;
-let container: HTMLDivElement;
+let view: Awaited<ReturnType<typeof renderWithQuery>> | undefined;
+let queryClient: ReturnType<typeof createTestQueryClient>;
 async function renderReadyScreen(): Promise<void> {
-  await act(() => {
-    root.render(<SubmissionReviewScreen submissionId="submission-existing" />);
-    return Promise.resolve();
-  });
+  view = await renderWithQuery(
+    <SubmissionReviewScreen
+      programId="program-existing"
+      submissionId="submission-existing"
+    />,
+    { queryClient },
+  );
 }
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+  notifyManager.setScheduler(queueMicrotask);
+  queryClient = createTestQueryClient();
+  view = undefined;
   reviewView.props = null;
   vi.mocked(getReviewContext).mockReset().mockResolvedValue(CONTEXT);
   vi.mocked(createReview).mockReset();
   vi.mocked(publishRepository).mockReset();
 });
 afterEach(async () => {
-  await act(() => Promise.resolve(root.unmount()));
-  container.remove();
+  await view?.unmount();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
   vi.unstubAllGlobals();
+});
+
+it.each(['review', 'publish'] as const)(
+  'refreshes review context and invalidates only its program after %s succeeds',
+  async (writer) => {
+    const ownKey = programFeatureKey('program-existing', 'overview');
+    const otherKey = programFeatureKey('program-other', 'overview');
+    queryClient.setQueryDefaults(['program'], { gcTime: Infinity });
+    queryClient.setQueryData(ownKey, { count: 1 });
+    queryClient.setQueryData(otherKey, { count: 1 });
+    await renderReadyScreen();
+    vi.mocked(getReviewContext).mockResolvedValue({
+      ...CONTEXT,
+      repository: CONTEXT.repository && {
+        ...CONTEXT.repository,
+        visibility: 'PUBLIC',
+      },
+    });
+    vi.mocked(createReview).mockResolvedValue({
+      reviewId: 'review-saved',
+      submissionStatus: 'APPROVED',
+    });
+    vi.mocked(publishRepository).mockResolvedValue({
+      repositoryId: 'repository-ready',
+      visibility: 'PUBLIC',
+      publishedAt: '2026-10-31T00:00:00.000Z',
+    });
+    if (writer === 'review') {
+      await act(() =>
+        Promise.resolve(currentProps().onDecisionChange('APPROVED')),
+      );
+    }
+
+    await act(() =>
+      Promise.resolve(
+        writer === 'review' ? currentProps().onSave() : currentProps().onPublish(),
+      ),
+    );
+
+    expect(getReviewContext).toHaveBeenCalledTimes(2);
+    expect(currentProps().context.repository?.visibility).toBe('PUBLIC');
+    expect(queryClient.getQueryState(ownKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
+  },
+);
+
+it('shares the context request between simultaneous review screens', async () => {
+  view = await renderWithQuery(
+    <>
+      <SubmissionReviewScreen
+        programId="program-existing"
+        submissionId="submission-existing"
+      />
+      <SubmissionReviewScreen
+        programId="program-existing"
+        submissionId="submission-existing"
+      />
+    </>,
+    { queryClient },
+  );
+
+  expect(getReviewContext).toHaveBeenCalledTimes(1);
+  expect(currentProps().context).toEqual(CONTEXT);
+});
+
+it('ignores an earlier refresh and blocks focus refresh while publishing', async () => {
+  await renderReadyScreen();
+  const earlier = deferred<ReviewContext>();
+  const publication = deferred<Awaited<ReturnType<typeof publishRepository>>>();
+  vi.mocked(getReviewContext).mockReturnValueOnce(earlier.promise);
+  await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+  vi.mocked(publishRepository).mockReturnValueOnce(publication.promise);
+
+  await act(() => Promise.resolve(currentProps().onPublish()));
+  await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+  expect(getReviewContext).toHaveBeenCalledTimes(2);
+  await act(() => Promise.resolve(earlier.resolve({
+    ...CONTEXT,
+    currentRevision: { ...CONTEXT.currentRevision, number: 3 },
+  })));
+  expect(currentProps().context.currentRevision.number).toBe(2);
+  await act(() => Promise.resolve(publication.resolve({
+    repositoryId: 'repository-ready',
+    visibility: 'PUBLIC',
+    publishedAt: '2026-10-31T00:00:00.000Z',
+  })));
+  expect(getReviewContext).toHaveBeenCalledTimes(3);
 });
 
 describe('SubmissionReviewScreen 실패 안내 (#354)', () => {

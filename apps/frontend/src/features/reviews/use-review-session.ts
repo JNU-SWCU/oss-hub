@@ -1,77 +1,52 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
-import { createReview, getReviewContext, publishRepository } from './api';
+import { programFeatureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../programs/catalog/queries';
+import { createReview, publishRepository } from './api';
+import { useReviewContextQuery } from './queries';
 import { isReviewConflict } from './review-errors';
 import { reviewFormError } from './review-form';
 import { INITIAL_REVIEW_SESSION, receiveReviewContext } from './review-session';
 import type { ReviewDecision } from './types';
 
-const REVIEW_REFRESH_INTERVAL = 30_000;
-
-export function useReviewSession(submissionId: string) {
+export function useReviewSession(programId: string, submissionId: string) {
   const [session, setSession] = useState(INITIAL_REVIEW_SESSION);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const lifetime = useRef(0);
-  const request = useRef(0);
   const mutationPending = useRef(false);
+  const queryClient = useQueryClient();
+  const query = useReviewContextQuery(programId, submissionId, mutationPending);
+  const { data, refetch, isFetching: isRefreshing, error } = query;
+  const loadError = error
+    ? error instanceof ApiError
+      ? error.problem.detail
+      : '제출 검토 정보를 불러오지 못했습니다.'
+    : null;
+  const load = useCallback(async () => {
+    const result = await refetch();
+    return result.isSuccess;
+  }, [refetch]);
 
-  const load = useCallback(async (): Promise<boolean> => {
-    const currentRequest = ++request.current;
-    const currentLifetime = lifetime.current;
-    const isCurrent = () =>
-      currentRequest === request.current &&
-      currentLifetime === lifetime.current;
-    setIsRefreshing(true);
-    try {
-      const context = await getReviewContext(submissionId);
-      if (!isCurrent()) return false;
-      setSession((previous) => receiveReviewContext(previous, context));
-      setLoadError(null);
-      return true;
-    } catch (error: unknown) {
-      if (!isCurrent()) return false;
-      setLoadError(
-        error instanceof ApiError
-          ? error.problem.detail
-          : '제출 검토 정보를 불러오지 못했습니다.',
-      );
-      return false;
-    } finally {
-      if (isCurrent()) setIsRefreshing(false);
-    }
-  }, [submissionId]);
+  useEffect(() => {
+    if (data) setSession((previous) => receiveReviewContext(previous, data));
+  }, [data]);
 
   const refresh = useCallback(() => {
     if (!mutationPending.current) void load();
   }, [load]);
 
   useEffect(() => {
-    refresh();
-    const refreshVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    const interval = window.setInterval(
-      refreshVisible,
-      REVIEW_REFRESH_INTERVAL,
-    );
-    window.addEventListener('focus', refreshVisible);
-    document.addEventListener('visibilitychange', refreshVisible);
     return () => {
       lifetime.current += 1;
-      request.current += 1;
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshVisible);
-      document.removeEventListener('visibilitychange', refreshVisible);
     };
-  }, [refresh]);
+  }, []);
 
   const invalidateDecision = (needsLatestRevision: boolean) =>
     setSession((previous) => ({
@@ -96,7 +71,6 @@ export function useReviewSession(submissionId: string) {
     const currentLifetime = lifetime.current;
     const isCurrent = () => currentLifetime === lifetime.current;
     mutationPending.current = true;
-    request.current += 1;
     setIsSaving(true);
     setFormError(null);
     setNotice(null);
@@ -108,6 +82,8 @@ export function useReviewSession(submissionId: string) {
       });
       if (!isCurrent()) return;
       invalidateDecision(false);
+      await invalidateProgram(queryClient, programId);
+      if (!isCurrent()) return;
       await load();
       if (!isCurrent()) return;
       setNotice(
@@ -148,13 +124,16 @@ export function useReviewSession(submissionId: string) {
     const currentLifetime = lifetime.current;
     const isCurrent = () => currentLifetime === lifetime.current;
     mutationPending.current = true;
-    request.current += 1;
-    setIsRefreshing(false);
     setIsPublishing(true);
     setPublishError(null);
     setNotice(null);
     try {
+      await queryClient.cancelQueries({
+        queryKey: programFeatureKey(programId, 'review-context', submissionId),
+      });
       await publishRepository(session.context.repository.id);
+      if (!isCurrent()) return;
+      await invalidateProgram(queryClient, programId);
       if (!isCurrent()) return;
       await load();
       if (isCurrent()) setNotice('GitHub 저장소를 공개 전환했습니다.');
