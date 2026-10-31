@@ -31,6 +31,10 @@ const rules = {
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
   'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
   'thin-controller': await load('thin-controller.mjs', 'thinController'),
+  'no-passthrough-factory': await load(
+    'no-passthrough-factory.mjs',
+    'noPassthroughFactory',
+  ),
   'request-dto-no-methods': await load('request-dto-no-methods.mjs', 'requestDtoNoMethods'),
 };
 let current;
@@ -50,14 +54,20 @@ const typedTester = new RuleTester({
     parser: tseslint.parser,
     parserOptions: {
       projectService: {
-        allowDefaultProject: ['src/programs/rule-case.controller.ts'],
+        allowDefaultProject: [
+          'src/programs/rule-case.controller.ts',
+          'src/programs/rule-case.module.ts',
+        ],
         defaultProject: 'tsconfig.json',
       },
       tsconfigRootDir: backendRoot,
     },
   },
 });
-const typedRules = new Set(['controller-explicit-return']);
+const typedRules = new Set([
+  'controller-explicit-return',
+  'no-passthrough-factory',
+]);
 const output = [];
 for (const item of JSON.parse(casesJson)) {
   const test = { code: item.code, filename: path.join(backendRoot, item.filename) };
@@ -984,6 +994,50 @@ for (const [name, body, errors] of [
     controllerFile(),
     `export class ThingsController { ${body} }`,
     [...errors],
+  );
+}
+
+const moduleFile = 'src/programs/rule-case.module.ts';
+const moduleDeclarations =
+  'class A {} class B {} class ThingService { constructor(a: A, b: B) {} } class ThingClient { constructor(a: A, now: () => Date = () => new Date()) {} } ';
+for (const [name, code] of [
+  ['a class provider', 'export const providers = [ThingService];'],
+  [
+    'a factory that leaves a defaulted function argument to the class',
+    'export const providers = [{ provide: ThingClient, inject: [A], useFactory: (a: A) => new ThingClient(a) }];',
+  ],
+  [
+    'a factory that closes over a function argument',
+    'export const providers = [{ provide: ThingClient, inject: [A], useFactory: (a: A) => new ThingClient(a, () => new Date(0)) }];',
+  ],
+  [
+    'a factory that selects an implementation at runtime',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => (a ? new ThingService(a, b) : new ThingService(new A(), b)) }];',
+  ],
+] as const) {
+  valid(
+    'no-passthrough-factory',
+    `allows ${name}`,
+    moduleFile,
+    moduleDeclarations + code,
+  );
+}
+for (const [name, code] of [
+  [
+    'an arrow factory that forwards every constructor argument',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => new ThingService(a, b) }];',
+  ],
+  [
+    'a block factory that forwards every constructor argument',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => { return new ThingService(a, b); } }];',
+  ],
+] as const) {
+  invalid(
+    'no-passthrough-factory',
+    `rejects ${name}`,
+    moduleFile,
+    moduleDeclarations + code,
+    ['passThrough'],
   );
 }
 

@@ -5,7 +5,6 @@ import { MilestoneDocumentSubmissionRepository } from './milestone-document-subm
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
-import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -67,7 +66,6 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import {
   ApplicationPreparationsService,
@@ -121,7 +119,6 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
@@ -131,7 +128,6 @@ import { ProgramRulesService } from './program-rules.service';
 import { ProgramUploadRulesService } from './program-upload-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { SubmissionInputService } from './submission-input.service';
-import { RepositoryUrlService } from '../github/repository-url.service';
 
 @Module({
   imports: [PlatformModule, HttpSecurityModule, GithubModule, UsersModule],
@@ -225,36 +221,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     StudentRepositoryUrlRepository,
     ApplicationsRepository,
     ApplicationJoinCodeService,
-    {
-      provide: ApplicationsService,
-      inject: [
-        ApplicationsRepository,
-        AuditLogService,
-        ApplicationJoinCodeService,
-        AuditLogMetadataService,
-        RepositoryUrlService,
-        ApplicationAnswersService,
-        RepositoryProvisionEventService,
-      ],
-      useFactory: (
-        repository: ApplicationsRepository,
-        auditLog: AuditLogService,
-        joinCodes: ApplicationJoinCodeService,
-        auditLogMetadata: AuditLogMetadataService,
-        repositoryUrl: RepositoryUrlService,
-        answers: ApplicationAnswersService,
-        repositoryProvisionEvents: RepositoryProvisionEventService,
-      ): ApplicationsService =>
-        new ApplicationsService(
-          repository,
-          auditLog,
-          joinCodes,
-          auditLogMetadata,
-          repositoryUrl,
-          answers,
-          repositoryProvisionEvents,
-        ),
-    },
+    ApplicationsService,
     StudentApplicationManagementRepository,
     ReviewHistoryWriterRepository,
     StudentApplicationManagementService,
