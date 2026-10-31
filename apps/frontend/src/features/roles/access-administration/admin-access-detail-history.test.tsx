@@ -78,6 +78,45 @@ async function nextHistoryPage(index: number) {
 }
 
 describe('관리자 상세 이력 조회 복구와 사용자 전환', () => {
+  it.each([0, 2])(
+    '같은 사용자 화면의 공유 이력 요청을 %i번에서 시작하고 하나를 닫아도 남은 화면은 완료된다',
+    async (first) => {
+      const request = Promise.withResolvers<AdminAccessHistory>();
+      vi.mocked(loadAdminAccessDetail).mockResolvedValue({
+        detail: adminDetail(),
+        history: pagedHistory('original-history'),
+      });
+      vi.mocked(fetchAdminAccessHistory).mockReturnValue(request.promise);
+      await root.rerender(
+        <>
+          <AdminAccessDetailScreen key="leaving" userId="target" />
+          <AdminAccessDetailScreen key="survivor" userId="target" />
+        </>,
+      );
+      await nextHistoryPage(first);
+      await nextHistoryPage(first === 0 ? 2 : 0);
+      expect(fetchAdminAccessHistory).toHaveBeenCalledTimes(1);
+
+      await root.rerender(
+        <>
+          <AdminAccessDetailScreen key="survivor" userId="target" />
+        </>,
+      );
+      await act(async () => {
+        request.resolve(pagedHistory('surviving-history', 2));
+        await request.promise;
+      });
+
+      expect(container.textContent).toContain('surviving-history');
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(
+        [...container.querySelectorAll('button')]
+          .filter((button) => button.textContent === '이전')
+          .every((button) => button.disabled),
+      ).toBe(false);
+    },
+  );
+
   it.each(['close', 'switch'])(
     '이력 페이지 요청 중 %s 후 같은 사용자를 다시 열어도 오래된 응답이 덮어쓰지 않는다',
     async (departure) => {
