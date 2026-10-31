@@ -3,6 +3,7 @@ import { isRecord } from '@/lib/is-record';
 import {
   AdminAccessResponseError,
   parseAdminAccessDetail,
+  type AdminAccessListItem,
   type AdminAccessDetail,
   type AdminAccessRole,
 } from './admin-access-api';
@@ -23,10 +24,25 @@ export interface MemberKindMutationRequest extends MemberKindMutationFields {
   readonly expectedHasStaffAccess: boolean;
 }
 
-interface IndependentAuthority {
+export interface IndependentAuthority {
   readonly memberKind: AdminMemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
+}
+
+export type AdminAccessDirectoryItem = AdminAccessListItem & IndependentAuthority;
+
+export function isAdminAccessDirectoryItem(
+  item: AdminAccessListItem,
+): item is AdminAccessDirectoryItem {
+  return (
+    'memberKind' in item &&
+    (item.memberKind === null || isMemberKind(item.memberKind)) &&
+    'hasStaffAccess' in item &&
+    typeof item.hasStaffAccess === 'boolean' &&
+    'hasAdminAccess' in item &&
+    typeof item.hasAdminAccess === 'boolean'
+  );
 }
 
 export type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {

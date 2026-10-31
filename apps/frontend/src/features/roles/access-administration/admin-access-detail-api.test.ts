@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '@/lib/api-client';
 
+import type { AdminAccessListItem } from './admin-access-api';
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import {
   ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
@@ -61,6 +62,24 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
       adminRevokeBlockedReason: null,
       elevatedRoleBlockedReason: null,
     });
+  });
+
+  it('목록 항목의 isProfileComplete로 elevated role 가드를 계산한다', () => {
+    const directoryItem = Object.fromEntries(
+      Object.entries(detail({
+      isProfileComplete: false,
+      profile: {
+        name: '합성 사용자',
+        studentId: '202601',
+        staffNumber: null,
+        department: '인공지능학부',
+        isComplete: false,
+      },
+      })).filter(([key]) => key !== 'profile'),
+    ) as unknown as AdminAccessListItem;
+    expect(deriveAdminAccessGuards(directoryItem).elevatedRoleBlockedReason).toBe(
+      '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
+    );
   });
 
   it('비활성 계정이면 승인만 막힌다', () => {

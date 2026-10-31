@@ -1,7 +1,11 @@
 import { ApiError } from '@/lib/api-client';
 
 import { fetchAdminAccessHistory } from './admin-access-api';
-import type { AdminAccessDetail, AdminAccessHistory } from './admin-access-api';
+import type {
+  AdminAccessDetail,
+  AdminAccessHistory,
+  AdminAccessListItem,
+} from './admin-access-api';
 import {
   fetchCanonicalAdminAccessDetail,
   type CanonicalAdminAccessDetail,
@@ -78,7 +82,7 @@ export interface AdminAccessGuards {
 }
 
 export function deriveAdminAccessGuards(
-  detail: AdminAccessDetail,
+  detail: AdminAccessListItem | AdminAccessDetail,
 ): AdminAccessGuards {
   return {
     controlBlockedReason: detail.pendingRequest
@@ -94,7 +98,9 @@ export function deriveAdminAccessGuards(
     adminRevokeBlockedReason: detail.isSelf
       ? '자기 계정의 관리자 접근은 회수할 수 없습니다.'
       : null,
-    elevatedRoleBlockedReason: detail.profile.isComplete
+    elevatedRoleBlockedReason: (
+      'profile' in detail ? detail.profile.isComplete : detail.isProfileComplete
+    )
       ? null
       : '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
   };
