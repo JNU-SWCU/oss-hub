@@ -4,7 +4,7 @@ import {
 } from './program-error-code.error';
 
 describe('Program editor error contract', () => {
-  it('documents ADR-stable frontend-facing error codes and statuses', () => {
+  it('documents stable frontend-facing error codes and statuses', () => {
     expect(
       PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
     ).toMatchObject({

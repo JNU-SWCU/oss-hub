@@ -298,7 +298,7 @@ describe('program edit API', () => {
     expect(form.name).toBe('작성 중');
   });
 
-  it('pins ADR-stable program editor error codes and detects submission conflicts', () => {
+  it('pins stable program editor error codes and detects submission conflicts', () => {
     expect(PROGRAM_EDIT_ERROR_CODES).toMatchObject({
       STAFF_APPROVAL_REQUIRED: 'PRG_003',
       INVALID_APPLICATION_PERIOD: 'PRG_007',

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 
 import { Prisma } from '@prisma/client';
 
-describe('수집 편입 큐 계약 (ADR-010 §6)', () => {
+describe('수집 편입 큐 계약', () => {
   const model = Prisma.dmmf.datamodel.models.find(
     (candidate) => candidate.name === 'GithubRepository',
   );
@@ -68,7 +68,7 @@ describe('수집 편입 큐 계약 (ADR-010 §6)', () => {
   });
 });
 
-describe('Contribution 입자 계약 (ADR-010 §4)', () => {
+describe('Contribution 입자 계약', () => {
   const model = Prisma.dmmf.datamodel.models.find(
     (candidate) => candidate.name === 'Contribution',
   );
