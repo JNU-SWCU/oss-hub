@@ -18,6 +18,10 @@ import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.serv
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { UserProfileService } from '../src/platform/user-profile.service';
 import { AuthSessionService } from '../src/auth/auth-session.service';
+import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
+import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
+import { CollectionDiscoveryClient } from '../src/github/collection-discovery.client';
+import { CollectionPublicTokenService } from '../src/github/collection-providers.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -51,6 +55,13 @@ describe('accountStatus migration regression', () => {
     new AuthRepository(prisma, authConfig),
     new UserProfileService(),
     new AuthSessionService(),
+    new CollectionUserActivityService(
+      new CollectionUserActivityRepository(prisma),
+      new CollectionDiscoveryClient(
+        {},
+        new CollectionPublicTokenService(loadRuntimeConfig({})),
+      ),
+    ),
   );
 
   const rolesService = new MemberOnboardingService(

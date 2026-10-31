@@ -37,6 +37,63 @@ export class CollectionUserActivityService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
+  async observePrivate(
+    accessToken: string,
+    githubId: bigint,
+    githubLogin: string,
+  ): Promise<void> {
+    try {
+      const startedAt = this.now();
+      const year = seoulYearOf(startedAt);
+      const from = seoulYearStart(year).toISOString();
+      const to = startedAt.toISOString();
+      const userClient = new CollectionDiscoveryClient(
+        {},
+        {
+          getToken: () =>
+            accessToken
+              ? Promise.resolve(accessToken)
+              : Promise.reject(new CollectionDiscoveryClientError('AUTH')),
+          clear: () => {
+            accessToken = '';
+          },
+        },
+      );
+      const [user, service] = await Promise.all([
+        userClient.fetchUserActivityMetrics(githubLogin, from, to),
+        this.discoveryClient.fetchUserActivityMetrics(githubLogin, from, to),
+      ]);
+      accessToken = '';
+      const observation: CollectionUserActivityObservationInput = {
+        githubId,
+        githubLogin,
+        year,
+        commitCount: Math.max(0, user.commitCount - service.commitCount),
+        pullRequestCount: Math.max(
+          0,
+          user.pullRequestCount - service.pullRequestCount,
+        ),
+        issueCount: Math.max(0, user.issueCount - service.issueCount),
+        repositoryCount: Math.max(
+          0,
+          user.repositoryCount - service.repositoryCount,
+        ),
+        starCount: 0,
+        observedAt: this.now(),
+      };
+      await this.repository.upsertPrivateObservation(observation);
+    } catch (error) {
+      this.logger.warn({
+        kind:
+          error instanceof CollectionDiscoveryClientError
+            ? error.kind
+            : 'UNKNOWN',
+      });
+    } finally {
+      accessToken = '';
+    }
+  }
+
   run(years?: readonly number[]): Promise<CollectionUserActivitySweepResult> {
     if (this.inFlightRun !== null) {
       return this.inFlightRun;

@@ -9,8 +9,10 @@ import { AuthController } from './auth.controller';
 import { OriginGuard } from './origin.guard';
 import { SessionGuard } from './session.guard';
 import { AuthSessionService } from './auth-session.service';
+import { CollectionUserActivityModule } from '../github/collection-user-activity.module';
 
 @Module({
+  imports: [CollectionUserActivityModule],
   controllers: [AuthController, LoginHistoryController],
   providers: [
     AuthConfig,
