@@ -14,10 +14,17 @@ import {
 } from '../../src/programs/dto/create-submission-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from '../../src/programs/dto/program-document-change-request-targets-request.dto';
 import { UpdateStudentRepositoryUrlRequestDto } from '../../src/programs/dto/update-student-repository-url-request.dto';
+import { RankingRequestDto } from '../../src/ranking/dto/ranking-request.dto';
+import { resolveRankingQueryYear } from '../../src/ranking/ranking.service';
 import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from '../../src/ranking/dto/ranking-request.dto';
+  parseMilestoneDocumentContent,
+  toProgramDocumentChangeRequestInput,
+  toProgramDocumentChangeRequestScope,
+} from '../../src/programs/milestone-documents.service';
+import {
+  toCreateSubmissionInput,
+  toResubmitSubmissionInput,
+} from '../../src/programs/submissions.service';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
@@ -338,7 +345,7 @@ parityCases(
       content: 'x',
     },
   },
-  (dto) => dto.toInput(),
+  toCreateSubmissionInput,
 );
 parityCases(
   CreateResubmissionRequestDto,
@@ -352,7 +359,7 @@ parityCases(
     'bad revision': { baseRevision: 0, content: { type: 'TEXT', text: 'x' } },
     missing: {},
   },
-  (dto) => dto.toInput(),
+  toResubmitSubmissionInput,
 );
 parityCases(
   CreateMilestoneDocumentSubmissionRequestDto,
@@ -365,7 +372,7 @@ parityCases(
     missing: {},
     'long file id': { content: { fileId: 'f'.repeat(129) } },
   },
-  (dto) => dto.toInput(),
+  (dto) => parseMilestoneDocumentContent(dto.content),
 );
 const CHANGE_REQUEST_BASE = {
   scope: 'PROGRAM',
@@ -392,7 +399,7 @@ parityCases(
     'bad scope': { ...CHANGE_REQUEST_BASE, scope: 'NOPE' },
     missing: {},
   },
-  (dto) => dto.toInput(),
+  toProgramDocumentChangeRequestInput,
 );
 parityCases(
   ProgramDocumentChangeRequestTargetsRequestDto,
@@ -404,5 +411,5 @@ parityCases(
     'bad scope': { scope: 'NOPE' },
     missing: {},
   },
-  (dto) => dto.toScope(),
+  (dto) => toProgramDocumentChangeRequestScope(dto.scope, dto.teamId),
 );

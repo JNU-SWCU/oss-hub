@@ -10,6 +10,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  toProgramDocumentChangeRequestInput,
+  toProgramDocumentChangeRequestScope,
+} from './milestone-documents.service';
 import { OriginGuard } from '../auth/origin.guard';
 import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
@@ -39,7 +43,7 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.targets(
         request.sessionGithubId,
         programId,
-        query.toScope(),
+        toProgramDocumentChangeRequestScope(query.scope, query.teamId),
       ),
     );
   }
@@ -56,7 +60,7 @@ export class ProgramDocumentChangeRequestsController {
       await this.changeRequests.requestChanges(
         request.sessionGithubId,
         programId,
-        body.toInput(),
+        toProgramDocumentChangeRequestInput(body),
       ),
     );
   }

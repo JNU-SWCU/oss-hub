@@ -135,6 +135,32 @@ export function parseSubmissionContent(input: {
   }
 }
 
+export function toCreateSubmissionInput(body: {
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly content: Parameters<typeof parseSubmissionContent>[0];
+  readonly comment?: string;
+}): CreateSubmissionInput {
+  return {
+    applicationId: body.applicationId,
+    milestoneId: body.milestoneId,
+    content: parseSubmissionContent(body.content),
+    comment: body.comment?.trim() || null,
+  };
+}
+
+export function toResubmitSubmissionInput(body: {
+  readonly baseRevision: number;
+  readonly content: Parameters<typeof parseSubmissionContent>[0];
+  readonly comment?: string;
+}): ResubmitSubmissionInput {
+  return {
+    baseRevision: body.baseRevision,
+    content: parseSubmissionContent(body.content),
+    comment: body.comment?.trim() || null,
+  };
+}
+
 function contentRequired(): DomainException {
   return new DomainException(
     SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.CONTENT_REQUIRED],

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { RankingRepository } from './ranking.repository';
 
@@ -97,6 +97,34 @@ export function resolveRankingYearFromQuery(
   }
   if (period === LEGACY_RANKING_PERIODS.ALL) return RANKING_YEAR_ALL;
   return rankingYearInAsiaSeoul(now);
+}
+
+export function resolveRankingQueryYear(
+  query: {
+    readonly year?: string;
+    readonly period?: LegacyRankingPeriod;
+  },
+  now: Date = new Date(),
+): RankingYear {
+  return resolveRankingYearFromQuery(
+    parseYearParam(query.year),
+    query.period,
+    now,
+  );
+}
+
+function parseYearParam(raw: string | undefined): RankingYear | undefined {
+  if (raw === undefined || raw === '') return undefined;
+  if (raw.toLowerCase() === RANKING_YEAR_ALL) return RANKING_YEAR_ALL;
+  const year = Number(raw);
+  if (!Number.isInteger(year)) return undefined;
+
+  if (year < RANKING_YEAR_MIN || year > RANKING_YEAR_MAX) {
+    throw new BadRequestException(
+      `year must be "${RANKING_YEAR_ALL}" or an integer between ${RANKING_YEAR_MIN} and ${RANKING_YEAR_MAX}`,
+    );
+  }
+  return year;
 }
 
 interface RankedPublicEntry extends RankingEntry {

@@ -37,6 +37,7 @@ import {
   DocumentDeliveryStatus,
   MilestoneDocumentContentInput,
   ProgramDocumentChangeRequestCandidate,
+  ProgramDocumentChangeRequestInput,
   ProgramDocumentChangeRequestScope,
   type MilestoneDocumentSubmissionDetail,
   type UpsertMilestoneDocumentInput,
@@ -169,6 +170,39 @@ export function toProgramDocumentChangeRequestScope(
       MilestoneDocumentsErrorCode.INVALID_REQUEST
     ],
   );
+}
+
+export function toProgramDocumentChangeRequestInput(body: {
+  readonly scope: ProgramDocumentChangeRequestScope['kind'];
+  readonly teamId?: string | null;
+  readonly includeFinalDecisions: boolean;
+  readonly comment: string;
+  readonly resubmissionDueAt: string;
+  readonly expectedVersion: string;
+}): ProgramDocumentChangeRequestInput {
+  const comment = body.comment.trim();
+  if (comment === '') {
+    throw new DomainException(
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED
+      ],
+    );
+  }
+  const resubmissionDueAt = new Date(body.resubmissionDueAt);
+  if (Number.isNaN(resubmissionDueAt.getTime())) {
+    throw new DomainException(
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED
+      ],
+    );
+  }
+  return {
+    scope: toProgramDocumentChangeRequestScope(body.scope, body.teamId),
+    includeFinalDecisions: body.includeFinalDecisions,
+    comment,
+    resubmissionDueAt,
+    expectedVersion: body.expectedVersion,
+  };
 }
 
 export const MILESTONE_DOCUMENT_COLLECTION_FILTERS = [

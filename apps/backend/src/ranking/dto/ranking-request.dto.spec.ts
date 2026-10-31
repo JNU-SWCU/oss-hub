@@ -1,12 +1,10 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from './ranking-request.dto';
+import { RankingRequestDto } from './ranking-request.dto';
 import {
   LEGACY_RANKING_PERIODS,
+  resolveRankingQueryYear,
   RANKING_YEAR_ALL,
   RANKING_YEAR_MAX,
   RANKING_YEAR_MIN,

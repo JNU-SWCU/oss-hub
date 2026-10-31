@@ -1,9 +1,32 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { AccountStatus, AffiliationKind, ApplicationStatus, MemberKind, MilestoneDocumentKind, MilestoneDocumentSubmissionHistoryEvent, MilestoneSubmissionType, ProgramCategory, RepositoryProvisionJobStatus, RepositoryVisibility, ReviewDecision, StaffAccessRequestStatus, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  ApplicationStatus,
+  MemberKind,
+  MilestoneDocumentKind,
+  MilestoneDocumentSubmissionHistoryEvent,
+  MilestoneSubmissionType,
+  ProgramCategory,
+  RepositoryProvisionJobStatus,
+  RepositoryVisibility,
+  ReviewDecision,
+  StaffAccessRequestStatus,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import { prisma, seedGithubId, seedId, SeedStats, upsertSeedUser } from './seeds/helpers';
-import { resolveJoinCodeSecret, computeJoinCodeDigest } from '../src/platform/join-code-secret.config';
+import {
+  prisma,
+  seedGithubId,
+  seedId,
+  SeedStats,
+  upsertSeedUser,
+} from './seeds/helpers';
+import {
+  resolveJoinCodeSecret,
+  computeJoinCodeDigest,
+} from '../src/platform/join-code-secret.config';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';

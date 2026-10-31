@@ -50,7 +50,10 @@ import {
 } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import {
+  MilestoneDocumentsService,
+  parseMilestoneDocumentContent,
+} from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -275,7 +278,12 @@ export class MilestoneDocumentsController {
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
     return this.service
-      .submit(request.sessionGithubId, milestoneId, documentId, body.toInput())
+      .submit(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        parseMilestoneDocumentContent(body.content),
+      )
       .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
   }
 

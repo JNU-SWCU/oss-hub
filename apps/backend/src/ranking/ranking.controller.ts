@@ -5,15 +5,16 @@ import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
-import {
-  RankingRequestDto,
-  resolveRankingQueryYear,
-} from './dto/ranking-request.dto';
+import { RankingRequestDto } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from './dto/ranking-page-response.dto';
-import { RankingService, RANKING_VIEWER_CLASSES } from './ranking.service';
+import {
+  RankingService,
+  RANKING_VIEWER_CLASSES,
+  resolveRankingQueryYear,
+} from './ranking.service';
 import { OptionalSession, Public } from '../auth/authentication.guard';
 
 @Controller('ranking')
