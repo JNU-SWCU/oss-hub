@@ -26,7 +26,7 @@ export class OnboardingController {
     @Inject(MemberOnboardingService)
     private readonly rolesService: Pick<
       MemberOnboardingService,
-      'selectMemberKind' | 'getMySelection'
+      'selectMemberKind' | 'getMySelection' | 'memberKindFromRequest'
     >,
   ) {}
 
@@ -49,7 +49,7 @@ export class OnboardingController {
   ): Promise<RoleSelectionResponseDto> {
     const result = await this.rolesService.selectMemberKind(
       request.sessionGithubId,
-      body.toMemberKind(),
+      this.rolesService.memberKindFromRequest(body),
     );
     return RoleSelectionResponseDto.from(result);
   }

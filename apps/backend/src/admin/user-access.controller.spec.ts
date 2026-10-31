@@ -14,10 +14,11 @@ import { UserAccessController } from './user-access.controller';
 import { AdminAccessService } from '../users/admin-access.service';
 import type { AdminProfileService } from '../users/admin-profile.service';
 import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
-import type { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
+import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
 import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
-import type { IndependentAuthorityService } from '../users/independent-authority.service';
+import { IndependentAuthorityService } from '../users/independent-authority.service';
+import { MemberKindService } from '../users/member-kind.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from '../platform/user-profile.service';
@@ -83,8 +84,8 @@ describe('admin-access.controller', () => {
         const controller = new UserAccessController(
           service,
           profileService,
-          { patchAdminAccess: jest.fn() },
-          { patchMemberKind: jest.fn() },
+          authorityServiceHarness(),
+          memberKindServiceHarness(),
           new AdminAccessMutationService(
             new AuditLogMetadataService(),
             new UserProfileService(),
@@ -113,8 +114,8 @@ describe('admin-access.controller', () => {
       const controller = new UserAccessController(
         service,
         profileService,
-        { patchAdminAccess: jest.fn() },
-        { patchMemberKind: jest.fn() },
+        authorityServiceHarness(),
+        memberKindServiceHarness(),
         new AdminAccessMutationService(
           new AuditLogMetadataService(),
           new UserProfileService(),
@@ -127,7 +128,7 @@ describe('admin-access.controller', () => {
         desiredAccountStatus: AccountStatus.ACTIVE,
         expectedPendingRequest: null,
       } as const;
-      const body = { toCommand: () => command } as PatchAdminAccessRequestDto;
+      const body = Object.assign(new PatchAdminAccessRequestDto(), command);
 
       await controller.patchAccess(REQUEST, 'target-user', body);
 
@@ -144,8 +145,8 @@ describe('admin-access.controller', () => {
       const controller = new UserAccessController(
         service,
         profileService,
-        { patchAdminAccess: jest.fn() },
-        { patchMemberKind: jest.fn() },
+        authorityServiceHarness(),
+        memberKindServiceHarness(),
         new AdminAccessMutationService(
           new AuditLogMetadataService(),
           new UserProfileService(),
@@ -175,8 +176,8 @@ describe('admin-access.controller', () => {
       const controller = new UserAccessController(
         service,
         profileService,
-        { patchAdminAccess: jest.fn() },
-        { patchMemberKind: jest.fn() },
+        authorityServiceHarness(),
+        memberKindServiceHarness(),
         new AdminAccessMutationService(
           new AuditLogMetadataService(),
           new UserProfileService(),
@@ -200,8 +201,8 @@ describe('admin-access.controller', () => {
       const controller = new UserAccessController(
         service,
         profileService,
-        { patchAdminAccess: jest.fn() },
-        { patchMemberKind: jest.fn() },
+        authorityServiceHarness(),
+        memberKindServiceHarness(),
         new AdminAccessMutationService(
           new AuditLogMetadataService(),
           new UserProfileService(),
@@ -227,8 +228,8 @@ describe('admin-access.controller', () => {
         const controller = new UserAccessController(
           service,
           profileService,
-          { patchAdminAccess: jest.fn() },
-          { patchMemberKind: jest.fn() },
+          authorityServiceHarness(),
+          memberKindServiceHarness(),
           new AdminAccessMutationService(
             new AuditLogMetadataService(),
             new UserProfileService(),
@@ -316,14 +317,14 @@ describe('independent-authority.controller', () => {
   );
 
   it('delegates the typed admin command', async () => {
-    const service = {
+    const service = Object.assign(authorityServiceHarness(), {
       patchAdminAccess: jest.fn().mockResolvedValue(result()),
-    } satisfies Pick<IndependentAuthorityService, 'patchAdminAccess'>;
+    });
     const controller = new UserAccessController(
       { list: jest.fn(), facets: jest.fn(), patchAccess: jest.fn() },
       { patchProfile: jest.fn() },
       service,
-      { patchMemberKind: jest.fn() },
+      memberKindServiceHarness(),
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),
@@ -352,3 +353,19 @@ describe('independent-authority.controller', () => {
     };
   }
 });
+
+function authorityServiceHarness() {
+  return Object.assign(
+    Object.create(
+      IndependentAuthorityService.prototype,
+    ) as IndependentAuthorityService,
+    { patchAdminAccess: jest.fn() },
+  );
+}
+
+function memberKindServiceHarness() {
+  return Object.assign(
+    Object.create(MemberKindService.prototype) as MemberKindService,
+    { patchMemberKind: jest.fn() },
+  );
+}

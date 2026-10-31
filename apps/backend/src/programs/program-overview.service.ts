@@ -226,18 +226,17 @@ export class ProgramOverviewService {
     }
 
     const [fullySubmittedParticipantCount, catalog] = await Promise.all([
-      this.repository.countFullySubmittedParticipants(
+      this.countFullySubmittedParticipants(
         programId,
         milestone.requiredDocumentIds,
       ),
       this.repository.findMilestoneDocumentCatalog(programId),
     ]);
     const withDocuments = documentedCatalog(catalog);
-    const completedByMilestone =
-      await this.repository.countFullySubmittedTeamsByMilestone(
-        programId,
-        withDocuments,
-      );
+    const completedByMilestone = await this.countFullySubmittedTeamsByMilestone(
+      programId,
+      withDocuments,
+    );
 
     return {
       role,
@@ -252,5 +251,114 @@ export class ProgramOverviewService {
         total: teamCount,
       })),
     };
+  }
+
+  private async countFullySubmittedParticipants(
+    programId: string,
+    requiredDocumentIds: string[],
+  ): Promise<number> {
+    const applications =
+      await this.repository.findProgramApplications(programId);
+    if (applications.length === 0) {
+      return 0;
+    }
+    const submitted = await this.submittedDocumentIdsByApplication(
+      applications,
+      requiredDocumentIds,
+    );
+    const memberCountByTeam = await this.repository.countTeamMembers(
+      programId,
+      applications
+        .map((application) => application.teamId)
+        .filter((teamId): teamId is string => teamId !== null),
+    );
+    return applications
+      .filter((application) =>
+        this.hasAllRequiredDocuments(
+          submitted.get(application.id),
+          requiredDocumentIds,
+        ),
+      )
+      .reduce(
+        (total, application) =>
+          total +
+          (application.teamId
+            ? (memberCountByTeam.get(application.teamId) ?? 0)
+            : 1),
+        0,
+      );
+  }
+
+  private async countFullySubmittedTeamsByMilestone(
+    programId: string,
+    milestones: readonly {
+      milestoneId: string;
+      requiredDocumentIds: string[];
+    }[],
+  ): Promise<Map<string, number>> {
+    if (milestones.length === 0) {
+      return new Map();
+    }
+    const applications =
+      await this.repository.findProgramApplications(programId);
+    if (applications.length === 0) {
+      return new Map(milestones.map((milestone) => [milestone.milestoneId, 0]));
+    }
+    const submitted = await this.submittedDocumentIdsByApplication(
+      applications,
+      [
+        ...new Set(
+          milestones.flatMap((milestone) => milestone.requiredDocumentIds),
+        ),
+      ],
+    );
+    const result = new Map<string, number>();
+    for (const milestone of milestones) {
+      const completedTeamIds = new Set<string>();
+      for (const application of applications) {
+        if (
+          this.hasAllRequiredDocuments(
+            submitted.get(application.id),
+            milestone.requiredDocumentIds,
+          )
+        ) {
+          completedTeamIds.add(
+            application.teamId ?? `application:${application.id}`,
+          );
+        }
+      }
+      result.set(milestone.milestoneId, completedTeamIds.size);
+    }
+    return result;
+  }
+
+  private async submittedDocumentIdsByApplication(
+    applications: readonly { readonly id: string }[],
+    documentIds: readonly string[],
+  ): Promise<Map<string, Set<string>>> {
+    const rows = await this.repository.findSubmittedDocumentPairs(
+      applications.map((application) => application.id),
+      [...new Set(documentIds)],
+    );
+    const byApplication = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const set = byApplication.get(row.applicationId) ?? new Set<string>();
+      set.add(row.milestoneDocumentId);
+      byApplication.set(row.applicationId, set);
+    }
+    return byApplication;
+  }
+
+  private hasAllRequiredDocuments(
+    submitted: Set<string> | undefined,
+    requiredDocumentIds: readonly string[],
+  ): boolean {
+    if (requiredDocumentIds.length === 0) {
+      return true;
+    }
+    if (!submitted) {
+      return false;
+    }
+    return requiredDocumentIds.every((documentId) => submitted.has(documentId));
   }
 }

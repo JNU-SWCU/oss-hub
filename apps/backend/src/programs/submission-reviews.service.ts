@@ -71,6 +71,46 @@ export class SubmissionReviewsService {
     private readonly submissionFileRulesService: SubmissionFileRulesService,
   ) {}
 
+  reviewInputFromRequest(request: {
+    readonly revision: number;
+    readonly decision: ReviewDecision;
+    readonly comment?: string;
+  }): CreateSubmissionReviewInput {
+    const comment = request.comment?.trim() || null;
+    switch (request.decision) {
+      case ReviewDecision.APPROVED:
+        return {
+          revision: request.revision,
+          decision: request.decision,
+          comment,
+        };
+      case ReviewDecision.CHANGES_REQUESTED:
+      case ReviewDecision.REJECTED:
+        if (comment === null) {
+          throw new DomainException(
+            SUBMISSION_REVIEWS_ERROR_CODES[
+              SubmissionReviewsErrorCode.COMMENT_REQUIRED
+            ],
+          );
+        }
+        return {
+          revision: request.revision,
+          decision: request.decision,
+          comment,
+        };
+    }
+  }
+
+  assertPublishConfirmed(request: { readonly isConfirmed: boolean }): void {
+    if (request.isConfirmed !== true) {
+      throw new DomainException(
+        SUBMISSION_REVIEWS_ERROR_CODES[
+          SubmissionReviewsErrorCode.PUBLISH_CONFIRMATION_REQUIRED
+        ],
+      );
+    }
+  }
+
   async context(
     submissionId: string,
     actorGithubId: bigint,

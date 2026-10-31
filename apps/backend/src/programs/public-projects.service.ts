@@ -13,7 +13,11 @@ import {
   type PublicProjectCursor,
   type PublicEligibilityInput,
 } from './public-projects.repository';
-import { PublicProjectApplicationMode } from './public-projects.config';
+import {
+  PublicProjectApplicationMode,
+  PUBLIC_PROJECT_YEAR_MAX,
+  PUBLIC_PROJECT_YEAR_MIN,
+} from './public-projects.config';
 import type { RuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { PublicProjectCursorSecretError } from './public-project-cursor.error';
@@ -104,6 +108,25 @@ export interface PublicEligibilityCandidate {
   readonly publishedAt: Date;
 }
 
+export interface ProgramRepositoryCumulativeMetrics {
+  readonly repositoryId: bigint;
+  readonly dataAsOf: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly hasCollectedData: boolean;
+}
+
+export interface ProgramContributorCumulativeMetrics {
+  readonly repositoryId: bigint;
+  readonly githubUserId: bigint;
+  readonly githubLogin: string;
+  readonly dataAsOf: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+}
+
 @Injectable()
 export class PublicEligibilityService {
   constructor(private readonly metrics: PublicEligibilityRepository) {}
@@ -126,11 +149,9 @@ export class PublicEligibilityService {
   ): Promise<ReadonlySet<bigint>> {
     if (candidates.length === 0) return new Set();
 
-    const metrics = await this.metrics.getRepositoryMetrics({
-      repositoryIds: candidates.map(
-        (candidate) => candidate.githubRepositoryId,
-      ),
-    });
+    const metrics = await this.metrics.findRepositoryObservations(
+      candidates.map((candidate) => candidate.githubRepositoryId),
+    );
     const observationByRepositoryId = new Map(
       metrics.map((metric) => [metric.repositoryId, metric]),
     );
@@ -187,6 +208,14 @@ export class PublicProjectsService {
       pageId === undefined
         ? null
         : this.decodePublicProjectCursor(pageId, this.cursorKey);
+    if (
+      year !== undefined &&
+      (year < PUBLIC_PROJECT_YEAR_MIN || year > PUBLIC_PROJECT_YEAR_MAX)
+    ) {
+      throw new RangeError(
+        `year must be between ${PUBLIC_PROJECT_YEAR_MIN} and ${PUBLIC_PROJECT_YEAR_MAX}`,
+      );
+    }
     const rows = await this.repository.listPage(cursor, pageSize + 1, year);
     const hasMore = rows.length > pageSize;
     const pageRows = rows.slice(0, pageSize);
@@ -235,12 +264,8 @@ export class PublicProjectsService {
     }
 
     const [metricsRows, contributorRows] = await Promise.all([
-      this.metrics.getRepositoryCumulativeMetrics({
-        repositoryIds: [row.githubRepositoryId],
-      }),
-      this.metrics.getContributorCumulativeMetrics({
-        repositoryIds: [row.githubRepositoryId],
-      }),
+      this.repositoryCumulativeMetrics([row.githubRepositoryId]),
+      this.contributorCumulativeMetrics([row.githubRepositoryId]),
     ]);
     const metric = metricsRows[0];
 
@@ -292,8 +317,8 @@ export class PublicProjectsService {
 
     const repositoryIds = projects.map((project) => project.githubRepositoryId);
     const [repositoryMetricsRows, contributorRows] = await Promise.all([
-      this.metrics.getRepositoryCumulativeMetrics({ repositoryIds }),
-      this.metrics.getContributorCumulativeMetrics({ repositoryIds }),
+      this.repositoryCumulativeMetrics(repositoryIds),
+      this.contributorCumulativeMetrics(repositoryIds),
     ]);
 
     const observedByRepository = new Map(
@@ -476,5 +501,78 @@ export class PublicProjectsService {
   }): string {
     if (row.teamMemberCount > 1 && row.teamName) return row.teamName;
     return row.applicantNickname;
+  }
+
+  private async repositoryCumulativeMetrics(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly ProgramRepositoryCumulativeMetrics[]> {
+    if (repositoryIds.length === 0) return [];
+    const repositories =
+      await this.metrics.findRepositoryContributionRows(repositoryIds);
+    return repositories.map((repository) => {
+      const dataAsOf = repository.contributions.reduce<Date | null>(
+        (latest, aggregate) =>
+          latest === null || aggregate.updatedAt > latest
+            ? aggregate.updatedAt
+            : latest,
+        null,
+      );
+      return {
+        repositoryId: repository.repositoryId,
+        dataAsOf: dataAsOf ?? repository.inventoryObservedAt ?? new Date(),
+        hasCollectedData: repository.inventoryObservedAt !== null,
+        commitCount: repository.contributions.reduce(
+          (sum, aggregate) => sum + aggregate.commitCount,
+          0,
+        ),
+        pullRequestCount: repository.contributions.reduce(
+          (sum, aggregate) => sum + aggregate.pullRequestCount,
+          0,
+        ),
+        releaseCount: repository.contributions.reduce(
+          (sum, aggregate) => sum + aggregate.releaseCount,
+          0,
+        ),
+      };
+    });
+  }
+
+  private async contributorCumulativeMetrics(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly ProgramContributorCumulativeMetrics[]> {
+    if (repositoryIds.length === 0) return [];
+    const rows =
+      await this.metrics.findContributorContributionRows(repositoryIds);
+    const byContributor = new Map<
+      string,
+      Omit<ProgramContributorCumulativeMetrics, 'githubLogin'>
+    >();
+    for (const row of rows) {
+      const key = `${row.repositoryId.toString()}:${row.githubUserId.toString()}`;
+      const current = byContributor.get(key);
+      byContributor.set(key, {
+        repositoryId: row.repositoryId,
+        githubUserId: row.githubUserId,
+        dataAsOf:
+          current === undefined || row.updatedAt > current.dataAsOf
+            ? row.updatedAt
+            : current.dataAsOf,
+        commitCount: (current?.commitCount ?? 0) + row.commitCount,
+        pullRequestCount:
+          (current?.pullRequestCount ?? 0) + row.pullRequestCount,
+        releaseCount: (current?.releaseCount ?? 0) + row.releaseCount,
+      });
+    }
+    const contributors = [...byContributor.values()].filter(
+      (entry) =>
+        entry.commitCount + entry.pullRequestCount + entry.releaseCount > 0,
+    );
+    const logins = await this.metrics.findGithubLogins(
+      contributors.map((entry) => entry.githubUserId),
+    );
+    return contributors.map((entry) => ({
+      ...entry,
+      githubLogin: logins.get(entry.githubUserId) ?? '',
+    }));
   }
 }

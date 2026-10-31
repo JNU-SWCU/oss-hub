@@ -24,7 +24,10 @@ export class UsersController {
     @Inject(UsersService)
     private readonly usersService: Pick<
       UsersService,
-      'getMyProfile' | 'completeMyProfile' | 'patchMyProfile'
+      | 'getMyProfile'
+      | 'completeMyProfile'
+      | 'patchMyProfile'
+      | 'profileInputFromRequest'
     >,
   ) {}
 
@@ -48,7 +51,7 @@ export class UsersController {
     return UserProfileResponseDto.from(
       await this.usersService.completeMyProfile(
         request.sessionGithubId,
-        body.toInput(),
+        this.usersService.profileInputFromRequest(body),
       ),
     );
   }
@@ -62,7 +65,7 @@ export class UsersController {
     return UserProfileResponseDto.from(
       await this.usersService.patchMyProfile(
         request.sessionGithubId,
-        body.toInput(),
+        this.usersService.profileInputFromRequest(body),
       ),
     );
   }

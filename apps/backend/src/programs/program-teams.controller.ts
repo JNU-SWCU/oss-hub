@@ -47,6 +47,7 @@ export class ProgramTeamsController {
       | 'getForStaff'
       | 'getActivity'
       | 'getRepositoryUrlHistory'
+      | 'repositoryUrlHistoryCursorFromRequest'
       | 'rename'
       | 'deleteForStaff'
       | 'removeMemberForStaff'
@@ -143,7 +144,7 @@ export class ProgramTeamsController {
         request.sessionGithubId,
         programId,
         teamId,
-        query.toCursor(),
+        this.service.repositoryUrlHistoryCursorFromRequest(query),
       ),
     );
   }

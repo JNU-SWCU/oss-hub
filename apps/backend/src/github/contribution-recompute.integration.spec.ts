@@ -359,7 +359,10 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
   it('실패는 차례를 뒤로 밀고 성공은 즉시 되돌린다', async () => {
     const at = new Date('2026-05-01T00:00:00.000Z');
 
-    await repository.recordRepositoryFailure(QUEUE_GITHUB_ID, at);
+    await repository.recordRepositoryFailure(
+      QUEUE_GITHUB_ID,
+      (failureCount) => new Date(at.getTime() + failureCount * 60_000),
+    );
     const failed = await prisma.githubRepository.findUniqueOrThrow({
       where: { githubRepositoryId: QUEUE_GITHUB_ID },
       select: { nextRunAt: true, failureCount: true },
@@ -368,7 +371,10 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
 
     expect(failed.nextRunAt.getTime()).toBeGreaterThan(at.getTime());
 
-    await repository.recordRepositoryFailure(QUEUE_GITHUB_ID, at);
+    await repository.recordRepositoryFailure(
+      QUEUE_GITHUB_ID,
+      (failureCount) => new Date(at.getTime() + failureCount * 60_000),
+    );
     const twice = await prisma.githubRepository.findUniqueOrThrow({
       where: { githubRepositoryId: QUEUE_GITHUB_ID },
       select: { nextRunAt: true, failureCount: true },

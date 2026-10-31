@@ -49,24 +49,29 @@ beforeAll(async () => {
       },
       {
         provide: MilestoneDocumentArchiveService,
-        useValue: {
-          archiveForProgramStaff: async (
-            sessionGithubId: bigint,
-            programId: string,
-            scope: ProgramDocumentArchiveScope,
-          ) => {
-            await authority.assertActiveStaff(
-              sessionGithubId,
-              () =>
-                new DomainException(
-                  MILESTONE_DOCUMENTS_ERROR_CODES[
-                    MilestoneDocumentsErrorCode.STAFF_ONLY
-                  ],
-                ),
-            );
-            return archiveForProgramStaff(sessionGithubId, programId, scope);
+        useValue: Object.assign(
+          Object.create(
+            MilestoneDocumentArchiveService.prototype,
+          ) as MilestoneDocumentArchiveService,
+          {
+            archiveForProgramStaff: async (
+              sessionGithubId: bigint,
+              programId: string,
+              scope: ProgramDocumentArchiveScope,
+            ) => {
+              await authority.assertActiveStaff(
+                sessionGithubId,
+                () =>
+                  new DomainException(
+                    MILESTONE_DOCUMENTS_ERROR_CODES[
+                      MilestoneDocumentsErrorCode.STAFF_ONLY
+                    ],
+                  ),
+              );
+              return archiveForProgramStaff(sessionGithubId, programId, scope);
+            },
           },
-        },
+        ),
       },
     ],
   }).compile();

@@ -95,7 +95,7 @@ export class SubmissionsController {
       await this.reviewsService.review(
         request.sessionGithubId,
         submissionId,
-        body.toInput(),
+        this.reviewsService.reviewInputFromRequest(body),
       ),
     );
   }

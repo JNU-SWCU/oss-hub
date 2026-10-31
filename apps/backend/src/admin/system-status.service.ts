@@ -4,7 +4,9 @@ import { CollectionScheduleService } from '../github/collection-schedule.service
 import {
   SystemStatusRepository,
   type CollectionIncrementalStatusSnapshotDto,
+  type CollectionRepositoryStreamsDto,
 } from './system-status.repository';
+import { COLLECTION_STREAM_TYPES } from './system-status.config';
 
 type CollectionHealthResult =
   'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
@@ -96,6 +98,10 @@ const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
 
+type CollectionStatusSnapshot = CollectionIncrementalStatusSnapshotDto & {
+  readonly partialStreamCount: number;
+};
+
 interface StatusDecision {
   health: CollectionHealthResult;
   reason: SystemStatusSafeReasonResult | null;
@@ -120,7 +126,7 @@ export class SystemStatusService {
     const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
       this.clock(),
     );
-    const [snapshot, finalFailureCount, streams, activity, externalStatus] =
+    const [rows, finalFailureCount, streamRows, activity, externalStatus] =
       await Promise.all([
         this.repository.getIncrementalStatusSnapshot(),
         this.repository.countFinalProvisionFailures(),
@@ -128,6 +134,10 @@ export class SystemStatusService {
         this.repository.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
         this.repository.getExternalCollectionStatus(),
       ]);
+    const snapshot = this.toCollectionStatusSnapshot(rows);
+    const streams = streamRows.map((repository) =>
+      this.toCollectionStreams(repository),
+    );
     const decision = this.decide(snapshot);
     return {
       collection: {
@@ -153,9 +163,61 @@ export class SystemStatusService {
     };
   }
 
-  private decide(
-    snapshot: CollectionIncrementalStatusSnapshotDto,
-  ): StatusDecision {
+  private toCollectionStatusSnapshot(
+    rows: CollectionIncrementalStatusSnapshotDto,
+  ): CollectionStatusSnapshot {
+    const knownPartialStreamCount =
+      rows.pendingStreamCount + rows.verifyingStreamCount;
+    const expectedStreamCount =
+      rows.trackedRepositoryCount * COLLECTION_STREAM_TYPES.length;
+    const observedStreamCount =
+      rows.readyStreamCount +
+      rows.backfillingStreamCount +
+      knownPartialStreamCount;
+    return {
+      ...rows,
+      partialStreamCount:
+        knownPartialStreamCount +
+        Math.max(0, expectedStreamCount - observedStreamCount),
+    };
+  }
+
+  private toCollectionStreams(
+    repository: CollectionRepositoryStreamsDto,
+  ): SystemStatusCollectionStreamsResult {
+    const byType = new Map(
+      repository.streams.map((stream) => [stream.streamType, stream]),
+    );
+    return {
+      repositoryName: repository.repositoryName,
+      programName: repository.programName,
+      streams: COLLECTION_STREAM_TYPES.map((streamType) => {
+        const row = byType.get(streamType);
+        return {
+          streamType,
+          bucket: this.classifyStreamBucket(
+            row?.status ?? null,
+            row?.lastErrorCode ?? null,
+          ),
+          lastSuccessAt: row?.lastRunAt ?? null,
+          lastErrorCode: row?.lastErrorCode ?? null,
+          lastErrorAt: row?.lastErrorAt ?? null,
+        };
+      }),
+    };
+  }
+
+  private classifyStreamBucket(
+    status: string | null,
+    lastErrorCode: string | null,
+  ): CollectionStreamBucketResult {
+    if (lastErrorCode !== null) return 'RETRY_PENDING';
+    if (status === 'READY') return 'READY';
+    if (status === 'BACKFILLING') return 'BACKFILLING';
+    return 'PARTIAL';
+  }
+
+  private decide(snapshot: CollectionStatusSnapshot): StatusDecision {
     if (snapshot.trackedRepositoryCount === 0) {
       return { health: 'EMPTY', reason: 'NO_TRACKED_REPOSITORIES' };
     }
@@ -179,7 +241,7 @@ export class SystemStatusService {
   }
 
   private currentRunStatus(
-    snapshot: CollectionIncrementalStatusSnapshotDto,
+    snapshot: CollectionStatusSnapshot,
   ): CurrentRunStatusResult {
     const started = snapshot.lastCycleStartedAt;
     const completed = snapshot.lastCycleCompletedAt;

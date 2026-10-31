@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { RepositoryConnectionMode, RepositorySource } from '@prisma/client';
+import {
+  RepositoryConnectionMode,
+  RepositoryInvitationStatus,
+  RepositorySource,
+} from '@prisma/client';
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
@@ -9,6 +13,7 @@ import { RepositoryProvisionEventService } from './repository-provision-event.se
 import {
   PROVISION_ERROR_CODES,
   PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+  REVOCATION_INVITATION_STATUSES,
 } from './repository-provision-state.config';
 import { RepositoryProvisionFailure } from './repository-provision-state.error';
 import {
@@ -23,7 +28,10 @@ import {
   type RepositoryProvisionContext,
   type RepositoryProvisionStateStore,
 } from './repository-provision-state-helpers.repository';
-import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
+import {
+  RepositoryProvisionStateRepository,
+  type MembershipCurrencyCheck,
+} from './repository-provision-state.repository';
 import { RepositoryUrlService } from './repository-url.service';
 
 @Injectable()
@@ -90,11 +98,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     }
 
     const currentMemberGithubLogins =
-      team === null
-        ? []
-        : RepositoryProvisionStateHelpersRepository.loginsFromTeamMembers(
-            team.members,
-          );
+      team === null ? [] : this.loginsFromTeamMembers(team.members);
     return {
       requestId: event.id,
       requestedConnectionMode: requested.repositoryConnectionMode,
@@ -115,10 +119,9 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       teamId: application.teamId,
       subjectName: team?.name ?? application.applicant.nickname,
       currentMemberGithubLogins,
-      membershipFingerprint:
-        RepositoryProvisionStateHelpersRepository.membershipFingerprint(
-          currentMemberGithubLogins,
-        ),
+      membershipFingerprint: this.membershipFingerprint(
+        currentMemberGithubLogins,
+      ),
       currentRepositorySource: application.repository?.source ?? null,
       repository:
         application.repository === null ||
@@ -157,27 +160,64 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     repositoryId: string,
     githubLogins: readonly string[],
   ): Promise<void> {
+    const desired = this.canonicalGithubLogins(githubLogins);
+    const desiredSet = new Set(desired);
     return this.repository.prepareInvitations(
       jobId,
       workerId,
       requestId,
       repositoryId,
-      githubLogins,
+      (rows) => {
+        const known = new Set(
+          rows.map((row) => this.canonicalGithubLogin(row.githubLogin)),
+        );
+        const isRevocation = (status: RepositoryInvitationStatus): boolean =>
+          this.invitationIntent(status) === 'REVOKE';
+        return {
+          createLogins: desired.filter(
+            (githubLogin) => !known.has(githubLogin),
+          ),
+          revokeIds: rows
+            .filter(
+              (row) =>
+                !desiredSet.has(this.canonicalGithubLogin(row.githubLogin)) &&
+                !isRevocation(row.status),
+            )
+            .map((row) => row.id),
+          rejoinIds: rows
+            .filter(
+              (row) =>
+                desiredSet.has(this.canonicalGithubLogin(row.githubLogin)) &&
+                isRevocation(row.status),
+            )
+            .map((row) => row.id),
+        };
+      },
     );
   }
 
-  findInvitationWork(
+  async findInvitationWork(
     jobId: string,
     workerId: string,
     requestId: string,
     repositoryId: string,
   ): Promise<readonly RepositoryInvitationWork[]> {
-    return this.repository.findInvitationWork(
+    const rows = await this.repository.findInvitationWork(
       jobId,
       workerId,
       requestId,
       repositoryId,
     );
+    const work = rows.map((row) => ({
+      id: row.id,
+      githubLogin: row.githubLogin,
+      status: row.status,
+      intent: this.invitationIntent(row.status),
+    }));
+    return [
+      ...work.filter((item) => item.intent === 'REVOKE'),
+      ...work.filter((item) => item.intent === 'GRANT'),
+    ];
   }
 
   completeInvitation(input: CompleteRepositoryInvitationInput): Promise<void> {
@@ -217,13 +257,66 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       repositoryId,
       now,
       nextReconciliationAt,
-      expectedMembershipFingerprint,
+      this.membershipCurrencyCheck(expectedMembershipFingerprint),
       this.parseHistoryPayload,
     );
   }
 
   failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
-    return this.repository.failJob(input, this.parseHistoryPayload);
+    return this.repository.failJob(
+      input,
+      this.membershipCurrencyCheck(input.expectedMembershipFingerprint),
+      this.parseHistoryPayload,
+    );
+  }
+
+  private membershipCurrencyCheck(
+    expectedMembershipFingerprint: string | undefined,
+  ): MembershipCurrencyCheck | undefined {
+    return expectedMembershipFingerprint === undefined
+      ? undefined
+      : (memberLogins) =>
+          this.membershipFingerprint(
+            this.canonicalGithubLogins(memberLogins),
+          ) === expectedMembershipFingerprint;
+  }
+
+  private canonicalGithubLogin(login: string | null | undefined): string {
+    return (login ?? '').trim().toLowerCase();
+  }
+
+  private canonicalGithubLogins(
+    logins: readonly (string | null | undefined)[],
+  ): readonly string[] {
+    return [
+      ...new Set(
+        logins
+          .map((login) => this.canonicalGithubLogin(login))
+          .filter((login) => login.length > 0),
+      ),
+    ].sort();
+  }
+
+  private invitationIntent(
+    status: RepositoryInvitationStatus,
+  ): 'GRANT' | 'REVOKE' {
+    return (
+      REVOCATION_INVITATION_STATUSES as readonly RepositoryInvitationStatus[]
+    ).includes(status)
+      ? 'REVOKE'
+      : 'GRANT';
+  }
+
+  private membershipFingerprint(logins: readonly string[]): string {
+    return JSON.stringify(logins);
+  }
+
+  private loginsFromTeamMembers(
+    members: readonly { readonly user: { readonly nickname: string } }[],
+  ): readonly string[] {
+    return this.canonicalGithubLogins(
+      members.map((member) => member.user.nickname),
+    );
   }
 
   private readonly parseHistoryPayload = (payload: unknown) =>

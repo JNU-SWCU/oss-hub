@@ -29,7 +29,7 @@ export class SubmissionRepositoryPublishingController {
     @Param('repositoryId') repositoryId: string,
     @Body() body: ConfirmRepositoryPublishRequestDto,
   ): Promise<RepositoryPublishResponseDto> {
-    body.assertConfirmed();
+    this.service.assertPublishConfirmed(body);
     return RepositoryPublishResponseDto.from(
       await this.service.publishRepository(
         repositoryId,

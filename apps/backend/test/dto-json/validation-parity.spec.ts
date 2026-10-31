@@ -1,3 +1,9 @@
+import { UsersService } from '../../src/users/users.service';
+import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
+import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
+import { MemberKindService } from '../../src/users/member-kind.service';
+import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { UserProfileService } from '../../src/platform/user-profile.service';
 import { BadRequestException, ValidationPipe, type Type } from '@nestjs/common';
 import { CreateBoardPostRequestDto } from '../../src/programs/dto/create-board-post-request.dto';
 import { UpdateBoardPostRequestDto } from '../../src/programs/dto/update-board-post-request.dto';
@@ -30,6 +36,17 @@ const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
   new ProgramRulesService(),
 );
 const submissionInputService = new SubmissionInputService();
+const adminAccessMutationService = new AdminAccessMutationService(
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
+const independentAuthorityService = Object.create(
+  IndependentAuthorityService.prototype,
+) as IndependentAuthorityService;
+const usersService = Object.create(UsersService.prototype) as UsersService;
+const memberKindService = Object.create(
+  MemberKindService.prototype,
+) as MemberKindService;
 const rankingYearService = new RankingYearService();
 
 const pipe = new ValidationPipe({
@@ -194,7 +211,7 @@ parityCases(
       expectedHasStaffAccess: true,
     },
   },
-  (dto) => dto.toCommand(),
+  (dto) => adminAccessMutationService.commandFromPatchAccessRequest(dto),
 );
 const PROFILE_TEXT = {
   valid: {
@@ -221,7 +238,7 @@ parityCases(
     unknown: { command: 'NOPE' },
     missing: {},
   },
-  (dto) => dto.toCommand(),
+  (dto) => independentAuthorityService.adminCommandFromRequest(dto),
 );
 const MEMBER_KIND_BASE = {
   memberKind: 'STAFF',
@@ -252,7 +269,7 @@ parityCases(
     },
     missing: {},
   },
-  (dto) => dto.toCommand(),
+  (dto) => memberKindService.commandFromRequest(dto),
 );
 parityCases(
   UpdateMyProfileRequestDto,
@@ -282,7 +299,7 @@ parityCases(
     },
     'blank name': { name: ' ', department: '학과' },
   },
-  (dto) => dto.toInput(),
+  (dto) => usersService.profileInputFromRequest(dto),
 );
 parityCases(ActivityTimelineRequestDto, {
   default: {},

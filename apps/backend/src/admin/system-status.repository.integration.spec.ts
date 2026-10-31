@@ -8,6 +8,7 @@ import {
   input,
 } from '../programs/student-repository-url.integration.fixture';
 import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusService } from './system-status.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -15,13 +16,33 @@ assertIsolatedIntegrationDatabase({
 });
 
 const status = new SystemStatusRepository(prisma);
+const statusService = new SystemStatusService(status, () => new Date());
+const ADMIN_ID = 'synthetic-system-status-admin';
+const ADMIN_GITHUB_ID = 9_517_000_000_001n;
+
+beforeAll(async () => {
+  await prisma.user.upsert({
+    where: { id: ADMIN_ID },
+    update: {},
+    create: {
+      id: ADMIN_ID,
+      githubId: ADMIN_GITHUB_ID,
+      nickname: 'synthetic-system-status-admin',
+      hasAdminAccess: true,
+      accountStatus: 'ACTIVE',
+    },
+  });
+});
+afterAll(async () => {
+  await prisma.user.deleteMany({ where: { id: ADMIN_ID } });
+});
 
 it('drops a detached organization repository from the tracked set so its missing streams stop reading as partial', async () => {
-  const before = await status.getIncrementalStatusSnapshot();
+  const before = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
 
   await service.updateMine(githubId, programId, input);
 
-  const after = await status.getIncrementalStatusSnapshot();
+  const after = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
 
   expect(after.partialStreamCount).toBe(before.partialStreamCount - 4);

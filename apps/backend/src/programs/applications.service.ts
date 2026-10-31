@@ -521,7 +521,7 @@ export class ApplicationsService {
           applicationId,
           programId: application.programId,
           programName: application.programName,
-          recipientUserIds: application.notificationRecipientIds,
+          recipientUserIds: this.notificationRecipientIds(application),
           decision: plan.nextStatus,
           decidedAt: processedAt,
         });
@@ -603,7 +603,8 @@ export class ApplicationsService {
                 applicationId,
                 programId: application.programId,
                 teamId: application.teamId,
-                collaboratorGithubLogins: application.collaboratorGithubLogins,
+                collaboratorGithubLogins:
+                  this.collaboratorGithubLogins(application),
                 repositoryConnectionMode: application.repositoryConnectionMode,
                 repositoryUrl: application.repositoryUrl,
                 idempotencyKey,
@@ -851,6 +852,26 @@ export class ApplicationsService {
       team,
       answers: parseListAnswers(row.answers),
     };
+  }
+
+  private collaboratorGithubLogins(
+    application: ApplicationDecisionTarget,
+  ): readonly string[] {
+    return [
+      ...new Set(
+        application.participants.map((participant) =>
+          participant.githubLogin.toLowerCase(),
+        ),
+      ),
+    ].sort();
+  }
+
+  private notificationRecipientIds(
+    application: ApplicationDecisionTarget,
+  ): readonly string[] {
+    return [
+      ...new Set(application.participants.map((participant) => participant.id)),
+    ].sort();
   }
 }
 

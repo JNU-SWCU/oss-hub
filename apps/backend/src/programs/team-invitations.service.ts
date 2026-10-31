@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -12,6 +13,8 @@ import {
   type InvitationCandidateRecord,
   type ReceivedTeamInvitationRecord,
   type SentTeamInvitationRecord,
+  type InviteeAccountRow,
+  type StaffAuthorityRow,
 } from './team-invitations.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
@@ -63,8 +66,9 @@ export class TeamInvitationsService {
     if (inviteeUserId === actorId) {
       throw this.error(TeamInvitationErrorCode.SELF_INVITE_FORBIDDEN);
     }
-    const inviteeEligibility =
-      await this.repository.getInviteeEligibility(inviteeUserId);
+    const inviteeEligibility = this.inviteeEligibility(
+      await this.repository.findInviteeAccount(inviteeUserId),
+    );
     switch (inviteeEligibility) {
       case 'not-found':
         throw this.error(TeamInvitationErrorCode.INVITEE_NOT_FOUND);
@@ -187,7 +191,8 @@ export class TeamInvitationsService {
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
-    if (await this.repository.isActiveStaff(userId)) return team;
+    if (this.isActiveStaff(await this.repository.findStaffAuthority(userId)))
+      return team;
     const isMember = await this.repository.isTeamMember(teamId, userId);
     if (!isMember) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_MEMBER);
@@ -200,14 +205,32 @@ export class TeamInvitationsService {
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
-    if (await this.repository.isActiveStaff(userId)) return team;
+    if (this.isActiveStaff(await this.repository.findStaffAuthority(userId)))
+      return team;
     if (team.leaderId !== userId) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
     }
     return team;
   }
 
+  private isActiveStaff(account: StaffAuthorityRow | null): boolean {
+    return (
+      account?.accountStatus === AccountStatus.ACTIVE &&
+      (account.hasStaffAccess || account.hasAdminAccess)
+    );
+  }
+
   private error(code: TeamInvitationErrorCode): DomainException {
     return new DomainException(TEAM_INVITATION_ERROR_CODES[code]);
+  }
+
+  private inviteeEligibility(
+    account: InviteeAccountRow | null,
+  ): 'eligible' | 'not-found' | 'not-eligible' {
+    if (account === null) return 'not-found';
+    return account.profile?.memberKind === MemberKind.STUDENT &&
+      account.accountStatus === AccountStatus.ACTIVE
+      ? 'eligible'
+      : 'not-eligible';
   }
 }
