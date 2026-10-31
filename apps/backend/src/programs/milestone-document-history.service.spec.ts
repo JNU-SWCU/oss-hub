@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -37,6 +39,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       repository,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -77,6 +80,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         repository,
         new MilestoneDocumentRulesService(new ProgramRulesService()),
         new SubmissionFileRulesService(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
       ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
         limit: 20,
@@ -139,6 +143,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -166,6 +171,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -192,6 +198,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service

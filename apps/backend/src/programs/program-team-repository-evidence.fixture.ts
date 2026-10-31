@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
@@ -90,5 +91,6 @@ export function givenRepository(
   return new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   );
 }

@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   GetObjectCommand,
   HeadObjectCommand,
@@ -49,7 +51,11 @@ if (integrationReady) {
 
 const describeIntegration = integrationReady ? describe : describe.skip;
 const prisma = new PrismaService();
-const files = new SubmissionFilesRepository(prisma);
+const files = new SubmissionFilesRepository(
+  prisma,
+  new PlatformRepository(),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
+);
 const storageConfig = new ObjectStorageConfig();
 const storage = new S3ObjectStorageClient(storageConfig);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');

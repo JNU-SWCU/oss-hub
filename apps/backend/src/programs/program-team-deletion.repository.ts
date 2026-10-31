@@ -76,6 +76,7 @@ export class ProgramTeamDeletionRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamDeletionScope: TeamDeletionScopeRepository,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
 
   readScopeCounts(teamId: string): Promise<TeamDeletionScopeCounts> {
@@ -175,7 +176,7 @@ export class ProgramTeamDeletionRepository {
       );
     } catch (error) {
       const serializationFailure =
-        PrismaSerializationRetryRepository.isSerializationFailure(error);
+        this.prismaSerializationRetryRepository.isSerializationFailure(error);
       const foreignKeyConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2003';

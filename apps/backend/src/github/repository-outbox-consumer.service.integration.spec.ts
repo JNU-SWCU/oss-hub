@@ -27,7 +27,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const consumer = new RepositoryOutboxConsumerService(
-  new RepositoriesRepository(prisma),
+  new RepositoriesRepository(
+    prisma,
+    new RepositoryProvisionGenerationRepository(),
+  ),
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
   new RepositoryProvisionEventService(),
 );
@@ -130,7 +133,7 @@ async function createProvisionEvent(
         lockedBy: lockedAt ? 'stale-worker' : null,
       },
     });
-    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
+    await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now: NOW },
       parseProvisionPayload,
@@ -144,7 +147,7 @@ async function createAccessSyncEvent(
   requestedAt: Date = NOW,
   payloadOverride?: Prisma.InputJsonValue,
 ): Promise<string> {
-  const data = PlatformRepository.repositoryAccessSyncEventData(
+  const data = new PlatformRepository().repositoryAccessSyncEventData(
     applicationId,
     teamIdFor(applicationId),
     requestedAt,

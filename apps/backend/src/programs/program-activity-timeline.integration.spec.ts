@@ -1,3 +1,5 @@
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -126,8 +128,12 @@ it('counts only current linked activity and never substitutes detached or unrela
   });
 
   const service = new ProgramActivityService(
-    new ProgramsRepository(prisma),
-    new ProgramActivityRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
+    new ProgramActivityRepository(prisma, new PlatformRepository()),
   );
   const timeline = await service.activityTimeline(
     { githubId, userId: studentId },

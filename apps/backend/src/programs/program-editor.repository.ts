@@ -244,6 +244,8 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
     private readonly transaction: PrismaTypes.TransactionClient,
     private readonly locks: LockProgramTreeRepository,
     private readonly programDeletionScope: ProgramDeletionScopeRepository,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programCoverRepository: ProgramCoverRepository,
   ) {}
 
   findUserAuthorityByGithubId(githubId: bigint) {
@@ -288,7 +290,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
 
   async updateProgram(input: ProgramUpdateInput): Promise<EditableProgramRow> {
     if (input.coverChange !== undefined) {
-      await ProgramCoverRepository.replaceProgramCover(this.transaction, {
+      await this.programCoverRepository.replaceProgramCover(this.transaction, {
         programId: input.programId,
         ...input.coverChange,
       });
@@ -564,7 +566,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
   }
 
   lockAttachableUploads(actorId: string, tokenIds: readonly string[]) {
-    return ProgramAuthoringUploadTransactionRepository.lockAttachableProgramAuthoringUploads(
+    return this.programAuthoringUploadTransactionRepository.lockAttachableProgramAuthoringUploads(
       this.transaction,
       actorId,
       tokenIds,
@@ -643,7 +645,7 @@ class PrismaProgramEditorRepository implements ProgramEditorTransactionStore {
         consumptions.push({ milestoneDocumentId, upload });
       }
     }
-    await ProgramAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+    await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
       this.transaction,
       input.actorId,
       consumptions,
@@ -723,6 +725,8 @@ export class ProgramEditorRepository {
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
     private readonly programDeletionScope: ProgramDeletionScopeRepository,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programCoverRepository: ProgramCoverRepository,
   ) {}
 
   withTransaction<T>(
@@ -734,6 +738,8 @@ export class ProgramEditorRepository {
           transaction,
           this.locks,
           this.programDeletionScope,
+          this.programAuthoringUploadTransactionRepository,
+          this.programCoverRepository,
         ),
       ),
     );

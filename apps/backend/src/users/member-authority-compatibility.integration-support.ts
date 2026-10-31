@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -20,7 +21,7 @@ import { UserProfileService } from './user-profile.service';
 
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(
-  new UsersRepository(compatibilityPrisma),
+  new UsersRepository(compatibilityPrisma, new PlatformRepository()),
   { requireCurrent: () => Promise.resolve(undefined) },
   new AuditLogService(
     new AuditLogRepository(compatibilityPrisma),
@@ -33,7 +34,10 @@ export const compatibilityAccess = new AdminAccessService(
   new AdminAccessRepository(
     compatibilityPrisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
   ),
   new AuditLogService(
     new AuditLogRepository(compatibilityPrisma),

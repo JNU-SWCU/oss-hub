@@ -30,6 +30,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 export class AdminAccessReadRepository {
   constructor(
     private readonly adminAccessReadOrderingRepository: AdminAccessReadOrderingRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   async listAdminAccessUsers(
@@ -37,7 +38,7 @@ export class AdminAccessReadRepository {
     query: AdminAccessListQuery,
     sortContext: 'directory' | 'requestQueue' = 'directory',
   ): Promise<AdminAccessUserPageRecord> {
-    const where = adminAccessWhere(query);
+    const where = adminAccessWhere(this.platformRepository, query);
     const [orderedIds, total, facets] = await Promise.all([
       this.adminAccessReadOrderingRepository.listOrderedAdminAccessUserIds(
         prisma,
@@ -72,9 +73,17 @@ export class AdminAccessReadRepository {
     prisma: Pick<PrismaService, 'user'>,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    const roleBase = adminAccessWhere(query, 'role');
-    const accountStatusBase = adminAccessWhere(query, 'accountStatus');
-    const pendingRequestBase = adminAccessWhere(query, 'pendingRequest');
+    const roleBase = adminAccessWhere(this.platformRepository, query, 'role');
+    const accountStatusBase = adminAccessWhere(
+      this.platformRepository,
+      query,
+      'accountStatus',
+    );
+    const pendingRequestBase = adminAccessWhere(
+      this.platformRepository,
+      query,
+      'pendingRequest',
+    );
     const [
       unassigned,
       student,
@@ -225,6 +234,7 @@ export class AdminAccessReadRepository {
 type FacetDimension = 'role' | 'accountStatus' | 'pendingRequest';
 
 function adminAccessWhere(
+  platformRepository: PlatformRepository,
   query: AdminAccessListQuery,
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
@@ -232,7 +242,7 @@ function adminAccessWhere(
   if (query.query) {
     clauses.push({
       OR: [
-        PlatformRepository.userProfileNameWhere(query.query),
+        platformRepository.userProfileNameWhere(query.query),
         {
           nickname: {
             contains: query.query,

@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
@@ -29,12 +31,17 @@ const teamsService = new ProgramTeamsService(
   new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new ProgramTeamDeletionRepository(prisma, new TeamDeletionScopeRepository()),
+  new ProgramTeamDeletionRepository(
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
@@ -188,6 +195,7 @@ it('projects only linked repository facts inside the program window while retain
   const detail = await new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   ).findStaffTeamDetail(programId, teamId);
 
   expect(detail?.repositoryContributions?.members).toEqual([
@@ -307,6 +315,7 @@ it('shows the outsider totals only while they were counted for this program wind
   const teams = new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   );
   const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
 
@@ -408,6 +417,7 @@ it('reads contributions of a program that never set an end date', async () => {
   const detail = await new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(detail?.repositoryContributions).toMatchObject({
@@ -431,7 +441,7 @@ it('counts only the currently linked repository in program totals after a relink
 
   const [summary] = await new ProgramActivitySummaryService(
     new ProgramActivitySummaryRepository(prisma),
-    new ProgramActivityRepository(prisma),
+    new ProgramActivityRepository(prisma, new PlatformRepository()),
   ).summarize([programId]);
 
   expect(summary).toMatchObject({
@@ -521,6 +531,7 @@ it('counts issues for team members, so an issue-only member has observations', a
   const detail = await new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(

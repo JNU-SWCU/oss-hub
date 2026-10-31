@@ -126,6 +126,7 @@ export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly platformRepository: PlatformRepository,
     @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
     private readonly clock: StudentApplicationManagementClock = () =>
       new Date(),
@@ -138,7 +139,9 @@ export class StudentApplicationManagementRepository {
     const row = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(studentId),
+        ...this.platformRepository.programApplicationParticipantWhere(
+          studentId,
+        ),
       },
       select: APPLICATION_SELECT,
     });
@@ -268,7 +271,7 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationManagerWhere(studentId),
+        ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
@@ -281,7 +284,7 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...PlatformRepository.programApplicationManagerWhere(studentId),
+        ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });

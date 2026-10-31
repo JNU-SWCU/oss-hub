@@ -198,12 +198,13 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessRepository: AdminAccessRepository,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
 
   withTransaction<T>(
     operation: (store: MemberKindTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return PrismaSerializationRetryRepository.withSerializationRetry(
+    return this.prismaSerializationRetryRepository.withSerializationRetry(
       () =>
         this.prisma.$transaction(
           (transaction) =>

@@ -1,3 +1,6 @@
+import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
+import { PlatformRepository } from './platform.repository';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import 'reflect-metadata';
 import { RolesGuard } from './roles.guard';
@@ -111,6 +114,9 @@ describe('PlatformModule', () => {
       JoinCodeSecretService,
       AuditLogService,
       RolesGuard,
+      PlatformRepository,
+      PrismaSerializationRetryRepository,
+      RepositoryProvisionGenerationRepository,
     ]);
     expect(exported).not.toContain(S3ObjectStorageClient);
     expect(exported).not.toContain(S3ObjectInventoryClient);

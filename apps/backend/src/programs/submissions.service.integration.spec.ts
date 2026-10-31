@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { createHash } from 'node:crypto';
 import {
   AffiliationKind,
@@ -40,7 +41,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionsService(
-  new SubmissionsRepository(prisma),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
   new ProgramRulesService(),
   new SubmissionFileRulesService(),
 );
@@ -585,7 +586,11 @@ describe('SubmissionsService integration', () => {
       get: jest.fn<ReturnType<ObjectStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesRepository(
+        prisma,
+        new PlatformRepository(),
+        new SubmissionsRepository(prisma, new PlatformRepository()),
+      ),
       storage,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),
@@ -664,7 +669,11 @@ describe('SubmissionsService integration', () => {
       get: jest.fn<ReturnType<ObjectStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesRepository(
+        prisma,
+        new PlatformRepository(),
+        new SubmissionsRepository(prisma, new PlatformRepository()),
+      ),
       storage,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),

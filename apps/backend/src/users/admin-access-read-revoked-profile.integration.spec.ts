@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import {
   AccountStatus,
@@ -94,6 +95,7 @@ it('상세 조회에서 회수된 교직원의 프로필은 완료로 읽힌다'
   const detail = mutation.toAdminAccessUserDetailRecord(
     (await new AdminAccessReadRepository(
       new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
     ).findAdminAccessUserById(prisma, REVOKED_STAFF_ID))!,
   );
 
@@ -109,6 +111,7 @@ it('고른 역할이 없는 미배정 사용자는 여전히 학생 기준으로
   const detail = mutation.toAdminAccessUserDetailRecord(
     (await new AdminAccessReadRepository(
       new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
     ).findAdminAccessUserById(prisma, UNCHOSEN_ID))!,
   );
 
@@ -118,6 +121,7 @@ it('고른 역할이 없는 미배정 사용자는 여전히 학생 기준으로
 it('목록 조회도 상세와 같은 완료 판정을 돌려준다', async () => {
   const page = await new AdminAccessReadRepository(
     new AdminAccessReadOrderingRepository(),
+    new PlatformRepository(),
   ).listAdminAccessUsers(prisma, {
     page: 1,
     limit: 50,

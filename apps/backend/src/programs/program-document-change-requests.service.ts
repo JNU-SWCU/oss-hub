@@ -25,6 +25,7 @@ export class ProgramDocumentChangeRequestsService {
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
 
   async targets(
@@ -102,7 +103,7 @@ export class ProgramDocumentChangeRequestsService {
             throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
           }
           const reviewedAt =
-            MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+            this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
               now(),
               submission.latestHistoryCreatedAt,
             );

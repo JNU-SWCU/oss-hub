@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { authorityFactsFor } from './canonical-user-fixture';
 import {
@@ -41,6 +42,7 @@ const toRecord = (
   ).toAdminAccessUserRecord(
     new AdminAccessReadRepository(
       new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
     ).toAdminAccessUserRow(user),
   );
 
@@ -65,6 +67,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'pending-staff'),
     );
 
@@ -96,6 +99,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'student'),
     );
 
@@ -120,6 +124,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'unassigned'),
     );
 
@@ -146,6 +151,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'revoked-staff'),
     );
 
@@ -172,6 +178,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'selected-student'),
     );
 
@@ -196,6 +203,7 @@ describe('admin access read profile completeness', () => {
     const detail = toDetail(
       await new AdminAccessReadRepository(
         new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
       ).findAdminAccessUserById(prisma, 'revoked-staff-projection'),
     );
 

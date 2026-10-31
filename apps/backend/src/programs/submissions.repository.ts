@@ -67,7 +67,7 @@ export interface ChecklistMilestone {
 }
 
 type ApplicationRecord = Prisma.ApplicationGetPayload<{
-  select: ReturnType<typeof SubmissionsRepository.submissionApplicationSelect>;
+  select: ReturnType<SubmissionsRepository['submissionApplicationSelect']>;
 }>;
 
 const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
@@ -76,7 +76,7 @@ const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
 ];
 
 type ChecklistMilestoneRecord = Prisma.MilestoneGetPayload<{
-  select: ReturnType<typeof SubmissionsRepository.checklistMilestoneSelect>;
+  select: ReturnType<SubmissionsRepository['checklistMilestoneSelect']>;
 }>;
 
 type ChecklistTargetSubmission = NonNullable<
@@ -241,7 +241,11 @@ const MILESTONE_SELECT = {
 } as const;
 
 class PrismaSubmissionsRepository implements SubmissionsStore {
-  constructor(private readonly database: SubmissionsDatabase) {}
+  constructor(
+    private readonly database: SubmissionsDatabase,
+    private readonly platformRepository: PlatformRepository,
+    private readonly submissionsRepository: SubmissionsRepository,
+  ) {}
 
   async findActiveStudentByGithubId(
     githubId: bigint,
@@ -285,12 +289,13 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const application = await this.database.application.findFirst({
       where: {
         programId,
-        ...SubmissionsRepository.submissionParticipantWhere(userId),
+        ...this.submissionsRepository.submissionParticipantWhere(userId),
       },
-      select: SubmissionsRepository.submissionApplicationSelect(milestoneId),
+      select:
+        this.submissionsRepository.submissionApplicationSelect(milestoneId),
     });
     return application
-      ? SubmissionsRepository.toSubmissionApplication(application)
+      ? this.submissionsRepository.toSubmissionApplication(application)
       : null;
   }
 
@@ -302,12 +307,13 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const application = await this.database.application.findFirst({
       where: {
         id: applicationId,
-        ...SubmissionsRepository.submissionParticipantWhere(userId),
+        ...this.submissionsRepository.submissionParticipantWhere(userId),
       },
-      select: SubmissionsRepository.submissionApplicationSelect(milestoneId),
+      select:
+        this.submissionsRepository.submissionApplicationSelect(milestoneId),
     });
     return application
-      ? SubmissionsRepository.toSubmissionApplication(application)
+      ? this.submissionsRepository.toSubmissionApplication(application)
       : null;
   }
 
@@ -373,7 +379,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     applicationId: string,
     actorUserId: string,
   ): Promise<void> {
-    const stillMember = await PlatformRepository.lockSubmissionMembership(
+    const stillMember = await this.platformRepository.lockSubmissionMembership(
       this.database,
       applicationId,
       actorUserId,
@@ -467,7 +473,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
       .findFirst({
         where: {
           programId,
-          ...SubmissionsRepository.submissionParticipantWhere(userId),
+          ...this.submissionsRepository.submissionParticipantWhere(userId),
         },
         select: {
           id: true,
@@ -495,14 +501,14 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
   ): Promise<readonly ChecklistMilestone[]> {
     const milestones = await this.database.milestone.findMany({
       where: { programId },
-      orderBy: SubmissionsRepository.checklistMilestoneOrderBy,
-      select: SubmissionsRepository.checklistMilestoneSelect(
+      orderBy: this.submissionsRepository.checklistMilestoneOrderBy,
+      select: this.submissionsRepository.checklistMilestoneSelect(
         applicationId,
         now,
       ),
     });
     return milestones.flatMap((milestone) => {
-      const item = SubmissionsRepository.toChecklistMilestone(milestone);
+      const item = this.submissionsRepository.toChecklistMilestone(milestone);
       return item === null ? [] : [item];
     });
   }
@@ -514,11 +520,12 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const submissions =
       await this.database.milestoneDocumentSubmission.findMany({
         where: {
-          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
+          ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
-          application: SubmissionsRepository.submissionParticipantWhere(userId),
+          application:
+            this.submissionsRepository.submissionParticipantWhere(userId),
         },
         take: 2,
         select: {
@@ -543,7 +550,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
         },
       });
     const submission =
-      SubmissionsRepository.exactSubmissionByPublicId(submissions);
+      this.submissionsRepository.exactSubmissionByPublicId(submissions);
     if (submission === null) return null;
     if (submission.milestoneDocument.milestone.submissionType === null) {
       return null;
@@ -566,7 +573,7 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
     const submission =
       await this.database.milestoneDocumentSubmission.findFirst({
         where: {
-          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
+          ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
@@ -645,8 +652,15 @@ class PrismaSubmissionsRepository implements SubmissionsStore {
 export class SubmissionsRepository implements SubmissionsStore {
   private readonly store: PrismaSubmissionsRepository;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.store = new PrismaSubmissionsRepository(prisma);
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {
+    this.store = new PrismaSubmissionsRepository(
+      prisma,
+      this.platformRepository,
+      this,
+    );
   }
 
   findActiveStudentByGithubId(githubId: bigint) {
@@ -727,17 +741,21 @@ export class SubmissionsRepository implements SubmissionsStore {
     operation: (store: SubmissionsStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaSubmissionsRepository(transaction)),
+      operation(
+        new PrismaSubmissionsRepository(
+          transaction,
+          this.platformRepository,
+          this,
+        ),
+      ),
     );
   }
 
-  static submissionParticipantWhere(
-    userId: string,
-  ): Prisma.ApplicationWhereInput {
-    return PlatformRepository.programApplicationParticipantWhere(userId);
+  submissionParticipantWhere(userId: string): Prisma.ApplicationWhereInput {
+    return this.platformRepository.programApplicationParticipantWhere(userId);
   }
 
-  static toSubmissionApplication(
+  toSubmissionApplication(
     application: ApplicationRecord,
   ): SubmissionApplication {
     return {
@@ -757,7 +775,7 @@ export class SubmissionsRepository implements SubmissionsStore {
     };
   }
 
-  static toChecklistMilestone(
+  toChecklistMilestone(
     record: ChecklistMilestoneRecord,
   ): ChecklistMilestone | null {
     if (record.submissionType === null) return null;
@@ -779,11 +797,11 @@ export class SubmissionsRepository implements SubmissionsStore {
     };
   }
 
-  static submissionPublicIdWhere(publicId: string) {
+  submissionPublicIdWhere(publicId: string) {
     return { OR: [{ id: publicId }, { legacySubmissionId: publicId }] };
   }
 
-  static exactSubmissionByPublicId<T>(rows: readonly T[]): T | null {
+  exactSubmissionByPublicId<T>(rows: readonly T[]): T | null {
     if (rows.length > 1) {
       throw new SubmissionPublicIdCollisionError(
         'Ambiguous submission public id',
@@ -792,7 +810,7 @@ export class SubmissionsRepository implements SubmissionsStore {
     return rows[0] ?? null;
   }
 
-  static readonly submissionApplicationSelect = (milestoneId: string) =>
+  readonly submissionApplicationSelect = (milestoneId: string) =>
     ({
       id: true,
       programId: true,
@@ -812,15 +830,12 @@ export class SubmissionsRepository implements SubmissionsStore {
       },
     }) as const;
 
-  static readonly checklistMilestoneOrderBy = [
+  readonly checklistMilestoneOrderBy = [
     { dueAt: 'asc' as const },
     { createdAt: 'asc' as const },
   ];
 
-  static readonly checklistMilestoneSelect = (
-    applicationId: string,
-    now: Date,
-  ) =>
+  readonly checklistMilestoneSelect = (applicationId: string, now: Date) =>
     ({
       id: true,
       name: true,

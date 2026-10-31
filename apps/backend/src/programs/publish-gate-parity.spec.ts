@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   MilestoneDocumentKind,
   MilestoneSubmissionType,
@@ -363,9 +365,18 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         ],
       },
     });
-    const repository = new SubmissionReviewsRepository({
-      githubRepository: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new SubmissionReviewsRepository(
+      {
+        githubRepository: { findUnique },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+      new SubmissionsRepository(
+        {
+          githubRepository: { findUnique },
+        } as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
+    );
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 
@@ -397,9 +408,18 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         milestoneDocumentSubmissions: [],
       },
     });
-    const repository = new SubmissionReviewsRepository({
-      githubRepository: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new SubmissionReviewsRepository(
+      {
+        githubRepository: { findUnique },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+      new SubmissionsRepository(
+        {
+          githubRepository: { findUnique },
+        } as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
+    );
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 

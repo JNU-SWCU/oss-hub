@@ -7,18 +7,24 @@ function normalize(sql: string): string {
 describe('programListStatusSortRank', () => {
   it('orders 모집중 → 진행중 → 예정 → 종료 (?sort=status 전용 순서)', () => {
     expect(
-      ProgramListStatusFilterRepository.programListStatusSortRank('recruiting'),
+      new ProgramListStatusFilterRepository().programListStatusSortRank(
+        'recruiting',
+      ),
     ).toBe(0);
     expect(
-      ProgramListStatusFilterRepository.programListStatusSortRank(
+      new ProgramListStatusFilterRepository().programListStatusSortRank(
         'in_progress',
       ),
     ).toBe(1);
     expect(
-      ProgramListStatusFilterRepository.programListStatusSortRank('upcoming'),
+      new ProgramListStatusFilterRepository().programListStatusSortRank(
+        'upcoming',
+      ),
     ).toBe(2);
     expect(
-      ProgramListStatusFilterRepository.programListStatusSortRank('ended'),
+      new ProgramListStatusFilterRepository().programListStatusSortRank(
+        'ended',
+      ),
     ).toBe(3);
   });
 });
@@ -27,13 +33,14 @@ describe('programListOrderBySql', () => {
   const now = new Date('2026-07-21T00:00:00.000Z');
 
   it('sort가 없으면 레거시 기본 정렬(모집중 → 예정 → 진행중 → 종료)을 그대로 낸다', () => {
-    const orderBy = ProgramListStatusFilterRepository.programListOrderBySql(
-      undefined,
-      undefined,
-      now,
-    );
+    const orderBy =
+      new ProgramListStatusFilterRepository().programListOrderBySql(
+        undefined,
+        undefined,
+        now,
+      );
     const legacy =
-      ProgramListStatusFilterRepository.programListSortRankSql(now);
+      new ProgramListStatusFilterRepository().programListSortRankSql(now);
     expect(normalize(orderBy.sql)).toBe(
       normalize(
         `${legacy.sql} ASC, p."applicationEndAt" ASC, p."name" ASC, p."id" ASC`,
@@ -44,7 +51,7 @@ describe('programListOrderBySql', () => {
   it('sort=name — id를 tiebreak로 붙인 이름 정렬', () => {
     expect(
       normalize(
-        ProgramListStatusFilterRepository.programListOrderBySql(
+        new ProgramListStatusFilterRepository().programListOrderBySql(
           'name',
           'asc',
           now,
@@ -53,7 +60,7 @@ describe('programListOrderBySql', () => {
     ).toBe(normalize('p."name" ASC, p."id" ASC'));
     expect(
       normalize(
-        ProgramListStatusFilterRepository.programListOrderBySql(
+        new ProgramListStatusFilterRepository().programListOrderBySql(
           'name',
           'desc',
           now,
@@ -65,7 +72,7 @@ describe('programListOrderBySql', () => {
   it('direction 생략 시 asc로 간주한다', () => {
     expect(
       normalize(
-        ProgramListStatusFilterRepository.programListOrderBySql(
+        new ProgramListStatusFilterRepository().programListOrderBySql(
           'name',
           undefined,
           now,
@@ -77,7 +84,7 @@ describe('programListOrderBySql', () => {
   it('sort=applicationPeriod — applicationStartAt 기준, id tiebreak', () => {
     expect(
       normalize(
-        ProgramListStatusFilterRepository.programListOrderBySql(
+        new ProgramListStatusFilterRepository().programListOrderBySql(
           'applicationPeriod',
           'asc',
           now,
@@ -86,7 +93,7 @@ describe('programListOrderBySql', () => {
     ).toBe(normalize('p."applicationStartAt" ASC, p."id" ASC'));
     expect(
       normalize(
-        ProgramListStatusFilterRepository.programListOrderBySql(
+        new ProgramListStatusFilterRepository().programListOrderBySql(
           'applicationPeriod',
           'desc',
           now,
@@ -97,7 +104,7 @@ describe('programListOrderBySql', () => {
 
   it('sort=status — 파생 상태를 CASE로 모집중(0)→진행중(1)→예정(2)→종료(3) 랭크로 매기고, applicationEndAt·name·id를 tiebreak로 둔다', () => {
     const sql = normalize(
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'status',
         'asc',
         now,
@@ -126,7 +133,7 @@ describe('programListOrderBySql', () => {
 
   it('sort=status desc는 상태 랭크에만 DESC를 붙이고 tiebreak는 그대로 둔다', () => {
     const sql = normalize(
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'status',
         'desc',
         now,
@@ -139,37 +146,37 @@ describe('programListOrderBySql', () => {
 
   it('모든 분기가 마지막에 결정적 tiebreak p."id" ASC를 둔다 — 페이지네이션 중복·누락 방지', () => {
     const branches = [
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         undefined,
         undefined,
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'name',
         'asc',
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'name',
         'desc',
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'applicationPeriod',
         'asc',
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'applicationPeriod',
         'desc',
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'status',
         'asc',
         now,
       ),
-      ProgramListStatusFilterRepository.programListOrderBySql(
+      new ProgramListStatusFilterRepository().programListOrderBySql(
         'status',
         'desc',
         now,

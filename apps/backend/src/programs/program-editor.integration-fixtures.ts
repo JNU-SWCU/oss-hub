@@ -1,3 +1,5 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -22,6 +24,11 @@ export const editor = new ProgramEditorService(
     prisma,
     new LockProgramTreeRepository(),
     new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
   ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),

@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -48,6 +49,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -68,6 +70,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -91,6 +94,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -107,6 +111,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -139,6 +144,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -169,6 +175,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -210,6 +217,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -240,6 +248,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -271,6 +280,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -302,6 +312,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -327,6 +338,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -362,6 +374,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -383,6 +396,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -411,6 +425,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -428,6 +443,7 @@ describe('StudentApplicationManagementRepository', () => {
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
       new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -475,6 +491,7 @@ describe('StudentApplicationManagementRepository', () => {
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
         new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         clock,
       );
 

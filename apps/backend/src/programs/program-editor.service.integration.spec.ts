@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -83,9 +86,16 @@ describe('ProgramEditorService integration', () => {
       },
     });
     const documents = new MilestoneDocumentsService(
-      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
     const results = await runTogether(
       () =>

@@ -1,3 +1,5 @@
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
@@ -62,7 +64,11 @@ function createService() {
   } as unknown as PrismaService;
   return {
     service: new ProgramsService(
-      new ProgramsRepository(prisma),
+      new ProgramsRepository(
+        prisma,
+        new PlatformRepository(),
+        new ProgramListStatusFilterRepository(),
+      ),
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),

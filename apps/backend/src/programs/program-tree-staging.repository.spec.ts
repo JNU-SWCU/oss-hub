@@ -1,3 +1,5 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Prisma } from '@prisma/client';
@@ -65,6 +67,14 @@ it.each([
     } as unknown as PrismaService,
     new LockProgramTreeRepository(),
     new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      {
+        $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
+          operation(tx),
+      } as unknown as PrismaService,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
   );
   const result = await repository.withTransaction<unknown>((store) =>
     store[method]('m'),
@@ -103,6 +113,14 @@ it.each([
     } as unknown as PrismaService,
     new LockProgramTreeRepository(),
     new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      {
+        $transaction: (operation: (client: typeof tx) => Promise<unknown>) =>
+          operation(tx),
+      } as unknown as PrismaService,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
   );
   if (method === 'findEditableProgramForUpdate') {
     tx.$queryRaw.mockResolvedValue([]);

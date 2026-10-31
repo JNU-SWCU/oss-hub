@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
@@ -71,6 +73,7 @@ const prisma = new PrismaService();
 const repository = new ProgramTeamsRepository(
   prisma,
   new ProgramTeamRepositoryEvidenceRepository(prisma),
+  new PlatformRepository(),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
@@ -79,14 +82,21 @@ const auditLog = new AuditLogService(
 const service = new ProgramTeamsService(
   repository,
   auditLog,
-  new ProgramTeamDeletionRepository(prisma, new TeamDeletionScopeRepository()),
+  new ProgramTeamDeletionRepository(
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new ProgramRulesService(),
 );
-const invitations = new TeamInvitationsRepository(prisma);
+const invitations = new TeamInvitationsRepository(
+  prisma,
+  new PlatformRepository(),
+);
 
 interface MemberSeed {
   readonly userId: string;

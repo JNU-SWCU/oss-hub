@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -21,6 +24,9 @@ export class ProgramArchiveIntegrationFixture {
     new MilestoneDocumentsRepository(
       this.prisma,
       new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(this.prisma),
     ),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),

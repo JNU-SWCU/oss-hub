@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
   MemberKind,
@@ -32,7 +33,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionsService(
-  new SubmissionsRepository(prisma),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
   new ProgramRulesService(),
   new SubmissionFileRulesService(),
 );

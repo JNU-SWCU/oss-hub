@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -30,7 +31,10 @@ const prisma = new PrismaService();
 const repository = new AdminAccessRepository(
   prisma,
   new AdminAccessHistoryRepository(),
-  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminAccessReadRepository(
+    new AdminAccessReadOrderingRepository(),
+    new PlatformRepository(),
+  ),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
@@ -334,7 +338,10 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
       new AdminAccessRepository(
         pidCapturingPrisma(revocationBackend.capture),
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ),
       async () => {
         reachedCommitBoundary.resolve();

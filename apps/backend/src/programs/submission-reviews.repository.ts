@@ -122,7 +122,7 @@ export interface PublishEligibilityRow {
 }
 
 export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
-  select: typeof SubmissionReviewsRepository.REVIEW_CONTEXT_SELECT;
+  select: SubmissionReviewsRepository['REVIEW_CONTEXT_SELECT'];
 }>;
 
 interface CreateReviewRecordInput {
@@ -167,7 +167,11 @@ export interface SubmissionReviewsRepositoryPort {
 }
 
 class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTransactionStore {
-  constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
+  constructor(
+    private readonly transaction: PrismaTypes.TransactionClient,
+    private readonly platformRepository: PlatformRepository,
+    private readonly submissionsRepository: SubmissionsRepository,
+  ) {}
 
   async isSubmissionParticipant(
     submissionId: string,
@@ -178,7 +182,7 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
         where: {
           id: submissionId,
           application:
-            PlatformRepository.programApplicationParticipantWhere(userId),
+            this.platformRepository.programApplicationParticipantWhere(userId),
         },
         select: { id: true },
       });
@@ -191,7 +195,7 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
     const submissions =
       await this.transaction.milestoneDocumentSubmission.findMany({
         where: {
-          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
+          ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
           milestoneDocument: {
             kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
@@ -200,7 +204,7 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
         select: { id: true },
       });
     const resolved =
-      SubmissionsRepository.exactSubmissionByPublicId(submissions);
+      this.submissionsRepository.exactSubmissionByPublicId(submissions);
     if (resolved === null) return null;
     const targetId = resolved.id;
     await this.transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
@@ -252,14 +256,14 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
   async createReview(
     input: CreateReviewRecordInput,
   ): Promise<{ readonly id: string }> {
-    const review = await PlatformRepository.appendSubmissionReview(
+    const review = await this.platformRepository.appendSubmissionReview(
       this.transaction,
       input,
       {
         id: true,
       },
     );
-    await PlatformRepository.appendSubmissionReviewEvent(
+    await this.platformRepository.appendSubmissionReviewEvent(
       this.transaction,
       input,
     );
@@ -283,13 +287,23 @@ class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTra
 
 @Injectable()
 export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+    private readonly submissionsRepository: SubmissionsRepository,
+  ) {}
 
   async withTransaction<T>(
     operation: (store: SubmissionReviewTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaSubmissionReviewTransactionRepository(transaction)),
+      operation(
+        new PrismaSubmissionReviewTransactionRepository(
+          transaction,
+          this.platformRepository,
+          this.submissionsRepository,
+        ),
+      ),
     );
   }
 
@@ -298,16 +312,16 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   ): Promise<ReviewContextRow | null> {
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
+        ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
         milestoneDocument: {
           kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       },
       take: 2,
-      select: SubmissionReviewsRepository.REVIEW_CONTEXT_SELECT,
+      select: this.REVIEW_CONTEXT_SELECT,
     });
     const submission =
-      SubmissionsRepository.exactSubmissionByPublicId(submissions);
+      this.submissionsRepository.exactSubmissionByPublicId(submissions);
     return submission ?? null;
   }
 
@@ -359,7 +373,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     return { ...repository, application: repository.application };
   }
 
-  static readonly REVIEW_CONTEXT_SELECT = {
+  readonly REVIEW_CONTEXT_SELECT = {
     id: true,
     legacySubmissionId: true,
     revision: true,

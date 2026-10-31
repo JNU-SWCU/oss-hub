@@ -147,6 +147,7 @@ export class ProgramAuthoringService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly programRulesService: ProgramRulesService,
     private readonly programUploadRulesService: ProgramUploadRulesService,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
   ) {}
 
   async create(
@@ -188,7 +189,7 @@ export class ProgramAuthoringService {
     plan: ProgramAuthoringPlan,
   ): Promise<ProgramAuthoringProgram> {
     const uploads = await store.lockUploads(plan.uploadTokenIds);
-    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+    this.programAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
       actorId,
       plan.uploadTokenIds,
       uploads,

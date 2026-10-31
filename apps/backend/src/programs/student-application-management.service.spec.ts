@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -47,10 +49,13 @@ function createRepository() {
   const repository = new StudentApplicationManagementRepository(
     prisma,
     new ReviewHistoryWriterRepository(),
+    new PlatformRepository(),
   );
   const applicationsRepository = new ApplicationsRepository(
     prisma,
     new ReviewHistoryWriterRepository(),
+    new RepositoryProvisionGenerationRepository(),
+    new PlatformRepository(),
   );
   const findActiveStudentByGithubId = jest
     .spyOn(applicationsRepository, 'findActiveStudentByGithubId')

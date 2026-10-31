@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
@@ -226,6 +227,7 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
       repository: new ProgramTeamsRepository(
         prisma as never,
         new ProgramTeamRepositoryEvidenceRepository(prisma as never),
+        new PlatformRepository(),
       ),
       findMany,
     };

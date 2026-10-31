@@ -51,7 +51,11 @@ export interface ProgramAuthoringTransactionStore {
 
 @Injectable()
 export class ProgramAuthoringRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programCoverRepository: ProgramCoverRepository,
+  ) {}
 
   async findReplay(
     actorId: string,
@@ -98,13 +102,23 @@ export class ProgramAuthoringRepository {
     operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new ProgramAuthoringTransactionRepository(transaction)),
+      operation(
+        new ProgramAuthoringTransactionRepository(
+          transaction,
+          this.programAuthoringUploadTransactionRepository,
+          this.programCoverRepository,
+        ),
+      ),
     );
   }
 }
 
 class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransactionStore {
-  constructor(private readonly prisma: Prisma.TransactionClient) {}
+  constructor(
+    private readonly prisma: Prisma.TransactionClient,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programCoverRepository: ProgramCoverRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.prisma;
@@ -124,13 +138,13 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     });
     if (cover !== undefined) {
       if ('externalCover' in cover) {
-        await ProgramCoverRepository.createExternalProgramCover(
+        await this.programCoverRepository.createExternalProgramCover(
           this.prisma,
           program.id,
           cover.externalCover,
         );
       } else {
-        await ProgramCoverRepository.createProgramCover(this.prisma, {
+        await this.programCoverRepository.createProgramCover(this.prisma, {
           programId: program.id,
           ...cover,
         });
@@ -151,7 +165,7 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
   lockUploads(
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    return ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+    return this.programAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
       this.prisma,
       tokenIds,
     );

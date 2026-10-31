@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { AccountStatus, ApplicationStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -26,11 +29,15 @@ const prisma = new PrismaService();
 const repository = new MilestoneDocumentsRepository(
   prisma,
   new LockProgramTreeRepository(),
+  new PlatformRepository(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new MilestoneDocumentCollectionReadRepository(prisma),
 );
 const service = new MilestoneDocumentsService(
   repository,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
 const collectionQuery: MilestoneDocumentCollectionQuery = {

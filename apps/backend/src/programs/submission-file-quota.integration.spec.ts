@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { EventEmitter, once } from 'node:events';
 import { SubmissionFileLifecycle } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
@@ -17,7 +19,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(prisma);
+const repository = new SubmissionFilesRepository(
+  prisma,
+  new PlatformRepository(),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
+);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
 const UPLOADER_ID = seedId('milestones', 'user', 'applicant-personal');
 const MILESTONE_ID = MILESTONE_SCENARIOS['milestones-upcoming'][0];

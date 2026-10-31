@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import type { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -60,7 +61,10 @@ describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics re
       {
         isEligible: jest.fn().mockResolvedValue(true),
       } as unknown as PublicEligibilityService,
-      new PublicProjectMetricsRepository(prisma as unknown as PrismaService),
+      new PublicProjectMetricsRepository(
+        prisma as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
       loadRuntimeConfig({
         SESSION_SECRET: 'synthetic-session-secret-synthetic-session-secret',
       }),

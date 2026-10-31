@@ -1,3 +1,5 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -26,6 +28,11 @@ describe('ProgramEditorRepository authority', () => {
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -95,6 +102,11 @@ describe('ProgramEditorRepository edit counts', () => {
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     const result = await repository.withTransaction((store) =>

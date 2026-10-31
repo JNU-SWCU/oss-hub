@@ -1,3 +1,5 @@
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ProgramCategory,
@@ -60,7 +62,11 @@ describe('ProgramsService', () => {
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramCreationService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
     new ProgramRulesService(),

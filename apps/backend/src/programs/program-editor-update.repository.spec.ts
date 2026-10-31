@@ -1,3 +1,5 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
@@ -49,6 +51,11 @@ describe('ProgramEditorRepository updates', () => {
       prisma as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     await repository.withTransaction((store) =>

@@ -1,3 +1,6 @@
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import {
   ApplicationReviewEventKind,
@@ -58,6 +61,8 @@ const prisma = new PrismaService();
 const repository = new ApplicationsRepository(
   prisma,
   new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
 );
 const service = new ApplicationsService(
   repository,
@@ -77,13 +82,19 @@ const service = new ApplicationsService(
   new RepositoryProvisionEventService(),
 );
 const outbox = new RepositoryOutboxConsumerService(
-  new RepositoriesRepository(prisma),
+  new RepositoriesRepository(
+    prisma,
+    new RepositoryProvisionGenerationRepository(),
+  ),
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
   new RepositoryProvisionEventService(),
 );
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateService(
-  new RepositoryProvisionStateRepository(prisma),
+  new RepositoryProvisionStateRepository(
+    prisma,
+    new RepositoryProvisionGenerationRepository(),
+  ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
 );
@@ -709,7 +720,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
     );
     const relink = new StudentRepositoryUrlService(
-      new StudentRepositoryUrlRepository(prisma),
+      new StudentRepositoryUrlRepository(
+        prisma,
+        new PlatformRepository(),
+        new StudentRepositoryUrlContextRepository(new PlatformRepository()),
+        new RepositoryProvisionGenerationRepository(),
+      ),
       repository,
       new OwnRepositoryUrlValidationService(
         github as unknown as GithubAppClient,

@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -32,8 +34,13 @@ const repository = new AdminProfileRepository(
   new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
   ),
+  new PrismaSerializationRetryRepository(),
+  new PlatformRepository(),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),

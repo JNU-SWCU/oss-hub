@@ -31,6 +31,7 @@ function buildRepository(tx: object) {
     new ProgramTeamRepositoryEvidenceRepository(
       prisma as unknown as PrismaService,
     ),
+    new PlatformRepository(),
   );
 }
 
@@ -652,7 +653,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
   });
 
   function expectedRow() {
-    return PlatformRepository.repositoryAccessSyncEventData(
+    return new PlatformRepository().repositoryAccessSyncEventData(
       syntheticApplicationId,
       syntheticTeamId,
       NOW,

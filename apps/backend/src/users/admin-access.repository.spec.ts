@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -43,7 +44,10 @@ describe('admin-actor-locks.repository', () => {
       const actor = new AdminAccessRepository(
         {} as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ).toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(true);
@@ -56,7 +60,10 @@ describe('admin-actor-locks.repository', () => {
       const actor = new AdminAccessRepository(
         {} as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ).toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(false);
@@ -95,7 +102,10 @@ describe('admin-actor-locks.repository', () => {
       const count = await new AdminAccessRepository(
         {} as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ).lockActiveAdminRows(transaction);
 
       expect(count).toBe(2);
@@ -150,7 +160,10 @@ describe('AdminAccessRepository', () => {
         user: { findMany, count },
       } as unknown as PrismaService,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     );
 
     const result = await repository.list({
@@ -295,7 +308,10 @@ describe('AdminAccessRepository', () => {
         },
       } as unknown as PrismaService,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     );
 
     const [user, staffAccessRequests, logins] = await Promise.all([

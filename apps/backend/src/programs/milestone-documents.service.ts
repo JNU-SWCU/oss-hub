@@ -98,6 +98,7 @@ export class MilestoneDocumentsService {
     private readonly repository: MilestoneDocumentsRepository,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
 
   async listByMilestone(
@@ -501,7 +502,7 @@ export class MilestoneDocumentsService {
             milestoneId,
           };
     const submissionContent =
-      MilestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
+      this.milestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
         content.text,
       );
 

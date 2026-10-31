@@ -1,3 +1,4 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   ProgramAuthoringUploadLifecycle,
@@ -40,6 +41,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new SubmissionFileRulesService(),
     new ProgramNoticeFetchClient(),
   ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('program-notice-preview.service', () => {
@@ -216,6 +218,7 @@ function setup() {
         new SubmissionFileRulesService(),
         new ProgramNoticeFetchClient(),
       ),
+      new ProgramAuthoringUploadTransactionRepository(),
     ),
   };
 }

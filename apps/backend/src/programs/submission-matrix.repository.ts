@@ -163,7 +163,10 @@ function toMatrixApplication(
 
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async programExists(programId: string): Promise<boolean> {
     const program = await this.prisma.program.findUnique({
@@ -211,10 +214,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     skip: number,
     take: number,
   ): Promise<MatrixApplicationPage> {
-    const where = SubmissionMatrixRepository.submissionMatrixApplicationWhere(
-      programId,
-      filter,
-    );
+    const where = this.submissionMatrixApplicationWhere(programId, filter);
     const [applications, total] = await Promise.all([
       this.prisma.application.findMany({
         where,
@@ -280,7 +280,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     }));
   }
 
-  static submissionMatrixApplicationWhere(
+  submissionMatrixApplicationWhere(
     programId: string,
     filter: SubmissionMatrixFilter,
   ): Prisma.ApplicationWhereInput {
@@ -292,7 +292,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };
       where.OR = [
-        { applicant: PlatformRepository.userProfileNameWhere(filter.q) },
+        { applicant: this.platformRepository.userProfileNameWhere(filter.q) },
         { applicant: { nickname: contains } },
         { team: { name: contains } },
         { team: { members: { some: { user: { nickname: contains } } } } },

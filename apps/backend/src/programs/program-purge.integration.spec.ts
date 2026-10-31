@@ -1,3 +1,6 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
@@ -69,6 +72,7 @@ const lifecycle = new ProgramLifecycleService(
   new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
   auditLog,
   new AuditLogMetadataService(),
+  new PrismaSerializationRetryRepository(),
 );
 const storageConfig = new ObjectStorageConfig();
 const storageSettings = storageConfig.requireSettings();
@@ -89,7 +93,11 @@ const purgeFileCleanup = new ProgramPurgeFileCleanupService(
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const submissionFileCleanup = new SubmissionFileCleanupService(
-  new SubmissionFilesRepository(prisma),
+  new SubmissionFilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   storage,
 );
 
@@ -1782,6 +1790,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       ),
       failingAuditLog,
       new AuditLogMetadataService(),
+      new PrismaSerializationRetryRepository(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
 
@@ -2059,6 +2068,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         ),
         auditLog,
         new AuditLogMetadataService(),
+        new PrismaSerializationRetryRepository(),
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
 

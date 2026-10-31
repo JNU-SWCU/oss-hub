@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
@@ -27,11 +28,17 @@ const prisma = new PrismaService();
 const authority = new IndependentAuthorityService(
   new IndependentAuthorityRepository(
     prisma,
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
     new AdminAccessRepository(
       prisma,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     ),
   ),
   new AuditLogService(
@@ -50,7 +57,7 @@ const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
   requireCurrent: jest.fn().mockResolvedValue(undefined),
 };
 const roles = new MemberOnboardingService(
-  new MemberOnboardingRepository(prisma),
+  new MemberOnboardingRepository(prisma, new PlatformRepository()),
   consentsService,
   new UserProfileService(),
 );

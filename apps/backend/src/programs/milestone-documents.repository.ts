@@ -353,6 +353,7 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly locks: LockProgramTreeRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   async isApplicationParticipant(
@@ -362,7 +363,7 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
     const application = await this.transaction.application.findFirst({
       where: {
         id: applicationId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
@@ -641,11 +642,11 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
   async createReview(
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview> {
-    await PlatformRepository.appendSubmissionReviewEvent(
+    await this.platformRepository.appendSubmissionReviewEvent(
       this.transaction,
       input,
     );
-    const created = await PlatformRepository.appendSubmissionReview(
+    const created = await this.platformRepository.appendSubmissionReview(
       this.transaction,
       input,
       {
@@ -747,7 +748,10 @@ class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteSt
 }
 
 class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocumentCollectionReadStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
+  ) {}
 
   async findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
     return this.transaction.milestone.findUnique({
@@ -825,7 +829,8 @@ class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocume
             },
           },
           reviewHistories: {
-            ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+            ...this.milestoneDocumentCollectionReadRepository
+              .boundedReviewHistoryQuery,
             take: 1,
           },
         },
@@ -870,6 +875,9 @@ export class MilestoneDocumentsRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
+    private readonly platformRepository: PlatformRepository,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
+    private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
   ) {}
 
   withTransaction<T>(
@@ -877,7 +885,11 @@ export class MilestoneDocumentsRepository {
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
       operation(
-        new PrismaMilestoneDocumentWriteRepository(transaction, this.locks),
+        new PrismaMilestoneDocumentWriteRepository(
+          transaction,
+          this.locks,
+          this.platformRepository,
+        ),
       ),
     );
   }
@@ -906,7 +918,10 @@ export class MilestoneDocumentsRepository {
     return this.prisma.$transaction(
       (transaction) =>
         operation(
-          new PrismaMilestoneDocumentCollectionReadRepository(transaction),
+          new PrismaMilestoneDocumentCollectionReadRepository(
+            transaction,
+            this.milestoneDocumentCollectionReadRepository,
+          ),
         ),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
@@ -985,7 +1000,7 @@ export class MilestoneDocumentsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -1041,7 +1056,8 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
           take: 1,
         },
       },
@@ -1141,7 +1157,8 @@ export class MilestoneDocumentsRepository {
     const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
       where: { milestoneDocumentSubmissionId: submission.id },
       orderBy:
-        MilestoneDocumentCollectionReadRepository.milestoneDocumentHistoryDescendingOrderBy,
+        this.milestoneDocumentCollectionReadRepository
+          .milestoneDocumentHistoryDescendingOrderBy,
       take: limit + 1,
       ...(cursor === null ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: {
@@ -1275,7 +1292,8 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
           take: 1,
         },
       },
@@ -1449,7 +1467,7 @@ export class MilestoneDocumentsRepository {
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
-    return MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+    return this.milestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
       this.prisma,
       input,
     );

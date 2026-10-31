@@ -185,6 +185,7 @@ export class ProgramTeamsRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly evidence: ProgramTeamRepositoryEvidenceRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   async findActiveStudentByGithubId(
@@ -626,7 +627,12 @@ export class ProgramTeamsRepository {
         where: { teamId_userId: { teamId, userId } },
       });
 
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(lockedMembership, {
@@ -682,7 +688,12 @@ export class ProgramTeamsRepository {
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
 
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(lockedActor, {
@@ -769,7 +780,12 @@ export class ProgramTeamsRepository {
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(target, {
@@ -883,18 +899,19 @@ type AccessSyncTx = Pick<
 >;
 
 async function enqueueRepositoryAccessSyncEvents(
+  platformRepository: PlatformRepository,
   tx: AccessSyncTx,
   teamId: string,
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+    where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      PlatformRepository.repositoryAccessSyncEventData(
+      platformRepository.repositoryAccessSyncEventData(
         application.id,
         teamId,
         now,

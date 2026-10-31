@@ -71,7 +71,10 @@ export type MembershipCurrencyCheck = (
 
 @Injectable()
 export class RepositoryProvisionStateRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+  ) {}
 
   async loadContext(jobId: string, workerId: string, requestId: string) {
     return this.prisma.$transaction(async (transaction) => {
@@ -401,7 +404,7 @@ export class RepositoryProvisionStateRepository {
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction((transaction) =>
-      RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+      this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
         transaction,
         {
           requestId,
@@ -469,7 +472,7 @@ export class RepositoryProvisionStateRepository {
             select: { source: true },
           },
         );
-        await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+        await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
           transaction,
           {
             requestId,
@@ -553,7 +556,7 @@ export class RepositoryProvisionStateRepository {
                 where: { id: repositoryId },
                 select: { source: true },
               });
-        await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+        await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
           transaction,
           {
             requestId: input.requestId,

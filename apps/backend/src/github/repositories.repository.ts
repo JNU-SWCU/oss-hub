@@ -130,7 +130,10 @@ type LockedProvisionJobRow = {
 };
 
 class PrismaRepositoriesTransactionRepository implements RepositoriesTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
@@ -294,7 +297,7 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
     now: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
-    await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+    await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
       this.transaction,
       {
         requestId: eventId,
@@ -348,13 +351,21 @@ class PrismaRepositoriesTransactionRepository implements RepositoriesTransaction
 
 @Injectable()
 export class RepositoriesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+  ) {}
 
   async withTransaction<T>(
     operation: (store: RepositoriesTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaRepositoriesTransactionRepository(transaction)),
+      operation(
+        new PrismaRepositoriesTransactionRepository(
+          transaction,
+          this.repositoryProvisionGenerationRepository,
+        ),
+      ),
     );
   }
   async listOwnedProvisionJobs(

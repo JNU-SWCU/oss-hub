@@ -1,3 +1,5 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneSubmissionType } from '@prisma/client';
@@ -53,6 +55,15 @@ describe('milestone edit transaction readback', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        {
+          $transaction: async (
+            operation: (client: typeof tx) => Promise<unknown>,
+          ) => operation(tx),
+        } as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
     await repository.withTransaction(async (store) => {
       const before = await store.lockMilestoneEdit('m');
@@ -100,6 +111,15 @@ describe('milestone edit transaction readback', () => {
         } as unknown as PrismaService,
         new LockProgramTreeRepository(),
         new ProgramDeletionScopeRepository(),
+        new ProgramAuthoringUploadTransactionRepository(),
+        new ProgramCoverRepository(
+          {
+            $transaction: async (
+              operation: (client: typeof tx) => Promise<unknown>,
+            ) => operation(tx),
+          } as unknown as PrismaService,
+          new ProgramAuthoringUploadTransactionRepository(),
+        ),
       );
       await expect(
         repository.withTransaction((store) => store.readMilestoneEdit('m')),

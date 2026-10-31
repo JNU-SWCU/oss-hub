@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -26,9 +29,16 @@ const prisma = new PrismaService();
 const staffGithubId = 9600000001276001n;
 const staffId = 'test:1276:document-order:staff';
 const service = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+  new MilestoneDocumentsRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(prisma),
+  ),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
 async function cleanup(): Promise<void> {

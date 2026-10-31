@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -60,7 +62,10 @@ it(
       new AdminAccessRepository(
         pidCapturingPrisma(mutationBackend.capture),
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ),
       auditLog,
       new AdminAccessMutationService(
@@ -117,6 +122,7 @@ it(
           new AdminAccessHistoryRepository(),
           new AdminAccessReadRepository(
             new AdminAccessReadOrderingRepository(),
+            new PlatformRepository(),
           ),
         ),
         async () => {
@@ -180,8 +186,11 @@ it(
             new AdminAccessHistoryRepository(),
             new AdminAccessReadRepository(
               new AdminAccessReadOrderingRepository(),
+              new PlatformRepository(),
             ),
           ),
+          new PrismaSerializationRetryRepository(),
+          new PlatformRepository(),
         ),
         async () => {
           reachedActorRead.resolve();
@@ -248,8 +257,11 @@ it(
           new AdminAccessHistoryRepository(),
           new AdminAccessReadRepository(
             new AdminAccessReadOrderingRepository(),
+            new PlatformRepository(),
           ),
         ),
+        new PrismaSerializationRetryRepository(),
+        new PlatformRepository(),
       ),
       auditLog,
       new AdminProfileMutationService(

@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -62,7 +63,10 @@ describe('AdminAccessRepository transaction store', () => {
         ): Promise<T> => operation(transaction),
       } as unknown as PrismaService,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     );
     const decidedAt = new Date('2026-07-24T00:00:00.000Z');
 

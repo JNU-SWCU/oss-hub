@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -106,6 +108,7 @@ function service(input: {
       repo as unknown as MilestoneDocumentsRepository,
       input.programs ?? programs(),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     ),
   };
 }

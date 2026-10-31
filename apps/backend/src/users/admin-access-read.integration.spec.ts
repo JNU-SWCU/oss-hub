@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -31,7 +32,10 @@ const service = new AdminAccessService(
   new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
   ),
   new AuditLogService(
     new AuditLogRepository(prisma),

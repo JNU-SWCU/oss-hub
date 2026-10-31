@@ -148,10 +148,13 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
 }>;
 
 class PrismaOnboardingTransactionRepository implements OnboardingTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome> {
-    return PlatformRepository.requestStaffAccess(this.transaction, userId);
+    return this.platformRepository.requestStaffAccess(this.transaction, userId);
   }
 
   async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {
@@ -209,13 +212,21 @@ class PrismaOnboardingTransactionRepository implements OnboardingTransactionStor
 
 @Injectable()
 export class MemberOnboardingRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async withTransaction<T>(
     operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaOnboardingTransactionRepository(transaction)),
+      operation(
+        new PrismaOnboardingTransactionRepository(
+          transaction,
+          this.platformRepository,
+        ),
+      ),
     );
   }
 

@@ -1,13 +1,14 @@
+import { SubmissionsRepository } from './submissions.repository';
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import type { PlatformRepository } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const mockLockSubmissionMembership = jest.fn<
-  ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
-  Parameters<typeof PlatformRepository.lockSubmissionMembership>
+  ReturnType<PlatformRepository['lockSubmissionMembership']>,
+  Parameters<PlatformRepository['lockSubmissionMembership']>
 >();
 
 jest.mock('../platform/platform.repository', () => {
@@ -17,9 +18,11 @@ jest.mock('../platform/platform.repository', () => {
   return {
     ...actual,
     PlatformRepository: class extends actual.PlatformRepository {
-      static override lockSubmissionMembership(
+      override lockSubmissionMembership(
         ...args: Parameters<
-          typeof actual.PlatformRepository.lockSubmissionMembership
+          InstanceType<
+            typeof actual.PlatformRepository
+          >['lockSubmissionMembership']
         >
       ) {
         return mockLockSubmissionMembership(...args);
@@ -37,7 +40,11 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
     submissionFile: { findMany },
     user: { findUnique },
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(prisma);
+  const repository = new SubmissionFilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  );
 
   beforeEach(() => {
     findMany.mockReset();
@@ -236,7 +243,11 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     user: { findUnique },
     submissionFile: { findFirst },
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(prisma);
+  const repository = new SubmissionFilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  );
 
   function requester(overrides: {
     readonly id: string;
@@ -415,7 +426,11 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
         run(transactionClient),
     ),
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(prisma);
+  const repository = new SubmissionFilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  );
 
   beforeEach(() => {
     queryRaw.mockReset();

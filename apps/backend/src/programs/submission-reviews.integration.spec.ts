@@ -1,3 +1,6 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
@@ -53,7 +56,10 @@ const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
-const repositoriesRepository = new RepositoriesRepository(prisma);
+const repositoriesRepository = new RepositoriesRepository(
+  prisma,
+  new RepositoryProvisionGenerationRepository(),
+);
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github as unknown as GithubAppClient,
@@ -62,7 +68,11 @@ const repositories = new RepositoriesService(
   new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   repositories,
   new RepositoryPublishService(),
   new RepositoryUrlService(),

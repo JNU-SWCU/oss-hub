@@ -1,3 +1,4 @@
+import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from '../../src/programs/program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
@@ -21,6 +22,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new SubmissionFileRulesService(),
     new ProgramNoticeFetchClient(),
   ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 const PREFIX = 'e2e:program-authoring:';

@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
@@ -60,11 +61,17 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
   });
   const repository = new IndependentAuthorityRepository(
     prisma,
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
     new AdminAccessRepository(
       prisma,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     ),
   );
 
@@ -104,11 +111,17 @@ it('교직원 회수 이력을 옛 CAS 경로와 같은 모양으로 같은 트�
   });
   const repository = new IndependentAuthorityRepository(
     prisma,
-    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
     new AdminAccessRepository(
       prisma,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
     ),
   );
   const decidedAt = new Date('2026-09-23T00:00:00.000Z');

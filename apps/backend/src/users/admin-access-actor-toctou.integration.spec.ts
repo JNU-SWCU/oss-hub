@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -24,7 +25,10 @@ const prisma = new PrismaService();
 const repository = new AdminAccessRepository(
   prisma,
   new AdminAccessHistoryRepository(),
-  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminAccessReadRepository(
+    new AdminAccessReadOrderingRepository(),
+    new PlatformRepository(),
+  ),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
@@ -111,7 +115,10 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
       new AdminAccessRepository(
         pidCapturingPrisma(mutationBackend.capture),
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
       ),
       {
         onAfterLock: async () => {

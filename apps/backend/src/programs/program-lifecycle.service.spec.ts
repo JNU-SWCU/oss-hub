@@ -1,3 +1,4 @@
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
@@ -140,6 +141,7 @@ function createDeleteService(
     ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,
@@ -655,6 +657,7 @@ function createPurgeService(
     ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,

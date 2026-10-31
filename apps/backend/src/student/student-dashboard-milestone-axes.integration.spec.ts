@@ -1,3 +1,5 @@
+import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
@@ -59,13 +61,17 @@ const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
   getMyRepositories: () => Promise.resolve([]),
 };
 const dashboard = new StudentDashboardService(
-  new StudentDashboardRepository(prisma),
+  new StudentDashboardRepository(prisma, new PlatformRepository()),
   noRepositories,
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
 );
 const programs = new ProgramsService(
-  new ProgramsRepository(prisma),
+  new ProgramsRepository(
+    prisma,
+    new PlatformRepository(),
+    new ProgramListStatusFilterRepository(),
+  ),
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),

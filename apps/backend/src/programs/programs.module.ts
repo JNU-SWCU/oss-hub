@@ -1,3 +1,7 @@
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
@@ -158,6 +162,14 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     MilestoneDocumentFilesController,
   ],
   providers: [
+    SubmissionsRepository,
+    SubmissionReviewsRepository,
+    SubmissionMatrixRepository,
+    MilestoneDocumentCollectionReadRepository,
+    StudentRepositoryUrlContextRepository,
+    ProgramListStatusFilterRepository,
+    ProgramAuthoringUploadTransactionRepository,
+    MilestoneDocumentSubmissionRepository,
     ProgramCoverUrlService,
     ApplicationAnswersService,
     DownloadResponseService,

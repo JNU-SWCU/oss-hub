@@ -1,3 +1,6 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
@@ -51,8 +54,14 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const metrics = new PublicProjectMetricsRepository(prisma);
-const eligibilityMetrics = new PublicEligibilityRepository(prisma);
+const metrics = new PublicProjectMetricsRepository(
+  prisma,
+  new PlatformRepository(),
+);
+const eligibilityMetrics = new PublicEligibilityRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const eligibilityService = new PublicEligibilityService(eligibilityMetrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const publicProjectsService = new PublicProjectsService(
@@ -75,7 +84,10 @@ const auditLogService = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
-const repositoriesRepository = new RepositoriesRepository(prisma);
+const repositoriesRepository = new RepositoriesRepository(
+  prisma,
+  new RepositoryProvisionGenerationRepository(),
+);
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
   github as unknown as GithubAppClient,
@@ -84,7 +96,11 @@ const repositoriesService = new RepositoriesService(
   new RepositoryUrlService(),
 );
 const submissionReviewsService = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   repositoriesService,
   new RepositoryPublishService(),
   new RepositoryUrlService(),

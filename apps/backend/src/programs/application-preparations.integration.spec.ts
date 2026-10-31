@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -23,16 +25,21 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const prisma = new PrismaService();
-const inbox = new TeamInvitationsRepository(prisma);
+const inbox = new TeamInvitationsRepository(prisma, new PlatformRepository());
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
 const preparations = new ApplicationPreparationsService(
-  new ApplicationPreparationsRepository(prisma),
+  new ApplicationPreparationsRepository(prisma, new PlatformRepository()),
 );
 const applications = new ApplicationsService(
-  new ApplicationsRepository(prisma, new ReviewHistoryWriterRepository()),
+  new ApplicationsRepository(
+    prisma,
+    new ReviewHistoryWriterRepository(),
+    new RepositoryProvisionGenerationRepository(),
+    new PlatformRepository(),
+  ),
   audit,
   new ApplicationJoinCodeService(
     {

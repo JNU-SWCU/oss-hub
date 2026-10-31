@@ -70,6 +70,7 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly adminAccessRepository: AdminAccessRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -101,7 +102,7 @@ class PrismaAdminProfileTransactionRepository implements AdminProfileTransaction
     changedFields: Partial<AdminProfileWriteFields>,
   ): Promise<AdminProfileApplyOutcome> {
     try {
-      await PlatformRepository.upsertUserProfile(
+      await this.platformRepository.upsertUserProfile(
         this.transaction,
         userId,
         {
@@ -144,12 +145,14 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessRepository: AdminAccessRepository,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   withTransaction<T>(
     operation: (store: AdminProfileTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return PrismaSerializationRetryRepository.withSerializationRetry(
+    return this.prismaSerializationRetryRepository.withSerializationRetry(
       () =>
         this.prisma.$transaction(
           (transaction) =>
@@ -157,6 +160,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
               new PrismaAdminProfileTransactionRepository(
                 transaction,
                 this.adminAccessRepository,
+                this.platformRepository,
               ),
             ),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },

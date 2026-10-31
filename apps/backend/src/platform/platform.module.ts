@@ -1,3 +1,6 @@
+import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
+import { PlatformRepository } from './platform.repository';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
 import { AuditLogRepository } from './audit-log.repository';
@@ -25,6 +28,9 @@ import { RolesGuard } from './roles.guard';
 @Module({
   controllers: [HealthController],
   providers: [
+    RepositoryProvisionGenerationRepository,
+    PrismaSerializationRetryRepository,
+    PlatformRepository,
     {
       provide: RUNTIME_CONFIG,
       useValue: PROCESS_RUNTIME_CONFIG,
@@ -52,6 +58,9 @@ import { RolesGuard } from './roles.guard';
     JoinCodeSecretService,
     AuditLogService,
     RolesGuard,
+    PlatformRepository,
+    PrismaSerializationRetryRepository,
+    RepositoryProvisionGenerationRepository,
   ],
 })
 export class PlatformModule {}

@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   ApplicationReviewEventKind,
   MemberKind,
@@ -29,6 +31,8 @@ const prisma = new PrismaService();
 const repository = new ApplicationsRepository(
   prisma,
   new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
 );
 
 async function cleanup(): Promise<void> {

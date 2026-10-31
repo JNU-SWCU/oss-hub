@@ -1,3 +1,6 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
@@ -52,7 +55,11 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     programCoverUrlService.programCoverImageUrl(created.id, cover.id),
   );
   const programs = new ProgramsService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
@@ -185,7 +192,10 @@ it.each(['replace', 'remove'])(
     const second = await seedUpload();
     await expect(
       prisma.$transaction(async (transaction) => {
-        await ProgramCoverRepository.replaceProgramCover(transaction, {
+        await new ProgramCoverRepository(
+          prisma,
+          new ProgramAuthoringUploadTransactionRepository(),
+        ).replaceProgramCover(transaction, {
           programId: program.id,
           actorId: ACTOR,
           uploadId: operation === 'replace' ? second.id : null,

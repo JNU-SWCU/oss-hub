@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -18,7 +19,10 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const harness = createDeadlineDigestIntegrationHarness();
-const repository = new SubmissionMatrixRepository(harness.prisma);
+const repository = new SubmissionMatrixRepository(
+  harness.prisma,
+  new PlatformRepository(),
+);
 const service = new SubmissionMatrixService(
   repository,
   new MilestoneDocumentRulesService(new ProgramRulesService()),

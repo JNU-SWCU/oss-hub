@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
@@ -69,6 +71,7 @@ const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(
   prisma,
   new TeamDeletionScopeRepository(),
+  new PrismaSerializationRetryRepository(),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
@@ -78,6 +81,7 @@ const service = new ProgramTeamsService(
   new ProgramTeamsRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
   ),
   auditLog,
   deletionRepository,

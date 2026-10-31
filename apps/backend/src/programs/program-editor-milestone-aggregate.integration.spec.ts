@@ -1,3 +1,8 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -250,10 +255,20 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     await new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
@@ -384,10 +399,20 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
@@ -417,7 +442,13 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await seedGraph();
     const gate = deferred<void>();
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       {
         ...memoryStorage(),
         put: (input) =>
@@ -429,7 +460,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           })),
       },
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
@@ -478,19 +513,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const locked = deferred<void>();
     const release = deferred<void>();
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
-    const submission =
-      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
-        submissionPrisma,
-        {
-          milestoneDocumentId: firstDocumentId,
-          applicationId: application.id,
-          submittedById: application.studentId,
-          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-          expectedLatestReviewId: null,
-          content: Prisma.JsonNull,
-          attachFile: null,
-        },
-      );
+    const submission = new MilestoneDocumentSubmissionRepository(
+      new PlatformRepository(),
+    ).upsertMilestoneDocumentSubmission(submissionPrisma, {
+      milestoneDocumentId: firstDocumentId,
+      applicationId: application.id,
+      submittedById: application.studentId,
+      submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+      expectedLatestReviewId: null,
+      content: Prisma.JsonNull,
+      attachFile: null,
+    });
     await locked.promise;
     const aggregate = editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
@@ -535,18 +568,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
 
     await expect(
-      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
-        prisma,
-        {
-          milestoneDocumentId: firstDocumentId,
-          applicationId: application.id,
-          submittedById: application.studentId,
-          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-          expectedLatestReviewId: null,
-          content: Prisma.JsonNull,
-          attachFile: null,
-        },
-      ),
+      new MilestoneDocumentSubmissionRepository(
+        new PlatformRepository(),
+      ).upsertMilestoneDocumentSubmission(prisma, {
+        milestoneDocumentId: firstDocumentId,
+        applicationId: application.id,
+        submittedById: application.studentId,
+        submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+        expectedLatestReviewId: null,
+        content: Prisma.JsonNull,
+        attachFile: null,
+      }),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(
       await prisma.milestoneDocumentSubmission.count({
@@ -576,10 +608,20 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma, new LockProgramTreeRepository()),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
         new ProgramRulesService(),
         new SubmissionFileRulesService(),
@@ -1190,6 +1232,11 @@ function createFaultingEditor(
     prisma,
     new LockProgramTreeRepository(),
     new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
   );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
@@ -1263,6 +1310,11 @@ function pausingAggregateEditorAt(
     prisma,
     new LockProgramTreeRepository(),
     new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
   );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>

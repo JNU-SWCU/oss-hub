@@ -535,6 +535,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
   constructor(
     private readonly transaction: PrismaTypes.TransactionClient,
     private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
   ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
@@ -633,7 +634,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
     });
     if (event !== null) {
       const ownsJob = job?.currentEventId === event.id;
-      await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+      await this.repositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
         this.transaction,
         {
           requestId: event.id,
@@ -731,7 +732,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
           },
         },
       });
-      await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
+      await this.repositoryProvisionGenerationRepository.transferProvisionGeneration(
         this.transaction,
         {
           applicationId: input.applicationId,
@@ -953,6 +954,8 @@ export class ApplicationsRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+    private readonly platformRepository: PlatformRepository,
   ) {}
 
   async withTransaction<T>(
@@ -963,6 +966,7 @@ export class ApplicationsRepository {
         new PrismaApplicationsTransactionRepository(
           transaction,
           this.reviewHistory,
+          this.repositoryProvisionGenerationRepository,
         ),
       ),
     );
@@ -1031,7 +1035,11 @@ export class ApplicationsRepository {
     programId: string,
     query: ApplicationListQuery,
   ): Promise<ApplicationListSourcePage> {
-    const where = buildApplicationListWhere(programId, query);
+    const where = buildApplicationListWhere(
+      this.platformRepository,
+      programId,
+      query,
+    );
     const [rows, totalItems, outboxEvents, provisionJobs] =
       await this.prisma.$transaction(
         async (transaction) => {
@@ -1171,7 +1179,11 @@ export class ApplicationsRepository {
     programId: string,
     query: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
-    const where = buildTeamManagementListWhere(programId, query);
+    const where = buildTeamManagementListWhere(
+      this.platformRepository,
+      programId,
+      query,
+    );
 
     const buckets: readonly Prisma.ApplicationWhereInput[] =
       query.status === 'all'
@@ -1311,6 +1323,7 @@ export class ApplicationsRepository {
 }
 
 function buildApplicationListWhere(
+  platformRepository: PlatformRepository,
   programId: string,
   query: ApplicationListQuery,
 ): Prisma.ApplicationWhereInput {
@@ -1322,7 +1335,7 @@ function buildApplicationListWhere(
     ? {
         OR: [
           {
-            applicant: PlatformRepository.userProfileNameWhere(search),
+            applicant: platformRepository.userProfileNameWhere(search),
           },
           {
             applicant: {
@@ -1358,10 +1371,11 @@ function buildApplicationListWhere(
 }
 
 function buildTeamManagementListWhere(
+  platformRepository: PlatformRepository,
   programId: string,
   query: ApplicationListQuery,
 ): Prisma.ApplicationWhereInput {
-  const base = buildApplicationListWhere(programId, query);
+  const base = buildApplicationListWhere(platformRepository, programId, query);
   if (!query.search || !Array.isArray(base.OR)) return base;
   return {
     ...base,
@@ -1373,7 +1387,7 @@ function buildTeamManagementListWhere(
             some: {
               OR: [
                 {
-                  user: PlatformRepository.userProfileNameWhere(query.search),
+                  user: platformRepository.userProfileNameWhere(query.search),
                 },
                 {
                   user: {

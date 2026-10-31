@@ -1,3 +1,4 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
@@ -21,6 +22,7 @@ const programAuthoringService = new ProgramAuthoringService(
     new SubmissionFileRulesService(),
     new ProgramNoticeFetchClient(),
   ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 function request(): ProgramAuthoringRequest {
