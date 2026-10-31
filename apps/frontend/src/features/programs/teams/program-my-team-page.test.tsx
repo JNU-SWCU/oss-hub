@@ -8,7 +8,7 @@ import { getProgramDetail } from '../catalog/api';
 import type { ProgramTeam } from './dto';
 import { updateRepositoryUrl } from './repository-url-api';
 import { invalidateProgram } from '../catalog/queries';
-import { focusManager, QueryObserver } from '@tanstack/react-query';
+import { QueryObserver } from '@tanstack/react-query';
 import { programFeatureKey } from '@/lib/query-keys';
 import { ProgramMyTeamPage } from './program-my-team-page';
 import { getMyApplication } from '../applications/student-application-api';
@@ -734,8 +734,7 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
     canEditRepositoryUrl: false,
   });
   await act(async () => {
-    focusManager.setFocused(false);
-    focusManager.setFocused(true);
+    window.dispatchEvent(new Event('focus'));
   });
 
   expect(getTeamActivity).toHaveBeenCalledTimes(2);
@@ -787,8 +786,7 @@ it('re-reads the graph when a quiet reload changes the member list', async () =>
   });
   vi.mocked(getTeamActivity).mockResolvedValue(collected(['synthetic-leader']));
   await act(async () => {
-    focusManager.setFocused(false);
-    focusManager.setFocused(true);
+    window.dispatchEvent(new Event('focus'));
   });
 
   expect(getTeamActivity).toHaveBeenCalledTimes(2);
@@ -856,8 +854,7 @@ describe('멤버십 변경 후 현재 팀 다시 읽기', () => {
     await renderPage();
     vi.mocked(getMyTeam).mockRejectedValueOnce(new Error('network'));
     await act(async () => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
+      window.dispatchEvent(new Event('focus'));
     });
     expect(getMyTeam).toHaveBeenCalledTimes(2);
     expect(host.textContent).toContain('속한 팀이 없습니다');

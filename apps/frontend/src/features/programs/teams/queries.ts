@@ -2,6 +2,7 @@
 
 import { skipToken, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { featureKey, programFeatureKey } from '@/lib/query-keys';
+import { useWindowFocusRefetch } from '@/lib/use-window-focus-refetch';
 import { getMyTeam, getStaffProgramTeamDetail } from './api';
 import { getProgramDetail } from '../catalog/api';
 import { getMyApplication } from '../applications/student-application-api';
@@ -28,7 +29,7 @@ export class TeamApplicationOutOfSyncError extends Error {
 }
 
 export function useMyTeamQuery(programId: string, sessionKey: string | null) {
-  return useQuery({
+  const query = useQuery({
     queryKey: programFeatureKey(programId, 'teams', 'me', sessionKey),
     queryFn:
       sessionKey === null
@@ -47,6 +48,8 @@ export function useMyTeamQuery(programId: string, sessionKey: string | null) {
           },
     refetchOnWindowFocus: true,
   });
+  useWindowFocusRefetch(query.refetch, sessionKey !== null);
+  return query;
 }
 
 export function useTeamsDirectoryQuery(programId: string) {
@@ -124,11 +127,13 @@ export function useTeamApplicationQuery(
 }
 
 export function useTeamActivityQuery(programId: string, teamId: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: programFeatureKey(programId, 'teams', 'activity', teamId),
     queryFn: () => getTeamActivity(programId, teamId),
     refetchOnWindowFocus: true,
   });
+  useWindowFocusRefetch(query.refetch);
+  return query;
 }
 
 export function receivedInvitationsKey(identityKey: string | null) {
@@ -136,12 +141,14 @@ export function receivedInvitationsKey(identityKey: string | null) {
 }
 
 export function useReceivedInvitationsQuery(identityKey: string | null) {
-  return useQuery({
+  const query = useQuery({
     queryKey: receivedInvitationsKey(identityKey),
     queryFn: listReceivedInvitations,
     refetchOnWindowFocus: true,
     refetchInterval: 60_000,
   });
+  useWindowFocusRefetch(query.refetch);
+  return query;
 }
 
 export function useSentInvitationsQuery(
@@ -151,7 +158,7 @@ export function useSentInvitationsQuery(
   preparation: boolean,
   refetchInterval: number | false = false,
 ) {
-  return useQuery({
+  const query = useQuery({
     queryKey: programFeatureKey(
       programId,
       'teams',
@@ -167,6 +174,11 @@ export function useSentInvitationsQuery(
     refetchOnWindowFocus: refetchInterval !== false,
     refetchInterval,
   });
+  useWindowFocusRefetch(
+    query.refetch,
+    teamId !== null && identityKey !== null && refetchInterval !== false,
+  );
+  return query;
 }
 
 export function useInvitationCandidatesQuery(
