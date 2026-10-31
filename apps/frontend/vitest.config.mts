@@ -16,13 +16,8 @@ const happyDomTests = [
   'src/app/programs/\\[id\\]/edit/program-edit-route.test.tsx',
   'src/app/programs/\\[id\\]/teams/program-teams-route-view.test.tsx',
   'src/app/settings/{settings-notification-flow.test.tsx,settings-page.test.tsx}',
-<<<<<<< HEAD
-  'src/components/{data-table.test.tsx,dialog-shell.test.tsx,filter-chip.test.tsx,list-card.test.tsx,nav-bar-escape.test.tsx,table-scroll-region.test.tsx}',
+  'src/components/{data-table.test.tsx,nav-bar-active.test.tsx,dialog-shell.test.tsx,filter-chip.test.tsx,list-card.test.tsx,nav-bar-escape.test.tsx,table-scroll-region.test.tsx}',
   'src/components/program/{program-countdown.interaction.test.tsx,program-cover.test.tsx}',
-=======
-  'src/app/signup/signup-login-destination.test.tsx',
-  'src/components/{data-table.test.tsx,nav-bar-active.test.tsx,dialog-shell.test.tsx,filter-chip.test.tsx,list-card.test.tsx,nav-bar-escape.test.tsx,program-countdown.interaction.test.tsx,program-cover.test.tsx,table-scroll-region.test.tsx}',
->>>>>>> 73f1cc7 (test(frontend): assert sidebar and nav current state semantically)
   'src/components/ui/dialog.test.tsx',
   'src/features/audit-log/audit-log-screen.test.tsx',
   'src/features/auth/login-destination.test.ts',

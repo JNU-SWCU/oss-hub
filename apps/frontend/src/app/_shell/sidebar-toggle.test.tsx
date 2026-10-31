@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
   useSearchParams: vi.fn(() => new URLSearchParams()),
   useSessionRole: vi.fn(),
-  loadArchiveYears: vi.fn(),
   getRankingYears: vi.fn(),
   getProgramStatusCounts: vi.fn(),
 }));
@@ -36,9 +35,6 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
-vi.mock('@/features/archive/api', () => ({
-  loadArchiveYears: mocks.loadArchiveYears,
-}));
 vi.mock('@/features/ranking/api', () => ({
   getRankingYears: mocks.getRankingYears,
 }));
@@ -53,7 +49,6 @@ import { SIDEBAR_ASIDE_ID } from './sidebar-shell';
 
 const ITEMS: NavItem[] = [
   { label: '프로그램', href: '/programs' },
-  { label: '공개 아카이브', href: '/archive' },
   { label: '랭킹', href: '/ranking' },
 ];
 
@@ -85,7 +80,6 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   let root: Root;
 
   beforeEach(() => {
-    mocks.loadArchiveYears.mockReset().mockResolvedValue([2026]);
     mocks.getRankingYears.mockReset().mockResolvedValue([2026]);
     mocks.getProgramStatusCounts.mockReset().mockResolvedValue({});
     mockSession('anonymous');
@@ -132,7 +126,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   }
 
   it('사이드바가 있는 경로에서만 데스크톱 토글과 드로어 트리거를 함께 그린다', async () => {
-    await renderFrame('/archive');
+    await renderFrame('/programs');
     const toggle = desktopToggle();
     const trigger = drawerTrigger();
     expect(toggle).not.toBeNull();
@@ -160,7 +154,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   });
 
   it('데스크톱 토글은 셸의 data-collapsed를 뒤집고 aside를 가리키며 쿠키를 쓴다', async () => {
-    await renderFrame('/archive');
+    await renderFrame('/programs');
     const toggle = desktopToggle();
     expect(toggle).not.toBeNull();
     expect(toggle?.getAttribute('aria-expanded')).toBe('true');
@@ -206,7 +200,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     }
 
     it('토글은 aria-keyshortcuts로 ⌘\\ / Ctrl+\\를 알린다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       expect(desktopToggle()?.getAttribute('aria-keyshortcuts')).toBe(
         'Meta+Backslash Control+Backslash',
       );
@@ -216,7 +210,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
 
     it('Meta+\\ 와 Control+\\ 는 데스크톱에서 접힘을 뒤집는다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
 
       let event!: KeyboardEvent;
@@ -233,7 +227,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
 
     it('입력 중에는 단축키를 무시한다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       const input = document.createElement('input');
       document.body.append(input);
       input.focus();
@@ -249,7 +243,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
 
     it('데스크톱 aside가 숨겨진 폭에서는 드로어를 연다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       const aside = document.getElementById(SIDEBAR_ASIDE_ID);
       if (aside) aside.style.display = 'none';
 
@@ -269,7 +263,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
           scrolled.push({ element: this, options });
         });
       try {
-        await renderFrame('/archive');
+        await renderFrame('/programs');
 
         const asideCall = scrolled.find(({ element }) =>
           document.getElementById(SIDEBAR_ASIDE_ID)?.contains(element),
@@ -315,7 +309,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     }
 
     it('접기는 패널을 먼저 숨기고 transitionend 뒤에야 레일로 좁힌다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       await act(async () => desktopToggle()?.click());
 
       expect(productShell()?.getAttribute('data-collapsed')).toBe('true');
@@ -333,7 +327,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
 
     it('transitionend가 오지 않아도 접기 시간 뒤 레일로 끝난다', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       await act(async () => desktopToggle()?.click());
       expect(phase()).toBe('collapsing');
 
@@ -346,7 +340,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
     });
 
     it('펼치기는 그리드를 즉시 넓히고 다음 프레임에 패널을 드러낸다', async () => {
-      await renderFrame('/archive');
+      await renderFrame('/programs');
       await act(async () => desktopToggle()?.click());
       await act(async () => {
         panel()?.dispatchEvent(new Event('transitionend', { bubbles: true }));
@@ -369,7 +363,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   });
 
   it('드로어 트리거는 드로어를 열고 aria-expanded를 반영한다', async () => {
-    await renderFrame('/archive');
+    await renderFrame('/programs');
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('false');
 
@@ -383,7 +377,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
   });
 
   it('aside 안에는 토글이 없다', async () => {
-    await renderFrame('/archive');
+    await renderFrame('/programs');
     const aside = document.getElementById(SIDEBAR_ASIDE_ID);
     expect(aside).not.toBeNull();
     expect(aside?.querySelector('button')).toBeNull();

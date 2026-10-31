@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { ProgramCountdown } from '@/components';
-import type { CountdownMilestone } from '@/components/program-countdown';
+import type { CountdownMilestone } from '@/components/program/program-countdown';
 import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import { ProgramScopeSidebar } from './program-scope-sidebar';
