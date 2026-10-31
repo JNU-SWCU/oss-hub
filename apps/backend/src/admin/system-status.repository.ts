@@ -1,16 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  type CollectionRunKind,
-  type Prisma,
-} from '@prisma/client';
+import { type CollectionRunKind, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-
-export interface SystemStatusActor {
-  hasStaffAccess: boolean;
-  hasAdminAccess: boolean;
-  accountStatus: AccountStatus;
-}
 
 export interface CollectionIncrementalStatusSnapshotDto {
   readonly trackedRepositoryCount: number;

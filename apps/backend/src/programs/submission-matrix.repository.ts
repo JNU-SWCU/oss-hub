@@ -58,10 +58,6 @@ async function findMatrixDocumentFirstSubmissions(
   }));
 }
 
-export interface SubmissionMatrixViewer {
-  readonly id: string;
-}
-
 export interface MatrixMilestoneRecord {
   readonly id: string;
   readonly name: string;

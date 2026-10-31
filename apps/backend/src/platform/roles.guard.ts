@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 
-export const ROLE = {
+const ROLE = {
   STAFF: 'STAFF',
   ADMIN: 'ADMIN',
 } as const;

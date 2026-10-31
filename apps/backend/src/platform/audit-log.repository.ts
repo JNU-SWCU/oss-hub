@@ -1,6 +1,6 @@
 import type { AuditLogTransactionWriter } from './audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, type Prisma } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import type { AuditLogListQuery } from './audit-log-query.types';
 
@@ -153,13 +153,6 @@ export type AuditLogRowPage = {
   readonly rows: readonly AuditLogRow[];
   readonly total: number;
 };
-
-export interface AuditLogActor {
-  readonly id: string;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly accountStatus: AccountStatus;
-}
 
 @Injectable()
 export class AuditLogRepository {
