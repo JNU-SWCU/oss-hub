@@ -1,3 +1,4 @@
+import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
 import {
   ApplicationStatus,
   CollectionRepositoryPresence,
@@ -64,14 +65,19 @@ const outbox = new RepositoryOutboxConsumerService(
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
   new RepositoryProvisionEventService(),
 );
-const jobs = new RepositoryProvisionJobRepository(prisma);
+const jobs = new RepositoryProvisionJobRepository(
+  prisma,
+  new RepositoryProvisionStateHelpersRepository(),
+);
 const state = new RepositoryProvisionStateService(
   new RepositoryProvisionStateRepository(
     prisma,
     new RepositoryProvisionGenerationRepository(),
+    new RepositoryProvisionStateHelpersRepository(),
   ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
+  new RepositoryProvisionStateHelpersRepository(),
 );
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-worker-applicant-id';

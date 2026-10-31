@@ -1,3 +1,4 @@
+import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
 import { CollectionScheduleService } from './collection-schedule.service';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -10,7 +11,7 @@ import {
   RepositoryProvisionJobRepository,
 } from './repository-provision-job.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionProvidersService } from './collection-providers.service';
+import { COLLECTION_PROVIDERS } from './collection-public-token.service';
 import { CollectionTriggerService } from './collection-trigger.service';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenClient } from './github-app-token.client';
@@ -35,13 +36,14 @@ import { RepositoryProvisionGithubService } from './repository-provision-github.
 @Module({
   imports: [ScheduleModule.forRoot(), PlatformModule, UsersModule],
   providers: [
+    RepositoryProvisionStateHelpersRepository,
     CollectionScheduleService,
     CollectionAdminService,
     CollectionTriggerService,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionUserActivityRepository,
-    ...CollectionProvidersService.providers,
+    ...COLLECTION_PROVIDERS,
     RepositoryOwnEnrollmentService,
     GithubOperationsConfig,
     RepositoriesRepository,

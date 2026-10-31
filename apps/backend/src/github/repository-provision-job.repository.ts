@@ -88,7 +88,10 @@ type ClaimedRepositoryProvisionJobRow = ClaimedRepositoryProvisionJob;
 
 @Injectable()
 export class RepositoryProvisionJobRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly repositoryProvisionStateHelpersRepository: RepositoryProvisionStateHelpersRepository,
+  ) {}
 
   async claimNext(
     input: ClaimRepositoryProvisionJobInput,
@@ -191,7 +194,7 @@ export class RepositoryProvisionJobRepository {
     now: Date,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+      await this.repositoryProvisionStateHelpersRepository.assertCurrentRequest(
         transaction,
         jobId,
         workerId,
@@ -206,7 +209,7 @@ export class RepositoryProvisionJobRepository {
         },
         data: { lockedAt: now },
       });
-      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
+      this.repositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
         updated.count,
       );
     });

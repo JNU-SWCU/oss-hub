@@ -40,6 +40,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     private readonly repository: RepositoryProvisionStateRepository,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
+    private readonly repositoryProvisionStateHelpersRepository: RepositoryProvisionStateHelpersRepository,
   ) {}
 
   async loadContext(
@@ -128,7 +129,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
         job.repositoryId !== application.repository.id
           ? null
           : this.toProvisionedRepository(
-              RepositoryProvisionStateHelpersRepository.assertOwnedRepository(
+              this.repositoryProvisionStateHelpersRepository.assertOwnedRepository(
                 application.repository,
               ),
             ),

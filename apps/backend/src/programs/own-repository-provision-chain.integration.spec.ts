@@ -1,3 +1,4 @@
+import { RepositoryProvisionStateHelpersRepository } from '../github/repository-provision-state-helpers.repository';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -89,14 +90,19 @@ const outbox = new RepositoryOutboxConsumerService(
   { runNext: () => Promise.reject(new Error('worker is not used here')) },
   new RepositoryProvisionEventService(),
 );
-const jobs = new RepositoryProvisionJobRepository(prisma);
+const jobs = new RepositoryProvisionJobRepository(
+  prisma,
+  new RepositoryProvisionStateHelpersRepository(),
+);
 const state = new RepositoryProvisionStateService(
   new RepositoryProvisionStateRepository(
     prisma,
     new RepositoryProvisionGenerationRepository(),
+    new RepositoryProvisionStateHelpersRepository(),
   ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
+  new RepositoryProvisionStateHelpersRepository(),
 );
 
 const STAFF_ACTOR_ID = 'synthetic-own-chain-staff';
