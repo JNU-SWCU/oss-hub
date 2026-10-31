@@ -13,19 +13,17 @@ export function SubmissionMatrixScreen({
   selectedMilestoneId,
   onSelectMilestone,
   headerActions,
-  reloadKey = 0,
 }: {
   readonly programId: string;
   readonly selectedMilestoneId: string | null;
   readonly onSelectMilestone: (milestoneId: string | null) => void;
   readonly headerActions?: ReactNode;
-  readonly reloadKey?: number;
 }) {
   const { state: urlState, navigate } = useSubmissionMatrixUrlState();
   const { quickFilter, q, page, pageSize } = urlState;
   const query = { q, page, pageSize };
   const [search, setSearch] = useUrlSearchDraft(q);
-  const result = useSubmissionMatrixQuery(programId, query, reloadKey);
+  const result = useSubmissionMatrixQuery(programId, query);
   const data = result.data ?? null;
   const isLoading = result.isFetching;
   const errorMessage = result.isError

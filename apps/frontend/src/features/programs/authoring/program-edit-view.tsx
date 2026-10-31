@@ -237,6 +237,7 @@ export function ProgramEditView({
         >
           <CardContent className="pt-card">
             <ProgramEditMilestones
+              programId={program.id}
               milestones={program.milestones}
               editor={milestoneEditor}
               editTriggerRef={milestoneEditTriggerRef}

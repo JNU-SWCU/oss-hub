@@ -45,7 +45,6 @@ export const programEntries = {
     'milestone-document-dto',
     'milestone-document-editor',
     'milestone-document-editor-flow',
-    'milestone-document-events',
     'milestone-document-list',
     'milestone-document-pointer',
     'milestone-document-upload-policy',

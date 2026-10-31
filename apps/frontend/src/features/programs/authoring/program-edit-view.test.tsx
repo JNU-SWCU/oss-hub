@@ -1,4 +1,11 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+function renderToStaticMarkup(element: React.ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';

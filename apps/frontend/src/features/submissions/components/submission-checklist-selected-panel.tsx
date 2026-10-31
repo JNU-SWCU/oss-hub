@@ -49,7 +49,12 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
   const embedded = props.onCloseSelected !== undefined;
   if (!item.submission) {
     return (
-      <PanelCard item={item} status="NOT_SUBMITTED" embedded={embedded}>
+      <PanelCard
+        programId={props.programId}
+        item={item}
+        status="NOT_SUBMITTED"
+        embedded={embedded}
+      >
         <p className="text-sm text-muted-foreground">
           아직 제출 전입니다. 제출 화면에서 최초 제출을 진행해 주세요.
         </p>
@@ -68,13 +73,23 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
   switch (submission.status) {
     case 'APPROVED':
       return (
-        <PanelCard item={item} status="APPROVED" embedded={embedded}>
+        <PanelCard
+          programId={props.programId}
+          item={item}
+          status="APPROVED"
+          embedded={embedded}
+        >
           <SubmissionReviewMeta submission={submission} />
         </PanelCard>
       );
     case 'REJECTED':
       return (
-        <PanelCard item={item} status="REJECTED" embedded={embedded}>
+        <PanelCard
+          programId={props.programId}
+          item={item}
+          status="REJECTED"
+          embedded={embedded}
+        >
           <SubmissionReviewMeta submission={submission} />
           <p className="text-sm text-muted-foreground">
             반려된 제출은 재제출할 수 없습니다.
@@ -83,7 +98,12 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
       );
     case 'SUBMITTED':
       return (
-        <PanelCard item={item} status="SUBMITTED" embedded={embedded}>
+        <PanelCard
+          programId={props.programId}
+          item={item}
+          status="SUBMITTED"
+          embedded={embedded}
+        >
           <p className="text-sm text-muted-foreground">
             교직원 검토가 끝날 때까지는 제출 내용을 바꿀 수 없습니다.
           </p>
@@ -123,6 +143,7 @@ function ResubmissionForm(
       }}
     >
       <PanelCard
+        programId={props.programId}
         item={item}
         status={submission.status}
         embedded={props.onCloseSelected !== undefined}
@@ -190,12 +211,14 @@ function ResubmissionForm(
 }
 
 function PanelCard({
+  programId,
   item,
   status,
   embedded,
   testId,
   children,
 }: {
+  readonly programId: string;
   readonly item: SubmissionChecklistItem;
   readonly status: ChecklistItemStatus;
   readonly embedded: boolean;
@@ -210,7 +233,10 @@ function PanelCard({
   const body = (
     <>
       {children}
-      <MilestoneDocumentCurrentFiles milestoneId={item.milestoneId} />
+      <MilestoneDocumentCurrentFiles
+        programId={programId}
+        milestoneId={item.milestoneId}
+      />
     </>
   );
   if (embedded) {

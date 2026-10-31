@@ -1,6 +1,8 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgram } from '@/features/programs/catalog/queries';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgramViewContext } from '../../../_shell/program-shell-policy';
 import { PageBody } from '@/components/page-body';
@@ -32,7 +34,7 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMilestoneId = searchParams.get('milestoneId');
-  const [matrixVersion, setMatrixVersion] = useState(0);
+  const queryClient = useQueryClient();
 
   const operationsView =
     programView === null
@@ -43,13 +45,12 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
       <SubmissionMatrixScreen
         programId={programId}
         selectedMilestoneId={selectedMilestoneId}
-        reloadKey={matrixVersion}
         headerActions={
           <div className="flex flex-wrap items-center gap-3 sm:max-w-xl">
             <ProgramDocumentChangeRequestPanel
               key={`change-requests-${programId}`}
               programId={programId}
-              onSent={() => setMatrixVersion((version) => version + 1)}
+              onSent={() => void invalidateProgram(queryClient, programId)}
             />
             <ProgramDocumentArchivePanel
               key={programId}

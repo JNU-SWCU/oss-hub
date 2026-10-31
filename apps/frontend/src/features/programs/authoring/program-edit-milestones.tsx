@@ -22,6 +22,7 @@ import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-m
 import { ProgramEditMilestoneDialog } from './program-edit-milestone-dialog';
 import { ProgramMilestoneCard } from './program-milestone-card';
 interface ProgramEditMilestonesProps {
+  readonly programId: string;
   readonly milestones: readonly EditableMilestone[];
   readonly editor: ProgramMilestoneEditor;
   readonly editTriggerRef?: React.RefObject<HTMLElement | null>;
@@ -57,6 +58,7 @@ interface ProgramEditMilestonesProps {
 }
 
 export function ProgramEditMilestones({
+  programId,
   milestones,
   editor,
   editTriggerRef,
@@ -169,6 +171,7 @@ export function ProgramEditMilestones({
               onDelete={() => onRequestDelete(milestone)}
             >
               <ReadOnlyMilestoneDocuments
+                programId={programId}
                 milestoneId={milestone.id}
                 canonicalDocuments={canonicalDocumentsByMilestoneId?.get(
                   milestone.id,
