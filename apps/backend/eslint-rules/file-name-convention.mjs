@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-export const rootSuffixes = [
+const rootSuffixes = [
   '.module',
   '.controller',
   '.service',
@@ -13,7 +13,7 @@ export const rootSuffixes = [
   '.types',
   '.config',
 ];
-export const dtoSuffixes = ['-request.dto.ts', '-response.dto.ts'];
+const dtoSuffixes = ['-request.dto.ts', '-response.dto.ts'];
 
 const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -37,7 +37,7 @@ export const fileNameConvention = {
     schema: [],
     messages: {
       invalid:
-        '파일 이름은 kebab-case stem에 ADR-003 닫힌 접미사를 붙인다: {{file}}',
+        '파일 이름은 kebab-case stem에 허용된 역할 접미사(.service, .controller, -request.dto 등) 하나를 붙인다: {{file}}',
     },
   },
   create(context) {
