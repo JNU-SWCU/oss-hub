@@ -29,33 +29,46 @@ const isResponseMapping = (node) =>
   RESPONSE_DTO.test(node.callee.object.name) &&
   node.callee.property.name === 'from';
 
-const rootName = (node) => {
-  let current = node;
-  while (current.type === 'MemberExpression' && !current.computed)
-    current = current.object;
-  return current.type === 'Identifier' ? current.name : null;
-};
+const isResultRead = (node, name) =>
+  (node.type === 'Identifier' && node.name === name) ||
+  (node.type === 'MemberExpression' &&
+    !node.computed &&
+    node.property.type === 'Identifier' &&
+    isResultRead(node.object, name));
 
-function readsOnly(node, name) {
-  let only = true;
-  walk(node, (child) => {
-    if (
-      child.type === 'CallExpression' ||
-      child.type === 'AssignmentExpression'
-    )
-      only = false;
-    if (
-      child.type === 'Identifier' &&
-      child.name !== name &&
-      !(
-        child.parent?.type === 'MemberExpression' &&
-        child.parent.property === child
-      )
-    )
-      only = false;
-  });
-  return only;
+function isPurePredicate(node, name) {
+  switch (node.type) {
+    case 'Literal':
+      return true;
+    case 'Identifier':
+    case 'MemberExpression':
+      return isResultRead(node, name);
+    case 'UnaryExpression':
+      return node.operator === '!' && isPurePredicate(node.argument, name);
+    case 'BinaryExpression':
+      return (
+        (node.operator === '===' || node.operator === '!==') &&
+        isPurePredicate(node.left, name) &&
+        isPurePredicate(node.right, name)
+      );
+    case 'LogicalExpression':
+      return (
+        (node.operator === '&&' || node.operator === '||') &&
+        isPurePredicate(node.left, name) &&
+        isPurePredicate(node.right, name)
+      );
+    default:
+      return false;
+  }
 }
+
+const readsResult = (node, name) => {
+  let reads = false;
+  walk(node, (child) => {
+    if (isResultRead(child, name)) reads = true;
+  });
+  return reads;
+};
 
 function serviceResultNames(body) {
   const names = new Set();
@@ -79,17 +92,58 @@ function serviceResultNames(body) {
 function isResponseChoice(node, resultNames) {
   if (!isResponseMapping(node.consequent) || !isResponseMapping(node.alternate))
     return false;
-  const name = rootName(
-    node.test.type === 'BinaryExpression' ? node.test.left : node.test,
+  return [...resultNames].some(
+    (name) =>
+      readsResult(node.test, name) &&
+      isPurePredicate(node.test, name) &&
+      [node.consequent, node.alternate].every(
+        (call) =>
+          call.arguments.length === 1 && isResultRead(call.arguments[0], name),
+      ),
   );
-  if (!name || !resultNames.has(name) || !readsOnly(node.test, name))
+}
+
+const handlerParams = (member) =>
+  new Set(
+    member.value.params
+      .map((param) =>
+        param.type === 'TSParameterProperty' ? param.parameter : param,
+      )
+      .map((param) => (param.type === 'AssignmentPattern' ? param.left : param))
+      .filter((param) => param.type === 'Identifier')
+      .map((param) => param.name),
+  );
+
+const CONSTANT = /^[A-Z][A-Z0-9_]*$/;
+
+function isStaticValue(node, params) {
+  switch (node.type) {
+    case 'Literal':
+      return true;
+    case 'Identifier':
+      return params.has(node.name) || CONSTANT.test(node.name);
+    case 'MemberExpression':
+      return (
+        !node.computed &&
+        node.property.type === 'Identifier' &&
+        isStaticValue(node.object, params) &&
+        node.object.type !== 'Literal'
+      );
+    default:
+      return false;
+  }
+}
+
+function isStaticResponse(body, params) {
+  const statements = body.body ?? [];
+  if (statements.length === 0) return true;
+  if (statements.length !== 1 || statements[0].type !== 'ReturnStatement')
     return false;
-  return [node.consequent, node.alternate].every(
-    (call) =>
-      call.arguments.length === 1 &&
-      rootName(call.arguments[0]) === name &&
-      readsOnly(call.arguments[0], name),
-  );
+  const value = statements[0].argument;
+  if (value === null) return true;
+  if (isResponseMapping(value))
+    return value.arguments.every((argument) => isStaticValue(argument, params));
+  return isStaticValue(value, params);
 }
 
 const isResponseListMapping = (node) =>
@@ -133,6 +187,8 @@ export const thinController = {
       branching:
         'controller 메서드는 분기하지 않는다. HTTP 입력을 서비스 호출 하나로 넘기고 결과를 돌려준다.',
       serviceCalls: 'controller 메서드는 서비스를 한 번만 호출한다.',
+      noService:
+        '서비스를 부르지 않는 controller 메서드는 리터럴·상수나 파라미터로 만든 응답 DTO의 from()만 돌려준다. 계산은 담당 서비스로 옮긴다.',
       conditional:
         'controller의 조건식은 서비스 결과 하나를 읽어 응답 DTO 둘 중 하나의 from()을 고를 때만 쓴다. 나머지 판단은 서비스로 옮긴다.',
       domainCall:
@@ -169,6 +225,11 @@ export const thinController = {
               context.report({ node, messageId: 'serviceCalls' });
           }
         });
+        if (
+          serviceCalls === 0 &&
+          !isStaticResponse(body, handlerParams(member))
+        )
+          context.report({ node: member.key, messageId: 'noService' });
       },
       'NewExpression[callee.name="Date"]'(node) {
         context.report({ node, messageId: 'clock' });

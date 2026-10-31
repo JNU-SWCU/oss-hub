@@ -903,6 +903,38 @@ valid(
 );
 valid(
   'thin-controller',
+  'accepts a negated and combined equality predicate over the service result',
+  controllerFile(),
+  `export class ThingsController {
+  async get(id: string) {
+    const result = await this.service.find(id);
+    return !result.archived && result.kind !== 'summary'
+      ? FullThingResponseDto.from(result.thing)
+      : ThingSummaryResponseDto.from(result.thing);
+  }
+}`,
+);
+for (const [name, body] of [
+  [
+    'a static response DTO',
+    'uploadPolicy() { return ThingPolicyResponseDto.from(); }',
+  ],
+  [
+    'a response DTO of a parameter',
+    'get(id: string) { return ThingResponseDto.from(id); }',
+  ],
+  ['a literal', "ping() { return 'ok'; }"],
+  ['a constant', 'limits() { return THING_LIMITS; }'],
+] as const) {
+  valid(
+    'thin-controller',
+    `accepts a route without a service call that returns ${name}`,
+    controllerFile(),
+    `export class ThingsController { ${body} }`,
+  );
+}
+valid(
+  'thin-controller',
   'accepts mapping a service result list to response DTOs',
   controllerFile(),
   `export class ThingsController {
@@ -960,12 +992,57 @@ for (const [name, body, errors] of [
   [
     'a response choice over a non-service value',
     'get(thing) { return thing.full ? FullThingResponseDto.from(thing) : ThingSummaryResponseDto.from(thing); }',
-    ['conditional'],
+    ['noService', 'conditional'],
   ],
   [
     'a choice between non-response classes',
     'async get(id: string) { const result = await this.service.find(id); return result.ok ? Thing.from(result) : Other.from(result); }',
     ['conditional', 'domainCall', 'domainCall'],
+  ],
+  [
+    'a calculation without a service call or other call',
+    'get(input) { return ThingResponseDto.from({ price: input.price * 2 }); }',
+    ['noService'],
+  ],
+  [
+    'an operator result without a service call',
+    'get(input) { return input.price * 2; }',
+    ['noService'],
+  ],
+  [
+    'a local computation without a service call',
+    'get(input) { const price = input.price; return ThingResponseDto.from(price); }',
+    ['noService'],
+  ],
+  [
+    'an update expression in the response predicate',
+    'async get(id) { const result = await this.service.find(id); return result.kind === result.count++ ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a relational response predicate',
+    'async get(id) { const result = await this.service.find(id); return result.price > 100 ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'an assignment in the response predicate',
+    "async get(id) { const result = await this.service.find(id); return (result.kind = 'a') === 'a' ? AResponseDto.from(result) : BResponseDto.from(result); }",
+    ['conditional'],
+  ],
+  [
+    'a delete in the response predicate',
+    'async get(id) { const result = await this.service.find(id); return delete result.kind ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a comma in the response predicate',
+    "async get(id) { const result = await this.service.find(id); return (result.count, result.kind) === 'a' ? AResponseDto.from(result) : BResponseDto.from(result); }",
+    ['conditional'],
+  ],
+  [
+    'an update expression in a response mapping argument',
+    "async get(id) { const result = await this.service.find(id); return result.kind === 'a' ? AResponseDto.from(result.count++) : BResponseDto.from(result); }",
+    ['conditional'],
   ],
   [
     'domain parsing in a route',
@@ -975,7 +1052,7 @@ for (const [name, body, errors] of [
   [
     'a domain calculation without a service call',
     'get(input) { return calculatePrice(input); }',
-    ['domainCall'],
+    ['noService', 'domainCall'],
   ],
   [
     'promise chaining in a route',
