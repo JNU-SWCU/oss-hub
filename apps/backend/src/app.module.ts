@@ -1,55 +1,28 @@
 import { Module } from '@nestjs/common';
-import { ApplicationsModule } from './applications/applications.module';
-import { AuditLogModule } from './audit-log/audit-log.module';
+import { PlatformModule } from './platform/platform.module';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
-import { BoardModule } from './board/board.module';
-import { CollectionModule } from './github/collection.module';
-import { ConsentsModule } from './consents/consents.module';
-import { HealthModule } from './health/health.module';
-import { LoginHistoryModule } from './login-history/login-history.module';
-import { MilestoneDocumentsModule } from './milestone-documents/milestone-documents.module';
+import { GithubModule } from './github/github.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { ProgramOverviewModule } from './programs/public/program-overview/program-overview.module';
 import { ProgramsModule } from './programs/programs.module';
-import { PublicProjectsModule } from './programs/public/public-projects/public-projects.module';
 import { RankingModule } from './ranking/ranking.module';
-import { RepositoriesModule } from './github/repositories.module';
-import { RolesModule } from './roles/roles.module';
-import { RuntimeConfigModule } from './runtime-config/runtime-config.module';
-import { SubmissionReviewsModule } from './submission-reviews/submission-reviews.module';
-import { SubmissionsModule } from './submissions/submissions.module';
-import { SystemStatusModule } from './system-status/system-status.module';
-import { TeamInvitationsModule } from './team-invitations/team-invitations.module';
+import { StaffModule } from './staff/staff.module';
+import { StudentModule } from './student/student.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    RuntimeConfigModule,
-    PrismaModule,
-    HealthModule,
-    AuditLogModule,
-    LoginHistoryModule,
+    PlatformModule,
     AuthModule,
 
-    CollectionModule,
+    GithubModule,
+    AdminModule,
     NotificationsModule,
-    SystemStatusModule,
     RankingModule,
-    ConsentsModule,
-    ApplicationsModule,
-    RolesModule,
     ProgramsModule,
-    SubmissionsModule,
+    StudentModule,
+    StaffModule,
     UsersModule,
-    PublicProjectsModule,
-    RepositoriesModule,
-    SubmissionReviewsModule,
-
-    MilestoneDocumentsModule,
-    BoardModule,
-    TeamInvitationsModule,
-    ProgramOverviewModule,
   ],
 })
 export class AppModule {}

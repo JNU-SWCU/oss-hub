@@ -72,7 +72,12 @@ export async function getMyTeam(
   const body = await apiClient<unknown>(
     `programs/${encodeURIComponent(programId)}/teams/me`,
   );
-  return body === null ? null : parseProgramTeam(body);
+  if (!isRecord(body)) throw new ProgramTeamResponseError();
+  if (body.membership === 'NONE' && body.team === null) return null;
+  if (body.membership !== 'MEMBER' && body.membership !== 'LEADER') {
+    throw new ProgramTeamResponseError();
+  }
+  return parseProgramTeam(body.team);
 }
 
 export function leaveMyTeam(programId: string): Promise<void> {
@@ -149,7 +154,12 @@ export async function getMyApplicationPreparation(
   const body = await apiClient<unknown>(
     `application-preparations/programs/${encodeURIComponent(programId)}/me`,
   );
-  return body === null ? null : parseProgramTeam(body);
+  if (!isRecord(body)) throw new ProgramTeamResponseError();
+  if (body.membership === 'NONE') return null;
+  if (body.membership !== 'MEMBER' && body.membership !== 'LEADER') {
+    throw new ProgramTeamResponseError();
+  }
+  return parseProgramTeam(body.preparation);
 }
 
 export async function createApplicationPreparation(

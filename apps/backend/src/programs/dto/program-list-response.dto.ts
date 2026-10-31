@@ -1,76 +1,68 @@
 import { type ApplicationStatus } from '@prisma/client';
-import { programCoverImageUrl } from '../domain/program-cover';
 import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../domain/program-list';
+  ProgramListPageItem,
+} from '../programs.service';
 
 export class ProgramListResponseDto {
-  readonly coverImageUrl: string | null;
-  readonly id: string;
-  readonly name: string;
-  readonly organizer: string;
-  readonly trackType: PersonalizedProgramListItem['trackType'];
+  declare readonly coverImageUrl: string | null;
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly organizer: string;
+  declare readonly trackType: PersonalizedProgramListItem['trackType'];
 
-  readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
-  readonly applicationStartAt: string;
-  readonly applicationEndAt: string;
-  readonly endAt: string;
-  readonly description: string;
+  declare readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
+  declare readonly applicationStartAt: string;
+  declare readonly applicationEndAt: string;
+  declare readonly endAt: string;
+  declare readonly description: string;
 
-  readonly note?: ProgramListItemNote;
+  declare readonly note?: ProgramListItemNote;
 
-  readonly viewerApplicationStatus?: ApplicationStatus;
+  declare readonly viewerApplicationStatus?: ApplicationStatus;
 
-  readonly applicationCount?: number;
+  declare readonly applicationCount?: number;
 
-  readonly pendingApplicationCount?: number;
+  declare readonly pendingApplicationCount?: number;
 
-  private constructor(program: PersonalizedProgramListItem) {
-    this.coverImageUrl = programCoverImageUrl(
-      program.id,
-      program.coverId,
-      program.coverExternalImageUrl,
-    );
-    this.id = program.id;
-    this.name = program.name;
-    this.organizer = program.organizer;
-    this.trackType = program.trackType;
-    this.lifecycle = program.lifecycle;
-    this.applicationStartAt = program.applicationStartAt.toISOString();
-    this.applicationEndAt = program.applicationEndAt.toISOString();
-    this.endAt = program.endAt.toISOString();
-    this.description = program.description;
-    this.note = program.note;
-    this.viewerApplicationStatus = program.viewerApplicationStatus;
-    this.applicationCount = program.applicationCount;
-    this.pendingApplicationCount = program.pendingApplicationCount;
-  }
-
-  static from(program: PersonalizedProgramListItem): ProgramListResponseDto {
-    return new ProgramListResponseDto(program);
+  static from(program: ProgramListPageItem): ProgramListResponseDto {
+    return {
+      coverImageUrl: program.coverImageUrl,
+      id: program.id,
+      name: program.name,
+      organizer: program.organizer,
+      trackType: program.trackType,
+      lifecycle: program.lifecycle,
+      applicationStartAt: program.applicationStartAt.toISOString(),
+      applicationEndAt: program.applicationEndAt.toISOString(),
+      endAt: program.endAt.toISOString(),
+      description: program.description,
+      note: program.note,
+      viewerApplicationStatus: program.viewerApplicationStatus,
+      applicationCount: program.applicationCount,
+      pendingApplicationCount: program.pendingApplicationCount,
+    };
   }
 }
 
 export class ProgramListPageResponseDto {
-  readonly items: readonly ProgramListResponseDto[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-
-  private constructor(programPage: ProgramListPage) {
-    this.items = programPage.items.map((program) =>
-      ProgramListResponseDto.from(program),
-    );
-    this.page = programPage.page;
-    this.pageSize = programPage.pageSize;
-    this.totalItems = programPage.totalItems;
-    this.totalPages = programPage.totalPages;
-  }
+  declare readonly items: readonly ProgramListResponseDto[];
+  declare readonly page: number;
+  declare readonly pageSize: number;
+  declare readonly totalItems: number;
+  declare readonly totalPages: number;
 
   static from(programPage: ProgramListPage): ProgramListPageResponseDto {
-    return new ProgramListPageResponseDto(programPage);
+    return {
+      items: programPage.items.map((program) =>
+        ProgramListResponseDto.from(program),
+      ),
+      page: programPage.page,
+      pageSize: programPage.pageSize,
+      totalItems: programPage.totalItems,
+      totalPages: programPage.totalPages,
+    };
   }
 }

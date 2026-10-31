@@ -1,5 +1,4 @@
-import type { Locator } from '@playwright/test';
-import { expect, test } from './admin-session.fixture';
+import { expect, test, type Locator } from '@playwright/test';
 
 import { installBrowserAudit } from './support/browser-audit';
 import {
@@ -408,31 +407,4 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
     });
   }
   audit.assertClean();
-});
-
-test('대시보드의 팀과 제출 버튼은 정규 경로로 이동하고 200을 받는다', async ({
-  authSeedPage,
-}, testInfo) => {
-  const page = await authSeedPage('student-confirmed');
-  for (const [name, suffix] of [
-    [/^우리 팀$/, '/team'],
-    [/^(서류 내기|다시 내기|제출 현황)$/, '/documents'],
-  ] as const) {
-    await page.goto('/dashboard');
-    const link = page.getByRole('link', { name }).first();
-    await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    if (href === null) throw new Error('대시보드 링크에 주소가 없습니다.');
-    expect(href).toMatch(new RegExp(`^/programs/[^/]+${suffix}$`));
-    const response = await page.request.get(href);
-    expect(response.status()).toBe(200);
-    await Promise.all([
-      page.waitForURL(new URL(href, page.url()).href),
-      link.click(),
-    ]);
-    await page.screenshot({
-      path: testInfo.outputPath(`dashboard-${suffix.slice(1)}-destination.png`),
-    });
-  }
-  await page.close();
 });

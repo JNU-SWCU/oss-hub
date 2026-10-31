@@ -119,4 +119,40 @@ describe('ShellNav', () => {
     expect(html).not.toContain('[&amp;_a]:min-h-11');
     expect(html).not.toContain('[&amp;_button]:min-h-11');
   });
+
+  it('현재 경로와 맞는 상단 탭에만 aria-current="page"를 단다', () => {
+    mocks.usePathname.mockReturnValue('/programs/prog-1/teams');
+
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" />,
+    );
+    const current = html.match(/<a[^>]*aria-current="page"[^>]*>/g) ?? [];
+
+    expect(current).toHaveLength(2);
+    for (const tag of current) expect(tag).toContain('href="/programs"');
+  });
+
+  it('사이드바 셸 밖(공급자 없음)에서는 상단바 토글을 그리지 않는다', () => {
+    mocks.usePathname.mockReturnValue('/programs');
+
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" />,
+    );
+
+    expect(html).not.toContain('data-slot="nav-bar-sidebar-toggle"');
+    expect(html).not.toContain('data-slot="nav-bar-sidebar-drawer-trigger"');
+  });
+
+  it('compactMenu={false}면 접힌 메뉴 없이 현재 탭이 한 번만 나온다', () => {
+    mocks.usePathname.mockReturnValue('/programs/prog-1/teams');
+
+    const html = renderToStaticMarkup(
+      <ShellNav items={ITEMS} brand="OSS Hub" compactMenu={false} />,
+    );
+
+    expect(html).not.toContain('data-slot="nav-bar-menu"');
+    const current = html.match(/<a[^>]*aria-current="page"[^>]*>/g) ?? [];
+    expect(current).toHaveLength(1);
+    expect(current[0]).toContain('href="/programs"');
+  });
 });

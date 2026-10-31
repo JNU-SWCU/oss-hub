@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
 import localFont from 'next/font/local';
@@ -11,7 +11,6 @@ import {
   readStoredCollapsed,
   SIDEBAR_STORAGE_KEY,
 } from './_shell/sidebar-collapsed';
-import { PUBLIC_MENU } from './_shell/public-menus';
 import { SessionEntryNavLink } from './_shell/role-home-link';
 import { NavigationNoticeProvider } from '@/lib/navigation-notices';
 import { QueryProvider } from './_shell/query-provider';
@@ -36,6 +35,10 @@ export const metadata: Metadata = {
   description: '오픈소스 허브',
 };
 
+export const viewport: Viewport = {
+  viewportFit: 'cover',
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
@@ -51,7 +54,6 @@ export default async function RootLayout({
           <NavigationNoticeProvider>
             <AppFrame
               brand={<Link href="/">OSS Hub</Link>}
-              items={PUBLIC_MENU}
               actions={
                 <>
                   <SessionEntryNavLink />

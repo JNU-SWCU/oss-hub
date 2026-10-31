@@ -41,12 +41,12 @@ QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실
 | W3 | 교 → 마일스톤 | 생성 → 학생 체크리스트 반영 | `FILE`·`TEXT`·`REPOSITORY_RELEASE` 3종, 마감일 변경, 제출 있는 마일스톤 삭제 차단 | `milestones.controller.ts` |
 | W4 | 학·장·원 → 신청 | 개인형 신청 완료 | 팀 생성 → 참여코드 합류 → 팀원 정보 입력 / 중복 신청 차단 / **최소 정원 미달 차단(`APP_019`)** | `applications.service.ts` |
 | W5 | 교 → 신청 판정 | 승인 → 프로비저닝 트리거 | 거절 + 사유 노출 / 거절 후 재신청 / 판정 전 본인 수정·취소 | `applications.controller.ts` |
-| W6 | 프로비저닝 → 학 | repo 생성 → 초대 → `my-repos` 노출 | **최종 실패가 학생 화면에 드러나는가** / 초대 수락이 상태로 수렴하는가 | `repository-provision.worker.ts` |
+| W6 | 프로비저닝 → 학 | repo 생성 → 초대 → `my-repos` 노출 | **최종 실패가 학생 화면에 드러나는가** / 초대 수락이 상태로 수렴하는가 | `repository-provision-worker.service.ts` |
 | W7 | 학 → 제출 | **파일 업로드 성공** | 마감 후 차단 / 미제출 / `TEXT`·`RELEASE` 타입 / **마감 전 교체** | `submissions.controller.ts` |
-| W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submission-reviews.controller.ts` |
+| W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submissions.controller.ts` |
 | W9 | 반려 → 재제출 | **학생이 반려를 보고** → 재제출 → 새 revision | 이전 이력 보존 / 교직원 재심사 / 재제출 폼 fail-closed | `submissions.service.ts` |
 | W10 | 최종 반려 | `REJECTED` 확인 | **재제출 불가가 실제로 막히는가** | `submissions.service.ts` |
-| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/submission-reviews/service` |
+| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/programs` |
 | W12 | 마감 임박 → 알림 | 교직원 다이제스트 **실수신** | 학생 리마인드 / 미제출자 명단 정확도 / Asia/Seoul 표기 | `deadline-digest.service.ts` |
 | W13 | 활동 수집 → 랭킹 | 가입자 실명 노출 | 미가입자 `githubLogin` + '미가입' 배지 / 비로그인 조회 | `ranking.service.ts` |
 | W14 | 관 → 계정 상태 | 비활성화 → 접근 차단 | 재활성화 → 복구 / 자기 비활성화 차단 / 마지막 관리자 제거 차단 | `admin-access-mutation-policy.ts` |
@@ -167,6 +167,6 @@ QA에서 반드시 눌러봐야 하는 지점이다.
 
 - 배포 계약·백업·롤백: [Jenkinsfile](../../../Jenkinsfile)
 - 리뷰·병합 게이트: [CI workflow](../../../.github/workflows/ci.yml)
-- GitHub App 통합·수집: [CollectionModule](../../../apps/backend/src/github/collection.module.ts)
+- GitHub App 통합·수집: [GithubModule](../../../apps/backend/src/github/github.module.ts)
 - 공개 자료 deny-list: [public-safe 검사](../../../scripts/check-public-safe.sh)
 - 릴리스 배포·복구 실행: [Jenkinsfile](../../../Jenkinsfile)

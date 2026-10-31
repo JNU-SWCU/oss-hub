@@ -1,0 +1,15 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`auth response DTO JSON LoginHistoryPageResponseDto 1`] = `"{"items":[{"id":"history-1","event":"LOGIN","provider":"github","success":true,"loginAt":"2026-01-02T03:04:05.000Z"},{"id":"history-2","event":"LOGIN","provider":"github","success":false,"loginAt":"2026-01-02T03:04:05.000Z"}],"page":1,"size":20,"total":2}"`;
+
+exports[`auth response DTO JSON LoginHistoryResponseDto 1`] = `"{"id":"history-1","event":"LOGIN","provider":"github","success":true,"loginAt":"2026-01-02T03:04:05.000Z"}"`;
+
+exports[`auth response DTO JSON LogoutResponseDto 1`] = `"{"isAuthenticated":false}"`;
+
+exports[`auth response DTO JSON MeResponseDto 1`] = `"{"nickname":"octo","name":"Octo Cat","avatarUrl":"https://avatars.example/octo.png","accountStatus":"ACTIVE","memberKind":"STUDENT","hasStaffAccess":false,"hasAdminAccess":false,"isProfileComplete":true}"`;
+
+exports[`auth response DTO JSON MeResponseDto nulls 1`] = `"{"nickname":"octo","name":null,"avatarUrl":null,"accountStatus":"ACTIVE","memberKind":null,"hasStaffAccess":false,"hasAdminAccess":false,"isProfileComplete":true}"`;
+
+exports[`auth response DTO JSON SessionResponseDto anonymous 1`] = `"{"isAuthenticated":false}"`;
+
+exports[`auth response DTO JSON SessionResponseDto authenticated 1`] = `"{"isAuthenticated":true,"user":{"nickname":"octo","name":"Octo Cat","avatarUrl":"https://avatars.example/octo.png","accountStatus":"ACTIVE","memberKind":"STUDENT","hasStaffAccess":false,"hasAdminAccess":false,"isProfileComplete":true}}"`;

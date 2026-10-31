@@ -1,0 +1,13 @@
+import { CronTime } from 'cron';
+import { COLLECTION_CRON_EXPRESSION } from './collection-trigger.service';
+
+export class CollectionScheduleService {
+  static nextScheduledCollectionAt(from: Date): Date | null {
+    try {
+      const cronTime = new CronTime(COLLECTION_CRON_EXPRESSION, 'Asia/Seoul');
+      return cronTime.getNextDateFrom(from).toJSDate();
+    } catch {
+      return null;
+    }
+  }
+}

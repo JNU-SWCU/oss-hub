@@ -1,0 +1,242 @@
+import { act, createRef } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  bodyAttributeRemoved,
+  callSignal,
+  documentListenerAdded,
+  nextFocus,
+} from './drawer-test-signals';
+import { ShellMenuSheet, SHELL_MENU_SHEET_ID } from './shell-menu-sheet';
+
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
+
+function Content() {
+  return (
+    <nav>
+      <a href="/programs">프로그램</a>
+      <a href="/ranking">랭킹</a>
+    </nav>
+  );
+}
+
+describe('ShellMenuSheet', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let trigger: HTMLButtonElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+
+    trigger = document.createElement('button');
+    trigger.textContent = '프로그램 개요 ▾';
+    document.body.append(trigger);
+    trigger.focus();
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    trigger.remove();
+    document.body.removeAttribute('data-scroll-locked');
+  });
+
+  async function renderSheet(
+    open: boolean,
+    onClose: () => void,
+    returnFocusRef?: React.RefObject<HTMLElement | null>,
+  ) {
+    await act(async () => {
+      root.render(
+        <ShellMenuSheet
+          open={open}
+          onClose={onClose}
+          title="2026-2 오픈소스 SW 프로젝트"
+          returnFocusRef={returnFocusRef}
+        >
+          <Content />
+        </ShellMenuSheet>,
+      );
+    });
+  }
+
+  function dialog(): HTMLElement | null {
+    return document.querySelector('[role="dialog"]');
+  }
+
+  it('닫혀 있을 때는 아무것도 렌더하지 않는다', async () => {
+    await renderSheet(false, () => {});
+    expect(dialog()).toBeNull();
+  });
+
+  it('role=dialog, aria-modal과 숨긴 제목으로 이름을 단다', async () => {
+    await renderSheet(true, () => {});
+    const dlg = dialog();
+    expect(dlg).not.toBeNull();
+    expect(dlg?.getAttribute('aria-modal')).toBe('true');
+    expect(dlg?.id).toBe(SHELL_MENU_SHEET_ID);
+    expect(dlg?.getAttribute('data-slot')).toBe('shell-menu-sheet');
+    const titleId = dlg?.getAttribute('aria-labelledby');
+    expect(titleId).toBeTruthy();
+    expect(document.getElementById(titleId ?? '')?.textContent).toBe(
+      '2026-2 오픈소스 SW 프로젝트',
+    );
+    expect(dlg?.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('열리면 첫 포커서블 요소(닫기)로 포커스가 이동한다', async () => {
+    await renderSheet(true, () => {});
+    const closeButton = document.querySelector<HTMLElement>(
+      '[aria-label="메뉴 닫기"]',
+    );
+    expect(closeButton).not.toBeNull();
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  it('닫히면 열기 전 포커스로 복귀한다', async () => {
+    await renderSheet(true, () => {});
+    const refocused = nextFocus(trigger);
+    await renderSheet(false, () => {});
+    await act(() => refocused);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('returnFocusRef가 있으면 닫힐 때 그 요소로 포커스를 돌려준다', async () => {
+    const scopeButton = document.createElement('button');
+    scopeButton.textContent = '현재 메뉴 ▾';
+    document.body.append(scopeButton);
+    const ref = createRef<HTMLElement | null>();
+    ref.current = scopeButton;
+    try {
+      await renderSheet(true, () => {}, ref);
+      const refocused = nextFocus(scopeButton);
+      await renderSheet(false, () => {}, ref);
+      await act(() => refocused);
+      expect(document.activeElement).toBe(scopeButton);
+    } finally {
+      scopeButton.remove();
+    }
+  });
+
+  it('Escape를 누르면 onClose가 호출된다', async () => {
+    const onClose = vi.fn();
+    await renderSheet(true, onClose);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('배경 스크롤을 잠근다', async () => {
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
+    await renderSheet(true, () => {});
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(true);
+    const unlocked = bodyAttributeRemoved('data-scroll-locked');
+    await renderSheet(false, () => {});
+    await act(() => unlocked);
+    expect(document.body.hasAttribute('data-scroll-locked')).toBe(false);
+  });
+
+  it('Tab이 시트 밖으로 나가지 않는다(포커스 트랩) — 마지막에서 Tab하면 첫 요소로', async () => {
+    await renderSheet(true, () => {});
+    const focusables = dialog()?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled])',
+    );
+    expect(focusables).toBeDefined();
+    const first = focusables?.[0];
+    const last = focusables?.[focusables.length - 1];
+    expect(first).toBeDefined();
+    expect(last).toBeDefined();
+
+    last?.focus();
+    await act(async () => {
+      last?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('Tab이 시트 밖으로 나가지 않는다(포커스 트랩) — 첫 요소에서 Shift+Tab하면 마지막 요소로', async () => {
+    await renderSheet(true, () => {});
+    const focusables = dialog()?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled])',
+    );
+    const first = focusables?.[0];
+    const last = focusables?.[focusables.length - 1];
+
+    first?.focus();
+    await act(async () => {
+      first?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('배경(backdrop) 클릭 시 onClose가 호출된다', async () => {
+    const closeSignal = callSignal();
+    const onClose = vi.fn(closeSignal.notify);
+    const outsideListenerReady = documentListenerAdded('pointerdown');
+    await renderSheet(true, onClose);
+    await act(() => outsideListenerReady);
+    const backdrop = document.querySelector<HTMLElement>(
+      '[data-slot="shell-menu-sheet-backdrop"]',
+    );
+    expect(backdrop).not.toBeNull();
+
+    await act(async () => {
+      backdrop?.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
+      backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await act(() => closeSignal.called);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('닫기 버튼 클릭 시 onClose가 호출된다', async () => {
+    const onClose = vi.fn();
+    await renderSheet(true, onClose);
+    const closeButton = document.querySelector<HTMLElement>(
+      '[aria-label="메뉴 닫기"]',
+    );
+
+    await act(async () => {
+      closeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('children으로 넘긴 메뉴 콘텐츠를 그대로 렌더한다', async () => {
+    await renderSheet(true, () => {});
+    expect(dialog()?.querySelector('a[href="/programs"]')).not.toBeNull();
+    expect(dialog()?.querySelector('a[href="/ranking"]')).not.toBeNull();
+  });
+});

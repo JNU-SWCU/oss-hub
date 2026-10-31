@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { RankingController } from './controller/ranking.controller';
-import { RankingRepository } from './repository/ranking.repository';
-import { RankingService } from './service/ranking.service';
+import { RankingController } from './ranking.controller';
+import { RankingRepository } from './ranking.repository';
+import { RankingService } from './ranking.service';
+import { RankingYearService } from './ranking-year.service';
 
 @Module({
   imports: [AuthModule],
   controllers: [RankingController],
-  providers: [RankingService, RankingRepository],
-  exports: [RankingService],
+  providers: [RankingService, RankingRepository, RankingYearService],
+  exports: [RankingService, RankingYearService],
 })
 export class RankingModule {}

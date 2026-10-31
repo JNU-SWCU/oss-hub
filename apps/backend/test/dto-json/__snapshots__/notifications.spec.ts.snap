@@ -1,0 +1,15 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`notifications response DTO JSON ApplicationDecisionNotificationResponseDto 1`] = `"{"id":"notification-1","applicationId":"application-1","programId":"program-1","programName":"Program A","decision":"APPROVED","decidedAt":"2026-01-02T03:04:05.000Z"}"`;
+
+exports[`notifications response DTO JSON DeadlineDigestPreviewResponseDto 1`] = `"{"applicationCount":3,"milestoneCount":2,"recipientCount":4,"inactiveCount":1,"optedOutCount":1,"noEmailCount":0,"staffRecipientCount":2,"previewedAt":"2026-05-01T00:00:00.000Z","expiresAt":"2026-05-01T00:30:00.000Z","previewVersion":"preview-v1","studentPreviews":[{"subject":"Deadline","text":"Text body","html":"<p>Body</p>","displayName":"octo"}],"staffPreview":{"subject":"Staff deadline","text":"Staff text","html":"<p>Staff</p>"}}"`;
+
+exports[`notifications response DTO JSON DeadlineDigestPreviewResponseDto no staff 1`] = `"{"applicationCount":0,"milestoneCount":0,"recipientCount":0,"inactiveCount":0,"optedOutCount":0,"noEmailCount":0,"staffRecipientCount":0,"previewedAt":"2026-05-01T00:00:00.000Z","expiresAt":"2026-05-01T00:30:00.000Z","previewVersion":"preview-v0","studentPreviews":[],"staffPreview":null}"`;
+
+exports[`notifications response DTO JSON DeadlineDigestSendResponseDto 1`] = `"{"applicationCount":3,"milestoneCount":2,"recipientCount":4,"inactiveCount":1,"optedOutCount":1,"noEmailCount":0,"staffRecipientCount":2,"sentAt":"2026-05-01T00:10:00.000Z","previewVersion":"preview-v1","sentCount":5,"duplicateCount":1,"failedCount":0}"`;
+
+exports[`notifications response DTO JSON NotificationSettingsResponseDto 1`] = `"{"notificationEmail":"octo@example.com","notifyEnabled":true}"`;
+
+exports[`notifications response DTO JSON NotificationSettingsResponseDto null email 1`] = `"{"notificationEmail":null,"notifyEnabled":false}"`;
+
+exports[`notifications response DTO JSON TeamDeletionNotificationResponseDto 1`] = `"{"id":"notification-2","teamId":"team-1","teamName":"Team A","programId":"program-1","programName":"Program A","message":null,"deletedAt":"2026-02-03T04:05:06.000Z"}"`;

@@ -153,6 +153,50 @@ describe('ProductShell program deadline countdown', () => {
 
     expect(container.innerHTML).not.toContain('data-slot="program-countdown"');
     expect(container.textContent).not.toContain('마감 일정이 종료되었습니다.');
+    const aside = container.querySelector('aside');
+    expect(
+      aside?.querySelector('[data-slot="sidebar-bottom-skeleton"]'),
+    ).not.toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="sidebar-scope-title-skeleton"]'),
+    ).not.toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="sidebar-shell-scope-title"]'),
+    ).toBeNull();
+  });
+
+  it('replaces every skeleton with the loaded name and counts', async () => {
+    mocks.getProgramOverview.mockResolvedValue(overview([]));
+
+    await renderShell(root);
+
+    const aside = container.querySelector('aside');
+    expect(aside?.querySelector('[data-slot$="skeleton"]')).toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="sidebar-shell-scope-title"]')
+        ?.textContent,
+    ).toBe('2026 하계 SW 현장실습 연계 프로그램');
+    expect(
+      aside?.querySelectorAll('[data-slot="program-scope-sidebar-count"]')
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('falls back to the program id without skeletons when the overview fails', async () => {
+    mocks.getProgramOverview.mockRejectedValue(new TypeError('network'));
+
+    await renderShell(root);
+
+    const aside = container.querySelector('aside');
+    expect(aside?.querySelector('[data-slot$="skeleton"]')).toBeNull();
+    expect(
+      aside?.querySelector('[data-slot="sidebar-shell-scope-title"]')
+        ?.textContent,
+    ).toBe('prog-1');
+    expect(
+      aside?.querySelector('[data-slot="program-scope-sidebar-count"]'),
+    ).toBeNull();
+    expect(aside?.querySelector('[data-slot="program-countdown"]')).toBeNull();
   });
 
   it('renders every loaded remaining milestone through the program sidebar', async () => {

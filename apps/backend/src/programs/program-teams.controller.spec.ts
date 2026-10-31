@@ -1,0 +1,549 @@
+import { RequestMethod } from '@nestjs/common';
+import {
+  GUARDS_METADATA,
+  HTTP_CODE_METADATA,
+  METHOD_METADATA,
+  PATH_METADATA,
+} from '@nestjs/common/constants';
+import { OriginGuard } from '../auth/origin.guard';
+import { SessionGuard } from '../auth/session.guard';
+import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
+import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
+import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
+import { ProgramTeamsController } from './program-teams.controller';
+
+type ControllerMethodName =
+  | 'me'
+  | 'leave'
+  | 'removeMember'
+  | 'list'
+  | 'detail'
+  | 'activity'
+  | 'repositoryUrlHistory'
+  | 'rename'
+  | 'remove';
+
+type ControllerService = ConstructorParameters<
+  typeof ProgramTeamsController
+>[0];
+
+function methodOf(name: ControllerMethodName): object | undefined {
+  const value: unknown = Object.getOwnPropertyDescriptor(
+    ProgramTeamsController.prototype,
+    name,
+  )?.value;
+  return typeof value === 'function' ? value : undefined;
+}
+
+function readGuards(name: ControllerMethodName): unknown[] {
+  const method = methodOf(name);
+  if (!method) return [];
+  const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, method);
+  return Array.isArray(guards) ? guards : [];
+}
+
+function readPath(name: ControllerMethodName): unknown {
+  const method = methodOf(name);
+  return method ? Reflect.getMetadata(PATH_METADATA, method) : undefined;
+}
+
+function declarationOrder(name: ControllerMethodName): number {
+  return Object.getOwnPropertyNames(ProgramTeamsController.prototype).indexOf(
+    name,
+  );
+}
+
+function serviceStub(
+  overrides: Partial<ControllerService> = {},
+): ControllerService {
+  return {
+    getMe: jest.fn(),
+    leave: jest.fn(),
+    removeMember: jest.fn(),
+    listForStaff: jest.fn(),
+    getForStaff: jest.fn(),
+    getActivity: jest.fn(),
+    getRepositoryUrlHistory: jest.fn(),
+    rename: jest.fn(),
+    deleteForStaff: jest.fn(),
+    removeMemberForStaff: jest.fn(),
+    transferLeaderForStaff: jest.fn(),
+    ...overrides,
+  };
+}
+
+describe('ProgramTeamsController', () => {
+  it('join handler 를 등록하지 않는다 — 초대 수락만 팀에 들어오는 경로다', () => {
+    const prototype: object = ProgramTeamsController.prototype;
+    expect(Object.getOwnPropertyNames(prototype)).not.toContain('join');
+
+    const registeredPaths = Object.getOwnPropertyNames(prototype)
+      .filter((name) => name !== 'constructor')
+      .map((name): unknown =>
+        Reflect.getMetadata(
+          PATH_METADATA,
+          Object.getOwnPropertyDescriptor(prototype, name)?.value as object,
+        ),
+      );
+    expect(registeredPaths).not.toContain('join');
+  });
+
+  it('me 에 SessionGuard 를 적용한다', () => {
+    expect(readGuards('me')).toEqual([SessionGuard]);
+  });
+
+  it('list(교직원 팀 목록) 에 SessionGuard 만 적용한다', () => {
+    expect(readGuards('list')).toEqual([SessionGuard]);
+  });
+
+  it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
+    expect(declarationOrder('me')).toBeLessThan(declarationOrder('list'));
+    expect(readPath('me')).toBe('me');
+    expect(readPath('list')).toBe('/');
+  });
+
+  describe('DELETE me/members/:userId (팀장의 팀원 제외)', () => {
+    it('DELETE 메서드·정적 me 하위 경로·204 로 등록한다', () => {
+      const method = methodOf('removeMember');
+      expect(readPath('removeMember')).toBe('me/members/:userId');
+      expect(Reflect.getMetadata(METHOD_METADATA, method as object)).toBe(
+        RequestMethod.DELETE,
+      );
+      expect(Reflect.getMetadata(HTTP_CODE_METADATA, method as object)).toBe(
+        204,
+      );
+    });
+
+    it('SessionGuard·OriginGuard 를 적용한다 — 세션과 동일 출처 둘 다 필요하다', () => {
+      expect(readGuards('removeMember')).toEqual([SessionGuard, OriginGuard]);
+    });
+
+    it('교직원 동적 경로(:teamId) 보다 먼저 선언한다', () => {
+      expect(declarationOrder('removeMember')).toBeLessThan(
+        declarationOrder('detail'),
+      );
+      expect(declarationOrder('removeMember')).toBeLessThan(
+        declarationOrder('list'),
+      );
+    });
+
+    it('행위자 세션·프로그램·대상 팀원을 그대로 service 로 넘기고 본문 없이 끝낸다', async () => {
+      const removeMember = jest.fn().mockResolvedValue(undefined);
+      const controller = new ProgramTeamsController(
+        serviceStub({ removeMember }),
+      );
+
+      const response = await controller.removeMember(
+        { sessionGithubId: 4242n },
+        'program-1',
+        'user-b',
+      );
+
+      expect(removeMember).toHaveBeenCalledWith(4242n, 'program-1', 'user-b');
+      expect(response).toBeUndefined();
+    });
+
+    it('service 오류를 그대로 전파한다 — controller 가 권한을 다시 판정하지 않는다', async () => {
+      const failure = new Error('LEADER_ONLY');
+      const removeMember = jest.fn().mockRejectedValue(failure);
+      const controller = new ProgramTeamsController(
+        serviceStub({ removeMember }),
+      );
+
+      await expect(
+        controller.removeMember({ sessionGithubId: 1n }, 'program-1', 'user-b'),
+      ).rejects.toBe(failure);
+    });
+  });
+
+  describe('DELETE me (본인 탈퇴)', () => {
+    it('SessionGuard·OriginGuard 와 204 로 등록한다', () => {
+      expect(readGuards('leave')).toEqual([SessionGuard, OriginGuard]);
+      expect(readPath('leave')).toBe('me');
+      expect(
+        Reflect.getMetadata(HTTP_CODE_METADATA, methodOf('leave') as object),
+      ).toBe(204);
+    });
+
+    it('세션·프로그램을 service.leave 로 넘긴다', async () => {
+      const leave = jest.fn().mockResolvedValue(undefined);
+      const controller = new ProgramTeamsController(serviceStub({ leave }));
+
+      const response = await controller.leave(
+        { sessionGithubId: 7n },
+        'program-1',
+      );
+
+      expect(leave).toHaveBeenCalledWith(7n, 'program-1');
+      expect(response).toBeUndefined();
+    });
+  });
+
+  it('list 는 service 결과를 StaffProgramTeamResponseDto 배열로 반환한다', async () => {
+    const listForStaff = jest.fn().mockResolvedValue([
+      {
+        teamId: 'team-1',
+        name: '오픈소스팀',
+        memberCount: 1,
+        members: [
+          {
+            userId: 'user-a',
+            name: '가나다',
+            nickname: 'login-a',
+            isLeader: true,
+          },
+        ],
+      },
+    ]);
+    const controller = new ProgramTeamsController(
+      serviceStub({ listForStaff }),
+    );
+
+    const response = await controller.list(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    expect(listForStaff).toHaveBeenCalledWith(4242n, 'program-1');
+    expect(response).toEqual([
+      {
+        teamId: 'team-1',
+        name: '오픈소스팀',
+        memberCount: 1,
+        members: [
+          {
+            userId: 'user-a',
+            name: '가나다',
+            nickname: 'login-a',
+            isLeader: true,
+          },
+        ],
+      },
+    ]);
+  });
+
+  describe('GET me 응답 계약', () => {
+    const view = {
+      id: 'team-1',
+      name: '오픈소스팀',
+      memberCount: 2,
+      minMembers: 2,
+      maxMembers: 4,
+      hasApplication: true,
+      canInvite: true,
+      canRemoveMembers: true,
+      canLeave: true,
+      isLeader: true,
+      members: [
+        {
+          userId: 'user-a',
+          nickname: 'login-a',
+          name: '가나다',
+          isLeader: true,
+        },
+      ],
+    };
+
+    it('팀이 없으면 NONE 소속과 team null을 반환한다', async () => {
+      const getMe = jest.fn().mockResolvedValue(null);
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      expect(response).toEqual({ membership: 'NONE', team: null });
+    });
+
+    it('팀장이 아닌 팀원은 MEMBER 소속으로 반환한다', async () => {
+      const getMe = jest.fn().mockResolvedValue({
+        ...view,
+        isLeader: false,
+        canInvite: false,
+        canRemoveMembers: false,
+      });
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      expect(response.membership).toBe('MEMBER');
+      expect({ ...response.team }).toMatchObject({
+        id: 'team-1',
+        isLeader: false,
+      });
+    });
+
+    it('service.getMe 결과의 허용 필드만 LEADER 소속과 함께 돌려준다', async () => {
+      const getMe = jest.fn().mockResolvedValue(view);
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      expect(getMe).toHaveBeenCalledWith(4242n, 'program-1');
+      expect(Object.keys(response).sort()).toEqual(['membership', 'team']);
+      expect(response.membership).toBe('LEADER');
+      expect({ ...response.team }).toEqual(view);
+      expect(Object.keys({ ...response.team }).sort()).toEqual([
+        'canInvite',
+        'canLeave',
+        'canRemoveMembers',
+        'hasApplication',
+        'id',
+        'isLeader',
+        'maxMembers',
+        'memberCount',
+        'members',
+        'minMembers',
+        'name',
+      ]);
+    });
+
+    it('locked 등 view 밖의 여분 키를 응답에 싣지 않는다', async () => {
+      const getMe = jest
+        .fn()
+        .mockResolvedValue({ ...view, locked: true, currentUserId: 'user-a' });
+      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+
+      const response = await controller.me(
+        { sessionGithubId: 4242n },
+        'program-1',
+      );
+
+      const keys = Object.keys({ ...response.team });
+      expect(keys).not.toContain('locked');
+      expect(keys).not.toContain('currentUserId');
+    });
+  });
+
+  it('detail(교직원 팀 상세) 에 SessionGuard 만 적용한다', () => {
+    expect(readGuards('detail')).toEqual([SessionGuard]);
+  });
+
+  it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
+    expect(declarationOrder('detail')).toBeGreaterThan(declarationOrder('me'));
+    expect(declarationOrder('detail')).toBeGreaterThan(
+      declarationOrder('list'),
+    );
+    expect(readPath('detail')).toBe(':teamId');
+  });
+
+  it('detail 은 service 결과를 StaffTeamDetailResponseDto 로 반환한다', async () => {
+    const getForStaff = jest.fn().mockResolvedValue({
+      teamId: 'team-1',
+      name: '오픈소스팀',
+      memberCount: 1,
+      members: [
+        {
+          userId: 'user-a',
+          name: '가나다',
+          nickname: 'login-a',
+          isLeader: true,
+        },
+      ],
+      application: null,
+    });
+    const controller = new ProgramTeamsController(serviceStub({ getForStaff }));
+
+    const response = await controller.detail(
+      { sessionGithubId: 4242n },
+      'program-1',
+      'team-1',
+    );
+
+    expect(getForStaff).toHaveBeenCalledWith(4242n, 'program-1', 'team-1');
+    expect(response).toEqual({
+      teamId: 'team-1',
+      name: '오픈소스팀',
+      memberCount: 1,
+      members: [
+        {
+          userId: 'user-a',
+          name: '가나다',
+          nickname: 'login-a',
+          isLeader: true,
+        },
+      ],
+      application: null,
+    });
+  });
+
+  it('activity 는 :teamId/activity 이고 SessionGuard 만 적용한다 — 팀원도 이 문을 지난다', () => {
+    expect(readGuards('activity')).toEqual([SessionGuard]);
+    expect(readPath('activity')).toBe(':teamId/activity');
+  });
+
+  it('activity 는 세션·프로그램·팀을 service 로 넘기고 DTO 로 반환한다', async () => {
+    const view = {
+      applicationId: null,
+      repository: null,
+      status: 'NOT_CONNECTED' as const,
+      lastSuccessAt: null,
+      window: {
+        from: '2026-08-01',
+        to: '2026-08-31',
+        timeZone: 'Asia/Seoul' as const,
+      },
+      canEditRepositoryUrl: false,
+      members: [],
+    };
+    const getActivity = jest.fn().mockResolvedValue(view);
+    const controller = new ProgramTeamsController(serviceStub({ getActivity }));
+
+    const response = await controller.activity(
+      { sessionGithubId: 42n },
+      'program-1',
+      'team-1',
+    );
+
+    expect(getActivity).toHaveBeenCalledWith(42n, 'program-1', 'team-1');
+    expect(response).toEqual(view);
+  });
+
+  it('repositoryUrlHistory 는 SessionGuard 만 적용한다 — activity 와 같은 문이다', () => {
+    expect(readGuards('repositoryUrlHistory')).toEqual([SessionGuard]);
+  });
+
+  it('repositoryUrlHistory 를 detail(:teamId) 보다 뒤에 선언한다', () => {
+    expect(declarationOrder('repositoryUrlHistory')).toBeGreaterThan(
+      declarationOrder('detail'),
+    );
+    expect(readPath('repositoryUrlHistory')).toBe(
+      ':teamId/repository-url-history',
+    );
+  });
+
+  it('repositoryUrlHistory 는 세션·cursor 를 service 로 넘기고 DTO 페이지를 반환한다', async () => {
+    const getRepositoryUrlHistory = jest.fn().mockResolvedValue({
+      items: [],
+      nextCursor: null,
+    });
+    const controller = new ProgramTeamsController(
+      serviceStub({ getRepositoryUrlHistory }),
+    );
+    const query = Object.assign(new RepositoryUrlHistoryRequestDto(), {
+      cursor: '2026-08-15T00:00:00.000Z_change-11',
+    });
+
+    const response = await controller.repositoryUrlHistory(
+      { sessionGithubId: 42n },
+      'program-1',
+      'team-1',
+      query,
+    );
+
+    expect(getRepositoryUrlHistory).toHaveBeenCalledWith(
+      42n,
+      'program-1',
+      'team-1',
+      {
+        occurredAt: new Date('2026-08-15T00:00:00.000Z'),
+        id: 'change-11',
+      },
+    );
+    expect(response).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
+});
+
+describe('ProgramTeamsController.rename', () => {
+  it('PATCH :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+    const method = methodOf('rename');
+
+    expect(readPath('rename')).toBe(':teamId');
+    expect(
+      method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
+    ).toBe(RequestMethod.PATCH);
+    expect(readGuards('rename')).toEqual([SessionGuard, OriginGuard]);
+  });
+
+  it('service 결과를 RenameTeamResponseDto 로 반환한다', async () => {
+    const rename = jest
+      .fn()
+      .mockResolvedValue({ teamId: 'team-1', name: '알잘딱팀' });
+    const controller = new ProgramTeamsController(serviceStub({ rename }));
+    const body = Object.assign(new RenameTeamRequestDto(), {
+      name: '알잘딱팀',
+    });
+
+    const response = await controller.rename(
+      { sessionGithubId: 7n },
+      'program-1',
+      'team-1',
+      body,
+    );
+
+    expect(rename).toHaveBeenCalledWith(7n, 'program-1', 'team-1', '알잘딱팀');
+    expect(response).toEqual({ teamId: 'team-1', name: '알잘딱팀' });
+  });
+});
+
+describe('ProgramTeamsController.remove', () => {
+  it('DELETE :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+    const method = methodOf('remove');
+
+    expect(readPath('remove')).toBe(':teamId');
+    expect(
+      method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
+    ).toBe(RequestMethod.DELETE);
+    expect(readGuards('remove')).toEqual([SessionGuard, OriginGuard]);
+  });
+
+  it('정적 `me` 경로를 가로채지 않도록 뒤에 선언된다', () => {
+    expect(declarationOrder('leave')).toBeLessThan(declarationOrder('remove'));
+    expect(declarationOrder('removeMember')).toBeLessThan(
+      declarationOrder('remove'),
+    );
+  });
+
+  it('확인한 범위를 그대로 service 에 넘기고 지운 수치를 돌려준다', async () => {
+    const deletedCounts = {
+      applications: 1,
+      members: 3,
+      invitations: 0,
+      submissions: 2,
+      submissionEvents: 5,
+      detachedRepositories: 1,
+    };
+    const deleteForStaff = jest
+      .fn()
+      .mockResolvedValue({ teamId: 'team-1', deleted: true, deletedCounts });
+    const controller = new ProgramTeamsController(
+      serviceStub({ deleteForStaff }),
+    );
+    const expectedScope = {
+      ...deletedCounts,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
+    };
+    const body = Object.assign(new DeleteTeamRequestDto(), { expectedScope });
+
+    const response = await controller.remove(
+      { sessionGithubId: 7n },
+      'program-1',
+      'team-1',
+      body,
+    );
+
+    expect(deleteForStaff).toHaveBeenCalledWith(
+      7n,
+      'program-1',
+      'team-1',
+      expectedScope,
+
+      null,
+    );
+    expect(response).toEqual({
+      teamId: 'team-1',
+      deleted: true,
+      deletedCounts,
+    });
+  });
+});

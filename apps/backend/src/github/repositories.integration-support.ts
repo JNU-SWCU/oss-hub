@@ -1,0 +1,131 @@
+import type { RepositoryProvisionHistoryPayloadParser } from '../platform/repository-provision-generation.repository';
+import type {
+  ClaimedProvisionEvent,
+  ClaimProvisionEventInput,
+  ProvisionJobReference,
+  RepositoriesRepository,
+  RepositoriesTransactionStore,
+  RepositoryPublishTargetRow,
+} from './repositories.repository';
+
+class TwoPartyBarrier {
+  private arrivals = 0;
+  private release: (() => void) | null = null;
+  private readonly released = new Promise<void>((resolve) => {
+    this.release = resolve;
+  });
+
+  async wait(): Promise<void> {
+    this.arrivals += 1;
+    if (this.arrivals === 2) {
+      this.release?.();
+    }
+    await this.released;
+  }
+}
+
+class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStore {
+  constructor(
+    private readonly store: RepositoriesTransactionStore,
+    private readonly barrier: TwoPartyBarrier,
+  ) {}
+
+  get auditLogWriter() {
+    return this.store.auditLogWriter;
+  }
+
+  findPublishTarget(
+    repositoryId: string,
+  ): Promise<RepositoryPublishTargetRow | null> {
+    return this.store.findPublishTarget(repositoryId);
+  }
+
+  async publishRepositoryIfPrivate(
+    repositoryId: string,
+    githubRepositoryId: bigint,
+    now: Date,
+  ): Promise<boolean> {
+    await this.barrier.wait();
+    return this.store.publishRepositoryIfPrivate(
+      repositoryId,
+      githubRepositoryId,
+      now,
+    );
+  }
+
+  claimProvisionEvent(
+    input: ClaimProvisionEventInput,
+  ): Promise<ClaimedProvisionEvent | null> {
+    return this.store.claimProvisionEvent(input);
+  }
+
+  upsertProvisionJob(
+    applicationId: string,
+    now: Date,
+  ): Promise<ProvisionJobReference> {
+    return this.store.upsertProvisionJob(applicationId, now);
+  }
+
+  findProvisionJob(
+    applicationId: string,
+  ): Promise<ProvisionJobReference | null> {
+    return this.store.findProvisionJob(applicationId);
+  }
+
+  confirmSupersededProvisionEvent(
+    eventId: string,
+    applicationId: string,
+    now: Date,
+    parsePayload: RepositoryProvisionHistoryPayloadParser,
+  ): Promise<void> {
+    return this.store.confirmSupersededProvisionEvent(
+      eventId,
+      applicationId,
+      now,
+      parsePayload,
+    );
+  }
+
+  completeProvisionEvent(
+    eventId: string,
+    workerId: string,
+    now: Date,
+  ): Promise<void> {
+    return this.store.completeProvisionEvent(eventId, workerId, now);
+  }
+
+  failProvisionEvent(eventId: string, workerId: string): Promise<void> {
+    return this.store.failProvisionEvent(eventId, workerId);
+  }
+}
+
+export class BarrierRepositoriesRepository {
+  private readonly barrier = new TwoPartyBarrier();
+
+  constructor(
+    private readonly repository: Pick<
+      RepositoriesRepository,
+      'findPublishTarget' | 'listOwnedProvisionJobs' | 'withTransaction'
+    >,
+  ) {}
+
+  withTransaction<T>(
+    operation: (store: RepositoriesTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.repository.withTransaction((store) =>
+      operation(new BarrierRepositoriesTransactionStore(store, this.barrier)),
+    );
+  }
+
+  findPublishTarget(
+    repositoryId: string,
+  ): Promise<RepositoryPublishTargetRow | null> {
+    return this.repository.findPublishTarget(repositoryId);
+  }
+
+  listOwnedProvisionJobs(
+    githubId: bigint,
+  ): ReturnType<RepositoriesRepository['listOwnedProvisionJobs']> {
+    return this.repository.listOwnedProvisionJobs(githubId);
+  }
+}

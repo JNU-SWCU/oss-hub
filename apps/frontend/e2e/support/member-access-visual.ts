@@ -7,7 +7,7 @@ import {
   type TestInfo,
 } from '@playwright/test';
 
-export const TASK_9_VIEWPORTS = [
+const TASK_9_VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
   { name: 'narrow', width: 375, height: 812 },
 ] as const;
@@ -17,7 +17,7 @@ const EVIDENCE_DIRECTORY = path.resolve(
   '../../.omo/evidence/jwt-auth-signup-refactor/task-9/visual',
 );
 
-export async function captureTask9State(
+async function captureTask9State(
   page: Page,
   testInfo: TestInfo,
   state: string,
@@ -33,18 +33,6 @@ export async function captureTask9State(
   await testInfo.attach(name, { body: screenshot, contentType: 'image/png' });
 }
 
-export async function captureResponsivePage(
-  page: Page,
-  testInfo: TestInfo,
-  state: string,
-): Promise<void> {
-  for (const viewport of TASK_9_VIEWPORTS) {
-    await page.setViewportSize(viewport);
-    await assertTask9Layout(page);
-    await captureTask9State(page, testInfo, state, viewport);
-  }
-}
-
 export async function captureResponsiveMenu(
   page: Page,
   testInfo: TestInfo,
@@ -54,11 +42,11 @@ export async function captureResponsiveMenu(
     await page.setViewportSize(viewport);
     let target = page.locator('[data-slot="app-sidebar"]');
     if (viewport.name === 'narrow') {
-      const trigger = page.getByRole('button', { name: '메뉴 열기' });
+      const trigger = page.locator('[data-slot="scope-bar-menu-trigger"]');
       await trigger.focus();
       await expect(trigger).toBeFocused();
       await page.keyboard.press('Enter');
-      target = page.getByRole('dialog');
+      target = page.locator('[data-slot="shell-menu-sheet"]');
       await expect(target).toBeVisible();
     }
     await assertTask9Layout(page);
@@ -103,16 +91,4 @@ export async function assertTask9Layout(page: Page): Promise<void> {
 
   expect(result.documentOverflow, 'document horizontal overflow').toBe(false);
   expect(result.clipped, 'CJK wrapping or clipping').toEqual([]);
-}
-
-export async function assertTabSequence(
-  page: Page,
-  first: Locator,
-  second: Locator,
-  key = 'Tab',
-): Promise<void> {
-  await first.focus();
-  await expect(first).toBeFocused();
-  await page.keyboard.press(key);
-  await expect(second).toBeFocused();
 }

@@ -31,6 +31,7 @@
     "apps/backend": {
       "entry": [
         "src/main.ts",
+        "src/cli.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
         "{src,test,prisma}/**/*.spec.ts"
@@ -50,10 +51,7 @@
         "src/middleware.ts",
         "next.config.ts",
         "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",
-        "e2e/**/*.spec.ts",
-        "e2e/support/seed-deadline-digest.mjs",
-        "e2e/support/assert-loopback-only.mjs",
-        "e2e/support/backend-env.probe.mjs"
+        "e2e/**/*.spec.ts"
       ],
       "project": [
         "{src,e2e,test-support,scripts}/**/*.{js,mjs,cjs,ts,tsx}",

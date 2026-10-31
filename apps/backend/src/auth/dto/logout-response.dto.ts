@@ -1,7 +1,7 @@
 export class LogoutResponseDto {
-  isAuthenticated: boolean;
+  declare readonly isAuthenticated: boolean;
 
-  constructor(isAuthenticated: boolean) {
-    this.isAuthenticated = isAuthenticated;
+  static from(isAuthenticated: boolean): LogoutResponseDto {
+    return { isAuthenticated };
   }
 }

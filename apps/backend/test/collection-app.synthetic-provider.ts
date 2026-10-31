@@ -1,8 +1,8 @@
-import { CollectionAppClient } from '../src/github/gateway/collection-app.client';
+import { CollectionAppClient } from '../src/github/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
-import { CollectionAppTokenProvider } from '../src/github/gateway/collection-app.token';
-import { ProviderRequestQueue } from '../src/github/gateway/collection-provider-queue';
-import type { CollectionSyncRuntime } from '../src/github/service/collection-sync.service';
+import { CollectionAppTokenClient } from '../src/github/collection-app-token.client';
+import { type CollectionSyncRuntime } from '../src/github/collection-incremental.repository';
+import { ProviderRequestQueueClient } from '../src/github/provider-request-queue.client';
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
@@ -411,16 +411,16 @@ const syntheticAppConfig: CollectionAppConfigValues = {
   deadlineMs: 30_000,
 };
 
-function createSyntheticTokenProvider(): CollectionAppTokenProvider {
+function createSyntheticTokenProvider(): CollectionAppTokenClient {
   return {
     getToken: () => Promise.resolve('synthetic-token'),
     clear: () => undefined,
-  } as unknown as CollectionAppTokenProvider;
+  } as unknown as CollectionAppTokenClient;
 }
 
 export function createSyntheticSyncRuntime(
   provider: SyntheticGithubProvider,
-  queue: ProviderRequestQueue,
+  queue: ProviderRequestQueueClient,
   fetcherMiddleware: Fetcher = (input, init) => provider.fetcher(input, init),
 ): CollectionSyncRuntime {
   const tokens = createSyntheticTokenProvider();

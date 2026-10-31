@@ -37,9 +37,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bash e2e/run-stack.sh',
+    command: `pnpm exec next dev --hostname 127.0.0.1 --port ${e2eEnvironment.frontendPort}`,
     url: e2eEnvironment.baseUrl,
-
+    env: {
+      BACKEND_ORIGIN: `http://127.0.0.1:${e2eEnvironment.backendPort}`,
+    },
     stdout: 'pipe',
     timeout: 180_000,
     reuseExistingServer: false,

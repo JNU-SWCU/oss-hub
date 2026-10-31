@@ -23,17 +23,36 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { computeJoinCodeDigest } from '../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../src/runtime-config/join-code-secret';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthRepository } from '../src/auth/repository/auth.repository';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
-import { repositoryUrlFromNameWithOwner } from '../src/github/domain/repository-identity';
+import { AuthRepository } from '../src/auth/auth.repository';
+import { PrismaService } from '../src/platform/prisma.service';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { S3ObjectStorage } from '../src/storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../src/storage/object-storage.config';
-import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/domain/storage-orphan-reconciliation';
+import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
+import { ObjectStorageConfig } from '../src/platform/object-storage.config';
+import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
+import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
+import type { AuthUserRecord } from '../src/auth/auth.repository';
+import { UserProfileService } from '../src/platform/user-profile.service';
+import { RepositoryUrlService } from '../src/github/repository-url.service';
+import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
+
+const repositoryUrlService = new RepositoryUrlService();
+const joinCodeSecretService = new JoinCodeSecretService();
+
+function isProfileComplete(user: AuthUserRecord | null): boolean {
+  return (
+    user !== null &&
+    new UserProfileService().isCompleteProfileFields(
+      {
+        name: user.name,
+        studentId: user.studentId,
+        department: user.department,
+      },
+      user.memberKind ?? user.selectedMemberKind,
+    )
+  );
+}
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -42,7 +61,7 @@ assertIsolatedIntegrationDatabase({
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
 const demoStorageConfig = new ObjectStorageConfig();
-const demoStorage = new S3ObjectStorage(demoStorageConfig);
+const demoStorage = new S3ObjectStorageClient(demoStorageConfig);
 let demoStorageS3Client: S3Client | undefined;
 function demoStorageS3(): S3Client {
   if (demoStorageS3Client) return demoStorageS3Client;
@@ -688,9 +707,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
       });
-      expect(repositoryUrlFromNameWithOwner(repository.nameWithOwner)).toBe(
-        OSS_HUB_REPOSITORY_URL,
-      );
+      expect(
+        repositoryUrlService.repositoryUrlFromNameWithOwner(
+          repository.nameWithOwner,
+        ),
+      ).toBe(OSS_HUB_REPOSITORY_URL);
       expect(ossHubRepositoryProvisionJobCount).toBe(1);
       expect(provisionJob).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
@@ -726,7 +747,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
         visibility: RepositoryVisibility.PUBLIC,
       });
       expect(
-        repositoryUrlFromNameWithOwner(practiceRepository.nameWithOwner),
+        repositoryUrlService.repositoryUrlFromNameWithOwner(
+          practiceRepository.nameWithOwner,
+        ),
       ).toBe(OSS_HUB_PRACTICE_REPOSITORY_URL);
       expect(practiceRepository.publishedAt).not.toBeNull();
       expect(practiceProvisionJob).toMatchObject({
@@ -1357,9 +1380,9 @@ describe('seed profile=demo 계약 (integration)', () => {
           id: survivorTeamId,
           programId: survivorProgramId,
           name: 'teardown guard 팀',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             `TEARDOWN-GUARD-${survivorTeamId}`,
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: survivorUserId,
         },
@@ -1767,12 +1790,12 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(admin?.id).toBe(adminConfirmedUserId);
       expect(admin?.hasAdminAccess).toBe(true);
       expect(admin?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(admin?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(admin)).toBe(true);
 
       expect(adminSecond?.id).toBe(adminSecondUserId);
       expect(adminSecond?.hasAdminAccess).toBe(true);
       expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(adminSecond?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(adminSecond)).toBe(true);
 
       const [adminRow, adminSecondRow] = await Promise.all([
         prisma.userProfile.findUniqueOrThrow({
@@ -1803,7 +1826,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(revocable?.id).toBe(staffRevocableUserId);
       expect(revocable?.hasStaffAccess).toBe(true);
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(revocable?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(revocable)).toBe(true);
 
       const requests = await prisma.staffAccessRequest.findMany({
         where: { userId: staffRevocableUserId },

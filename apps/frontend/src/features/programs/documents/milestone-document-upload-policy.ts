@@ -19,17 +19,16 @@ export function milestoneDocumentUploadRejection(
   return null;
 }
 
-export const MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES: ReadonlySet<string> =
-  new Set([
-    'MSD_037',
-    'MSD_038',
-    'MSD_039',
-    'MSD_040',
-    'MSD_041',
-    'MSD_042',
-    'MSD_043',
-    'MSD_044',
-  ]);
+const MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES: ReadonlySet<string> = new Set([
+  'MSD_037',
+  'MSD_038',
+  'MSD_039',
+  'MSD_040',
+  'MSD_041',
+  'MSD_042',
+  'MSD_043',
+  'MSD_044',
+]);
 
 export function isMilestoneDocumentArchiveErrorCode(code: string): boolean {
   return MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES.has(code);

@@ -7,8 +7,6 @@ import {
   SubmissionStatus,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 import {
   offsetDays,
   prisma,
@@ -17,6 +15,9 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('program-overview', 'program');
 const STAFF_ID = seedId('program-overview', 'user', 'staff');
@@ -368,18 +369,18 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
       prisma.team.upsert({
         where: { id: TEAM_ID },
         update: {
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-PROGRAM-OVERVIEW-TEAM',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
         },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-program-overview-team',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-PROGRAM-OVERVIEW-TEAM',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: leader.id,
         },

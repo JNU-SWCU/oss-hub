@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -9,19 +9,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ProgramCountdown } from '@/components';
-import { useOptionalRankingNextCycleAt } from './ranking-cycle-context';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
+import { SidebarCountSkeleton, SidebarShell } from './sidebar-shell';
 
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
   readonly search?: string;
   readonly collapsed: boolean;
-  readonly onToggle: () => void;
 
   readonly brandTitle?: string;
+
+  readonly bottom?: ReactNode;
+
+  readonly countsPending?: boolean;
 }
 
 export function formatSidebarCount(n: number): string {
@@ -47,97 +49,39 @@ export function AppSidebar({
   pathname,
   search = '',
   collapsed,
-  onToggle,
   brandTitle,
+  bottom,
+  countsPending = false,
 }: AppSidebarProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
-  const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
-  const nextCycleAt = useOptionalRankingNextCycleAt();
-  const showRankingCountdown =
-    !collapsed && pathname === '/ranking' && nextCycleAt !== null;
 
   return (
-    <aside
-      data-slot="app-sidebar"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      className={cn(
-        'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
-        'border-sidebar-border bg-sidebar min-[900px]:border-r',
-      )}
-    >
-      <div
-        data-slot="app-sidebar-brand"
-        className={cn(
-          'flex h-topbar shrink-0 items-center gap-3 border-b border-sidebar-border px-4',
-          collapsed && 'justify-center px-0',
-        )}
-      >
-        {!collapsed ? (
-          <p className="font-heading text-table font-bold tracking-[-0.02em] text-sidebar-foreground">
-            {title}
-          </p>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          aria-expanded={!collapsed}
-          aria-label={toggleLabel}
-          title={toggleLabel}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
-            !collapsed &&
-              'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
-          )}
-        >
-          <ShellIcon
-            name="chevronLeft"
-            className={cn(
-              'size-[18px] shrink-0 transition-transform',
-              collapsed && 'rotate-180',
-            )}
-          />
-        </Button>
-      </div>
-
-      <AppSidebarNav
-        groups={groups}
-        pathname={pathname}
-        search={search}
-        collapsed={collapsed}
-        brandTitle={title}
-      />
-
-      {showRankingCountdown && nextCycleAt !== null ? (
-        <ProgramCountdown
-          nextMilestoneLabel="다음 수집"
-          dueAt={nextCycleAt}
-          untilLabel="다음 수집까지"
+    <SidebarShell
+      kind="app-sidebar"
+      collapsed={collapsed}
+      bottom={bottom}
+      nav={
+        <AppSidebarNav
+          groups={groups}
+          pathname={pathname}
+          search={search}
+          collapsed={collapsed}
+          brandTitle={title}
+          countsPending={countsPending}
         />
-      ) : null}
-
-      <p
-        data-slot="app-sidebar-foot"
-        className={cn(
-          'mt-auto shrink-0 border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
-          collapsed && 'hidden',
-        )}
-      >
-        전남대학교
-        <br />
-        SW중심대학사업단
-      </p>
-    </aside>
+      }
+    />
   );
 }
 
-export interface AppSidebarNavProps {
+interface AppSidebarNavProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
   readonly search?: string;
   readonly collapsed: boolean;
   readonly brandTitle?: string;
+
+  readonly countsPending?: boolean;
 }
 
 export function AppSidebarNav({
@@ -146,6 +90,7 @@ export function AppSidebarNav({
   search = '',
   collapsed,
   brandTitle,
+  countsPending = false,
 }: AppSidebarNavProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
   const showGroupLabels = !collapsed;
@@ -187,6 +132,7 @@ export function AppSidebarNav({
                 pathname={pathname}
                 search={search}
                 collapsed={collapsed}
+                countPending={countsPending && item.count === undefined}
               />
             ))}
           </div>
@@ -201,11 +147,13 @@ function SidebarLink({
   pathname,
   search,
   collapsed,
+  countPending,
 }: {
   readonly item: SidebarGroup['items'][number];
   readonly pathname: string;
   readonly search: string;
   readonly collapsed: boolean;
+  readonly countPending: boolean;
 }) {
   const current = isCurrentSidebarItem(pathname, item.href, search);
   const showCount = !collapsed && item.count !== undefined;
@@ -227,22 +175,16 @@ function SidebarLink({
         collapsed ? 'w-control justify-center px-0' : 'gap-3 px-3',
       )}
     >
-      {current ? (
-        <span
-          aria-hidden
-          data-slot="app-sidebar-current-marker"
-          className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-current-marker"
-        />
-      ) : null}
       <ShellIcon name={item.icon} />
       <span className={cn('min-w-0 flex-1 truncate', collapsed && 'hidden')}>
         {item.label}
       </span>
+      {!collapsed && countPending ? <SidebarCountSkeleton /> : null}
       {showCount ? (
         <span
           data-slot="app-sidebar-count"
           className={cn(
-            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground',
+            'ml-auto inline-flex shrink-0 items-center rounded-md border border-transparent bg-secondary px-2 py-0.5 text-badge font-semibold tabular-nums text-secondary-foreground',
             current &&
               'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}

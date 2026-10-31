@@ -3,154 +3,148 @@ import type {
   ProgramMilestoneDocumentView,
   ProgramMilestoneEditView,
   ProgramMilestoneView,
-} from '../domain/program-editor.types';
+} from '../program-editor.repository';
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../../submissions/domain/submission-upload-policy';
-import {
   SUBMISSION_TEMPLATE_ACCEPT,
   SUBMISSION_TEMPLATE_FORMAT_LABEL,
-} from '../../submissions/domain/submission-template-file-policy';
+} from '../submission-upload.config';
 
 export class ProgramMilestoneResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly startAt: string;
-  readonly dueAt: string;
-  readonly submissionType: ProgramMilestoneView['submissionType'];
-  readonly instructions: string | null;
-
-  private constructor(milestone: ProgramMilestoneView) {
-    this.id = milestone.id;
-    this.name = milestone.name;
-    this.startAt = milestone.startAt.toISOString();
-    this.dueAt = milestone.dueAt.toISOString();
-    this.submissionType = milestone.submissionType;
-    this.instructions = milestone.instructions;
-  }
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly startAt: string;
+  declare readonly dueAt: string;
+  declare readonly submissionType: ProgramMilestoneView['submissionType'];
+  declare readonly instructions: string | null;
 
   static from(milestone: ProgramMilestoneView): ProgramMilestoneResponseDto {
-    return new ProgramMilestoneResponseDto(milestone);
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      startAt: milestone.startAt.toISOString(),
+      dueAt: milestone.dueAt.toISOString(),
+      submissionType: milestone.submissionType,
+      instructions: milestone.instructions,
+    };
   }
 }
 
 export class ProgramMilestoneDocumentResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly required: boolean;
-  readonly sortOrder: number;
-  readonly templateFileName: string | null;
-
-  private constructor(document: ProgramMilestoneDocumentView) {
-    this.id = document.id;
-    this.name = document.name;
-    this.required = document.required;
-    this.sortOrder = document.sortOrder;
-    this.templateFileName = document.templateFileName;
-  }
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly required: boolean;
+  declare readonly sortOrder: number;
+  declare readonly templateFileName: string | null;
 
   static from(
     document: ProgramMilestoneDocumentView,
   ): ProgramMilestoneDocumentResponseDto {
-    return new ProgramMilestoneDocumentResponseDto(document);
+    return {
+      id: document.id,
+      name: document.name,
+      required: document.required,
+      sortOrder: document.sortOrder,
+      templateFileName: document.templateFileName,
+    };
   }
 }
 
 export class ProgramMilestoneOperationResponseDto {
-  readonly startAt: string;
-  readonly endAt: string;
-
-  private constructor(operation: ProgramMilestoneEditView['operation']) {
-    this.startAt = operation.startAt.toISOString();
-    this.endAt = operation.endAt.toISOString();
-  }
+  declare readonly startAt: string;
+  declare readonly endAt: string;
 
   static from(
     operation: ProgramMilestoneEditView['operation'],
   ): ProgramMilestoneOperationResponseDto {
-    return new ProgramMilestoneOperationResponseDto(operation);
+    return {
+      startAt: operation.startAt.toISOString(),
+      endAt: operation.endAt.toISOString(),
+    };
   }
 }
 
 export class ProgramMilestoneEditResponseDto {
-  readonly milestone: ProgramMilestoneResponseDto;
-  readonly operation: ProgramMilestoneOperationResponseDto;
-  readonly documents: readonly ProgramMilestoneDocumentResponseDto[];
-  readonly fileUpload = {
-    maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
-    maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
-    accept: SUBMISSION_TEMPLATE_ACCEPT,
-    formatLabel: SUBMISSION_TEMPLATE_FORMAT_LABEL,
+  declare readonly milestone: ProgramMilestoneResponseDto;
+  declare readonly operation: ProgramMilestoneOperationResponseDto;
+  declare readonly documents: readonly ProgramMilestoneDocumentResponseDto[];
+  declare readonly fileUpload: {
+    readonly maxBytes: number;
+    readonly maxLabel: string;
+    readonly accept: string;
+    readonly formatLabel: string;
   };
-  readonly fingerprint: string;
-
-  private constructor(view: ProgramMilestoneEditView) {
-    this.milestone = ProgramMilestoneResponseDto.from(view.milestone);
-    this.operation = ProgramMilestoneOperationResponseDto.from(view.operation);
-    this.documents = view.documents.map((document) =>
-      ProgramMilestoneDocumentResponseDto.from(document),
-    );
-    this.fingerprint = view.fingerprint;
-  }
+  declare readonly fingerprint: string;
 
   static from(view: ProgramMilestoneEditView): ProgramMilestoneEditResponseDto {
-    return new ProgramMilestoneEditResponseDto(view);
+    return {
+      milestone: ProgramMilestoneResponseDto.from(view.milestone),
+      operation: ProgramMilestoneOperationResponseDto.from(view.operation),
+      documents: view.documents.map((document) =>
+        ProgramMilestoneDocumentResponseDto.from(document),
+      ),
+      fileUpload: {
+        maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,
+        maxLabel: SUBMISSION_UPLOAD_MAX_LABEL,
+        accept: SUBMISSION_TEMPLATE_ACCEPT,
+        formatLabel: SUBMISSION_TEMPLATE_FORMAT_LABEL,
+      },
+      fingerprint: view.fingerprint,
+    };
   }
 }
 
 export class EditableProgramResponseDto {
-  readonly externalCover: NonNullable<
+  declare readonly externalCover: NonNullable<
     EditableProgramView['externalCover']
   > | null;
-  readonly coverImageUrl: string | null;
-  readonly id: string;
-  readonly name: string;
-  readonly organizer: string;
-  readonly trackType: EditableProgramView['trackType'];
-  readonly lifecycle: EditableProgramView['lifecycle'];
-  readonly applicationTemplateKey: string;
-  readonly applicationTemplateVersion: number;
-  readonly applicationCount: number;
-  readonly deletionScopeCounts?: EditableProgramView['deletionScopeCounts'];
-  readonly applicationStartAt: string;
-  readonly applicationEndAt: string;
-  readonly startAt: string;
-  readonly endAt: string;
-  readonly repositoryProvisioningEnabled: boolean;
-  readonly notifyOnDeadline: boolean;
-  readonly description: string;
-  readonly milestones: readonly ProgramMilestoneResponseDto[];
-  readonly teamMinSize: number;
-  readonly teamMaxSize: number;
-
-  private constructor(program: EditableProgramView) {
-    this.externalCover = program.externalCover ?? null;
-    this.coverImageUrl = program.coverImageUrl ?? null;
-    this.id = program.id;
-    this.name = program.name;
-    this.organizer = program.organizer;
-    this.trackType = program.trackType;
-    this.lifecycle = program.lifecycle;
-    this.applicationTemplateKey = program.applicationTemplateKey;
-    this.applicationTemplateVersion = program.applicationTemplateVersion;
-    this.applicationCount = program.applicationCount;
-    this.deletionScopeCounts = program.deletionScopeCounts;
-    this.applicationStartAt = program.applicationStartAt.toISOString();
-    this.applicationEndAt = program.applicationEndAt.toISOString();
-    this.startAt = program.startAt.toISOString();
-    this.endAt = program.endAt;
-    this.repositoryProvisioningEnabled = program.repositoryProvisioningEnabled;
-    this.notifyOnDeadline = program.notifyOnDeadline;
-    this.description = program.description;
-    this.milestones = program.milestones.map((milestone) =>
-      ProgramMilestoneResponseDto.from(milestone),
-    );
-    this.teamMinSize = program.teamMinSize;
-    this.teamMaxSize = program.teamMaxSize;
-  }
+  declare readonly coverImageUrl: string | null;
+  declare readonly id: string;
+  declare readonly name: string;
+  declare readonly organizer: string;
+  declare readonly trackType: EditableProgramView['trackType'];
+  declare readonly lifecycle: EditableProgramView['lifecycle'];
+  declare readonly applicationTemplateKey: string;
+  declare readonly applicationTemplateVersion: number;
+  declare readonly applicationCount: number;
+  declare readonly deletionScopeCounts?: EditableProgramView['deletionScopeCounts'];
+  declare readonly applicationStartAt: string;
+  declare readonly applicationEndAt: string;
+  declare readonly startAt: string;
+  declare readonly endAt: string;
+  declare readonly repositoryProvisioningEnabled: boolean;
+  declare readonly notifyOnDeadline: boolean;
+  declare readonly description: string;
+  declare readonly milestones: readonly ProgramMilestoneResponseDto[];
+  declare readonly teamMinSize: number;
+  declare readonly teamMaxSize: number;
 
   static from(program: EditableProgramView): EditableProgramResponseDto {
-    return new EditableProgramResponseDto(program);
+    return {
+      externalCover: program.externalCover ?? null,
+      coverImageUrl: program.coverImageUrl ?? null,
+      id: program.id,
+      name: program.name,
+      organizer: program.organizer,
+      trackType: program.trackType,
+      lifecycle: program.lifecycle,
+      applicationTemplateKey: program.applicationTemplateKey,
+      applicationTemplateVersion: program.applicationTemplateVersion,
+      applicationCount: program.applicationCount,
+      deletionScopeCounts: program.deletionScopeCounts,
+      applicationStartAt: program.applicationStartAt.toISOString(),
+      applicationEndAt: program.applicationEndAt.toISOString(),
+      startAt: program.startAt.toISOString(),
+      endAt: program.endAt,
+      repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
+      notifyOnDeadline: program.notifyOnDeadline,
+      description: program.description,
+      milestones: program.milestones.map((milestone) =>
+        ProgramMilestoneResponseDto.from(milestone),
+      ),
+      teamMinSize: program.teamMinSize,
+      teamMaxSize: program.teamMaxSize,
+    };
   }
 }

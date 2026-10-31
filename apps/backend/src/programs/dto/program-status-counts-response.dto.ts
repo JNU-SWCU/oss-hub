@@ -1,21 +1,19 @@
-import type { ProgramStatusCounts } from '../domain/program-list-status';
+import type { ProgramStatusCounts } from '../programs.repository';
 
 export class ProgramStatusCountsResponseDto {
-  readonly all: number;
-  readonly recruiting: number;
-  readonly in_progress: number;
-  readonly upcoming: number;
-  readonly ended: number;
-
-  private constructor(counts: ProgramStatusCounts) {
-    this.all = counts.all;
-    this.recruiting = counts.recruiting;
-    this.in_progress = counts.in_progress;
-    this.upcoming = counts.upcoming;
-    this.ended = counts.ended;
-  }
+  declare readonly all: number;
+  declare readonly recruiting: number;
+  declare readonly in_progress: number;
+  declare readonly upcoming: number;
+  declare readonly ended: number;
 
   static from(counts: ProgramStatusCounts): ProgramStatusCountsResponseDto {
-    return new ProgramStatusCountsResponseDto(counts);
+    return {
+      all: counts.all,
+      recruiting: counts.recruiting,
+      in_progress: counts.in_progress,
+      upcoming: counts.upcoming,
+      ended: counts.ended,
+    };
   }
 }

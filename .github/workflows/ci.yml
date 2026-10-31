@@ -244,6 +244,10 @@ jobs:
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
 
+      - name: ADR-003 계약 검사
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
+        run: node --test scripts/adr-003-contract.test.mjs
+
       - name: Rails 계약 테스트
         if: ${{ steps.scope.outputs.rails == 'true' }}
         run: node --test scripts/prisma-enum-names.test.mjs

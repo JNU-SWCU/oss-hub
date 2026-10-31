@@ -18,6 +18,8 @@ import {
   shouldLoadProgramParticipation,
 } from './program-shell-policy';
 
+export type ShellDataStatus = 'idle' | 'pending' | 'success' | 'error';
+
 export function useProductShellData({
   section,
   programDetailId,
@@ -32,7 +34,9 @@ export function useProductShellData({
   readonly operationsView?: boolean | null;
 }): {
   readonly facetData: SectionFacetData | undefined;
+  readonly facetStatus: ShellDataStatus;
   readonly scopeOverview: ProgramOverview | undefined;
+  readonly scopeOverviewStatus: ShellDataStatus;
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
   readonly scopeParticipant: boolean | undefined;
   readonly scopeViewerRole: ProgramScopeViewerRole;
@@ -84,7 +88,9 @@ export function useProductShellData({
 
   return {
     facetData: facetLoader ? facets.data : undefined,
+    facetStatus: facetLoader ? facets.status : 'idle',
     scopeOverview: scopeViewReady ? overview.data : undefined,
+    scopeOverviewStatus: scopedProgramId === null ? 'idle' : overview.status,
     scopeMilestones: milestones.data,
     scopeParticipant,
     scopeViewerRole,

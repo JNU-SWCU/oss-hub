@@ -69,11 +69,6 @@
       "count": 5
     }
   },
-  "src/features/audit-log/action-registry.test.ts": {
-    "local/design-no-hex-color": {
-      "count": 2
-    }
-  },
   "src/features/board/components/board-list-view.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1

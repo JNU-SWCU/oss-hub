@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
-import type { NavItem } from '@/components';
 
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
@@ -33,10 +32,11 @@ vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 import { AppFrame } from './app-frame';
 import { readStoredCollapsed, SIDEBAR_STORAGE_KEY } from './product-shell';
 
-const ITEMS: NavItem[] = [
-  { label: '프로그램', href: '/programs' },
-  { label: '랭킹', href: '/ranking' },
-];
+const ANONYMOUS = {
+  status: 'anonymous',
+  role: null,
+  isProfileComplete: false,
+} as const;
 
 function render(
   pathname: string,
@@ -79,11 +79,17 @@ function render(
   });
   return renderToStaticMarkup(
     <QueryClientProvider client={createTestQueryClient()}>
-      <AppFrame brand="OSS Hub" items={ITEMS} actions={<button>로그인</button>}>
+      <AppFrame brand="OSS Hub" actions={<button>로그인</button>}>
         <p>본문</p>
       </AppFrame>
     </QueryClientProvider>,
   );
+}
+
+function breakpointVisibility(html: string, slot: string): string | undefined {
+  return html.match(
+    new RegExp(`data-slot="${slot}"[^>]*data-breakpoint-visibility="([^"]*)"`),
+  )?.[1];
 }
 
 function mainContentTag(html: string): string {
@@ -174,15 +180,46 @@ describe('AppFrame', () => {
     }
   });
 
-  it('900px 미만 사이드바 드로어 토글은 세션과 무관하게 렌더되고 min-[900px]:hidden이다', () => {
-    const html = render('/dashboard');
-    const trigger = html.match(
-      /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
-    )?.[0];
-    expect(trigger).toBeDefined();
-    expect(trigger).toContain('min-[900px]:hidden');
-    expect(trigger).toContain('aria-expanded="false"');
-    expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
+  it('접힌 상단 메뉴는 랜딩·가입 화면에만 있고 제품 셸에는 없다', () => {
+    for (const path of ['/', '/consent']) {
+      const html = render(path, ANONYMOUS);
+      expect(html, path).toContain('data-slot="nav-bar-menu"');
+      expect(breakpointVisibility(html, 'nav-bar-items'), path).toBe('wide');
+    }
+    for (const [path, session] of [
+      ['/programs', ANONYMOUS],
+      ['/dashboard', undefined],
+    ] as const) {
+      const html = render(path, session);
+      expect(html, path).not.toContain('data-slot="nav-bar-menu"');
+      expect(breakpointVisibility(html, 'nav-bar-items'), path).toBe('desktop');
+    }
+  });
+
+  it('하단 탭 바는 제품 셸에만 있고 랜딩·가입 화면에는 없다', () => {
+    for (const [path, session] of [
+      ['/programs', ANONYMOUS],
+      ['/ranking', ANONYMOUS],
+      ['/dashboard', undefined],
+    ] as const) {
+      const html = render(path, session);
+      expect(html, path).toMatch(
+        /<nav[^>]*aria-label="섹션"[^>]*data-slot="bottom-tab-bar"/,
+      );
+    }
+    for (const path of ['/', '/consent', '/onboarding/role']) {
+      expect(render(path, ANONYMOUS), path).not.toContain(
+        'data-slot="bottom-tab-bar"',
+      );
+    }
+  });
+
+  it('상단바에 모바일 드로어 트리거는 더 이상 없다', () => {
+    for (const path of ['/dashboard', '/programs', '/']) {
+      expect(render(path), path).not.toContain(
+        'data-slot="nav-bar-sidebar-drawer-trigger"',
+      );
+    }
   });
 
   it('상단 내비에서 역할 메뉴가 기존 항목과 href가 겹치면 하나만 남는다', () => {
@@ -221,11 +258,42 @@ describe('AppFrame', () => {
     },
   );
 
-  it('회원 셸 그리드는 사이드바 토큰을 쓴다', () => {
+  it('회원 셸 그리드는 펼친 사이드바 상태로 렌더된다', () => {
     const html = render('/dashboard');
-    expect(html).toContain(
-      'grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
+    expect(html).toMatch(
+      /data-slot="product-shell"[^>]*data-collapsed="false"/,
     );
+  });
+
+  it('쿠키로 읽은 접힘 시드는 SSR 마크업의 셸과 상단바 토글에 함께 반영된다', () => {
+    mocks.usePathname.mockReturnValue('/dashboard');
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      role: 'STUDENT',
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      staffAccessRequestStatus: null,
+      staffAccessRequestRejectionReason: null,
+      selectedRole: null,
+      isProfileComplete: true,
+      retry: () => {},
+    });
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AppFrame brand="OSS Hub" initialSidebarCollapsed>
+          <p>본문</p>
+        </AppFrame>
+      </QueryClientProvider>,
+    );
+    expect(html).toMatch(/data-slot="product-shell"[^>]*data-collapsed="true"/);
+    expect(html).toMatch(/data-slot="app-sidebar"[^>]*data-collapsed="true"/);
+    const toggle = html.match(
+      /<button[^>]*data-slot="nav-bar-sidebar-toggle"[^>]*>/,
+    )?.[0];
+    expect(toggle).toBeDefined();
+    expect(toggle).toContain('aria-expanded="false"');
+    expect(toggle).toContain('aria-label="사이드바 펼치기"');
   });
 
   it('미해결 호환 세션도 정상 인증 셸과 본문을 렌더한다', () => {

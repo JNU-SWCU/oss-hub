@@ -994,3 +994,18 @@ test('member 계층의 활동 없음 판정은 합계 열을 쓴다 — 화면�
   expect(zeroCommitOnly).not.toContain('집계된 활동이 아직 없습니다');
   expect(allZero).toContain('집계된 활동이 아직 없습니다');
 });
+
+test('filters 슬롯을 페이지 헤더 바로 아래에 렌더한다', () => {
+  const html = renderToStaticMarkup(
+    <RankingView
+      page={1}
+      filters={<div data-slot="ranking-filters-slot" />}
+      state={{ kind: 'loading' }}
+      {...handlers}
+    />,
+  );
+
+  expect(html.indexOf('data-slot="ranking-filters-slot"')).toBeGreaterThan(
+    html.indexOf('랭킹'),
+  );
+});

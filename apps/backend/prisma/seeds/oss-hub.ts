@@ -14,8 +14,6 @@ import {
   SubmissionStatus,
   User,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 import { AUTH_SCENARIOS } from './auth';
 import {
   offsetDays,
@@ -26,6 +24,9 @@ import {
   upsertConsent,
   upsertTracked,
 } from './helpers';
+import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('oss-hub', 'program');
 const TEAM_ID = seedId('oss-hub', 'team');
@@ -199,9 +200,9 @@ export async function seedOssHub(
         where: { id: TEAM_ID },
         update: {
           name: 'oss-hub',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-OSS-HUB',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: users[0]!.id,
         },
@@ -209,9 +210,9 @@ export async function seedOssHub(
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'oss-hub',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-OSS-HUB',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: users[0]!.id,
         },
@@ -745,9 +746,9 @@ export async function seedOssHub(
         where: { id: PRACTICE_TEAM_ID },
         update: {
           name: 'oss-hub-practice',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-OSS-HUB-PRACTICE',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: users[0]!.id,
         },
@@ -755,9 +756,9 @@ export async function seedOssHub(
           id: PRACTICE_TEAM_ID,
           programId: PRACTICE_PROGRAM_ID,
           name: 'oss-hub-practice',
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             'SEED-OSS-HUB-PRACTICE',
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: users[0]!.id,
         },

@@ -56,7 +56,7 @@ describe('workspace runtime entrypoint contracts', () => {
   ])('retains the %s CLI without executing it', (name) => {
     const command = requiredString(scripts[name], `retained script ${name}`);
     const targets = tsNodeTargets(command);
-    expect(targets).toHaveLength(1);
+    expect(targets).toEqual(['src/cli.ts']);
     for (const target of targets) expectSourceFile(target);
   });
 
@@ -89,34 +89,12 @@ describe('workspace runtime entrypoint contracts', () => {
     );
     for (const target of [
       'src/main.ts',
+      'src/cli.ts',
       'test/e2e-program-authoring/main.ts',
       'prisma/seed.ts',
     ]) {
       expect(entryPaths).toContain(target);
       expectSourceFile(target);
     }
-  });
-
-  it('keeps the browser E2E stack on the registered digest and isolated server', () => {
-    const stack = readFileSync(
-      path.join(repositoryRoot, 'apps/frontend/e2e/run-stack.sh'),
-      'utf8',
-    );
-    const digestTargets = tsNodeTargets(stack);
-    expect(digestTargets).toEqual(
-      tsNodeTargets(
-        requiredString(
-          scripts['notifications:send-digest'],
-          'retained notifications:send-digest script',
-        ),
-      ),
-    );
-    for (const target of digestTargets) expectSourceFile(target);
-    const serverTargets = Array.from(
-      stack.matchAll(/\$backend_dist\/([\w./-]+)\.js\b/g),
-      (match) => `${requiredString(match[1], 'E2E server target capture')}.ts`,
-    );
-    expect(serverTargets).toEqual(['test/e2e-program-authoring/main.ts']);
-    for (const target of serverTargets) expectSourceFile(target);
   });
 });

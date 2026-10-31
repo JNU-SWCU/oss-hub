@@ -9,9 +9,7 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
-import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
-import type { ObjectStoragePort } from '../../src/storage/domain/object-storage';
+import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
 import {
   offsetDays,
   prisma,
@@ -22,6 +20,9 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
+
+const joinCodeSecretService = new JoinCodeSecretService();
 
 const DEMO_SUBMISSION_FILE_STORAGE_PREFIX = 'submission-files/seed-demo/';
 
@@ -223,9 +224,9 @@ async function upsertDemoTeam(
         where: { id: teamId },
         update: {
           name: params.teamName,
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: leaderUserId,
         },
@@ -233,9 +234,9 @@ async function upsertDemoTeam(
           id: teamId,
           programId,
           name: params.teamName,
-          joinCodeDigest: computeJoinCodeDigest(
+          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
             `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
-            resolveJoinCodeSecret(),
+            joinCodeSecretService.resolveJoinCodeSecret(),
           ),
           leaderId: leaderUserId,
         },

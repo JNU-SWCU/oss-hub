@@ -1,36 +1,34 @@
 import 'reflect-metadata';
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AccountDeactivationController } from './controller/account-deactivation.controller';
-import { AdminAccessController } from './controller/admin-access.controller';
-import { AdminAccessRepository } from './repository/admin-access.repository';
-import { AdminAccessService } from './service/admin-access.service';
-import { IndependentAuthorityController } from './controller/independent-authority.controller';
-import { IndependentAuthorityRepository } from './repository/independent-authority.repository';
-import { IndependentAuthorityService } from './service/independent-authority.service';
-import { MemberKindController } from './controller/member-kind.controller';
-import { UsersController } from './controller/users.controller';
+import { AccountDeactivationController } from './account-deactivation.controller';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AdminAccessService } from './admin-access.service';
+import { AdminProfileService } from './admin-profile.service';
+import {
+  IndependentAuthorityRepository,
+  UsersAuthorityRepository,
+} from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
+import { MemberKindService } from './member-kind.service';
+import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
-import { UsersService } from './service/users.service';
-import { UsersAuthorityRepository } from './repository/authority.repository';
-import { UsersAuthorityService } from './service/authority.service';
+import { UsersService } from './users.service';
+import { UsersAuthorityService } from './users-authority.service';
+import { ConsentsController } from './consents.controller';
+import { ConsentsService } from './consents.service';
+import { MemberOnboardingRepository } from './member-onboarding.repository';
+import { MemberOnboardingService } from './member-onboarding.service';
+import { OnboardingController } from './onboarding.controller';
+import { RoleRequestsController } from './role-requests.controller';
 
 describe('UsersModule admin access wiring', () => {
-  it('registers the controller and dependencies for the access routes', () => {
-    const controllers: unknown = Reflect.getMetadata(
-      MODULE_METADATA.CONTROLLERS,
-      UsersModule,
-    );
+  it('registers the dependencies behind the admin access routes', () => {
     const providers: unknown = Reflect.getMetadata(
       MODULE_METADATA.PROVIDERS,
       UsersModule,
     );
 
-    expect(controllers).toEqual(
-      expect.arrayContaining([
-        AdminAccessController,
-        IndependentAuthorityController,
-      ]),
-    );
     expect(providers).toEqual(
       expect.arrayContaining([
         AdminAccessRepository,
@@ -49,7 +47,16 @@ describe('UsersModule admin access wiring', () => {
       UsersModule,
     );
 
-    expect(exports).toEqual([UsersService, UsersAuthorityService]);
+    expect(exports).toEqual([
+      UsersService,
+      UsersAuthorityService,
+      ConsentsService,
+      AdminAccessMutationService,
+      AdminAccessService,
+      AdminProfileService,
+      IndependentAuthorityService,
+      MemberKindService,
+    ]);
   });
 
   it('통합 접근 경로로 전환한 뒤에는 레거시 admin-users 컨트롤러를 다시 등록하지 않는다(PR04H)', () => {
@@ -61,21 +68,34 @@ describe('UsersModule admin access wiring', () => {
     expect(controllers).toEqual([
       AccountDeactivationController,
       UsersController,
-      AdminAccessController,
-      IndependentAuthorityController,
-      MemberKindController,
+      OnboardingController,
+      RoleRequestsController,
+      ConsentsController,
     ]);
   });
 
-  it('UsersController가 AdminAccessController보다 먼저 등록되어 /users/me/profile 흡수를 막는다(#787)', () => {
-    const controllers: unknown = Reflect.getMetadata(
-      MODULE_METADATA.CONTROLLERS,
+  it('온보딩 서비스는 자기 저장소를 주입받고 동의 서비스를 명시적으로 주입받는다(PR04H)', () => {
+    const providers: unknown = Reflect.getMetadata(
+      MODULE_METADATA.PROVIDERS,
       UsersModule,
     );
 
-    const list = controllers as unknown[];
-    expect(list.indexOf(UsersController)).toBeLessThan(
-      list.indexOf(AdminAccessController),
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        MemberOnboardingRepository,
+        MemberOnboardingService,
+      ]),
     );
+    expect(
+      (
+        Reflect.getMetadata(
+          'design:paramtypes',
+          MemberOnboardingService,
+        ) as unknown[]
+      )[0],
+    ).toBe(MemberOnboardingRepository);
+    expect(
+      Reflect.getMetadata('self:paramtypes', MemberOnboardingService),
+    ).toEqual([{ index: 1, param: ConsentsService }]);
   });
 });

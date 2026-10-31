@@ -177,7 +177,7 @@ describe('면이 없는 회원의 화면 도달', () => {
 
       const { text } = await mount(
         <QueryClientProvider client={queryClient}>
-          <AppFrame brand="OSS Hub" items={[]}>
+          <AppFrame brand="OSS Hub">
             <p>본문</p>
           </AppFrame>
         </QueryClientProvider>,
@@ -210,7 +210,7 @@ describe('면이 없는 회원의 화면 도달', () => {
 
         const { text } = await mount(
           <QueryClientProvider client={queryClient}>
-            <AppFrame brand="OSS Hub" items={[]}>
+            <AppFrame brand="OSS Hub">
               <p>본문</p>
             </AppFrame>
           </QueryClientProvider>,

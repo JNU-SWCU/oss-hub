@@ -326,7 +326,6 @@ for (const count of [1, 2]) {
   }) => {
     const audit = await openPrograms(page);
     const full = await measureCardGrid(page);
-    await page.unroute('**/api/v1/**');
     await installGeometryRoutes(page, { cardCount: count });
     await page.reload();
     await expect(page.locator(CARDS)).toHaveCount(count);
@@ -517,7 +516,6 @@ for (const state of ['load', 'error', 'none'] as const) {
     const loaded = await measureCardGrid(page);
     let after = loaded;
     if (state !== 'load') {
-      await page.unroute('**/api/v1/**');
       await installGeometryRoutes(page, { cardCount: 3, image: state });
       await page.reload();
       await expect(page.locator(CARDS)).toHaveCount(3);

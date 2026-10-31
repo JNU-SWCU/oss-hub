@@ -1,11 +1,13 @@
 import { Readable } from 'node:stream';
 import {
-  OBJECT_STORAGE_ERROR_CODES,
   type StoreObjectInput,
   type StoredObject,
-  ObjectStorageError,
   type ObjectStoragePort,
-} from '../../src/storage/domain/object-storage';
+} from '../../src/platform/object-storage.types';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from '../../src/platform/object-storage.error';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalPortRegistry,

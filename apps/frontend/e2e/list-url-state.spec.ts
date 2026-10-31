@@ -1,11 +1,109 @@
-import type { Page } from '@playwright/test';
-import { expect, test } from './admin-session.fixture';
+import { expect, test, type Page } from '@playwright/test';
 import {
-  fixtureProgramId,
-  resetProgramAuthoringControl,
-  PROGRAM_AUTHORING_CONTROL_PATH,
-} from './support/program-authoring-ui';
-import { isRecord } from '../src/lib/is-record';
+  fulfillJson,
+  installSyntheticAuthority,
+} from './support/member-access-fixture';
+
+const PROGRAM_ID = 'synthetic-url-state';
+const TEAM_ID = 'synthetic-url-team';
+
+async function installProgram(page: Page) {
+  const program = {
+    id: PROGRAM_ID,
+    name: 'x 프로그램',
+    organizer: '합성 운영처',
+    trackType: 'EXTRACURRICULAR',
+    lifecycle: 'PUBLISHED',
+    applicationTemplateKey: 'basic',
+    description: '합성 프로그램',
+    repositoryProvisioningEnabled: false,
+    applicationPeriod: {
+      startsAt: '2026-01-01T00:00:00.000Z',
+      endsAt: '2026-12-01T00:00:00.000Z',
+    },
+    viewer: { role: 'STAFF', applicationStatus: null },
+    milestones: [],
+  };
+  await installSyntheticAuthority(
+    page,
+    {
+      role: 'STAFF',
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    },
+    {
+      'GET /api/v1/programs/status-counts': (route) =>
+        fulfillJson(route, { all: 40, recruiting: 40 }),
+      [`GET /api/v1/programs/${PROGRAM_ID}`]: (route) =>
+        fulfillJson(route, program),
+      [`GET /api/v1/programs/${PROGRAM_ID}/viewer`]: (route) =>
+        fulfillJson(route, program),
+      [`GET /api/v1/programs/${PROGRAM_ID}/overview`]: (route) =>
+        fulfillJson(route, {
+          programId: PROGRAM_ID,
+          name: program.name,
+          trackType: program.trackType,
+          lifecycle: program.lifecycle,
+          milestoneCount: 0,
+          boardPostCount: 0,
+          participantCount: 1,
+          teamCount: 1,
+          connectedRepositoryCount: 0,
+          viewerRole: 'STAFF',
+          viewerDocumentsCompleted: null,
+          viewerDocumentsTotal: null,
+          fullySubmittedParticipantCount: 0,
+          remainingMilestones: [],
+          milestoneDocuments: [],
+        }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/activity`]: (route) =>
+        fulfillJson(route, []),
+      [`GET /api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}`]: (route) =>
+        fulfillJson(route, {
+          teamId: TEAM_ID,
+          name: 'x 팀',
+          memberCount: 0,
+          members: [],
+          application: null,
+          repositoryContributions: null,
+          deletionScope: {
+            applications: 0,
+            members: 0,
+            invitations: 0,
+            submissions: 0,
+            submissionEvents: 0,
+            detachedRepositories: 0,
+            scopeFingerprint: 'a'.repeat(32),
+          },
+        }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}/activity`]: (
+        route,
+      ) =>
+        fulfillJson(route, {
+          applicationId: null,
+          repository: null,
+          status: 'NOT_CONNECTED',
+          lastSuccessAt: null,
+          window: {
+            from: '2026-01-01',
+            to: '2026-12-31',
+            timeZone: 'Asia/Seoul',
+          },
+          canEditRepositoryUrl: false,
+          members: [],
+        }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}/repository-url-history`]:
+        (route) => fulfillJson(route, { items: [], nextCursor: null }),
+      [`GET /api/v1/team-invitations/teams/${TEAM_ID}/sent`]: (route) =>
+        fulfillJson(route, []),
+    },
+  );
+}
+
+test.beforeEach(async ({ page }) => {
+  await installProgram(page);
+});
 
 async function mockPrograms(page: Page, programId: string) {
   const requests: URL[] = [];
@@ -38,18 +136,18 @@ async function mockPrograms(page: Page, programId: string) {
 }
 
 test('프로그램 상세에서 뒤로 가면 검색 정렬 페이지가 복원되고 필터는 한 요청으로 페이지를 초기화한다', async ({
-  authSeedPage,
-  programAuthoringActorPage,
+  page,
 }) => {
-  const control = await authSeedPage('admin-confirmed');
-  const programId = await fixtureProgramId(control);
-  const page = await programAuthoringActorPage('staff');
+  const programId = PROGRAM_ID;
   const requests = await mockPrograms(page, programId);
   await page.goto('/programs?sort=name&search=x&page=2');
   const card = page.locator('[data-slot="program-card"]').first();
   await expect(card).toBeVisible();
   await card.locator('xpath=ancestor::a').click();
   await expect(page).toHaveURL(new RegExp('/programs/' + programId + '$'));
+  await expect(
+    page.getByRole('heading', { name: 'x 프로그램', exact: true }),
+  ).toBeVisible();
   const restoredResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -74,8 +172,8 @@ test('프로그램 상세에서 뒤로 가면 검색 정렬 페이지가 복원�
     );
   });
   await page
-    .locator('[data-slot="program-list-status-chips"]')
-    .getByRole('button', { name: '모집중', exact: true })
+    .locator('[data-slot="section-facet-chips"]')
+    .getByRole('button', { name: /^모집/ })
     .click();
   await response;
   await expect(
@@ -83,15 +181,14 @@ test('프로그램 상세에서 뒤로 가면 검색 정렬 페이지가 복원�
   ).toBeVisible();
   expect(requests).toHaveLength(1);
   expect(requests[0]?.searchParams.get('page')).toBe('1');
+  expect(requests[0]?.searchParams.get('search')).toBe('x');
+  expect(requests[0]?.searchParams.get('sort')).toBe('name');
 });
 
 test('잘못된 URL은 기본값으로 조회하고 빠른 검색은 마지막 값만 주소를 대체한다', async ({
-  authSeedPage,
-  programAuthoringActorPage,
+  page,
 }) => {
-  const control = await authSeedPage('admin-confirmed');
-  const programId = await fixtureProgramId(control);
-  const page = await programAuthoringActorPage('staff');
+  const programId = PROGRAM_ID;
   const requests = await mockPrograms(page, programId);
   await page.goto('/programs?page=abc&sort=bad');
   await expect(
@@ -123,34 +220,42 @@ test('잘못된 URL은 기본값으로 조회하고 빠른 검색은 마지막 �
 });
 
 test('팀 상세에서 뒤로 가면 teams search와 page를 복원한다', async ({
-  authSeedPage,
-  programAuthoringActorPage,
+  page,
 }) => {
-  const control = await authSeedPage('admin-confirmed');
-  await resetProgramAuthoringControl(control);
-  const programId = await fixtureProgramId(control);
-  const created = await control.request.post(
-    PROGRAM_AUTHORING_CONTROL_PATH + '/applications',
-    { data: { mode: 'NEW' } },
-  );
-  expect(created.status()).toBe(201);
-  const page = await programAuthoringActorPage('staff');
+  const programId = PROGRAM_ID;
+  const requests: URL[] = [];
   await page.route(
     '**/api/v1/programs/' + programId + '/applications?*',
     async (route) => {
       const url = new URL(route.request().url());
-      url.searchParams.set('search', '');
-      url.searchParams.set('page', '1');
-      const response = await route.fetch({ url: url.toString() });
-      const body: unknown = await response.json();
-      if (
-        !isRecord(body) ||
-        !Array.isArray(body.items) ||
-        body.items.length === 0
-      )
-        throw new Error('팀 목록 seed가 필요합니다');
+      requests.push(url);
       await route.fulfill({
-        json: { ...body, page: 2, totalItems: 40, totalPages: 2 },
+        json: {
+          items: [
+            {
+              id: 'synthetic-application',
+              programId,
+              status: 'SUBMITTED',
+              submittedAt: '2026-10-01T00:00:00.000Z',
+              rejectionReason: null,
+              applicant: {
+                id: 'synthetic-user',
+                name: '합성 신청자',
+                nickname: 'synthetic-member',
+              },
+              team: {
+                id: TEAM_ID,
+                name: 'x 팀',
+                memberCount: 0,
+                members: [],
+              },
+            },
+          ],
+          page: Number(url.searchParams.get('page')),
+          pageSize: 20,
+          totalItems: 40,
+          totalPages: 2,
+        },
       });
     },
   );
@@ -160,8 +265,16 @@ test('팀 상세에서 뒤로 가면 teams search와 page를 복원한다', asyn
   await expect(team).toBeVisible();
   await team.click();
   await expect(page).toHaveURL(new RegExp('/teams/[^/?]+$'));
+  await expect(
+    page.getByRole('heading', { name: 'x 팀', exact: true }),
+  ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(new RegExp('/teams\\?search=x&page=2$'));
   await expect(page.getByLabel('팀 검색')).toHaveValue('x');
   await expect(page.getByText('2 / 2', { exact: true })).toBeVisible();
+  expect(requests.length).toBeGreaterThan(0);
+  for (const request of requests) {
+    expect(request.searchParams.get('search')).toBe('x');
+    expect(request.searchParams.get('page')).toBe('2');
+  }
 });

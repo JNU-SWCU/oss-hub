@@ -1,0 +1,33 @@
+import { Type } from 'class-transformer';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import {
+  PUBLIC_PROJECT_YEAR_MIN,
+  PUBLIC_PROJECT_YEAR_MAX,
+} from '../public-projects.config';
+
+export class PublicProjectRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  readonly pageId?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  readonly pageSize: number = 20;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(PUBLIC_PROJECT_YEAR_MIN)
+  @Max(PUBLIC_PROJECT_YEAR_MAX)
+  readonly year?: number;
+}

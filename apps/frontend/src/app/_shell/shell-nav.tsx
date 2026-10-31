@@ -5,25 +5,24 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { NavBar, type NavItem } from '@/components';
 import { cn } from '@/lib/utils';
-import { useSidebarDrawer } from './product-shell';
-import { programDetailIdFromPathname } from './section-facets';
-import { shellSectionFromPathname } from './sidebar-menu';
-import { SIDEBAR_DRAWER_DIALOG_ID } from './sidebar-drawer';
+import { SidebarToggle } from './sidebar-toggle';
 
 interface ShellNavProps {
-  items: NavItem[];
+  items: readonly NavItem[];
   brand?: ReactNode;
   actions?: ReactNode;
+
+  compactMenu?: boolean;
 }
 
-export function ShellNav({ items, brand, actions }: ShellNavProps) {
+export function ShellNav({
+  items,
+  brand,
+  actions,
+  compactMenu = true,
+}: ShellNavProps) {
   const pathname = usePathname();
   const overlay = pathname === '/';
-  const drawer = useSidebarDrawer();
-
-  const hasSidebar =
-    shellSectionFromPathname(pathname) !== null ||
-    programDetailIdFromPathname(pathname) !== null;
 
   const closeCollapsedMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -36,18 +35,17 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
 
   return (
     <div
-      onClick={closeCollapsedMenu}
+      onClick={compactMenu ? closeCollapsedMenu : undefined}
       className={overlay ? 'fixed inset-x-0 top-0 z-40' : undefined}
     >
       <NavBar
         brand={brand}
         items={items}
         actions={actions}
-        menuResetKey={pathname}
-        sidebarDrawerOpen={drawer?.open}
-        onToggleSidebarDrawer={drawer && hasSidebar ? drawer.toggle : undefined}
-        sidebarDrawerId={SIDEBAR_DRAWER_DIALOG_ID}
-
+        leading={<SidebarToggle />}
+        currentPath={pathname}
+        compactMenu={compactMenu}
+        menuResetKey={compactMenu ? pathname : undefined}
         className={cn(
           'max-[479px]:px-3 [&_a:not([role=menuitem])]:inline-flex',
           '[&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11',

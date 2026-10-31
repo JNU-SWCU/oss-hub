@@ -1,24 +1,22 @@
-import { CreatedProgram } from '../domain/program-creation';
 import type { ProgramCategory } from '@prisma/client';
+import type { CreatedProgram } from '../program-creation.service';
 
 export class CreateProgramResponseDto {
-  readonly id: string;
-  readonly category: ProgramCategory;
-  readonly applicationTemplateKey: string;
-  readonly applicationTemplateVersion: number;
-  readonly endAt: string;
-  readonly detailUrl: string;
-
-  private constructor(program: CreatedProgram) {
-    this.id = program.id;
-    this.category = program.category;
-    this.applicationTemplateKey = program.applicationTemplateKey;
-    this.applicationTemplateVersion = program.applicationTemplateVersion;
-    this.endAt = program.endAt.toISOString();
-    this.detailUrl = `/programs/${program.id}`;
-  }
+  declare readonly id: string;
+  declare readonly category: ProgramCategory;
+  declare readonly applicationTemplateKey: string;
+  declare readonly applicationTemplateVersion: number;
+  declare readonly endAt: string;
+  declare readonly detailUrl: string;
 
   static from(program: CreatedProgram): CreateProgramResponseDto {
-    return new CreateProgramResponseDto(program);
+    return {
+      id: program.id,
+      category: program.category,
+      applicationTemplateKey: program.applicationTemplateKey,
+      applicationTemplateVersion: program.applicationTemplateVersion,
+      endAt: program.endAt.toISOString(),
+      detailUrl: `/programs/${program.id}`,
+    };
   }
 }

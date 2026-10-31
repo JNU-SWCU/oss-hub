@@ -512,11 +512,6 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
         direction: undefined,
       }),
     );
-    const chips = container.querySelector(
-      '[data-slot="program-list-status-chips"]',
-    );
-    expect(chips?.querySelectorAll('button')).toHaveLength(5);
-    expect(chips?.textContent).toContain('종료');
   });
 
   it('URL의 sort/direction을 select와 데이터 요청에 그대로 반영한다', async () => {

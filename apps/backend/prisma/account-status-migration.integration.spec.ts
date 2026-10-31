@@ -1,19 +1,23 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import { AuthErrorCode } from '../src/auth/domain/auth-error-code.enum';
+import { AuthErrorCode } from '../src/auth/auth-error-code.error';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthRepository } from '../src/auth/repository/auth.repository';
-import { AuthService } from '../src/auth/service/auth.service';
-import { AuditLogRepository } from '../src/audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../src/audit-log/service/audit-log.service';
-import type { ConsentsService } from '../src/consents/service/consents.service';
-import { PrismaService } from '../src/prisma/prisma.service';
-import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
-import { RolesRepository } from '../src/roles/repository/roles.repository';
-import { RolesService } from '../src/roles/service/roles.service';
-import { AdminAccessRepository } from '../src/users/repository/admin-access.repository';
-import { AdminAccessService } from '../src/users/service/admin-access.service';
-import { canonicalUserCreateFromLabel } from '../src/users/repository/canonical-user-fixture';
+import { AuthRepository } from '../src/auth/auth.repository';
+import { AuthService } from '../src/auth/auth.service';
+import { AuditLogRepository } from '../src/platform/audit-log.repository';
+import { AuditLogService } from '../src/platform/audit-log.service';
+import type { ConsentsService } from '../src/users/consents.service';
+import { PrismaService } from '../src/platform/prisma.service';
+import { loadRuntimeConfig } from '../src/platform/runtime-config.config';
+import { MemberOnboardingRepository } from '../src/users/member-onboarding.repository';
+import { MemberOnboardingService } from '../src/users/member-onboarding.service';
+import { AdminAccessRepository } from '../src/users/admin-access.repository';
+import { AdminAccessService } from '../src/users/admin-access.service';
+import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
+import { UserProfileService } from '../src/platform/user-profile.service';
+import { AuthSessionService } from '../src/auth/auth-session.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -45,14 +49,27 @@ describe('accountStatus migration regression', () => {
   const authService = new AuthService(
     authConfig,
     new AuthRepository(prisma, authConfig),
+    new UserProfileService(),
+    new AuthSessionService(),
   );
 
-  const rolesService = new RolesService(new RolesRepository(prisma), {
-    requireCurrent: jest.fn(),
-  } satisfies Pick<ConsentsService, 'requireCurrent'>);
+  const rolesService = new MemberOnboardingService(
+    new MemberOnboardingRepository(prisma),
+    {
+      requireCurrent: jest.fn(),
+    } satisfies Pick<ConsentsService, 'requireCurrent'>,
+    new UserProfileService(),
+  );
   const adminAccessService = new AdminAccessService(
     new AdminAccessRepository(prisma),
-    new AuditLogService(new AuditLogRepository(prisma)),
+    new AuditLogService(
+      new AuditLogRepository(prisma),
+      new AuditLogMetadataService(),
+    ),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
   );
 
   beforeAll(async () => {

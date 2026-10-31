@@ -1,4 +1,4 @@
-import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaService } from '../src/platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   executeProgramAuthoringMigration,

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { useDebouncedUrlSearch } from '@/lib/list-url-state';
 import { useProgramListQuery, useProgramEndedYearsQuery } from './list-queries';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
@@ -25,16 +25,12 @@ import {
   useProgramListUrlState,
 } from './program-list-url-state';
 import { ProgramListPagination } from './program-list-pagination';
-import { ProgramListStatusChips } from './program-list-status-nav';
 import { PROGRAM_TRACK_TYPE_LABELS } from '../program-contract';
 import type {
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
 } from './dto';
-import type {
-  ProgramListSort,
-  ProgramListStatus,
-} from './program-list-options';
+import type { ProgramListSort } from './program-list-options';
 import type { ViewerRole } from '../program-contract';
 import { PROGRAM_LIST_SORT_LABELS } from './program-list-labels';
 import { PROGRAM_LIST_SORTS } from './program-list-options';
@@ -43,6 +39,8 @@ interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
 
   readonly viewerRole: ViewerRole;
+
+  readonly filters?: ReactNode;
 }
 
 type LoadState =
@@ -68,6 +66,7 @@ function formatApplicationPeriod(program: ProgramListItem): string {
 function ProgramListPage({
   canCreateProgram,
   viewerRole,
+  filters,
 }: ProgramListPageProps) {
   const { state: urlState, navigate } = useProgramListUrlState();
   const { status, sort, direction, year, search, page } = urlState;
@@ -112,8 +111,6 @@ function ProgramListPage({
     (status !== 'all' && status !== 'ended');
   const now = useMemo(() => new Date(), []);
 
-  const goStatus = (next: ProgramListStatus) =>
-    navigate({ status: next, year: undefined, page: 1 });
   const goSort = (nextSort: ProgramListSort | undefined) =>
     navigate(
       { sort: nextSort, direction: nextSort ? direction : undefined, page: 1 },
@@ -222,11 +219,7 @@ function ProgramListPage({
         </Alert>
       ) : null}
 
-      <ProgramListStatusChips
-        className="min-[900px]:hidden"
-        value={status}
-        onChange={goStatus}
-      />
+      {filters}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         {ended && yearOptions.length > 0 ? (
           <label className="grid gap-1 text-sm">

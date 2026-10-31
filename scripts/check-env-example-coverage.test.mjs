@@ -21,7 +21,8 @@ const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
-const RUNTIME_CONFIG_PATH = 'apps/backend/src/runtime-config/runtime-config.ts';
+const RUNTIME_CONFIG_PATH =
+  'apps/backend/src/platform/runtime-config.config.ts';
 
 const BASE_RUNTIME_KEYS = [
   'AUTH_INITIAL_ROLES',

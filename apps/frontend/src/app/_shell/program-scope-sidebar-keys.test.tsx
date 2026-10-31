@@ -66,7 +66,6 @@ describe('ProgramScopeSidebar key', () => {
           pathname="/programs/program-1/documents"
           search=""
           collapsed={false}
-          onToggle={() => undefined}
           backHref="/programs"
         />,
       );

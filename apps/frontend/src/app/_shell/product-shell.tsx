@@ -1,32 +1,52 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+import { ProgramCountdown } from '@/components';
+import type { CountdownMilestone } from '@/components/program/program-countdown';
 import { cn } from '@/lib/utils';
 import { AppSidebar, AppSidebarNav } from './app-sidebar';
 import {
   ProgramScopeSidebar,
   ProgramScopeSidebarNav,
 } from './program-scope-sidebar';
+import { useReportedProgramName } from './program-name-report-context';
+import { ScopeBar, type ScopeBarScope } from './scope-bar';
 import { programDetailIdFromPathname } from './section-facets';
-import { SidebarDrawer } from './sidebar-drawer';
+import { ShellFacetsContext } from './shell-facets-context';
+import { ShellMenuSheet } from './shell-menu-sheet';
 import {
-  SIDEBAR_COLLAPSED_VALUE,
-  SIDEBAR_OPEN_VALUE,
-  SIDEBAR_STORAGE_KEY,
-} from './sidebar-collapsed';
-import {
+  isCurrentSidebarItem,
   programScopeBackHref,
   programScopeSidebarGroups,
   shellSectionFromPathname,
   sidebarBrandTitle,
   sidebarGroupsFor,
+  type ProgramScopeSidebarGroup,
+  type SidebarGroup,
 } from './sidebar-menu';
 import { RankingCycleProvider } from './ranking-cycle-context';
-import { EMPTY_MEMBER_ACCESS, memberSurfaces } from './member-access';
-import { useSidebarDrawer } from './sidebar-drawer-context';
+import { RankingCycleCountdown } from './ranking-cycle-countdown';
+import { useShellMenu } from './shell-menu-context';
+import { useShellUrlState } from './shell-url-state';
+import {
+  hasShellSidebar,
+  isShellMember,
+  shellSheetKind,
+  shellSidebarAccess,
+} from './sidebar-presence';
+import {
+  SidebarBottomSkeleton,
+  SidebarFoot,
+  SidebarPhaseContext,
+  useSidebarPhase,
+  type SidebarShellKind,
+} from './sidebar-shell';
 import { useSessionRole } from './use-session-role';
-import { useProductShellData } from './use-product-shell-data';
+import {
+  useProductShellData,
+  type ShellDataStatus,
+} from './use-product-shell-data';
 import {
   setProgramOperationsView,
   useProgramOperationsView,
@@ -37,30 +57,86 @@ import {
   withoutLoadingCounts,
 } from './program-shell-policy';
 
-export {
-  SidebarDrawerProvider,
-  useSidebarDrawer,
-} from './sidebar-drawer-context';
+export { ShellMenuProvider } from './shell-menu-context';
 
 export * from './sidebar-collapsed';
 export { shouldLoadProgramOverview } from './program-shell-policy';
+
+const MENU_FALLBACK_LABEL = '메뉴';
+
+const noop = () => {};
+
+function sidebarBottomFor({
+  pathname,
+  programDetailId,
+  overviewStatus,
+  remainingMilestones,
+}: {
+  readonly pathname: string;
+  readonly programDetailId: string | null;
+  readonly overviewStatus: ShellDataStatus;
+  readonly remainingMilestones: readonly CountdownMilestone[] | undefined;
+}): ReactNode {
+  if (programDetailId !== null) {
+    if (overviewStatus === 'pending') return <SidebarBottomSkeleton />;
+    return remainingMilestones === undefined ? undefined : (
+      <ProgramCountdown mode="program" milestones={remainingMilestones} />
+    );
+  }
+  if (pathname === '/ranking') return <RankingCycleCountdown />;
+  return undefined;
+}
+
+function currentScopeMenuLabel(
+  groups: readonly ProgramScopeSidebarGroup[],
+  pathname: string,
+): string {
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (
+        (item.depth ?? 0) === 0 &&
+        !item.isViewSwitch &&
+        pathname === item.href.split('?')[0]
+      ) {
+        return item.label;
+      }
+    }
+  }
+  return MENU_FALLBACK_LABEL;
+}
+
+function currentSidebarMenuLabel(
+  groups: readonly SidebarGroup[],
+  pathname: string,
+  search: string,
+): string {
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (isCurrentSidebarItem(pathname, item.href, search)) return item.label;
+    }
+  }
+  return MENU_FALLBACK_LABEL;
+}
+
+interface MenuSheetModel {
+  readonly scope: ScopeBarScope;
+  readonly menuLabel: string;
+  readonly nav: ReactNode;
+  readonly footKind: SidebarShellKind;
+}
 
 export function ProductShell({
   children,
   initialCollapsed = false,
 }: {
   readonly children: ReactNode;
+
   readonly initialCollapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const search = searchParams.toString();
+  const search = useShellUrlState();
   const session = useSessionRole();
-  const { status, isProfileComplete } = session;
-  const member =
-    status === 'assigned' &&
-    isProfileComplete &&
-    memberSurfaces(session).length > 0;
+  const member = isShellMember(session);
   const section = shellSectionFromPathname(pathname);
 
   const programDetailId = programDetailIdFromPathname(pathname);
@@ -80,7 +156,9 @@ export function ProductShell({
 
   const {
     facetData,
+    facetStatus,
     scopeOverview,
+    scopeOverviewStatus,
     scopeMilestones,
     scopeParticipant,
     scopeViewerRole,
@@ -92,45 +170,42 @@ export function ProductShell({
     authority: session,
     operationsView,
   });
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
-  const drawer = useSidebarDrawer();
-  const closeDrawer = drawer?.close;
+  const shell = useShellMenu();
+  const collapsed = shell?.collapsed ?? initialCollapsed;
+  const sidebarPhase = useSidebarPhase(collapsed);
+  const railCollapsed = sidebarPhase.phase === 'collapsed';
+  const sheetOpen = shell?.sheetOpen ?? false;
+  const closeSheet = shell?.closeSheet;
+  const reportedProgramName = useReportedProgramName(programDetailId);
+  const sheetTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    closeDrawer?.();
-  }, [pathname, search, closeDrawer]);
-
-  useEffect(() => {
-    document.cookie = `${SIDEBAR_STORAGE_KEY}=${
-      collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE
-    }; Path=/; Max-Age=31536000; SameSite=Lax`;
-  }, [collapsed]);
-
-  const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
-
-  const groups = programDetailId
-    ? []
-    : sidebarGroupsFor(section, member ? session : EMPTY_MEMBER_ACCESS, {
-        programCounts: facetData?.programCounts,
-        rankingYears: facetData?.rankingYears,
-        rankingCounts: facetData?.rankingCounts,
-      });
+    closeSheet?.();
+  }, [pathname, search, closeSheet]);
 
   if (programDetailId !== null && operationsView === null) return null;
 
-  if (!programDetailId && groups.length === 0) {
+  if (!hasShellSidebar(pathname, session)) {
     return (
       <RankingCycleProvider>
         <div
           id="main-content"
           tabIndex={-1}
-          className="relative min-h-0 min-w-0 flex-1 overflow-y-auto"
+          className="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
         >
           {children}
         </div>
       </RankingCycleProvider>
     );
   }
+
+  const groups = programDetailId
+    ? []
+    : sidebarGroupsFor(section, shellSidebarAccess(session), {
+        programCounts: facetData?.programCounts,
+        rankingYears: facetData?.rankingYears,
+        rankingCounts: facetData?.rankingCounts,
+      });
 
   let viewerDocuments:
     { readonly completed: number; readonly total: number } | undefined;
@@ -165,14 +240,90 @@ export function ProductShell({
         milestoneDocuments: scopeOverview?.milestoneDocuments,
       })
     : [];
+  const scopePending = scopeOverviewStatus === 'pending';
   const scopeGroups =
-    scopeOverview !== undefined
+    scopeOverview !== undefined || scopePending
       ? scopeGroupsRaw
       : withoutLoadingCounts(scopeGroupsRaw);
+  const facetCountsPending =
+    facetStatus === 'pending' && section === 'programs';
 
-  const drawerLabel = programDetailId
-    ? (scopeOverview?.name ?? programDetailId)
-    : sidebarBrandTitle(section, groups);
+  const brandTitle = sidebarBrandTitle(section, groups);
+
+  const bottom = sidebarBottomFor({
+    pathname,
+    programDetailId,
+    overviewStatus: scopeOverviewStatus,
+    remainingMilestones: scopeOverview?.remainingMilestones,
+  });
+
+  const sidebar = programDetailId ? (
+    <ProgramScopeSidebar
+      programName={scopeOverview?.name ?? programDetailId}
+      programNamePending={scopePending}
+      countsPending={scopePending}
+      groups={scopeGroups}
+      pathname={pathname}
+      search={search}
+      collapsed={railCollapsed}
+      backHref={programScopeBackHref()}
+      bottom={bottom}
+    />
+  ) : (
+    <AppSidebar
+      groups={groups}
+      pathname={pathname}
+      search={search}
+      collapsed={railCollapsed}
+      brandTitle={brandTitle}
+      bottom={bottom}
+      countsPending={facetCountsPending}
+    />
+  );
+
+  let menuSheet: MenuSheetModel | null = null;
+  if (shellSheetKind(pathname, session) !== null) {
+    if (programDetailId !== null) {
+      const programTitle =
+        scopeOverview?.name ?? reportedProgramName ?? programDetailId;
+      menuSheet = {
+        scope: {
+          kind: 'program',
+          backHref: programScopeBackHref(),
+          title: programTitle,
+          titlePending: scopePending,
+        },
+        menuLabel: currentScopeMenuLabel(scopeGroups, pathname),
+        nav: (
+          <ProgramScopeSidebarNav
+            groups={scopeGroups}
+            pathname={pathname}
+            search={search}
+            collapsed={false}
+            ariaLabel={programTitle}
+            countsPending={scopePending}
+          />
+        ),
+        footKind: 'program-scope-sidebar',
+      };
+    } else {
+      menuSheet = {
+        scope: { kind: 'dashboard', title: brandTitle },
+        menuLabel: currentSidebarMenuLabel(groups, pathname, search),
+        nav: (
+          <AppSidebarNav
+            groups={groups}
+            pathname={pathname}
+            search={search}
+            collapsed={false}
+            brandTitle={brandTitle}
+            countsPending={facetCountsPending}
+          />
+        ),
+        footKind: 'app-sidebar',
+      };
+    }
+  }
 
   return (
     <RankingCycleProvider>
@@ -182,66 +333,51 @@ export function ProductShell({
         <div
           data-slot="product-shell"
           data-collapsed={collapsed ? 'true' : 'false'}
+          data-sidebar-phase={sidebarPhase.phase}
           className={cn(
             'grid min-h-0 flex-1 grid-cols-1',
-
-            'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
-            collapsed
-              ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
-              : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
+            railCollapsed
+              ? 'shell:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)]'
+              : 'shell:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]',
           )}
         >
-          {programDetailId ? (
-            <ProgramScopeSidebar
-              programName={scopeOverview?.name ?? programDetailId}
-              groups={scopeGroups}
-              pathname={pathname}
-              search={search}
-              collapsed={collapsed}
-              onToggle={toggle}
-              backHref={programScopeBackHref()}
-              remainingMilestones={scopeOverview?.remainingMilestones}
-            />
-          ) : (
-            <AppSidebar
-              groups={groups}
-              pathname={pathname}
-              search={search}
-              collapsed={collapsed}
-              onToggle={toggle}
-              brandTitle={sidebarBrandTitle(section, groups)}
-            />
-          )}
-          <div
-            id="main-content"
-            tabIndex={-1}
-            className="relative min-h-0 min-w-0 overflow-y-auto"
-          >
-            {children}
+          <SidebarPhaseContext.Provider value={sidebarPhase}>
+            {sidebar}
+          </SidebarPhaseContext.Provider>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            {menuSheet ? (
+              <ScopeBar
+                scope={menuSheet.scope}
+                menuLabel={menuSheet.menuLabel}
+                sheetOpen={sheetOpen}
+                onOpenSheet={shell?.openSheet ?? noop}
+                triggerRef={sheetTriggerRef}
+              />
+            ) : null}
+            <div
+              id="main-content"
+              tabIndex={-1}
+              className="relative min-h-0 min-w-0 flex-1 overflow-y-auto pb-bottom-tabs-clearance shell:pb-0"
+            >
+              <ShellFacetsContext.Provider
+                value={{ section, groups, facetStatus, pathname, search }}
+              >
+                {children}
+              </ShellFacetsContext.Provider>
+            </div>
           </div>
-          <SidebarDrawer
-            open={drawer?.open ?? false}
-            onClose={closeDrawer ?? (() => {})}
-            label={drawerLabel}
-          >
-            {programDetailId ? (
-              <ProgramScopeSidebarNav
-                groups={scopeGroups}
-                pathname={pathname}
-                search={search}
-                collapsed={false}
-                ariaLabel={drawerLabel}
-              />
-            ) : (
-              <AppSidebarNav
-                groups={groups}
-                pathname={pathname}
-                search={search}
-                collapsed={false}
-                brandTitle={sidebarBrandTitle(section, groups)}
-              />
-            )}
-          </SidebarDrawer>
+          {menuSheet ? (
+            <ShellMenuSheet
+              open={sheetOpen}
+              onClose={closeSheet ?? noop}
+              title={menuSheet.scope.title}
+              returnFocusRef={sheetTriggerRef}
+            >
+              {menuSheet.nav}
+              {bottom}
+              <SidebarFoot kind={menuSheet.footKind} />
+            </ShellMenuSheet>
+          ) : null}
         </div>
       </ProgramViewContext.Provider>
     </RankingCycleProvider>

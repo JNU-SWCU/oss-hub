@@ -6,12 +6,12 @@ import type { Linter } from 'eslint';
 
 const backendRoot = path.resolve(__dirname, '../..');
 const dependencyRule = 'boundaries/dependencies';
+const repositoryExportsRule = 'architecture/repository-exports';
 const layers = [
   'controller',
   'service',
   'repository',
   'gateway',
-  'job',
   'dto',
   'domain',
 ] as const;
@@ -58,7 +58,7 @@ function edge(
     value: `import { value } from ${source}; export { value };`,
     type: `import type { Shape } from ${source}; export type Result = Shape;`,
     barrel: `export * from ${source};`,
-    dynamic: `export const load = () => import(${source});`,
+    dynamic: `const load = () => import(${source}); void load;`,
     require: `export const value = require(${source});`,
     sideEffect: `import ${source};`,
     importType: `export type Value = import(${source}).Shape;`,
@@ -82,11 +82,274 @@ const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
   service: ['service', 'repository', 'gateway', 'domain'],
   repository: ['repository', 'domain'],
-  gateway: ['domain'],
-  job: ['service', 'dto', 'domain'],
-  dto: ['domain'],
+  gateway: ['gateway', 'domain'],
+  dto: ['dto', 'domain'],
   domain: ['domain'],
 };
+const roleFile: Record<Layer, (stem: string) => string> = {
+  controller: (stem) => `${stem}.controller.ts`,
+  service: (stem) => `${stem}.service.ts`,
+  repository: (stem) => `${stem}.repository.ts`,
+  gateway: (stem) => `${stem}.client.ts`,
+  dto: (stem) => `dto/${stem}.dto.ts`,
+  domain: (stem) => `${stem}.error.ts`,
+};
+const located = (module: string, layer: Layer, stem: string): string =>
+  `src/${module}/${roleFile[layer](stem)}`;
+
+edge(
+  'flat controller may import its own DTO',
+  'src/programs/x.controller.ts',
+  'src/programs/dto/y-request.dto.ts',
+  true,
+);
+edge(
+  'flat controller cannot import a foreign DTO',
+  'src/staff/a.controller.ts',
+  'src/programs/dto/b.dto.ts',
+  false,
+);
+edge(
+  'dto may extend a dto of the same module',
+  'src/programs/dto/update-thing-request.dto.ts',
+  'src/programs/dto/create-thing-request.dto.ts',
+  true,
+);
+edge(
+  'dto cannot import a dto of another module',
+  'src/staff/dto/update-thing-request.dto.ts',
+  'src/programs/dto/create-other-request.dto.ts',
+  false,
+);
+edge(
+  'flat staff service cannot import programs repository values',
+  'src/staff/a.service.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'flat staff service may import programs repository types',
+  'src/staff/a-type.service.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository cannot import a foreign repository value',
+  'src/staff/a.repository.ts',
+  'src/programs/c.repository.ts',
+  false,
+);
+edge(
+  'repository may import a foreign repository type',
+  'src/staff/a-type.repository.ts',
+  'src/programs/c.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'repository may import a same-module repository value',
+  'src/programs/same-value.repository.ts',
+  'src/programs/c.repository.ts',
+  true,
+);
+edge(
+  'request DTO may use same-module service values',
+  'src/programs/dto/value-request.dto.ts',
+  'src/programs/validation.service.ts',
+  true,
+);
+edge(
+  'request DTO may use same-module repository values',
+  'src/programs/dto/repository-value-request.dto.ts',
+  'src/programs/validation.repository.ts',
+  true,
+);
+edge(
+  'request DTO cannot use foreign repository values',
+  'src/admin/dto/value-request.dto.ts',
+  'src/users/validation.repository.ts',
+  false,
+);
+edge(
+  'request DTO cannot use foreign service values',
+  'src/admin/dto/service-value-request.dto.ts',
+  'src/users/validation.service.ts',
+  false,
+);
+edge(
+  'request DTO may use foreign producer types',
+  'src/admin/dto/type-request.dto.ts',
+  'src/users/validation.repository.ts',
+  true,
+  'type',
+);
+edge(
+  'request DTO may use a foreign validation config',
+  'src/admin/dto/config-request.dto.ts',
+  'src/users/validation.config.ts',
+  true,
+);
+edge(
+  'response DTO cannot import service values',
+  'src/programs/dto/value-response.dto.ts',
+  'src/programs/computed.service.ts',
+  false,
+);
+edge(
+  'response DTO may import service types',
+  'src/programs/dto/type-response.dto.ts',
+  'src/programs/computed.service.ts',
+  true,
+  'type',
+);
+edge(
+  'response DTO cannot import repository values',
+  'src/programs/dto/repository-value-response.dto.ts',
+  'src/programs/computed.repository.ts',
+  false,
+);
+edge(
+  'flat repository may import its own repository',
+  'src/programs/d.repository.ts',
+  'src/programs/e.repository.ts',
+  true,
+);
+
+for (const module of [
+  'auth',
+  'users',
+  'programs',
+  'ranking',
+  'student',
+  'staff',
+  'admin',
+  'notifications',
+  'github',
+  'platform',
+]) {
+  edge(
+    `${module} service may import its own repository`,
+    `src/${module}/flat.service.ts`,
+    `src/${module}/own.repository.ts`,
+    true,
+  );
+  edge(
+    `${module} service cannot import a foreign repository`,
+    `src/${module}/foreign-flat.service.ts`,
+    `src/${{ ranking: 'programs', github: 'users' }[module] ?? 'ranking'}/foreign.repository.ts`,
+    false,
+  );
+}
+
+for (const [suffix, layer] of [
+  ['controller', 'controller'],
+  ['guard', 'controller'],
+  ['interceptor', 'controller'],
+  ['filter', 'controller'],
+  ['service', 'service'],
+  ['repository', 'repository'],
+  ['client', 'gateway'],
+  ['dto', 'dto'],
+  ['error', 'domain'],
+  ['types', 'domain'],
+  ['config', 'domain'],
+] as const) {
+  for (const target of layers) {
+    edge(
+      `flat ${suffix} follows ${layer} policy for flat ${target}`,
+      `src/programs/${layer === 'dto' ? 'dto/' : ''}${suffix}-flat-${target}.${suffix}.ts`,
+      `src/programs/${
+        {
+          controller: 'flat-target.controller.ts',
+          service: 'flat-target.service.ts',
+          repository: 'flat-target.repository.ts',
+          gateway: 'flat-target.client.ts',
+          dto: 'dto/flat-target.dto.ts',
+          domain: 'flat-target.error.ts',
+        }[target]
+      }`,
+      permitted[layer].includes(target),
+    );
+  }
+}
+
+edge(
+  'flat composition may wire its own controller',
+  'src/staff/staff.module.ts',
+  'src/staff/wired.controller.ts',
+  true,
+);
+edge(
+  'flat composition cannot wire a foreign repository',
+  'src/staff/foreign.module.ts',
+  'src/programs/wired.repository.ts',
+  false,
+);
+edge(
+  'flat service may import a foreign flat service',
+  'src/staff/foreign-service.service.ts',
+  'src/programs/foreign-service.service.ts',
+  true,
+);
+edge(
+  'flat service cannot import a foreign flat client',
+  'src/staff/foreign-client.service.ts',
+  'src/programs/foreign.client.ts',
+  false,
+);
+edge(
+  'flat controller may import an auth guard',
+  'src/staff/guard.controller.ts',
+  'src/auth/session.guard.ts',
+  true,
+);
+edge(
+  'flat runtime config helper cannot import business service',
+  'src/platform/private-key-file.config.ts',
+  'src/programs/business.service.ts',
+  false,
+);
+
+for (const [target, allowed] of [
+  ['prisma.service.ts', false],
+  ['runtime-config.config.ts', true],
+  ['object-storage.types.ts', true],
+  ['s3-object-storage.client.ts', false],
+  ['download-response.types.ts', true],
+  ['lock-program-tree.repository.ts', false],
+] as const) {
+  edge(
+    `flat service platform ${target} access`,
+    `src/staff/${target}.service.ts`,
+    `src/platform/${target}`,
+    allowed,
+  );
+}
+for (const target of [
+  'prisma.service.ts',
+  'user-profile-read.config.ts',
+  'lock-program-tree.repository.ts',
+]) {
+  edge(
+    `flat repository may access platform ${target}`,
+    `src/programs/${target}.repository.ts`,
+    `src/platform/${target}`,
+    true,
+  );
+}
+add(
+  'flat repository may import Prisma client',
+  'src/programs/prisma-client.repository.ts',
+  "import { PrismaClient } from '@prisma/client'; export const value = PrismaClient;",
+  null,
+);
+add(
+  'flat runtime config manifest may read process.env',
+  'src/platform/runtime-config.config.ts',
+  'export const value = process.env.KEY; export interface Shape { id: string }',
+  null,
+);
 
 for (const from of layers) {
   for (const to of layers) {
@@ -94,19 +357,19 @@ for (const from of layers) {
       const name = `${from}-${to}-${foreign ? 'foreign' : 'own'}`;
       const allowed =
         permitted[from].includes(to) &&
-        !(foreign && (to === 'repository' || to === 'gateway' || to === 'dto'));
+        !(foreign && (to === 'gateway' || to === 'dto' || to === 'repository'));
       edge(
         name,
-        `src/alpha/${from}/${name}.ts`,
-        `src/${foreign ? 'beta' : 'alpha'}/${to}/target.ts`,
+        located('programs', from, name),
+        located(foreign ? 'ranking' : 'programs', to, 'target'),
         allowed,
       );
     }
   }
   edge(
     `${from}-common`,
-    `src/alpha/${from}/common.ts`,
-    'src/common/contract.ts',
+    located('programs', from, `${from}-common`),
+    'src/platform/error-code.error.ts',
     true,
   );
 }
@@ -114,8 +377,8 @@ for (const from of layers) {
 for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
   edge(
     `${syntax} cannot restore service DTO coupling`,
-    `src/alpha/service/dto-${syntax}.ts`,
-    'src/alpha/dto/target.ts',
+    `src/programs/dto-${syntax}.service.ts`,
+    'src/programs/dto/target.dto.ts',
     false,
     syntax,
   );
@@ -123,300 +386,285 @@ for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
 
 edge(
   'common cannot import domain',
-  'src/common/reverse.ts',
-  'src/alpha/domain/target.ts',
+  'src/platform/system-error-code.error.ts',
+  'src/programs/target.error.ts',
   false,
 );
 edge(
   'common may import common',
-  'src/common/helper.ts',
-  'src/common/contract.ts',
+  'src/platform/multipart-file-upload.interceptor.ts',
+  'src/platform/error-code.error.ts',
   true,
 );
 edge(
   'service may call users authority',
-  'src/alpha/service/authority.ts',
-  'src/users/service/authority.service.ts',
+  'src/programs/authority.service.ts',
+  'src/users/users-authority.service.ts',
   true,
 );
 edge(
   'service may read runtime config',
-  'src/alpha/service/config.ts',
-  'src/runtime-config/runtime-config.ts',
+  'src/programs/config.service.ts',
+  'src/platform/runtime-config.config.ts',
   true,
 );
 edge(
   'service cannot import an unclassified module file',
-  'src/alpha/service/legacy.ts',
-  'src/beta/beta.service.ts',
+  'src/programs/legacy.service.ts',
+  'src/ranking/unclassified.ts',
   false,
 );
 edge(
   'test may import an unclassified module file',
-  'src/alpha/service/legacy.spec.ts',
-  'src/beta/beta.service.ts',
+  'src/programs/legacy.spec.ts',
+  'src/ranking/unclassified.ts',
   true,
 );
 edge(
-  'service cannot import a foreign repository',
-  'src/alpha/service/foreign.ts',
-  'src/beta/repository/beta.repository.ts',
+  'service cannot import a foreign client',
+  'src/programs/foreign.service.ts',
+  'src/ranking/beta.client.ts',
   false,
 );
 edge(
-  'job may read runtime config',
-  'src/alpha/job/config.ts',
-  'src/runtime-config/runtime-config.ts',
-  true,
-);
-edge(
-  'CLI job may bootstrap the application module',
-  'src/alpha/job/cli.ts',
+  'CLI may bootstrap the application module',
+  'src/cli.ts',
   'src/app.module.ts',
   true,
 );
 edge(
   'service cannot bootstrap the application module',
-  'src/alpha/service/cli.ts',
+  'src/programs/cli.service.ts',
   'src/app.module.ts',
   false,
 );
 edge(
-  'job cannot use a gateway directly',
-  'src/alpha/job/mail.ts',
-  'src/alpha/gateway/mail.ts',
-  false,
-);
-edge(
   'domain cannot read runtime config',
-  'src/alpha/domain/config.ts',
-  'src/runtime-config/runtime-config.ts',
+  'src/programs/config.error.ts',
+  'src/platform/runtime-config.config.ts',
   false,
 );
 edge(
   'service may use storage key',
-  'src/alpha/service/storage.ts',
-  'src/storage/object-storage.key.ts',
+  'src/programs/storage.service.ts',
+  'src/platform/object-storage.types.ts',
   true,
 );
 edge(
   'service cannot import storage gateway',
-  'src/alpha/service/storage-private.ts',
-  'src/storage/gateway/object.storage.ts',
+  'src/programs/storage-private.service.ts',
+  'src/platform/s3-object-storage.client.ts',
   false,
 );
 edge(
   'controller may use auth guard',
-  'src/alpha/controller/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/programs/auth.controller.ts',
+  'src/auth/session.guard.ts',
   true,
 );
 edge(
   'controller may use root auth guard',
-  'src/alpha/controller/root-auth.ts',
+  'src/programs/root-auth.controller.ts',
   'src/auth/session.guard.ts',
   true,
 );
 edge(
   'controller may read exported auth config',
-  'src/alpha/controller/auth-config.ts',
+  'src/programs/auth-config.controller.ts',
   'src/auth/auth.config.ts',
   true,
 );
 edge(
   'service cannot use auth controller',
-  'src/alpha/service/auth.ts',
-  'src/auth/controller/session.guard.ts',
+  'src/programs/auth.service.ts',
+  'src/auth/session.guard.ts',
   false,
 );
 edge(
   'controller cannot access PrismaService',
-  'src/alpha/controller/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/programs/prisma.controller.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'guard cannot access PrismaService',
-  'src/alpha/alpha.guard.ts',
-  'src/prisma/prisma.service.ts',
+  'src/programs/alpha.guard.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'repository may access PrismaService',
-  'src/alpha/repository/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/programs/prisma.repository.ts',
+  'src/platform/prisma.service.ts',
   true,
 );
 edge(
   'service cannot access PrismaService',
-  'src/alpha/service/prisma.ts',
-  'src/prisma/prisma.service.ts',
+  'src/programs/prisma.service.ts',
+  'src/platform/prisma.service.ts',
   false,
 );
 edge(
   'repository may acquire tree lock',
-  'src/alpha/repository/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/programs/lock.repository.ts',
+  'src/platform/lock-program-tree.repository.ts',
   true,
 );
 edge(
   'service cannot acquire tree lock',
-  'src/alpha/service/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/programs/lock.service.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'controller cannot acquire tree lock',
-  'src/alpha/controller/lock.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/programs/lock.controller.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'bootstrap cannot acquire tree lock',
   'src/main.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   false,
 );
 edge(
   'tests may acquire tree lock',
   'test/tree-lock.spec.ts',
-  'src/prisma/lock-program-tree.ts',
+  'src/platform/lock-program-tree.repository.ts',
   true,
 );
 edge(
   'module may compose own repository',
-  'src/alpha/alpha.module.ts',
-  'src/alpha/repository/target.ts',
+  'src/programs/programs.module.ts',
+  'src/programs/target.repository.ts',
   true,
 );
 edge(
   'module cannot compose foreign repository',
-  'src/alpha/foreign.module.ts',
-  'src/beta/repository/target.ts',
+  'src/programs/foreign.module.ts',
+  'src/ranking/target.repository.ts',
   false,
 );
 edge(
   'module may import other module',
-  'src/alpha/cross.module.ts',
-  'src/beta/beta.module.ts',
+  'src/programs/cross.module.ts',
+  'src/ranking/ranking.module.ts',
   true,
 );
 edge(
   'service may import own root types',
-  'src/alpha/service/types.ts',
-  'src/alpha/alpha.types.ts',
+  'src/programs/types.service.ts',
+  'src/programs/alpha.types.ts',
   true,
 );
 edge(
   'production cannot import colocated test',
-  'src/alpha/service/test-import.ts',
-  'src/alpha/service/target.spec.ts',
+  'src/programs/test-import.service.ts',
+  'src/programs/target.spec.ts',
   false,
 );
 edge(
   'root types may reference a prisma transaction type',
-  'src/alpha/alpha-store.types.ts',
-  'src/prisma/transaction-writer.ts',
+  'src/programs/alpha-store.types.ts',
+  'src/platform/prisma.service.ts',
   true,
   'type',
 );
 edge(
   'root types cannot reference a foreign repository',
-  'src/alpha/alpha-writer.types.ts',
-  'src/beta/repository/beta.repository.ts',
+  'src/programs/alpha-writer.types.ts',
+  'src/ranking/beta.repository.ts',
+  false,
+  'type',
+);
+for (const [target, role] of [
+  ['beta.client.ts', 'client'],
+  ['beta.repository.ts', 'repository'],
+] as const) {
+  edge(
+    `root types may type-import own module ${role}`,
+    `src/programs/own-${role}-type.types.ts`,
+    `src/programs/${target}`,
+    true,
+    'type',
+  );
+  edge(
+    `root types cannot value-import own module ${role}`,
+    `src/programs/own-${role}-value.types.ts`,
+    `src/programs/${target}`,
+    false,
+  );
+  edge(
+    `root types cannot type-import foreign module ${role}`,
+    `src/programs/foreign-${role}-type.types.ts`,
+    `src/ranking/${target}`,
+    false,
+    'type',
+  );
+  edge(
+    `root config cannot type-import own module ${role}`,
+    `src/programs/own-${role}-type.config.ts`,
+    `src/programs/${target}`,
+    false,
+    'type',
+  );
+}
+edge(
+  'root types cannot type-import own module service',
+  'src/programs/own-service-type.types.ts',
+  'src/programs/beta.service.ts',
   false,
   'type',
 );
 edge(
   'production cannot import fixture',
-  'src/alpha/service/fixture-import.ts',
+  'src/programs/fixture-import.service.ts',
   'test/fixture.ts',
   false,
 );
 edge(
   'test may import fixture',
-  'src/alpha/service/fixture.spec.ts',
+  'src/programs/fixture.spec.ts',
   'test/fixture.ts',
   true,
 );
 edge(
-  'nested module owns its repository',
-  'src/programs/public/overview/service/read.ts',
-  'src/programs/public/overview/repository/target.ts',
-  true,
-);
-edge(
-  'nested modules cannot share repositories',
-  'src/programs/public/projects/service/read.ts',
-  'src/programs/public/overview/repository/target.ts',
-  false,
-);
-edge(
-  'nested module is not parent module',
-  'src/programs/service/public.ts',
-  'src/programs/public/overview/repository/target.ts',
-  false,
-);
-edge(
-  'nested dto may use foreign domain',
-  'src/programs/public/projects/dto/read.ts',
-  'src/alpha/domain/target.ts',
-  true,
-);
-edge(
-  'nested controller cannot use parent module dto',
-  'src/programs/public/projects/controller/read.ts',
-  'src/programs/dto/target.ts',
-  false,
-);
-edge(
-  'deep service file cannot use foreign dto',
-  'src/alpha/service/internal/deep/dto.ts',
-  'src/beta/dto/target.ts',
-  false,
-);
-edge(
-  'deep service file may use foreign domain',
-  'src/alpha/service/internal/deep/domain.ts',
-  'src/beta/domain/target.ts',
-  true,
-);
-edge(
-  'deep service file cannot use foreign repository',
-  'src/alpha/service/internal/deep/repository.ts',
-  'src/beta/repository/target.ts',
-  false,
-);
-edge(
   'test may use foreign dto',
-  'src/alpha/service/dto.spec.ts',
-  'src/beta/dto/target.ts',
+  'src/programs/dto.spec.ts',
+  'src/ranking/dto/target.dto.ts',
   true,
 );
-for (const consumer of ['programs', 'ranking', 'system-status']) {
+for (const consumer of ['programs', 'ranking', 'student', 'staff', 'admin']) {
   edge(
     `github service cannot import consumer ${consumer}`,
-    `src/github/service/${consumer}.ts`,
-    `src/${consumer}/service/target.ts`,
+    `src/github/${consumer}.service.ts`,
+    `src/${consumer}/target.service.ts`,
     false,
   );
   edge(
     `github test cannot import consumer ${consumer}`,
-    `src/github/service/${consumer}.spec.ts`,
-    `src/${consumer}/domain/target.ts`,
+    `src/github/${consumer}.spec.ts`,
+    `src/${consumer}/target.error.ts`,
     false,
   );
   edge(
     `consumer ${consumer} may call github service`,
-    `src/${consumer}/service/github.ts`,
-    'src/github/service/target.ts',
+    `src/${consumer}/github.service.ts`,
+    'src/github/target.service.ts',
     true,
   );
 }
 edge(
+  'github dto cannot import admin domain',
+  'src/github/dto/consumer.dto.ts',
+  'src/admin/system-status.types.ts',
+  false,
+);
+edge(
   'github service may call non-consumer service',
-  'src/github/service/users.ts',
-  'src/users/service/authority.service.ts',
+  'src/github/users.service.ts',
+  'src/users/users-authority.service.ts',
   true,
 );
 edge(
@@ -426,21 +674,21 @@ edge(
   false,
 );
 edge(
-  'consumer cannot import github repository',
-  'src/ranking/service/github-repository.ts',
-  'src/github/repository/target.ts',
+  'consumer cannot import github client',
+  'src/ranking/github-client.service.ts',
+  'src/github/target.client.ts',
   false,
 );
 edge(
   'consumer repository cannot import github service',
-  'src/programs/repository/github-service.ts',
-  'src/github/service/target.ts',
+  'src/programs/github-service.repository.ts',
+  'src/github/target.service.ts',
   false,
 );
 edge(
   'consumer repository may use github domain',
-  'src/programs/repository/github-domain.ts',
-  'src/github/domain/target.ts',
+  'src/programs/github-domain.repository.ts',
+  'src/github/target.error.ts',
   true,
 );
 
@@ -454,95 +702,134 @@ for (const syntax of [
   'importEquals',
 ]) {
   edge(
-    `${syntax} cannot escape foreign repository boundary`,
-    `src/alpha/service/${syntax}.ts`,
-    'src/beta/repository/target.ts',
+    `${syntax} cannot escape foreign client boundary`,
+    `src/programs/${syntax}.service.ts`,
+    'src/ranking/target.client.ts',
     false,
     syntax,
   );
   edge(
     `${syntax} may import domain`,
-    `src/alpha/service/${syntax}-allowed.ts`,
-    'src/beta/domain/target.ts',
+    `src/programs/${syntax}-allowed.service.ts`,
+    'src/ranking/target.error.ts',
     true,
     syntax,
   );
 }
 
 add(
-  'alias cannot escape foreign repository boundary',
-  'src/alpha/service/alias.ts',
-  "import { value } from '@fixture/beta/repository/target'; export { value };",
+  'alias cannot escape foreign client boundary',
+  'src/programs/alias.service.ts',
+  "import { value } from '@fixture/ranking/target.client'; export { value };",
   dependencyRule,
 );
+for (const [name, file] of [
+  ['unknown folder', 'src/programs/misc/value.ts'],
+  ['legacy layer folder', 'src/programs/service/x.service.ts'],
+  ['legacy programs/public folder', 'src/programs/public/x.service.ts'],
+  ['nested dto folder', 'src/programs/dto/nested/x.dto.ts'],
+  ['dto file without the dto suffix', 'src/programs/dto/x.ts'],
+  ['root file outside the closed suffix list', 'src/programs/x.helpers.ts'],
+  ['retired enum suffix', 'src/programs/programs-error-code.enum.ts'],
+  ['retired token suffix', 'src/platform/object-storage.token.ts'],
+  ['retired policy suffix', 'src/programs/x.policy.ts'],
+  ['retired scheduler suffix', 'src/programs/x.scheduler.ts'],
+  ['retired job suffix', 'src/programs/x.job.ts'],
+  ['module folder outside the module map', 'src/legacy/legacy.module.ts'],
+  ['legacy root layer folder', 'src/common/value.ts'],
+] as const) {
+  add(
+    `${name} is rejected`,
+    file,
+    'export const value = 1;',
+    'boundaries/no-unknown-files',
+  );
+}
+for (const [name, code] of [
+  ['function', 'export function value() { return 1; }'],
+  ['const', 'export const value = 1;'],
+  ['enum', 'export enum Value { A }'],
+  ['value re-export', "export { value } from './other.error';"],
+  ['star re-export', "export * from './other.error';"],
+] as const) {
+  add(
+    `repository cannot export a ${name}`,
+    `src/programs/export-${name.replace(' ', '-')}.repository.ts`,
+    code,
+    repositoryExportsRule,
+  );
+}
+files.set('src/programs/other.error.ts', 'export const value = 1;');
+for (const [name, code] of [
+  ['const', 'export const value = 1;'],
+  ['function', 'export function value() { return 1; }'],
+  ['class', 'export class Value {}'],
+  ['enum', 'export enum Value { A }'],
+  ['local const', 'const value = 1; export type Value = typeof value;'],
+] as const) {
+  add(
+    `types file cannot declare a ${name}`,
+    `src/programs/runtime-${name.replace(' ', '-')}.types.ts`,
+    code,
+    'architecture/types-only',
+  );
+}
 add(
-  'unknown folder is rejected',
-  'src/alpha/misc/value.ts',
-  'export const value = 1;',
-  'boundaries/no-unknown-files',
-);
-add(
-  'unknown root business file is rejected',
-  'src/alpha/behavior.ts',
-  'export const value = 1;',
-  'boundaries/no-unknown-files',
-);
-add(
-  'root config remains classified',
-  'src/alpha/alpha.config.ts',
-  'export const value = 1;',
+  'types file may declare types',
+  'src/programs/shapes-only.types.ts',
+  'export type Row = { id: string }; export interface Shape { id: string }',
   null,
 );
 add(
-  'root error codes remain classified',
-  'src/alpha/alpha-error-code.enum.ts',
-  'export enum Code { FAILURE }',
+  'repository may export its class and types',
+  'src/programs/exports-allowed.repository.ts',
+  'export class ExportsAllowedRepository {} export type Row = { id: string }; export interface Shape { id: string }',
+  null,
+);
+add(
+  'root config remains classified',
+  'src/programs/alpha.config.ts',
+  'export const value = 1;',
   null,
 );
 add(
   'DTO class belongs in dto directory',
-  'src/alpha/service/result.ts',
+  'src/programs/result.service.ts',
   'export class ResultResponseDto {}',
   'architecture/dto-location',
 );
 add(
   'DTO class is accepted in dto directory',
-  'src/alpha/dto/result.ts',
-  'export class ResultResponseDto {}',
-  null,
-);
-add(
-  'nested DTO class is accepted',
-  'src/programs/public/overview/dto/result.ts',
+  'src/programs/dto/result.dto.ts',
   'export class ResultResponseDto {}',
   null,
 );
 add(
   'test may use import type node',
   'test/import-type.spec.ts',
-  "export type Value = import('../src/alpha/domain/target').Shape;",
+  "export type Value = import('../src/programs/target.error').Shape;",
   null,
 );
 add(
   'test may use import equals',
   'test/import-equals.spec.ts',
-  "import Value = require('../src/alpha/domain/target'); export { Value };",
+  "import Value = require('../src/programs/target.error'); export { Value };",
   null,
 );
 add(
   'repository cannot use import type node',
-  'src/alpha/repository/import-type.ts',
-  "export type Value = import('../domain/target').Shape;",
+  'src/programs/import-type.repository.ts',
+  "export type Value = import('./target.error').Shape;",
   'no-restricted-syntax',
 );
 add(
   'module cannot use import equals',
-  'src/alpha/equals.module.ts',
-  "import Value = require('./domain/target'); export { Value };",
+  'src/programs/equals.module.ts',
+  "import Value = require('./target.error'); export { Value };",
   'no-restricted-syntax',
 );
 for (const file of [
-  'src/alpha/domain/marker.ts',
+  'src/programs/marker.error.ts',
   'test/marker.spec.ts',
   'prisma/seeds/marker.ts',
   'eslint-marker.mjs',
@@ -560,7 +847,7 @@ for (const layer of layers) {
     "import { AccountStatus as Status } from '@prisma/client'; export const value = Status;";
   add(
     `${layer} accepts aliased Prisma enum`,
-    `src/enums/${layer}/allowed.ts`,
+    located('users', layer, 'allowed'),
     code,
     null,
   );
@@ -568,7 +855,7 @@ for (const layer of layers) {
   for (const name of ['Prisma', 'PrismaClient', 'User', 'PrismaPromise']) {
     add(
       `${layer} rejects Prisma ${name}`,
-      `src/enums/${layer}/${name}.ts`,
+      located('users', layer, name),
       `import type { ${name} } from '@prisma/client'; export type Value = ${name};`,
       'no-restricted-imports',
     );
@@ -585,7 +872,7 @@ for (const [name, code] of [
 ] as const) {
   add(
     `rejects Prisma ${name} import`,
-    `src/enums/service/${name}.ts`,
+    `src/users/${name}.service.ts`,
     code,
     'no-restricted-imports',
   );
@@ -608,7 +895,7 @@ for (const [name, code] of [
 ] as const) {
   add(
     `rejects Prisma ${name} escape`,
-    `src/enums/service/${name}.ts`,
+    `src/users/${name}.service.ts`,
     code,
     'no-restricted-syntax',
   );
@@ -616,32 +903,30 @@ for (const [name, code] of [
 
 add(
   'rejects Prisma model re-export',
-  'src/enums/domain/reexport.ts',
+  'src/users/reexport.error.ts',
   "export type { User as PublicUser } from '@prisma/client';",
   'no-restricted-imports',
 );
 add(
   'allows enum type import',
-  'src/enums/dto/type.ts',
+  'src/users/dto/type.dto.ts',
   "import type { AccountStatus } from '@prisma/client'; export type Status = AccountStatus;",
   null,
 );
 add(
   'allows enum re-export',
-  'src/enums/domain/enum-export.ts',
+  'src/users/enum-export.error.ts',
   "export { AccountStatus as Status } from '@prisma/client';",
   null,
 );
 
 for (const file of [
-  'src/enums/repository/client.ts',
-  'src/prisma/client.ts',
-  'src/enums/enums.module.ts',
-  'src/enums/service/client.spec.ts',
+  'src/users/client.repository.ts',
+  'src/platform/client.repository.ts',
+  'src/users/users.module.ts',
+  'src/users/client.spec.ts',
   'test/client.ts',
   'prisma/seeds/synthetic.ts',
-  'src/programs/public/overview/repository/client.ts',
-  'src/programs/public/overview/overview.module.ts',
 ]) {
   add(
     `DB access exemption ${file}`,
@@ -653,38 +938,38 @@ for (const file of [
 
 add(
   'ordinary class alias is rejected',
-  'src/providers/providers.module.ts',
+  'src/admin/providers.module.ts',
   'class Service {} export const provider = { provide: "KEY", useExisting: Service };',
   'architecture/no-class-alias',
 );
 add(
   'built-in-looking local key is rejected',
-  'src/providers/local.module.ts',
+  'src/admin/local.module.ts',
   'const APP_GUARD = "fake"; class Guard {} export const provider = { provide: APP_GUARD, useExisting: Guard };',
   'architecture/no-class-alias',
 );
 add(
   'foreign built-in-looking import is rejected',
-  'src/providers/foreign.module.ts',
+  'src/admin/foreign.module.ts',
   'import { APP_GUARD } from "./fake"; export const provider = { provide: APP_GUARD, useExisting: Object };',
   'architecture/no-class-alias',
 );
-files.set('src/providers/fake.ts', 'export const APP_GUARD = "fake";');
+files.set('src/admin/fake.ts', 'export const APP_GUARD = "fake";');
 add(
   'shadowed built-in import is rejected',
-  'src/providers/shadow.module.ts',
+  'src/admin/shadow.module.ts',
   'import { APP_GUARD } from "@nestjs/core"; export const key = APP_GUARD; export function provider(APP_GUARD: string) { return { provide: APP_GUARD, useExisting: Object }; }',
   'architecture/no-class-alias',
 );
 add(
   'computed class alias is rejected',
-  'src/providers/computed.module.ts',
+  'src/admin/computed.module.ts',
   'export const provider = { ["provide"]: "KEY", ["useExisting"]: Object };',
   'architecture/no-class-alias',
 );
 add(
   'class provider without alias is accepted',
-  'src/providers/class.module.ts',
+  'src/admin/class.module.ts',
   'class Service {} export const providers = [Service, { provide: "KEY", useClass: Service }];',
   null,
 );
@@ -692,20 +977,20 @@ add(
 for (const key of ['APP_GUARD', 'APP_FILTER', 'APP_INTERCEPTOR', 'APP_PIPE']) {
   add(
     `Nest ${key} global registration is accepted`,
-    `src/providers/${key}.module.ts`,
+    `src/admin/${key}.module.ts`,
     `import { ${key} as KEY } from '@nestjs/core'; export const provider = { provide: KEY, useExisting: Object };`,
     null,
   );
 }
 add(
   'Nest namespace registration is accepted',
-  'src/providers/namespace.module.ts',
+  'src/admin/namespace.module.ts',
   "import * as Nest from '@nestjs/core'; export const provider = { provide: Nest.APP_GUARD, useExisting: Object };",
   null,
 );
 add(
   'computed identifier is not a Nest key',
-  'src/providers/computed-namespace.module.ts',
+  'src/admin/computed-namespace.module.ts',
   "import * as Nest from '@nestjs/core'; const APP_GUARD = 'other'; export const provider = { provide: Nest[APP_GUARD], useExisting: Object };",
   'architecture/no-class-alias',
 );
@@ -716,19 +1001,19 @@ const nestTesting =
   "import { Test } from '@nestjs/testing'; export const value = Test;";
 add(
   'production cannot import @nestjs/testing',
-  'src/alpha/service/nest-testing.ts',
+  'src/programs/nest-testing.service.ts',
   nestTesting,
   restrictedImports,
 );
 for (const file of [
-  'src/alpha/service/nest-testing.spec.ts',
-  'src/alpha/service/nest-testing.test-support.ts',
+  'src/programs/nest-testing.spec.ts',
+  'src/programs/nest-testing.test-support.ts',
   'test/nest-testing.ts',
 ]) {
   add(`${file} may import @nestjs/testing`, file, nestTesting, null);
 }
 for (const file of [
-  'src/alpha/job/main-import.ts',
+  'src/programs/main-import.service.ts',
   'test/main-import.spec.ts',
 ]) {
   add(
@@ -754,27 +1039,27 @@ const envAccess: [string, string][] = [
 for (const [name, code] of envAccess) {
   add(
     `production rejects ${name}`,
-    `src/alpha/service/${name}.ts`,
+    `src/programs/${name}.service.ts`,
     code,
     restrictedSyntax,
   );
   add(
     `github rejects ${name}`,
-    `src/github/service/${name}.ts`,
+    `src/github/${name}.service.ts`,
     code,
     restrictedSyntax,
   );
-  add(`test accepts ${name}`, `src/alpha/service/${name}.spec.ts`, code, null);
+  add(`test accepts ${name}`, `src/programs/${name}.spec.ts`, code, null);
 }
 add(
   'NODE_ENV production branch is accepted',
-  'src/alpha/service/node-env-production.ts',
-  "export const isProduction = (env: { NODE_ENV: string }) => env.NODE_ENV === 'production';",
+  'src/programs/node-env-production.service.ts',
+  "export class NodeEnvProductionService { isProduction(env: { NODE_ENV: string }) { return env.NODE_ENV === 'production'; } }",
   null,
 );
 add(
   'runtime config manifest may read process.env',
-  'src/runtime-config/runtime-config.ts',
+  'src/platform/runtime-config.config.ts',
   'export const value = process.env.KEY; export interface Shape { id: string }',
   null,
 );
@@ -783,25 +1068,25 @@ const canonicalDelegate =
   'export const read = (client: { canonicalOrganizationState: { findMany(): unknown } }) => client.canonicalOrganizationState.findMany();';
 add(
   'canonical delegate is rejected outside github',
-  'src/alpha/repository/canonical.ts',
+  'src/programs/canonical.repository.ts',
   canonicalDelegate,
   restrictedSyntax,
 );
 add(
   'canonical delegate is accepted inside github',
-  'src/github/repository/canonical.ts',
+  'src/github/canonical.repository.ts',
   canonicalDelegate,
   null,
 );
 add(
   'plain delegate is accepted outside github',
-  'src/alpha/repository/plain.ts',
+  'src/programs/plain.repository.ts',
   canonicalDelegate.split('canonicalOrganizationState').join('user'),
   null,
 );
 add(
   'test may access canonical delegate',
-  'src/alpha/repository/canonical.spec.ts',
+  'src/programs/canonical.spec.ts',
   canonicalDelegate,
   null,
 );
@@ -884,7 +1169,11 @@ describe('backend structural lint rails', () => {
   it.each(fixtures.map((fixture, index) => ({ ...fixture, index })))(
     '$name',
     ({ rule, index }) => {
-      const actual = messages[index];
+      const actual = messages[index]?.filter(
+        (message) =>
+          rule === repositoryExportsRule ||
+          message.ruleId !== repositoryExportsRule,
+      );
       expect(actual).toBeDefined();
       expect(actual?.filter((message) => message.fatal)).toEqual([]);
       if (rule === null) {

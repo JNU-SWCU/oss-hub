@@ -3,13 +3,19 @@ import {
   MilestoneSubmissionType,
   ProgramTrackType,
 } from '@prisma/client';
+import {
+  ProgramEditorService,
+  type UpdateProgramCommand,
+  type UpsertMilestoneCommand,
+} from '../src/programs/program-editor.service';
 import type {
-  UpdateProgramCommand,
-  UpsertMilestoneCommand,
-} from '../src/programs/domain/program-write.commands';
-import { ProgramEditorService } from '../src/programs/service/program-editor.service';
-import type { ProgramEditorRepository } from '../src/programs/repository/program-editor.repository';
-import type { ProgramEditorTransactionStore } from '../src/programs/domain/program-editor.types';
+  ProgramEditorRepository,
+  ProgramEditorTransactionStore,
+} from '../src/programs/program-editor.repository';
+import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
+import { ProgramRulesService } from '../src/programs/program-rules.service';
+import { ProgramUploadRulesService } from '../src/programs/program-upload-rules.service';
+import { SubmissionFileRulesService } from '../src/programs/submission-file-rules.service';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
@@ -34,6 +40,8 @@ export const milestoneInput: UpsertMilestoneCommand = {
 };
 
 export const editableProgram = {
+  coverId: null,
+  coverExternalImageUrl: null,
   id: 'program-1',
   name: 'OSS',
   organizer: 'Center',
@@ -72,7 +80,7 @@ export function createProgramEditorServiceHarness(): {
     findUserAuthorityByGithubId: jest.fn(),
     findEditableProgramById: jest.fn(),
     findEditableProgramForUpdate: jest.fn(),
-    updateProgram: jest.fn(),
+    updateProgram: jest.fn().mockResolvedValue(editableProgram),
     findProgramScheduleForMilestoneCreate: jest.fn(),
     createMilestone: jest.fn(),
     findMilestoneForUpdate: jest.fn(),
@@ -103,7 +111,13 @@ export function createProgramEditorServiceHarness(): {
     staffAccessRequests: [],
   });
   return {
-    service: new ProgramEditorService(repository),
+    service: new ProgramEditorService(
+      repository,
+      new ProgramCoverUrlService(),
+      new ProgramRulesService(),
+      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new SubmissionFileRulesService(),
+    ),
     store,
     withTransaction,
   };

@@ -1,10 +1,12 @@
 import { AccountStatus } from '@prisma/client';
-import type { AccountDeactivationResult } from '../domain/account-deactivation';
+import type { AccountDeactivationResult } from '../account-deactivation.service';
 
 export class AccountDeactivationResponseDto {
-  readonly accountStatus: typeof AccountStatus.DEACTIVATED;
+  declare readonly accountStatus: typeof AccountStatus.DEACTIVATED;
 
-  constructor(result: AccountDeactivationResult) {
-    this.accountStatus = result.accountStatus;
+  static from(
+    result: AccountDeactivationResult,
+  ): AccountDeactivationResponseDto {
+    return { accountStatus: result.accountStatus };
   }
 }

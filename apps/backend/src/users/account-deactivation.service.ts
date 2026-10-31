@@ -1,0 +1,94 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { AccountStatus } from '@prisma/client';
+import { AuditLogService } from '../platform/audit-log.service';
+import {
+  ACCESS_AUDIT_ACTIONS,
+  ACCESS_AUDIT_EVENT_KINDS,
+} from '../platform/audit-log-metadata.config';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
+import { DomainException } from '../platform/error-code.error';
+import {
+  AccountDeactivationRepository,
+  type AccountDeactivationRepositoryPort,
+} from './account-deactivation.repository';
+import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+export interface AccountDeactivationResult {
+  readonly accountStatus: typeof AccountStatus.DEACTIVATED;
+}
+
+export type { AccountDeactivationRepositoryPort } from './account-deactivation.repository';
+
+@Injectable()
+export class AccountDeactivationService {
+  constructor(
+    @Inject(AccountDeactivationRepository)
+    private readonly repository: AccountDeactivationRepositoryPort,
+    private readonly auditLog: AuditLogService,
+    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
+  ) {}
+
+  deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
+    return this.repository.withTransaction(async (store) => {
+      const activeAdminCount = await store.lockActiveAdmins();
+      const account = await store.findForUpdate(githubId);
+      if (!account) {
+        throw new DomainException(
+          AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+        );
+      }
+      if (account.accountStatus !== AccountStatus.ACTIVE) {
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED],
+        );
+      }
+      if (account.hasAdminAccess && activeAdminCount <= 1) {
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.LAST_ACTIVE_ADMIN],
+        );
+      }
+
+      const deactivated = await store.deactivate(account.id);
+      if (!deactivated) {
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.ACCOUNT_ALREADY_DEACTIVATED],
+        );
+      }
+
+      const person = {
+        displayName: account.displayName,
+        githubLogin: account.githubLogin,
+      };
+      const role = this.userProfileService.authorityLabel(account);
+      await this.auditLog.record(
+        {
+          actorGithubId: githubId,
+          action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
+          targetType: 'USER',
+          targetId: account.id,
+          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+            eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
+            actor: person,
+            target: person,
+            before: {
+              role,
+              accountStatus: AccountStatus.ACTIVE,
+              requestStatus: account.requestStatus,
+            },
+            after: {
+              role,
+              accountStatus: AccountStatus.DEACTIVATED,
+              requestStatus: account.requestStatus,
+            },
+          }),
+        },
+        store.auditLogWriter,
+      );
+
+      return { accountStatus: AccountStatus.DEACTIVATED };
+    });
+  }
+}

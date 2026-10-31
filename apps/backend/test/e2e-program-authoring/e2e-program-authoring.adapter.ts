@@ -1,20 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
-import { ApplicationsService } from '../../src/applications/service/applications.service';
-import { RepositoryOutboxConsumer } from '../../src/github/service/repository-outbox.consumer';
-import { RepositoryProvisionWorker } from '../../src/github/service/repository-provision.worker';
-import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/service/milestone-document-current-file.service';
-import { MilestoneDocumentFilesService } from '../../src/milestone-documents/service/milestone-document-files.service';
-import { MilestoneDocumentsService } from '../../src/milestone-documents/service/milestone-documents.service';
-import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
-import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/deadline-digest';
-import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
-import { PrismaService } from '../../src/prisma/prisma.service';
-import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
-import { PrismaStorageReferenceRepository } from '../../src/submissions/repository/storage-orphan-reconciliation.repository';
+import { ApplicationsService } from '../../src/programs/applications.service';
+import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
+import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
+import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
+import { MilestoneDocumentFilesService } from '../../src/programs/milestone-document-files.service';
+import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
+import {
+  DeadlineDigestService,
+  type DeadlineDigestSendRequest,
+} from '../../src/notifications/deadline-digest.service';
+import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
+import { PrismaService } from '../../src/platform/prisma.service';
+import { SubmissionFileCleanupService } from '../../src/programs/submission-file-cleanup.service';
+import { PrismaStorageReferenceRepository } from '../../src/programs/prisma-storage-reference.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,
@@ -41,6 +43,7 @@ import type {
   E2eProgramAuthoringPort,
   E2eProgramAuthoringState,
 } from './e2e-program-authoring.types';
+
 export {
   E2E_PROGRAM_AUTHORING_PORT,
   type E2eProgramAuthoringPort,
@@ -170,7 +173,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   private async consumeProvisionEvent(): Promise<void> {
     const workerId = 'e2e-program-authoring-worker';
-    const outbox = this.moduleRef.get(RepositoryOutboxConsumer, {
+    const outbox = this.moduleRef.get(RepositoryOutboxConsumerService, {
       strict: false,
     });
     const consumed = await outbox.consumeNext(workerId, E2E_NOW);
@@ -178,7 +181,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   }
 
   private async runProvisionWorker(now: Date): Promise<void> {
-    const worker = this.moduleRef.get(RepositoryProvisionWorker, {
+    const worker = this.moduleRef.get(RepositoryProvisionWorkerService, {
       strict: false,
     });
     const provisioned = await worker.runNext(

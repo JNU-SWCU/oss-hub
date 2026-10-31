@@ -1,53 +1,77 @@
 import { Module } from '@nestjs/common';
-import { AuditLogModule } from '../audit-log/audit-log.module';
+import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from '../auth/auth.module';
-import { ConsentsModule } from '../consents/consents.module';
-import { AdminAccessController } from './controller/admin-access.controller';
-import { AdminAccessRepository } from './repository/admin-access.repository';
-import { AdminAccessService } from './service/admin-access.service';
-import { AdminProfileRepository } from './repository/admin-profile.repository';
-import { AdminProfileService } from './service/admin-profile.service';
-import { AccountDeactivationController } from './controller/account-deactivation.controller';
-import { AccountDeactivationRepository } from './repository/account-deactivation.repository';
-import { AccountDeactivationService } from './service/account-deactivation.service';
-import { IndependentAuthorityController } from './controller/independent-authority.controller';
-import { IndependentAuthorityRepository } from './repository/independent-authority.repository';
-import { IndependentAuthorityService } from './service/independent-authority.service';
-import { MemberKindController } from './controller/member-kind.controller';
-import { MemberKindRepository } from './repository/member-kind.repository';
-import { MemberKindService } from './service/member-kind.service';
-import { UsersController } from './controller/users.controller';
-import { UsersRepository } from './repository/users.repository';
-import { UsersService } from './service/users.service';
-import { UsersAuthorityRepository } from './repository/authority.repository';
-import { UsersAuthorityService } from './service/authority.service';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessService } from './admin-access.service';
+import { AdminProfileRepository } from './admin-profile.repository';
+import { AdminProfileService } from './admin-profile.service';
+import { AccountDeactivationController } from './account-deactivation.controller';
+import { AccountDeactivationRepository } from './account-deactivation.repository';
+import { AccountDeactivationService } from './account-deactivation.service';
+import {
+  IndependentAuthorityRepository,
+  UsersAuthorityRepository,
+} from './independent-authority.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
+import { MemberKindRepository } from './member-kind.repository';
+import { MemberKindService } from './member-kind.service';
+import { UsersController } from './users.controller';
+import { UsersRepository } from './users.repository';
+import { UsersService } from './users.service';
+import { UsersAuthorityService } from './users-authority.service';
+import { ConsentsController } from './consents.controller';
+import {
+  ConsentsRepository,
+  MemberOnboardingRepository,
+} from './member-onboarding.repository';
+import { ConsentsService } from './consents.service';
+import { MemberOnboardingService } from './member-onboarding.service';
+import { OnboardingController } from './onboarding.controller';
+import { RoleRequestsController } from './role-requests.controller';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
-  imports: [AuditLogModule, AuthModule, ConsentsModule],
+  imports: [PlatformModule, AuthModule],
 
   controllers: [
     AccountDeactivationController,
     UsersController,
-    AdminAccessController,
-    IndependentAuthorityController,
-    MemberKindController,
+    OnboardingController,
+    RoleRequestsController,
+    ConsentsController,
   ],
   providers: [
     AccountDeactivationRepository,
     AccountDeactivationService,
     AdminAccessRepository,
+    AdminAccessMutationService,
     AdminAccessService,
     IndependentAuthorityRepository,
     IndependentAuthorityService,
     MemberKindRepository,
     MemberKindService,
     AdminProfileRepository,
+    AdminProfileMutationService,
     AdminProfileService,
     UsersRepository,
     UsersService,
     UsersAuthorityRepository,
     UsersAuthorityService,
+    ConsentsService,
+    ConsentsRepository,
+    MemberOnboardingRepository,
+    MemberOnboardingService,
   ],
-  exports: [UsersService, UsersAuthorityService],
+  exports: [
+    UsersService,
+    UsersAuthorityService,
+    ConsentsService,
+    AdminAccessMutationService,
+    AdminAccessService,
+    AdminProfileService,
+    IndependentAuthorityService,
+    MemberKindService,
+  ],
 })
 export class UsersModule {}

@@ -1,63 +1,57 @@
 import type {
+  ProgramTemplate,
   FieldDef,
   ProgramParticipation,
-  ProgramTemplate,
-} from '../domain/program-template.registry';
+} from '../program-rules.service';
 
 export class ApplicationFieldResponseDto {
-  readonly key: FieldDef['key'];
-  readonly type: FieldDef['type'];
-  readonly label: string;
-  readonly required: boolean;
-
-  private constructor(field: FieldDef) {
-    this.key = field.key;
-    this.type = field.type;
-    this.label = field.label;
-    this.required = field.required;
-  }
+  declare readonly key: FieldDef['key'];
+  declare readonly type: FieldDef['type'];
+  declare readonly label: string;
+  declare readonly required: boolean;
 
   static from(field: FieldDef): ApplicationFieldResponseDto {
-    return new ApplicationFieldResponseDto(field);
+    return {
+      key: field.key,
+      type: field.type,
+      label: field.label,
+      required: field.required,
+    };
   }
 }
 
 export class ApplicationTemplateResponseDto {
-  readonly key: string;
-  readonly version: number;
-  readonly name: string;
-  readonly participation: ProgramParticipation;
-  readonly teamSize: ProgramTemplate['teamSize'];
-  readonly fields: readonly ApplicationFieldResponseDto[];
-
-  private constructor(template: ProgramTemplate) {
-    this.key = template.key;
-    this.version = template.version;
-    this.name = template.name;
-    this.participation = template.participation;
-    this.teamSize = template.teamSize;
-    this.fields = template.fields.map((field) =>
-      ApplicationFieldResponseDto.from(field),
-    );
-  }
+  declare readonly key: string;
+  declare readonly version: number;
+  declare readonly name: string;
+  declare readonly participation: ProgramParticipation;
+  declare readonly teamSize: ProgramTemplate['teamSize'];
+  declare readonly fields: readonly ApplicationFieldResponseDto[];
 
   static from(template: ProgramTemplate): ApplicationTemplateResponseDto {
-    return new ApplicationTemplateResponseDto(template);
+    return {
+      key: template.key,
+      version: template.version,
+      name: template.name,
+      participation: template.participation,
+      teamSize: template.teamSize,
+      fields: template.fields.map((field) =>
+        ApplicationFieldResponseDto.from(field),
+      ),
+    };
   }
 }
 
 export class ApplicationTemplateListResponseDto {
-  readonly items: readonly ApplicationTemplateResponseDto[];
-
-  private constructor(templates: readonly ProgramTemplate[]) {
-    this.items = templates.map((template) =>
-      ApplicationTemplateResponseDto.from(template),
-    );
-  }
+  declare readonly items: readonly ApplicationTemplateResponseDto[];
 
   static from(
     templates: readonly ProgramTemplate[],
   ): ApplicationTemplateListResponseDto {
-    return new ApplicationTemplateListResponseDto(templates);
+    return {
+      items: templates.map((template) =>
+        ApplicationTemplateResponseDto.from(template),
+      ),
+    };
   }
 }

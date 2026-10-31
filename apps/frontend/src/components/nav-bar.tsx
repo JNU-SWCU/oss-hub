@@ -1,6 +1,5 @@
 import * as React from 'react';
 
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -9,31 +8,39 @@ export interface NavItem {
 }
 
 interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
-  items: NavItem[];
+  items: readonly NavItem[];
   brand?: React.ReactNode;
   actions?: React.ReactNode;
 
+  leading?: React.ReactNode;
+
+  currentPath?: string;
+
   menuResetKey?: string;
 
+  compactMenu?: boolean;
+
   linkComponent?: React.ElementType<{ href: string; className?: string }>;
+}
 
-  sidebarDrawerOpen?: boolean;
-
-  onToggleSidebarDrawer?: () => void;
-
-  sidebarDrawerId?: string;
+function isCurrentNavItem(
+  currentPath: string | undefined,
+  href: string,
+): boolean {
+  if (currentPath === undefined) return false;
+  return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
 function NavBar({
   items,
   brand,
   actions,
+  leading,
+  currentPath,
   className,
   linkComponent,
   menuResetKey,
-  sidebarDrawerOpen,
-  onToggleSidebarDrawer,
-  sidebarDrawerId,
+  compactMenu = true,
   ...props
 }: NavBarProps) {
   const LinkComponent = linkComponent ?? 'a';
@@ -46,38 +53,7 @@ function NavBar({
       )}
       {...props}
     >
-      {onToggleSidebarDrawer ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          data-slot="nav-bar-sidebar-drawer-trigger"
-          aria-label="사이드바 메뉴 열기"
-          aria-expanded={sidebarDrawerOpen ?? false}
-          aria-controls={sidebarDrawerId}
-          onClick={onToggleSidebarDrawer}
-
-          className={cn(
-            'shrink-0 text-foreground/80 focus-visible:bg-muted focus-visible:text-foreground',
-            'aria-expanded:bg-transparent aria-expanded:text-foreground/80 min-[900px]:hidden',
-          )}
-        >
-          <svg
-            aria-hidden
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.7}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-5"
-          >
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M9 4v16" />
-          </svg>
-        </Button>
-      ) : null}
+      {leading}
       {brand ? (
         <div
           data-slot="nav-bar-brand"
@@ -87,97 +63,122 @@ function NavBar({
         </div>
       ) : null}
 
-      <details
-        key={menuResetKey}
-        data-slot="nav-bar-menu"
-        className="group relative min-w-0 flex-1 max-[480px]:static min-[640px]:hidden"
+      {compactMenu ? (
+        <details
+          key={menuResetKey}
+          data-slot="nav-bar-menu"
+          data-breakpoint-visibility="narrow"
+          className="group relative min-w-0 flex-1 max-[480px]:static min-[640px]:hidden"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return;
+            const details = event.currentTarget;
+            if (!details.open) return;
 
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape') return;
-          const details = event.currentTarget;
-          if (!details.open) return;
+            event.stopPropagation();
+            event.preventDefault();
+            details.open = false;
 
-          event.stopPropagation();
-          event.preventDefault();
-          details.open = false;
-
-          details
-            .querySelector<HTMLElement>('[data-slot="nav-bar-menu-trigger"]')
-            ?.focus();
-        }}
-      >
-        <summary
-          data-slot="nav-bar-menu-trigger"
-          aria-label="메뉴"
-          className={cn(
-            'flex size-11 cursor-pointer list-none items-center justify-center',
-            'rounded-md text-foreground/80 transition-colors',
-            'hover:bg-muted hover:text-foreground',
-            'focus-visible:bg-muted focus-visible:text-foreground',
-            '[&::-webkit-details-marker]:hidden',
-          )}
+            details
+              .querySelector<HTMLElement>('[data-slot="nav-bar-menu-trigger"]')
+              ?.focus();
+          }}
         >
-          <svg
-            aria-hidden
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.7}
-            strokeLinecap="round"
-            className="size-5"
+          <summary
+            data-slot="nav-bar-menu-trigger"
+            aria-label="메뉴"
+            className={cn(
+              'flex size-11 cursor-pointer list-none items-center justify-center',
+              'rounded-md text-foreground/80 transition-colors',
+              'hover:bg-muted hover:text-foreground',
+              'focus-visible:bg-muted focus-visible:text-foreground',
+              '[&::-webkit-details-marker]:hidden',
+            )}
           >
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </summary>
-        <ul
-          data-slot="nav-bar-menu-items"
-          data-surface="default"
-          className={cn(
-            'absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden py-1 max-[480px]:left-2',
-            'rounded-lg border border-border bg-background shadow-lg',
-          )}
-        >
-          {items.map((item) => (
-            <li key={item.href}>
+            <svg
+              aria-hidden
+              focusable="false"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              className="size-5"
+            >
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </summary>
+          <ul
+            data-slot="nav-bar-menu-items"
+            data-surface="default"
+            className={cn(
+              'absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden py-1 max-[480px]:left-2',
+              'rounded-lg border border-border bg-background shadow-lg',
+            )}
+          >
+            {items.map((item) => {
+              const current = isCurrentNavItem(currentPath, item.href);
+              return (
+                <li key={item.href} className="relative">
+                  <LinkComponent
+                    href={item.href}
+                    aria-current={current ? 'page' : undefined}
+                    data-current={current ? 'true' : undefined}
+                    className={cn(
+                      'flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80',
+                      'transition-colors hover:bg-muted hover:text-foreground',
+                      'focus-visible:bg-muted focus-visible:text-foreground',
+                      current &&
+                        'bg-sidebar-current font-semibold text-sidebar-current-foreground',
+                    )}
+                  >
+                    {item.label}
+                  </LinkComponent>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
+      <ul
+        data-slot="nav-bar-items"
+        data-breakpoint-visibility={compactMenu ? 'wide' : 'desktop'}
+        className={cn(
+          'hidden min-w-0 flex-1 items-center gap-0 self-stretch sm:gap-1',
+          compactMenu ? 'min-[640px]:flex' : 'shell:flex',
+        )}
+      >
+        {items.map((item) => {
+          const current = isCurrentNavItem(currentPath, item.href);
+          return (
+            <li key={item.href} className="relative flex h-full items-center">
               <LinkComponent
                 href={item.href}
-
+                aria-current={current ? 'page' : undefined}
+                data-current={current ? 'true' : undefined}
                 className={cn(
-                  'flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80',
+                  'whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80',
                   'transition-colors hover:bg-muted hover:text-foreground',
-                  'focus-visible:bg-muted focus-visible:text-foreground',
+                  'focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5',
+                  current && 'font-semibold text-sidebar-current-foreground',
                 )}
               >
                 {item.label}
               </LinkComponent>
+              {current ? (
+                <span
+                  aria-hidden
+                  data-slot="nav-bar-current-marker"
+                  className="absolute inset-x-1 bottom-0 h-sidebar-marker rounded-t-full bg-sidebar-current-marker sm:inset-x-2.5"
+                />
+              ) : null}
             </li>
-          ))}
-        </ul>
-      </details>
-      <ul
-        data-slot="nav-bar-items"
-        className="hidden min-w-0 flex-1 items-center gap-0 min-[640px]:flex sm:gap-1"
-      >
-        {items.map((item) => (
-          <li key={item.href}>
-            <LinkComponent
-              href={item.href}
-              className={cn(
-                'whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80',
-                'transition-colors hover:bg-muted hover:text-foreground',
-                'focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5',
-              )}
-            >
-              {item.label}
-            </LinkComponent>
-          </li>
-        ))}
+          );
+        })}
       </ul>
       {actions ? (
         <div
           data-slot="nav-bar-actions"
-          className="flex shrink-0 items-center justify-end gap-0 sm:gap-2"
+          className="ml-auto flex shrink-0 items-center justify-end gap-0 sm:gap-2"
         >
           {actions}
         </div>

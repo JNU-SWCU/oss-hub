@@ -6,6 +6,10 @@ import {
   PrismaClient,
   User,
 } from '@prisma/client';
+import { CONSENT_POLICY_VERSION } from '../../src/users/consents.service';
+import { UserProfileService } from '../../src/platform/user-profile.service';
+
+const userProfileService = new UserProfileService();
 
 export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
@@ -34,8 +38,6 @@ const SEED_ROLE_FACTS: Record<
     hasAdminAccess: true,
   },
 };
-import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
-import { isValidUserName } from '../../src/users/domain/user-profile-policy';
 
 export const prisma = new PrismaClient();
 
@@ -188,7 +190,8 @@ export function parseOssHubTeamAccounts(
       !login ||
       !GITHUB_LOGIN_PATTERN.test(login) ||
       role !== 'ADMIN' ||
-      (displayName !== undefined && !isValidUserName(displayName))
+      (displayName !== undefined &&
+        !userProfileService.isValidUserName(displayName))
     ) {
       throw new Error(OSS_HUB_TEAM_ACCOUNTS_ERROR);
     }

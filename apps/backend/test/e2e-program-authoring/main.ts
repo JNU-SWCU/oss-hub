@@ -1,16 +1,16 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
-import { configureHttpApp } from '../../src/common/controller/configure-http-app';
-import { GithubAppClient } from '../../src/github/gateway/github-app.client';
+import { configureHttpApp } from '../../src/configure-http-app';
+import { GithubAppClient } from '../../src/github/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
-import { MAIL_SENDER } from '../../src/notifications/domain/mail-sender.port';
-import { ProgramAuthoringRepository } from '../../src/programs/repository/program-authoring.repository';
-import { OBJECT_STORAGE } from '../../src/storage/domain/object-storage';
-import type { RuntimeConfig } from '../../src/runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../src/runtime-config/runtime-config.module';
+import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
+import { OBJECT_STORAGE } from '../../src/platform/object-storage.config';
+import type { RuntimeConfig } from '../../src/platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
 import { E2eProgramAuthoringModule } from './e2e-program-authoring.module';
 import { FaultInjectingProgramAuthoringRepository } from './fault-injecting-program-authoring.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
+import { MAIL_SENDER } from '../../src/notifications/gmail-mail.client';
 
 async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {

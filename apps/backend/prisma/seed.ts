@@ -16,12 +16,12 @@ import { seedMilestones } from './seeds/milestones';
 import { seedOssHub } from './seeds/oss-hub';
 import { seedProgramOverview } from './seeds/program-overview';
 import { seedRepositories } from './seeds/repositories';
-import { S3ObjectStorage } from '../src/storage/gateway/s3-object.storage';
-import { ObjectStorageConfig } from '../src/storage/object-storage.config';
-import type { ObjectStoragePort } from '../src/storage/domain/object-storage';
+import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
+import { ObjectStorageConfig } from '../src/platform/object-storage.config';
+import type { ObjectStoragePort } from '../src/platform/object-storage.types';
 
 function createSubmissionFileStorage(): ObjectStoragePort {
-  return new S3ObjectStorage(new ObjectStorageConfig());
+  return new S3ObjectStorageClient(new ObjectStorageConfig());
 }
 
 export async function runProfile(

@@ -1,28 +1,27 @@
 import { Transform } from 'class-transformer';
 import { AffiliationKind } from '@prisma/client';
-import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
-import { DomainException } from '../../common/error-code';
-import { SystemErrorCode } from '../../common/system-error-code.enum';
-import { isValidStaffNumber } from '../domain/member-kind';
 import {
-  isValidDepartment,
-  isValidUserName,
-  type PatchUserProfileInput,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateIf,
+  ValidateBy,
+} from 'class-validator';
+import { DomainException } from '../../platform/error-code.error';
+import { SystemErrorCode } from '../../platform/system-error-code.error';
+import {
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
-} from '../domain/user-profile';
-import {
-  IsProfileText,
-  transformProfileText,
-  trimString,
-} from '../domain/profile-text-transform';
+  PROFILE_TEXT_PATTERN,
+} from '../profile-validation.config';
+import { type PatchUserProfileInput } from '../users.service';
 
 export { USER_DEPARTMENT_MAX_LENGTH, USER_NAME_MAX_LENGTH };
 
 export class UpdateMyProfileRequestDto {
   @Transform(transformProfileText)
   @IsString()
-  @IsProfileText('isValidUserName', isValidUserName)
+  @IsProfileText('isValidUserName')
   declare readonly name: string;
 
   @IsOptional()
@@ -43,7 +42,7 @@ export class UpdateMyProfileRequestDto {
   )
   @Transform(transformStaffNumber)
   @IsString()
-  @IsProfileText('isValidStaffNumber', isValidStaffNumber)
+  @IsProfileText('isValidStaffNumber')
   declare readonly staffNumber?: string | null;
 
   @ValidateIf(
@@ -53,7 +52,7 @@ export class UpdateMyProfileRequestDto {
   )
   @Transform(transformProfileText)
   @IsString()
-  @IsProfileText('isValidDepartment', isValidDepartment)
+  @IsProfileText('isValidDepartment')
   declare readonly department?: string;
 
   @ValidateIf(
@@ -67,7 +66,7 @@ export class UpdateMyProfileRequestDto {
   )
   @Transform(transformProfileText)
   @IsString()
-  @IsProfileText('isValidAffiliationName', isValidDepartment)
+  @IsProfileText('isValidAffiliationName')
   declare readonly affiliationName?: string;
 
   toInput(): PatchUserProfileInput {
@@ -110,4 +109,23 @@ function parseAffiliationKind(value: string): AffiliationKind {
         message: '지원하지 않는 소속 유형입니다.',
       });
   }
+}
+
+function trimString({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function transformProfileText({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? value.trim().normalize('NFC') : value;
+}
+
+function isProfileText(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    PROFILE_TEXT_PATTERN.test(value.trim().normalize('NFC'))
+  );
+}
+
+function IsProfileText(name: string): PropertyDecorator {
+  return ValidateBy({ name, validator: { validate: isProfileText } });
 }

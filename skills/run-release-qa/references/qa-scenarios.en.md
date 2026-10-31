@@ -48,12 +48,12 @@ This is the full path: a contest created by faculty/staff becomes visible to a s
 | W3 | 교 → milestone | Create → reflected in student checklist | Three types: `FILE`, `TEXT`, `REPOSITORY_RELEASE`; deadline changes; block deletion of a milestone with submissions | `milestones.controller.ts` |
 | W4 | 학·장·원 → application | Complete an individual application | Create team → join by code → enter member details / block duplicate applications / **block applications below the minimum team size (`APP_019`)** | `applications.service.ts` |
 | W5 | 교 → application decision | Approve → trigger provisioning | Reject with a visible reason / reapply after rejection / applicant edits or cancels before a decision | `applications.controller.ts` |
-| W6 | Provisioning → 학 | Repository created → invitation → visible in `my-repos` | **Is final failure visible on the student screen?** / does invitation acceptance converge to the corresponding state? | `repository-provision.worker.ts` |
+| W6 | Provisioning → 학 | Repository created → invitation → visible in `my-repos` | **Is final failure visible on the student screen?** / does invitation acceptance converge to the corresponding state? | `repository-provision-worker.service.ts` |
 | W7 | 학 → submission | **Successful file upload** | Block after deadline / not submitted / `TEXT` and `RELEASE` types / **replacement before the deadline** | `submissions.controller.ts` |
-| W8 | 교 → review | **Download file** → decision | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / concurrent-review race | `submission-reviews.controller.ts` |
+| W8 | 교 → review | **Download file** → decision | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / concurrent-review race | `submissions.controller.ts` |
 | W9 | Rejection → resubmission | **Student sees the rejection** → resubmits → new revision | Preserve earlier history / faculty/staff review again / resubmission form fails closed | `submissions.service.ts` |
 | W10 | Final rejection | Confirm `REJECTED` | **Is resubmission actually blocked?** | `submissions.service.ts` |
-| W11 | 교 → publication confirmation | Pass all five gates → publish | Visible in `archive` while signed out / blocked when a gate is unmet | `apps/backend/src/submission-reviews/service` |
+| W11 | 교 → publication confirmation | Pass all five gates → publish | Visible in `archive` while signed out / blocked when a gate is unmet | `apps/backend/src/programs` |
 | W12 | Deadline approaching → notification | Faculty/staff digest **actually received** | Student reminder / accuracy of the list of non-submitters / Asia/Seoul display | `deadline-digest.service.ts` |
 | W13 | Activity collection → ranking | Registered users' real names displayed | Unregistered users show `githubLogin` plus a '미가입' (“unregistered”) badge / signed-out access | `ranking.service.ts` |
 | W14 | 관 → account state | Deactivate → access blocked | Reactivate → restored / block self-deactivation / block removal of the last administrator | `admin-access-mutation-policy.ts` |
@@ -181,6 +181,6 @@ These points must be exercised during QA.
 
 - Deployment contracts, backups, and rollback: [Jenkinsfile](../../../Jenkinsfile)
 - Review and merge gates: [CI workflow](../../../.github/workflows/ci.yml)
-- GitHub App integration and collection: [CollectionModule](../../../apps/backend/src/github/collection.module.ts)
+- GitHub App integration and collection: [GithubModule](../../../apps/backend/src/github/github.module.ts)
 - Public content deny-list: [public-safety checker](../../../scripts/check-public-safe.sh)
 - Release deployment and recovery execution: [Jenkinsfile](../../../Jenkinsfile)

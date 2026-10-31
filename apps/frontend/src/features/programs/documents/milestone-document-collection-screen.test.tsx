@@ -181,9 +181,9 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     );
     await render();
     expect(container.textContent).toContain('서류별 요약');
-    expect(container.textContent).toContain('제출 30 / 47팀');
+    expect(container.textContent).toContain('제출 30 / 47');
     await click('기획서');
-    await click('미제출 17팀');
+    await click('미제출 17');
     expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
       {
@@ -213,7 +213,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     await click('기획서');
     await click('지각 제출');
-    await click('미제출 17팀');
+    await click('미제출 17');
     await click('다음');
     expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',
@@ -236,9 +236,9 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     await render();
     await click('지각 제출');
     await click('기획서');
-    await click('미제출 17팀');
+    await click('미제출 17');
     expect(container.textContent).toContain('조건에 맞는 팀이 없습니다');
-    expect(container.textContent).toContain('제출 30 / 47팀');
+    expect(container.textContent).toContain('제출 30 / 47');
     await click('전체 보기');
     expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
       'milestone-1',

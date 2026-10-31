@@ -45,11 +45,14 @@ export function ProgramDetailPage({
   session,
   operationsView = false,
   renderSignInApply,
+  onProgramName,
 }: {
   readonly programId: string;
   readonly session: ProgramDetailSession;
   readonly operationsView?: boolean | null;
   readonly renderSignInApply: RenderSignInApply;
+
+  readonly onProgramName?: (name: string) => void;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -67,6 +70,9 @@ export function ProgramDetailPage({
       router.replace('/onboarding/pending');
     }
   }, [router, program]);
+  useEffect(() => {
+    if (program !== undefined) onProgramName?.(program.name);
+  }, [onProgramName, program]);
 
   if (operationsView === null) return null;
   if (program === undefined && detail.isError)

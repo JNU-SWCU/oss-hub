@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
   getMyApplication: vi.fn(),
+  getProgramStatusCounts: vi.fn(),
 }));
 
 vi.mock('@/features/programs/catalog/program-overview-api', () => ({
@@ -35,11 +36,11 @@ vi.mock('@/features/programs/catalog/program-overview-api', () => ({
 vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
-vi.mock('@/features/programs/catalog/api', () => ({
-  getProgramStatusCounts: async () => ({}),
-}));
 vi.mock('@/features/programs/applications/student-application-api', () => ({
   getMyApplication: mocks.getMyApplication,
+}));
+vi.mock('@/features/programs/catalog/api', () => ({
+  getProgramStatusCounts: mocks.getProgramStatusCounts,
 }));
 
 import { useProductShellData } from './use-product-shell-data';
@@ -477,5 +478,126 @@ describe('useProductShellData 참여 여부(#1099)', () => {
 
     expect(mocks.getMyApplication).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain('"scopeParticipant":');
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('useProductShellData 로딩 상태', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  function data(): Record<string, unknown> {
+    return JSON.parse(container.textContent ?? '{}') as Record<string, unknown>;
+  }
+
+  it('overview 요청 중에는 첫 렌더부터 pending이고 응답이 오면 success다', async () => {
+    const overview = deferred<ProgramOverview>();
+    mocks.getProgramOverview.mockReturnValue(overview.promise);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
+    });
+    expect(data().scopeOverviewStatus).toBe('pending');
+    expect(data().scopeOverview).toBeUndefined();
+
+    await act(async () => {
+      overview.resolve(OVERVIEW);
+      await overview.promise;
+    });
+    expect(data().scopeOverviewStatus).toBe('success');
+    expect(data().scopeOverview).toMatchObject({ name: '합성 프로그램' });
+  });
+
+  it('overview 요청이 실패하면 error가 되고 데이터는 비어 있다', async () => {
+    const overview = deferred<ProgramOverview>();
+    mocks.getProgramOverview.mockReturnValue(overview.promise);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      overview.reject(apiError(500, 'INTERNAL'));
+      await overview.promise.catch(() => undefined);
+    });
+
+    expect(data().scopeOverviewStatus).toBe('error');
+    expect(data().scopeOverview).toBeUndefined();
+  });
+
+  it('비회원은 overview를 부르지 않고 idle이다', async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member={false} />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(mocks.getProgramOverview).not.toHaveBeenCalled();
+    expect(data().scopeOverviewStatus).toBe('idle');
+    expect(data().facetStatus).toBe('idle');
+  });
+
+  it('섹션 집계도 pending에서 success 또는 error로 끝난다', async () => {
+    const counts = deferred<Record<string, number>>();
+    mocks.getProgramStatusCounts.mockReturnValue(counts.promise);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId={null} member />
+        </QueryClientProvider>,
+      );
+    });
+    expect(data().facetStatus).toBe('pending');
+    expect(data().scopeOverviewStatus).toBe('idle');
+
+    await act(async () => {
+      counts.resolve({ in_progress: 3 });
+      await counts.promise;
+    });
+    expect(data().facetStatus).toBe('success');
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    mocks.getProgramStatusCounts.mockRejectedValue(new TypeError('network'));
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId={null} member />
+        </QueryClientProvider>,
+      );
+    });
+    expect(data().facetStatus).toBe('error');
   });
 });

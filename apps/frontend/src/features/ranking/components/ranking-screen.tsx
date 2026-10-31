@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRankingUrlState } from '../ranking-url-state';
 import { useRankingQuery } from '../queries';
 import { getRanking } from '../api';
@@ -17,9 +17,11 @@ const PAGE_SIZE = 100;
 
 interface RankingScreenProps {
   readonly onNextCycleAt: (nextCycleAt: string | null) => void;
+
+  readonly filters?: ReactNode;
 }
 
-export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
+export function RankingScreen({ onNextCycleAt, filters }: RankingScreenProps) {
   const {
     state: { year, page },
     navigate,
@@ -85,6 +87,7 @@ export function RankingScreen({ onNextCycleAt }: RankingScreenProps) {
   return (
     <RankingView
       page={page}
+      filters={filters}
       state={state}
       onPageChange={(nextPage) => navigate({ page: nextPage })}
       onRetry={() => void query.refetch()}

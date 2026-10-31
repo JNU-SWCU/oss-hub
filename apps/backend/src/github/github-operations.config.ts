@@ -2,14 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from './domain/github-app.error';
-import type { GithubAppCredentials } from './domain/github-app.types';
+} from './github-app.error';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
-} from '../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
-import { readPrivateKeyFile } from '../runtime-config/private-key-file';
+} from '../platform/runtime-config.config';
+import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
+import { loadPrivateKeyFileConfig } from '../platform/private-key-file.config';
 
 const PRIVATE_KEY_FILE_ENV_KEY = 'GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE';
 
@@ -54,7 +53,7 @@ export class GithubOperationsConfig {
       return null;
     }
     try {
-      return readPrivateKeyFile(PRIVATE_KEY_FILE_ENV_KEY, filePath);
+      return loadPrivateKeyFileConfig(PRIVATE_KEY_FILE_ENV_KEY, filePath);
     } catch (error) {
       throw new GithubOperationsError(
         GITHUB_OPERATIONS_ERROR_CODES.CONFIGURATION,
@@ -69,4 +68,10 @@ export class GithubOperationsConfig {
 function configValue(raw: string | undefined): string | null {
   const value = raw?.trim();
   return value && value.length > 0 ? value : null;
+}
+
+export interface GithubAppCredentials {
+  readonly organization: string;
+  readonly appId: string;
+  readonly privateKey: string;
 }

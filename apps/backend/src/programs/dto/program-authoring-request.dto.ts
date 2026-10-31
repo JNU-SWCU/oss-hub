@@ -1,4 +1,3 @@
-import type { UpdateProgramCommand } from '../domain/program-write.commands';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -19,9 +18,10 @@ import {
   Min,
   registerDecorator,
   ValidateNested,
+  type ValidationOptions,
 } from 'class-validator';
-import type { ValidationOptions } from 'class-validator';
 import { ProgramTrackType } from '@prisma/client';
+import { type UpdateProgramCommand } from '../program-editor.service';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);

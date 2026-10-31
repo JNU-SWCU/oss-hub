@@ -1,27 +1,35 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { LoginHistoryController } from './controller/login-history.controller';
-import { LoginHistoryModule } from '../login-history/login-history.module';
-import { AuthenticationGuard } from './controller/authentication.guard';
+import { LoginHistoryController } from './login-history.controller';
+import { LoginHistoryRepository, AuthRepository } from './auth.repository';
+import { LoginHistoryService, AuthService } from './auth.service';
+import { AuthenticationGuard } from './authentication.guard';
 import { AuthConfig } from './auth.config';
-import { AuthController } from './controller/auth.controller';
-import { AuthRepository } from './repository/auth.repository';
-import { AuthService } from './service/auth.service';
-import { OriginGuard } from './controller/origin.guard';
-import { SessionGuard } from './controller/session.guard';
+import { AuthController } from './auth.controller';
+import { OriginGuard } from './origin.guard';
+import { SessionGuard } from './session.guard';
+import { AuthSessionService } from './auth-session.service';
 
 @Module({
-  imports: [LoginHistoryModule],
   controllers: [AuthController, LoginHistoryController],
   providers: [
     AuthConfig,
+    AuthSessionService,
     AuthService,
     AuthRepository,
+    LoginHistoryRepository,
+    LoginHistoryService,
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
     SessionGuard,
     OriginGuard,
   ],
-  exports: [AuthConfig, AuthService, SessionGuard, OriginGuard],
+  exports: [
+    AuthConfig,
+    AuthSessionService,
+    AuthService,
+    SessionGuard,
+    OriginGuard,
+  ],
 })
 export class AuthModule {}
