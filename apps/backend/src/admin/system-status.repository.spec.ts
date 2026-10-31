@@ -1,5 +1,6 @@
 import type { PrismaService } from '../platform/prisma.service';
 import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusService } from './system-status.service';
 
 const repositoryWith = (
   streams: ReadonlyArray<{ streamType: string; status: string }>,
@@ -39,6 +40,19 @@ const repositoryWith = (
       }),
     },
     collectionSyncCursor: { findFirst: jest.fn().mockResolvedValue(null) },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({
+        hasStaffAccess: false,
+        hasAdminAccess: true,
+        accountStatus: 'ACTIVE',
+      }),
+    },
+    repositoryProvisionJob: { count: jest.fn().mockResolvedValue(0) },
+    collectionSweepHistory: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
+      aggregate: jest.fn().mockResolvedValue({ _sum: {} }),
+    },
   };
   return new SystemStatusRepository(prisma as unknown as PrismaService);
 };
@@ -49,28 +63,35 @@ const threeReadyStreams = [
   { streamType: 'RELEASE', status: 'READY' },
 ];
 
-describe('SystemStatusRepository — stream 종류', () => {
-  it('ISSUE 행이 아직 없는 저장소는 그 stream을 부분(PARTIAL)으로 센다', async () => {
-    const snapshot =
-      await repositoryWith(threeReadyStreams).getIncrementalStatusSnapshot();
+const statusWith = (
+  streams: ReadonlyArray<{ streamType: string; status: string }>,
+) =>
+  new SystemStatusService(repositoryWith(streams), () => new Date()).getStatus(
+    1n,
+  );
 
-    expect(snapshot.readyStreamCount).toBe(3);
-    expect(snapshot.partialStreamCount).toBe(1);
+describe('SystemStatusService — stream 종류 (실제 repository)', () => {
+  it('ISSUE 행이 아직 없는 저장소는 그 stream을 부분(PARTIAL)으로 센다', async () => {
+    const { collection } = await statusWith(threeReadyStreams);
+
+    expect(collection.readyStreamCount).toBe(3);
+    expect(collection.partialStreamCount).toBe(1);
   });
 
   it('네 stream이 모두 READY면 부분으로 세는 stream이 없다', async () => {
-    const snapshot = await repositoryWith([
+    const { collection } = await statusWith([
       ...threeReadyStreams,
       { streamType: 'ISSUE', status: 'READY' },
-    ]).getIncrementalStatusSnapshot();
+    ]);
 
-    expect(snapshot.readyStreamCount).toBe(4);
-    expect(snapshot.partialStreamCount).toBe(0);
+    expect(collection.readyStreamCount).toBe(4);
+    expect(collection.partialStreamCount).toBe(0);
   });
 
   it('저장소별 상세에 ISSUE 칸을 함께 싣는다', async () => {
-    const [repository] =
-      await repositoryWith(threeReadyStreams).getIncrementalStatusStreams();
+    const {
+      collectionStreams: [repository],
+    } = await statusWith(threeReadyStreams);
 
     expect(repository?.streams.map((stream) => stream.streamType)).toEqual([
       'COMMIT',

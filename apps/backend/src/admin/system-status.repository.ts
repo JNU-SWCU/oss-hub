@@ -12,23 +12,12 @@ export interface SystemStatusActor {
   accountStatus: AccountStatus;
 }
 
-const COLLECTION_STREAM_TYPES = [
-  'COMMIT',
-  'PULL_REQUEST',
-  'RELEASE',
-  'ISSUE',
-] as const;
-type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
-type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
-
-type CollectionStreamDetailBucketDto =
-  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
-
 export interface CollectionIncrementalStatusSnapshotDto {
   readonly trackedRepositoryCount: number;
   readonly readyStreamCount: number;
   readonly backfillingStreamCount: number;
-  readonly partialStreamCount: number;
+  readonly pendingStreamCount: number;
+  readonly verifyingStreamCount: number;
   readonly retryPendingStreamCount: number;
   readonly oldestReadyCheckpointAt: Date | null;
   readonly latestCheckpointAt: Date | null;
@@ -40,10 +29,10 @@ export interface CollectionIncrementalStatusSnapshotDto {
   readonly lastRepositorySuccessAt: Date | null;
 }
 
-interface CollectionRepositoryStreamDetailDto {
-  readonly streamType: CollectionStreamType;
-  readonly bucket: CollectionStreamDetailBucketDto;
-  readonly lastSuccessAt: Date | null;
+interface CollectionRepositoryStreamRow {
+  readonly streamType: string;
+  readonly status: string;
+  readonly lastRunAt: Date | null;
   readonly lastErrorCode: string | null;
   readonly lastErrorAt: Date | null;
 }
@@ -51,7 +40,7 @@ interface CollectionRepositoryStreamDetailDto {
 export interface CollectionRepositoryStreamsDto {
   readonly repositoryName: string;
   readonly programName: string | null;
-  readonly streams: readonly CollectionRepositoryStreamDetailDto[];
+  readonly streams: readonly CollectionRepositoryStreamRow[];
 }
 
 export interface CollectionSweepActivityDto {
@@ -97,16 +86,6 @@ const PRESENT_EXTERNAL_REPOSITORY = {
 } as const;
 
 const EXTERNAL_SWEEP_SCOPE = 'external';
-
-function classifyStreamBucket(
-  status: CollectionStreamStatus | null,
-  lastErrorCode: string | null,
-): CollectionStreamDetailBucketDto {
-  if (lastErrorCode !== null) return 'RETRY_PENDING';
-  if (status === 'READY') return 'READY';
-  if (status === 'BACKFILLING') return 'BACKFILLING';
-  return 'PARTIAL';
-}
 
 function toSweepActivity(row: {
   sweepFinishedAt: Date;
@@ -191,15 +170,8 @@ export class SystemStatusRepository {
 
     const readyStreamCount = countFor('READY');
     const backfillingStreamCount = countFor('BACKFILLING');
-    const knownPartialStreamCount = countFor('PENDING') + countFor('VERIFYING');
-
-    const expectedStreamCount =
-      trackedRepositoryCount * COLLECTION_STREAM_TYPES.length;
-    const observedStreamCount =
-      readyStreamCount + backfillingStreamCount + knownPartialStreamCount;
-    const partialStreamCount =
-      knownPartialStreamCount +
-      Math.max(0, expectedStreamCount - observedStreamCount);
+    const pendingStreamCount = countFor('PENDING');
+    const verifyingStreamCount = countFor('VERIFYING');
 
     const retryPendingWhere = {
       lastErrorCode: { not: null },
@@ -235,7 +207,8 @@ export class SystemStatusRepository {
       trackedRepositoryCount,
       readyStreamCount,
       backfillingStreamCount,
-      partialStreamCount,
+      pendingStreamCount,
+      verifyingStreamCount,
       retryPendingStreamCount,
       oldestReadyCheckpointAt: oldestReady._min.lastRunAt ?? null,
       latestCheckpointAt: latest._max.lastRunAt ?? null,
@@ -273,30 +246,11 @@ export class SystemStatusRepository {
       repositories.map((repository) => repository.githubRepositoryId),
     );
 
-    return repositories.map((repository) => {
-      const byType = new Map(
-        repository.streams.map((stream) => [stream.streamType, stream]),
-      );
-      const streams: CollectionRepositoryStreamDetailDto[] =
-        COLLECTION_STREAM_TYPES.map((streamType) => {
-          const row = byType.get(streamType);
-          return {
-            streamType,
-            bucket: classifyStreamBucket(
-              row?.status ?? null,
-              row?.lastErrorCode ?? null,
-            ),
-            lastSuccessAt: row?.lastRunAt ?? null,
-            lastErrorCode: row?.lastErrorCode ?? null,
-            lastErrorAt: row?.lastErrorAt ?? null,
-          };
-        });
-      return {
-        repositoryName: repository.nameWithOwner,
-        programName: programNameById.get(repository.githubRepositoryId) ?? null,
-        streams,
-      };
-    });
+    return repositories.map((repository) => ({
+      repositoryName: repository.nameWithOwner,
+      programName: programNameById.get(repository.githubRepositoryId) ?? null,
+      streams: repository.streams,
+    }));
   }
 
   async getRecentSweepActivity(
