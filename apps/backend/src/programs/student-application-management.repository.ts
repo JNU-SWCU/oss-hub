@@ -18,19 +18,6 @@ import {
 } from './student-application-management.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
-class StudentResubmissionRepository {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
-
-  appendReviewHistory(
-    input: AppendReviewHistoryInput,
-  ): Promise<AppendedReviewHistory> {
-    return ReviewHistoryWriterRepository.appendReviewHistory(
-      this.transaction,
-      input,
-    );
-  }
-}
-
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -125,6 +112,8 @@ export type StudentApplicationManagementClock = () => Date;
 export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly platformRepository: PlatformRepository,
     @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
     private readonly clock: StudentApplicationManagementClock = () =>
       new Date(),
@@ -137,7 +126,9 @@ export class StudentApplicationManagementRepository {
     const row = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(studentId),
+        ...this.platformRepository.programApplicationParticipantWhere(
+          studentId,
+        ),
       },
       select: APPLICATION_SELECT,
     });
@@ -186,9 +177,7 @@ export class StudentApplicationManagementRepository {
         select: APPLICATION_SELECT,
       });
       if (resubmitted) {
-        await new StudentResubmissionRepository(
-          transaction,
-        ).appendReviewHistory({
+        await this.appendReviewHistoryIn(transaction, {
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.RESUBMITTED,
           actorId: input.studentId,
@@ -266,7 +255,7 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationManagerWhere(studentId),
+        ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
@@ -279,7 +268,7 @@ export class StudentApplicationManagementRepository {
       where: {
         id: candidate.id,
         programId,
-        ...PlatformRepository.programApplicationManagerWhere(studentId),
+        ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
     });
@@ -299,5 +288,12 @@ export class StudentApplicationManagementRepository {
       return { kind: 'period-closed' };
     }
     return null;
+  }
+
+  private appendReviewHistoryIn(
+    transaction: Prisma.TransactionClient,
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return this.reviewHistory.appendReviewHistory(transaction, input);
   }
 }

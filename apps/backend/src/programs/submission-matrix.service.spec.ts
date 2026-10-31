@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import type { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
@@ -13,8 +16,6 @@ import {
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const PROGRAM_ID = 'synthetic-matrix-program';
@@ -89,7 +90,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     await expect(
@@ -149,7 +150,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -242,7 +243,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -258,7 +259,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(
@@ -282,7 +283,10 @@ describe('SubmissionMatrixService', () => {
 describe('submissionMatrixApplicationWhere', () => {
   it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -295,19 +299,28 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
     };
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -318,7 +331,10 @@ describe('submissionMatrixApplicationWhere', () => {
     const contains = { contains: 'Hong', mode: 'insensitive' };
 
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: 'Hong',
         applicationMode: null,
       }),

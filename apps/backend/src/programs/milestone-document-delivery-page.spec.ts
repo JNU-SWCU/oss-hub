@@ -1,12 +1,7 @@
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const milestoneDocumentCollectionService =
-  new MilestoneDocumentCollectionService(
-    undefined as never,
-    new MilestoneDocumentRulesService(new ProgramRulesService()),
-  );
+  new MilestoneDocumentCollectionService(undefined as never);
 
 const dueAt = new Date('2026-08-14T12:00:00Z');
 const documents = [

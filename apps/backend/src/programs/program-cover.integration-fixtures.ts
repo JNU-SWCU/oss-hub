@@ -1,3 +1,12 @@
+import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
@@ -10,9 +19,6 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
@@ -20,13 +26,29 @@ export const GITHUB_ID = 9_126_600_001n;
 export const COVER_ACTOR = { id: ACTOR, githubId: GITHUB_ID };
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  ),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
-  new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
 );
-export const publicCovers = new ProgramCoverRepository(prisma);
+export const publicCovers = new ProgramCoverRepository(
+  prisma,
+  new ProgramAuthoringUploadTransactionRepository(),
+);
 export const record = jest.fn(() => Promise.resolve());
 let authoringService: ProgramAuthoringService;
 export function authoring(): ProgramAuthoringService {
@@ -95,12 +117,22 @@ beforeAll(async () => {
   await prisma.$connect();
   const moduleRef = await Test.createTestingModule({
     providers: [
+      ...STATELESS_PROVIDERS,
+      ProgramCoverRepository,
       ProgramAuthoringService,
       ProgramAuthoringRepository,
       AuditLogMetadataService,
-      ProgramRulesService,
-      ProgramUploadRulesService,
-      SubmissionFileRulesService,
+      ProgramScheduleService,
+      ProgramTemplatesService,
+      {
+        provide: ProgramAuthoringUploadService,
+        useValue: new ProgramAuthoringUploadService(
+          {} as never,
+          {} as never,
+          new SubmissionFileAdmissionService(),
+          new ProgramNoticeFetchClient(),
+        ),
+      },
       { provide: PrismaService, useValue: prisma },
       { provide: AuditLogService, useValue: { record } },
     ],

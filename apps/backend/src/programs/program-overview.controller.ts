@@ -4,7 +4,7 @@ import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-resp
 import { ProgramOverviewQueryRequestDto } from './dto/program-overview-query-request.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('programs/:programId/overview')
 @Protected()
@@ -17,10 +17,10 @@ export class ProgramOverviewController {
     @Req() request: AuthenticatedRequest,
     @Query() query: ProgramOverviewQueryRequestDto = {},
   ): Promise<ProgramOverviewResponseDto> {
-    const overview = await this.service.getOverview(
+    const overview = await this.service.getOverviewFromRequest(
       programId,
       request.sessionGithubId,
-      query.view === 'operations',
+      query,
     );
     return ProgramOverviewResponseDto.from(overview);
   }

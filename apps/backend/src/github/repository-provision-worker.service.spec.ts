@@ -1,3 +1,7 @@
+import type { GithubAppClient } from './github-app.client';
+import type { RepositoryOwnEnrollmentService } from './repositories.service';
+import type { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
+import type { RepositoryProvisionStateService } from './repository-provision-state.service';
 import { RepositoryInvitationStatus, RepositorySource } from '@prisma/client';
 import {
   CURRENT_MEMBER_GITHUB_LOGINS,
@@ -26,11 +30,12 @@ import {
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
 
-const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
+const repositoryProvisionGithubService = new RepositoryProvisionGithubService(
+  new RepositoryUrlService(),
+);
 
 describe('RepositoryProvisionWorkerService success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -39,18 +44,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     const state = provisionStateMock();
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -68,18 +69,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     );
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(worker.runNext('worker-a', PROVISION_NOW)).resolves.toEqual({
@@ -112,18 +109,14 @@ describe('RepositoryProvisionWorkerService success', () => {
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.SUCCEEDED);
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-a', PROVISION_NOW);
@@ -194,18 +187,14 @@ describe('RepositoryProvisionWorkerService success', () => {
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-recurring', PROVISION_NOW);
@@ -241,18 +230,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-revoke', PROVISION_NOW);
@@ -298,18 +283,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-order', PROVISION_NOW);
@@ -341,18 +322,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-empty-team', PROVISION_NOW);
@@ -384,18 +361,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-rejoin', PROVISION_NOW);
@@ -419,18 +392,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     state.findInvitationWork.mockResolvedValue([revokeInvitationWork()]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-revoke-lease', PROVISION_NOW);
@@ -465,18 +434,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-b', PROVISION_NOW);
@@ -515,18 +480,14 @@ describe('RepositoryProvisionWorkerService success', () => {
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-current-link', PROVISION_NOW);
@@ -580,18 +541,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     );
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-new-external', PROVISION_NOW);
@@ -642,18 +599,14 @@ describe('RepositoryProvisionWorkerService success', () => {
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-own-managed', PROVISION_NOW);
@@ -711,23 +664,19 @@ describe('RepositoryProvisionWorkerService success', () => {
       nameWithOwner: `synthetic-org/${PROVISION_REPOSITORY.name}`,
       visibility: PROVISION_REPOSITORY.visibility,
       description:
-        repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+        repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
           'synthetic-application-id',
         ),
     });
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-c', PROVISION_NOW);
@@ -751,18 +700,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     });
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext(
@@ -819,18 +764,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
     const enrollExternalRepository = jest.fn();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository,
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-org-own', PROVISION_NOW);
@@ -914,18 +855,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       description: null,
     });
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext(
@@ -973,18 +910,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     });
     const enrollExternalRepository = jest.fn().mockResolvedValue(undefined);
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository,
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-own', PROVISION_NOW);
@@ -1049,18 +982,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       description: null,
     });
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await worker.runNext('worker-own-no-write', PROVISION_NOW);
@@ -1113,18 +1042,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     });
     const enrollExternalRepository = jest.fn().mockResolvedValue(undefined);
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository,
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -1169,18 +1094,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     });
     const enrollExternalRepository = jest.fn();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository,
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -1203,18 +1124,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue(null);
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-own-missing', PROVISION_NOW);
@@ -1238,18 +1155,14 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     );
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github,
+      jobs as unknown as RepositoryProvisionJobRepository,
+      state as unknown as RepositoryProvisionStateService,
+      github as unknown as GithubAppClient,
       {
         enrollExternalRepository: jest.fn(),
-      },
+      } as unknown as RepositoryOwnEnrollmentService,
       new AuditLogMetadataService(),
-      new RepositoryProvisionRulesService(),
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext('worker-own-bad-url', PROVISION_NOW);

@@ -41,7 +41,10 @@ type ProgramLifecycleTransaction = Prisma.TransactionClient;
 
 @Injectable()
 export class ProgramLifecycleRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly programDeletionScope: ProgramDeletionScopeRepository,
+  ) {}
 
   withDeleteTransaction<T>(
     operation: (transaction: ProgramLifecycleTransaction) => Promise<T>,
@@ -59,7 +62,7 @@ export class ProgramLifecycleRepository {
 
   readScopeCounts(programId: string): Promise<ProgramDeletionScopeCounts> {
     return this.prisma.$transaction((transaction) =>
-      ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+      this.programDeletionScope.readProgramDeletionScopeCounts(
         transaction,
         programId,
       ),
@@ -70,7 +73,7 @@ export class ProgramLifecycleRepository {
     transaction: ProgramLifecycleTransaction,
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {
-    return ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+    return this.programDeletionScope.readProgramDeletionScopeCounts(
       transaction,
       programId,
     );
@@ -465,7 +468,7 @@ export class ProgramLifecycleRepository {
     };
   }
 
-  static isForeignKeyConflict(error: unknown): boolean {
+  isForeignKeyConflict(error: unknown): boolean {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2003'

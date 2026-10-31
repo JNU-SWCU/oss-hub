@@ -1,9 +1,11 @@
 import {
-  RepositoryProvisionRulesService,
   GITHUB_REPOSITORY_NAME_MAX_LENGTH,
-} from './repository-provision-rules.service';
-
-const repositoryProvisionRulesService = new RepositoryProvisionRulesService();
+  RepositoryProvisionGithubService,
+} from './repository-provision-github.service';
+import { RepositoryUrlService } from './repository-url.service';
+const repositoryProvisionGithubService = new RepositoryProvisionGithubService(
+  new RepositoryUrlService(),
+);
 
 describe('buildRepositoryNames', () => {
   it('영문 이름을 ASCII kebab-case 후보로 만든다', () => {
@@ -14,7 +16,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'application-fixture-id',
     };
 
-    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
+    const result = repositoryProvisionGithubService.buildRepositoryNames(input);
 
     expect(result).toEqual({
       preferred: 'open-source-camp-team-alpha',
@@ -30,7 +32,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'applicationfixture456',
     };
 
-    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
+    const result = repositoryProvisionGithubService.buildRepositoryNames(input);
 
     expect(result).toEqual({
       preferred: 'program-programf-team-applicat',
@@ -46,7 +48,7 @@ describe('buildRepositoryNames', () => {
       applicationId: 'application-fixture-id',
     };
 
-    const result = repositoryProvisionRulesService.buildRepositoryNames(input);
+    const result = repositoryProvisionGithubService.buildRepositoryNames(input);
 
     expect(result.preferred.length).toBeLessThanOrEqual(
       GITHUB_REPOSITORY_NAME_MAX_LENGTH,
@@ -63,15 +65,15 @@ describe('buildRepositoryOwnershipMarker', () => {
     const applicationId = 'application-sensitive-fixture-id';
 
     const first =
-      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
         applicationId,
       );
     const repeated =
-      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
         applicationId,
       );
     const different =
-      repositoryProvisionRulesService.buildRepositoryOwnershipMarker(
+      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
         'other-application-id',
       );
 

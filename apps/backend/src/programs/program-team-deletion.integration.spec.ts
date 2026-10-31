@@ -1,3 +1,8 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
@@ -30,7 +35,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -64,20 +68,36 @@ const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
-const deletionRepository = new ProgramTeamDeletionRepository(prisma);
+const deletionRepository = new ProgramTeamDeletionRepository(
+  prisma,
+  new TeamDeletionScopeRepository(),
+  new PrismaSerializationRetryRepository(),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
 const service = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ),
   auditLog,
   deletionRepository,
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new ProgramRulesService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
 
 let teamSequence = 0;

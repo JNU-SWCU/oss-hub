@@ -9,7 +9,6 @@ import {
   UseGuards,
   Body,
   HttpCode,
-  Logger,
   Patch,
   Post,
   Query,
@@ -39,19 +38,14 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import {
-  MilestoneDocumentArchiveService,
-  type MilestoneDocumentArchiveScope,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
-import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 
 type ViewerRequest = Pick<
   AuthenticatedRequest,
@@ -63,19 +57,6 @@ const staffOnly = () =>
     MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
   );
 
-const archiveLogger = new Logger('MilestoneDocumentArchive');
-
-interface ArchiveFailureRequest {
-  readonly milestoneId: string;
-  readonly scope: MilestoneDocumentArchiveScope;
-}
-
-function failedStorageKey(error: Error): string {
-  return error instanceof MilestoneDocumentArchiveEntryError
-    ? error.storageKey
-    : 'unknown';
-}
-
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
   constructor(
@@ -85,8 +66,6 @@ export class MilestoneDocumentsController {
     private readonly archiveService: MilestoneDocumentArchiveService,
     private readonly collectionService: MilestoneDocumentCollectionService,
     private readonly currentFileService: MilestoneDocumentCurrentFileService,
-    private readonly downloadResponseService: DownloadResponseService,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   @Get()
@@ -107,15 +86,16 @@ export class MilestoneDocumentsController {
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
-  collection(
+  async collection(
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return this.collectionService
-      .collectForStaff(milestoneId, query.toQuery())
-      .then((result) =>
-        MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-      );
+    return MilestoneDocumentDeliveryCollectionResponseDto.from(
+      await this.collectionService.collectForStaffFromRequest(
+        milestoneId,
+        query,
+      ),
+    );
   }
 
   @Get('collection/archive')
@@ -127,17 +107,10 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const scope = this.archiveService.milestoneArchiveScopeFromRequest(query);
-    const archive = await this.archiveService.archiveForStaff(
+    return this.archiveService.streamArchiveForStaff(
+      response,
       milestoneId,
-      scope,
-    );
-    this.downloadResponseService.setDownloadHeaders(response, archive);
-
-    response.once('close', () => archive.body.destroy());
-
-    return new StreamableFile(archive.body).setErrorHandler((error) =>
-      this.respondWithArchiveFailure(error, response, { milestoneId, scope }),
+      query,
     );
   }
 
@@ -151,10 +124,10 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: UpdateMilestoneDocumentGraceRequestDto,
   ): Promise<void> {
-    return this.service.updateGraceDueAt(
+    return this.service.updateGraceDueAtFromRequest(
       milestoneId,
       documentId,
-      body.toDate(),
+      body,
     );
   }
 
@@ -167,13 +140,12 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const file = await this.filesService.downloadTemplate(
+    return this.filesService.downloadTemplateTo(
+      response,
       request.sessionGithubId,
       milestoneId,
       documentId,
     );
-    this.downloadResponseService.setDownloadHeaders(response, file);
-    return new StreamableFile(file.body);
   }
 
   @Get(':documentId/applications/:applicationId/file')
@@ -186,47 +158,51 @@ export class MilestoneDocumentsController {
     @Param('applicationId') applicationId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const file = await this.filesService.downloadSubmissionFile(
+    return this.filesService.downloadSubmissionFileTo(
+      response,
       milestoneId,
       documentId,
       applicationId,
     );
-    this.downloadResponseService.setDownloadHeaders(response, file);
-    return new StreamableFile(file.body);
   }
 
   @Get(':documentId/applications/:applicationId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
-  history(
+  async history(
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service
-      .historyForStaff(milestoneId, documentId, applicationId, query.toQuery())
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+    return MilestoneDocumentHistoryPageResponseDto.from(
+      await this.service.historyForStaff(
+        milestoneId,
+        documentId,
+        applicationId,
+        query,
+      ),
+    );
   }
 
   @Get(':documentId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
-  participantHistory(
+  async participantHistory(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service
-      .historyForParticipant(
+    return MilestoneDocumentHistoryPageResponseDto.from(
+      await this.service.historyForParticipant(
         request.sessionGithubId,
         milestoneId,
         documentId,
-        query.toQuery(),
-      )
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+        query,
+      ),
+    );
   }
 
   @Post(':documentId/applications/:applicationId/reviews')
@@ -234,44 +210,42 @@ export class MilestoneDocumentsController {
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
-  review(
+  async review(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
-    return this.reviewsService
-      .review(
+    return MilestoneDocumentReviewResponseDto.from(
+      await this.reviewsService.reviewFromRequest(
         request.principal.id,
         milestoneId,
         documentId,
         applicationId,
-        this.reviewsService.reviewInputFromRequest(body),
-      )
-      .then((result) => MilestoneDocumentReviewResponseDto.from(result));
+        body,
+      ),
+    );
   }
 
   @Post(':documentId/submissions')
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  submit(
+  async submit(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    return this.service
-      .submit(
+    return MilestoneDocumentSubmissionResponseDto.from(
+      await this.service.submitFromRequest(
         request.sessionGithubId,
         milestoneId,
         documentId,
-        this.milestoneDocumentRulesService.parseMilestoneDocumentContent(
-          body.content,
-        ),
-      )
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+        body,
+      ),
+    );
   }
 
   @Get(':documentId/submissions/current/file')
@@ -283,29 +257,11 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    const file = await this.currentFileService.download(
+    return this.currentFileService.downloadTo(
+      response,
       request.sessionGithubId,
       milestoneId,
       documentId,
-    );
-    this.downloadResponseService.setDownloadHeaders(response, file);
-    return new StreamableFile(file.body);
-  }
-
-  private respondWithArchiveFailure(
-    error: Error,
-    response: Response,
-    request: ArchiveFailureRequest,
-  ): void {
-    archiveLogger.error(
-      `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
-    );
-    this.downloadResponseService.respondWithDownloadFailure(
-      response,
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-      ],
-      'END',
     );
   }
 }

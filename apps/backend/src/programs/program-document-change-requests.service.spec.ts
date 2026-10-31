@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -11,12 +13,13 @@ import {
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
 } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
-const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
-  new ProgramRulesService(),
-);
+const programDocumentChangeRequestsService =
+  new ProgramDocumentChangeRequestsService(
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');
@@ -105,7 +108,7 @@ function service(input: {
     service: new ProgramDocumentChangeRequestsService(
       repo as unknown as MilestoneDocumentsRepository,
       input.programs ?? programs(),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     ),
   };
 }
@@ -119,7 +122,9 @@ function request(
     comment: '양식을 바꿔 다시 내 주세요.',
     resubmissionDueAt: dueAt,
     expectedVersion:
-      milestoneDocumentRulesService.changeRequestTargetsVersion(previewed),
+      programDocumentChangeRequestsService.changeRequestTargetsVersion(
+        previewed,
+      ),
     ...overrides,
   };
 }
@@ -142,7 +147,9 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
         REJECTED: 0,
       },
       version:
-        milestoneDocumentRulesService.changeRequestTargetsVersion(previewed),
+        programDocumentChangeRequestsService.changeRequestTargetsVersion(
+          previewed,
+        ),
     });
     expect(repo.findChangeRequestCandidates).toHaveBeenCalledWith(programId, [
       'application-a',
@@ -162,7 +169,9 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
       subject.targets(programId, { kind: 'TEAM', teamId: 'team-x' }),
     ).resolves.toEqual({
       counts: { SUBMITTED: 0, CHANGES_REQUESTED: 0, APPROVED: 0, REJECTED: 0 },
-      version: milestoneDocumentRulesService.changeRequestTargetsVersion([]),
+      version: programDocumentChangeRequestsService.changeRequestTargetsVersion(
+        [],
+      ),
     });
     expect(reader.findApprovedTeams.mock.calls).toEqual([
       [programId, 'team-x'],

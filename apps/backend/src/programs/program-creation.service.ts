@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  StreamableFile,
 } from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
@@ -18,7 +19,8 @@ import {
   ProgramErrorCode,
 } from './program-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 
 export type CreatedProgram = {
   readonly id: string;
@@ -48,6 +50,18 @@ export class ProgramCoverService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
   ) {}
+
+  async streamable(
+    programId: string,
+    coverId: string,
+  ): Promise<StreamableFile> {
+    const cover = await this.read(programId, coverId);
+    return new StreamableFile(cover.body, {
+      type: cover.contentType,
+      length: cover.size,
+      disposition: 'inline',
+    });
+  }
 
   async read(programId: string, coverId: string) {
     const cover = await this.repository.findPublicCover(programId, coverId);
@@ -84,7 +98,8 @@ export class ProgramCreationService {
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
-    private readonly programRulesService: ProgramRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
@@ -95,7 +110,7 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = this.programRulesService.getProgramTemplate(
+    const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
     );
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
@@ -130,7 +145,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      this.programRulesService.isProgramEndAtUndecided(endAt) ||
+      this.programScheduleService.isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(

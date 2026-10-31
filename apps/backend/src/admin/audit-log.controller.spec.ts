@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 import { AuditLogController } from './audit-log.controller';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 
 describe('AuditLogController', () => {
@@ -34,9 +34,11 @@ describe('AuditLogController', () => {
       limit: 20,
       total: 0,
     });
-    const controller = new AuditLogController({
-      list,
-    } as unknown as AuditLogService);
+    const controller = new AuditLogController(
+      Object.assign(Object.create(AuditLogService.prototype) as object, {
+        list,
+      }) as unknown as AuditLogService,
+    );
     const query = Object.assign(new AuditLogListRequestDto(), {
       actor: 'synthetic-admin',
     });

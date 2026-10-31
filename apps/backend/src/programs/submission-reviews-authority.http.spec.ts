@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import {
   ValidationPipe,
   type ExecutionContext,
@@ -19,7 +20,6 @@ import type {
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import {
   protectedRouteGuardStub,
   sessionPrincipal,
@@ -148,7 +148,7 @@ beforeAll(async () => {
           new RepositoryPublishService(),
           new RepositoryUrlService(),
           new MilestoneCompletionService(),
-          new SubmissionFileRulesService(),
+          new SubmissionFileAdmissionService(),
         ),
       },
     ],

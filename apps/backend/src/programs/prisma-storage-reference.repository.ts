@@ -1,6 +1,6 @@
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
-  PrismaClient,
   ProgramAuthoringUploadLifecycle,
   ProgramPurgeFileTombstoneLifecycle,
   SubmissionFileLifecycle,
@@ -51,11 +51,7 @@ export interface StorageReferencePrisma {
   ): Promise<T>;
 }
 
-interface StorageReferenceRepositoryLifecycle {
-  readonly references: StorageReferenceRepository;
-  readonly disconnect: () => Promise<void>;
-}
-
+@Injectable()
 export class PrismaStorageReferenceRepository implements StorageReferenceRepository {
   constructor(private readonly prisma: StorageReferencePrisma) {}
 
@@ -161,13 +157,5 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
-  }
-
-  static createStorageReferenceRepository(): StorageReferenceRepositoryLifecycle {
-    const prisma = new PrismaClient();
-    return {
-      references: new PrismaStorageReferenceRepository(prisma),
-      disconnect: () => prisma.$disconnect(),
-    };
   }
 }

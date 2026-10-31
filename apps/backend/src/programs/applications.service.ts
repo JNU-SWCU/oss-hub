@@ -122,6 +122,13 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
 
 const JOIN_CODE_ATTEMPTS = 5;
 
+export interface CreateApplicationRequest {
+  readonly answers: Readonly<Record<string, unknown>>;
+  readonly teamName?: string | null;
+  readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned?: boolean;
+}
+
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -142,6 +149,35 @@ export class ApplicationsService {
 
   private readonly parseProvisionHistoryPayload = (payload: unknown) =>
     this.repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
+
+  createInputFromRequest(
+    request: CreateApplicationRequest,
+  ): CreateApplicationInput {
+    const trimmedTeamName = request.teamName?.trim();
+
+    return {
+      answers: request.answers,
+      teamName:
+        trimmedTeamName !== undefined && trimmedTeamName.length > 0
+          ? trimmedTeamName
+          : null,
+      applicationTemplateVersion: request.applicationTemplateVersion,
+      isRepositoryPublicationPlanned:
+        request.isRepositoryPublicationPlanned ?? true,
+    };
+  }
+
+  createFromRequest(
+    githubId: bigint,
+    programId: string,
+    request: CreateApplicationRequest,
+  ): Promise<CreatedApplication> {
+    return this.create(
+      githubId,
+      programId,
+      this.createInputFromRequest(request),
+    );
+  }
 
   async create(
     githubId: bigint,
@@ -350,10 +386,43 @@ export class ApplicationsService {
     }
   }
 
+  listQueryFromRequest(request: ApplicationListQuery): ApplicationListQuery {
+    return {
+      page: request.page,
+      pageSize: request.pageSize,
+      search: request.search.trim(),
+      status: request.status,
+      view: request.view,
+    };
+  }
+
+  async listForProgramView(
+    programId: string,
+    request: ApplicationListQuery,
+  ): Promise<
+    | {
+        readonly view: 'team-management';
+        readonly page: TeamManagementListPage;
+      }
+    | { readonly view: 'default'; readonly page: ApplicationListPage }
+  > {
+    if (request.view === 'team-management') {
+      return {
+        view: 'team-management',
+        page: await this.listTeamManagementForProgram(programId, request),
+      };
+    }
+    return {
+      view: 'default',
+      page: await this.listForProgram(programId, request),
+    };
+  }
+
   async listForProgram(
     programId: string,
-    query: ApplicationListQuery,
+    request: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
+    const query = this.listQueryFromRequest(request);
     await this.requireProgram(programId);
     const page = await this.repository.listApplicationsForProgram(
       programId,
@@ -369,8 +438,9 @@ export class ApplicationsService {
 
   async listTeamManagementForProgram(
     programId: string,
-    query: ApplicationListQuery,
+    request: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
+    const query = this.listQueryFromRequest(request);
     await this.requireProgram(programId);
     return this.repository.listTeamManagementForProgram(programId, query);
   }

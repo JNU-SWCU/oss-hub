@@ -52,7 +52,10 @@ describe('repository-own-enrollment.service', () => {
           return Promise.resolve(true);
         }),
       };
-      const service = new RepositoryOwnEnrollmentService(consents, enrollment);
+      const service = new RepositoryOwnEnrollmentService(
+        consents as unknown as ConsentsService,
+        enrollment as unknown as CollectionIncrementalRepository,
+      );
 
       await service.enrollExternalRepository(INPUT);
 
@@ -78,7 +81,10 @@ describe('repository-own-enrollment.service', () => {
         CollectionIncrementalRepository,
         'enrollExternalRepository'
       > = { enrollExternalRepository: jest.fn() };
-      const service = new RepositoryOwnEnrollmentService(consents, enrollment);
+      const service = new RepositoryOwnEnrollmentService(
+        consents as unknown as ConsentsService,
+        enrollment as unknown as CollectionIncrementalRepository,
+      );
 
       await expect(service.enrollExternalRepository(INPUT)).rejects.toBe(
         missingConsent,
@@ -149,9 +155,9 @@ function dependencies() {
 
 function serviceFrom(deps: ReturnType<typeof dependencies>) {
   return new RepositoriesService(
-    deps.repository,
-    deps.github,
-    deps.auditLog,
+    deps.repository as unknown as RepositoriesRepository,
+    deps.github as unknown as GithubAppClient,
+    deps.auditLog as unknown as AuditLogService,
     new AuditLogMetadataService(),
     new RepositoryUrlService(),
   );

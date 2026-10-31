@@ -1,3 +1,11 @@
+import {
+  type MilestoneDocumentCollectionQuery,
+  MilestoneDocumentCollectionService,
+} from './milestone-document-collection.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
@@ -20,10 +28,6 @@ import {
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
 } from './milestone-document-submission.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import type { MilestoneDocumentCollectionQuery } from './milestone-document-rules.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
@@ -199,8 +203,12 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service.listByMilestone(syntheticMilestoneId);
@@ -243,8 +251,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       });
       const result = await new MilestoneDocumentsService(
         repository,
-        new MilestoneDocumentRulesService(new ProgramRulesService()),
-        new SubmissionFileRulesService(),
+        new MilestoneDocumentSubmissionWindowService(
+          new ProgramScheduleService(),
+        ),
+        new MilestoneDocumentCollectionService({} as never),
+        new ProgramScheduleService(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
       ).listForViewer(1n, syntheticMilestoneId);
       expect(result[0]).toMatchObject({
         viewerSubmission: {
@@ -269,8 +281,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -294,8 +310,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -349,8 +369,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -405,8 +429,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     ).listForViewer(1n, syntheticMilestoneId);
 
     expect(result[0]?.viewerSubmission).toEqual(
@@ -451,8 +479,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -490,8 +522,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -513,8 +549,12 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -539,8 +579,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
     const input = {
       name: '새 서류',
@@ -564,8 +608,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -588,8 +636,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -610,8 +662,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -633,8 +689,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
@@ -658,8 +718,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service.updateDocument(
@@ -688,8 +752,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service.updateDocument(
@@ -724,8 +792,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -740,8 +812,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { mocks, repository } = buildRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -765,8 +841,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service.deleteDocument(syntheticMilestoneId, syntheticDocumentId);
@@ -793,8 +873,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -811,8 +895,12 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -860,8 +948,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -891,8 +983,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service.reorderDocuments(
@@ -916,8 +1012,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service.reorderDocuments(syntheticMilestoneId, lockedIds);
@@ -938,8 +1038,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -958,8 +1062,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -974,8 +1082,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -993,8 +1105,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1013,8 +1129,12 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1037,8 +1157,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     const { mocks, repository } = buildRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1069,8 +1193,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1103,8 +1231,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1139,8 +1271,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1176,8 +1312,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service
@@ -1222,8 +1362,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1264,8 +1408,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1310,8 +1458,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -1376,8 +1528,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -1433,8 +1589,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service
@@ -1482,8 +1642,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1522,8 +1686,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1590,8 +1758,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
@@ -1607,8 +1779,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
@@ -1624,8 +1800,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await resubmit(service);
@@ -1641,8 +1821,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     const { mocks, repository } = resubmitRepository(null);
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await resubmit(service);
@@ -1656,8 +1840,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     const { mocks, repository } = resubmitRepository(null);
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await resubmit(service);
@@ -1677,8 +1865,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       .mockRejectedValue(new MilestoneDocumentReviewChangedError());
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
@@ -1696,8 +1888,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
@@ -1712,8 +1908,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await resubmit(service);
@@ -1784,8 +1984,12 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await submitAt(service, afterDeadline);
@@ -1809,8 +2013,12 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
@@ -1827,8 +2035,12 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await submitAt(service, beforeDeadline);
@@ -1853,8 +2065,12 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
@@ -1907,8 +2123,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -1922,8 +2142,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -1958,8 +2182,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -1984,8 +2212,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2047,8 +2279,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2103,8 +2339,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2144,8 +2384,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2174,8 +2418,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2209,8 +2457,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2270,8 +2522,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2288,8 +2544,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await service
@@ -2351,8 +2611,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2417,8 +2681,12 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2475,8 +2743,12 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2541,8 +2813,12 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const list = await service
@@ -2584,8 +2860,12 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     await expect(
@@ -2701,8 +2981,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2719,8 +3003,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const first = await service
@@ -2759,8 +3047,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2779,8 +3071,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2802,8 +3098,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2826,8 +3126,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2854,8 +3158,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2875,8 +3183,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2915,8 +3227,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -2961,8 +3277,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const filtered = await service
@@ -3003,8 +3323,12 @@ describe('document grace configuration', () => {
       });
       const service = new MilestoneDocumentsService(
         repository,
-        new MilestoneDocumentRulesService(new ProgramRulesService()),
-        new SubmissionFileRulesService(),
+        new MilestoneDocumentSubmissionWindowService(
+          new ProgramScheduleService(),
+        ),
+        new MilestoneDocumentCollectionService({} as never),
+        new ProgramScheduleService(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
       );
       const update = service.updateGraceDueAt(
         syntheticMilestoneId,
@@ -3027,8 +3351,12 @@ describe('document grace configuration', () => {
       const { repository, mocks } = buildRepository();
       const service = new MilestoneDocumentsService(
         repository,
-        new MilestoneDocumentRulesService(new ProgramRulesService()),
-        new SubmissionFileRulesService(),
+        new MilestoneDocumentSubmissionWindowService(
+          new ProgramScheduleService(),
+        ),
+        new MilestoneDocumentCollectionService({} as never),
+        new ProgramScheduleService(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
       );
       await service.updateGraceDueAt(
         syntheticMilestoneId,
@@ -3049,8 +3377,12 @@ describe('document grace configuration', () => {
     const { repository, mocks } = buildRepository();
     const service = new MilestoneDocumentsService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
     await expect(
       service.updateGraceDueAt(

@@ -17,6 +17,15 @@ import type { AuditLogMetadataEvidence } from './audit-log-metadata.config';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 
+export interface AuditLogListRequest {
+  readonly actor?: string;
+  readonly action?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly page?: number;
+  readonly limit?: number;
+}
+
 @Injectable()
 export class AuditLogService {
   constructor(
@@ -31,6 +40,21 @@ export class AuditLogService {
     >,
     private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
+
+  listQueryFromRequest(request: AuditLogListRequest): AuditLogListQuery {
+    return {
+      ...(request.actor === undefined ? {} : { actor: request.actor }),
+      ...(request.action === undefined ? {} : { action: request.action }),
+      ...(request.from === undefined ? {} : { from: request.from }),
+      ...(request.to === undefined ? {} : { to: request.to }),
+      page: request.page ?? 1,
+      limit: request.limit ?? 20,
+    };
+  }
+
+  listFromRequest(request: AuditLogListRequest): Promise<AuditLogPage> {
+    return this.list(this.listQueryFromRequest(request));
+  }
 
   async list(query: AuditLogListQuery): Promise<AuditLogPage> {
     if (query.from && query.to && query.from > query.to) {

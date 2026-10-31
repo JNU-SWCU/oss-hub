@@ -1,3 +1,8 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ProgramCategory } from '@prisma/client';
@@ -19,7 +24,6 @@ import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -49,17 +53,33 @@ async function cleanup(): Promise<void> {
 beforeAll(async () => {
   await prisma.$connect();
   const service = new ProgramTeamsService(
-    new ProgramTeamsRepository(prisma),
+    new ProgramTeamsRepository(
+      prisma,
+      new ProgramTeamRepositoryEvidenceRepository(prisma),
+      new PlatformRepository(),
+    ),
     new AuditLogService(
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),
     ),
-    new ProgramTeamDeletionRepository(prisma),
+    new ProgramTeamDeletionRepository(
+      prisma,
+      new TeamDeletionScopeRepository(),
+      new PrismaSerializationRetryRepository(),
+    ),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
-    new ProgramRulesService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
   );
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramTeamsController],

@@ -6,7 +6,6 @@ import type { GithubAppClient } from './github-app.client';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
-import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 
 function githubMock(): jest.Mocked<
   Pick<GithubAppClient, 'findRepository' | 'findPublicRepository'>
@@ -32,11 +31,8 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -55,11 +51,8 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -70,11 +63,8 @@ describe('OwnRepositoryUrlValidationService', () => {
   it('존재하지 않는 외부 저장소는 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -95,11 +85,8 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -110,11 +97,8 @@ describe('OwnRepositoryUrlValidationService', () => {
   it('접근할 수 없는 조직 저장소도 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(
@@ -131,11 +115,8 @@ describe('OwnRepositoryUrlValidationService', () => {
   ])('형식이 잘못된 URL(%s)은 INVALID_FORMAT이다', async (malformed) => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(service.validate(malformed)).resolves.toEqual({
@@ -152,11 +133,8 @@ describe('OwnRepositoryUrlValidationService', () => {
       ),
     );
     const service = new OwnRepositoryUrlValidationService(
-      github,
-      new RepositoryProvisionGithubService(
-        new RepositoryUrlService(),
-        new RepositoryProvisionRulesService(),
-      ),
+      github as unknown as GithubAppClient,
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     await expect(

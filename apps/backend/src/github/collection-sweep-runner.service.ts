@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type { Logger } from '@nestjs/common';
 import type {
   CollectionSyncService,
@@ -8,6 +9,7 @@ import type {
   CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
 
+@Injectable()
 export class CollectionSweepRunnerService {
   constructor(
     private readonly sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,

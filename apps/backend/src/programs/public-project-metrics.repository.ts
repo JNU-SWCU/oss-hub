@@ -21,10 +21,12 @@ export interface ContributorContributionRow extends ContributionCountsRow {
   readonly githubUserId: bigint;
 }
 
-function programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
+function programLinkedRepositoryFilter(
+  platformRepository: PlatformRepository,
+): Prisma.GithubRepositoryWhereInput {
   return {
     AND: [
-      PlatformRepository.linkedRepositoryFilter(),
+      platformRepository.linkedRepositoryFilter(),
       { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
     ],
   };
@@ -32,7 +34,10 @@ function programLinkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
 
 @Injectable()
 export class PublicProjectMetricsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findGithubLogins(
     githubIds: readonly bigint[],
@@ -54,7 +59,7 @@ export class PublicProjectMetricsRepository {
         githubRepositoryId: { in: [...repositoryIds] },
         visibility: 'PUBLIC',
         presence: 'PRESENT',
-        ...PlatformRepository.linkedRepositoryFilter(),
+        ...this.platformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,
@@ -85,7 +90,7 @@ export class PublicProjectMetricsRepository {
           githubRepositoryId: { in: [...repositoryIds] },
           visibility: 'PUBLIC',
           presence: 'PRESENT',
-          ...programLinkedRepositoryFilter(),
+          ...programLinkedRepositoryFilter(this.platformRepository),
         },
       },
       select: {

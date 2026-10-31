@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -17,14 +18,17 @@ import {
   MilestoneDocumentMissingError,
 } from './milestone-document-submission.error';
 
+@Injectable()
 export class MilestoneDocumentSubmissionRepository {
-  static nextHistoryCreatedAt(requested: Date, latest: Date | null): Date {
+  constructor(private readonly platformRepository: PlatformRepository) {}
+
+  nextHistoryCreatedAt(requested: Date, latest: Date | null): Date {
     return latest === null || requested.getTime() > latest.getTime()
       ? requested
       : new Date(latest.getTime() + 1);
   }
 
-  static milestoneDocumentSubmissionContent(
+  milestoneDocumentSubmissionContent(
     text: string | null,
   ): Prisma.InputJsonValue | typeof Prisma.JsonNull {
     return text === null
@@ -32,16 +36,17 @@ export class MilestoneDocumentSubmissionRepository {
       : { type: MilestoneSubmissionType.TEXT, text };
   }
 
-  static upsertMilestoneDocumentSubmission(
+  upsertMilestoneDocumentSubmission(
     prisma: PrismaService,
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
     return prisma.$transaction(async (transaction) => {
-      const stillMember = await PlatformRepository.lockSubmissionMembership(
-        transaction,
-        input.applicationId,
-        input.submittedById,
-      );
+      const stillMember =
+        await this.platformRepository.lockSubmissionMembership(
+          transaction,
+          input.applicationId,
+          input.submittedById,
+        );
       if (!stillMember) {
         throw new SubmissionMembershipChangedError(
           input.applicationId,
@@ -100,11 +105,10 @@ export class MilestoneDocumentSubmissionRepository {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           select: { createdAt: true },
         });
-      const submittedAt =
-        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
-          input.submittedAt,
-          latestHistory?.createdAt ?? null,
-        );
+      const submittedAt = this.nextHistoryCreatedAt(
+        input.submittedAt,
+        latestHistory?.createdAt ?? null,
+      );
 
       const latestReview =
         await transaction.milestoneDocumentReviewHistory.findFirst({

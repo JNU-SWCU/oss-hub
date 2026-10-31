@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './programs/submissions.repository';
+import { PlatformRepository } from './platform/platform.repository';
 import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from './platform/audit-log.service';
@@ -32,10 +34,20 @@ function installContext(): Harness {
     accountStatus: 'ACTIVE',
   });
   const close = jest.fn().mockResolvedValue(undefined);
-  const files = new SubmissionFilesRepository({
-    user: { findUnique },
-    submissionFile: { updateMany },
-  } as unknown as PrismaService);
+  const files = new SubmissionFilesRepository(
+    {
+      user: { findUnique },
+      submissionFile: { updateMany },
+    } as unknown as PrismaService,
+    new PlatformRepository(),
+    new SubmissionsRepository(
+      {
+        user: { findUnique },
+        submissionFile: { updateMany },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    ),
+  );
   const resetDeleteAttempts = jest.spyOn(files, 'resetDeleteAttempts');
   const retry = new SubmissionFileCleanupRetryService(
     files,

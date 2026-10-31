@@ -1,3 +1,4 @@
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
   ApplicationStatus,
   Prisma,
@@ -25,7 +26,13 @@ function buildRepository(tx: object) {
   const prisma = {
     $transaction: <T>(operation: (t: typeof tx) => Promise<T>) => operation(tx),
   };
-  return new ProgramTeamsRepository(prisma as unknown as PrismaService);
+  return new ProgramTeamsRepository(
+    prisma as unknown as PrismaService,
+    new ProgramTeamRepositoryEvidenceRepository(
+      prisma as unknown as PrismaService,
+    ),
+    new PlatformRepository(),
+  );
 }
 
 function teamContext(leaderId: string) {
@@ -646,7 +653,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
   });
 
   function expectedRow() {
-    return PlatformRepository.repositoryAccessSyncEventData(
+    return new PlatformRepository().repositoryAccessSyncEventData(
       syntheticApplicationId,
       syntheticTeamId,
       NOW,

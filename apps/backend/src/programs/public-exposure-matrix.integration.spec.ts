@@ -1,3 +1,8 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
   AffiliationKind,
@@ -36,7 +41,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const repositoryUrlService = new RepositoryUrlService();
 
@@ -50,8 +54,14 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const metrics = new PublicProjectMetricsRepository(prisma);
-const eligibilityMetrics = new PublicEligibilityRepository(prisma);
+const metrics = new PublicProjectMetricsRepository(
+  prisma,
+  new PlatformRepository(),
+);
+const eligibilityMetrics = new PublicEligibilityRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const eligibilityService = new PublicEligibilityService(eligibilityMetrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const publicProjectsService = new PublicProjectsService(
@@ -64,6 +74,7 @@ const publicProjectsService = new PublicProjectsService(
 const rankingService = new RankingService(
   new RankingRepository(prisma),
   new RankingYearService(),
+  new CollectionScheduleService(),
 );
 
 const github = {
@@ -73,21 +84,28 @@ const auditLogService = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
-const repositoriesRepository = new RepositoriesRepository(prisma);
+const repositoriesRepository = new RepositoriesRepository(
+  prisma,
+  new RepositoryProvisionGenerationRepository(),
+);
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
-  github,
+  github as unknown as GithubAppClient,
   auditLogService,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
 );
 const submissionReviewsService = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   repositoriesService,
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
 );
 
 const PREFIX = 'synthetic-exposure-matrix';

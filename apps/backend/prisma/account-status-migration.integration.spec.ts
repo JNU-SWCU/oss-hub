@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../src/platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from '../src/users/admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from '../src/users/admin-access-read.repository';
+import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.error';
 import { AuthConfig } from '../src/platform/auth.config';
@@ -54,14 +58,21 @@ describe('accountStatus migration regression', () => {
   );
 
   const rolesService = new MemberOnboardingService(
-    new MemberOnboardingRepository(prisma),
+    new MemberOnboardingRepository(prisma, new PlatformRepository()),
     {
       requireCurrent: jest.fn(),
     } satisfies Pick<ConsentsService, 'requireCurrent'>,
     new UserProfileService(),
   );
   const adminAccessService = new AdminAccessService(
-    new AdminAccessRepository(prisma),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    ),
     new AuditLogService(
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),

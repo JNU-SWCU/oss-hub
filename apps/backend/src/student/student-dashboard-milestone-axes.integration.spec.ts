@@ -1,3 +1,8 @@
+import { ProgramScheduleService } from '../programs/program-schedule.service';
+import { ProgramTemplatesService } from '../programs/program-templates.service';
+import { ProgramViewerService } from '../programs/program-viewer.service';
+import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
@@ -15,7 +20,6 @@ import { ProgramsService } from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 import { MilestoneCompletionService } from '../programs/milestone-completion.service';
 import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
-import { ProgramRulesService } from '../programs/program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -59,16 +63,22 @@ const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
   getMyRepositories: () => Promise.resolve([]),
 };
 const dashboard = new StudentDashboardService(
-  new StudentDashboardRepository(prisma),
+  new StudentDashboardRepository(prisma, new PlatformRepository()),
   noRepositories,
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
 );
 const programs = new ProgramsService(
-  new ProgramsRepository(prisma),
+  new ProgramsRepository(
+    prisma,
+    new PlatformRepository(),
+    new ProgramListStatusFilterRepository(),
+  ),
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 
 function programRow(programId: string) {

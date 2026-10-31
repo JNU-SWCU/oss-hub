@@ -1,3 +1,6 @@
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -5,8 +8,6 @@ import { MilestoneDocumentArchiveService } from './milestone-document-archive.se
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
@@ -238,7 +239,9 @@ function buildService(
         findProgram: jest.fn(),
         findApprovedTeams: jest.fn(),
       },
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
+      new MilestoneDocumentFileNameService(),
+      new DownloadResponseService(),
     ),
     repositoryMocks,
     storageMocks,

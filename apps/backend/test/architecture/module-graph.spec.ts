@@ -1,8 +1,27 @@
 import type { Type } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { readdirSync } from 'node:fs';
+import * as path from 'node:path';
 import { AppModule } from '../../src/app.module';
 import { AuthModule } from '../../src/auth/auth.module';
 import { UsersModule } from '../../src/users/users.module';
+
+const SOURCE_ROOT = path.resolve(__dirname, '../../src');
+
+function moduleFilesByFolder(): Record<string, string[]> {
+  const folders = readdirSync(SOURCE_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  return Object.fromEntries(
+    folders.map((folder) => [
+      folder,
+      readdirSync(path.join(SOURCE_ROOT, folder), { recursive: true })
+        .map(String)
+        .filter((file) => file.endsWith('.module.ts'))
+        .sort(),
+    ]),
+  );
+}
 
 function moduleImports(module: Type<unknown>): Type<unknown>[] {
   const imports = (Reflect.getMetadata(MODULE_METADATA.IMPORTS, module) ??
@@ -56,6 +75,15 @@ function findCycle(root: Type<unknown>): string[] | null {
 describe('Nest module graph', () => {
   it('has no import cycle from AppModule', () => {
     expect(findCycle(AppModule)).toBeNull();
+  });
+
+  it('keeps exactly one module named after each top-level src folder', () => {
+    const modules = moduleFilesByFolder();
+    const expected = Object.fromEntries(
+      Object.keys(modules).map((folder) => [folder, [`${folder}.module.ts`]]),
+    );
+
+    expect(modules).toEqual(expected);
   });
 
   it('lets auth depend on users without users reaching auth', () => {

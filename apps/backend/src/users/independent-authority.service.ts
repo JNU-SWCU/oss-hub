@@ -111,6 +111,19 @@ export class IndependentAuthorityService {
     );
   }
 
+  patchAdminAccessFromRequest(
+    actorGithubId: bigint,
+    userId: string,
+    request: { readonly command: string },
+  ): Promise<IndependentAuthorityMutationResult> {
+    this.adminAccessMutationService.requireValidUserId(userId);
+    return this.patchAdminAccess(
+      actorGithubId,
+      userId,
+      this.adminCommandFromRequest(request),
+    );
+  }
+
   patchAdminAccess(
     actorGithubId: bigint,
     userId: string,

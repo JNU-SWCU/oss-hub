@@ -1,3 +1,6 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -78,7 +81,12 @@ function buildRepository(transaction: Record<string, unknown>): {
       (operation: (client: typeof transaction) => Promise<unknown>) =>
         operation(transaction),
     );
-  const repository = new ApplicationsRepository({ $transaction } as never);
+  const repository = new ApplicationsRepository(
+    { $transaction } as never,
+    new ReviewHistoryWriterRepository(),
+    new RepositoryProvisionGenerationRepository(),
+    new PlatformRepository(),
+  );
   return { repository, $transaction };
 }
 

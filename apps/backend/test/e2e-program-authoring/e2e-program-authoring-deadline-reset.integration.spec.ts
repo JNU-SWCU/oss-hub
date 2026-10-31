@@ -1,3 +1,4 @@
+import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { PrismaService } from '../../src/platform/prisma.service';
@@ -24,6 +25,7 @@ const service = new DeadlineDigestService(
   new DeadlineDigestRepository(prisma),
   e2eProgramAuthoringExternalPorts.mail,
   { FRONTEND_URL: 'https://oss.example' },
+  new DeadlineDigestMailService(),
 );
 
 beforeAll(async () => {

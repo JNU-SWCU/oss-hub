@@ -9,7 +9,14 @@ import tseslint from 'typescript-eslint';
 import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../../scripts/prisma-enum-names.mjs';
-import { configExports, serviceExports } from './module-exports.mjs';
+import {
+  configExports,
+  injectableRoleClass,
+  serviceExports,
+} from './module-exports.mjs';
+import { noGenericRoleFileNames } from './no-generic-role-file-names.mjs';
+import { requestDtoNoMethods } from './request-dto-no-methods.mjs';
+import { thinController } from './thin-controller.mjs';
 
 const layers = [
   'controller',
@@ -603,7 +610,7 @@ const policies = [
     disallow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
-    from: [element('repository'), category('test')],
+    from: [element('repository'), category('test'), category('composition')],
     allow: { to: { file: { path: lockProgramTreeFiles } } },
   },
   {
@@ -635,6 +642,10 @@ export async function createRailsConfig(rootDir) {
             'repository-exports': repositoryExports,
             'config-exports': configExports,
             'service-exports': serviceExports,
+            'injectable-role-class': injectableRoleClass,
+            'no-generic-role-file-names': noGenericRoleFileNames,
+            'request-dto-no-methods': requestDtoNoMethods,
+            'thin-controller': thinController,
             'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
@@ -697,7 +708,7 @@ export async function createRailsConfig(rootDir) {
             mode: 'full',
           },
           ...Object.entries({
-            controller: '*.{controller,guard,interceptor,filter}.ts',
+            controller: '*.{controller,guard,interceptor,filter,decorator}.ts',
             service: '*.service.ts',
             repository: '*.repository.ts',
             gateway: '*.client.ts',
@@ -720,8 +731,8 @@ export async function createRailsConfig(rootDir) {
           {
             category: 'auth-capability',
             pattern: [
-              'src/auth/{authentication.guard,http-auth.types}.ts',
-              'src/platform/{origin.guard,roles.guard,auth.config}.ts',
+              'src/auth/{authentication.guard,auth-route.decorator,http-auth.types}.ts',
+              'src/platform/{origin.guard,roles.guard,roles.decorator,auth.config}.ts',
             ],
           },
           {
@@ -733,7 +744,7 @@ export async function createRailsConfig(rootDir) {
           },
           {
             category: 'guard',
-            pattern: `${flatModulePattern}/*.{guard,interceptor,filter}.ts`,
+            pattern: `${flatModulePattern}/*.{guard,interceptor,filter,decorator}.ts`,
             capture: ['module'],
           },
           {
@@ -856,9 +867,36 @@ export async function createRailsConfig(rootDir) {
       rules: { 'architecture/config-exports': 'error' },
     },
     {
-      files: ['src/**/*.service.ts'],
+      files: [
+        'src/**/*.service.ts',
+        'src/**/*.client.ts',
+        'src/**/*.guard.ts',
+        'src/**/*.interceptor.ts',
+      ],
       ignores: testFiles,
       rules: { 'architecture/service-exports': 'error' },
+    },
+    {
+      files: [
+        'src/**/*.service.ts',
+        'src/**/*.repository.ts',
+        'src/**/*.client.ts',
+        'src/**/*.guard.ts',
+        'src/**/*.interceptor.ts',
+      ],
+      rules: {
+        'architecture/injectable-role-class': 'error',
+        'architecture/no-generic-role-file-names': 'error',
+      },
+    },
+    {
+      files: ['src/**/*.controller.ts'],
+      ignores: testFiles,
+      rules: { 'architecture/thin-controller': 'error' },
+    },
+    {
+      files: ['src/**/dto/*-request.dto.ts'],
+      rules: { 'architecture/request-dto-no-methods': 'error' },
     },
     {
       files: ['src/**/*.types.ts'],

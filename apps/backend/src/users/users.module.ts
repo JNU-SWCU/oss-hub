@@ -1,5 +1,7 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { PlatformModule } from '../platform/platform.module';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -29,7 +31,7 @@ import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
-  imports: [PlatformModule, HttpSecurityModule],
+  imports: [PlatformModule],
 
   controllers: [
     AccountDeactivationController,
@@ -39,6 +41,9 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     ConsentsController,
   ],
   providers: [
+    AdminAccessReadOrderingRepository,
+    AdminAccessReadRepository,
+    AdminAccessHistoryRepository,
     AccountDeactivationRepository,
     AccountDeactivationService,
     AdminAccessRepository,

@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import type { ProgramActivityRepository } from './program-activity.repository';
 import {
   ProgramActivityService,
@@ -47,10 +48,14 @@ function service(applications: ApplicationActivity[]) {
   };
   return {
     findProgramActivityApplications,
-    subject: new ProgramActivityService(repository, {
-      findProgramActivityApplications,
-      findRepositoryActivity: () => Promise.resolve([]),
-    }),
+    subject: new ProgramActivityService(
+      repository,
+      {
+        findProgramActivityApplications,
+        findRepositoryActivity: () => Promise.resolve([]),
+      },
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
+    ),
   };
 }
 

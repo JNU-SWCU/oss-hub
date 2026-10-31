@@ -1,3 +1,6 @@
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { ProgramViewerService } from './program-viewer.service';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -22,10 +25,11 @@ import type { ProgramListQuery } from './program-list-status-filter.repository';
 import type { SubmissionCompletionTargetRow } from './submission-completion.config';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramScheduleService } from './program-schedule.service';
 import {
-  ProgramRulesService,
+  ProgramTemplatesService,
   PROGRAM_PARTICIPATION,
-} from './program-rules.service';
+} from './program-templates.service';
 
 export interface ProgramListItemNote {
   readonly text: string;
@@ -145,7 +149,9 @@ export class ProgramsService {
     private readonly repository: ProgramsRepository,
     private readonly milestoneCompletionService: MilestoneCompletionService,
     private readonly programCoverUrlService: ProgramCoverUrlService,
-    private readonly programRulesService: ProgramRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
+    private readonly programViewerService: ProgramViewerService,
   ) {}
 
   private async findStudentApplicationAxes(programId: string, userId: string) {
@@ -170,6 +176,45 @@ export class ProgramsService {
       submissions,
       milestoneDocumentSubmissions: documentSubmissions,
     };
+  }
+
+  listQueryFromRequest(request: ProgramListQuery): ProgramListQuery {
+    return {
+      page: request.page,
+      pageSize: request.pageSize,
+      search: request.search.trim(),
+      status: request.status,
+      year: request.year,
+      sort: request.sort,
+      direction: request.direction,
+    };
+  }
+
+  async listFromRequest(
+    request: ProgramListQuery,
+    auth: OptionalSessionRequest['auth'],
+  ): Promise<ProgramListPage> {
+    const githubId =
+      auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED
+        ? auth.principal.githubId
+        : null;
+    const viewer = await this.programViewerService.fromGithubId(githubId);
+    return this.list(this.listQueryFromRequest(request), viewer);
+  }
+
+  async detailForGithubId(
+    programId: string,
+    githubId: bigint,
+    request: { readonly view?: string },
+  ): Promise<ProgramDetailResult> {
+    return this.detail(
+      programId,
+      await this.programViewerService.fromGithubId(
+        githubId,
+        programId,
+        request.view === 'operations',
+      ),
+    );
   }
 
   async list(
@@ -301,7 +346,7 @@ export class ProgramsService {
           applicationStatus: studentApplication?.status ?? null,
         },
         milestones: program.milestones.map((milestone) => {
-          const deadline = this.programRulesService.programDeadline(
+          const deadline = this.programScheduleService.programDeadline(
             milestone.dueAt,
             now,
           );
@@ -389,7 +434,7 @@ export class ProgramsService {
   }
 
   private isTeamProgram(item: ProgramListRecord): boolean {
-    const template = this.programRulesService.getTemplateByKey(
+    const template = this.programTemplatesService.getTemplateByKey(
       item.applicationTemplateKey,
     );
     return template?.participation === PROGRAM_PARTICIPATION.TEAM;

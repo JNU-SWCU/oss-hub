@@ -1,17 +1,11 @@
-import { DeadlineDigestService } from './deadline-digest.service';
-
-const deadlineDigestService = new DeadlineDigestService(
-  undefined as never,
-  undefined as never,
-  undefined as never,
-);
+import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 
 describe('deadline-digest-mail-template', () => {
   const now = new Date('2026-08-14T00:00:00.000Z');
   const dueAt = new Date('2026-08-14T12:00:00.000Z');
 
   it('학생 메일의 text와 HTML에 프로그램, 마일스톤, KST 마감, CTA를 담는다', () => {
-    const mail = DeadlineDigestService.buildStudentDeadlineMail({
+    const mail = new DeadlineDigestMailService().buildStudentDeadlineMail({
       displayName: 'student',
       milestones: [
         {
@@ -23,7 +17,7 @@ describe('deadline-digest-mail-template', () => {
         },
       ],
       now,
-      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+      frontendOrigin: new DeadlineDigestMailService().parseFrontendOrigin(
         'https://oss.example/',
       ),
     });
@@ -41,7 +35,7 @@ describe('deadline-digest-mail-template', () => {
   });
 
   it('교직원 메일의 text와 HTML에 비활성 표시와 대시보드 CTA를 담는다', () => {
-    const mail = deadlineDigestService.buildStaffDeadlineMail({
+    const mail = new DeadlineDigestMailService().buildStaffDeadlineMail({
       milestones: [
         {
           id: 'milestone-1',
@@ -53,7 +47,7 @@ describe('deadline-digest-mail-template', () => {
         },
       ],
       now,
-      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+      frontendOrigin: new DeadlineDigestMailService().parseFrontendOrigin(
         'https://oss.example',
       ),
     });
@@ -68,7 +62,7 @@ describe('deadline-digest-mail-template', () => {
 
   it('신뢰하지 않는 필드를 HTML로 해석하지 않는다', () => {
     const injection = `<img src=x onerror="alert('x')">`;
-    const mail = DeadlineDigestService.buildStudentDeadlineMail({
+    const mail = new DeadlineDigestMailService().buildStudentDeadlineMail({
       displayName: injection,
       milestones: [
         {
@@ -80,7 +74,7 @@ describe('deadline-digest-mail-template', () => {
         },
       ],
       now,
-      frontendOrigin: DeadlineDigestService.parseFrontendOrigin(
+      frontendOrigin: new DeadlineDigestMailService().parseFrontendOrigin(
         'https://oss.example',
       ),
     });
@@ -100,8 +94,8 @@ describe('deadline-digest-mail-template', () => {
     'https://oss.example?next=other',
     'https://oss.example#fragment',
   ])('잘못된 FRONTEND_URL %p를 거부한다', (value) => {
-    expect(() => DeadlineDigestService.parseFrontendOrigin(value)).toThrow(
-      'FRONTEND_URL must be an HTTP(S) origin.',
-    );
+    expect(() =>
+      new DeadlineDigestMailService().parseFrontendOrigin(value),
+    ).toThrow('FRONTEND_URL must be an HTTP(S) origin.');
   });
 });

@@ -9,13 +9,13 @@ import {
   type CreateSubmissionRevisionInput,
   type CreateSubmissionInput,
 } from './submissions.repository';
-import type { PlatformRepository } from '../platform/platform.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { StaleSubmissionRevisionError } from './submissions.error';
 
 const mockLockSubmissionMembership = jest.fn<
-  ReturnType<typeof PlatformRepository.lockSubmissionMembership>,
-  Parameters<typeof PlatformRepository.lockSubmissionMembership>
+  ReturnType<PlatformRepository['lockSubmissionMembership']>,
+  Parameters<PlatformRepository['lockSubmissionMembership']>
 >();
 
 jest.mock('../platform/platform.repository', () => {
@@ -25,9 +25,11 @@ jest.mock('../platform/platform.repository', () => {
   return {
     ...actual,
     PlatformRepository: class extends actual.PlatformRepository {
-      static override lockSubmissionMembership(
+      override lockSubmissionMembership(
         ...args: Parameters<
-          typeof actual.PlatformRepository.lockSubmissionMembership
+          InstanceType<
+            typeof actual.PlatformRepository
+          >['lockSubmissionMembership']
         >
       ) {
         return mockLockSubmissionMembership(...args);
@@ -162,7 +164,10 @@ function buildHarness(
   };
 
   return {
-    repository: new SubmissionsRepository(database as unknown as PrismaService),
+    repository: new SubmissionsRepository(
+      database as unknown as PrismaService,
+      new PlatformRepository(),
+    ),
     database,
     calls,
     applicationFindFirst,
@@ -190,7 +195,10 @@ describe('참여자 판정 조건', () => {
     const where = applicationFindFirst.onlyCall().where;
     expect(where).toMatchObject({
       programId: 'program-1',
-      ...SubmissionsRepository.submissionParticipantWhere(CURRENT_MEMBER_ID),
+      ...new SubmissionsRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionParticipantWhere(CURRENT_MEMBER_ID),
     });
 
     expect(JSON.stringify(where)).not.toContain('leaderId');

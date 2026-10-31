@@ -1,3 +1,10 @@
+import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from '../../src/programs/milestone-document-submission-window.service';
+import { MilestoneDocumentCollectionService } from '../../src/programs/milestone-document-collection.service';
+import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
+import { ProgramDocumentChangeRequestsService } from '../../src/programs/program-document-change-requests.service';
+import { AdminAccessService } from '../../src/users/admin-access.service';
+import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
 import { UsersService } from '../../src/users/users.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
@@ -27,14 +34,22 @@ import {
 } from '../../src/staff/dto/access-requests-list-request.dto';
 import { ActivityTimelineRequestDto } from '../../src/student/dto/activity-timeline-request.dto';
 import { UpdateMyProfileRequestDto } from '../../src/users/dto/update-my-profile-request.dto';
-import { MilestoneDocumentRulesService } from '../../src/programs/milestone-document-rules.service';
 import { SubmissionInputService } from '../../src/programs/submission-input.service';
 import { RankingYearService } from '../../src/ranking/ranking-year.service';
-import { ProgramRulesService } from '../../src/programs/program-rules.service';
 
-const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
-  new ProgramRulesService(),
+const milestoneDocumentsService = new MilestoneDocumentsService(
+  {} as never,
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
+  {} as never,
 );
+const programDocumentChangeRequestsService =
+  new ProgramDocumentChangeRequestsService(
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 const submissionInputService = new SubmissionInputService();
 const adminAccessMutationService = new AdminAccessMutationService(
   new AuditLogMetadataService(),
@@ -48,6 +63,12 @@ const memberKindService = Object.create(
   MemberKindService.prototype,
 ) as MemberKindService;
 const rankingYearService = new RankingYearService();
+const adminAccessService = Object.create(
+  AdminAccessService.prototype,
+) as AdminAccessService;
+const adminProfileMutationService = Object.create(
+  AdminProfileMutationService.prototype,
+) as AdminProfileMutationService;
 
 const pipe = new ValidationPipe({
   transform: true,
@@ -149,9 +170,11 @@ const SORT_QUERY = {
   'page out of range': { page: '0', limit: '101' },
 };
 
-parityCases(AdminAccessListRequestDto, SORT_QUERY, (dto) => dto.toQuery());
+parityCases(AdminAccessListRequestDto, SORT_QUERY, (dto) =>
+  adminAccessService.listQueryFromRequest(dto),
+);
 parityCases(AccessRequestsListRequestDto, SORT_QUERY, (dto) =>
-  dto.toRequestQuery(),
+  adminAccessService.requestQueueQueryFromRequest(dto),
 );
 parityCases(
   AccessRequestsHistoryRequestDto,
@@ -160,7 +183,7 @@ parityCases(
     valid: { staffAccessRequestPage: '2', loginLimit: '5' },
     'out of range': { staffAccessRequestLimit: '101', loginPage: '0' },
   },
-  (dto) => dto.toQuery(),
+  (dto) => adminAccessService.historyQueryFromRequest(dto),
 );
 const ADMIN_ACCESS_BASE = {
   expectedRole: 'STUDENT',
@@ -228,7 +251,7 @@ const PROFILE_TEXT = {
   'long department': { department: 'd'.repeat(201) },
 };
 parityCases(PatchAdminUserProfileRequestDto, PROFILE_TEXT, (dto) =>
-  dto.toCommand(),
+  adminProfileMutationService.commandFromPatchProfileRequest(dto),
 );
 parityCases(
   PatchIndependentAuthorityRequestDto,
@@ -389,8 +412,7 @@ parityCases(
     missing: {},
     'long file id': { content: { fileId: 'f'.repeat(129) } },
   },
-  (dto) =>
-    milestoneDocumentRulesService.parseMilestoneDocumentContent(dto.content),
+  (dto) => milestoneDocumentsService.parseMilestoneDocumentContent(dto.content),
 );
 const CHANGE_REQUEST_BASE = {
   scope: 'PROGRAM',
@@ -418,7 +440,9 @@ parityCases(
     missing: {},
   },
   (body) =>
-    milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(body),
+    programDocumentChangeRequestsService.toProgramDocumentChangeRequestInput(
+      body,
+    ),
 );
 parityCases(
   ProgramDocumentChangeRequestTargetsRequestDto,
@@ -431,7 +455,7 @@ parityCases(
     missing: {},
   },
   (dto) =>
-    milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+    programDocumentChangeRequestsService.toProgramDocumentChangeRequestScope(
       dto.scope,
       dto.teamId,
     ),

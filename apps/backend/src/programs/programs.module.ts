@@ -1,8 +1,13 @@
-import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
@@ -35,6 +40,7 @@ import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
@@ -59,7 +65,6 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import {
   ApplicationPreparationsService,
@@ -113,20 +118,19 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionInputService } from './submission-input.service';
-import { RepositoryUrlService } from '../github/repository-url.service';
 
 @Module({
-  imports: [PlatformModule, HttpSecurityModule, GithubModule, UsersModule],
+  imports: [PlatformModule, GithubModule, UsersModule],
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,
@@ -154,14 +158,23 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     MilestoneDocumentFilesController,
   ],
   providers: [
+    SubmissionsRepository,
+    SubmissionReviewsRepository,
+    SubmissionMatrixRepository,
+    MilestoneDocumentCollectionReadRepository,
+    StudentRepositoryUrlContextRepository,
+    ProgramListStatusFilterRepository,
+    ProgramAuthoringUploadTransactionRepository,
+    MilestoneDocumentSubmissionRepository,
     ProgramCoverUrlService,
     ApplicationAnswersService,
     DownloadResponseService,
     MilestoneCompletionService,
-    MilestoneDocumentRulesService,
-    ProgramRulesService,
-    ProgramUploadRulesService,
-    SubmissionFileRulesService,
+    MilestoneDocumentFileNameService,
+    MilestoneDocumentSubmissionWindowService,
+    ProgramScheduleService,
+    ProgramTemplatesService,
+    SubmissionFileAdmissionService,
     SubmissionInputService,
     ProgramsService,
     ProgramsRepository,
@@ -186,9 +199,12 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     ProgramEditorRepository,
     ProgramLifecycleService,
     ProgramLifecycleRepository,
+    ProgramDeletionScopeRepository,
     ProgramTeamsService,
     ProgramTeamsRepository,
+    ProgramTeamRepositoryEvidenceRepository,
     ProgramTeamDeletionRepository,
+    TeamDeletionScopeRepository,
     BoardService,
     BoardRepository,
     TeamInvitationsService,
@@ -206,37 +222,9 @@ import { RepositoryUrlService } from '../github/repository-url.service';
     StudentRepositoryUrlRepository,
     ApplicationsRepository,
     ApplicationJoinCodeService,
-    {
-      provide: ApplicationsService,
-      inject: [
-        ApplicationsRepository,
-        AuditLogService,
-        ApplicationJoinCodeService,
-        AuditLogMetadataService,
-        RepositoryUrlService,
-        ApplicationAnswersService,
-        RepositoryProvisionEventService,
-      ],
-      useFactory: (
-        repository: ApplicationsRepository,
-        auditLog: AuditLogService,
-        joinCodes: ApplicationJoinCodeService,
-        auditLogMetadata: AuditLogMetadataService,
-        repositoryUrl: RepositoryUrlService,
-        answers: ApplicationAnswersService,
-        repositoryProvisionEvents: RepositoryProvisionEventService,
-      ): ApplicationsService =>
-        new ApplicationsService(
-          repository,
-          auditLog,
-          joinCodes,
-          auditLogMetadata,
-          repositoryUrl,
-          answers,
-          repositoryProvisionEvents,
-        ),
-    },
+    ApplicationsService,
     StudentApplicationManagementRepository,
+    ReviewHistoryWriterRepository,
     StudentApplicationManagementService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
@@ -268,7 +256,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
   ],
   exports: [
     MilestoneCompletionService,
-    MilestoneDocumentRulesService,
+    MilestoneDocumentSubmissionWindowService,
     ProgramCoverUrlService,
     ProgramActivityService,
     ProgramViewerService,

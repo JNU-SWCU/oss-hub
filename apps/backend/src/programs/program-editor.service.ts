@@ -30,9 +30,8 @@ import type { ProgramExternalCover } from './program-authoring-upload-transactio
 import type { ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 
 export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly endAt?: string | null;
@@ -171,9 +170,8 @@ export class ProgramEditorService {
       'withTransaction'
     >,
     private readonly programCoverUrlService: ProgramCoverUrlService,
-    private readonly programRulesService: ProgramRulesService,
-    private readonly programUploadRulesService: ProgramUploadRulesService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
   ) {}
 
   private toEditableProgramView(row: EditableProgramRow): EditableProgramView {
@@ -220,7 +218,7 @@ export class ProgramEditorService {
           : new Date(requestedEndAt);
       const liveFileExpiresAt =
         endAt.getTime() !== new Date(existing.endAt).getTime()
-          ? this.submissionFileRulesService.addOneCalendarYear(endAt)
+          ? this.programScheduleService.addOneCalendarYear(endAt)
           : null;
       const teamSize = resolveTeamSize(input, existing);
 
@@ -274,7 +272,7 @@ export class ProgramEditorService {
         !Number.isFinite(endAt.getTime()) ||
         startAt >= endAt ||
         (input.endAt !== undefined &&
-          this.programRulesService.isProgramEndAtUndecided(endAt))
+          this.programScheduleService.isProgramEndAtUndecided(endAt))
       ) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
@@ -321,7 +319,7 @@ export class ProgramEditorService {
       }
       try {
         const externalCover =
-          this.programUploadRulesService.validateProgramCoverChoice(input);
+          this.programAuthoringUploadService.validateProgramCoverChoice(input);
         const updated = await store.updateProgram({
           ...(externalCover !== undefined
             ? { coverChange: { actorId: actor.id, externalCover } }
@@ -332,7 +330,7 @@ export class ProgramEditorService {
                     actorId: actor.id,
                     uploadId: input.coverUploadId,
                     assertUpload: (upload) =>
-                      this.programUploadRulesService.assertProgramCoverUpload(
+                      this.programAuthoringUploadService.assertProgramCoverUpload(
                         upload,
                       ),
                   },
@@ -394,6 +392,41 @@ export class ProgramEditorService {
         ...this.milestoneData(input, program.startAt, program.endAt),
       });
     });
+  }
+
+  async updateMilestoneByCommand(
+    githubId: bigint,
+    milestoneId: string,
+    command: MilestoneUpdateCommand,
+  ): Promise<
+    | { readonly kind: 'aggregate'; readonly result: ProgramMilestoneEditView }
+    | {
+        readonly kind: 'legacy';
+        readonly result: Awaited<
+          ReturnType<ProgramEditorService['updateMilestone']>
+        >;
+      }
+  > {
+    switch (command.kind) {
+      case 'aggregate':
+        return {
+          kind: 'aggregate',
+          result: await this.updateMilestoneEdit(
+            githubId,
+            milestoneId,
+            command.input,
+          ),
+        };
+      case 'legacy':
+        return {
+          kind: 'legacy',
+          result: await this.updateMilestone(
+            githubId,
+            milestoneId,
+            command.input,
+          ),
+        };
+    }
   }
 
   updateMilestone(
@@ -504,7 +537,9 @@ export class ProgramEditorService {
       try {
         uploads = await store.lockAttachableUploads(actor.id, tokenIds);
         uploads.forEach((upload) =>
-          this.programUploadRulesService.assertProgramTemplateUpload(upload),
+          this.programAuthoringUploadService.assertProgramTemplateUpload(
+            upload,
+          ),
         );
       } catch (error) {
         if (!(error instanceof ProgramAuthoringUploadTokenError)) throw error;

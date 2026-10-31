@@ -1,3 +1,17 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { DownloadResponseService } from './download-response.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MemberKind,
   MilestoneDocumentKind,
@@ -35,10 +49,6 @@ import {
 } from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -247,16 +257,31 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     await new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
+      new DownloadResponseService(),
     ).uploadTemplate(
       `${TEST_PREFIX}staff`,
       milestoneId,
@@ -381,16 +406,31 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
+      new DownloadResponseService(),
     );
 
     await expect(
@@ -414,7 +454,13 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await seedGraph();
     const gate = deferred<void>();
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       {
         ...memoryStorage(),
         put: (input) =>
@@ -426,13 +472,22 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           })),
       },
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
+      new DownloadResponseService(),
     );
     const direct = files.uploadTemplate(
       `${TEST_PREFIX}staff`,
@@ -475,19 +530,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const locked = deferred<void>();
     const release = deferred<void>();
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
-    const submission =
-      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
-        submissionPrisma,
-        {
-          milestoneDocumentId: firstDocumentId,
-          applicationId: application.id,
-          submittedById: application.studentId,
-          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-          expectedLatestReviewId: null,
-          content: Prisma.JsonNull,
-          attachFile: null,
-        },
-      );
+    const submission = new MilestoneDocumentSubmissionRepository(
+      new PlatformRepository(),
+    ).upsertMilestoneDocumentSubmission(submissionPrisma, {
+      milestoneDocumentId: firstDocumentId,
+      applicationId: application.id,
+      submittedById: application.studentId,
+      submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+      expectedLatestReviewId: null,
+      content: Prisma.JsonNull,
+      attachFile: null,
+    });
     await locked.promise;
     const aggregate = editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
@@ -532,18 +585,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
 
     await expect(
-      MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
-        prisma,
-        {
-          milestoneDocumentId: firstDocumentId,
-          applicationId: application.id,
-          submittedById: application.studentId,
-          submittedAt: new Date('2026-08-18T00:00:00.000Z'),
-          expectedLatestReviewId: null,
-          content: Prisma.JsonNull,
-          attachFile: null,
-        },
-      ),
+      new MilestoneDocumentSubmissionRepository(
+        new PlatformRepository(),
+      ).upsertMilestoneDocumentSubmission(prisma, {
+        milestoneDocumentId: firstDocumentId,
+        applicationId: application.id,
+        submittedById: application.studentId,
+        submittedAt: new Date('2026-08-18T00:00:00.000Z'),
+        expectedLatestReviewId: null,
+        content: Prisma.JsonNull,
+        attachFile: null,
+      }),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(
       await prisma.milestoneDocumentSubmission.count({
@@ -573,16 +625,31 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(prisma),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma),
+        new SubmissionFilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new SubmissionsRepository(prisma, new PlatformRepository()),
+        ),
         memoryStorage(),
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       ),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
+      new DownloadResponseService(),
     );
     await expect(
       files.uploadTemplate(
@@ -1183,7 +1250,16 @@ function createFaultingEditor(
     | 'lockAttachableUploads'
     | 'countSubmissionHistoriesForDocuments',
 ): ProgramEditorService {
-  const actual = new ProgramEditorRepository(prisma);
+  const actual = new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {
@@ -1231,9 +1307,13 @@ function createFaultingEditor(
   return new ProgramEditorService(
     repository,
     new ProgramCoverUrlService(),
-    new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
-    new SubmissionFileRulesService(),
+    new ProgramScheduleService(),
+    new ProgramAuthoringUploadService(
+      {} as never,
+      {} as never,
+      new SubmissionFileAdmissionService(),
+      new ProgramNoticeFetchClient(),
+    ),
   );
 }
 
@@ -1249,7 +1329,16 @@ function pausingAggregateEditorAt(
   locked: ReturnType<typeof deferred<void>>,
   release: ReturnType<typeof deferred<void>>,
 ): ProgramEditorService {
-  const actual = new ProgramEditorRepository(prisma);
+  const actual = new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  );
   const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {
@@ -1294,9 +1383,13 @@ function pausingAggregateEditorAt(
   return new ProgramEditorService(
     repository,
     new ProgramCoverUrlService(),
-    new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
-    new SubmissionFileRulesService(),
+    new ProgramScheduleService(),
+    new ProgramAuthoringUploadService(
+      {} as never,
+      {} as never,
+      new SubmissionFileAdmissionService(),
+      new ProgramNoticeFetchClient(),
+    ),
   );
 }
 

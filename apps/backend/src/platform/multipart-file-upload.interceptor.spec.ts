@@ -1,5 +1,5 @@
 import { DomainException } from './error-code.error';
-import { multipartUploadError } from './multipart-file-upload.interceptor';
+import { MultipartFileUploadInterceptor } from './multipart-file-upload.interceptor';
 
 const errors = {
   fileTooLarge: { code: 'SIZE_LIMIT', status: 413, message: 'Size exceeded.' },
@@ -10,8 +10,10 @@ const errors = {
   },
 };
 
+const interceptor = new MultipartFileUploadInterceptor({}, errors);
+
 it('maps the file size failure to the consumer error contract', () => {
-  expect(multipartUploadError({ code: 'LIMIT_FILE_SIZE' }, errors)).toEqual(
+  expect(interceptor.uploadError({ code: 'LIMIT_FILE_SIZE' })).toEqual(
     new DomainException(errors.fileTooLarge),
   );
 });
@@ -24,7 +26,7 @@ it.each([
   'LIMIT_PART_COUNT',
   'LIMIT_UNEXPECTED_FILE',
 ])('maps %s to the consumer invalid-upload contract', (code) => {
-  expect(multipartUploadError({ code }, errors)).toEqual(
+  expect(interceptor.uploadError({ code })).toEqual(
     new DomainException(errors.invalidUpload),
   );
 });
@@ -32,6 +34,6 @@ it.each([
 it.each([null, 'error', new Error('storage'), { code: 'UNRECOGNIZED' }])(
   'preserves an unrelated thrown value: %p',
   (error) => {
-    expect(multipartUploadError(error, errors)).toBe(error);
+    expect(interceptor.uploadError(error)).toBe(error);
   },
 );

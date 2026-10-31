@@ -1,3 +1,8 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   ApplicationStatus,
@@ -23,7 +28,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -66,7 +70,11 @@ const JOINED_FIRST = new Date('2026-08-02T00:00:00.000Z');
 const JOINED_SECOND = new Date('2026-08-03T00:00:00.000Z');
 
 const prisma = new PrismaService();
-const repository = new ProgramTeamsRepository(prisma);
+const repository = new ProgramTeamsRepository(
+  prisma,
+  new ProgramTeamRepositoryEvidenceRepository(prisma),
+  new PlatformRepository(),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
@@ -74,14 +82,29 @@ const auditLog = new AuditLogService(
 const service = new ProgramTeamsService(
   repository,
   auditLog,
-  new ProgramTeamDeletionRepository(prisma),
+  new ProgramTeamDeletionRepository(
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new ProgramRulesService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
-const invitations = new TeamInvitationsRepository(prisma);
+const invitations = new TeamInvitationsRepository(
+  prisma,
+  new PlatformRepository(),
+);
 
 interface MemberSeed {
   readonly userId: string;

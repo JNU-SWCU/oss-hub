@@ -1,3 +1,6 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
@@ -28,8 +31,6 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
@@ -110,8 +111,9 @@ function setup() {
   const service = new SubmissionFilesService(
     repository as unknown as SubmissionFilesRepository,
     storage,
-    new ProgramRulesService(),
-    new SubmissionFileRulesService(),
+    new ProgramScheduleService(),
+    new SubmissionFileAdmissionService(),
+    new DownloadResponseService(),
   );
   return { service, repository, storage };
 }

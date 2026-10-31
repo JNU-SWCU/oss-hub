@@ -15,12 +15,21 @@ import {
 } from './submissions-error-code.error';
 import { type SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
   readonly page: number;
   readonly pageSize: number;
 }
+
+export interface SubmissionMatrixRequest {
+  readonly q?: string;
+  readonly applicationMode?: MatrixApplicationMode | null;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+const MATRIX_DEFAULT_PAGE_SIZE = 20;
 
 export type MatrixCellStatus = SubmissionStatus | 'NOT_SUBMITTED';
 
@@ -59,13 +68,25 @@ export class SubmissionMatrixService {
   constructor(
     @Inject(SubmissionMatrixRepository)
     private readonly repository: SubmissionMatrixRepositoryPort,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
   ) {}
+
+  matrixQueryFromRequest(
+    request: SubmissionMatrixRequest,
+  ): SubmissionMatrixQuery {
+    return {
+      q: request.q?.trim() ?? '',
+      applicationMode: request.applicationMode ?? null,
+      page: request.page ?? 1,
+      pageSize: request.pageSize ?? MATRIX_DEFAULT_PAGE_SIZE,
+    };
+  }
 
   async matrix(
     programId: string,
-    query: SubmissionMatrixQuery,
+    request: SubmissionMatrixRequest,
   ): Promise<SubmissionMatrixResult> {
+    const query = this.matrixQueryFromRequest(request);
     if (!(await this.repository.programExists(programId))) {
       throw this.error(SubmissionsErrorCode.PROGRAM_NOT_FOUND);
     }
@@ -160,7 +181,7 @@ export class SubmissionMatrixService {
           index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
         ),
         deliveryStatus:
-          this.milestoneDocumentRulesService.documentDeliveryStatus({
+          this.milestoneDocumentCollectionService.documentDeliveryStatus({
             dueAt: milestone.dueAt,
             requiredFirstSubmissions: milestone.requiredDocumentIds.map(
               (documentId) =>

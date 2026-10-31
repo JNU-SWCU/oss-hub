@@ -111,10 +111,11 @@ export class SystemStatusService {
   constructor(
     private readonly repository: SystemStatusRepository,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
+    private readonly collectionSchedule: CollectionScheduleService,
   ) {}
 
   async getStatus(): Promise<SystemStatusResult> {
-    const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       this.clock(),
     );
     const [rows, finalFailureCount, streamRows, activity, externalStatus] =

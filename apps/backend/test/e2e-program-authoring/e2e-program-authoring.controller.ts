@@ -15,7 +15,7 @@ import {
   E2eProgramAuthoringService,
 } from './e2e-program-authoring.service';
 import { E2E_NOW } from './e2e-program-authoring-fixture';
-import { Protected } from '../../src/auth/authentication.guard';
+import { Protected } from '../../src/auth/auth-route.decorator';
 
 @Controller('_e2e/program-authoring')
 @Protected()

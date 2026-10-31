@@ -1,3 +1,9 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
@@ -25,17 +31,21 @@ import {
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('program-notice-preview.service', () => {
@@ -45,7 +55,9 @@ describe('program-notice-preview.service', () => {
   function setup() {
     const read = jest.fn(() => Promise.resolve(html));
     return {
-      service: new ProgramNoticePreviewService({ read }),
+      service: new ProgramNoticePreviewService(
+        Object.assign(new ProgramNoticeFetchClient(), { read }),
+      ),
       read,
     };
   }
@@ -81,7 +93,9 @@ describe('program-notice-preview.service', () => {
       finish = resolve;
     });
     const read = jest.fn(() => pending);
-    const service = new ProgramNoticePreviewService({ read });
+    const service = new ProgramNoticePreviewService(
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
+    );
     const requests = [1, 2, 3, 4].map(() =>
       service.preview('staff-synthetic', source),
     );
@@ -101,7 +115,9 @@ describe('program-notice-preview.service', () => {
 
   it('limits all actors combined to sixty requests per rolling minute', async () => {
     const read = jest.fn(() => Promise.resolve(html));
-    const service = new ProgramNoticePreviewService({ read });
+    const service = new ProgramNoticePreviewService(
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
+    );
     for (let index = 0; index < 60; index++)
       await service.preview(`staff-${index}`, source);
     await expect(service.preview('staff-61', source)).rejects.toMatchObject({
@@ -201,8 +217,15 @@ function setup() {
       repository,
       auditLog,
       new AuditLogMetadataService(),
-      new ProgramRulesService(),
-      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
+      new ProgramAuthoringUploadService(
+        {} as never,
+        {} as never,
+        new SubmissionFileAdmissionService(),
+        new ProgramNoticeFetchClient(),
+      ),
+      new ProgramAuthoringUploadTransactionRepository(),
     ),
   };
 }
@@ -265,7 +288,17 @@ describe('ProgramAuthoringService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ...STATELESS_PROVIDERS,
-        ProgramRulesService,
+        ProgramScheduleService,
+        ProgramTemplatesService,
+        {
+          provide: ProgramAuthoringUploadService,
+          useValue: new ProgramAuthoringUploadService(
+            {} as never,
+            {} as never,
+            new SubmissionFileAdmissionService(),
+            new ProgramNoticeFetchClient(),
+          ),
+        },
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
         AuditLogMetadataService,

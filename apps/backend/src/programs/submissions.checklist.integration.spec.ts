@@ -1,3 +1,7 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionInputService } from './submission-input.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
   MemberKind,
@@ -22,8 +26,6 @@ import { PrismaService } from '../platform/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,9 +34,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionsService(
-  new SubmissionsRepository(prisma),
-  new ProgramRulesService(),
-  new SubmissionFileRulesService(),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
+  new ProgramScheduleService(),
+  new SubmissionFileAdmissionService(),
+  new SubmissionInputService(),
 );
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');

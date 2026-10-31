@@ -15,12 +15,8 @@ import {
   compareStringsByCodeUnit,
 } from '../app-controller-discovery';
 import { createAuthRouteManifest } from './auth-route-manifest.fixture';
-import {
-  OptionalSession,
-  Protected,
-  Public,
-  PUBLIC_ROUTE_METADATA,
-} from './authentication.guard';
+import { PUBLIC_ROUTE_METADATA } from './authentication.guard';
+import { OptionalSession, Protected, Public } from './auth-route.decorator';
 
 @Public()
 @Controller()

@@ -1,3 +1,6 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -319,7 +322,12 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             operation(transaction),
         ),
     };
-    const repository = new ApplicationsRepository(prisma as never);
+    const repository = new ApplicationsRepository(
+      prisma as never,
+      new ReviewHistoryWriterRepository(),
+      new RepositoryProvisionGenerationRepository(),
+      new PlatformRepository(),
+    );
 
     const page = await repository.listApplicationsForProgram(PROGRAM_ID, query);
 
@@ -567,7 +575,12 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
               operation(transaction),
           ),
       };
-      const repositoryUnderTest = new ApplicationsRepository(prisma as never);
+      const repositoryUnderTest = new ApplicationsRepository(
+        prisma as never,
+        new ReviewHistoryWriterRepository(),
+        new RepositoryProvisionGenerationRepository(),
+        new PlatformRepository(),
+      );
 
       const page = await repositoryUnderTest.listApplicationsForProgram(
         PROGRAM_ID,

@@ -1,3 +1,7 @@
+import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
+import { PlatformRepository } from './platform.repository';
+import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import 'reflect-metadata';
 import { RolesGuard } from './roles.guard';
 import { MODULE_METADATA } from '@nestjs/common/constants';
@@ -18,11 +22,15 @@ import {
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { S3ObjectStorageClient } from './s3-object-storage.client';
 import { AuditLogService } from './audit-log.service';
+import { AuthConfig } from './auth.config';
+import { AuthSessionService } from './auth-session.service';
 import { PlatformModule } from './platform.module';
 import { PrismaService } from './prisma.service';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
 import { JoinCodeSecretService } from './join-code-secret.service';
+import { OriginGuard } from './origin.guard';
+import { loadRuntimeConfig } from './runtime-config.config';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, PlatformModule) as unknown;
@@ -102,6 +110,7 @@ describe('PlatformModule', () => {
 
     expect(exported).toEqual([
       RUNTIME_CONFIG,
+      LockProgramTreeRepository,
       PrismaService,
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
@@ -109,9 +118,28 @@ describe('PlatformModule', () => {
       JoinCodeSecretService,
       AuditLogService,
       RolesGuard,
+      PlatformRepository,
+      PrismaSerializationRetryRepository,
+      RepositoryProvisionGenerationRepository,
+      AuthConfig,
+      AuthSessionService,
+      OriginGuard,
     ]);
     expect(exported).not.toContain(S3ObjectStorageClient);
     expect(exported).not.toContain(S3ObjectInventoryClient);
+  });
+
+  it('인증 환경변수가 없어도 조립되고 인증 설정을 읽을 때에만 실패한다', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PlatformModule],
+    })
+      .overrideProvider(RUNTIME_CONFIG)
+      .useValue(loadRuntimeConfig({}))
+      .compile();
+
+    expect(() => moduleRef.get(AuthConfig).validate()).toThrow(
+      'SESSION_SECRET이 필수입니다.',
+    );
   });
 
   it('override 없이 조립하면 토큰이 실제 S3 구현으로 해석된다', async () => {

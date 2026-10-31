@@ -1,3 +1,8 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentCollectionResponseDto,
   MilestoneDocumentDeliveryCollectionResponseDto,
@@ -11,15 +16,9 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const milestoneDocumentCollectionService =
-  new MilestoneDocumentCollectionService(
-    undefined as never,
-    new MilestoneDocumentRulesService(new ProgramRulesService()),
-  );
+  new MilestoneDocumentCollectionService(undefined as never);
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,14 +28,19 @@ const harness = createDeadlineDigestIntegrationHarness();
 const repository = new MilestoneDocumentCollectionReadRepository(
   harness.prisma,
 );
-const service = new MilestoneDocumentCollectionService(
-  repository,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-);
+const service = new MilestoneDocumentCollectionService(repository);
 const legacyService = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(harness.prisma),
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-  new SubmissionFileRulesService(),
+  new MilestoneDocumentsRepository(
+    harness.prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(harness.prisma),
+  ),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;
 const late = new Date(fixture.dueSoon.getTime() + 1);

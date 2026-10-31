@@ -1,8 +1,8 @@
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAppConfigError } from './collection-app.config';
-import { CollectionPublicTokenService } from './collection-providers.service';
+import { CollectionPublicTokenService } from './collection-public-token.service';
 
-describe('collection-providers.service', () => {
+describe('collection-public-token.service', () => {
   describe('CollectionPublicTokenService', () => {
     it('getToken()이 PAT 원문 문자열을 그대로 반환한다', async () => {
       const runtimeConfig = loadRuntimeConfig({

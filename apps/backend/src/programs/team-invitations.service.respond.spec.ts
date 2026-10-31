@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
@@ -295,7 +296,10 @@ describe('acceptTeamInvitationTransaction', () => {
       $transaction: <T>(operation: (t: typeof tx) => Promise<T>) =>
         operation(tx),
     } as unknown as PrismaService;
-    return TeamInvitationsRepository.acceptTeamInvitationTransaction(
+    return new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    ).acceptTeamInvitationTransaction(
       prisma,
       INVITATION_ID,
       inviteeId,
@@ -506,7 +510,10 @@ describe('acceptTeamInvitationTransaction', () => {
     } as unknown as PrismaService;
 
     await expect(
-      TeamInvitationsRepository.acceptTeamInvitationTransaction(
+      new TeamInvitationsRepository(
+        prisma,
+        new PlatformRepository(),
+      ).acceptTeamInvitationTransaction(
         prisma,
         OTHER_TEAM_INVITATION_ID,
         syntheticUserId,

@@ -1,3 +1,10 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MemberKind } from '@prisma/client';
@@ -16,9 +23,6 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -82,9 +86,19 @@ describe('ProgramEditorService integration', () => {
       },
     });
     const documents = new MilestoneDocumentsService(
-      new MilestoneDocumentsRepository(prisma),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentsRepository(
+        prisma,
+        new LockProgramTreeRepository(),
+        new PlatformRepository(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new MilestoneDocumentCollectionReadRepository(prisma),
+      ),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
     const results = await runTogether(
       () =>

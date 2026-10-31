@@ -1,7 +1,12 @@
+import { ProgramsService } from '../programs.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ProgramListRequestDto } from './program-list-request.dto';
+
+const programsService = Object.create(
+  ProgramsService.prototype,
+) as ProgramsService;
 
 describe('ProgramListRequestDto', () => {
   it('uses the first page and a bounded default page size when query is empty', async () => {
@@ -10,7 +15,7 @@ describe('ProgramListRequestDto', () => {
     const errors = await validate(query);
 
     expect(errors).toHaveLength(0);
-    expect(query.toQuery()).toEqual({
+    expect(programsService.listQueryFromRequest(query)).toEqual({
       page: 1,
       pageSize: 20,
       search: '',
@@ -53,7 +58,7 @@ describe('ProgramListRequestDto', () => {
       const query = plainToInstance(ProgramListRequestDto, { status });
       const errors = await validate(query);
       expect(errors).toHaveLength(0);
-      expect(query.toQuery().status).toBe(status);
+      expect(programsService.listQueryFromRequest(query).status).toBe(status);
     }
   });
 
@@ -63,7 +68,7 @@ describe('ProgramListRequestDto', () => {
     const errors = await validate(query);
 
     expect(errors).toHaveLength(0);
-    const result = query.toQuery();
+    const result = programsService.listQueryFromRequest(query);
     expect(result.sort).toBeUndefined();
     expect(result.direction).toBeUndefined();
   });
@@ -75,7 +80,10 @@ describe('ProgramListRequestDto', () => {
     });
 
     expect(await validate(query)).toHaveLength(0);
-    expect(query.toQuery()).toMatchObject({ year, status: 'current' });
+    expect(programsService.listQueryFromRequest(query)).toMatchObject({
+      year,
+      status: 'current',
+    });
   });
 
   it.each(['1999', '2101', '2026.5', 'invalid', ''])(
@@ -98,8 +106,10 @@ describe('ProgramListRequestDto', () => {
         });
         const errors = await validate(query);
         expect(errors).toHaveLength(0);
-        expect(query.toQuery().sort).toBe(sort);
-        expect(query.toQuery().direction).toBe(direction);
+        expect(programsService.listQueryFromRequest(query).sort).toBe(sort);
+        expect(programsService.listQueryFromRequest(query).direction).toBe(
+          direction,
+        );
       }
     }
   });

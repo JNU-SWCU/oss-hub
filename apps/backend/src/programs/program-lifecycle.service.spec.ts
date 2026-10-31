@@ -1,3 +1,5 @@
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
@@ -133,9 +135,13 @@ function createDeleteService(
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramLifecycleService(
-    new ProgramLifecycleRepository(prisma),
+    new ProgramLifecycleRepository(
+      prisma,
+      new ProgramDeletionScopeRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,
@@ -645,9 +651,13 @@ function createPurgeService(
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramLifecycleService(
-    new ProgramLifecycleRepository(prisma),
+    new ProgramLifecycleRepository(
+      prisma,
+      new ProgramDeletionScopeRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,

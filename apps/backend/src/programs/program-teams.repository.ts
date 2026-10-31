@@ -182,7 +182,11 @@ export type RecordTeamMembershipAudit = (
 
 @Injectable()
 export class ProgramTeamsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly evidence: ProgramTeamRepositoryEvidenceRepository,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findActiveStudentByGithubId(
     githubId: bigint,
@@ -470,14 +474,14 @@ export class ProgramTeamsRepository {
       })),
       application: applicationRow,
       repositoryContributions: application
-        ? await new ProgramTeamRepositoryEvidenceRepository(
-            this.prisma,
-          ).contributions(application, team.members)
+        ? await this.evidence.contributions(application, team.members)
         : null,
       repositoryUrlHistory: application
-        ? await new ProgramTeamRepositoryEvidenceRepository(
-            this.prisma,
-          ).history({ programId, teamId, applicationId: application.id })
+        ? await this.evidence.history({
+            programId,
+            teamId,
+            applicationId: application.id,
+          })
         : { rows: [], hasMore: false },
     };
   }
@@ -499,9 +503,10 @@ export class ProgramTeamsRepository {
     if (!application) return { applicationId: null, rows: [], hasMore: false };
     return {
       applicationId: application.id,
-      ...(await new ProgramTeamRepositoryEvidenceRepository(
-        this.prisma,
-      ).history({ programId, teamId, applicationId: application.id }, cursor)),
+      ...(await this.evidence.history(
+        { programId, teamId, applicationId: application.id },
+        cursor,
+      )),
     };
   }
 
@@ -545,9 +550,7 @@ export class ProgramTeamsRepository {
   }
 
   readTeamActivity(team: TeamActivityScope): Promise<TeamActivityRow> {
-    return new ProgramTeamRepositoryEvidenceRepository(this.prisma).activity(
-      team,
-    );
+    return this.evidence.activity(team);
   }
 
   async leave(
@@ -624,7 +627,12 @@ export class ProgramTeamsRepository {
         where: { teamId_userId: { teamId, userId } },
       });
 
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(lockedMembership, {
@@ -680,7 +688,12 @@ export class ProgramTeamsRepository {
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
 
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(lockedActor, {
@@ -767,7 +780,12 @@ export class ProgramTeamsRepository {
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
-      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await enqueueRepositoryAccessSyncEvents(
+        this.platformRepository,
+        tx,
+        teamId,
+        now,
+      );
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(target, {
@@ -881,18 +899,19 @@ type AccessSyncTx = Pick<
 >;
 
 async function enqueueRepositoryAccessSyncEvents(
+  platformRepository: PlatformRepository,
   tx: AccessSyncTx,
   teamId: string,
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+    where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      PlatformRepository.repositoryAccessSyncEventData(
+      platformRepository.repositoryAccessSyncEventData(
         application.id,
         teamId,
         now,

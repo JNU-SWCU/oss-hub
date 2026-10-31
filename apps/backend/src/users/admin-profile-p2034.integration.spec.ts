@@ -1,3 +1,9 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -23,7 +29,19 @@ const TARGET_PREFIX = `${TEST_PREFIX}target:`;
 const GITHUB_ID_BASE = 9_058_000_000n;
 
 const prisma = new PrismaService();
-const repository = new AdminProfileRepository(prisma);
+const repository = new AdminProfileRepository(
+  prisma,
+  new AdminAccessRepository(
+    prisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
+  ),
+  new PrismaSerializationRetryRepository(),
+  new PlatformRepository(),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),

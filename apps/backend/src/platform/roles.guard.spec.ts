@@ -3,11 +3,11 @@ import { Reflector } from '@nestjs/core';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import {
   ADMIN_AUDIENCE,
-  Roles,
   RolesGuard,
   ROLES_METADATA,
   STAFF_AUDIENCE,
 } from './roles.guard';
+import { Roles } from './roles.decorator';
 
 const forbidden = () => new ForbiddenException('synthetic forbidden');
 

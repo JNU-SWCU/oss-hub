@@ -1,3 +1,10 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import {
   ProgramTrackType,
@@ -20,26 +27,44 @@ import {
 } from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
-    new ProgramAuthoringRepository(harness.prisma),
+    new ProgramAuthoringRepository(
+      harness.prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        harness.prisma,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
+    ),
     { record: jest.fn() } as unknown as AuditLogService,
     new AuditLogMetadataService(),
-    new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
+    new ProgramAuthoringUploadService(
+      {} as never,
+      {} as never,
+      new SubmissionFileAdmissionService(),
+      new ProgramNoticeFetchClient(),
+    ),
+    new ProgramAuthoringUploadTransactionRepository(),
   );
 
   beforeAll(async () => {

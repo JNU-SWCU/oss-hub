@@ -6,7 +6,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import type { AdminAccessService } from '../users/admin-access.service';
+import { AdminAccessService } from '../users/admin-access.service';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { AccessRequestsController } from './access-requests.controller';
 import {
@@ -54,18 +54,13 @@ describe('AccessRequestsController routes', () => {
 describe('AccessRequestsController delegation', () => {
   it('forces PENDING and createdAt desc on GET /users/access/requests', async () => {
     const service = serviceHarness();
-    const controller = new AccessRequestsController(
-      service,
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
-      ),
-    );
+    const controller = new AccessRequestsController(service);
     const query = new AccessRequestsListRequestDto();
 
     await controller.listRequests(REQUEST, query);
 
-    expect(service.listRequests).toHaveBeenCalledWith(REQUEST.principal, {
+    expect(service.listRequests).toHaveBeenCalledWith(REQUEST.principal, query);
+    expect(service.requestQueueQueryFromRequest(query)).toEqual({
       query: '',
       pendingRequest: 'PENDING',
       sort: 'createdAt',
@@ -77,13 +72,7 @@ describe('AccessRequestsController delegation', () => {
 
   it('passes independent history pages to the service', async () => {
     const service = serviceHarness();
-    const controller = new AccessRequestsController(
-      service,
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
-      ),
-    );
+    const controller = new AccessRequestsController(service);
     const query = Object.assign(new AccessRequestsHistoryRequestDto(), {
       staffAccessRequestPage: 2,
       staffAccessRequestLimit: 5,
@@ -112,13 +101,7 @@ describe('AccessRequestsController delegation', () => {
     '%s rejects the user id %p before service delegation(#787)',
     async (method, id) => {
       const service = serviceHarness();
-      const controller = new AccessRequestsController(
-        service,
-        new AdminAccessMutationService(
-          new AuditLogMetadataService(),
-          new UserProfileService(),
-        ),
-      );
+      const controller = new AccessRequestsController(service);
       const query = new AccessRequestsHistoryRequestDto();
 
       const operation =
@@ -135,7 +118,11 @@ describe('AccessRequestsController delegation', () => {
 });
 
 function serviceHarness() {
-  return {
+  return Object.assign(Object.create(AdminAccessService.prototype) as object, {
+    adminAccessMutationService: new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
     listRequests: jest.fn().mockResolvedValue({
       items: [],
       page: 1,
@@ -152,5 +139,9 @@ function serviceHarness() {
       staffAccessRequests: { items: [], page: 1, limit: 20, total: 0 },
       loginHistory: { items: [], page: 1, limit: 20, total: 0 },
     }),
-  } satisfies Pick<AdminAccessService, 'listRequests' | 'get' | 'getHistory'>;
+  }) as unknown as AdminAccessService & {
+    listRequests: jest.Mock;
+    get: jest.Mock;
+    getHistory: jest.Mock;
+  };
 }

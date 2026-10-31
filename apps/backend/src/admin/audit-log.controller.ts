@@ -2,8 +2,9 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 import { AuditLogPageResponseDto } from './dto/audit-log-page-response.dto';
-import { Protected } from '../auth/authentication.guard';
-import { ADMIN_AUDIENCE, Roles } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { ADMIN_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   AUDIT_LOG_ERROR_CODES,
@@ -24,7 +25,7 @@ export class AuditLogController {
     @Query() query: AuditLogListRequestDto,
   ): Promise<AuditLogPageResponseDto> {
     return AuditLogPageResponseDto.from(
-      await this.service.list(query.toQuery()),
+      await this.service.listFromRequest(query),
     );
   }
 }

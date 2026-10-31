@@ -1,3 +1,10 @@
+import type { AuthConfig } from '../platform/auth.config';
+import { AuthSessionService } from '../platform/auth-session.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -16,13 +23,25 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new AccountDeactivationService(
-  new AccountDeactivationRepository(prisma),
+  new AccountDeactivationRepository(
+    prisma,
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    ),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
   new AuditLogMetadataService(),
   new UserProfileService(),
+  { useSecureCookies: false } as AuthConfig,
+  new AuthSessionService(),
 );
 const USER_ID = 'synthetic-self-deactivation-user';
 const GITHUB_ID = 8_800_000_000_018n;

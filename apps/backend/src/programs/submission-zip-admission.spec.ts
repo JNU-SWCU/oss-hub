@@ -1,11 +1,11 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,
   SubmissionZipRejection,
 } from './submission-zip.error';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
-const submissionFileRulesService = new SubmissionFileRulesService();
+const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 
 const MIB = 1024 * 1024;
 
@@ -138,7 +138,9 @@ describe('inspectSubmissionZipMetadata — 거절 사유를 갈래별로 돌려�
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
 
     const rejection =
-      await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
+        archive,
+      );
 
     expect(rejection).toBeNull();
   });
@@ -149,7 +151,9 @@ describe('inspectSubmissionZipMetadata — 거절 사유를 갈래별로 돌려�
       const archive = build();
 
       const rejection =
-        await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
+        await submissionFileAdmissionService.inspectSubmissionZipMetadata(
+          archive,
+        );
 
       expect(rejection).toBe(expected);
     },
@@ -166,12 +170,12 @@ describe('막는 기준은 그대로다', () => {
       );
 
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(1_000),
       ),
     ).toBeNull();
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(1_001),
       ),
     ).toBe(SubmissionZipRejection.TOO_MANY_ENTRIES);
@@ -189,12 +193,12 @@ describe('막는 기준은 그대로다', () => {
       ]);
 
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * MIB),
       ),
     ).toBeNull();
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * MIB + 1),
       ),
     ).toBe(SubmissionZipRejection.CONTENT_TOO_LARGE);
@@ -212,12 +216,12 @@ describe('막는 기준은 그대로다', () => {
       );
 
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * MIB),
       ),
     ).toBeNull();
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * MIB + 1),
       ),
     ).toBe(SubmissionZipRejection.CONTENT_TOO_LARGE);
@@ -235,12 +239,12 @@ describe('막는 기준은 그대로다', () => {
       ]);
 
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * 1_024),
       ),
     ).toBeNull();
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
         build(100 * 1_024 + 1),
       ),
     ).toBe(SubmissionZipRejection.EXPANDS_TOO_MUCH);
@@ -252,7 +256,9 @@ describe('막는 기준은 그대로다', () => {
     ]);
 
     expect(
-      await submissionFileRulesService.inspectSubmissionZipMetadata(archive),
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
+        archive,
+      ),
     ).toBeNull();
   });
 });
@@ -283,7 +289,9 @@ describe('학생이 읽는 문장', () => {
     const archive = signatureValidZip([{ name: '개인정보-동의서-원본.ZIP' }]);
 
     const rejection =
-      await submissionFileRulesService.inspectSubmissionZipMetadata(archive);
+      await submissionFileAdmissionService.inspectSubmissionZipMetadata(
+        archive,
+      );
 
     expect(rejection).toBe(SubmissionZipRejection.NESTED_ARCHIVE);
     expect(

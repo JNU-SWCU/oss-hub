@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
 
@@ -85,5 +87,10 @@ export function givenRepository(
     },
   ]);
   outsiderFindUnique.mockResolvedValue(null);
-  return new ProgramTeamsRepository(new PrismaService());
+  const prisma = new PrismaService();
+  return new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  );
 }

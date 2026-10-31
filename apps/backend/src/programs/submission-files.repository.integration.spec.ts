@@ -1,3 +1,5 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -25,7 +27,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(prisma);
+const repository = new SubmissionFilesRepository(
+  prisma,
+  new PlatformRepository(),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
+);
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
 const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');

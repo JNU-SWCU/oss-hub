@@ -13,7 +13,7 @@ import { ConsentsService } from './consents.service';
 import { ConsentCurrentResponseDto } from './dto/consent-current-response.dto';
 import { ConsentResponseDto } from './dto/consent-response.dto';
 import { CreateConsentRequestDto } from './dto/create-consent-request.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('consents')
 export class ConsentsController {

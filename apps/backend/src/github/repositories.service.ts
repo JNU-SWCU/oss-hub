@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { ConsentsService } from '../users/consents.service';
-import type { CollectionIncrementalRepository } from './collection-incremental.repository';
+import { ConsentsService } from '../users/consents.service';
+import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryVisibility } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
-import type { GithubAppClient } from './github-app.client';
+import { AuditLogService } from '../platform/audit-log.service';
+import { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
   type RepositoryPublishTarget,
@@ -27,11 +27,8 @@ export interface OwnRepositoryEnrollmentInput {
 @Injectable()
 export class RepositoryOwnEnrollmentService {
   constructor(
-    private readonly consents: Pick<ConsentsService, 'requireCurrent'>,
-    private readonly enrollment: Pick<
-      CollectionIncrementalRepository,
-      'enrollExternalRepository'
-    >,
+    private readonly consents: ConsentsService,
+    private readonly enrollment: CollectionIncrementalRepository,
   ) {}
 
   async enrollExternalRepository(
@@ -55,12 +52,9 @@ export interface PublishRepositoryInput {
 @Injectable()
 export class RepositoriesService {
   constructor(
-    private readonly repository: Pick<
-      RepositoriesRepository,
-      'findPublishTarget' | 'withTransaction'
-    >,
-    private readonly github: Pick<GithubAppClient, 'publishRepository'>,
-    private readonly auditLog: Pick<AuditLogService, 'record'>,
+    private readonly repository: RepositoriesRepository,
+    private readonly github: GithubAppClient,
+    private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
   ) {}

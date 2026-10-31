@@ -1,3 +1,4 @@
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   ApplicationStatus,
   MemberKind,
@@ -21,7 +22,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new RepositoriesRepository(prisma);
+const repository = new RepositoriesRepository(
+  prisma,
+  new RepositoryProvisionGenerationRepository(),
+);
 const readService = new RepositoriesReadService(
   repository,
   { requireOrganization: () => 'synthetic' },

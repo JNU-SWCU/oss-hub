@@ -1,7 +1,7 @@
 import { Controller, Get, Header, Param } from '@nestjs/common';
 import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
 import { PublicProjectsService } from './public-projects.service';
-import { Public } from '../auth/authentication.guard';
+import { Public } from '../auth/auth-route.decorator';
 
 @Controller('users')
 @Public()

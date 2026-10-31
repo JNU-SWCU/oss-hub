@@ -37,7 +37,13 @@ beforeAll(async () => {
       { provide: ProgramAuthoringService, useValue: {} },
       { provide: ProgramAuthoringRepository, useValue: {} },
       { provide: ProgramAuthoringUploadService, useValue: { uploadCover } },
-      { provide: ProgramCoverService, useValue: { read } },
+      {
+        provide: ProgramCoverService,
+        useValue: Object.assign(
+          Object.create(ProgramCoverService.prototype) as object,
+          { read },
+        ),
+      },
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))

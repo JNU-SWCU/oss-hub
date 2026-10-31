@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from './http-auth.types';
 import { LoginHistoryRequestDto } from './dto/login-history-request.dto';
 import { LoginHistoryPageResponseDto } from './dto/login-history-response.dto';
 import { LoginHistoryService } from './auth.service';
-import { Protected } from './authentication.guard';
+import { Protected } from './auth-route.decorator';
 
 @Controller('users/me/login-history')
 export class LoginHistoryController {

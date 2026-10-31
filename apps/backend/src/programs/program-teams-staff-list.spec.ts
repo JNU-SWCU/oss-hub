@@ -1,3 +1,6 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { StaffProgramTeamResponseDto } from './dto/program-team-response.dto';
@@ -13,7 +16,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
 
@@ -69,7 +71,15 @@ function buildService(overrides: {
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
-    new ProgramRulesService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
   );
   return { service, findProgramById, listStaffTeams, findActorByGithubId };
 }
@@ -167,8 +177,8 @@ describe('ProgramTeamsService.listForStaff', () => {
 
     const payload: unknown = JSON.parse(
       JSON.stringify(
-        StaffProgramTeamResponseDto.fromAll(
-          await service.listForStaff(PROGRAM_ID),
+        (await service.listForStaff(PROGRAM_ID)).map((view) =>
+          StaffProgramTeamResponseDto.from(view),
         ),
       ),
     );
@@ -222,7 +232,11 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
     const findMany = jest.fn().mockResolvedValue(rows);
     const prisma = { team: { findMany } };
     return {
-      repository: new ProgramTeamsRepository(prisma as never),
+      repository: new ProgramTeamsRepository(
+        prisma as never,
+        new ProgramTeamRepositoryEvidenceRepository(prisma as never),
+        new PlatformRepository(),
+      ),
       findMany,
     };
   }

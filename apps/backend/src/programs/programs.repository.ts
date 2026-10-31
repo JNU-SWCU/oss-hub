@@ -60,11 +60,15 @@ export interface ProgramApplicationCounts {
 
 @Injectable()
 export class ProgramsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+    private readonly programListStatusFilterRepository: ProgramListStatusFilterRepository,
+  ) {}
 
   listPrograms(query: ProgramListQuery, now: Date) {
     const where: Prisma.ProgramWhereInput = {
-      ...ProgramListStatusFilterRepository.programListPrismaWhere(
+      ...this.programListStatusFilterRepository.programListPrismaWhere(
         query.status,
         now,
       ),
@@ -75,25 +79,27 @@ export class ProgramsRepository {
         ? {
             AND: [
               {
-                endAt: ProgramListStatusFilterRepository.programEndYearRange(
-                  query.year,
-                ),
+                endAt:
+                  this.programListStatusFilterRepository.programEndYearRange(
+                    query.year,
+                  ),
               },
             ],
           }
         : {}),
     };
-    const sqlWhere = ProgramListStatusFilterRepository.programListSqlWhere(
+    const sqlWhere = this.programListStatusFilterRepository.programListSqlWhere(
       query.status,
       query.search,
       now,
       query.year,
     );
-    const orderBy = ProgramListStatusFilterRepository.programListOrderBySql(
-      query.sort,
-      query.direction,
-      now,
-    );
+    const orderBy =
+      this.programListStatusFilterRepository.programListOrderBySql(
+        query.sort,
+        query.direction,
+        now,
+      );
     const offset = (query.page - 1) * query.pageSize;
     return this.prisma.$transaction([
       this.prisma.$queryRaw<readonly ProgramListRecord[]>(Prisma.sql`
@@ -130,7 +136,7 @@ export class ProgramsRepository {
     >(Prisma.sql`
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
-      ${ProgramListStatusFilterRepository.programListSqlWhere('ended', '', now)}
+      ${this.programListStatusFilterRepository.programListSqlWhere('ended', '', now)}
       AND ${programEndYearSql} BETWEEN 2000 AND 2100
       ORDER BY year DESC
     `);
@@ -146,7 +152,7 @@ export class ProgramsRepository {
         readonly upcoming: number;
         readonly ended: number;
       }[]
-    >(ProgramListStatusFilterRepository.programStatusCountsSql(now));
+    >(this.programListStatusFilterRepository.programStatusCountsSql(now));
     const row = rows[0];
     if (!row) return emptyProgramStatusCounts();
     return {
@@ -209,7 +215,7 @@ export class ProgramsRepository {
     return this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -240,7 +246,7 @@ export class ProgramsRepository {
     const applications = await this.prisma.application.findMany({
       where: {
         programId: { in: [...programIds] },
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { programId: true, status: true },
     });
@@ -283,7 +289,7 @@ export class ProgramsRepository {
         ...(studentUserId
           ? {
               application: {
-                ...PlatformRepository.programApplicationParticipantWhere(
+                ...this.platformRepository.programApplicationParticipantWhere(
                   studentUserId,
                 ),
               },
@@ -334,7 +340,7 @@ export class ProgramsRepository {
     return this.prisma.application.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         teamId: true,

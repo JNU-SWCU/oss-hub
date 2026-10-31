@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { LoginHistoryService, AuthService } from './auth.service';
@@ -26,6 +27,7 @@ describe('GitHub login account choice', () => {
     const module = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        AuthFlowService,
         ...STATELESS_PROVIDERS,
         AuthSessionService,
         UserProfileService,

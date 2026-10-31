@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
   MemberKind,
@@ -32,7 +33,10 @@ const STAFF_PROFILE = {
 
 describe('MemberOnboardingRepository integration', () => {
   const prisma = new PrismaService();
-  const repository = new MemberOnboardingRepository(prisma);
+  const repository = new MemberOnboardingRepository(
+    prisma,
+    new PlatformRepository(),
+  );
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };

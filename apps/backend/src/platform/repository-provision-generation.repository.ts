@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   RepositoryIssuanceOutcome,
@@ -37,8 +38,9 @@ interface RepositoryIssuanceHistoryInput {
   readonly closedAt: Date;
 }
 
+@Injectable()
 export class RepositoryProvisionGenerationRepository {
-  static async writeRepositoryIssuanceHistory(
+  async writeRepositoryIssuanceHistory(
     transaction: Prisma.TransactionClient,
     input: RepositoryIssuanceHistoryInput,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
@@ -82,7 +84,7 @@ export class RepositoryProvisionGenerationRepository {
     });
   }
 
-  static async transferProvisionGeneration(
+  async transferProvisionGeneration(
     transaction: Prisma.TransactionClient,
     input: {
       readonly applicationId: string;
@@ -107,7 +109,7 @@ export class RepositoryProvisionGenerationRepository {
       existing?.currentEventId != null &&
       existing.currentEventId !== input.newEventId
     ) {
-      await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+      await this.writeRepositoryIssuanceHistory(
         transaction,
         {
           requestId: existing.currentEventId,
@@ -153,7 +155,7 @@ export class RepositoryProvisionGenerationRepository {
     return { jobId: existing.id };
   }
 
-  static async settleProvisionGenerationForSynchronousConnection(
+  async settleProvisionGenerationForSynchronousConnection(
     transaction: Prisma.TransactionClient,
     input: {
       readonly applicationId: string;
@@ -178,7 +180,7 @@ export class RepositoryProvisionGenerationRepository {
     )[0];
 
     if (existing?.currentEventId != null) {
-      await RepositoryProvisionGenerationRepository.writeRepositoryIssuanceHistory(
+      await this.writeRepositoryIssuanceHistory(
         transaction,
         {
           requestId: existing.currentEventId,

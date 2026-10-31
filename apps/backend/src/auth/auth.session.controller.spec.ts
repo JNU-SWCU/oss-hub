@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
@@ -79,13 +80,15 @@ function authenticatedRequest(
 
 function createController(findMe: jest.Mock): AuthController {
   return new AuthController(
-    { findMe } as unknown as AuthService,
-    {
-      sessionSecret,
-      useSecureCookies: true,
-    } as unknown as AuthConfig,
-    {} as LoginHistoryService,
-    new AuthSessionService(),
+    new AuthFlowService(
+      { findMe } as unknown as AuthService,
+      {
+        sessionSecret,
+        useSecureCookies: true,
+      } as unknown as AuthConfig,
+      {} as LoginHistoryService,
+      new AuthSessionService(),
+    ),
   );
 }
 

@@ -1,3 +1,5 @@
+import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
+import { ProgramCoverRepository } from '../../src/programs/program-cover.repository';
 import { Injectable } from '@nestjs/common';
 import {
   ProgramAuthoringRepository,
@@ -12,8 +14,16 @@ import {
 
 @Injectable()
 export class FaultInjectingProgramAuthoringRepository extends ProgramAuthoringRepository {
-  constructor(prisma: PrismaService) {
-    super(prisma);
+  constructor(
+    prisma: PrismaService,
+    programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    programCoverRepository: ProgramCoverRepository,
+  ) {
+    super(
+      prisma,
+      programAuthoringUploadTransactionRepository,
+      programCoverRepository,
+    );
   }
 
   override withTransaction<T>(

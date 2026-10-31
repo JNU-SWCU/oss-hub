@@ -55,7 +55,7 @@ import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evid
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
@@ -103,7 +103,7 @@ export class ProgramTeamsService {
     private readonly repositoryPublishService: RepositoryPublishService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
-    private readonly programRulesService: ProgramRulesService,
+    private readonly studentRepositoryUrlService: StudentRepositoryUrlService,
   ) {}
 
   repositoryUrlHistoryCursorFromRequest(request: {
@@ -344,6 +344,24 @@ export class ProgramTeamsService {
     );
   }
 
+  deleteForStaffFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: {
+      readonly expectedScope: TeamDeletionScopeCounts;
+      readonly notificationMessage?: string | null;
+    },
+  ): Promise<DeletedTeamView> {
+    return this.deleteForStaff(
+      githubId,
+      programId,
+      teamId,
+      request.expectedScope,
+      request.notificationMessage ?? null,
+    );
+  }
+
   async deleteForStaff(
     githubId: bigint,
     programId: string,
@@ -536,7 +554,7 @@ export class ProgramTeamsService {
 
       canEditRepositoryUrl:
         team.application !== null &&
-        this.programRulesService.canEditStudentRepositoryUrl(
+        this.studentRepositoryUrlService.canEditStudentRepositoryUrl(
           {
             status: team.application.status,
             endAt: team.program.endAt,
@@ -545,6 +563,20 @@ export class ProgramTeamsService {
           now,
         ),
     };
+  }
+
+  getRepositoryUrlHistoryFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: { readonly cursor?: string },
+  ): Promise<RepositoryUrlHistoryPage> {
+    return this.getRepositoryUrlHistory(
+      githubId,
+      programId,
+      teamId,
+      this.repositoryUrlHistoryCursorFromRequest(request),
+    );
   }
 
   async getRepositoryUrlHistory(

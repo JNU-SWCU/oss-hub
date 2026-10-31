@@ -122,7 +122,7 @@ export interface PublishEligibilityRow {
 }
 
 export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
-  select: typeof SubmissionReviewsRepository.REVIEW_CONTEXT_SELECT;
+  select: SubmissionReviewsRepository['REVIEW_CONTEXT_SELECT'];
 }>;
 
 interface CreateReviewRecordInput {
@@ -166,130 +166,19 @@ export interface SubmissionReviewsRepositoryPort {
   ): Promise<PublishEligibilityRow | null>;
 }
 
-class PrismaSubmissionReviewTransactionRepository implements SubmissionReviewTransactionStore {
-  constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
-
-  async isSubmissionParticipant(
-    submissionId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const submission =
-      await this.transaction.milestoneDocumentSubmission.findFirst({
-        where: {
-          id: submissionId,
-          application:
-            PlatformRepository.programApplicationParticipantWhere(userId),
-        },
-        select: { id: true },
-      });
-    return submission !== null;
-  }
-
-  async findReviewTarget(
-    submissionId: string,
-  ): Promise<SubmissionReviewTarget | null> {
-    const submissions =
-      await this.transaction.milestoneDocumentSubmission.findMany({
-        where: {
-          ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
-          milestoneDocument: {
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-          },
-        },
-        take: 2,
-        select: { id: true },
-      });
-    const resolved =
-      SubmissionsRepository.exactSubmissionByPublicId(submissions);
-    if (resolved === null) return null;
-    const targetId = resolved.id;
-    await this.transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
-      SELECT "id"
-      FROM "MilestoneDocumentSubmission"
-      WHERE "id" = ${targetId}
-      FOR UPDATE
-    `);
-    const submission =
-      await this.transaction.milestoneDocumentSubmission.findUnique({
-        where: { id: targetId },
-        select: { id: true, revision: true, status: true },
-      });
-    if (submission === null) return null;
-    const history =
-      await this.transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: {
-          milestoneDocumentSubmissionId: targetId,
-          revision: submission.revision,
-          event: {
-            in: [
-              MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-              MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-            ],
-          },
-        },
-        orderBy: { id: 'desc' },
-        select: {
-          id: true,
-          reviewHistories: {
-            where: { milestoneDocumentSubmissionId: targetId },
-            take: 1,
-            select: { id: true },
-          },
-        },
-      });
-    if (history === null) return null;
-    return {
-      id: submission.id,
-      currentRevision: submission.revision,
-      status: submission.status,
-      revision: {
-        id: history.id,
-        reviewId: history.reviewHistories[0]?.id ?? null,
-      },
-    };
-  }
-
-  async createReview(
-    input: CreateReviewRecordInput,
-  ): Promise<{ readonly id: string }> {
-    const review = await PlatformRepository.appendSubmissionReview(
-      this.transaction,
-      input,
-      {
-        id: true,
-      },
-    );
-    await PlatformRepository.appendSubmissionReviewEvent(
-      this.transaction,
-      input,
-    );
-    return review;
-  }
-
-  async transitionSubmission(
-    input: TransitionSubmissionInput,
-  ): Promise<boolean> {
-    const result =
-      await this.transaction.milestoneDocumentSubmission.updateMany({
-        where: {
-          id: input.submissionId,
-          revision: input.expectedRevision,
-        },
-        data: { status: input.nextStatus },
-      });
-    return result.count === 1;
-  }
-}
-
 @Injectable()
 export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+    private readonly submissionsRepository: SubmissionsRepository,
+  ) {}
 
   async withTransaction<T>(
     operation: (store: SubmissionReviewTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaSubmissionReviewTransactionRepository(transaction)),
+      operation(this.submissionReviewTransactionStore(transaction)),
     );
   }
 
@@ -298,16 +187,16 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   ): Promise<ReviewContextRow | null> {
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        ...SubmissionsRepository.submissionPublicIdWhere(submissionId),
+        ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
         milestoneDocument: {
           kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       },
       take: 2,
-      select: SubmissionReviewsRepository.REVIEW_CONTEXT_SELECT,
+      select: this.REVIEW_CONTEXT_SELECT,
     });
     const submission =
-      SubmissionsRepository.exactSubmissionByPublicId(submissions);
+      this.submissionsRepository.exactSubmissionByPublicId(submissions);
     return submission ?? null;
   }
 
@@ -359,7 +248,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     return { ...repository, application: repository.application };
   }
 
-  static readonly REVIEW_CONTEXT_SELECT = {
+  readonly REVIEW_CONTEXT_SELECT = {
     id: true,
     legacySubmissionId: true,
     revision: true,
@@ -451,4 +340,131 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       },
     },
   } satisfies Prisma.MilestoneDocumentSubmissionSelect;
+
+  private submissionReviewTransactionStore(
+    transaction: PrismaTypes.TransactionClient,
+  ): SubmissionReviewTransactionStore {
+    return {
+      isSubmissionParticipant: this.isSubmissionParticipantIn.bind(
+        this,
+        transaction,
+      ),
+      findReviewTarget: this.findReviewTargetIn.bind(this, transaction),
+      createReview: this.createReviewIn.bind(this, transaction),
+      transitionSubmission: this.transitionSubmissionIn.bind(this, transaction),
+    };
+  }
+
+  private async isSubmissionParticipantIn(
+    transaction: PrismaTypes.TransactionClient,
+    submissionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const submission = await transaction.milestoneDocumentSubmission.findFirst({
+      where: {
+        id: submissionId,
+        application:
+          this.platformRepository.programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return submission !== null;
+  }
+
+  private async findReviewTargetIn(
+    transaction: PrismaTypes.TransactionClient,
+    submissionId: string,
+  ): Promise<SubmissionReviewTarget | null> {
+    const submissions = await transaction.milestoneDocumentSubmission.findMany({
+      where: {
+        ...this.submissionsRepository.submissionPublicIdWhere(submissionId),
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      take: 2,
+      select: { id: true },
+    });
+    const resolved =
+      this.submissionsRepository.exactSubmissionByPublicId(submissions);
+    if (resolved === null) return null;
+    const targetId = resolved.id;
+    await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+      SELECT "id"
+      FROM "MilestoneDocumentSubmission"
+      WHERE "id" = ${targetId}
+      FOR UPDATE
+    `);
+    const submission = await transaction.milestoneDocumentSubmission.findUnique(
+      {
+        where: { id: targetId },
+        select: { id: true, revision: true, status: true },
+      },
+    );
+    if (submission === null) return null;
+    const history =
+      await transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          milestoneDocumentSubmissionId: targetId,
+          revision: submission.revision,
+          event: {
+            in: [
+              MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+              MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+            ],
+          },
+        },
+        orderBy: { id: 'desc' },
+        select: {
+          id: true,
+          reviewHistories: {
+            where: { milestoneDocumentSubmissionId: targetId },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      });
+    if (history === null) return null;
+    return {
+      id: submission.id,
+      currentRevision: submission.revision,
+      status: submission.status,
+      revision: {
+        id: history.id,
+        reviewId: history.reviewHistories[0]?.id ?? null,
+      },
+    };
+  }
+
+  private async createReviewIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: CreateReviewRecordInput,
+  ): Promise<{ readonly id: string }> {
+    const review = await this.platformRepository.appendSubmissionReview(
+      transaction,
+      input,
+      {
+        id: true,
+      },
+    );
+    await this.platformRepository.appendSubmissionReviewEvent(
+      transaction,
+      input,
+    );
+    return review;
+  }
+
+  private async transitionSubmissionIn(
+    transaction: PrismaTypes.TransactionClient,
+    input: TransitionSubmissionInput,
+  ): Promise<boolean> {
+    const result = await transaction.milestoneDocumentSubmission.updateMany({
+      where: {
+        id: input.submissionId,
+        revision: input.expectedRevision,
+      },
+      data: { status: input.nextStatus },
+    });
+    return result.count === 1;
+  }
 }

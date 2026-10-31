@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -26,8 +27,11 @@ export type TeamRepositoryUrlContext = StudentRepositoryUrlContext & {
   };
 };
 
+@Injectable()
 export class StudentRepositoryUrlContextRepository {
-  static async readTeamRepositoryUrlContext(
+  constructor(private readonly platformRepository: PlatformRepository) {}
+
+  async readTeamRepositoryUrlContext(
     db: Prisma.TransactionClient,
     programId: string,
     teamId: string,
@@ -45,15 +49,14 @@ export class StudentRepositoryUrlContextRepository {
     if (!actor) return null;
     const context = await db.application.findUnique({
       where: { programId_teamId: { programId, teamId } },
-      select:
-        StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,
+      select: this.STUDENT_REPOSITORY_URL_SELECT,
     });
     if (!context) return null;
     const leads = await db.application.count({
       where: {
         id: context.id,
         AND: [
-          PlatformRepository.programApplicationManagerWhere(actor.id),
+          this.platformRepository.programApplicationManagerWhere(actor.id),
           { team: { leader: STUDENT_MEMBER_WHERE } },
         ],
       },
@@ -68,7 +71,7 @@ export class StudentRepositoryUrlContextRepository {
     };
   }
 
-  static readonly STUDENT_REPOSITORY_URL_SELECT = {
+  readonly STUDENT_REPOSITORY_URL_SELECT = {
     id: true,
     programId: true,
     teamId: true,

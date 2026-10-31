@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
@@ -61,7 +65,14 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   const request = await prisma.staffAccessRequest.create({
     data: { id: `${target.id}:request`, userId: target.id },
   });
-  const realRepository = new AdminAccessRepository(prisma);
+  const realRepository = new AdminAccessRepository(
+    prisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
+  );
   const service = new AdminAccessService(
     new FailingDecisionAdminAccessRepository(realRepository),
     new AuditLogService(

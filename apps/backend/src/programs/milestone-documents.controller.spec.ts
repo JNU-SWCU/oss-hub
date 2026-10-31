@@ -1,3 +1,6 @@
+import { DownloadResponseService } from './download-response.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { ProgramScheduleService } from './program-schedule.service';
 import {
   type INestApplication,
   Logger,
@@ -88,7 +91,15 @@ describe('milestone-document-current-file.controller', () => {
         },
         {
           provide: MilestoneDocumentCurrentFileService,
-          useValue: { download },
+          useValue: Object.assign(
+            Object.create(
+              MilestoneDocumentCurrentFileService.prototype,
+            ) as object,
+            {
+              download,
+              downloadResponseService: new DownloadResponseService(),
+            },
+          ),
         },
       ],
     })
@@ -346,24 +357,38 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       {
         provide: MilestoneDocumentCollectionService,
-        useValue: { collectForStaff },
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentCollectionService.prototype) as object,
+          { collectForStaff },
+        ),
       },
       {
         provide: MilestoneDocumentsService,
-        useValue: {
-          listForViewer,
-          collectForStaff,
-          submit,
-        },
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentsService.prototype) as object,
+          {
+            listForViewer,
+            collectForStaff,
+            submit,
+            milestoneDocumentSubmissionWindowService:
+              new MilestoneDocumentSubmissionWindowService(
+                new ProgramScheduleService(),
+              ),
+          },
+        ),
       },
       {
         provide: MilestoneDocumentFilesService,
-        useValue: {
-          downloadTemplate,
-          downloadSubmissionFile,
-          upload,
-          check,
-        },
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentFilesService.prototype) as object,
+          {
+            downloadTemplate,
+            downloadSubmissionFile,
+            upload,
+            check,
+            downloadResponseService: new DownloadResponseService(),
+          },
+        ),
       },
       {
         provide: MilestoneDocumentReviewsService,
@@ -380,7 +405,10 @@ beforeAll(async () => {
           Object.create(
             MilestoneDocumentArchiveService.prototype,
           ) as MilestoneDocumentArchiveService,
-          { archiveForStaff },
+          {
+            archiveForStaff,
+            downloadResponseService: new DownloadResponseService(),
+          },
         ),
       },
     ],

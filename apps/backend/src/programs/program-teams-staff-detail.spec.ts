@@ -1,3 +1,6 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus } from '@prisma/client';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
@@ -12,7 +15,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
@@ -57,7 +59,15 @@ function buildService(overrides: {
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
-    new ProgramRulesService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
   );
   return {
     service,
@@ -307,7 +317,11 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
       auditLog: { findMany: jest.fn().mockResolvedValue([]) },
     };
     return {
-      repository: new ProgramTeamsRepository(prisma as never),
+      repository: new ProgramTeamsRepository(
+        prisma as never,
+        new ProgramTeamRepositoryEvidenceRepository(prisma as never),
+        new PlatformRepository(),
+      ),
       teamFindFirst,
       applicationFindFirst,
     };
@@ -417,7 +431,15 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new ProgramRulesService(),
+        new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
       )['toTeamApplicationView'](result!.application!).repository,
     ).toMatchObject({
       id: 'repository-1',

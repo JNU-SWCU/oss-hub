@@ -14,8 +14,9 @@ import { ApplicationsService } from './applications.service';
 import { ApplicationDecisionResponseDto } from './dto/application-decision-response.dto';
 import { ApplicationDetailResponseDto } from './dto/application-list-page-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,

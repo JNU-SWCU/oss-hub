@@ -27,6 +27,7 @@ export class ProgramLifecycleService {
     private readonly repository: ProgramLifecycleRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
 
   async delete(
@@ -169,9 +170,8 @@ export class ProgramLifecycleService {
       });
     } catch (error) {
       const serializationFailure =
-        PrismaSerializationRetryRepository.isSerializationFailure(error);
-      const foreignKeyConflict =
-        ProgramLifecycleRepository.isForeignKeyConflict(error);
+        this.prismaSerializationRetryRepository.isSerializationFailure(error);
+      const foreignKeyConflict = this.repository.isForeignKeyConflict(error);
       const deletedScopeMismatch =
         error instanceof ProgramPurgeDeletedScopeMismatchError;
       if (

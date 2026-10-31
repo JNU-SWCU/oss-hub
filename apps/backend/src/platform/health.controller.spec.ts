@@ -11,7 +11,11 @@ async function buildController(
     providers: [HealthService],
   })
     .overrideProvider(HealthService)
-    .useValue({ isDatabaseReachable })
+    .useValue(
+      Object.assign(Object.create(HealthService.prototype) as object, {
+        isDatabaseReachable,
+      }),
+    )
     .compile();
 
   return moduleRef.get(HealthController);

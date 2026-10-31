@@ -5,7 +5,7 @@ import {
   PublicProjectPageResponseDto,
 } from './dto/public-project-page-response.dto';
 import { PublicProjectsService } from './public-projects.service';
-import { Public } from '../auth/authentication.guard';
+import { Public } from '../auth/auth-route.decorator';
 
 @Controller('projects')
 @Public()

@@ -18,7 +18,7 @@ import { ReceivedTeamInvitationResponseDto } from './dto/received-team-invitatio
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationResponseDto } from './dto/team-invitation-response.dto';
 import { TeamInvitationsService } from './team-invitations.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('team-invitations')
 @Protected()

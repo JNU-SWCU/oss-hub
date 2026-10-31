@@ -1,3 +1,6 @@
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -7,8 +10,6 @@ import {
   type ArchiveProgram,
   type MilestoneDocumentArchiveSubmission,
 } from './milestone-document-archive.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 export const now = new Date('2026-09-03T00:00:00Z');
 export const fileBody = Buffer.from('synthetic retained image');
@@ -82,7 +83,9 @@ export function fixture() {
       repository as unknown as MilestoneDocumentsRepository,
       storage,
       programs,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
+      new MilestoneDocumentFileNameService(),
+      new DownloadResponseService(),
     ),
   };
 }

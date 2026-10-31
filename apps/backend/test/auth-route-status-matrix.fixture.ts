@@ -1,3 +1,5 @@
+import { RankingYearService } from '../src/ranking/ranking-year.service';
+import { AuthFlowService } from '../src/auth/auth-flow.service';
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -98,6 +100,13 @@ export class AuthRouteStatusHarness {
       findMe: jest.fn().mockResolvedValue(syntheticUser),
       getMe: jest.fn().mockResolvedValue(syntheticUser),
     };
+    const viewerService = {
+      fromGithubId: jest.fn().mockResolvedValue({
+        githubId: null,
+        userId: null,
+        role: null,
+      }),
+    };
     const programsService = {
       endedYears: jest.fn().mockResolvedValue([2027, 2026]),
       list: jest.fn().mockResolvedValue({
@@ -145,6 +154,7 @@ export class AuthRouteStatusHarness {
         RankingController,
       ],
       providers: [
+        AuthFlowService,
         ...STATELESS_PROVIDERS,
         AuthenticationGuard,
         OriginGuard,
@@ -167,25 +177,32 @@ export class AuthRouteStatusHarness {
         },
         {
           provide: HealthService,
-          useValue: {
-            isDatabaseReachable: jest.fn().mockResolvedValue(true),
-          },
+          useValue: Object.assign(
+            Object.create(HealthService.prototype) as object,
+            { isDatabaseReachable: jest.fn().mockResolvedValue(true) },
+          ),
         },
         {
           provide: RankingService,
-          useValue: {
-            findPage: jest.fn().mockResolvedValue({
-              year: 'all',
-              items: [],
-              page: 1,
-              pageSize: 20,
-              total: 0,
-              dataAsOf: null,
-              viewerClass: 'public',
-              nextCycleAt: null,
-            }),
-            listYears: jest.fn().mockResolvedValue([]),
-          },
+          useValue: Object.assign(
+            Object.create(RankingService.prototype) as object,
+            {
+              rankingYearService: new RankingYearService(),
+              ...{
+                findPage: jest.fn().mockResolvedValue({
+                  year: 'all',
+                  items: [],
+                  page: 1,
+                  pageSize: 20,
+                  total: 0,
+                  dataAsOf: null,
+                  viewerClass: 'public',
+                  nextCycleAt: null,
+                }),
+                listYears: jest.fn().mockResolvedValue([]),
+              },
+            },
+          ),
         },
         { provide: ProgramCreationService, useValue: { create: jest.fn() } },
         { provide: ProgramCoverService, useValue: { read: jest.fn() } },
@@ -197,8 +214,21 @@ export class AuthRouteStatusHarness {
             createMilestone: jest.fn(),
           },
         },
-        { provide: ProgramsService, useValue: programsService },
-        { provide: ProgramActivityService, useValue: { activity: jest.fn() } },
+        {
+          provide: ProgramsService,
+          useValue: Object.assign(
+            Object.create(ProgramsService.prototype) as object,
+            programsService,
+            { programViewerService: viewerService },
+          ),
+        },
+        {
+          provide: ProgramActivityService,
+          useValue: Object.assign(
+            Object.create(ProgramActivityService.prototype) as object,
+            { activity: jest.fn(), programViewerService: viewerService },
+          ),
+        },
         {
           provide: ProgramViewerService,
           useValue: {
