@@ -236,8 +236,8 @@ for (const width of [1440, 390, 1920]) {
     });
     if (width === 390) {
       await page
-        .locator('[data-slot="program-list-status-chips"]')
-        .getByRole('button', { name: '종료', exact: true })
+        .getByRole('group', { name: '프로그램 상태 필터', exact: true })
+        .getByRole('button', { name: '종료', exact: false })
         .click();
     } else {
       await page
