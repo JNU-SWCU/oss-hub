@@ -65,6 +65,24 @@
   gap: var(--space-1);
 }
 
+.legendButton {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.legendButton[aria-pressed='false'] {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
 .swatch {
   flex: none;
   inline-size: var(--space-4);

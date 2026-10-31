@@ -127,6 +127,21 @@ test('구성원은 서버가 보낸 계열 수만큼 선을 보고, 자기 선�
   await expect(tooltip).toContainText('위');
 });
 
+test('범례를 누르면 그 선이 빠지고 다시 누르면 돌아온다', async ({ page }) => {
+  await openRanking(page);
+  const curves = page.locator(`${CHART} ${CURVE}`);
+  const total = await curves.count();
+  const first = page.locator(`${CHART} [data-legend-login] button`).first();
+
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
+  await expect(curves).toHaveCount(total - 1);
+
+  await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(curves).toHaveCount(total);
+});
+
 test('순위표 변화 칸은 직전 달과 비교한 값을 쓴다', async ({ page }) => {
   await openRanking(page);
 

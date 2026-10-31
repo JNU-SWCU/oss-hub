@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -10,6 +11,7 @@ import {
   YAxis,
   type TooltipContentProps,
 } from 'recharts';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { RankingTimeline } from '../types';
 import { comicNeue } from './comic-font';
@@ -54,7 +56,20 @@ export function RankingHistoryChart({
 }: {
   readonly timeline: RankingTimeline;
 }) {
+  const [focused, setFocused] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const chart = buildRankingHistoryChart(timeline);
+  const toggle = (login: string) => {
+    setHidden((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(login)) next.add(login);
+      return next;
+    });
+  };
+  const opacityOf = (line: RankingHistoryLine) => {
+    if (focused !== null) return focused === line.githubLogin ? 1 : 0.12;
+    return line.faded ? FADED_OPACITY : 1;
+  };
   if (chart.lines.length === 0 || chart.rows.length === 0) {
     return <Note state="empty" text="아직 그릴 활동 기록이 없습니다." />;
   }
@@ -88,10 +103,23 @@ export function RankingHistoryChart({
                 : 'hide'
             }
           >
-            <Swatch line={line} />
-            <span className={styles.rank}>{line.finalRank}</span>
-            <span className={styles.login}>@{line.githubLogin}</span>
-            {line.isViewer ? <span className={styles.me}>나</span> : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className={cn(styles.legendButton, 'h-auto px-1')}
+              aria-pressed={!hidden.has(line.githubLogin)}
+              onClick={() => toggle(line.githubLogin)}
+              onMouseEnter={() => setFocused(line.githubLogin)}
+              onMouseLeave={() => setFocused(null)}
+              onFocus={() => setFocused(line.githubLogin)}
+              onBlur={() => setFocused(null)}
+            >
+              <Swatch line={line} />
+              <span className={styles.rank}>{line.finalRank}</span>
+              <span className={styles.login}>@{line.githubLogin}</span>
+              {line.isViewer ? <span className={styles.me}>나</span> : null}
+            </Button>
           </li>
         ))}
       </ul>
@@ -145,7 +173,10 @@ export function RankingHistoryChart({
                 stroke={line.color}
                 strokeWidth={line.strokeWidth}
                 strokeDasharray={line.dash}
-                strokeOpacity={line.faded ? FADED_OPACITY : 1}
+                strokeOpacity={opacityOf(line)}
+                hide={hidden.has(line.githubLogin)}
+                onMouseEnter={() => setFocused(line.githubLogin)}
+                onMouseLeave={() => setFocused(null)}
                 className={line.faded ? undefined : styles.sketched}
                 dot={line.isViewer ? { r: 2.5 } : false}
                 activeDot={line.isViewer}
