@@ -2,7 +2,7 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 const githubId = 424242n;
 

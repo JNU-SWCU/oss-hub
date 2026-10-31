@@ -17,7 +17,7 @@ import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';

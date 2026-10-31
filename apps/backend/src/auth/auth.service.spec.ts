@@ -11,7 +11,7 @@ import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();

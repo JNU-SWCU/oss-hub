@@ -8,7 +8,7 @@ import {
   PublicTeamRow,
 } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticGithubId = 123456789n;

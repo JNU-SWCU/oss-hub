@@ -15,7 +15,7 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 
 @Injectable()

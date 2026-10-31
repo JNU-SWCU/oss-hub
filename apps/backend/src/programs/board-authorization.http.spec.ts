@@ -10,7 +10,7 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';

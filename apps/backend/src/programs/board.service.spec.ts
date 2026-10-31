@@ -4,7 +4,7 @@ import { DomainException } from '../platform/error-code.error';
 import { BoardErrorCode } from './board-error-code.error';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticPostId = 'cuid-synthetic-post';

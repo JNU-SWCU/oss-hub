@@ -12,7 +12,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';

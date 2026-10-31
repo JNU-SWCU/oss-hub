@@ -18,6 +18,7 @@ import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
+import { UserProfileService } from './user-profile.service';
 import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import {
@@ -62,6 +63,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     ConsentsRepository,
     MemberOnboardingRepository,
     MemberOnboardingService,
+    UserProfileService,
   ],
   exports: [
     UsersService,
@@ -72,6 +74,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminProfileService,
     IndependentAuthorityService,
     MemberKindService,
+    UserProfileService,
   ],
 })
 export class UsersModule {}

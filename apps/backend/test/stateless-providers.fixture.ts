@@ -1,5 +1,5 @@
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
-import { UserProfileService } from '../src/platform/user-profile.service';
+import { UserProfileService } from '../src/users/user-profile.service';
 import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';

@@ -9,7 +9,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

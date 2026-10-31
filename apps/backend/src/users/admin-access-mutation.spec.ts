@@ -11,7 +11,7 @@ import {
   AdminAccessMutationService,
 } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const adminAccessMutationService = new AdminAccessMutationService(
   new AuditLogMetadataService(),

@@ -11,7 +11,7 @@ import {
   BoardPostSummaryRecord,
   BoardRepository,
 } from './board.repository';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 export interface BoardPostListQuery {
   readonly page: number;

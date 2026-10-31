@@ -7,7 +7,7 @@ import { AuthController } from './auth.controller';
 import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 

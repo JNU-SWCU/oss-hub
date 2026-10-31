@@ -16,7 +16,7 @@ import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixtur
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
-import { UserProfileService } from '../src/platform/user-profile.service';
+import { UserProfileService } from '../src/users/user-profile.service';
 import { AuthSessionService } from '../src/platform/auth-session.service';
 
 assertIsolatedIntegrationDatabase({

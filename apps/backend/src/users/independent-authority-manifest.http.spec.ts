@@ -13,7 +13,7 @@ import { IndependentAuthorityService } from './independent-authority.service';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';

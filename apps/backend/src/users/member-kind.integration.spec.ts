@@ -17,7 +17,7 @@ import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({

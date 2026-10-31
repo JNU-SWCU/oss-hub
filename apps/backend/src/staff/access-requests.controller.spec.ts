@@ -14,7 +14,7 @@ import {
   AccessRequestsListRequestDto,
 } from './dto/access-requests-list-request.dto';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {

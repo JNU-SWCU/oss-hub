@@ -16,7 +16,7 @@ import { AdminProfileService } from './admin-profile.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -14,7 +14,7 @@ import {
 } from '../platform/audit-log-metadata.config';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;

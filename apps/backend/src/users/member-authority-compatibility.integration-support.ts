@@ -13,7 +13,7 @@ import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(

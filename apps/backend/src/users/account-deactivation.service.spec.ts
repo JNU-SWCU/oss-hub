@@ -14,7 +14,7 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 describe('AccountDeactivationService', () => {
   const account = {

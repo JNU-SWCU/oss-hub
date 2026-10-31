@@ -20,7 +20,7 @@ import { IndependentAuthorityService } from '../users/independent-authority.serv
 import { MemberKindService } from '../users/member-kind.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 describe('admin-access.controller', () => {
