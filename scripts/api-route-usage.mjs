@@ -167,7 +167,10 @@ export function frontendCalls(text, file = 'client.ts', warn = console.warn) {
     if (ts.isIdentifier(node))
       return literals(bindings.get(node.text), visited);
     if (ts.isCallExpression(node)) {
-      return literals(bindings.get(node.expression.getText(source)), visited);
+      const callee = node.expression.getText(source);
+      return callee === 'withQuery'
+        ? literals(node.arguments[0], visited)
+        : literals(bindings.get(callee), visited);
     }
     return [];
   }
