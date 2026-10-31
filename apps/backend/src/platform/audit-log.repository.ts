@@ -1,4 +1,4 @@
-import type { AuditLogTransactionWriter } from './prisma.service';
+import type { AuditLogTransactionWriter } from './audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';

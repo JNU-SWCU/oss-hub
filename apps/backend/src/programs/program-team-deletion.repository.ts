@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';

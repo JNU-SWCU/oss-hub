@@ -1,7 +1,5 @@
 import {
   CollectionInventoryService,
-  type CollectionSyncRuntime,
-  type CollectionSyncRuntimeFactory,
   type SweepInventory,
 } from './collection-inventory.service';
 import { splitNameWithOwner, requestFingerprintKey } from './github.policy';
@@ -13,6 +11,8 @@ import type { CollectionIncrementalRepository } from './collection-incremental.r
 import type {
   CollectionRepositoryRow,
   CollectionStreamType,
+  CollectionSyncRuntime,
+  CollectionSyncRuntimeFactory,
   RecordSweepHistoryInput,
   RegisteredGithubIdSet,
   RepositorySource,
@@ -22,11 +22,6 @@ import type {
 import { CollectionAppClientError } from './collection-app.error';
 import { RunDeadlineError } from './collection-inventory.error';
 import { CollectionSyncDeadline } from './collection-sync-deadline.policy';
-
-export type {
-  CollectionSyncRuntime,
-  CollectionSyncRuntimeFactory,
-} from './collection-inventory.service';
 
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;

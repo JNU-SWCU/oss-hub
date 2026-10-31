@@ -14,7 +14,7 @@ import {
   type OutboxEvent as PrismaOutboxEvent,
   type Prisma as PrismaTypes,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity.policy';
 import { parseRepositoryProvisionEvent } from '../github/repository-provision-event.policy';

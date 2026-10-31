@@ -8,11 +8,11 @@ import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import {
+import type {
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
-  CollectionSyncService,
-} from './collection-sync.service';
+} from './collection-incremental.types';
+import { CollectionSyncService } from './collection-sync.service';
 import { CollectionPublicTokenService } from './collection-public-token.service';
 import { ProviderRequestQueue } from './provider-request-queue.policy';
 

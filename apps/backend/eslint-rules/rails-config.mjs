@@ -461,6 +461,16 @@ const policies = [
       ],
     },
   },
+  {
+    from: { file: { categories: 'root-contract', path: '**/*.types.ts' } },
+    dependency: { kind: 'type' },
+    allow: {
+      to: [
+        element('gateway', { module: '{{from.file.captured.module}}' }),
+        element('repository', { module: '{{from.file.captured.module}}' }),
+      ],
+    },
+  },
   { from: element('runtime-config'), allow: { to: element('runtime-config') } },
   {
     from: element('prisma'),

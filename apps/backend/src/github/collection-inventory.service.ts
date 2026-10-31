@@ -1,29 +1,13 @@
-import {
-  type CollectionAppClient,
-  type CollectionAppClientTokenProvider,
-} from './collection-app.client';
 import type {
   CollectionRepositoryRow,
+  CollectionSyncRuntime,
   SyncLeaseToken,
 } from './collection-incremental.types';
 import type { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { splitNameWithOwner } from './github.policy';
 import { CollectionAppClientError } from './collection-app.error';
-import type { ProviderRequestQueue } from './provider-request-queue.policy';
 import { RunDeadlineError } from './collection-inventory.error';
 import { CollectionSyncDeadline } from './collection-sync-deadline.policy';
-
-export interface CollectionSyncRuntime {
-  appId: string;
-  organizationLogin: string;
-
-  tokens: CollectionAppClientTokenProvider;
-  client: CollectionAppClient;
-  queue: ProviderRequestQueue;
-}
-
-export type CollectionSyncRuntimeFactory = () =>
-  CollectionSyncRuntime | Promise<CollectionSyncRuntime>;
 
 export interface SweepInventory {
   readonly complete: boolean;

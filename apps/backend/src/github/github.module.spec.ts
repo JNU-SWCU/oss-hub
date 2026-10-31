@@ -13,10 +13,8 @@ import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import {
-  CollectionSyncRuntime,
-  CollectionSyncService,
-} from './collection-sync.service';
+import type { CollectionSyncRuntime } from './collection-incremental.types';
+import { CollectionSyncService } from './collection-sync.service';
 import { GithubModule } from './github.module';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { RepositoriesReadService } from './repositories-read.service';

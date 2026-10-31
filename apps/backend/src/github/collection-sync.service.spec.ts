@@ -3,8 +3,8 @@ import {
   CollectionIncrementalRepository,
   CollectionIncrementalStoreRepository,
 } from './collection-incremental.repository';
+import type { CollectionSyncRuntime } from './collection-incremental.types';
 import {
-  CollectionSyncRuntime,
   CollectionSyncService,
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';

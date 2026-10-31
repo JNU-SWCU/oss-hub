@@ -19,7 +19,7 @@ import type {
   AdminAccessUserUpdate,
 } from './admin-access-repository.types';
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {

@@ -521,6 +521,45 @@ edge(
   false,
   'type',
 );
+for (const [target, role] of [
+  ['beta.client.ts', 'client'],
+  ['beta.repository.ts', 'repository'],
+] as const) {
+  edge(
+    `root types may type-import own module ${role}`,
+    `src/programs/own-${role}-type.types.ts`,
+    `src/programs/${target}`,
+    true,
+    'type',
+  );
+  edge(
+    `root types cannot value-import own module ${role}`,
+    `src/programs/own-${role}-value.types.ts`,
+    `src/programs/${target}`,
+    false,
+  );
+  edge(
+    `root types cannot type-import foreign module ${role}`,
+    `src/programs/foreign-${role}-type.types.ts`,
+    `src/ranking/${target}`,
+    false,
+    'type',
+  );
+  edge(
+    `root config cannot type-import own module ${role}`,
+    `src/programs/own-${role}-type.config.ts`,
+    `src/programs/${target}`,
+    false,
+    'type',
+  );
+}
+edge(
+  'root types cannot type-import own module service',
+  'src/programs/own-service-type.types.ts',
+  'src/programs/beta.service.ts',
+  false,
+  'type',
+);
 edge(
   'production cannot import fixture',
   'src/programs/fixture-import.service.ts',

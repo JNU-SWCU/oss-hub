@@ -1,4 +1,4 @@
-import type { AuditLogTransactionWriter } from '../platform/prisma.service';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { adminActor } from './admin-access.service.spec-support';
 import type { AdminAccessActor } from './admin-access-repository.types';
 import type {
