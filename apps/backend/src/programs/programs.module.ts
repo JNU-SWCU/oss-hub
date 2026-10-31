@@ -8,7 +8,6 @@ import { ReviewHistoryWriterRepository } from './review-history-writer.repositor
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
@@ -131,7 +130,7 @@ import { SubmissionFileAdmissionService } from './submission-file-admission.serv
 import { SubmissionInputService } from './submission-input.service';
 
 @Module({
-  imports: [PlatformModule, HttpSecurityModule, GithubModule, UsersModule],
+  imports: [PlatformModule, GithubModule, UsersModule],
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,

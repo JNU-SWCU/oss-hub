@@ -1,11 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { AuthConfig } from './platform/auth.config';
 import { configureHttpApp } from './configure-http-app';
 import type { RuntimeConfig } from './platform/runtime-config.config';
 import { RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 
-async function bootstrap(): Promise<void> {
+export async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.get(AuthConfig).validate();
   configureHttpApp(app);
 
   const runtimeConfig = app.get<RuntimeConfig>(RUNTIME_CONFIG);
@@ -14,4 +16,6 @@ async function bootstrap(): Promise<void> {
   await app.listen(listenPort);
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}

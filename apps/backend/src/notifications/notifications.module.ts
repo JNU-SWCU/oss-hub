@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
@@ -19,7 +18,6 @@ import {
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 
 @Module({
-  imports: [HttpSecurityModule],
   controllers: [
     ApplicationDecisionNotificationsController,
     NotificationSettingsController,
