@@ -556,6 +556,8 @@ export class UsersService {
     }
     const affiliation = this.resolveAffiliation(user, input);
     requireAllowedAffiliation(memberKind, affiliation.kind);
+    const hasStaffAccess =
+      memberKind === MemberKind.STAFF ? (user.hasStaffAccess ?? false) : false;
 
     return {
       name,
@@ -565,11 +567,9 @@ export class UsersService {
       memberKind,
       affiliationKind: affiliation.kind,
       affiliationName: affiliation.name,
-      hasStaffAccess:
-        memberKind === MemberKind.STAFF
-          ? (user.hasStaffAccess ?? false)
-          : false,
+      hasStaffAccess,
       hasAdminAccess: user.hasAdminAccess ?? false,
+      requestsStaffAccess: memberKind === MemberKind.STAFF && !hasStaffAccess,
     };
   }
 }

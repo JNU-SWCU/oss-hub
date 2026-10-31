@@ -10,10 +10,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import type {
-  StaffAccessRequestOutcome,
-  StaffAccessRequestTarget,
-} from '../platform/platform.repository';
+import type { StaffAccessRequestOutcome } from '../platform/platform.repository';
 
 export interface ConsentUser {
   readonly id: string;
@@ -127,9 +124,7 @@ export interface OnboardingTransactionStore {
   findPendingRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
   findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
   createPendingRequest(userId: string): Promise<StaffAccessRequestRecord>;
-  requestStaffAccess(
-    target: StaffAccessRequestTarget,
-  ): Promise<StaffAccessRequestOutcome>;
+  requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome>;
 }
 
 const MEMBER_USER_SELECT = {
@@ -155,10 +150,8 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
 class PrismaOnboardingTransactionRepository implements OnboardingTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
-  requestStaffAccess(
-    target: StaffAccessRequestTarget,
-  ): Promise<StaffAccessRequestOutcome> {
-    return PlatformRepository.requestStaffAccess(this.transaction, target);
+  requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome> {
+    return PlatformRepository.requestStaffAccess(this.transaction, userId);
   }
 
   async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {

@@ -60,16 +60,14 @@ export class MemberOnboardingService {
       );
 
       if (
+        selectedMemberKind === MemberKind.STAFF &&
+        !recorded.hasStaffAccess &&
         this.userProfileService.isCompleteProfileFields(
           recorded.profile,
           selectedMemberKind,
         )
       ) {
-        await store.requestStaffAccess({
-          id: recorded.id,
-          memberKind: selectedMemberKind,
-          hasStaffAccess: recorded.hasStaffAccess,
-        });
+        await store.requestStaffAccess(recorded.id);
       }
 
       return { selectedMemberKind, redirectTo: '/onboarding/profile' };
