@@ -16,6 +16,9 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const githubId = 9_700_500_001n;
 const sessionSecret = new Uint8Array(32).fill(31);
@@ -81,6 +84,9 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController, AccessRequestsController],
       providers: [
+        AdminAccessMutationService,
+        AuditLogMetadataService,
+        UserProfileService,
         SessionGuard,
         OriginGuard,
         { provide: AdminAccessService, useValue: accessService },

@@ -66,13 +66,6 @@ class HttpMemberKindRepository
       selectedMemberKind,
       memberKind: selectedMemberKind,
       hasStaffAccess,
-      role: this.target.hasAdminAccess
-        ? 'ADMIN'
-        : hasStaffAccess
-          ? 'STAFF'
-          : selectedMemberKind === MemberKind.STUDENT
-            ? 'STUDENT'
-            : null,
       profile: this.target.profile
         ? { ...this.target.profile, ...profilePatch }
         : null,
@@ -181,7 +174,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     repository.actor = adminActor({
       hasAdminAccess: false,
       hasStaffAccess: true,
-      role: 'STAFF',
     });
     const nonAdmin = await request(validStaffBody());
     await expectProblem(nonAdmin, 403, 'ROL_004');
@@ -263,7 +255,6 @@ function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -294,7 +285,6 @@ function studentTarget(
     githubId: 9_700_600_002n,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
@@ -308,7 +298,6 @@ function studentTarget(
 
 function missingProfileTarget(): MemberKindTargetRecord {
   return studentTarget({
-    role: null,
     selectedMemberKind: null,
     memberKind: null,
     profile: null,

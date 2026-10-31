@@ -10,10 +10,7 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import {
-  AdminAccessService,
-  requireValidUserId,
-} from '../users/admin-access.service';
+import { AdminAccessService } from '../users/admin-access.service';
 import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
@@ -23,6 +20,7 @@ import {
   AccessRequestsUserHistoryResponseDto,
   AccessRequestsUserPageResponseDto,
 } from './dto/access-requests-user-page-response.dto';
+import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -34,6 +32,7 @@ export class AccessRequestsController {
       AdminAccessService,
       'listRequests' | 'get' | 'getHistory'
     >,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   @Get('access/requests')
@@ -58,7 +57,7 @@ export class AccessRequestsController {
     @Req() request: SessionIdentity,
     @Param('id') id: string,
   ): Promise<AccessRequestsUserDetailResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserDetailResponseDto.from(
       await this.service.get(request.sessionGithubId, id),
     );
@@ -72,7 +71,7 @@ export class AccessRequestsController {
     @Param('id') id: string,
     @Query() query: AccessRequestsHistoryRequestDto,
   ): Promise<AccessRequestsUserHistoryResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserHistoryResponseDto.from(
       await this.service.getHistory(
         request.sessionGithubId,

@@ -10,7 +10,6 @@ import {
   type LoginHistory,
   type LoginHistoryEvent,
   type LoginHistoryPage,
-  type AuthLoginResult,
   type AuthUser,
   type GithubProfile,
 } from './http-auth.types';
@@ -20,7 +19,7 @@ import {
   type InitialAccountSeed,
 } from './auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
-import { isCompleteProfileFields } from '../users/profile-validation.config';
+import type { MemberKind } from '@prisma/client';
 
 @Injectable()
 export class LoginHistoryRepository {
@@ -97,7 +96,7 @@ type AuthUserRow = Prisma.UserGetPayload<{
 }>;
 
 export interface AuthTransactionStore {
-  upsertUser(profile: GithubProfile): Promise<AuthLoginResult>;
+  upsertUser(profile: GithubProfile): Promise<AuthLoginRow>;
 }
 
 class PrismaAuthTransactionRepository implements AuthTransactionStore {
@@ -107,7 +106,7 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
     private readonly logger: Logger,
   ) {}
 
-  async upsertUser(profile: GithubProfile): Promise<AuthLoginResult> {
+  async upsertUser(profile: GithubProfile): Promise<AuthLoginRow> {
     const initialRole = this.config.resolveInitialRole(profile.githubId);
     const created = await this.transaction.user.createMany({
       data: {
@@ -258,7 +257,7 @@ export class AuthRepository {
     );
   }
 
-  async findByGithubId(githubId: bigint): Promise<AuthUser | null> {
+  async findByGithubId(githubId: bigint): Promise<AuthUserRecord | null> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
       select: AUTH_USER_SELECT,
@@ -275,7 +274,18 @@ export class AuthRepository {
   }
 }
 
-function toDomain(user: AuthUserRow): AuthUser {
+export interface AuthLoginRow {
+  readonly user: AuthUserRecord;
+  readonly isNew: boolean;
+}
+
+export type AuthUserRecord = Omit<AuthUser, 'isProfileComplete'> & {
+  readonly selectedMemberKind: MemberKind | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+function toDomain(user: AuthUserRow): AuthUserRecord {
   const profile = user.profile;
   const memberKind = profile?.memberKind ?? null;
   return {
@@ -289,14 +299,9 @@ function toDomain(user: AuthUserRow): AuthUser {
     memberKind,
     hasStaffAccess: user.hasStaffAccess,
     hasAdminAccess: user.hasAdminAccess,
-    isProfileComplete: isCompleteProfileFields(
-      {
-        name: profile?.name ?? null,
-        studentId: profile?.studentId ?? null,
-        department: profile?.department ?? null,
-      },
-      memberKind ?? user.selectedMemberKind,
-    ),
+    selectedMemberKind: user.selectedMemberKind,
+    studentId: profile?.studentId ?? null,
+    department: profile?.department ?? null,
   };
 }
 

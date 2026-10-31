@@ -6,7 +6,6 @@ import {
   Prisma,
 } from '@prisma/client';
 import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
-import { authorityLabel } from './authority-label.config';
 import type { PrismaService } from '../platform/prisma.service';
 import {
   AdminAccessReadOrderingRepository,
@@ -23,11 +22,6 @@ import {
 } from './admin-access-query.config';
 
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import {
-  isCompleteUserProfile,
-  type UserProfileFields,
-} from './profile-validation.config';
-import type { AuthorityLabel } from './authority-label.types';
 import type { UserProfileSource } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -60,7 +54,7 @@ export class AdminAccessReadRepository {
       items: ids.flatMap((id) => {
         const user = usersById.get(id);
         return user
-          ? [AdminAccessReadRepository.toAdminAccessUserRecord(user)]
+          ? [AdminAccessReadRepository.toAdminAccessUserRow(user)]
           : [];
       }),
       page: query.page,
@@ -150,37 +144,30 @@ export class AdminAccessReadRepository {
   static async findAdminAccessUserById(
     prisma: Pick<PrismaService, 'user'>,
     userId: string,
-  ): Promise<AdminAccessUserDetailRecord | null> {
+  ): Promise<AdminAccessUserDetailRow | null> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
     return user
-      ? AdminAccessReadRepository.toAdminAccessUserDetailRecord(user)
+      ? AdminAccessReadRepository.toAdminAccessUserDetailRow(user)
       : null;
   }
 
-  static toAdminAccessUserRecord(
-    user: AdminAccessUserSource,
-  ): AdminAccessUserRecord {
-    const profile = {
-      name: user.profile?.name ?? null,
-      studentId: user.profile?.studentId ?? null,
-      department: user.profile?.department ?? null,
-    };
-    const memberKind = user.profile?.memberKind ?? null;
+  static toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
     const pendingRequest = user.staffAccessRequests[0];
     return {
       id: user.id,
       githubId: user.githubId,
       githubLogin: user.nickname,
-      name: profile.name,
-      role: authorityLabel({ ...user, memberKind }),
-      memberKind,
+      name: user.profile?.name ?? null,
+      studentId: user.profile?.studentId ?? null,
+      department: user.profile?.department ?? null,
+      memberKind: user.profile?.memberKind ?? null,
+      selectedMemberKind: user.selectedMemberKind,
       hasStaffAccess: user.hasStaffAccess,
       hasAdminAccess: user.hasAdminAccess,
       accountStatus: user.accountStatus,
-      isProfileComplete: isCompleteAdminAccessProfile(user, profile),
       createdAt: user.createdAt,
       pendingRequest: pendingRequest
         ? {
@@ -193,21 +180,12 @@ export class AdminAccessReadRepository {
     };
   }
 
-  static toAdminAccessUserDetailRecord(
+  static toAdminAccessUserDetailRow(
     user: AdminAccessUserDetailSource,
-  ): AdminAccessUserDetailRecord {
-    const profile = {
-      name: user.profile?.name ?? null,
-      studentId: user.profile?.studentId ?? null,
-      department: user.profile?.department ?? null,
-    };
+  ): AdminAccessUserDetailRow {
     return {
-      ...AdminAccessReadRepository.toAdminAccessUserRecord(user),
-      profile: {
-        ...profile,
-        staffNumber: user.profile?.staffNumber ?? null,
-        isComplete: isCompleteAdminAccessProfile(user, profile),
-      },
+      ...AdminAccessReadRepository.toAdminAccessUserRow(user),
+      staffNumber: user.profile?.staffNumber ?? null,
     };
   }
 
@@ -317,8 +295,6 @@ export type AdminAccessActor = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly name: string | null;
-
-  readonly role: AuthorityLabel | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
@@ -329,6 +305,19 @@ export type AdminAccessUserRecord = Omit<AdminAccessUser, 'isSelf'> & {
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
+};
+
+export type AdminAccessUserRow = Omit<
+  AdminAccessUserRecord,
+  'role' | 'isProfileComplete'
+> & {
+  readonly selectedMemberKind: MemberKind | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+};
+
+export type AdminAccessUserDetailRow = AdminAccessUserRow & {
+  readonly staffNumber: string | null;
 };
 
 export type AdminAccessUserDetailRecord = Omit<
@@ -342,7 +331,7 @@ export type AdminAccessUserDetailRecord = Omit<
 };
 
 export type AdminAccessUserPageRecord = {
-  readonly items: readonly AdminAccessUserRecord[];
+  readonly items: readonly AdminAccessUserRow[];
   readonly page: number;
   readonly limit: number;
   readonly total: number;
@@ -384,7 +373,7 @@ export interface AdminAccessTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null>;
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean>;
   decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
@@ -405,7 +394,7 @@ export interface AdminAccessRepositoryPort {
     sortContext?: 'directory' | 'requestQueue',
   ): Promise<AdminAccessUserPageRecord>;
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null>;
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null>;
   listStaffAccessRequestHistory(
     userId: string,
     page: { readonly page: number; readonly limit: number },
@@ -430,16 +419,3 @@ export type AdminAccessUserDetailSource = AdminAccessUserSource & {
       })
     | null;
 };
-
-function isCompleteAdminAccessProfile(
-  user: AdminAccessUserSource,
-  profile: UserProfileFields,
-): boolean {
-  return isCompleteUserProfile({
-    id: user.id,
-    ...profile,
-    memberKind: user.profile?.memberKind ?? null,
-    hasPendingStaffRequest: user.staffAccessRequests.length > 0,
-    selectedMemberKind: user.selectedMemberKind,
-  });
-}

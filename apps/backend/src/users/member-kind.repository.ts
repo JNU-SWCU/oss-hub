@@ -1,7 +1,5 @@
 import { AdminAccessRepository } from './admin-access.repository';
 import { type AdminAccessActor } from './admin-access-read.repository';
-import { authorityLabel } from './authority-label.config';
-import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AffiliationKind,
@@ -38,7 +36,6 @@ export type MemberKindTargetRecord = {
   readonly githubId: bigint;
   readonly githubLogin: string;
   readonly name: string | null;
-  readonly role: AuthorityLabel | null;
   readonly selectedMemberKind: MemberKind | null;
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
@@ -228,11 +225,6 @@ function toMemberKindTargetRecord(
     githubId: user.githubId,
     githubLogin: user.nickname,
     name: profile?.name ?? null,
-    role: authorityLabel({
-      memberKind,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
-    }),
     selectedMemberKind: user.selectedMemberKind,
     memberKind,
     hasStaffAccess: user.hasStaffAccess,

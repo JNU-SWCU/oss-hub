@@ -1,19 +1,13 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, Matches, ValidateBy } from 'class-validator';
 import type { AdminProfileUpdateCommand } from '../../users/admin-profile-mutation.service';
-import {
-  isValidDepartment,
-  isValidUserName,
-  IsProfileText,
-  transformProfileText,
-  trimString,
-} from '../../users/profile-validation.config';
+import { PROFILE_TEXT_PATTERN } from '../../users/profile-validation.config';
 
 export class PatchAdminUserProfileRequestDto {
   @IsOptional()
   @Transform(transformProfileText)
   @IsString()
-  @IsProfileText('isValidUserName', isValidUserName)
+  @IsProfileText('isValidUserName')
   declare readonly name?: string;
 
   @IsOptional()
@@ -25,7 +19,7 @@ export class PatchAdminUserProfileRequestDto {
   @IsOptional()
   @Transform(transformProfileText)
   @IsString()
-  @IsProfileText('isValidDepartment', isValidDepartment)
+  @IsProfileText('isValidDepartment')
   declare readonly department?: string;
 
   toCommand(): AdminProfileUpdateCommand {
@@ -39,4 +33,23 @@ export class PatchAdminUserProfileRequestDto {
         : {}),
     };
   }
+}
+
+function trimString({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function transformProfileText({ value }: { value: unknown }): unknown {
+  return typeof value === 'string' ? value.trim().normalize('NFC') : value;
+}
+
+function isProfileText(value: unknown): boolean {
+  return (
+    typeof value === 'string' &&
+    PROFILE_TEXT_PATTERN.test(value.trim().normalize('NFC'))
+  );
+}
+
+function IsProfileText(name: string): PropertyDecorator {
+  return ValidateBy({ name, validator: { validate: isProfileText } });
 }

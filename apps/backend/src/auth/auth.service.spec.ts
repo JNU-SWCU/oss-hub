@@ -16,6 +16,7 @@ import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('login-history.service', () => {
   const emptyPage: LoginHistoryPage = {
@@ -121,7 +122,11 @@ describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     upsertUser.mockResolvedValue({ user: syntheticUser, isNew: true });
-    service = new AuthService(buildConfig(), repository);
+    service = new AuthService(
+      buildConfig(),
+      repository,
+      new UserProfileService(),
+    );
     fetchMock = jest.spyOn(globalThis, 'fetch');
   });
 

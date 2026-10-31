@@ -19,6 +19,9 @@ import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-pro
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import type { IndependentAuthorityService } from '../users/independent-authority.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 describe('admin-access.controller', () => {
   const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
@@ -82,6 +85,10 @@ describe('admin-access.controller', () => {
           profileService,
           { patchAdminAccess: jest.fn() },
           { patchMemberKind: jest.fn() },
+          new AdminAccessMutationService(
+            new AuditLogMetadataService(),
+            new UserProfileService(),
+          ),
         );
         const query = Object.assign(new AdminAccessListRequestDto(), {
           sort,
@@ -108,6 +115,10 @@ describe('admin-access.controller', () => {
         profileService,
         { patchAdminAccess: jest.fn() },
         { patchMemberKind: jest.fn() },
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
       const command = {
         expectedRole: 'STUDENT',
@@ -135,6 +146,10 @@ describe('admin-access.controller', () => {
         profileService,
         { patchAdminAccess: jest.fn() },
         { patchMemberKind: jest.fn() },
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
       const command = {
         name: '테스트관리자',
@@ -162,6 +177,10 @@ describe('admin-access.controller', () => {
         profileService,
         { patchAdminAccess: jest.fn() },
         { patchMemberKind: jest.fn() },
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
       const body = {
         toCommand: jest.fn(),
@@ -183,6 +202,10 @@ describe('admin-access.controller', () => {
         profileService,
         { patchAdminAccess: jest.fn() },
         { patchMemberKind: jest.fn() },
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
       const body = {
         toCommand: jest.fn(),
@@ -206,6 +229,10 @@ describe('admin-access.controller', () => {
           profileService,
           { patchAdminAccess: jest.fn() },
           { patchMemberKind: jest.fn() },
+          new AdminAccessMutationService(
+            new AuditLogMetadataService(),
+            new UserProfileService(),
+          ),
         );
         const body = {
           toCommand: jest.fn(),
@@ -297,6 +324,10 @@ describe('independent-authority.controller', () => {
       { patchProfile: jest.fn() },
       service,
       { patchMemberKind: jest.fn() },
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
     const adminBody = Object.assign(new PatchIndependentAuthorityRequestDto(), {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,

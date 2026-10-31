@@ -21,6 +21,7 @@ import { PlatformModule } from './platform.module';
 import { PrismaService } from './prisma.service';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { UserProfileService } from './user-profile.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, PlatformModule) as unknown;
@@ -104,6 +105,7 @@ describe('PlatformModule', () => {
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
       AuditLogMetadataService,
+      UserProfileService,
       AuditLogService,
     ]);
     expect(exported).not.toContain(S3ObjectStorageClient);

@@ -4,13 +4,20 @@ import { ADMIN_ACCESS_TRANSITION_FIXTURES } from './admin-access-transition-fixt
 import {
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_PENDING_STATES,
-  resolveAdminAccessTransition,
   type AdminAccessRequestEffect,
   type AdminAccessTableCurrentState,
   type AdminAccessTableDesiredState,
   type AdminAccessTransitionOutcome,
   ADMIN_ACCESS_TRANSITION_TABLE,
+  AdminAccessMutationService,
 } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+const adminAccessMutationService = new AdminAccessMutationService(
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
 
 type OracleCase = {
   readonly name: string;
@@ -166,7 +173,10 @@ describe('ADMIN access transition table', () => {
   it.each(ADMIN_ACCESS_TRANSITION_ORACLE)(
     'independently verifies the complete oracle: $name',
     ({ current, desired, expected }) => {
-      const resolved = resolveAdminAccessTransition(current, desired);
+      const resolved = adminAccessMutationService.resolveAdminAccessTransition(
+        current,
+        desired,
+      );
 
       expect(resolved.outcome.allowed).toBe(expected.allowed);
       expect(resolved.outcome.status).toBe(expected.status);
@@ -196,7 +206,10 @@ describe('ADMIN access transition table', () => {
   it.each(ADMIN_ACCESS_TRANSITION_FIXTURES)(
     '$name',
     ({ current, desired, expected }) => {
-      const resolved = resolveAdminAccessTransition(current, desired);
+      const resolved = adminAccessMutationService.resolveAdminAccessTransition(
+        current,
+        desired,
+      );
 
       expect(resolved.outcome).toEqual(expected);
     },

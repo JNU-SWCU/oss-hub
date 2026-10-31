@@ -1,5 +1,3 @@
-import { authorityLabel } from '../users/authority-label.config';
-import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -45,7 +43,8 @@ export interface CurrentSubmissionMilestone {
 export interface ViewerIdentity {
   userId: string;
   memberKind: MemberKind | null;
-  role: AuthorityLabel | null;
+  hasStaffAccess: boolean;
+  hasAdminAccess: boolean;
 }
 
 export interface MilestoneSchedule {
@@ -157,11 +156,8 @@ export class ProgramOverviewRepository {
     return {
       userId: user.id,
       memberKind: user.profile?.memberKind ?? null,
-      role: authorityLabel({
-        memberKind: user.profile?.memberKind ?? null,
-        hasStaffAccess: user.hasStaffAccess,
-        hasAdminAccess: user.hasAdminAccess,
-      }),
+      hasStaffAccess: user.hasStaffAccess,
+      hasAdminAccess: user.hasAdminAccess,
     };
   }
 

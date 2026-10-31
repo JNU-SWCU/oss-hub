@@ -1,6 +1,4 @@
 import { AdminAccessRepository } from './admin-access.repository';
-import { authorityLabel } from './authority-label.config';
-import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -9,6 +7,7 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
+import type { MemberKind } from '@prisma/client';
 
 interface AccountDeactivationTarget {
   readonly id: string;
@@ -16,7 +15,7 @@ interface AccountDeactivationTarget {
   readonly githubLogin: string;
   readonly displayName: string | null;
 
-  readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
@@ -116,11 +115,7 @@ function toAccountDeactivationTarget(
     githubId: user.githubId,
     githubLogin: user.nickname,
     displayName: user.profile?.name ?? null,
-    role: authorityLabel({
-      memberKind: user.profile?.memberKind ?? null,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
-    }),
+    memberKind: user.profile?.memberKind ?? null,
     hasStaffAccess: user.hasStaffAccess,
     hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,

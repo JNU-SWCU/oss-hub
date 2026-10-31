@@ -15,6 +15,7 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const sessionSecret = new Uint8Array(32).fill(19);
 const allowedOrigin = 'http://frontend.test';
@@ -50,6 +51,7 @@ describe('board authorization HTTP characterization', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [BoardController],
       providers: [
+        UserProfileService,
         BoardService,
         {
           provide: UsersAuthorityService,

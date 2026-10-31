@@ -10,10 +10,12 @@ import {
   accessUser,
   adminActor,
   auditLogHarness,
+  roleFacts,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('AdminAccessService mutation guards', () => {
   it('locks active admins before the target and preserves the final admin', async () => {
@@ -21,14 +23,17 @@ describe('AdminAccessService mutation guards', () => {
     repository.activeAdminCount = 1;
     repository.target = accessUser({
       id: 'other-admin',
-      role: 'ADMIN',
+      ...roleFacts('ADMIN'),
       hasAdminAccess: true,
     });
     const audit = auditLogHarness();
     const service = new AdminAccessService(
       repository,
       audit.service,
-      new AdminAccessMutationService(new AuditLogMetadataService()),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -62,13 +67,16 @@ describe('AdminAccessService mutation guards', () => {
     repository.target = accessUser({
       id: 'admin',
       githubId: ADMIN_GITHUB_ID,
-      role: 'ADMIN',
+      ...roleFacts('ADMIN'),
       hasAdminAccess: true,
     });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
-      new AdminAccessMutationService(new AuditLogMetadataService()),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -91,7 +99,7 @@ describe('AdminAccessService mutation guards', () => {
   it.each([
     [
       'STAFF로 강등된',
-      adminActor({ role: 'STAFF', hasAdminAccess: false }),
+      adminActor({ hasAdminAccess: false }),
       RolesErrorCode.ADMIN_ONLY,
       403,
     ],
@@ -111,7 +119,10 @@ describe('AdminAccessService mutation guards', () => {
       const service = new AdminAccessService(
         repository,
         audit.service,
-        new AdminAccessMutationService(new AuditLogMetadataService()),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
 
       await expect(
@@ -137,11 +148,14 @@ describe('AdminAccessService mutation guards', () => {
   it('다른 사람을 ADMIN으로 올리는 것은 그대로 허용된다', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.actor = adminActor();
-    repository.target = accessUser({ role: 'STAFF' });
+    repository.target = accessUser({ ...roleFacts('STAFF') });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
-      new AdminAccessMutationService(new AuditLogMetadataService()),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const result = await service.patchAccess(ADMIN_GITHUB_ID, 'target', {
@@ -158,14 +172,17 @@ describe('AdminAccessService mutation guards', () => {
   it('requires a complete profile before approving a pending staff request', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({
-      role: null,
-      isProfileComplete: false,
+      ...roleFacts(null),
+      name: null,
       pendingRequest: PENDING_REQUEST,
     });
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
-      new AdminAccessMutationService(new AuditLogMetadataService()),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(

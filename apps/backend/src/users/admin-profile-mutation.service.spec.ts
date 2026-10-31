@@ -7,6 +7,8 @@ import {
 } from './admin-profile.service.spec-support';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ACTOR_GITHUB_ID = 9_131_500_001n;
 
@@ -22,6 +24,11 @@ describe('mutateAdminUserProfile', () => {
 
     const result = await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -76,6 +83,11 @@ describe('mutateAdminUserProfile', () => {
     await expect(
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
@@ -103,6 +115,11 @@ describe('mutateAdminUserProfile', () => {
     await expect(
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
@@ -128,6 +145,11 @@ describe('mutateAdminUserProfile', () => {
     await expect(
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
@@ -151,6 +173,11 @@ describe('mutateAdminUserProfile', () => {
     await expect(
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {
@@ -176,6 +203,11 @@ describe('mutateAdminUserProfile', () => {
 
     const result = await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -207,6 +239,11 @@ describe('mutateAdminUserProfile', () => {
 
     const result = await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -237,6 +274,11 @@ describe('mutateAdminUserProfile', () => {
 
     await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -260,6 +302,11 @@ describe('mutateAdminUserProfile', () => {
 
     await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -288,6 +335,11 @@ describe('mutateAdminUserProfile', () => {
 
     await new AdminProfileMutationService(
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     ).mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -313,6 +365,11 @@ describe('mutateAdminUserProfile', () => {
     await expect(
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog: audit.service },
         {

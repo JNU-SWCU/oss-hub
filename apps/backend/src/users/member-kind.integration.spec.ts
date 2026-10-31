@@ -17,6 +17,8 @@ import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
 import { UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,6 +34,11 @@ const service = new MemberKindService(
     new AuditLogMetadataService(),
   ),
   new AuditLogMetadataService(),
+  new UserProfileService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 let sequence = 0;
 
@@ -399,6 +406,11 @@ describe('member-kind persistence contract', () => {
           .mockRejectedValue(new Error('synthetic audit failure')),
       },
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(

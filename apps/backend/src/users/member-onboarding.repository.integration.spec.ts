@@ -9,6 +9,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import { MemberOnboardingService } from './member-onboarding.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,7 +36,11 @@ describe('MemberOnboardingRepository integration', () => {
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };
-  const service = new MemberOnboardingService(repository, consentsService);
+  const service = new MemberOnboardingService(
+    repository,
+    consentsService,
+    new UserProfileService(),
+  );
 
   beforeAll(async () => {
     await prisma.$connect();

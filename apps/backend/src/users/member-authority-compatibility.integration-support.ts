@@ -13,6 +13,7 @@ import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(
@@ -23,6 +24,7 @@ export const compatibilityUsers = new UsersService(
     new AuditLogMetadataService(),
   ),
   new AuditLogMetadataService(),
+  new UserProfileService(),
 );
 export const compatibilityAccess = new AdminAccessService(
   new AdminAccessRepository(compatibilityPrisma),
@@ -30,7 +32,10 @@ export const compatibilityAccess = new AdminAccessService(
     new AuditLogRepository(compatibilityPrisma),
     new AuditLogMetadataService(),
   ),
-  new AdminAccessMutationService(new AuditLogMetadataService()),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 
 const TEST_PREFIX = 'test:task8:member-authority:';

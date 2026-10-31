@@ -1,8 +1,8 @@
-import { authorityLabel } from '../users/authority-label.config';
 import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export type ProgramViewerRole = AuthorityLabel | 'PENDING' | null;
 
@@ -19,7 +19,10 @@ export interface ProgramStudentViewer {
 
 @Injectable()
 export class ProgramViewerService {
-  constructor(private readonly repository: ProgramsRepository) {}
+  constructor(
+    private readonly repository: ProgramsRepository,
+    private readonly userProfileService: UserProfileService,
+  ) {}
 
   async fromGithubId(
     githubId: bigint | null,
@@ -33,7 +36,7 @@ export class ProgramViewerService {
       return { githubId, userId: null, role: null };
 
     let role: ProgramViewerRole =
-      authorityLabel({
+      this.userProfileService.authorityLabel({
         memberKind: user.profile?.memberKind ?? null,
         hasStaffAccess: user.hasStaffAccess,
         hasAdminAccess: user.hasAdminAccess,

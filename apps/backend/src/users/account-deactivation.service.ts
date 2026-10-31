@@ -13,6 +13,7 @@ import {
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export interface AccountDeactivationResult {
   readonly accountStatus: typeof AccountStatus.DEACTIVATED;
@@ -27,6 +28,7 @@ export class AccountDeactivationService {
     private readonly repository: AccountDeactivationRepositoryPort,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
@@ -60,6 +62,7 @@ export class AccountDeactivationService {
         displayName: account.displayName,
         githubLogin: account.githubLogin,
       };
+      const role = this.userProfileService.authorityLabel(account);
       await this.auditLog.record(
         {
           actorGithubId: githubId,
@@ -71,12 +74,12 @@ export class AccountDeactivationService {
             actor: person,
             target: person,
             before: {
-              role: account.role,
+              role,
               accountStatus: AccountStatus.ACTIVE,
               requestStatus: account.requestStatus,
             },
             after: {
-              role: account.role,
+              role,
               accountStatus: AccountStatus.DEACTIVATED,
               requestStatus: account.requestStatus,
             },

@@ -1,13 +1,3 @@
-import {
-  isValidStudentId,
-  isCompleteProfileFields,
-  isStoredStudentId,
-  isValidDepartment,
-  normalizeProfileText,
-  isValidStaffNumber,
-  normalizeStaffNumber,
-} from './profile-validation.config';
-import { authorityLabel } from './authority-label.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
@@ -15,8 +5,8 @@ import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
   USER_PROFILE_AUDIT_FIELDS,
+  type UserProfileAuditFieldChange,
 } from '../platform/audit-log-metadata.config';
-import type { UserProfileAuditFieldChange } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { AffiliationKind, MemberKind } from '@prisma/client';
@@ -28,13 +18,11 @@ import {
   type MemberKindTargetRecord,
 } from './member-kind.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { type IndependentAuthorityMutationResult } from './independent-authority.repository';
-import {
-  requireActiveAdmin,
-  roleError,
-  staleAccessError,
-} from './admin-access-mutation.service';
+import type { IndependentAuthorityMutationResult } from './independent-authority.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import type { AuthorityLabel } from './authority-label.types';
 
 export type MemberKindMutationCommand = {
   readonly memberKind: MemberKind;
@@ -55,6 +43,8 @@ export class MemberKindService {
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   patchMemberKind(
@@ -65,16 +55,25 @@ export class MemberKindService {
     assertCommandShape(command);
     return this.repository.withTransaction(async (store) => {
       await store.lockActiveAdmins();
-      const actor = requireActiveAdmin(
+      const actor = this.adminAccessMutationService.requireActiveAdmin(
         await store.findActorByGithubId(actorGithubId),
       );
-      const before = await store.findTargetForUpdate(userId);
-      if (!before) {
-        throw roleError(RolesErrorCode.USER_NOT_FOUND);
+      const target = await store.findTargetForUpdate(userId);
+      if (!target) {
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.USER_NOT_FOUND,
+        );
       }
+      const before = {
+        ...target,
+        role: this.userProfileService.authorityLabel(target),
+      };
       if (
         !before.profile ||
-        !isCompleteProfileFields(before.profile, before.memberKind)
+        !this.userProfileService.isCompleteProfileFields(
+          before.profile,
+          before.memberKind,
+        )
       ) {
         throw new DomainException(
           USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
@@ -84,15 +83,17 @@ export class MemberKindService {
         before.memberKind !== command.expectedMemberKind ||
         before.hasStaffAccess !== command.expectedHasStaffAccess
       ) {
-        throw staleAccessError(before);
+        throw this.adminAccessMutationService.staleAccessError(before);
       }
       if (before.pendingRequest) {
-        throw roleError(RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED);
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED,
+        );
       }
 
-      const update = resolveMemberKindUpdate(before, command);
+      const update = this.resolveMemberKindUpdate(before, command);
       if (!update.changed) {
-        throw staleAccessError(before);
+        throw this.adminAccessMutationService.staleAccessError(before);
       }
       const outcome = await store.updateMemberKind(
         before.id,
@@ -187,82 +188,126 @@ export class MemberKindService {
       };
     });
   }
-}
 
-type MemberKindUpdate = {
-  readonly changed: boolean;
-  readonly authorityChanged: boolean;
-  readonly hasStaffAccess: boolean;
-  readonly role: MemberKindTargetRecord['role'];
-  readonly profileChanges: readonly UserProfileAuditFieldChange[];
-  readonly profile: MemberKindProfileUpdate;
-};
-
-function resolveMemberKindUpdate(
-  before: MemberKindTargetRecord,
-  command: MemberKindMutationCommand,
-): MemberKindUpdate {
-  const profile = before.profile;
-  if (!profile) {
-    throw new DomainException(
-      USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
-    );
-  }
-
-  const providedStudentId = parseStudentId(command.studentId);
-  const providedDepartment = parseDepartment(command.department);
-  const providedStaffNumber = parseStaffNumber(command.staffNumber);
-
-  if (command.memberKind === MemberKind.STUDENT) {
-    if (
-      profile.studentId !== null &&
-      providedStudentId !== undefined &&
-      providedStudentId !== profile.studentId
-    ) {
-      throw validationError('학생 전환에서는 기존 학번을 변경할 수 없습니다.');
-    }
-    const studentId = providedStudentId ?? profile.studentId;
-    if (studentId === null || !isStoredStudentId(studentId)) {
+  private resolveMemberKindUpdate(
+    before: MemberKindTargetRecord,
+    command: MemberKindMutationCommand,
+  ): MemberKindUpdate {
+    const profile = before.profile;
+    if (!profile) {
       throw new DomainException(
         USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
       );
     }
-    if (providedDepartment === undefined) {
-      throw new DomainException(
-        USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
+
+    const providedStudentId = this.parseStudentId(command.studentId);
+    const providedDepartment = this.parseDepartment(command.department);
+    const providedStaffNumber = this.parseStaffNumber(command.staffNumber);
+
+    if (command.memberKind === MemberKind.STUDENT) {
+      if (
+        profile.studentId !== null &&
+        providedStudentId !== undefined &&
+        providedStudentId !== profile.studentId
+      ) {
+        throw validationError(
+          '학생 전환에서는 기존 학번을 변경할 수 없습니다.',
+        );
+      }
+      const studentId = providedStudentId ?? profile.studentId;
+      if (
+        studentId === null ||
+        !this.userProfileService.isStoredStudentId(studentId)
+      ) {
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
+        );
+      }
+      if (providedDepartment === undefined) {
+        throw new DomainException(
+          USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
+        );
+      }
+      const hasStaffAccess = false;
+      const profilePatch = {
+        memberKind: MemberKind.STUDENT,
+        ...(studentId !== profile.studentId ? { studentId } : {}),
+        department: providedDepartment,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: providedDepartment,
+        ...(providedStaffNumber !== undefined
+          ? { staffNumber: providedStaffNumber }
+          : {}),
+      };
+      const authorityChanged =
+        before.memberKind !== MemberKind.STUDENT ||
+        before.hasStaffAccess !== hasStaffAccess;
+      const profileChanges = profileAuditChanges({
+        before: profile,
+        studentId,
+        department: providedDepartment,
+        staffNumber: providedStaffNumber,
+      });
+      const changed =
+        authorityChanged ||
+        profileChanges.length > 0 ||
+        profile.affiliationKind !== AffiliationKind.DEPARTMENT ||
+        profile.affiliationName !== providedDepartment;
+      return {
+        changed,
+        authorityChanged,
+        hasStaffAccess,
+        role: this.userProfileService.authorityLabel({
+          memberKind: MemberKind.STUDENT,
+          hasStaffAccess,
+          hasAdminAccess: before.hasAdminAccess,
+        }),
+        profileChanges,
+        profile: profilePatch,
+      };
+    }
+
+    if (
+      providedStudentId !== undefined &&
+      providedStudentId !== profile.studentId
+    ) {
+      throw validationError(
+        '교직원 전환에서는 기존 학번을 변경할 수 없습니다.',
       );
     }
-    const hasStaffAccess = false;
+    if (
+      providedDepartment !== undefined &&
+      (providedDepartment !== profile.department ||
+        providedDepartment !== profile.affiliationName)
+    ) {
+      throw validationError(
+        '교직원 전환에서는 기존 소속을 변경할 수 없습니다.',
+      );
+    }
+
+    const hasStaffAccess = true;
     const profilePatch = {
-      memberKind: MemberKind.STUDENT,
-      ...(studentId !== profile.studentId ? { studentId } : {}),
-      department: providedDepartment,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: providedDepartment,
+      memberKind: MemberKind.STAFF,
       ...(providedStaffNumber !== undefined
         ? { staffNumber: providedStaffNumber }
         : {}),
     };
     const authorityChanged =
-      before.memberKind !== MemberKind.STUDENT ||
+      before.memberKind !== MemberKind.STAFF ||
       before.hasStaffAccess !== hasStaffAccess;
     const profileChanges = profileAuditChanges({
       before: profile,
-      studentId,
-      department: providedDepartment,
+      studentId: profile.studentId,
+      department: profile.department,
       staffNumber: providedStaffNumber,
     });
-    const changed =
-      authorityChanged ||
-      profileChanges.length > 0 ||
-      profile.affiliationKind !== AffiliationKind.DEPARTMENT ||
-      profile.affiliationName !== providedDepartment;
+    const changed = authorityChanged || profileChanges.length > 0;
     return {
       changed,
       authorityChanged,
       hasStaffAccess,
-      role: authorityLabel({
-        memberKind: MemberKind.STUDENT,
+      role: this.userProfileService.authorityLabel({
+        memberKind: MemberKind.STAFF,
         hasStaffAccess,
         hasAdminAccess: before.hasAdminAccess,
       }),
@@ -271,64 +316,59 @@ function resolveMemberKindUpdate(
     };
   }
 
-  if (
-    providedStudentId !== undefined &&
-    providedStudentId !== profile.studentId
-  ) {
-    throw validationError('교직원 전환에서는 기존 학번을 변경할 수 없습니다.');
-  }
-  if (
-    providedDepartment !== undefined &&
-    (providedDepartment !== profile.department ||
-      providedDepartment !== profile.affiliationName)
-  ) {
-    throw validationError('교직원 전환에서는 기존 소속을 변경할 수 없습니다.');
+  private parseStudentId(value: string | undefined): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      throw validationError('학번 형식이 올바르지 않습니다.');
+    }
+    const normalized = value.trim();
+    if (!this.userProfileService.isValidStudentId(normalized)) {
+      throw validationError('학번 형식이 올바르지 않습니다.');
+    }
+    return normalized;
   }
 
-  const hasStaffAccess = true;
-  const profilePatch = {
-    memberKind: MemberKind.STAFF,
-    ...(providedStaffNumber !== undefined
-      ? { staffNumber: providedStaffNumber }
-      : {}),
-  };
-  const authorityChanged =
-    before.memberKind !== MemberKind.STAFF ||
-    before.hasStaffAccess !== hasStaffAccess;
-  const profileChanges = profileAuditChanges({
-    before: profile,
-    studentId: profile.studentId,
-    department: profile.department,
-    staffNumber: providedStaffNumber,
-  });
-  const changed = authorityChanged || profileChanges.length > 0;
-  return {
-    changed,
-    authorityChanged,
-    hasStaffAccess,
-    role: authorityLabel({
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess,
-      hasAdminAccess: before.hasAdminAccess,
-    }),
-    profileChanges,
-    profile: profilePatch,
-  };
+  private parseDepartment(value: string | undefined): string | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'string') {
+      throw validationError('학과 형식이 올바르지 않습니다.');
+    }
+    const normalized = this.userProfileService.normalizeProfileText(value);
+    if (!this.userProfileService.isValidDepartment(normalized)) {
+      throw validationError('학과 형식이 올바르지 않습니다.');
+    }
+    return normalized;
+  }
+
+  private parseStaffNumber(
+    value: string | null | undefined,
+  ): string | null | undefined {
+    if (value === undefined || value === null) {
+      return value;
+    }
+    if (typeof value !== 'string') {
+      throw validationError('교직원 번호 형식이 올바르지 않습니다.');
+    }
+    const normalized = this.userProfileService.normalizeStaffNumber(value);
+    if (!this.userProfileService.isValidStaffNumber(normalized)) {
+      throw validationError('교직원 번호 형식이 올바르지 않습니다.');
+    }
+    return normalized;
+  }
 }
 
-function parseStudentId(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== 'string') {
-    throw validationError('학번 형식이 올바르지 않습니다.');
-  }
-  const normalized = value.trim();
-  if (!isValidStudentId(normalized)) {
-    throw validationError('학번 형식이 올바르지 않습니다.');
-  }
-  return normalized;
-}
+type MemberKindUpdate = {
+  readonly changed: boolean;
+  readonly authorityChanged: boolean;
+  readonly hasStaffAccess: boolean;
+  readonly role: AuthorityLabel | null;
+  readonly profileChanges: readonly UserProfileAuditFieldChange[];
+  readonly profile: MemberKindProfileUpdate;
+};
 
 function assertCommandShape(command: MemberKindMutationCommand): void {
   if (
@@ -346,36 +386,6 @@ function assertCommandShape(command: MemberKindMutationCommand): void {
   if (typeof command.expectedHasStaffAccess !== 'boolean') {
     throw validationError('기대하는 교직원 접근 상태가 올바르지 않습니다.');
   }
-}
-
-function parseDepartment(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== 'string') {
-    throw validationError('학과 형식이 올바르지 않습니다.');
-  }
-  const normalized = normalizeProfileText(value);
-  if (!isValidDepartment(normalized)) {
-    throw validationError('학과 형식이 올바르지 않습니다.');
-  }
-  return normalized;
-}
-
-function parseStaffNumber(
-  value: string | null | undefined,
-): string | null | undefined {
-  if (value === undefined || value === null) {
-    return value;
-  }
-  if (typeof value !== 'string') {
-    throw validationError('교직원 번호 형식이 올바르지 않습니다.');
-  }
-  const normalized = normalizeStaffNumber(value);
-  if (!isValidStaffNumber(normalized)) {
-    throw validationError('교직원 번호 형식이 올바르지 않습니다.');
-  }
-  return normalized;
 }
 
 function profileAuditChanges(input: {

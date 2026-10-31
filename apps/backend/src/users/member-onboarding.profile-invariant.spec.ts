@@ -15,6 +15,7 @@ import type {
   MemberUser,
 } from './member-onboarding.repository';
 import { MemberOnboardingService } from './member-onboarding.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const GITHUB_ID = 424242n;
 const USER: MemberUser = {
@@ -93,6 +94,7 @@ function buildService(
     service: new MemberOnboardingService(
       repository as unknown as MemberOnboardingRepository,
       consentsService,
+      new UserProfileService(),
     ),
     store,
     repository,

@@ -1,5 +1,4 @@
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import { authorityLabel } from './authority-label.config';
 import {
   AccountStatus,
   Prisma,
@@ -12,7 +11,6 @@ import { AdminAccessHistoryRepository } from './admin-access-history.repository'
 import {
   AdminAccessReadRepository,
   type AdminAccessActor,
-  type AdminAccessUserRecord,
   type AdminAccessUserUpdate,
   type AdminAccessPendingDecisionUpdate,
   type AdminAccessRevokedRequestInsert,
@@ -25,6 +23,7 @@ import {
   type AdminAccessLoginHistoryPage,
   type AdminAccessStaffAccessRequestHistoryPage,
 } from './admin-access-read-ordering.repository';
+import type { AdminAccessUserRow } from './admin-access-read.repository';
 
 const ADMIN_ACTOR_SELECT = {
   id: true,
@@ -61,9 +60,7 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
     return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
-  async findUserForUpdate(
-    userId: string,
-  ): Promise<AdminAccessUserRecord | null> {
+  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
     );
@@ -74,9 +71,7 @@ class PrismaAdminAccessTransactionRepository implements AdminAccessTransactionSt
       where: { id: userId },
       select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
-    return user
-      ? AdminAccessReadRepository.toAdminAccessUserRecord(user)
-      : null;
+    return user ? AdminAccessReadRepository.toAdminAccessUserRow(user) : null;
   }
 
   async compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
@@ -217,11 +212,6 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       githubId: user.githubId,
       githubLogin: user.nickname,
       name: user.profile?.name ?? null,
-      role: authorityLabel({
-        memberKind: user.selectedMemberKind,
-        hasStaffAccess: user.hasStaffAccess,
-        hasAdminAccess: user.hasAdminAccess,
-      }),
       hasStaffAccess: user.hasStaffAccess,
       hasAdminAccess: user.hasAdminAccess,
       accountStatus: user.accountStatus,

@@ -5,9 +5,9 @@ import type {
   AdminAccessRepositoryPort,
   AdminAccessRevokedRequestInsert,
   AdminAccessTransactionStore,
-  AdminAccessUserDetailRecord,
+  AdminAccessUserDetailRow,
   AdminAccessUserPageRecord,
-  AdminAccessUserRecord,
+  AdminAccessUserRow,
   AdminAccessUserUpdate,
 } from './admin-access-read.repository';
 import {
@@ -55,7 +55,7 @@ class PausingActorReadAccessStore implements AdminAccessTransactionStore {
     return count;
   }
 
-  findUserForUpdate(userId: string): Promise<AdminAccessUserRecord | null> {
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
 
@@ -102,7 +102,7 @@ export class PausingActorReadAdminAccessRepository implements AdminAccessReposit
     return this.repository.facets(query);
   }
 
-  findById(userId: string): Promise<AdminAccessUserDetailRecord | null> {
+  findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
 

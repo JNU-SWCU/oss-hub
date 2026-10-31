@@ -11,6 +11,8 @@ import { IndependentAuthorityRepository } from './independent-authority.reposito
 import { STAFF_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -25,6 +27,11 @@ const authority = new IndependentAuthorityService(
     new AuditLogMetadataService(),
   ),
   new AuditLogMetadataService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+  new UserProfileService(),
 );
 
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
@@ -33,6 +40,7 @@ const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
 const roles = new MemberOnboardingService(
   new MemberOnboardingRepository(prisma),
   consentsService,
+  new UserProfileService(),
 );
 
 const TEST_PREFIX = 'test:1383:independent-authority-revocation:';

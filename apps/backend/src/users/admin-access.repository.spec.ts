@@ -11,6 +11,7 @@ import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
 } from './admin-access-query.config';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('admin-actor-locks.repository', () => {
   type ActorRow = Parameters<typeof AdminAccessRepository.toAdminActor>[0];
@@ -59,17 +60,13 @@ describe('admin-actor-locks.repository', () => {
     ] as const)(
       'folds (%s, staff=%s, admin=%s) into the display role %s',
       (selectedMemberKind, hasStaffAccess, hasAdminAccess, expected) => {
-        const row = actorRow({
-          selectedMemberKind,
-          hasStaffAccess,
-          hasAdminAccess,
-        });
-
-        const actor = AdminAccessRepository.toAdminActor(row);
-
-        expect(actor.role).toBe(expected);
-        expect(actor.hasStaffAccess).toBe(hasStaffAccess);
-        expect(actor.hasAdminAccess).toBe(hasAdminAccess);
+        expect(
+          new UserProfileService().authorityLabel({
+            memberKind: selectedMemberKind,
+            hasStaffAccess,
+            hasAdminAccess,
+          }),
+        ).toBe(expected);
       },
     );
   });
@@ -152,7 +149,8 @@ describe('AdminAccessRepository', () => {
         expect.objectContaining({
           id: 'student',
           name: '가나다 학생',
-          isProfileComplete: true,
+          studentId: '123456',
+          department: '소프트웨어공학과',
           lastLoginAt: new Date('2026-07-22T00:00:00.000Z'),
         }),
       ],
@@ -291,13 +289,10 @@ describe('AdminAccessRepository', () => {
       expect.objectContaining({
         id: 'target',
 
-        profile: {
-          name: null,
-          studentId: null,
-          staffNumber: null,
-          department: null,
-          isComplete: false,
-        },
+        name: null,
+        studentId: null,
+        staffNumber: null,
+        department: null,
       }),
     );
     expect(staffAccessRequests).toEqual({

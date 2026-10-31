@@ -36,6 +36,22 @@ import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-url.config';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
+import type { AuthUserRecord } from '../src/auth/auth.repository';
+import { UserProfileService } from '../src/platform/user-profile.service';
+
+function isProfileComplete(user: AuthUserRecord | null): boolean {
+  return (
+    user !== null &&
+    new UserProfileService().isCompleteProfileFields(
+      {
+        name: user.name,
+        studentId: user.studentId,
+        department: user.department,
+      },
+      user.memberKind ?? user.selectedMemberKind,
+    )
+  );
+}
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -1770,12 +1786,12 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(admin?.id).toBe(adminConfirmedUserId);
       expect(admin?.hasAdminAccess).toBe(true);
       expect(admin?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(admin?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(admin)).toBe(true);
 
       expect(adminSecond?.id).toBe(adminSecondUserId);
       expect(adminSecond?.hasAdminAccess).toBe(true);
       expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(adminSecond?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(adminSecond)).toBe(true);
 
       const [adminRow, adminSecondRow] = await Promise.all([
         prisma.userProfile.findUniqueOrThrow({
@@ -1806,7 +1822,7 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(revocable?.id).toBe(staffRevocableUserId);
       expect(revocable?.hasStaffAccess).toBe(true);
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
-      expect(revocable?.isProfileComplete).toBe(true);
+      expect(isProfileComplete(revocable)).toBe(true);
 
       const requests = await prisma.staffAccessRequest.findMany({
         where: { userId: staffRevocableUserId },

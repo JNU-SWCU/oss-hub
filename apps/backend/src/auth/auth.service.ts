@@ -13,6 +13,8 @@ import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { SignJWT, jwtVerify } from 'jose';
+import { UserProfileService } from '../platform/user-profile.service';
+import type { AuthUserRecord } from './auth.repository';
 
 export function parseCookies(
   header: string | undefined,
@@ -333,6 +335,7 @@ export class AuthService {
   constructor(
     private readonly config: AuthConfig,
     private readonly repository: AuthRepository,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   buildAuthorizeRedirect(prompt?: 'select_account'): AuthorizeRedirect {
@@ -360,9 +363,10 @@ export class AuthService {
     }
     const accessToken = await this.exchangeCode(input.code, flow.verifier);
     const profile = await this.fetchProfile(accessToken);
-    return this.repository.withTransaction((store) =>
+    const login = await this.repository.withTransaction((store) =>
       store.upsertUser(profile),
     );
+    return { user: this.toAuthUser(login.user), isNew: login.isNew };
   }
 
   async issueSession(user: AuthUser): Promise<string> {
@@ -395,11 +399,23 @@ export class AuthService {
     if (user?.accountStatus !== AccountStatus.ACTIVE) {
       return null;
     }
-    return { ...user, accountStatus: AccountStatus.ACTIVE };
+    return { ...this.toAuthUser(user), accountStatus: AccountStatus.ACTIVE };
   }
 
   async findMe(githubId: bigint): Promise<AuthUser | null> {
-    return this.repository.findByGithubId(githubId);
+    const user = await this.repository.findByGithubId(githubId);
+    return user ? this.toAuthUser(user) : null;
+  }
+
+  private toAuthUser(record: AuthUserRecord): AuthUser {
+    const { selectedMemberKind, studentId, department, ...user } = record;
+    return {
+      ...user,
+      isProfileComplete: this.userProfileService.isCompleteProfileFields(
+        { name: record.name, studentId, department },
+        record.memberKind ?? selectedMemberKind,
+      ),
+    };
   }
 
   async incrementSessionVersion(githubId: bigint): Promise<void> {

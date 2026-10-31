@@ -5,11 +5,13 @@ import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
 import {
+  BoardCommentRecord,
   BoardPostDetailRecord,
   BoardPostRef,
   BoardPostSummaryRecord,
   BoardRepository,
 } from './board.repository';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export interface BoardPostListQuery {
   readonly page: number;
@@ -71,6 +73,7 @@ export class BoardService {
   constructor(
     private readonly repository: BoardRepository,
     private readonly authority: UsersAuthorityService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async listPosts(
@@ -198,7 +201,7 @@ export class BoardService {
       authorId: actorId,
       body: input.body,
     });
-    return { ...comment, canDelete: true };
+    return { ...this.toComment(comment), canDelete: true };
   }
 
   async deleteComment(
@@ -260,9 +263,28 @@ export class BoardService {
     return {
       ...this.withPostPermissions(post, actorId, actorIsStaff),
       comments: post.comments.map((comment) => ({
-        ...comment,
+        ...this.toComment(comment),
         canDelete: comment.authorId === actorId || actorIsStaff,
       })),
+    };
+  }
+
+  private toComment(
+    comment: BoardCommentRecord,
+  ): Omit<BoardCommentResult, 'canDelete'> {
+    return {
+      id: comment.id,
+      postId: comment.postId,
+      authorId: comment.authorId,
+      authorRole:
+        this.userProfileService.authorityLabel({
+          memberKind: comment.authorMemberKind,
+          hasStaffAccess: comment.authorHasStaffAccess,
+          hasAdminAccess: comment.authorHasAdminAccess,
+        }) ?? 'STUDENT',
+      authorName: comment.authorName,
+      body: comment.body,
+      createdAt: comment.createdAt,
     };
   }
 

@@ -2,13 +2,17 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const githubId = 424242n;
 
 function serviceFor(user: unknown) {
   const findUnique = jest.fn().mockResolvedValue(user);
   const prisma = { user: { findUnique } } as unknown as PrismaService;
-  return new ProgramViewerService(new ProgramsRepository(prisma));
+  return new ProgramViewerService(
+    new ProgramsRepository(prisma),
+    new UserProfileService(),
+  );
 }
 
 function viewerRecord(fields: {
@@ -44,16 +48,19 @@ describe('ProgramViewerService', () => {
 
   it('학생 유형이 아닌 운영자는 참여와 무관하게 운영 화면을 유지한다', async () => {
     const findStudentApplication = jest.fn();
-    const service = new ProgramViewerService({
-      findViewer: jest.fn().mockResolvedValue(
-        viewerRecord({
-          memberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
-          hasAdminAccess: false,
-        }),
-      ),
-      findStudentApplication,
-    } as unknown as ProgramsRepository);
+    const service = new ProgramViewerService(
+      {
+        findViewer: jest.fn().mockResolvedValue(
+          viewerRecord({
+            memberKind: MemberKind.STAFF,
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+          }),
+        ),
+        findStudentApplication,
+      } as unknown as ProgramsRepository,
+      new UserProfileService(),
+    );
     await expect(
       service.fromGithubId(githubId, 'program-1'),
     ).resolves.toMatchObject({ role: 'STAFF' });
@@ -66,16 +73,19 @@ describe('ProgramViewerService', () => {
       const findStudentApplication = jest
         .fn()
         .mockResolvedValue({ status: 'APPROVED' });
-      const service = new ProgramViewerService({
-        findViewer: jest.fn().mockResolvedValue(
-          viewerRecord({
-            memberKind: MemberKind.STUDENT,
-            hasStaffAccess: true,
-            hasAdminAccess: true,
-          }),
-        ),
-        findStudentApplication,
-      } as unknown as ProgramsRepository);
+      const service = new ProgramViewerService(
+        {
+          findViewer: jest.fn().mockResolvedValue(
+            viewerRecord({
+              memberKind: MemberKind.STUDENT,
+              hasStaffAccess: true,
+              hasAdminAccess: true,
+            }),
+          ),
+          findStudentApplication,
+        } as unknown as ProgramsRepository,
+        new UserProfileService(),
+      );
 
       await expect(
         service.fromGithubId(githubId, 'program-1', operations),
@@ -86,16 +96,19 @@ describe('ProgramViewerService', () => {
   it.each([null, { status: 'SUBMITTED' }])(
     '미참여·미승인 학생 운영자는 운영 화면을 유지한다 (%s)',
     async (application) => {
-      const service = new ProgramViewerService({
-        findViewer: jest.fn().mockResolvedValue(
-          viewerRecord({
-            memberKind: MemberKind.STUDENT,
-            hasStaffAccess: true,
-            hasAdminAccess: false,
-          }),
-        ),
-        findStudentApplication: jest.fn().mockResolvedValue(application),
-      } as unknown as ProgramsRepository);
+      const service = new ProgramViewerService(
+        {
+          findViewer: jest.fn().mockResolvedValue(
+            viewerRecord({
+              memberKind: MemberKind.STUDENT,
+              hasStaffAccess: true,
+              hasAdminAccess: false,
+            }),
+          ),
+          findStudentApplication: jest.fn().mockResolvedValue(application),
+        } as unknown as ProgramsRepository,
+        new UserProfileService(),
+      );
       await expect(
         service.fromGithubId(githubId, 'program-1'),
       ).resolves.toMatchObject({ role: 'STAFF' });
@@ -111,7 +124,10 @@ describe('ProgramViewerService', () => {
       staffAccessRequests: [],
     });
     const prisma = { user: { findUnique } } as unknown as PrismaService;
-    const service = new ProgramViewerService(new ProgramsRepository(prisma));
+    const service = new ProgramViewerService(
+      new ProgramsRepository(prisma),
+      new UserProfileService(),
+    );
 
     const viewer = await service.fromGithubId(githubId);
 

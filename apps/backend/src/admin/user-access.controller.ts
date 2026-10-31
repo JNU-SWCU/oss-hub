@@ -13,10 +13,7 @@ import {
 import { OriginGuard } from '../auth/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { SessionGuard } from '../auth/session.guard';
-import {
-  AdminAccessService,
-  requireValidUserId,
-} from '../users/admin-access.service';
+import { AdminAccessService } from '../users/admin-access.service';
 import { AdminProfileService } from '../users/admin-profile.service';
 import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
@@ -32,6 +29,7 @@ import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-aut
 import { IndependentAuthorityService } from '../users/independent-authority.service';
 import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
 import { MemberKindService } from '../users/member-kind.service';
+import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -55,6 +53,7 @@ export class UserAccessController {
       MemberKindService,
       'patchMemberKind'
     >,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   @Get('access')
@@ -88,7 +87,7 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchAdminAccessRequestDto,
   ): Promise<AdminAccessMutationResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return AdminAccessMutationResponseDto.from(
       await this.service.patchAccess(
         request.sessionGithubId,
@@ -105,7 +104,7 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchAdminUserProfileRequestDto,
   ): Promise<AdminProfileUpdateResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return AdminProfileUpdateResponseDto.from(
       await this.profileService.patchProfile(
         request.sessionGithubId,
@@ -122,7 +121,7 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchIndependentAuthorityRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return IndependentAuthorityMutationResponseDto.from(
       await this.authorityService.patchAdminAccess(
         request.sessionGithubId,
@@ -139,7 +138,7 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchMemberKindRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
-    requireValidUserId(id);
+    this.adminAccessMutationService.requireValidUserId(id);
     return IndependentAuthorityMutationResponseDto.from(
       await this.memberKindService.patchMemberKind(
         request.sessionGithubId,

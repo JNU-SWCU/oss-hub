@@ -48,7 +48,6 @@ describe('AuthRepository.findByGithubId', () => {
       memberKind: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: true,
-      isProfileComplete: true,
     });
   });
 });

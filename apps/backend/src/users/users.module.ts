@@ -67,6 +67,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     UsersService,
     UsersAuthorityService,
     ConsentsService,
+    AdminAccessMutationService,
     AdminAccessService,
     AdminProfileService,
     IndependentAuthorityService,

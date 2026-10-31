@@ -9,6 +9,8 @@ import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -98,6 +100,11 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
     const outcomes = await Promise.allSettled([
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog },
         {
@@ -108,6 +115,11 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
       ),
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       ).mutateAdminUserProfile(
         { repository, auditLog },
         {

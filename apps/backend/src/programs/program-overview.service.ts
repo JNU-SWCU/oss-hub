@@ -12,6 +12,7 @@ import {
   ProgramOverviewRecord,
   type PublicTeamRow,
 } from './program-overview.repository';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export interface ProgramOverviewViewerStats {
   role: AuthorityLabel | null;
@@ -86,7 +87,10 @@ function sumStudentDocuments(
 
 @Injectable()
 export class ProgramOverviewService {
-  constructor(private readonly repository: ProgramOverviewRepository) {}
+  constructor(
+    private readonly repository: ProgramOverviewRepository,
+    private readonly userProfileService: UserProfileService,
+  ) {}
 
   async getOverview(
     programId: string,
@@ -136,7 +140,11 @@ export class ProgramOverviewService {
     teamCount: number,
     operationsView: boolean,
   ): Promise<ProgramOverviewViewerStats> {
-    const identity = await this.repository.findViewerIdentity(viewerGithubId);
+    const viewer = await this.repository.findViewerIdentity(viewerGithubId);
+    const identity = viewer && {
+      ...viewer,
+      role: this.userProfileService.authorityLabel(viewer),
+    };
     if (!identity || identity.role === null) {
       return { ...EMPTY_VIEWER_STATS, role: identity?.role ?? null };
     }

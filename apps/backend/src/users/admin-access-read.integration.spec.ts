@@ -16,6 +16,7 @@ import {
 } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,7 +30,10 @@ const service = new AdminAccessService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new AdminAccessMutationService(new AuditLogMetadataService()),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
 );
 const prefix = 'test:pr03:admin-access-read:';
 const queryFragment = 'synthetic-access-read';

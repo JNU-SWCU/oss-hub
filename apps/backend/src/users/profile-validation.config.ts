@@ -1,5 +1,4 @@
 import { MemberKind, type AffiliationKind } from '@prisma/client';
-import { ValidateBy } from 'class-validator';
 
 export interface UserProfileRecord {
   readonly id: string;
@@ -31,147 +30,14 @@ export const USER_NAME_MAX_LENGTH = 100;
 
 export const USER_DEPARTMENT_MAX_LENGTH = 100;
 
-const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
+export const PROFILE_TEXT_PATTERN = /^[\s\S]{1,100}$/u;
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;
   readonly department: boolean;
 }
 
-const REQUIREMENT_BY_MEMBER_KIND: Record<MemberKind, ProfileFieldRequirement> =
-  {
-    STUDENT: { studentId: true, department: true },
-    STAFF: { studentId: false, department: true },
-  };
-
-export function profileFieldRequirement(
-  memberKind: MemberKind | null | undefined,
-): ProfileFieldRequirement {
-  return REQUIREMENT_BY_MEMBER_KIND[memberKind ?? DEFAULT_PROFILE_MEMBER_KIND];
-}
-
-export function normalizeProfileText(value: string): string {
-  return value.trim().normalize('NFC');
-}
-
-function isValidProfileText(value: string, maxCodePoints: number): boolean {
-  const count = Array.from(normalizeProfileText(value)).length;
-  return count >= 1 && count <= maxCodePoints;
-}
-
-export function isValidUserName(name: string): boolean {
-  return isValidProfileText(name, USER_NAME_MAX_LENGTH);
-}
-
-const STORED_STUDENT_ID_PATTERN = /^\d{6,10}$/;
-
-export function isStoredStudentId(studentId: string): boolean {
-  return STORED_STUDENT_ID_PATTERN.test(studentId);
-}
-
-export function isValidDepartment(department: string): boolean {
-  return isValidProfileText(department, USER_DEPARTMENT_MAX_LENGTH);
-}
-
-export function isCompleteProfileFields(
-  fields: UserProfileFields,
-  memberKind: MemberKind | null | undefined,
-): boolean {
-  const requirement = profileFieldRequirement(memberKind);
-  return (
-    fields.name !== null &&
-    isValidUserName(fields.name) &&
-    isSatisfied(fields.studentId, requirement.studentId, isStoredStudentId) &&
-    isSatisfied(fields.department, requirement.department, isValidDepartment)
-  );
-}
-
-function isSatisfied(
-  value: string | null,
-  required: boolean,
-  isValid: (value: string) => boolean,
-): boolean {
-  if (value === null) {
-    return !required;
-  }
-  return isValid(value);
-}
-
-export function transformProfileText({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? normalizeProfileText(value) : value;
-}
-
-export function trimString({ value }: { value: unknown }): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
-export function IsProfileText(
-  name: string,
-  isValid: (value: string) => boolean,
-): PropertyDecorator {
-  return ValidateBy({
-    name,
-    validator: {
-      validate(value: unknown): boolean {
-        return typeof value === 'string' && isValid(value);
-      },
-    },
-  });
-}
-
 export const MEMBER_KINDS = {
   STUDENT: 'STUDENT',
   STAFF: 'STAFF',
 } as const satisfies Record<MemberKind, MemberKind>;
-
-export function normalizeStaffNumber(value: string): string {
-  return value.trim().normalize('NFC');
-}
-
-export function isValidStaffNumber(value: string): boolean {
-  const normalized = normalizeStaffNumber(value);
-  const codePointCount = Array.from(normalized).length;
-  return codePointCount >= 1 && codePointCount <= 100;
-}
-
-const STUDENT_ID_PATTERN = /^\d{6}$/;
-
-const PHONE_PATTERN = /^\d{10,11}$/;
-
-export function effectiveProfileMemberKind(
-  record: Pick<
-    UserProfileRecord,
-    'memberKind' | 'hasPendingStaffRequest' | 'selectedMemberKind'
-  >,
-): MemberKind | null {
-  if (record.memberKind) {
-    return record.memberKind;
-  }
-  if (record.hasPendingStaffRequest) {
-    return 'STAFF';
-  }
-  return record.selectedMemberKind ?? null;
-}
-
-export function isValidStudentId(studentId: string): boolean {
-  return STUDENT_ID_PATTERN.test(studentId);
-}
-
-export function isValidPhone(phone: string): boolean {
-  return PHONE_PATTERN.test(phone);
-}
-
-export function isCompleteUserProfile(record: UserProfileRecord): boolean {
-  return isCompleteProfileFields(record, effectiveProfileMemberKind(record));
-}
-
-export function isValidCompleteUserProfileFields(fields: {
-  readonly name: string;
-  readonly studentId: string;
-  readonly department: string;
-}): boolean {
-  return (
-    isValidStudentId(fields.studentId) &&
-    isCompleteProfileFields(fields, DEFAULT_PROFILE_MEMBER_KIND)
-  );
-}

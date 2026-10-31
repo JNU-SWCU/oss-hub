@@ -1,4 +1,8 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  StaffAccessRequestStatus,
+  MemberKind,
+} from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
@@ -10,6 +14,7 @@ import {
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('AccountDeactivationService', () => {
   const account = {
@@ -17,7 +22,7 @@ describe('AccountDeactivationService', () => {
     githubId: 42n,
     githubLogin: 'student',
     displayName: '학생',
-    role: 'STUDENT',
+    memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
@@ -47,6 +52,7 @@ describe('AccountDeactivationService', () => {
         record,
       } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     await expect(service.deactivate(42n)).resolves.toEqual({
@@ -92,7 +98,7 @@ describe('AccountDeactivationService', () => {
             auditLogWriter: {} as AuditLogTransactionWriter,
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
-              role: null,
+              memberKind: null,
               requestStatus: StaffAccessRequestStatus.PENDING,
             }),
             lockActiveAdmins: jest.fn(),
@@ -101,6 +107,7 @@ describe('AccountDeactivationService', () => {
       },
       { record } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     await service.deactivate(42n);
@@ -121,7 +128,6 @@ describe('AccountDeactivationService', () => {
             auditLogWriter: {} as AuditLogTransactionWriter,
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
-              role: 'ADMIN',
               hasAdminAccess: true,
             }),
             lockActiveAdmins: jest.fn().mockResolvedValue(1),
@@ -130,6 +136,7 @@ describe('AccountDeactivationService', () => {
       },
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -147,7 +154,6 @@ describe('AccountDeactivationService', () => {
             auditLogWriter: {} as AuditLogTransactionWriter,
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
-              role: 'STUDENT',
               hasAdminAccess: true,
             }),
             lockActiveAdmins: jest.fn().mockResolvedValue(1),
@@ -156,6 +162,7 @@ describe('AccountDeactivationService', () => {
       },
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -173,7 +180,6 @@ describe('AccountDeactivationService', () => {
             auditLogWriter: {} as AuditLogTransactionWriter,
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
-              role: 'ADMIN',
               hasAdminAccess: false,
             }),
             lockActiveAdmins: jest.fn().mockResolvedValue(1),
@@ -182,6 +188,7 @@ describe('AccountDeactivationService', () => {
       },
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     await expect(service.deactivate(42n)).resolves.toEqual({

@@ -17,6 +17,7 @@ import {
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { UserProfileService } from './user-profile.service';
 
 @Global()
 @Module({
@@ -34,6 +35,7 @@ import { AuditLogMetadataService } from './audit-log-metadata.service';
     HealthService,
     AuditLogRepository,
     AuditLogMetadataService,
+    UserProfileService,
     AuditLogService,
   ],
   exports: [
@@ -42,6 +44,7 @@ import { AuditLogMetadataService } from './audit-log-metadata.service';
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
     AuditLogMetadataService,
+    UserProfileService,
     AuditLogService,
   ],
 })

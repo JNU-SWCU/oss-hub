@@ -1,6 +1,7 @@
 import {
   AdminAccessReadRepository,
   type AdminAccessUserRecord,
+  type AdminAccessUserRow,
   type AdminAccessActor,
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
@@ -89,9 +90,7 @@ export interface IndependentAuthorityTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
-  findUserForUpdate(
-    userId: string,
-  ): Promise<IndependentAuthorityUserRecord | null>;
+  findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
   updateAuthority(
     userId: string,
     transition: IndependentAuthorityTransition,
@@ -128,9 +127,7 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
     return AdminAccessRepository.lockActiveAdminRows(this.transaction);
   }
 
-  async findUserForUpdate(
-    userId: string,
-  ): Promise<IndependentAuthorityUserRecord | null> {
+  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
     );
@@ -141,7 +138,9 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
       where: { id: userId },
       select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
-    return user === null ? null : toIndependentAuthorityUserRecord(user);
+    return user === null
+      ? null
+      : AdminAccessReadRepository.toAdminAccessUserRow(user);
   }
 
   async updateAuthority(
@@ -166,17 +165,6 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
       input,
     );
   }
-}
-
-function toIndependentAuthorityUserRecord(
-  user: Prisma.UserGetPayload<{
-    select: typeof AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT;
-  }>,
-): IndependentAuthorityUserRecord {
-  return {
-    ...AdminAccessReadRepository.toAdminAccessUserRecord(user),
-    selectedMemberKind: user.selectedMemberKind,
-  };
 }
 
 @Injectable()

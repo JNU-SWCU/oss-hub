@@ -1,13 +1,28 @@
 import { AccountStatus } from '@prisma/client';
-import { accessUser, adminActor } from './admin-access.service.spec-support';
+import {
+  accessUser,
+  adminActor,
+  roleFacts,
+} from './admin-access.service.spec-support';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
-  authorityAfterLegacyTransition,
-  enforceAdminAccessGuards,
-  matchesExpectedAccessState,
   ADMIN_ACCESS_REQUEST_EFFECTS,
   type AdminAccessMutationCommand,
+  AdminAccessMutationService,
 } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+
+const adminAccessMutationService = new AdminAccessMutationService(
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
+
+function recordOf(overrides: Parameters<typeof accessUser>[0]) {
+  return adminAccessMutationService.toAdminAccessUserRecord(
+    accessUser(overrides),
+  );
+}
 
 describe('admin-access-authority-write', () => {
   function command(
@@ -25,17 +40,18 @@ describe('admin-access-authority-write', () => {
 
   describe('canonical authority writes behind legacy transitions', () => {
     it('admin grant does not imply staff access', () => {
-      const before = accessUser({
-        role: 'STUDENT',
+      const before = recordOf({
+        ...roleFacts('STUDENT'),
         hasStaffAccess: false,
         hasAdminAccess: false,
       });
 
-      const authority = authorityAfterLegacyTransition(
-        before,
-        command('STUDENT', 'ADMIN'),
-        ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
-      );
+      const authority =
+        adminAccessMutationService.authorityAfterLegacyTransition(
+          before,
+          command('STUDENT', 'ADMIN'),
+          ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
+        );
 
       expect(authority).toEqual({
         hasStaffAccess: false,
@@ -44,14 +60,14 @@ describe('admin-access-authority-write', () => {
     });
 
     it('legacy role changes cannot clear independent canonical authority', () => {
-      const before = accessUser({
-        role: 'ADMIN',
+      const before = recordOf({
+        ...roleFacts('ADMIN'),
         hasStaffAccess: true,
         hasAdminAccess: true,
       });
 
       expect(
-        authorityAfterLegacyTransition(
+        adminAccessMutationService.authorityAfterLegacyTransition(
           before,
           command('ADMIN', 'STUDENT'),
           ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
@@ -60,17 +76,18 @@ describe('admin-access-authority-write', () => {
     });
 
     it('preserves independently granted staff access when rejecting a pending request', () => {
-      const before = accessUser({
-        role: 'STAFF',
+      const before = recordOf({
+        ...roleFacts('STAFF'),
         hasStaffAccess: true,
         hasAdminAccess: false,
       });
 
-      const authority = authorityAfterLegacyTransition(
-        before,
-        command('STAFF', 'STAFF'),
-        ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED,
-      );
+      const authority =
+        adminAccessMutationService.authorityAfterLegacyTransition(
+          before,
+          command('STAFF', 'STAFF'),
+          ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED,
+        );
 
       expect(authority).toEqual({
         hasStaffAccess: true,
@@ -84,17 +101,18 @@ describe('admin-access-authority-write', () => {
     ] as const)(
       '%s changes only staff access',
       (effect, expectedStaffAccess) => {
-        const before = accessUser({
-          role: 'STAFF',
+        const before = recordOf({
+          ...roleFacts('STAFF'),
           hasStaffAccess: true,
           hasAdminAccess: true,
         });
 
-        const authority = authorityAfterLegacyTransition(
-          before,
-          command('STAFF', effect === 'APPROVED' ? 'STAFF' : null),
-          effect,
-        );
+        const authority =
+          adminAccessMutationService.authorityAfterLegacyTransition(
+            before,
+            command('STAFF', effect === 'APPROVED' ? 'STAFF' : null),
+            effect,
+          );
 
         expect(authority.hasStaffAccess).toBe(expectedStaffAccess);
         expect(authority.hasAdminAccess).toBe(true);
@@ -133,13 +151,13 @@ function freshnessCommand(
 }
 
 describe('matchesExpectedAccessState — 정본 신선도', () => {
-  const adminOnly = accessUser({
-    role: 'ADMIN',
+  const adminOnly = recordOf({
+    ...roleFacts('ADMIN'),
     hasStaffAccess: false,
     hasAdminAccess: true,
   });
-  const staffAndAdmin = accessUser({
-    role: 'ADMIN',
+  const staffAndAdmin = recordOf({
+    ...roleFacts('ADMIN'),
     hasStaffAccess: true,
     hasAdminAccess: true,
   });
@@ -147,8 +165,15 @@ describe('matchesExpectedAccessState — 정본 신선도', () => {
   it('접힌 expectedRole만으로는 admin-only와 staff+admin을 구분하지 못한다', () => {
     const folded = freshnessCommand({ expectedRole: 'ADMIN' });
 
-    expect(matchesExpectedAccessState(adminOnly, folded)).toBe(true);
-    expect(matchesExpectedAccessState(staffAndAdmin, folded)).toBe(true);
+    expect(
+      adminAccessMutationService.matchesExpectedAccessState(adminOnly, folded),
+    ).toBe(true);
+    expect(
+      adminAccessMutationService.matchesExpectedAccessState(
+        staffAndAdmin,
+        folded,
+      ),
+    ).toBe(true);
   });
 
   it('정본 boolean 기대값은 admin-only와 staff+admin을 구분한다', () => {
@@ -158,19 +183,35 @@ describe('matchesExpectedAccessState — 정본 신선도', () => {
       expectedHasAdminAccess: true,
     });
 
-    expect(matchesExpectedAccessState(adminOnly, sawAdminOnly)).toBe(true);
-    expect(matchesExpectedAccessState(staffAndAdmin, sawAdminOnly)).toBe(false);
+    expect(
+      adminAccessMutationService.matchesExpectedAccessState(
+        adminOnly,
+        sawAdminOnly,
+      ),
+    ).toBe(true);
+    expect(
+      adminAccessMutationService.matchesExpectedAccessState(
+        staffAndAdmin,
+        sawAdminOnly,
+      ),
+    ).toBe(false);
   });
 });
 
 describe('enforceAdminAccessGuards — 자기 승격 백스톱', () => {
   it('actor와 대상이 같은 행이고 ADMIN을 부여하는 전이면 ROL_004로 막는다', () => {
     const actor = adminActor();
-    const before = accessUser({ id: actor.id, role: 'STAFF' });
+    const before = recordOf({ ...roleFacts('STAFF'), id: actor.id });
 
     let thrown: unknown;
     try {
-      enforceAdminAccessGuards(actor, before, promoteToAdmin(), ALLOW_ALL, 2);
+      adminAccessMutationService.enforceAdminAccessGuards(
+        actor,
+        before,
+        promoteToAdmin(),
+        ALLOW_ALL,
+        2,
+      );
     } catch (error: unknown) {
       thrown = error;
     }
@@ -182,19 +223,31 @@ describe('enforceAdminAccessGuards — 자기 승격 백스톱', () => {
 
   it('대상이 다른 행이면 ADMIN 부여를 막지 않는다', () => {
     const actor = adminActor();
-    const before = accessUser({ id: 'someone-else', role: 'STAFF' });
+    const before = recordOf({ ...roleFacts('STAFF'), id: 'someone-else' });
 
     expect(() =>
-      enforceAdminAccessGuards(actor, before, promoteToAdmin(), ALLOW_ALL, 2),
+      adminAccessMutationService.enforceAdminAccessGuards(
+        actor,
+        before,
+        promoteToAdmin(),
+        ALLOW_ALL,
+        2,
+      ),
     ).not.toThrow();
   });
 
   it('같은 행이어도 이미 ADMIN이면 막지 않는다 — 이게 실제 저장소가 만드는 상태다', () => {
     const actor = adminActor();
-    const before = accessUser({ id: actor.id, role: 'ADMIN' });
+    const before = recordOf({ ...roleFacts('ADMIN'), id: actor.id });
 
     expect(() =>
-      enforceAdminAccessGuards(actor, before, promoteToAdmin(), ALLOW_ALL, 2),
+      adminAccessMutationService.enforceAdminAccessGuards(
+        actor,
+        before,
+        promoteToAdmin(),
+        ALLOW_ALL,
+        2,
+      ),
     ).not.toThrow();
   });
 });

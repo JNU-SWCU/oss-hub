@@ -10,6 +10,9 @@ import { RolesErrorCode, ROLES_ERROR_CODES } from './roles-error-code.error';
 import type {
   AdminAccessRepositoryPort,
   AdminAccessTransactionStore,
+  AdminAccessUserRow,
+  AdminAccessUserDetailRow,
+  AdminAccessUserDetailRecord,
 } from './admin-access-read.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
@@ -28,6 +31,7 @@ import { AdminAccessPendingRequest } from './admin-access-read-ordering.reposito
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { Injectable } from '@nestjs/common';
+import { UserProfileService } from '../platform/user-profile.service';
 
 export type AdminAccessRequestDecision =
   | {
@@ -199,18 +203,6 @@ const TRANSITIONS_BY_KEY = new Map(
   ADMIN_ACCESS_TRANSITION_TABLE.map((entry) => [entry.key, entry]),
 );
 
-export function resolveAdminAccessTransition(
-  current: AdminAccessTableCurrentState,
-  desired: AdminAccessTableDesiredState,
-): AdminAccessTransitionTableEntry {
-  const key = transitionKey(current, desired);
-  const entry = TRANSITIONS_BY_KEY.get(key);
-  if (!entry) {
-    throw new MissingAdminAccessTransitionError(key);
-  }
-  return entry;
-}
-
 function currentStates(): readonly AdminAccessTableCurrentState[] {
   return ROLES.flatMap((role) =>
     ACCOUNT_STATUSES.flatMap((accountStatus) =>
@@ -361,34 +353,6 @@ function assertNeverForAdminAccessAudit(value: never): never {
   throw new InvalidAdminAccessAuditError();
 }
 
-export function requireActiveAdmin(
-  actor: AdminAccessActor | null,
-): AdminAccessActor {
-  if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
-    throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
-  }
-  if (!actor.hasAdminAccess) {
-    throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
-  }
-  return actor;
-}
-
-export function requireActiveStaffOrAdmin(
-  actor: AdminAccessActor | null,
-): AdminAccessActor {
-  if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
-    throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
-  }
-  if (!actor.hasStaffAccess && !actor.hasAdminAccess) {
-    throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
-  }
-  return actor;
-}
-
-export function isAdminActor(actor: AdminAccessActor): boolean {
-  return actor.hasAdminAccess;
-}
-
 function isRequestDecisionCommand(
   command: AdminAccessMutationCommand,
 ): boolean {
@@ -397,29 +361,6 @@ function isRequestDecisionCommand(
     decision === ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE ||
     decision === ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
   );
-}
-
-export function assertAccessMutationAllowed(
-  actor: AdminAccessActor,
-  targetUserId: string,
-  command: AdminAccessMutationCommand,
-): void {
-  if (actor.id === targetUserId && isRequestDecisionCommand(command)) {
-    throw new DomainException(
-      ROLES_ERROR_CODES[RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN],
-    );
-  }
-  if (isAdminActor(actor)) {
-    return;
-  }
-  const decision = command.requestDecision?.decision;
-  if (
-    decision !== ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE &&
-    decision !== ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
-  ) {
-    throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
-  }
-  assertDecisionOnlyCommand(decision, command);
 }
 
 function assertDecisionOnlyCommand(
@@ -444,21 +385,6 @@ export type AuthorityWrite = {
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
 };
-
-export function authorityAfterLegacyTransition(
-  before: AdminAccessUserRecord,
-  command: AdminAccessMutationCommand,
-  requestEffect: AdminAccessRequestEffect,
-): AuthorityWrite {
-  return {
-    hasStaffAccess: staffAccessAfterLegacyTransition(
-      before,
-      command,
-      requestEffect,
-    ),
-    hasAdminAccess: adminAccessAfterLegacyTransition(before, command),
-  };
-}
 
 function adminAccessAfterLegacyTransition(
   before: AdminAccessUserRecord,
@@ -496,36 +422,6 @@ function assertNeverForAdminAccessAuthorityWrite(value: never): never {
   throw new TypeError(`Unsupported authority request effect: ${String(value)}`);
 }
 
-export function matchesExpectedAccessState(
-  current: AdminAccessUserRecord,
-  command: AdminAccessMutationCommand,
-): boolean {
-  if (current.accountStatus !== command.expectedAccountStatus) {
-    return false;
-  }
-  const expectedRequest = command.expectedPendingRequest;
-  const currentRequest = current.pendingRequest;
-  const pendingMatches =
-    expectedRequest === null
-      ? currentRequest === null
-      : currentRequest?.id === expectedRequest.id;
-  if (!pendingMatches) {
-    return false;
-  }
-  const expectedStaff = command.expectedHasStaffAccess;
-  const expectedAdmin = command.expectedHasAdminAccess;
-  if (expectedStaff !== undefined || expectedAdmin !== undefined) {
-    return (
-      expectedStaff !== undefined &&
-      expectedAdmin !== undefined &&
-      current.hasStaffAccess === expectedStaff &&
-      current.hasAdminAccess === expectedAdmin
-    );
-  }
-
-  return current.role === command.expectedRole;
-}
-
 function toAdminAccessDecisionKind(
   command: AdminAccessMutationCommand,
 ):
@@ -558,36 +454,6 @@ function grantsAdminToSelf(
   );
 }
 
-export function enforceAdminAccessGuards(
-  actor: AdminAccessActor,
-  before: AdminAccessUserRecord,
-  command: AdminAccessMutationCommand,
-  outcome: {
-    readonly requiresCompleteProfile: boolean;
-    readonly requiresSelfDeactivationGuard: boolean;
-    readonly requiresLastActiveAdminGuard: boolean;
-  },
-  activeAdminCount: number | null,
-): void {
-  if (grantsAdminToSelf(actor, before, command)) {
-    throw roleError(RolesErrorCode.ADMIN_ONLY);
-  }
-  if (outcome.requiresSelfDeactivationGuard && actor.id === before.id) {
-    throw roleError(RolesErrorCode.SELF_DEACTIVATION_FORBIDDEN);
-  }
-  if (
-    outcome.requiresLastActiveAdminGuard &&
-    (activeAdminCount === null || activeAdminCount <= 1)
-  ) {
-    throw roleError(RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
-  }
-  if (outcome.requiresCompleteProfile && !before.isProfileComplete) {
-    throw new DomainException(
-      USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
-    );
-  }
-}
-
 const ADMIN_ACCESS_REQUEST_WRITE_KINDS = {
   NONE: 'NONE',
   DECIDE_PENDING: 'DECIDE_PENDING',
@@ -605,61 +471,6 @@ type AdminAccessRequestWrite =
     }
   | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
 
-function toAdminAccessRequestWrite(
-  before: AdminAccessUserRecord,
-  effect: AdminAccessRequestEffect,
-): AdminAccessRequestWrite {
-  switch (effect) {
-    case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
-      return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE };
-    case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
-      return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
-    case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
-    case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED: {
-      const pendingRequest = before.pendingRequest;
-      if (!pendingRequest) {
-        throw staleAccessError(before);
-      }
-      return {
-        kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING,
-        requestId: pendingRequest.id,
-        nextStatus: effect,
-      };
-    }
-    default:
-      return assertNeverForAdminAccessMutation(effect);
-  }
-}
-
-export function roleError(code: RolesErrorCode): DomainException {
-  return new DomainException(ROLES_ERROR_CODES[code]);
-}
-
-export function staleAccessError(
-  current: Pick<
-    AdminAccessUserRecord,
-    'id' | 'role' | 'accountStatus' | 'pendingRequest'
-  >,
-): DomainException {
-  return new DomainException(
-    ROLES_ERROR_CODES[RolesErrorCode.ACCESS_STATE_MISMATCH],
-    {
-      currentAccess: {
-        id: current.id,
-        role: current.role,
-        accountStatus: current.accountStatus,
-        pendingRequest: current.pendingRequest
-          ? {
-              id: current.pendingRequest.id,
-              status: StaffAccessRequestStatus.PENDING,
-              createdAt: current.pendingRequest.createdAt.toISOString(),
-            }
-          : null,
-      },
-    },
-  );
-}
-
 function assertNeverForAdminAccessMutation(value: never): never {
   throw new TypeError(`Unsupported admin access variant: ${String(value)}`);
 }
@@ -675,10 +486,13 @@ type MutationInput = {
   readonly command: AdminAccessMutationCommand;
 };
 
+const USER_ID_PATTERN = /^[A-Za-z0-9:_-]{1,128}$/;
+
 @Injectable()
 export class AdminAccessMutationService {
   constructor(
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async mutateAdminAccess(
@@ -687,31 +501,38 @@ export class AdminAccessMutationService {
   ): Promise<AdminAccessMutationResult> {
     try {
       return await dependencies.repository.withTransaction(async (store) => {
-        const unlockedActor = requireActiveStaffOrAdmin(
+        const unlockedActor = this.requireActiveStaffOrAdmin(
           await store.findActorByGithubId(input.actorGithubId),
         );
-        assertAccessMutationAllowed(unlockedActor, input.userId, input.command);
+        this.assertAccessMutationAllowed(
+          unlockedActor,
+          input.userId,
+          input.command,
+        );
 
-        const activeAdminCount = isAdminActor(unlockedActor)
+        const activeAdminCount = this.isAdminActor(unlockedActor)
           ? await store.lockActiveAdmins()
           : Number.MAX_SAFE_INTEGER;
-        const actor = isAdminActor(unlockedActor)
-          ? requireActiveAdmin(
+        const actor = this.isAdminActor(unlockedActor)
+          ? this.requireActiveAdmin(
               await store.findActorByGithubId(input.actorGithubId),
             )
-          : requireActiveStaffOrAdmin(
+          : this.requireActiveStaffOrAdmin(
               await store.findActorByGithubId(input.actorGithubId),
             );
-        assertAccessMutationAllowed(actor, input.userId, input.command);
-        const before = await store.findUserForUpdate(input.userId);
+        this.assertAccessMutationAllowed(actor, input.userId, input.command);
+        const beforeRow = await store.findUserForUpdate(input.userId);
+        const before = beforeRow
+          ? this.toAdminAccessUserRecord(beforeRow)
+          : null;
         if (!before) {
-          throw roleError(RolesErrorCode.USER_NOT_FOUND);
+          throw this.roleError(RolesErrorCode.USER_NOT_FOUND);
         }
-        if (!matchesExpectedAccessState(before, input.command)) {
-          throw staleAccessError(before);
+        if (!this.matchesExpectedAccessState(before, input.command)) {
+          throw this.staleAccessError(before);
         }
 
-        const transition = resolveAdminAccessTransition(
+        const transition = this.resolveAdminAccessTransition(
           {
             role: before.role,
             accountStatus: before.accountStatus,
@@ -726,9 +547,9 @@ export class AdminAccessMutationService {
           },
         );
         if (!transition.outcome.allowed) {
-          throw roleError(transition.outcome.code);
+          throw this.roleError(transition.outcome.code);
         }
-        enforceAdminAccessGuards(
+        this.enforceAdminAccessGuards(
           actor,
           before,
           input.command,
@@ -736,7 +557,7 @@ export class AdminAccessMutationService {
           activeAdminCount,
         );
 
-        const authority = authorityAfterLegacyTransition(
+        const authority = this.authorityAfterLegacyTransition(
           before,
           input.command,
           transition.outcome.requestEffect,
@@ -753,10 +574,10 @@ export class AdminAccessMutationService {
           desiredHasAdminAccess: authority.hasAdminAccess,
         });
         if (!userUpdated) {
-          throw staleAccessError(before);
+          throw this.staleAccessError(before);
         }
 
-        const result = await decideRequestAndBuildResult(
+        const result = await this.decideRequestAndBuildResult(
           store,
           actor,
           before,
@@ -788,10 +609,52 @@ export class AdminAccessMutationService {
       }
       const current = await dependencies.repository.findById(input.userId);
       if (!current) {
-        throw roleError(RolesErrorCode.USER_NOT_FOUND);
+        throw this.roleError(RolesErrorCode.USER_NOT_FOUND);
       }
-      throw staleAccessError(current);
+      throw this.staleAccessError(this.toAdminAccessUserRecord(current));
     }
+  }
+
+  requireValidUserId(id: string): void {
+    if (id === 'me' || !USER_ID_PATTERN.test(id)) {
+      throw new DomainException(
+        ROLES_ERROR_CODES[RolesErrorCode.INVALID_USER_ID],
+      );
+    }
+  }
+
+  toAdminAccessUserRecord(row: AdminAccessUserRow): AdminAccessUserRecord {
+    const { selectedMemberKind, studentId, department, ...record } = row;
+    return {
+      ...record,
+      role: this.userProfileService.authorityLabel(row),
+      isProfileComplete: this.userProfileService.isCompleteUserProfile({
+        id: row.id,
+        name: row.name,
+        studentId,
+        department,
+        memberKind: row.memberKind,
+        hasPendingStaffRequest: row.pendingRequest !== null,
+        selectedMemberKind,
+      }),
+    };
+  }
+
+  toAdminAccessUserDetailRecord(
+    row: AdminAccessUserDetailRow,
+  ): AdminAccessUserDetailRecord {
+    const { staffNumber, ...user } = row;
+    const record = this.toAdminAccessUserRecord(user);
+    return {
+      ...record,
+      profile: {
+        name: row.name,
+        studentId: row.studentId,
+        department: row.department,
+        staffNumber,
+        isComplete: record.isProfileComplete,
+      },
+    };
   }
 
   private createAdminAccessAudit(input: {
@@ -934,29 +797,222 @@ export class AdminAccessMutationService {
     }
     throw new InvalidAdminAccessAuditError();
   }
-}
 
-async function decideRequestAndBuildResult(
-  store: AdminAccessTransactionStore,
-  actor: AdminAccessActor,
-  before: AdminAccessUserRecord,
-  command: AdminAccessMutationCommand,
-  requestEffect: AdminAccessRequestEffect,
-): Promise<AdminAccessMutationResult> {
-  const decidedRequest = await applyRequestWrite(
-    store,
-    actor,
-    before,
-    command,
-    toAdminAccessRequestWrite(before, requestEffect),
-  );
-  return {
-    id: before.id,
-    role: command.desiredRole,
-    accountStatus: command.desiredAccountStatus,
-    pendingRequest: decidedRequest ? null : before.pendingRequest,
-    decidedRequest,
-  };
+  resolveAdminAccessTransition(
+    current: AdminAccessTableCurrentState,
+    desired: AdminAccessTableDesiredState,
+  ): AdminAccessTransitionTableEntry {
+    const key = transitionKey(current, desired);
+    const entry = TRANSITIONS_BY_KEY.get(key);
+    if (!entry) {
+      throw new MissingAdminAccessTransitionError(key);
+    }
+    return entry;
+  }
+
+  requireActiveAdmin(actor: AdminAccessActor | null): AdminAccessActor {
+    if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
+    if (!actor.hasAdminAccess) {
+      throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
+    }
+    return actor;
+  }
+
+  requireActiveStaffOrAdmin(actor: AdminAccessActor | null): AdminAccessActor {
+    if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
+      throw new DomainException(
+        AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+      );
+    }
+    if (!actor.hasStaffAccess && !actor.hasAdminAccess) {
+      throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
+    }
+    return actor;
+  }
+
+  isAdminActor(actor: AdminAccessActor): boolean {
+    return actor.hasAdminAccess;
+  }
+
+  assertAccessMutationAllowed(
+    actor: AdminAccessActor,
+    targetUserId: string,
+    command: AdminAccessMutationCommand,
+  ): void {
+    if (actor.id === targetUserId && isRequestDecisionCommand(command)) {
+      throw new DomainException(
+        ROLES_ERROR_CODES[RolesErrorCode.SELF_ACCESS_MUTATION_FORBIDDEN],
+      );
+    }
+    if (this.isAdminActor(actor)) {
+      return;
+    }
+    const decision = command.requestDecision?.decision;
+    if (
+      decision !== ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE &&
+      decision !== ADMIN_ACCESS_REQUEST_DECISIONS.REJECT
+    ) {
+      throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
+    }
+    assertDecisionOnlyCommand(decision, command);
+  }
+
+  authorityAfterLegacyTransition(
+    before: AdminAccessUserRecord,
+    command: AdminAccessMutationCommand,
+    requestEffect: AdminAccessRequestEffect,
+  ): AuthorityWrite {
+    return {
+      hasStaffAccess: staffAccessAfterLegacyTransition(
+        before,
+        command,
+        requestEffect,
+      ),
+      hasAdminAccess: adminAccessAfterLegacyTransition(before, command),
+    };
+  }
+
+  matchesExpectedAccessState(
+    current: AdminAccessUserRecord,
+    command: AdminAccessMutationCommand,
+  ): boolean {
+    if (current.accountStatus !== command.expectedAccountStatus) {
+      return false;
+    }
+    const expectedRequest = command.expectedPendingRequest;
+    const currentRequest = current.pendingRequest;
+    const pendingMatches =
+      expectedRequest === null
+        ? currentRequest === null
+        : currentRequest?.id === expectedRequest.id;
+    if (!pendingMatches) {
+      return false;
+    }
+    const expectedStaff = command.expectedHasStaffAccess;
+    const expectedAdmin = command.expectedHasAdminAccess;
+    if (expectedStaff !== undefined || expectedAdmin !== undefined) {
+      return (
+        expectedStaff !== undefined &&
+        expectedAdmin !== undefined &&
+        current.hasStaffAccess === expectedStaff &&
+        current.hasAdminAccess === expectedAdmin
+      );
+    }
+
+    return current.role === command.expectedRole;
+  }
+
+  enforceAdminAccessGuards(
+    actor: AdminAccessActor,
+    before: AdminAccessUserRecord,
+    command: AdminAccessMutationCommand,
+    outcome: {
+      readonly requiresCompleteProfile: boolean;
+      readonly requiresSelfDeactivationGuard: boolean;
+      readonly requiresLastActiveAdminGuard: boolean;
+    },
+    activeAdminCount: number | null,
+  ): void {
+    if (grantsAdminToSelf(actor, before, command)) {
+      throw this.roleError(RolesErrorCode.ADMIN_ONLY);
+    }
+    if (outcome.requiresSelfDeactivationGuard && actor.id === before.id) {
+      throw this.roleError(RolesErrorCode.SELF_DEACTIVATION_FORBIDDEN);
+    }
+    if (
+      outcome.requiresLastActiveAdminGuard &&
+      (activeAdminCount === null || activeAdminCount <= 1)
+    ) {
+      throw this.roleError(RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+    }
+    if (outcome.requiresCompleteProfile && !before.isProfileComplete) {
+      throw new DomainException(
+        USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
+      );
+    }
+  }
+
+  private toAdminAccessRequestWrite(
+    before: AdminAccessUserRecord,
+    effect: AdminAccessRequestEffect,
+  ): AdminAccessRequestWrite {
+    switch (effect) {
+      case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
+        return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE };
+      case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
+        return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
+      case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
+      case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED: {
+        const pendingRequest = before.pendingRequest;
+        if (!pendingRequest) {
+          throw this.staleAccessError(before);
+        }
+        return {
+          kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.DECIDE_PENDING,
+          requestId: pendingRequest.id,
+          nextStatus: effect,
+        };
+      }
+      default:
+        return assertNeverForAdminAccessMutation(effect);
+    }
+  }
+
+  roleError(code: RolesErrorCode): DomainException {
+    return new DomainException(ROLES_ERROR_CODES[code]);
+  }
+
+  staleAccessError(
+    current: Pick<
+      AdminAccessUserRecord,
+      'id' | 'role' | 'accountStatus' | 'pendingRequest'
+    >,
+  ): DomainException {
+    return new DomainException(
+      ROLES_ERROR_CODES[RolesErrorCode.ACCESS_STATE_MISMATCH],
+      {
+        currentAccess: {
+          id: current.id,
+          role: current.role,
+          accountStatus: current.accountStatus,
+          pendingRequest: current.pendingRequest
+            ? {
+                id: current.pendingRequest.id,
+                status: StaffAccessRequestStatus.PENDING,
+                createdAt: current.pendingRequest.createdAt.toISOString(),
+              }
+            : null,
+        },
+      },
+    );
+  }
+
+  private async decideRequestAndBuildResult(
+    store: AdminAccessTransactionStore,
+    actor: AdminAccessActor,
+    before: AdminAccessUserRecord,
+    command: AdminAccessMutationCommand,
+    requestEffect: AdminAccessRequestEffect,
+  ): Promise<AdminAccessMutationResult> {
+    const decidedRequest = await applyRequestWrite(
+      store,
+      actor,
+      before,
+      command,
+      this.toAdminAccessRequestWrite(before, requestEffect),
+    );
+    return {
+      id: before.id,
+      role: command.desiredRole,
+      accountStatus: command.desiredAccountStatus,
+      pendingRequest: decidedRequest ? null : before.pendingRequest,
+      decidedRequest,
+    };
+  }
 }
 
 async function applyRequestWrite(

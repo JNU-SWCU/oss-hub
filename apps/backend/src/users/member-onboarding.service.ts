@@ -17,7 +17,7 @@ import {
   type StaffAccessRequestRecord,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
-import { isCompleteProfileFields } from './profile-validation.config';
+import { UserProfileService } from '../platform/user-profile.service';
 
 @Injectable()
 export class MemberOnboardingService {
@@ -25,6 +25,7 @@ export class MemberOnboardingService {
     private readonly repository: MemberOnboardingRepository,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async selectMemberKind(
@@ -43,7 +44,12 @@ export class MemberOnboardingService {
         selectedMemberKind,
       );
 
-      if (isCompleteProfileFields(recorded.profile, selectedMemberKind)) {
+      if (
+        this.userProfileService.isCompleteProfileFields(
+          recorded.profile,
+          selectedMemberKind,
+        )
+      ) {
         await store.requestStaffAccess({
           id: recorded.id,
           memberKind: selectedMemberKind,

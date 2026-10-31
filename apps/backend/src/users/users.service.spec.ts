@@ -18,6 +18,7 @@ import {
   type UserPhoneAuditTransition,
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
@@ -162,6 +163,7 @@ function buildService(
       { requireCurrent },
       auditLog,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     ),
     requireCurrent,
     findByGithubId,

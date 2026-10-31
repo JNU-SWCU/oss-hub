@@ -4,7 +4,6 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   type IndependentAuthorityRepositoryPort,
   type IndependentAuthorityTransactionStore,
-  type IndependentAuthorityUserRecord,
   type IndependentAuthorityTransition,
 } from './independent-authority.repository';
 import {
@@ -14,6 +13,9 @@ import {
 import { IndependentAuthorityService } from './independent-authority.service';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import type { AdminAccessUserRow } from './admin-access-read.repository';
 
 const actorGithubId = 9_700_600_001n;
 
@@ -62,7 +64,7 @@ class AuditAuthorityStore
     return Promise.resolve(this.activeAdminCount);
   }
 
-  findUserForUpdate(): Promise<IndependentAuthorityUserRecord> {
+  findUserForUpdate(): Promise<AdminAccessUserRow> {
     this.events.push('target');
     return Promise.resolve(this.target);
   }
@@ -118,6 +120,11 @@ it.each([
       store,
       auditLog,
       new AuditLogMetadataService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      new UserProfileService(),
     );
 
     if (family === 'staff') {
@@ -166,7 +173,7 @@ it.each([
 
 it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭션에서 회수 이력을 남긴다', async () => {
   const store = new AuditAuthorityStore();
-  store.target = targetUser({ role: 'STAFF', hasStaffAccess: true });
+  store.target = targetUser({ hasStaffAccess: true });
   const record = jest.fn().mockImplementation(() => {
     store.events.push('audit');
     return Promise.resolve({});
@@ -175,6 +182,11 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
     store,
     { record },
     new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
   );
 
   await service.patchStaffAccess(actorGithubId, 'target', {
@@ -193,12 +205,17 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
 
 it('does not write a phantom audit for a same-state command it rejects', async () => {
   const store = new AuditAuthorityStore();
-  store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+  store.target = targetUser({ hasAdminAccess: true });
   const record = jest.fn();
   const service = new IndependentAuthorityService(
     store,
     { record },
     new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
   );
 
   await expect(
@@ -220,6 +237,11 @@ it('propagates audit failure so the authority transaction rolls back', async () 
       record: jest.fn().mockRejectedValue(auditFailure),
     },
     new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
   );
 
   await expect(
@@ -235,12 +257,17 @@ it('propagates audit failure so the authority transaction rolls back', async () 
 it('does not update or audit when the final-admin guard fails', async () => {
   const store = new AuditAuthorityStore();
   store.activeAdminCount = 1;
-  store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+  store.target = targetUser({ hasAdminAccess: true });
   const record = jest.fn();
   const service = new IndependentAuthorityService(
     store,
     { record },
     new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
   );
 
   await expect(
@@ -262,6 +289,11 @@ it('does not audit when the authority update fails', async () => {
     store,
     { record },
     new AuditLogMetadataService(),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
+    new UserProfileService(),
   );
 
   await expect(
@@ -274,20 +306,20 @@ it('does not audit when the authority update fails', async () => {
 });
 
 function targetUser(
-  overrides: Partial<IndependentAuthorityUserRecord> = {},
-): IndependentAuthorityUserRecord {
+  overrides: Partial<AdminAccessUserRow> = {},
+): AdminAccessUserRow {
   return {
     id: 'target',
     githubId: 9_700_600_002n,
     githubLogin: 'synthetic-target',
     name: null,
-    role: 'STUDENT',
+    studentId: null,
+    department: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
-    isProfileComplete: true,
     createdAt: new Date('2026-07-19T00:00:00.000Z'),
     pendingRequest: null,
     lastLoginAt: null,

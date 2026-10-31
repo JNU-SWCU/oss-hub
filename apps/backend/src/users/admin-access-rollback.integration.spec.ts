@@ -16,6 +16,7 @@ import { AdminAccessService } from './admin-access.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -67,7 +68,10 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),
     ),
-    new AdminAccessMutationService(new AuditLogMetadataService()),
+    new AdminAccessMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+    ),
   );
 
   await expect(

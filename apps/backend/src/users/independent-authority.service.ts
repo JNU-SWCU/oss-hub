@@ -1,4 +1,3 @@
-import { authorityLabel } from './authority-label.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -30,34 +29,9 @@ import {
   ADMIN_ACCESS_COMMANDS,
 } from './admin-access-query.config';
 import { type AdminAccessActor } from './admin-access-read.repository';
-import {
-  requireActiveAdmin,
-  roleError,
-  staleAccessError,
-} from './admin-access-mutation.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-
-export function resolveIndependentAuthorityTransition(
-  before: IndependentAuthorityState,
-  target: AuthorityTarget,
-  enabled: boolean,
-): IndependentAuthorityTransition {
-  const hasStaffAccess =
-    target === AUTHORITY_TARGETS.STAFF ? enabled : before.hasStaffAccess;
-  const hasAdminAccess =
-    target === AUTHORITY_TARGETS.ADMIN ? enabled : before.hasAdminAccess;
-  return {
-    memberKind: before.memberKind,
-    selectedMemberKind: before.memberKind ?? before.selectedMemberKind,
-    hasStaffAccess,
-    hasAdminAccess,
-    role: authorityLabel({
-      memberKind: before.memberKind,
-      hasStaffAccess,
-      hasAdminAccess,
-    }),
-  };
-}
+import { UserProfileService } from '../platform/user-profile.service';
 
 export type IndependentAuthorityCommand =
   StaffAccessMutationCommand | AdminAuthorityMutationCommand;
@@ -104,6 +78,8 @@ export class IndependentAuthorityService {
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   patchStaffAccess(
@@ -143,10 +119,14 @@ export class IndependentAuthorityService {
   ): Promise<IndependentAuthorityMutationResult> {
     return this.repository.withTransaction(async (store) => {
       const activeAdminCount = await store.lockActiveAdmins();
-      const actor = requireActiveAdmin(
+      const actor = this.adminAccessMutationService.requireActiveAdmin(
         await store.findActorByGithubId(actorGithubId),
       );
-      const before = await requireTarget(store, userId);
+      const beforeRow = await this.requireTarget(store, userId);
+      const before: IndependentAuthorityUserRecord = {
+        ...this.adminAccessMutationService.toAdminAccessUserRecord(beforeRow),
+        selectedMemberKind: beforeRow.selectedMemberKind,
+      };
       const revokesLastActiveAdmin =
         target === AUTHORITY_TARGETS.ADMIN &&
         before.hasAdminAccess &&
@@ -154,7 +134,9 @@ export class IndependentAuthorityService {
         before.accountStatus === AccountStatus.ACTIVE &&
         activeAdminCount <= 1;
       if (revokesLastActiveAdmin) {
-        throw roleError(RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
+        );
       }
 
       if (
@@ -162,7 +144,9 @@ export class IndependentAuthorityService {
         !enabled &&
         actor.id === before.id
       ) {
-        throw roleError(RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN);
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN,
+        );
       }
 
       const current =
@@ -170,9 +154,9 @@ export class IndependentAuthorityService {
           ? before.hasStaffAccess
           : before.hasAdminAccess;
       if (current === enabled) {
-        throw staleAccessError(before);
+        throw this.adminAccessMutationService.staleAccessError(before);
       }
-      const transition = resolveIndependentAuthorityTransition(
+      const transition = this.resolveIndependentAuthorityTransition(
         before,
         target,
         enabled,
@@ -230,23 +214,47 @@ export class IndependentAuthorityService {
         }),
     };
   }
-}
 
-async function requireTarget(
-  store: IndependentAuthorityTransactionStore,
-  userId: string,
-): Promise<
-  NonNullable<
-    Awaited<
-      ReturnType<IndependentAuthorityTransactionStore['findUserForUpdate']>
-    >
-  >
-> {
-  const target = await store.findUserForUpdate(userId);
-  if (!target) {
-    throw roleError(RolesErrorCode.USER_NOT_FOUND);
+  resolveIndependentAuthorityTransition(
+    before: IndependentAuthorityState,
+    target: AuthorityTarget,
+    enabled: boolean,
+  ): IndependentAuthorityTransition {
+    const hasStaffAccess =
+      target === AUTHORITY_TARGETS.STAFF ? enabled : before.hasStaffAccess;
+    const hasAdminAccess =
+      target === AUTHORITY_TARGETS.ADMIN ? enabled : before.hasAdminAccess;
+    return {
+      memberKind: before.memberKind,
+      selectedMemberKind: before.memberKind ?? before.selectedMemberKind,
+      hasStaffAccess,
+      hasAdminAccess,
+      role: this.userProfileService.authorityLabel({
+        memberKind: before.memberKind,
+        hasStaffAccess,
+        hasAdminAccess,
+      }),
+    };
   }
-  return target;
+
+  private async requireTarget(
+    store: IndependentAuthorityTransactionStore,
+    userId: string,
+  ): Promise<
+    NonNullable<
+      Awaited<
+        ReturnType<IndependentAuthorityTransactionStore['findUserForUpdate']>
+      >
+    >
+  > {
+    const target = await store.findUserForUpdate(userId);
+    if (!target) {
+      throw this.adminAccessMutationService.roleError(
+        RolesErrorCode.USER_NOT_FOUND,
+      );
+    }
+    return target;
+  }
 }
 
 function revokesStaffAccess(

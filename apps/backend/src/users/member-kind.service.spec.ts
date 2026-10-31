@@ -14,6 +14,8 @@ import {
 } from '../platform/audit-log-metadata.config';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const ADMIN_GITHUB_ID = 9_700_500_001n;
 const TARGET_GITHUB_ID = 9_700_500_002n;
@@ -75,13 +77,6 @@ class InMemoryMemberKindRepository
       selectedMemberKind,
       memberKind: selectedMemberKind,
       hasStaffAccess,
-      role: current.hasAdminAccess
-        ? 'ADMIN'
-        : hasStaffAccess
-          ? 'STAFF'
-          : selectedMemberKind === MemberKind.STUDENT
-            ? 'STUDENT'
-            : null,
       profile: nextProfile,
     };
     return Promise.resolve('updated');
@@ -105,6 +100,11 @@ describe('MemberKindService', () => {
       repository,
       audit,
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -169,6 +169,11 @@ describe('MemberKindService', () => {
       repository,
       audit,
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -193,6 +198,11 @@ describe('MemberKindService', () => {
       repository,
       auditHarness(),
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -238,6 +248,11 @@ describe('MemberKindService', () => {
         repository,
         auditHarness(),
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
 
       const error = await captureDomainException(() =>
@@ -261,6 +276,11 @@ describe('MemberKindService', () => {
       repository,
       auditHarness(),
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const error = await captureDomainException(() =>
@@ -283,6 +303,11 @@ describe('MemberKindService', () => {
       repository,
       audit,
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const error = await captureDomainException(() =>
@@ -308,6 +333,11 @@ describe('MemberKindService', () => {
       matchingRepository,
       auditHarness(),
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -327,6 +357,11 @@ describe('MemberKindService', () => {
       missingRepository,
       auditHarness(),
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -348,6 +383,11 @@ describe('MemberKindService', () => {
       repository,
       auditHarness(),
       new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const error = await captureDomainException(() =>
@@ -398,6 +438,11 @@ describe('MemberKindService', () => {
         repository,
         auditHarness(),
         new AuditLogMetadataService(),
+        new UserProfileService(),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
       const expectedHasStaffAccess =
         'expected' in options ? options.expected : false;
@@ -426,7 +471,6 @@ function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    role: 'ADMIN',
     hasStaffAccess: true,
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
@@ -457,7 +501,6 @@ function studentTarget(
     githubId: TARGET_GITHUB_ID,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
-    role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
@@ -481,7 +524,6 @@ function staffTarget(
     ...profileOverrides
   } = overrides;
   return studentTarget({
-    role: 'STAFF',
     selectedMemberKind: MemberKind.STAFF,
     memberKind: MemberKind.STAFF,
     hasStaffAccess,

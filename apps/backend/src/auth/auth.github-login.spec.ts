@@ -12,6 +12,7 @@ import { AuthController } from './auth.controller';
 import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
+import { UserProfileService } from '../platform/user-profile.service';
 
 describe('GitHub login account choice', () => {
   const validation = new ValidationPipe({
@@ -26,6 +27,7 @@ describe('GitHub login account choice', () => {
     const module = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        UserProfileService,
         AuthService,
         {
           provide: AuthConfig,

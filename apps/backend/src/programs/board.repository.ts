@@ -1,5 +1,3 @@
-import { authorityLabel } from '../users/authority-label.config';
-import type { AuthorityLabel } from '../users/authority-label.types';
 import type { UserProfileNameSource } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
@@ -31,8 +29,9 @@ export interface BoardCommentRecord {
   id: string;
   postId: string;
   authorId: string;
-
-  authorRole: AuthorityLabel;
+  authorMemberKind: MemberKind | null;
+  authorHasStaffAccess: boolean;
+  authorHasAdminAccess: boolean;
   authorName: string;
   body: string;
   createdAt: Date;
@@ -325,12 +324,9 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     postId: comment.postId,
     authorId: comment.authorId,
 
-    authorRole:
-      authorityLabel({
-        memberKind: comment.author.profile?.memberKind ?? null,
-        hasStaffAccess: comment.author.hasStaffAccess,
-        hasAdminAccess: comment.author.hasAdminAccess,
-      }) ?? 'STUDENT',
+    authorMemberKind: comment.author.profile?.memberKind ?? null,
+    authorHasStaffAccess: comment.author.hasStaffAccess,
+    authorHasAdminAccess: comment.author.hasAdminAccess,
     authorName: resolveAuthorName(comment.author),
     body: comment.body,
     createdAt: comment.createdAt,

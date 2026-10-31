@@ -7,11 +7,18 @@ import {
   IndependentAuthorityService,
 } from '../users/independent-authority.service';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { UserProfileService } from './user-profile.service';
+import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 const independentAuthorityService = new IndependentAuthorityService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
+  new AdminAccessMutationService(
+    new AuditLogMetadataService(),
+    new UserProfileService(),
+  ),
+  new UserProfileService(),
 );
 
 const auditLogMetadataService = new AuditLogMetadataService();
@@ -191,7 +198,6 @@ function createStoredMetadata(
     actorGithubId,
     actor: {
       name: '합성 관리자',
-      role: 'ADMIN',
       id: 'actor',
       githubId: actorGithubId,
       githubLogin: 'synthetic-admin',

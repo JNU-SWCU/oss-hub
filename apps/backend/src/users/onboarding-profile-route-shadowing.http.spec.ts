@@ -15,6 +15,9 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { UserProfileService } from '../platform/user-profile.service';
 
 const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);
@@ -60,6 +63,9 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
         AccessRequestsController,
       ],
       providers: [
+        AdminAccessMutationService,
+        AuditLogMetadataService,
+        UserProfileService,
         SessionGuard,
         OriginGuard,
         { provide: UsersService, useValue: usersService },

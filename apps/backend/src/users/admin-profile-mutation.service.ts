@@ -16,10 +16,10 @@ import {
   type AdminProfileTargetRecord,
   type AdminProfileRepositoryPort,
 } from './admin-profile.repository';
-import { requireActiveAdmin, roleError } from './admin-access-mutation.service';
-import { isValidStudentId } from './profile-validation.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { Injectable } from '@nestjs/common';
+import { UserProfileService } from '../platform/user-profile.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 type AdminProfileFields = {
   readonly name: string | null;
@@ -93,6 +93,8 @@ type MutationInput = {
 export class AdminProfileMutationService {
   constructor(
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   async mutateAdminUserProfile(
@@ -101,17 +103,19 @@ export class AdminProfileMutationService {
   ): Promise<AdminProfileUpdateResult> {
     return dependencies.repository.withTransaction(async (store) => {
       await store.lockActiveAdmins();
-      const actor = requireActiveAdmin(
+      const actor = this.adminAccessMutationService.requireActiveAdmin(
         await store.findActor(input.actorGithubId),
       );
       const before = await store.findTarget(input.userId);
       if (!before) {
-        throw roleError(RolesErrorCode.USER_NOT_FOUND);
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.USER_NOT_FOUND,
+        );
       }
 
       if (
         input.command.studentId !== undefined &&
-        !isValidStudentId(input.command.studentId)
+        !this.userProfileService.isValidStudentId(input.command.studentId)
       ) {
         throw new DomainException({
           code: SystemErrorCode.VALIDATION_FAILED,

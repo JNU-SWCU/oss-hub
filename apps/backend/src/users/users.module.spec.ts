@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import {
@@ -50,6 +51,7 @@ describe('UsersModule admin access wiring', () => {
       UsersService,
       UsersAuthorityService,
       ConsentsService,
+      AdminAccessMutationService,
       AdminAccessService,
       AdminProfileService,
       IndependentAuthorityService,
