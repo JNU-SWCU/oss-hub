@@ -8,11 +8,7 @@ import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './program-cover.repository';
-import {
-  AccountStatus,
-  ProgramCategory,
-  type ProgramTrackType,
-} from '@prisma/client';
+import { ProgramCategory, type ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -92,16 +88,6 @@ export class ProgramCreationService {
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
-    const user = await this.repository.findCreatorRole(githubId);
-    if (
-      user?.accountStatus !== AccountStatus.ACTIVE ||
-      (!user.hasStaffAccess && !user.hasAdminAccess)
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
-      );
-    }
-
     const name = input.name.trim();
     const organizer = input.organizer.trim();
     const description = input.description.trim();

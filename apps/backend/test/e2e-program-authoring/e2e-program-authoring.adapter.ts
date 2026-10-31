@@ -113,7 +113,6 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   preview() {
     return this.deadlines.previewProgram(
-      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().programId,
       E2E_NOW,
     );
@@ -121,7 +120,6 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   async send(preview: DeadlineDigestSendRequest): Promise<void> {
     const result = await this.deadlines.sendProgramFromPreview(
-      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().programId,
       preview,
       E2E_NOW,
@@ -164,9 +162,13 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     ) {
       throw new E2eAdapterError(409);
     }
-    await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
-      action: 'APPROVE' as const,
-    });
+    await this.applications.decide(
+      { id: E2E_STAFF_ID, githubId: E2E_STAFF_GITHUB_ID },
+      application.id,
+      {
+        action: 'APPROVE' as const,
+      },
+    );
     await this.consumeProvisionEvent();
     await this.runProvisionWorker(E2E_NOW);
   }
@@ -193,12 +195,10 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   private async sendDeadlineDigest(): Promise<void> {
     const preview = await this.deadlines.previewProgram(
-      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().programId,
       E2E_NOW,
     );
     await this.deadlines.sendProgramFromPreview(
-      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().programId,
       preview,
       E2E_NOW,
@@ -253,7 +253,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     }
     await this.files.uploadTemplate(
-      E2E_STAFF_GITHUB_ID,
+      E2E_STAFF_ID,
       this.fixtures.graph().milestoneId,
       this.fixtures.graph().documentId,
       uploadFile('template.pdf'),
@@ -300,9 +300,13 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     }
     if (application === null) throw new E2eAdapterError(409);
     if (application.status === ApplicationStatus.SUBMITTED) {
-      await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
-        action: 'APPROVE' as const,
-      });
+      await this.applications.decide(
+        { id: E2E_STAFF_ID, githubId: E2E_STAFF_GITHUB_ID },
+        application.id,
+        {
+          action: 'APPROVE' as const,
+        },
+      );
       await this.consumeProvisionEvent();
     } else if (application.status !== ApplicationStatus.APPROVED) {
       throw new E2eAdapterError(409);

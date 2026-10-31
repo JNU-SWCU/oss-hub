@@ -34,10 +34,14 @@ beforeAll(async () => {
     providers: [
       protectedRouteGuardStub({
         canActivate(context: ExecutionContext): boolean {
-          context
-            .switchToHttp()
-            .getRequest<{ sessionGithubId: bigint }>().sessionGithubId =
-            999_001n;
+          Object.assign(context.switchToHttp().getRequest<object>(), {
+            sessionGithubId: 999_001n,
+            principal: {
+              id: 'synthetic-author',
+              hasStaffAccess: staff,
+              hasAdminAccess: false,
+            },
+          });
           return authenticated;
         },
       }),
@@ -46,18 +50,7 @@ beforeAll(async () => {
       ProgramAuthoringService,
       { provide: AuditLogService, useValue: { record: jest.fn() } },
       { provide: ProgramAuthoringUploadService, useValue: {} },
-      {
-        provide: ProgramAuthoringRepository,
-        useValue: {
-          findActor: () =>
-            Promise.resolve({
-              id: 'synthetic-author',
-              accountStatus: 'ACTIVE',
-              hasStaffAccess: staff,
-              hasAdminAccess: false,
-            }),
-        },
-      },
+      { provide: ProgramAuthoringRepository, useValue: {} },
       {
         provide: SubmissionsRepository,
         useValue: {
