@@ -1,3 +1,4 @@
+import { MemberKindService } from './member-kind.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -155,8 +156,16 @@ describe('Admin access real PostgreSQL transactions', () => {
     const controller = new UserAccessController(
       service,
       profileService,
-      { patchAdminAccess: jest.fn() },
-      { patchMemberKind: jest.fn() },
+      Object.assign(
+        Object.create(
+          IndependentAuthorityService.prototype,
+        ) as IndependentAuthorityService,
+        { patchAdminAccess: jest.fn() },
+      ),
+      Object.assign(
+        Object.create(MemberKindService.prototype) as MemberKindService,
+        { patchMemberKind: jest.fn() },
+      ),
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),
