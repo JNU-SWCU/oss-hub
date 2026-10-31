@@ -56,7 +56,7 @@ function inlineControlProps(
     idPrefix,
     onRequestAction: (action, trigger) => {
       if (isInlineAdminAccessMutationAction(action)) {
-        inlineActions.onRequestAction(item, action, trigger);
+        inlineActions.onRequestAction(item, action, trigger ?? null);
       }
     },
   };

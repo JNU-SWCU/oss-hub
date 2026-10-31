@@ -7,6 +7,8 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
+import { ROLE_LABEL } from '@/lib/status-vocabulary';
+
 import { deriveAdminAccessGuards } from '../admin-access-detail-api';
 import type { AdminAccessDirectoryItem } from '../independent-authority-api';
 import {
@@ -216,15 +218,22 @@ describe('cell 레이아웃', () => {
     expect(onRequestAction.mock.calls).toEqual([
       ['SET_MEMBER_STAFF', trigger('합성 사용자 회원 유형')],
     ]);
+    expect(trigger('합성 사용자 회원 유형').textContent).toBe(
+      ROLE_LABEL.STUDENT,
+    );
+    expect(trigger('합성 사용자 회원 유형').disabled).toBe(false);
   });
 
   it('프로필 미완료 행은 허용 항목이 비활성이고 툴팁이 같은 사유를 보인다', () => {
-    renderAll(item({ isProfileComplete: false }), 'cell');
-    const reason = '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.';
+    const incomplete = item({ isProfileComplete: false });
+    renderAll(incomplete, 'cell');
+    const reason =
+      deriveAdminAccessGuards(incomplete).elevatedRoleBlockedReason;
+    expect(reason).not.toBeNull();
 
     const adminTrigger = trigger('합성 사용자 관리자 접근');
     act(() => adminTrigger.focus());
-    expect(document.body.textContent).toContain(reason);
+    expect(blockedReasonTooltip(adminTrigger)).toBe(reason);
 
     const listbox = open(adminTrigger);
     expect(isDisabled(option(listbox, '허용'))).toBe(true);

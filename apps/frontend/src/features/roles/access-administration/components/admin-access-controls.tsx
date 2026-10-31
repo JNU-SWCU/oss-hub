@@ -37,10 +37,22 @@ export interface AdminAccessControlProps {
   readonly disabled: boolean;
   readonly onRequestAction: (
     action: AdminAccessMutationAction,
-    trigger: HTMLElement | null,
+    trigger?: HTMLElement | null,
   ) => void;
   readonly layout: AdminAccessControlLayout;
   readonly idPrefix: string;
+}
+
+function requestAction(
+  props: Pick<AdminAccessControlProps, 'onRequestAction' | 'layout'>,
+  action: AdminAccessMutationAction,
+  trigger: HTMLElement | null,
+): void {
+  if (props.layout === 'field') {
+    props.onRequestAction(action);
+    return;
+  }
+  props.onRequestAction(action, trigger);
 }
 
 interface StateOption<TValue extends string> {
@@ -146,12 +158,14 @@ export function MemberKindAccessControl({
               disabled={isDisabled}
               onValueChange={(nextValue) => {
                 if (nextValue === 'STUDENT' && currentValue !== 'STUDENT') {
-                  onRequestAction(
+                  requestAction(
+                    { onRequestAction, layout },
                     ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT,
                     triggerRef.current,
                   );
                 } else if (nextValue === 'STAFF' && currentValue !== 'STAFF') {
-                  onRequestAction(
+                  requestAction(
+                    { onRequestAction, layout },
                     ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STAFF,
                     triggerRef.current,
                   );
@@ -227,7 +241,8 @@ export function AdminAccessStateControl({
           },
         ]}
         onSelect={(next, trigger) =>
-          onRequestAction(
+          requestAction(
+            { onRequestAction, layout },
             next === 'GRANTED'
               ? ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
               : ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS,
@@ -276,7 +291,11 @@ export function AccountStatusAccessControl({
         },
       ]}
       onSelect={(accountStatus, trigger) =>
-        onRequestAction(actionForAccountStatus(accountStatus), trigger)
+        requestAction(
+          { onRequestAction, layout },
+          actionForAccountStatus(accountStatus),
+          trigger,
+        )
       }
     />
   );

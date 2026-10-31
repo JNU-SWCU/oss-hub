@@ -65,23 +65,36 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
   });
 
   it('목록 항목의 isProfileComplete로 elevated role 가드를 계산한다', () => {
+    const incompleteDetail = detail({
+      isProfileComplete: false,
+      profile: {
+        name: '합성 사용자',
+        studentId: '202601',
+        staffNumber: null,
+        department: '인공지능학부',
+        isComplete: false,
+      },
+    });
     const directoryItem = Object.fromEntries(
-      Object.entries(
-        detail({
-          isProfileComplete: false,
-          profile: {
-            name: '합성 사용자',
-            studentId: '202601',
-            staffNumber: null,
-            department: '인공지능학부',
-            isComplete: false,
-          },
-        }),
-      ).filter(([key]) => key !== 'profile'),
+      Object.entries(incompleteDetail).filter(([key]) => key !== 'profile'),
     ) as unknown as AdminAccessListItem;
+    const reason =
+      deriveAdminAccessGuards(directoryItem).elevatedRoleBlockedReason;
+    expect(reason).not.toBeNull();
+    expect(reason).toBe(
+      deriveAdminAccessGuards(incompleteDetail).elevatedRoleBlockedReason,
+    );
     expect(
-      deriveAdminAccessGuards(directoryItem).elevatedRoleBlockedReason,
-    ).toBe('프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.');
+      deriveAdminAccessGuards(
+        Object.fromEntries(
+          Object.entries(
+            detail({
+              profile: { ...incompleteDetail.profile, isComplete: true },
+            }),
+          ).filter(([key]) => key !== 'profile'),
+        ) as unknown as AdminAccessListItem,
+      ).elevatedRoleBlockedReason,
+    ).toBeNull();
   });
 
   it('비활성 계정이면 승인만 막힌다', () => {

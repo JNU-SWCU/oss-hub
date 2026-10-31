@@ -211,10 +211,7 @@ describe('independent admin authority controls', () => {
         }),
       );
       choose('admin-member-kind-control', nextMemberKind);
-      expect(request).toHaveBeenCalledWith(
-        action,
-        expect.any(HTMLButtonElement),
-      );
+      expect(request).toHaveBeenCalledWith(action);
     },
   );
 
@@ -236,10 +233,7 @@ describe('independent admin authority controls', () => {
     expect(applyButton).toBeUndefined();
     expect(controlValue('admin-member-kind-control')).toBe('학생');
     choose('admin-member-kind-control', 'STAFF');
-    expect(request).toHaveBeenCalledWith(
-      'SET_MEMBER_STAFF',
-      expect.any(HTMLButtonElement),
-    );
+    expect(request).toHaveBeenCalledWith('SET_MEMBER_STAFF');
   });
 
   it('blocks an unconfirmed member kind instead of treating it as staff access', () => {
@@ -255,10 +249,7 @@ describe('independent admin authority controls', () => {
       detail({ memberKind: 'STUDENT', hasStaffAccess: false }),
     );
     choose('admin-member-kind-control', 'STAFF');
-    expect(request).toHaveBeenCalledWith(
-      'SET_MEMBER_STAFF',
-      expect.any(HTMLButtonElement),
-    );
+    expect(request).toHaveBeenCalledWith('SET_MEMBER_STAFF');
     expect(controlValue('admin-member-kind-control')).toBe('학생');
   });
 });

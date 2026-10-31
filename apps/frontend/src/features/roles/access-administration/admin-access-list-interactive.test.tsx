@@ -175,10 +175,6 @@ function nextFocus(element: HTMLElement): Promise<void> {
   });
 }
 
-function afterPendingTimers(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
 describe('AdminAccessView — 행 클릭 상호작용', () => {
   it('행을 클릭하면 onRowClick이 해당 아이템으로 호출된다', () => {
     const onRowClick = vi.fn();
@@ -711,9 +707,14 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       await act(async () => detail.resolve(detailResponse()));
       expect(dialog()).not.toBeNull();
 
-      const refocused = nextFocus(statusTrigger);
+      let refocusedCount = 0;
+      statusTrigger.addEventListener('focus', () => (refocusedCount += 1), {
+        once: true,
+      });
       await act(async () => dialogButton('비활성화 확정').click());
-      await act(() => Promise.race([refocused, afterPendingTimers()]));
+      await vi.waitFor(() => expect(refocusedCount).toBe(1), {
+        timeout: 2_000,
+      });
 
       expect(dialog()).toBeNull();
       expect(document.activeElement).toBe(statusTrigger);
