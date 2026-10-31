@@ -1,16 +1,16 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from './http-auth.types';
-import { SessionGuard } from './session.guard';
 import { LoginHistoryRequestDto } from './dto/login-history-request.dto';
 import { LoginHistoryPageResponseDto } from './dto/login-history-response.dto';
 import { LoginHistoryService } from './auth.service';
+import { Protected } from './authentication.guard';
 
 @Controller('users/me/login-history')
 export class LoginHistoryController {
   constructor(private readonly loginHistoryService: LoginHistoryService) {}
 
   @Get()
-  @UseGuards(SessionGuard)
+  @Protected()
   async findMine(
     @Req() request: AuthenticatedRequest,
     @Query() query: LoginHistoryRequestDto,

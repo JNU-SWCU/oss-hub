@@ -1,7 +1,6 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusService } from './system-status.service';
 
@@ -76,10 +75,7 @@ describe('SystemStatusController', () => {
     const testingModule = await Test.createTestingModule({
       controllers: [SystemStatusController],
       providers: [{ provide: SystemStatusService, useValue: { getStatus } }],
-    })
-      .overrideGuard(SessionGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+    }).compile();
     const controller = testingModule.get(SystemStatusController);
 
     await expect(
@@ -89,7 +85,7 @@ describe('SystemStatusController', () => {
     await testingModule.close();
   });
 
-  it('GET /system-status를 SessionGuard로 보호한다', () => {
+  it('GET /system-status를 전역 인증 가드로 보호한다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       SystemStatusController.prototype,
       'getStatus',
@@ -102,8 +98,6 @@ describe('SystemStatusController', () => {
       'system-status',
     );
     expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('/');
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-      SessionGuard,
-    ]);
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
   });
 });

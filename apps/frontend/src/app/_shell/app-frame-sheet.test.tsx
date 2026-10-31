@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -10,6 +22,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const mocks = vi.hoisted(() => ({
   usePathname: vi.fn(),
   useSearchParams: vi.fn(() => new URLSearchParams()),
+  push: vi.fn(),
   useSessionRole: vi.fn(),
   getProgramOverview: vi.fn(),
   getProgramNavigationMilestones: vi.fn(),
@@ -21,6 +34,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({
   usePathname: mocks.usePathname,
   useSearchParams: mocks.useSearchParams,
+  useRouter: () => ({ push: mocks.push }),
 }));
 vi.mock('next/link', () => ({
   default: ({
@@ -164,6 +178,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     await act(async () => root.unmount());
     container.remove();
     document.body.style.overflow = '';
+    sessionStorage.clear();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
       writable: true,
@@ -196,7 +211,11 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     mocks.usePathname.mockReturnValue(pathname);
     mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
     await act(async () => {
-      root.render(<AppFrame brand="OSS Hub">{children}</AppFrame>);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub">{children}</AppFrame>
+        </QueryClientProvider>,
+      );
     });
   }
 
@@ -423,6 +442,22 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(dialog()).toBeNull();
   });
 
+  it('프로그램 개요에서 화면을 전환하면 주소가 그대로여도 시트가 닫힌다', async () => {
+    mockSession({ ...STUDENT_SESSION, hasStaffAccess: true });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
+    await renderFrame('/programs/prog-1');
+    await openSheet();
+    const viewSwitch = dialog()?.querySelector('button[data-view-switch]');
+    if (!(viewSwitch instanceof HTMLButtonElement))
+      throw new Error('화면 전환 버튼을 찾지 못했습니다');
+
+    await act(async () => viewSwitch.click());
+
+    expect(mocks.push).toHaveBeenCalledWith('/programs/prog-1');
+    expect(dialog()).toBeNull();
+  });
+
   it('뷰포트가 데스크톱(shell 폭)으로 넘어가면 시트가 닫히고 스크롤 잠금이 풀린다', async () => {
     const listeners = new Set<MediaChangeListener>();
     const queries: string[] = [];
@@ -487,9 +522,11 @@ describe('AppFrame 랜딩(/) 내비 — 처음부터 흰 바', () => {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(
-        <AppFrame brand="OSS Hub">
-          <section id="landing-hero">히어로</section>
-        </AppFrame>,
+        <QueryClientProvider client={queryClient}>
+          <AppFrame brand="OSS Hub">
+            <section id="landing-hero">히어로</section>
+          </AppFrame>
+        </QueryClientProvider>,
       );
     });
   }

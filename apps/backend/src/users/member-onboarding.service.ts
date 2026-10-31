@@ -17,7 +17,7 @@ import {
   type StaffAccessRequestRecord,
 } from './member-onboarding.repository';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 @Injectable()
 export class MemberOnboardingService {

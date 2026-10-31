@@ -8,7 +8,7 @@ import { UsersErrorCode } from './users-error-code.error';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

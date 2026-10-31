@@ -4,10 +4,9 @@ import type { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { AccessRequestsController } from '../staff/access-requests.controller';
@@ -16,11 +15,12 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -54,7 +54,7 @@ export class AdminAccessHttpHarness {
         AuditLogMetadataService,
         UserProfileService,
         AuthSessionService,
-        SessionGuard,
+        ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
         { provide: PrismaService, useValue: this.prisma },
         {

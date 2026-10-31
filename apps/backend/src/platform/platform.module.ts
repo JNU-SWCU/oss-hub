@@ -17,7 +17,6 @@ import {
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { UserProfileService } from './user-profile.service';
 import { JoinCodeSecretService } from './join-code-secret.service';
 
 @Global()
@@ -36,7 +35,6 @@ import { JoinCodeSecretService } from './join-code-secret.service';
     HealthService,
     AuditLogRepository,
     AuditLogMetadataService,
-    UserProfileService,
     JoinCodeSecretService,
     AuditLogService,
   ],
@@ -46,7 +44,6 @@ import { JoinCodeSecretService } from './join-code-secret.service';
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
     AuditLogMetadataService,
-    UserProfileService,
     JoinCodeSecretService,
     AuditLogService,
   ],

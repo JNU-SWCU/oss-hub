@@ -1,8 +1,19 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import {
+  listNavigation,
+  useTestSearchParams,
+} from '../../../test-support/list-screen-root';
+import { renderWithQuery } from '../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/dashboard',
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -81,16 +92,15 @@ describe('학생 대시보드는 받은 팀 초대를 스스로 조회하지 않
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+  beforeEach(async () => {
+    root = await renderWithQuery(null);
+    container = root.container;
     requestedPaths.length = 0;
     vi.stubGlobal('fetch', vi.fn(stubbedFetch));
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await root.unmount();
     container.remove();
     vi.unstubAllGlobals();
   });

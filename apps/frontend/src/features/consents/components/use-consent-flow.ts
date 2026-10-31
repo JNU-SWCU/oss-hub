@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
 
 import {
   acceptConsent,
@@ -33,6 +35,7 @@ export function useConsentFlow({
   onCompleted,
 }: UseConsentFlowOptions): ConsentFlowController {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [state, setState] = useState<ConsentFlowState>({ kind: 'loading' });
   const submissionInFlight = useRef(false);
 
@@ -65,7 +68,13 @@ export function useConsentFlow({
   const loadConsent = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        applyFlowState(applyCurrentConsent(await getCurrentConsent(signal)));
+        const consent = await queryClient.fetchQuery({
+          queryKey: featureKey('consents'),
+          queryFn: ({ signal: querySignal }) => getCurrentConsent(querySignal),
+          staleTime: 0,
+        });
+        if (signal?.aborted) return;
+        applyFlowState(applyCurrentConsent(consent));
       } catch (error: unknown) {
         if (signal?.aborted) {
           return;
@@ -91,7 +100,7 @@ export function useConsentFlow({
         }
       }
     },
-    [applyFlowState],
+    [applyFlowState, queryClient],
   );
 
   useEffect(() => {
@@ -113,6 +122,8 @@ export function useConsentFlow({
     setState(transition.state);
     try {
       const response = await acceptConsent(transition.request);
+      void queryClient.invalidateQueries({ queryKey: featureKey('consents') });
+      void queryClient.invalidateQueries({ queryKey: featureKey('profile') });
       applyFlowState(applyAcceptedConsent(response));
     } catch (error: unknown) {
       const failure = applyConsentFailure(
@@ -129,7 +140,11 @@ export function useConsentFlow({
       switch (failure.state.kind) {
         case 'refreshing':
           try {
-            const latest = await getCurrentConsent();
+            const latest = await queryClient.fetchQuery({
+              queryKey: featureKey('consents'),
+              queryFn: ({ signal }) => getCurrentConsent(signal),
+              staleTime: 0,
+            });
             applyFlowState(applyRefreshedConsent(failure.state, latest));
           } catch (refreshError: unknown) {
             if (classifyConsentApiError(refreshError) === 'unauthorized') {
@@ -159,7 +174,7 @@ export function useConsentFlow({
     } finally {
       submissionInFlight.current = false;
     }
-  }, [applyFlowState, state]);
+  }, [applyFlowState, state, queryClient]);
 
   const retryLoad = useCallback(() => {
     setState({ kind: 'loading' });

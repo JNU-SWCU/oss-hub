@@ -1,5 +1,10 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import {
+  createListScreenRoot as createRoot,
+  listNavigation,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPath } from '@/lib/api-client';
 import { MilestoneDocumentCollectionScreen } from './milestone-document-collection-screen';
@@ -8,6 +13,12 @@ import type {
   MilestoneDocumentCollectionArchiveGrouping,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-dto';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/programs/program-capstone/documents',
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,

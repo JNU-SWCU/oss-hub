@@ -412,7 +412,7 @@
   {
     "method": "GET",
     "path": "/api/v1/programs/:programId/overview/teams",
-    "access": "PUBLIC"
+    "access": "PROTECTED"
   },
   {
     "method": "GET",

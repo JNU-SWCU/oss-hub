@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { PlatformModule } from '../../src/platform/platform.module';
-import { AuthModule } from '../../src/auth/auth.module';
 import { GithubModule } from '../../src/github/github.module';
 import { NotificationsModule } from '../../src/notifications/notifications.module';
 import { ProgramsModule } from '../../src/programs/programs.module';
@@ -12,13 +11,7 @@ import { E2eProgramAuthoringController } from './e2e-program-authoring.controlle
 import { E2eProgramAuthoringService } from './e2e-program-authoring.service';
 
 @Module({
-  imports: [
-    AuthModule,
-    PlatformModule,
-    GithubModule,
-    NotificationsModule,
-    ProgramsModule,
-  ],
+  imports: [PlatformModule, GithubModule, NotificationsModule, ProgramsModule],
   controllers: [E2eProgramAuthoringController],
   providers: [
     {

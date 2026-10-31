@@ -11,7 +11,7 @@ import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
 } from './admin-access-query.config';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 describe('admin-actor-locks.repository', () => {
   type ActorRow = Parameters<typeof AdminAccessRepository.toAdminActor>[0];

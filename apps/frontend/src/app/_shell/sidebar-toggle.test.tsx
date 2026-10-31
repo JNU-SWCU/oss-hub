@@ -1,5 +1,6 @@
 import { act, useEffect } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {

@@ -1,5 +1,10 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import {
+  createListScreenRoot as createRoot,
+  listNavigation,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { MilestoneDocumentCollectionScreen } from './milestone-document-collection-screen';
@@ -8,6 +13,12 @@ import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-dto';
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: useTestSearchParams,
+  useRouter: () => listNavigation,
+  usePathname: () => '/programs/program-capstone/documents',
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -1032,6 +1043,22 @@ describe('수합 표에서 판정하기', () => {
       '서류 수합 표를 불러오지 못했습니다',
     );
     expect(byText('다시 시도')).toBeInstanceOf(HTMLButtonElement);
+  });
+
+  it('검토 충돌 재조회 실패 후 다른 필터 주소로 이동하면 새 표를 표시한다', async () => {
+    await failReloadAfterConflict('MSD_025');
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀', [cell('d1'), cell('d2')])]),
+    );
+    await act(async () => {
+      listNavigation.search = 'filter=LATE';
+    });
+    expect(container.querySelector('table')).not.toBeNull();
+    expect(reviewNotice()).toBeNull();
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      { page: 1, pageSize: 20, filter: 'LATE' },
+    );
   });
 
   it('MSD_024 재조회가 실패해도 저장되지 않았다는 사실은 남는다', async () => {

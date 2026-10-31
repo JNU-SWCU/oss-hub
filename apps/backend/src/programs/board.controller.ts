@@ -13,9 +13,8 @@ import {
 } from '@nestjs/common';
 import { BoardPostPinResponseDto } from './dto/board-post-pin-response.dto';
 import { DeletedResponseDto } from './dto/deleted-response.dto';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { BoardService } from './board.service';
 import {
   BoardCommentResponseDto,
@@ -27,11 +26,12 @@ import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request
 import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
 import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';
 import { UpdateBoardPostRequestDto } from './dto/update-board-post-request.dto';
+import { Protected } from '../auth/authentication.guard';
 
 type BoardActor = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('programs/:programId/board/posts')
-@UseGuards(SessionGuard)
+@Protected()
 export class BoardController {
   constructor(private readonly service: BoardService) {}
 

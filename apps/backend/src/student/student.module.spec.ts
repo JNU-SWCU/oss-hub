@@ -1,5 +1,4 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AuthModule } from '../auth/auth.module';
 import { GithubModule } from '../github/github.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
@@ -20,7 +19,6 @@ describe('StudentModule', () => {
 
   it('도메인 모듈은 exports로만 가져온다', () => {
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toEqual([
-      AuthModule,
       ProgramsModule,
       GithubModule,
     ]);

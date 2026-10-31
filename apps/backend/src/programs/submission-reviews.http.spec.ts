@@ -9,15 +9,18 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  protectedRouteGuardStub,
+} from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -68,6 +71,14 @@ beforeAll(async () => {
       SubmissionRepositoryPublishingController,
     ],
     providers: [
+      protectedRouteGuardStub({
+        canActivate: (context: ExecutionContext) => {
+          Object.assign(context.switchToHttp().getRequest<object>(), {
+            sessionGithubId: 9_600_000_000_100_001n,
+          });
+          return true;
+        },
+      }),
       ...STATELESS_PROVIDERS,
       {
         provide: SubmissionReviewsService,
@@ -81,15 +92,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate: (context: ExecutionContext) => {
-        Object.assign(context.switchToHttp().getRequest<object>(), {
-          sessionGithubId: 9_600_000_000_100_001n,
-        });
-        return true;
-      },
-    })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();
@@ -106,7 +108,7 @@ beforeAll(async () => {
     controllers: [SubmissionsController],
     providers: [
       ...STATELESS_PROVIDERS,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {
         provide: AuthService,
         useValue: {

@@ -16,7 +16,6 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,
@@ -27,7 +26,7 @@ import {
 } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
@@ -50,6 +49,7 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { Protected } from '../auth/authentication.guard';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -81,7 +81,7 @@ export class MilestoneDocumentsController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async list(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -95,7 +95,7 @@ export class MilestoneDocumentsController {
 
   @Get('collection')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   collection(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -110,7 +110,7 @@ export class MilestoneDocumentsController {
 
   @Get('collection/archive')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async archive(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -134,7 +134,8 @@ export class MilestoneDocumentsController {
 
   @Patch(':documentId/grace')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   updateGrace(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -151,7 +152,7 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/template')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async downloadTemplate(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -169,7 +170,7 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/applications/:applicationId/file')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async downloadSubmissionFile(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -189,7 +190,7 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/applications/:applicationId/history')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   history(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -210,7 +211,7 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/history')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   participantHistory(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -229,7 +230,8 @@ export class MilestoneDocumentsController {
 
   @Post(':documentId/applications/:applicationId/reviews')
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   review(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -250,7 +252,8 @@ export class MilestoneDocumentsController {
 
   @Post(':documentId/submissions')
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   submit(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
@@ -271,7 +274,7 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/submissions/current/file')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async downloadCurrentSubmissionFile(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,

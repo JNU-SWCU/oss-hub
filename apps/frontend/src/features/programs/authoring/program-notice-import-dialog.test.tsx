@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../../test-support/render-with-query';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ProgramNoticeImport } from './program-notice-import';
 
@@ -147,4 +148,20 @@ it('keeps retry and manual authoring available after preview failure', async () 
     0,
   );
   expect(onApply).not.toHaveBeenCalled();
+});
+
+it('reopening the same URL starts a new preview instead of sharing the cancelled request', async () => {
+  const stale = Promise.withResolvers<typeof preview>();
+  api.previewProgramNotice
+    .mockReturnValueOnce(stale.promise)
+    .mockResolvedValueOnce({ ...preview, name: '최신 공지' });
+  await open();
+  await act(async () => button('불러오기').click());
+  await act(async () => button('닫기').click());
+  await act(async () => button('공지에서 가져오기').click());
+  await act(async () => button('불러오기').click());
+  expect(api.previewProgramNotice).toHaveBeenCalledTimes(2);
+  await act(async () => stale.resolve(preview));
+  expect(document.body.textContent).toContain('최신 공지');
+  expect(document.body.textContent).not.toContain('합성 프로그램');
 });

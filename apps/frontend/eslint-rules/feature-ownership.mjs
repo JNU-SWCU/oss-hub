@@ -2,6 +2,7 @@ import path from 'node:path';
 
 export const programEntries = {
   applications: [
+    'queries',
     'api',
     'dto',
     'application-confirmation-dialog',
@@ -19,6 +20,7 @@ export const programEntries = {
     'student-application-dto',
   ],
   authoring: [
+    'queries',
     'dto',
     'program-authoring-graph-validation',
     'program-authoring-sortable-attachments',
@@ -28,6 +30,8 @@ export const programEntries = {
     'seoul-date-time',
   ],
   catalog: [
+    'list-queries',
+    'queries',
     'api',
     'dto',
     'program-detail-format',
@@ -36,17 +40,18 @@ export const programEntries = {
     'program-list-pagination',
   ],
   documents: [
+    'queries',
     'components/milestone-row',
     'milestone-document-dto',
     'milestone-document-editor',
     'milestone-document-editor-flow',
-    'milestone-document-events',
     'milestone-document-list',
     'milestone-document-pointer',
     'milestone-document-upload-policy',
     'milestone-submission-access',
   ],
   teams: [
+    'queries',
     'api',
     'dto',
     'program-teams-flow',
@@ -54,7 +59,7 @@ export const programEntries = {
     'team-members-panel',
     'use-team-invitation-management',
   ],
-  'staff-dashboard': [],
+  'staff-dashboard': ['queries'],
 };
 
 const entries = {

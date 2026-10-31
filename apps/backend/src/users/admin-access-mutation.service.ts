@@ -31,7 +31,7 @@ import { AdminAccessPendingRequest } from './admin-access-read-ordering.reposito
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { Injectable } from '@nestjs/common';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 export type AdminAccessRequestDecision =
   | {

@@ -1,7 +1,22 @@
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+import { act, type ReactNode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
+import { createListScreenRoot as createRoot } from '../../../test-support/list-screen-root';
+function renderToStaticMarkup(element: ReactNode) {
+  return renderMarkup(
+    <QueryClientProvider client={createTestQueryClient()}>
+      {element}
+    </QueryClientProvider>,
+  );
+}
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  configurable: true,
+  value: true,
+});
 import { isValidElement } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
   checkSubmissionFile,
@@ -33,105 +48,6 @@ const initialSubmissionPage = vi.hoisted(() => ({
   posts: 0,
   resolvePost: null as (() => void) | null,
 }));
-
-type StateSetter<T> = (nextValue: T | ((previous: T) => T)) => void;
-
-const hooks = vi.hoisted(() => {
-  const slots: unknown[] = [];
-  let cursor = 0;
-  let effects: Array<() => void> = [];
-
-  function depsChanged(
-    previous: readonly unknown[] | undefined,
-    next: readonly unknown[] | undefined,
-  ): boolean {
-    return (
-      next === undefined ||
-      previous === undefined ||
-      previous.length !== next.length ||
-      next.some((value, index) => !Object.is(value, previous[index]))
-    );
-  }
-
-  function begin(): void {
-    cursor = 0;
-    effects = [];
-  }
-
-  function reset(): void {
-    slots.length = 0;
-    begin();
-  }
-
-  function run(): void {
-    const pendingEffects = effects;
-    effects = [];
-    for (const effect of pendingEffects) effect();
-  }
-
-  function useCallback<T extends (...args: readonly never[]) => unknown>(
-    value: T,
-    deps: readonly unknown[] | undefined,
-  ): T {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as
-      | { readonly deps: readonly unknown[] | undefined; readonly value: T }
-      | undefined;
-    if (previous && !depsChanged(previous.deps, deps)) return previous.value;
-    slots[index] = { deps, value };
-    return value;
-  }
-
-  function useEffect(
-    effect: () => void,
-    deps: readonly unknown[] | undefined,
-  ): void {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as readonly unknown[] | undefined;
-    if (!depsChanged(previous, deps)) return;
-    slots[index] = deps;
-    effects.push(effect);
-  }
-
-  function useRef<T>(initialValue: T): { current: T } {
-    const index = cursor;
-    cursor += 1;
-    const previous = slots[index] as { current: T } | undefined;
-    if (previous) return previous;
-    const ref = { current: initialValue };
-    slots[index] = ref;
-    return ref;
-  }
-
-  function useState<T>(initialValue: T): [T, StateSetter<T>] {
-    const index = cursor;
-    cursor += 1;
-    if (slots[index] === undefined) slots[index] = initialValue;
-    const setState: StateSetter<T> = (nextValue) => {
-      const previous = slots[index] as T;
-      slots[index] =
-        typeof nextValue === 'function'
-          ? (nextValue as (previous: T) => T)(previous)
-          : nextValue;
-    };
-    return [slots[index] as T, setState];
-  }
-
-  return { begin, reset, run, useCallback, useEffect, useRef, useState };
-});
-
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
-  return {
-    ...actual,
-    useCallback: hooks.useCallback,
-    useEffect: hooks.useEffect,
-    useRef: hooks.useRef,
-    useState: hooks.useState,
-  };
-});
 
 vi.mock('./api', () => ({
   checkSubmissionFile: vi.fn(),
@@ -234,45 +150,39 @@ function currentViewProps(): SubmissionChecklistViewProps {
 let selectedMilestoneId: string | null = 'milestone-file';
 let closeSelected: ReturnType<typeof vi.fn>;
 
+let container: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
 function renderPage(): void {
-  hooks.begin();
-  renderToStaticMarkup(
-    SubmissionChecklistPage({
-      programId: 'program-1',
-      milestoneId: selectedMilestoneId,
-      onCloseSelected: closeSelected,
-    }),
-  );
-  hooks.run();
-}
-
-function renderPageBeforeEffects(): void {
-  hooks.begin();
-  renderToStaticMarkup(
-    SubmissionChecklistPage({
-      programId: 'program-1',
-      milestoneId: selectedMilestoneId,
-      onCloseSelected: closeSelected,
-    }),
+  act(() =>
+    root.render(
+      <SubmissionChecklistPage
+        programId="program-1"
+        milestoneId={selectedMilestoneId}
+        onCloseSelected={closeSelected}
+      />,
+    ),
   );
 }
-
+function renderPendingSelection(): void {
+  root.render(
+    <SubmissionChecklistPage
+      programId="program-1"
+      milestoneId={selectedMilestoneId}
+      onCloseSelected={closeSelected}
+    />,
+  );
+}
 async function flushAsyncWork(): Promise<void> {
-  for (let tick = 0; tick < 10; tick += 1) {
-    await Promise.resolve();
-  }
+  await act(async () => {});
 }
-
 async function renderReadyPage(): Promise<void> {
-  renderPage();
-  await flushAsyncWork();
-  renderPage();
+  await act(async () => renderPage());
 }
 
 async function selectFileAndSubmit(file: File): Promise<void> {
-  currentViewProps().onFileChange(file);
+  act(() => currentViewProps().onFileChange(file));
   renderPage();
-  currentViewProps().onResubmit();
+  act(() => currentViewProps().onResubmit());
   await flushAsyncWork();
   renderPage();
 }
@@ -289,16 +199,18 @@ async function submitInitialPost(): Promise<void> {
   }
   const props = initialSubmission.props;
   initialSubmissionPage.posts += 1;
-  props.onSubmittingChange?.(true);
+  act(() => props.onSubmittingChange?.(true));
   await new Promise<void>((resolve) => {
     initialSubmissionPage.resolvePost = resolve;
   });
-  props.onSubmittingChange?.(false);
-  props.onSubmitted();
+  act(() => props.onSubmittingChange?.(false));
+  act(() => props.onSubmitted());
 }
 
 beforeEach(() => {
-  hooks.reset();
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
   pageView.props = null;
   selectedMilestoneId = 'milestone-file';
   closeSelected = vi.fn(() => {
@@ -318,6 +230,11 @@ beforeEach(() => {
   vi.mocked(checkSubmissionFile).mockResolvedValue(undefined);
 });
 
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+});
+
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
   it('상한 초과 오류 뒤 보완 파일을 바꾸면 이전 오류를 지운다', async () => {
     vi.mocked(getSubmissionChecklist).mockResolvedValue({
@@ -333,7 +250,7 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(currentViewProps().errors.file).toBe('파일은 2 MB 이하여야 합니다.');
     expect(uploadSubmissionFile).not.toHaveBeenCalled();
 
-    currentViewProps().onFileChange(FILE);
+    act(() => currentViewProps().onFileChange(FILE));
     renderPage();
     expect(currentViewProps().input.file).toBe(FILE);
     expect(currentViewProps().errors.file).toBeUndefined();
@@ -379,18 +296,18 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     );
     vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
     await renderReadyPage();
-    currentViewProps().onFileChange(FILE);
+    act(() => currentViewProps().onFileChange(FILE));
     renderPage();
 
-    currentViewProps().onResubmit();
-    currentViewProps().onResubmit();
+    act(() => currentViewProps().onResubmit());
+    act(() => currentViewProps().onResubmit());
     await flushAsyncWork();
 
     expect(uploadSubmissionFile).toHaveBeenCalledTimes(1);
     if (pendingUpload.resolve === null) {
       throw new Error('expected upload request to be pending');
     }
-    pendingUpload.resolve(uploaded('file-first'));
+    await act(async () => pendingUpload.resolve?.(uploaded('file-first')));
     await flushAsyncWork();
     expect(createResubmission).toHaveBeenCalledTimes(1);
   });
@@ -462,7 +379,7 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     const locked = new File(['PK'], 'locked.zip', { type: 'application/zip' });
     await renderReadyPage();
 
-    currentViewProps().onFileChange(locked);
+    act(() => currentViewProps().onFileChange(locked));
     renderPage();
 
     expect(currentViewProps().fileChecking).toBe(true);
@@ -477,7 +394,7 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(uploadSubmissionFile).not.toHaveBeenCalled();
     expect(createResubmission).not.toHaveBeenCalled();
 
-    currentViewProps().onFileChange(FILE);
+    act(() => currentViewProps().onFileChange(FILE));
     renderPage();
 
     expect(currentViewProps().fileError).toBeNull();
@@ -490,8 +407,10 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     );
     await renderReadyPage();
 
-    currentViewProps().onFileChange(
-      new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
+    act(() =>
+      currentViewProps().onFileChange(
+        new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
+      ),
     );
     renderPage();
     await flushAsyncWork();
@@ -525,6 +444,18 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
 
 describe('SubmissionChecklistPage 재제출 직후 화면', () => {
   it('새로고침 없이도 지난 보완 요청 이력이 줄과 창에 남는다', async () => {
+    vi.mocked(getSubmissionChecklist)
+      .mockResolvedValueOnce(CHECKLIST)
+      .mockResolvedValue({
+        ...CHECKLIST,
+        items: CHECKLIST.items.map((item) => ({
+          ...item,
+          submission:
+            item.submission === null
+              ? null
+              : { ...item.submission, status: 'SUBMITTED', currentRevision: 4 },
+        })),
+      });
     vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
     vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
     await renderReadyPage();
@@ -532,7 +463,7 @@ describe('SubmissionChecklistPage 재제출 직후 화면', () => {
     await selectFileAndSubmit(FILE);
 
     const props = currentViewProps();
-    expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
     const item = props.checklist.items[0];
     if (!item) throw new Error('expected checklist item');
 
@@ -590,11 +521,11 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     }
     const submissionProps = initialSubmission.props;
 
-    submissionProps.onSubmitted();
+    act(() => submissionProps.onSubmitted());
     await flushAsyncWork();
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
 
-    submissionProps.onCancel();
+    act(() => submissionProps.onCancel());
     await flushAsyncWork();
     renderPage();
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
@@ -639,7 +570,7 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     ) {
       throw new Error('expected initial submission element');
     }
-    initialSubmission.props.onSubmitted();
+    act(() => initialSubmission.props.onSubmitted());
     await flushAsyncWork();
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
 
@@ -687,15 +618,17 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
 
     const post = submitInitialPost();
     await flushAsyncWork();
-    currentViewProps().onCloseSelected?.();
-    expect(closeSelected).toHaveBeenCalledTimes(1);
-    expect(selectedMilestoneId).toBeNull();
+    selectedMilestoneId = null;
+    renderPage();
+    expect(closeSelected).not.toHaveBeenCalled();
 
     if (initialSubmissionPage.resolvePost === null) {
       throw new Error('expected POST to be pending');
     }
-    initialSubmissionPage.resolvePost();
-    await post;
+    await act(async () => {
+      initialSubmissionPage.resolvePost?.();
+      await post;
+    });
     await flushAsyncWork();
     renderPage();
 
@@ -707,7 +640,7 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     );
   });
 
-  it('effect가 늦어 selected ref가 이전 id여도 browser Back 직후 initial POST 201은 authoritative checklist를 한 번만 읽는다', async () => {
+  it('browser Back과 initial POST 201이 같은 작업에서 끝나도 authoritative checklist를 한 번만 읽는다', async () => {
     const [firstItem] = CHECKLIST.items;
     if (!firstItem) throw new Error('expected checklist item fixture');
     const unsubmitted: SubmissionChecklist = {
@@ -740,12 +673,14 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     const post = submitInitialPost();
     await flushAsyncWork();
     selectedMilestoneId = null;
-    renderPageBeforeEffects();
     if (initialSubmissionPage.resolvePost === null) {
       throw new Error('expected POST to be pending');
     }
-    initialSubmissionPage.resolvePost();
-    await post;
+    await act(async () => {
+      renderPendingSelection();
+      initialSubmissionPage.resolvePost?.();
+      await post;
+    });
     await flushAsyncWork();
     renderPage();
 
@@ -766,7 +701,7 @@ describe('SubmissionChecklistPage 선택 패널 표시', () => {
     const item = props.checklist.items[0];
     if (!item) throw new Error('expected checklist item');
 
-    props.onCloseSelected?.();
+    act(() => props.onCloseSelected?.());
     expect(closeSelected).toHaveBeenCalled();
     const html = renderToStaticMarkup(
       <SelectedMilestonePanel

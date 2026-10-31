@@ -1,29 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { loadMyRepositories } from '../loader';
+import { useMyRepositoriesQuery } from '../queries';
 import type { MyRepositoriesState } from '../types';
 import { MyRepositoriesView } from './my-repositories-view';
 
 export function MyRepositoriesScreen() {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<MyRepositoriesState>({ kind: 'loading' });
-  const retry = useCallback(() => setAttempt((current) => current + 1), []);
+  const query = useMyRepositoriesQuery();
+  const state: MyRepositoriesState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? { kind: 'error' }
+      : { kind: 'ready', repositories: query.data };
 
-  useEffect(() => {
-    let active = true;
-    setState({ kind: 'loading' });
-    loadMyRepositories()
-      .then((repositories) => {
-        if (active) setState({ kind: 'ready', repositories });
-      })
-      .catch(() => {
-        if (active) setState({ kind: 'error' });
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
-
-  return <MyRepositoriesView state={state} onRetry={retry} />;
+  return (
+    <MyRepositoriesView state={state} onRetry={() => void query.refetch()} />
+  );
 }

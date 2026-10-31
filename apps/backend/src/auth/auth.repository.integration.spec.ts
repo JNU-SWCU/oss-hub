@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { AuthConfig, INITIAL_ACCOUNT_SEEDS } from './auth.config';
+import { AuthConfig, INITIAL_ACCOUNT_SEEDS } from '../platform/auth.config';
 import { AuthRepository } from './auth.repository';
 
 assertIsolatedIntegrationDatabase({

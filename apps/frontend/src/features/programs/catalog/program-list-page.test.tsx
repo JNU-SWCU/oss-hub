@@ -1,5 +1,10 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import {
+  createListScreenRoot as createRoot,
+  listNavigation,
+  useTestSearchParams,
+} from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProgramEndedYears, listPrograms } from './api';
 import { ProgramListPage } from './program-list-page';
@@ -21,13 +26,13 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-let currentSearch = '';
-const routerPushMock = vi.fn();
+const routerPushMock = vi.fn((href: string) => listNavigation.push(href));
+const routerReplaceMock = vi.fn((href: string) => listNavigation.replace(href));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/programs',
-  useRouter: () => ({ push: routerPushMock }),
-  useSearchParams: () => new URLSearchParams(currentSearch),
+  useRouter: () => ({ push: routerPushMock, replace: routerReplaceMock }),
+  useSearchParams: useTestSearchParams,
 }));
 
 vi.mock('./api', () => ({
@@ -47,7 +52,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
   let root: Root;
 
   beforeEach(() => {
-    currentSearch = 'status=ended';
+    listNavigation.search = 'status=ended';
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -76,6 +81,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -88,7 +94,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
   }
 
   it('종료 상태와 URL 연도를 요청하고 공용 카드로 동일한 프로그램 상세를 연다', async () => {
-    currentSearch = 'status=ended&year=2025&sort=name&direction=desc';
+    listNavigation.search = 'status=ended&year=2025&sort=name&direction=desc';
     await renderEndedPrograms();
     expect(listProgramsMock).toHaveBeenLastCalledWith({
       page: 1,
@@ -114,7 +120,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
   });
 
   it('잘못된 연도는 전체 종료 목록으로 요청한다', async () => {
-    currentSearch = 'status=ended&year=1999';
+    listNavigation.search = 'status=ended&year=1999';
     await renderEndedPrograms();
     expect(listProgramsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -154,6 +160,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
         totalItems: 21,
         totalPages: 2,
       });
+      if (change === 'search') vi.useFakeTimers();
       await renderEndedPrograms();
       await act(async () => {
         if (change === 'search') {
@@ -171,12 +178,16 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
           if (!next) throw new Error('다음 페이지 버튼이 없습니다');
           next.click();
         } else {
-          currentSearch = 'status=ended&sort=name';
+          listNavigation.search = 'status=ended&sort=name';
           root.render(
             <ProgramListPage canCreateProgram={false} viewerRole={null} />,
           );
         }
       });
+      if (change === 'search')
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(300);
+        });
       expect(listProgramsMock).toHaveBeenLastCalledWith(
         expect.objectContaining(
           change === 'search'
@@ -187,16 +198,16 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
         ),
       );
       expect(getProgramEndedYears).toHaveBeenCalledTimes(1);
-      currentSearch = '';
+      listNavigation.search = '';
       await renderEndedPrograms();
-      currentSearch = 'status=ended';
+      listNavigation.search = 'status=ended';
       await renderEndedPrograms();
       expect(getProgramEndedYears).toHaveBeenCalledTimes(2);
     },
   );
 
   it('조회된 연도에 없어도 유효한 URL 연도를 선택된 값으로 표시한다', async () => {
-    currentSearch = 'status=ended&year=2030';
+    listNavigation.search = 'status=ended&year=2030';
     await renderEndedPrograms();
     expect(
       container.querySelector<HTMLSelectElement>(
@@ -225,7 +236,7 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
       Promise.withResolvers<Awaited<ReturnType<typeof listPrograms>>>();
     listProgramsMock.mockReturnValueOnce(previous.promise);
     await renderEndedPrograms();
-    currentSearch = 'status=ended&year=2025';
+    listNavigation.search = 'status=ended&year=2025';
     await renderEndedPrograms();
     await act(async () =>
       previous.resolve({
@@ -256,7 +267,7 @@ describe('ProgramListPage 등록 동선', () => {
   let root: Root;
 
   beforeEach(() => {
-    currentSearch = '';
+    listNavigation.search = '';
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -345,7 +356,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
 
   beforeEach(() => {
     sessionStorage.clear();
-    currentSearch = '';
+    listNavigation.search = '';
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -504,7 +515,7 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   });
 
   it('URL의 sort/direction을 select와 데이터 요청에 그대로 반영한다', async () => {
-    currentSearch = 'sort=name&direction=desc';
+    listNavigation.search = 'sort=name&direction=desc';
     await renderPage();
 
     expect(select().value).toBe('name');
@@ -514,18 +525,18 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
   });
 
   it('정렬 select를 바꾸면 현재 status를 보존한 URL로 이동한다', async () => {
-    currentSearch = 'status=recruiting';
+    listNavigation.search = 'status=recruiting';
     await renderPage();
 
     await changeSelectValue(select(), 'applicationPeriod');
 
-    expect(routerPushMock).toHaveBeenCalledWith(
+    expect(routerReplaceMock).toHaveBeenCalledWith(
       '/programs?status=recruiting&sort=applicationPeriod',
     );
   });
 
   it('조작된 URL의 삭제 안내는 표시하지 않는다', async () => {
-    currentSearch = 'purged=forged-text';
+    listNavigation.search = 'purged=forged-text';
 
     await renderPage();
 

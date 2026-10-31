@@ -10,8 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
 import { ProgramDocumentChangeRequestCountResponseDto } from './dto/program-document-change-request-count-response.dto';
@@ -19,6 +18,7 @@ import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-progr
 import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -31,7 +31,7 @@ export class ProgramDocumentChangeRequestsController {
 
   @Get('targets')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async targets(
     @Req() request: SessionRequest,
     @Param('programId') programId: string,
@@ -51,7 +51,8 @@ export class ProgramDocumentChangeRequestsController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionRequest,
     @Param('programId') programId: string,

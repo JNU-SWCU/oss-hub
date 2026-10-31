@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -96,14 +97,13 @@ const baseViewProps = {
 let container: HTMLDivElement;
 let root: Root;
 
-beforeEach(() => {
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+beforeEach(async () => {
+  root = await renderWithQuery(null);
+  container = root.container;
 });
 
-afterEach(() => {
-  act(() => root.unmount());
+afterEach(async () => {
+  await root.unmount();
   container.remove();
 });
 
@@ -710,6 +710,32 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
         retry.resolve(listResponse([directoryItem()], 2)),
       );
       expect(container.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('재조회 중 URL이 바뀌면 이전 페이지의 빈 결과로 현재 URL을 보정하지 않는다', async () => {
+      const { detail, refresh, fetch } = await start();
+      await deactivateThroughDialog(detail);
+      fetch.mockResolvedValueOnce(listResponse([directoryItem()], 3));
+
+      await render({ page: '3', role: 'STAFF', sort: 'role' });
+      await act(async () => refresh.resolve(listResponse([], 2)));
+
+      expect(container.textContent).toContain('합성 사용자');
+      expect(navigation.push).not.toHaveBeenCalled();
+      expect(String(fetch.mock.calls[4]?.[0])).toContain('page=3');
+      expect(String(fetch.mock.calls[4]?.[0])).toContain('sort=role');
+    });
+
+    it('최초 조회가 빈 페이지여도 변경 후 재조회가 아니면 이전 페이지로 이동하지 않는다', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValueOnce(listResponse([], 2)),
+      );
+
+      await render({ page: '2', role: 'STAFF' });
+
+      expect(container.querySelector('tbody [data-slot="select-trigger"]')).toBeNull();
+      expect(navigation.push).not.toHaveBeenCalled();
     });
 
     it.each([1, 2, 3])(

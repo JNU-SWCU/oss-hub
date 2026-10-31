@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
 import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,7 @@ export function ProfileOnboardingScreen({
   ) => ReactNode;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [values, setValues] = useState<ProfileFormValues | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -92,7 +95,12 @@ export function ProfileOnboardingScreen({
     async (signal?: AbortSignal) => {
       setLoadError(null);
       try {
-        const profile = await getMyProfile(signal);
+        const profile = await queryClient.fetchQuery({
+          queryKey: featureKey('profile'),
+          queryFn: ({ signal: querySignal }) => getMyProfile(querySignal),
+          staleTime: 0,
+        });
+        if (signal?.aborted) return;
         const redirect = getProfileRedirect(profile, memberKind, nextPath);
         if (redirect) {
           router.replace(redirect);
@@ -104,7 +112,7 @@ export function ProfileOnboardingScreen({
         setLoadError('프로필 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
       }
     },
-    [memberKind, navigateForError, nextPath, router],
+    [memberKind, navigateForError, nextPath, router, queryClient],
   );
 
   useEffect(() => {
@@ -145,6 +153,7 @@ export function ProfileOnboardingScreen({
     setSubmitError(null);
     try {
       await completeMyProfile(request);
+      void queryClient.invalidateQueries({ queryKey: featureKey('profile') });
       rememberSignupCompletion(nextPath);
       window.location.assign(nextPath);
     } catch (error: unknown) {

@@ -19,15 +19,12 @@ import {
   programOverviewHref,
 } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
-import {
-  acceptInvitation,
-  declineInvitation,
-  listReceivedInvitations,
-} from './team-invitation-api';
+import { acceptInvitation, declineInvitation } from './team-invitation-api';
 import type { ReceivedTeamInvitation } from './team-invitation-dto';
-import { notifyTeamMembershipChanged } from './team-membership-events';
-
-const POLL_INTERVAL_MS = 60_000;
+import { useQueryClient } from '@tanstack/react-query';
+import { featureKey } from '@/lib/query-keys';
+import { invalidateProgram } from '../catalog/queries';
+import { receivedInvitationsKey, useReceivedInvitationsQuery } from './queries';
 
 export interface TeamInvitationNotificationsProps {
   readonly identityKey?: string | null;
@@ -53,7 +50,6 @@ type InvitationActionState =
     };
 
 type ActionStates = Readonly<Record<string, InvitationActionState>>;
-type LoadMode = 'replace' | 'refresh';
 
 function actionErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError && error.problem.detail.trim().length > 0) {
@@ -76,139 +72,41 @@ export function TeamInvitationNotifications({
 }: TeamInvitationNotificationsProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [loadState, setLoadState] = useState<InvitationLoadState>({
-    kind: 'loading',
-  });
+  const queryClient = useQueryClient();
+  const query = useReceivedInvitationsQuery(identityKey);
+  const loadState: InvitationLoadState =
+    query.data !== undefined
+      ? {
+          kind: 'ready',
+          items: query.data.filter((item) => item.status === 'PENDING'),
+          refreshError: query.isError ? errorMessage(query.error) : null,
+        }
+      : query.isError
+        ? { kind: 'error', message: errorMessage(query.error) }
+        : { kind: 'loading' };
+  const loadInvitations = useCallback(
+    () => query.refetch({ cancelRefetch: false }),
+    [query.refetch],
+  );
   const [actionStates, setActionStates] = useState<ActionStates>({});
   const mountedRef = useRef(false);
   const identityRef = useRef(identityKey);
-  const requestGenerationRef = useRef(0);
-  const requestInFlightRef = useRef(false);
   const actionInFlightRef = useRef(new Set<string>());
-  const pollTimerRef = useRef<number | null>(null);
 
   const isCurrentIdentity = useCallback(() => {
     return mountedRef.current && identityRef.current === identityKey;
   }, [identityKey]);
 
-  const invalidatePendingList = useCallback(() => {
-    requestGenerationRef.current += 1;
-    requestInFlightRef.current = false;
-  }, []);
-
-  const loadInvitations = useCallback(
-    async (mode: LoadMode = 'replace') => {
-      if (requestInFlightRef.current) return;
-
-      const requestGeneration = requestGenerationRef.current + 1;
-      requestGenerationRef.current = requestGeneration;
-      const requestIdentity = identityKey;
-      requestInFlightRef.current = true;
-      if (mountedRef.current && mode === 'replace') {
-        setLoadState({ kind: 'loading' });
-      }
-
-      try {
-        const invitations = await listReceivedInvitations();
-        if (
-          !mountedRef.current ||
-          requestGeneration !== requestGenerationRef.current ||
-          requestIdentity !== identityRef.current
-        ) {
-          return;
-        }
-        setLoadState({
-          kind: 'ready',
-          items: invitations.filter(
-            (invitation) => invitation.status === 'PENDING',
-          ),
-          refreshError: null,
-        });
-      } catch (error: unknown) {
-        if (
-          !mountedRef.current ||
-          requestGeneration !== requestGenerationRef.current ||
-          requestIdentity !== identityRef.current
-        ) {
-          return;
-        }
-        const message = errorMessage(error);
-        setLoadState((current) => {
-          if (mode === 'refresh' && current.kind === 'ready') {
-            return { ...current, refreshError: message };
-          }
-          return { kind: 'error', message };
-        });
-      } finally {
-        if (requestGeneration === requestGenerationRef.current) {
-          requestInFlightRef.current = false;
-        }
-      }
-    },
-    [identityKey],
-  );
-
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      requestGenerationRef.current += 1;
-      actionInFlightRef.current.clear();
-    };
-  }, []);
-
-  useEffect(() => {
     identityRef.current = identityKey;
-    requestGenerationRef.current += 1;
-    requestInFlightRef.current = false;
     actionInFlightRef.current.clear();
     setOpen(false);
-    setLoadState({ kind: 'loading' });
     setActionStates({});
-  }, [identityKey]);
-
-  useEffect(() => {
-    void loadInvitations('replace');
-  }, [loadInvitations]);
-
-  useEffect(() => {
-    const refreshOnFocus = () => {
-      void loadInvitations('refresh');
-    };
-    const stopPolling = () => {
-      if (pollTimerRef.current !== null) {
-        window.clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-    const startPolling = () => {
-      if (pollTimerRef.current !== null) return;
-      pollTimerRef.current = window.setInterval(() => {
-        if (document.visibilityState !== 'visible') return;
-        void loadInvitations('refresh');
-      }, POLL_INTERVAL_MS);
-    };
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void loadInvitations('refresh');
-        startPolling();
-        return;
-      }
-      stopPolling();
-    };
-
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshWhenVisible);
-    if (document.visibilityState === 'visible') {
-      startPolling();
-    }
-
     return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshWhenVisible);
-      stopPolling();
+      mountedRef.current = false;
     };
-  }, [loadInvitations]);
+  }, [identityKey]);
 
   const respondToInvitation = useCallback(
     async (invitation: ReceivedTeamInvitation, action: InvitationAction) => {
@@ -235,14 +133,16 @@ export function TeamInvitationNotifications({
         }
 
         if (!isCurrentIdentity()) return;
-        invalidatePendingList();
-        setLoadState((current) => {
-          if (current.kind !== 'ready') return current;
-          return {
-            kind: 'ready',
-            items: current.items.filter((item) => item.id !== invitation.id),
-            refreshError: null,
-          };
+        const queryKey = receivedInvitationsKey(identityKey);
+        await queryClient.cancelQueries({ queryKey });
+        if (!isCurrentIdentity()) return;
+        queryClient.setQueryData<readonly ReceivedTeamInvitation[]>(
+          queryKey,
+          (items) => items?.filter((item) => item.id !== invitation.id),
+        );
+        void queryClient.invalidateQueries({
+          queryKey: featureKey('team-invitations', 'received'),
+          refetchType: 'none',
         });
         setActionStates((current) => {
           const next = { ...current };
@@ -250,7 +150,7 @@ export function TeamInvitationNotifications({
           return next;
         });
         if (accepted) {
-          notifyTeamMembershipChanged(accepted.programId);
+          void invalidateProgram(queryClient, accepted.programId);
           router.push(
             invitation.preparation
               ? programApplyHref(accepted.programId)
@@ -277,7 +177,7 @@ export function TeamInvitationNotifications({
         actionInFlightRef.current.delete(invitation.id);
       }
     },
-    [invalidatePendingList, isCurrentIdentity, router],
+    [identityKey, queryClient, isCurrentIdentity, router],
   );
 
   const pendingCount = loadState.kind === 'ready' ? loadState.items.length : 0;
@@ -290,7 +190,7 @@ export function TeamInvitationNotifications({
     (nextOpen: boolean) => {
       setOpen(nextOpen);
       if (nextOpen) {
-        void loadInvitations('refresh');
+        void loadInvitations();
       }
     },
     [loadInvitations],
@@ -311,7 +211,7 @@ export function TeamInvitationNotifications({
             aria-haspopup="dialog"
             aria-expanded={open}
             onFocus={() => {
-              if (!open) void loadInvitations('refresh');
+              if (!open) void loadInvitations();
             }}
           >
             <Bell aria-hidden="true" />
@@ -393,7 +293,7 @@ export function TeamInvitationNotifications({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    void loadInvitations('replace');
+                    void loadInvitations();
                   }}
                 >
                   <RefreshCw aria-hidden="true" />
@@ -416,7 +316,7 @@ export function TeamInvitationNotifications({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    void loadInvitations('refresh');
+                    void loadInvitations();
                   }}
                 >
                   <RefreshCw aria-hidden="true" />

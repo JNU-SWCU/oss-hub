@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FormSection } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -38,6 +39,7 @@ export function AccountDeactivationSection({
 
   readonly onDeactivated?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export function AccountDeactivationSection({
     setError(null);
     try {
       await deactivateMyAccount();
+      queryClient.clear();
       onDeactivated();
     } catch (reason: unknown) {
       setError(errorMessage(reason));

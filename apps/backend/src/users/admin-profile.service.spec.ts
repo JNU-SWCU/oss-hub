@@ -12,7 +12,7 @@ import {
 } from './admin-profile.service.spec-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 describe('AdminProfileService.patchProfile', () => {

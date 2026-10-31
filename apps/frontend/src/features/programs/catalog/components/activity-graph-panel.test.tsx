@@ -1,7 +1,7 @@
-import { act } from 'react';
-import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { notifyManager } from '@tanstack/react-query';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithQuery } from '../../../../../test-support/render-with-query';
 
 import {
   ActivityGraphContent,
@@ -16,6 +16,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 describe('활동 그래프 지표 비교', () => {
+  beforeEach(() => notifyManager.setScheduler(queueMicrotask));
+  afterEach(() =>
+    notifyManager.setScheduler((callback) => setTimeout(callback, 0)),
+  );
   it.each(['own-application', 'missing-application'])(
     '우리 팀은 신청 ID %s의 활동만 표시하고 다른 팀으로 대체하지 않는다',
     async (applicationId) => {
@@ -33,18 +37,14 @@ describe('활동 그래프 지표 비교', () => {
           hasIncompleteContributions: false,
         })),
       );
-      const container = document.createElement('div');
-      document.body.append(container);
-      const root = createRoot(container);
+      const view = await renderWithQuery(
+        <ActivityGraphContent
+          programId="program"
+          applicationId={applicationId}
+        />,
+      );
+      const { container } = view;
       try {
-        await act(async () =>
-          root.render(
-            <ActivityGraphContent
-              programId="program"
-              applicationId={applicationId}
-            />,
-          ),
-        );
         expect(container.textContent).not.toContain('다른 팀');
         expect(container.textContent).not.toContain('999');
         expect(container.querySelector('[role="meter"]')).toBeNull();
@@ -59,8 +59,7 @@ describe('활동 그래프 지표 비교', () => {
           expect(container.textContent).toContain('우리 팀의 활동이 집계되면');
         }
       } finally {
-        act(() => root.unmount());
-        container.remove();
+        await view.unmount();
       }
     },
   );

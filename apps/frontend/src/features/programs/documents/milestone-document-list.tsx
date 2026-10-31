@@ -1,6 +1,11 @@
 'use client';
 
-import { notifyMilestoneDocumentSubmitted } from './milestone-document-events';
+import { matchQuery, useQueryClient } from '@tanstack/react-query';
+import { milestoneDocumentsKey, programKey } from '@/lib/query-keys';
+import {
+  useMilestoneDocumentsQuery,
+  useMilestoneDocumentParticipantHistoryQuery,
+} from './queries';
 import { Download, Pencil, Upload } from 'lucide-react';
 import {
   useCallback,
@@ -14,8 +19,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError, isUnexpectedApiProblem } from '@/lib/api-client';
 import {
-  getMilestoneDocumentParticipantHistory,
-  listMilestoneDocuments,
   milestoneDocumentTemplateHref,
   submitMilestoneDocument,
   uploadMilestoneDocumentFile,
@@ -25,7 +28,6 @@ import type {
   MilestoneDocumentSubmissionContent,
   MilestoneDocumentUploadPolicy,
 } from './milestone-document-dto';
-import type { MilestoneDocumentCollectionHistory } from './milestone-document-collection-dto';
 import {
   isMilestoneDocumentSubmitReviewChanged,
   milestoneDocumentSubmitConflictNotice,
@@ -86,6 +88,7 @@ function ConflictNotice({
 }
 
 export function MilestoneDocumentSectionBody({
+  programId,
   state,
   viewerRole,
   closed,
@@ -95,7 +98,9 @@ export function MilestoneDocumentSectionBody({
   onRetry,
   onRefresh = () => Promise.resolve(true),
   onSubmitConflict,
+  onSubmitted,
 }: {
+  readonly programId: string;
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
@@ -109,6 +114,7 @@ export function MilestoneDocumentSectionBody({
   readonly onRefresh?: () => Promise<boolean>;
 
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
+  readonly onSubmitted: () => void;
 }) {
   if (state.kind === 'loading') return null;
   if (state.kind === 'failed') {
@@ -160,6 +166,7 @@ export function MilestoneDocumentSectionBody({
             />
           ) : (
             <StudentDocumentRow
+              programId={programId}
               key={document.id}
               document={document}
               fileUpload={state.fileUpload}
@@ -168,6 +175,7 @@ export function MilestoneDocumentSectionBody({
               submissionAccess={submissionAccess}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
+              onSubmitted={onSubmitted}
             />
           ),
         )}
@@ -177,12 +185,14 @@ export function MilestoneDocumentSectionBody({
 }
 
 export function MilestoneDocumentSection({
+  programId,
   milestoneId,
   viewerRole,
   closed,
   dueAt,
   submissionAccess,
 }: {
+  readonly programId: string;
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
@@ -190,9 +200,19 @@ export function MilestoneDocumentSection({
 
   readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
-  const [state, setState] = useState<MilestoneDocumentSectionState>({
-    kind: 'loading',
-  });
+  const queryClient = useQueryClient();
+  const result = useMilestoneDocumentsQuery(
+    programId,
+    milestoneId,
+    viewerRole !== null && viewerRole !== 'PENDING',
+  );
+  const [loadFailed, setLoadFailed] = useState(false);
+  const state: MilestoneDocumentSectionState =
+    result.isError && (loadFailed || result.data === undefined)
+      ? { kind: 'failed' }
+      : result.data === undefined
+        ? { kind: 'loading' }
+        : { kind: 'ready', ...result.data };
 
   const [conflictNotice, setConflictNotice] = useState<string | null>(null);
   const reloadQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -200,33 +220,37 @@ export function MilestoneDocumentSection({
   const enqueueLoad = useCallback(
     (showLoading: boolean): Promise<MilestoneDocumentReloadResult> => {
       const current = reloadQueueRef.current.then(async () => {
-        if (showLoading) setState({ kind: 'loading' });
-        try {
-          setState({
-            kind: 'ready',
-            ...(await listMilestoneDocuments(milestoneId)),
-          });
-          return 'reloaded' as const;
-        } catch {
-          if (showLoading) setState({ kind: 'failed' });
-          return 'failed' as const;
-        }
+        const next = await result.refetch();
+        if (showLoading) setLoadFailed(next.isError);
+        return next.isError ? ('failed' as const) : ('reloaded' as const);
       });
       reloadQueueRef.current = current.then(() => undefined);
       return current;
     },
-    [milestoneId],
+    [result.refetch],
   );
   const load = useCallback(() => enqueueLoad(true), [enqueueLoad]);
-  useEffect(() => {
-    if (viewerRole === null || viewerRole === 'PENDING') return;
-    void load();
-  }, [load, viewerRole]);
 
   if (viewerRole === null || viewerRole === 'PENDING') return null;
 
   return (
     <MilestoneDocumentSectionBody
+      programId={programId}
+      onSubmitted={() => {
+        void queryClient.invalidateQueries({
+          queryKey: programKey(programId),
+          refetchType: 'none',
+        });
+        void queryClient.refetchQueries({
+          queryKey: programKey(programId),
+          type: 'active',
+          predicate: (query) =>
+            !matchQuery(
+              { queryKey: milestoneDocumentsKey(programId, milestoneId) },
+              query,
+            ),
+        });
+      }}
       state={state}
       viewerRole={viewerRole}
       closed={closed}
@@ -239,15 +263,16 @@ export function MilestoneDocumentSection({
       }}
       onDocumentChange={(updated) => {
         setConflictNotice(null);
-        setState((previous) =>
-          previous.kind === 'ready'
-            ? {
-                ...previous,
-                documents: previous.documents.map((document) =>
+        queryClient.setQueryData(
+          milestoneDocumentsKey(programId, milestoneId),
+          result.data === undefined
+            ? undefined
+            : {
+                ...result.data,
+                documents: result.data.documents.map((document) =>
                   document.id === updated.id ? updated : document,
                 ),
-              }
-            : previous,
+              },
         );
       }}
       onRefresh={async () => (await enqueueLoad(false)) === 'reloaded'}
@@ -406,6 +431,7 @@ function HeldSubmitAction({
 }
 
 function StudentDocumentRow({
+  programId,
   document,
   fileUpload,
   closed,
@@ -413,7 +439,9 @@ function StudentDocumentRow({
   submissionAccess,
   onRefresh,
   onSubmitConflict,
+  onSubmitted,
 }: {
+  readonly programId: string;
   readonly document: MilestoneDocument;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly closed: boolean;
@@ -421,6 +449,7 @@ function StudentDocumentRow({
   readonly submissionAccess: MilestoneSubmissionAccess;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
+  readonly onSubmitted: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -437,21 +466,26 @@ function StudentDocumentRow({
     readonly message: string;
   } | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
-  const [history, setHistory] = useState<
-    readonly MilestoneDocumentCollectionHistory[]
-  >([]);
-  const [historyNextCursor, setHistoryNextCursor] = useState<string | null>(
-    null,
+  const historyResult = useMilestoneDocumentParticipantHistoryQuery(
+    programId,
+    document,
   );
-  const [historyIsComplete, setHistoryIsComplete] = useState(true);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-
-  const [historyForbidden, setHistoryForbidden] = useState(false);
-  const [historyErrorCursor, setHistoryErrorCursor] = useState<string | null>(
-    null,
-  );
-  const historyRequestIdRef = useRef(0);
+  const historyPages = historyResult.data?.pages ?? [];
+  const history = historyPages.toReversed().flatMap((page) => page.items);
+  const lastHistoryPage = historyPages.at(-1);
+  const historyNextCursor = lastHistoryPage?.nextCursor ?? null;
+  const historyIsComplete =
+    lastHistoryPage?.isComplete ??
+    document.viewerSubmission?.history?.isComplete ??
+    true;
+  const isHistoryLoading = historyResult.isFetching;
+  const historyForbidden =
+    historyResult.error instanceof ApiError &&
+    historyResult.error.problem.code === 'MSD_005';
+  const historyError =
+    historyResult.isError && !historyForbidden
+      ? '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      : null;
 
   const viewerSubmission = document.viewerSubmission;
   const submitted = viewerSubmission?.submitted ?? false;
@@ -525,65 +559,10 @@ function StudentDocumentRow({
     }
   }, [onRefresh]);
 
-  const loadHistory = useCallback(
-    async (cursor: string | null) => {
-      historyRequestIdRef.current += 1;
-      const requestId = historyRequestIdRef.current;
-      setIsHistoryLoading(true);
-      setHistoryError(null);
-      setHistoryForbidden(false);
-      try {
-        const page = await getMilestoneDocumentParticipantHistory(
-          document.milestoneId,
-          document.id,
-          cursor,
-        );
-        if (requestId !== historyRequestIdRef.current) return;
-        setHistory((previous) =>
-          cursor === null ? page.items : [...page.items, ...previous],
-        );
-        setHistoryNextCursor(page.nextCursor);
-        setHistoryIsComplete(page.isComplete);
-        setHistoryErrorCursor(null);
-      } catch (reason) {
-        if (requestId !== historyRequestIdRef.current) return;
-
-        if (reason instanceof ApiError && reason.problem.code === 'MSD_005') {
-          setHistoryForbidden(true);
-          setHistoryErrorCursor(null);
-          return;
-        }
-        setHistoryError(
-          '제출 이력을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
-        );
-        setHistoryErrorCursor(cursor);
-      } finally {
-        if (requestId === historyRequestIdRef.current) {
-          setIsHistoryLoading(false);
-        }
-      }
-    },
-    [document.id, document.milestoneId],
-  );
-
-  useEffect(() => {
-    historyRequestIdRef.current += 1;
-    setHistory([]);
-    setHistoryNextCursor(null);
-    setHistoryIsComplete(historyMetadata?.isComplete ?? true);
-    setIsHistoryLoading(false);
-    setHistoryError(null);
-    setHistoryErrorCursor(null);
-    if (!submitted || historyMetadata?.hasHistory !== true) return;
-    void loadHistory(null);
-  }, [
-    document.id,
-    document.milestoneId,
-    historyMetadata?.hasHistory,
-    loadHistory,
-    submitted,
-    viewerSubmission?.revision,
-  ]);
+  const loadHistory = () =>
+    historyResult.isFetchNextPageError || historyResult.hasNextPage
+      ? historyResult.fetchNextPage()
+      : historyResult.refetch();
 
   const finish = useCallback(
     async (content: MilestoneDocumentSubmissionContent): Promise<boolean> => {
@@ -596,7 +575,7 @@ function StudentDocumentRow({
           document.id,
           content,
         );
-        notifyMilestoneDocumentSubmitted(document.milestoneId);
+        onSubmitted();
         setEditing(false);
         await refreshDocument();
         return true;
@@ -611,7 +590,7 @@ function StudentDocumentRow({
         setSubmitting(false);
       }
     },
-    [document, onSubmitConflict, refreshDocument],
+    [document, onSubmitConflict, onSubmitted, refreshDocument],
   );
 
   const send = useCallback(
@@ -786,7 +765,7 @@ function StudentDocumentRow({
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => void loadHistory(historyErrorCursor)}
+                  onClick={() => void loadHistory()}
                 >
                   다시 시도
                 </Button>
@@ -800,7 +779,7 @@ function StudentDocumentRow({
               variant="outline"
               className="w-fit"
               disabled={isHistoryLoading}
-              onClick={() => void loadHistory(historyNextCursor)}
+              onClick={() => void loadHistory()}
             >
               이전 이력 더 보기
             </Button>

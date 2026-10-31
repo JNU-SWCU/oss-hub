@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
 import type { MilestoneDocument } from './milestone-document-dto';
 import { ProgramMilestones } from '../catalog/program-detail-view';
@@ -129,7 +141,11 @@ describe('마일스톤 접기', () => {
     program: ProgramDetail = programWith(MILESTONES),
   ): Promise<readonly HTMLElement[]> {
     await act(async () => {
-      root.render(<ProgramMilestones program={program} />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ProgramMilestones program={program} />
+        </QueryClientProvider>,
+      );
     });
     const groups = [
       ...container.querySelectorAll<HTMLElement>(

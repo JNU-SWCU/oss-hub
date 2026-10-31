@@ -4,7 +4,7 @@ import { decodeJwt, SignJWT } from 'jose';
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-} from './auth-session.service';
+} from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

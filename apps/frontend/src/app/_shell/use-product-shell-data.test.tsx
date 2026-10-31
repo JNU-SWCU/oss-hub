@@ -1,8 +1,21 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import { invalidateBoardList } from '@/features/board/board-list-refetch';
+import { invalidateProgram } from '@/features/programs/catalog/queries';
+import { invalidateBoard } from '@/features/board/queries';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -112,7 +125,11 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     ]);
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
     });
 
     expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1', true);
@@ -135,40 +152,26 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     mocks.getProgramOverview.mockResolvedValue(overview);
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
-      root.render(<Probe programDetailId="program-1" member />),
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      ),
     );
     expect(container.textContent).toContain('"viewerDocumentsCompleted":0');
     mocks.getProgramOverview.mockResolvedValue({
       ...overview,
       viewerDocumentsCompleted: 1,
     });
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'other-program' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, 'other-program'));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":0');
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, 'program-1'));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
+    await act(async () => invalidateProgram(queryClient, 'program-1'));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(3);
-    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
+    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(3);
   });
 
   it('첫 집계 응답보다 제출이 먼저 끝나도 해당 프로그램임을 확인한 뒤 다시 읽는다', async () => {
@@ -192,15 +195,13 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       .mockResolvedValue({ ...overview, viewerDocumentsCompleted: 1 });
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
-      root.render(<Probe programDetailId="program-1" member />),
-    );
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
       ),
     );
+    await act(async () => invalidateProgram(queryClient, 'program-1'));
     await act(async () => resolveInitial(overview));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
@@ -218,7 +219,11 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     mocks.getProgramOverview.mockResolvedValueOnce(overview);
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
-      root.render(<Probe programDetailId="program-1" member />),
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      ),
     );
     let resolveOlder: (value: ProgramOverview) => void = () => {
       throw new TypeError('older request missing');
@@ -230,43 +235,43 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         }),
       )
       .mockResolvedValue({ ...overview, viewerDocumentsCompleted: 1 });
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
-    await act(async () =>
-      window.dispatchEvent(
-        new CustomEvent('oss-hub:milestone-document-submitted', {
-          detail: { milestoneId: 'plan' },
-        }),
-      ),
-    );
+    await act(async () => {
+      void invalidateProgram(queryClient, 'program-1');
+    });
+    await act(async () => invalidateProgram(queryClient, 'program-1'));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
     await act(async () => resolveOlder(overview));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
   });
 
-  it('같은 프로그램 게시글 변경만 집계를 갱신하고 이전 프로그램 구독은 해제한다', async () => {
+  it('같은 프로그램 게시글 변경만 집계를 갱신하고 떠난 프로그램 집계는 다시 읽지 않는다', async () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
-      root.render(<Probe programDetailId="program-1" member />),
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      ),
     );
-    await act(async () => invalidateBoardList('other-program'));
+    await act(async () => invalidateBoard(queryClient, 'other-program'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
     mocks.getProgramOverview.mockResolvedValue({
       ...OVERVIEW,
       boardPostCount: 1,
     });
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(container.textContent).toContain('"boardPostCount":1');
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
     expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
-    await act(async () => root.render(<Probe programDetailId={null} member />));
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId={null} member />
+        </QueryClientProvider>,
+      ),
+    );
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
     expect(container.textContent).not.toContain('"scopeOverview":');
   });
@@ -290,9 +295,13 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         .mockResolvedValue({ ...OVERVIEW, boardPostCount: 1 });
       mocks.getProgramNavigationMilestones.mockResolvedValue([]);
       await act(async () =>
-        root.render(<Probe programDetailId="program-1" member />),
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <Probe programDetailId="program-1" member />
+          </QueryClientProvider>,
+        ),
       );
-      await act(async () => invalidateBoardList('program-1'));
+      await act(async () => invalidateBoard(queryClient, 'program-1'));
       expect(container.textContent).toContain('"boardPostCount":1');
       await act(async () => {
         if (settle === 'resolve') resolveInitial(OVERVIEW);
@@ -307,7 +316,11 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
-      root.render(<Probe programDetailId="program-1" member />),
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      ),
     );
     let resolveOlder: (value: ProgramOverview) => void = () => {
       throw new Error('missing older');
@@ -319,8 +332,10 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         }),
       )
       .mockResolvedValue(OVERVIEW);
-    await act(async () => invalidateBoardList('program-1'));
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => {
+      void invalidateBoard(queryClient, 'program-1');
+    });
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(3);
     expect(container.textContent).toContain('"boardPostCount":0');
     await act(async () => resolveOlder({ ...OVERVIEW, boardPostCount: 1 }));
@@ -334,7 +349,11 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     );
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
     });
 
     expect(container.textContent).toContain('합성 프로그램');
@@ -346,7 +365,11 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
 
   it('비회원에게는 회원 전용 overview와 추가 단계 조회를 시작하지 않는다', async () => {
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member={false} />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member={false} />
+        </QueryClientProvider>,
+      );
     });
 
     expect(mocks.getProgramOverview).not.toHaveBeenCalled();
@@ -377,7 +400,11 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member studentViewer />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer />
+        </QueryClientProvider>,
+      );
     });
 
     expect(mocks.getMyApplication).toHaveBeenCalledWith('program-1');
@@ -388,7 +415,11 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'SUBMITTED' });
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member studentViewer />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer />
+        </QueryClientProvider>,
+      );
     });
 
     expect(container.textContent).toContain('"scopeParticipant":false');
@@ -398,7 +429,11 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     mocks.getMyApplication.mockResolvedValue(null);
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member studentViewer />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer />
+        </QueryClientProvider>,
+      );
     });
 
     expect(container.textContent).toContain('"scopeParticipant":false');
@@ -408,7 +443,11 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     mocks.getMyApplication.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member studentViewer />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer />
+        </QueryClientProvider>,
+      );
     });
 
     expect(container.textContent).not.toContain('"scopeParticipant":');
@@ -418,7 +457,11 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_009'));
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member studentViewer />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer />
+        </QueryClientProvider>,
+      );
     });
 
     expect(container.textContent).not.toContain('"scopeParticipant":');
@@ -427,7 +470,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('학생 시야가 아니면 묻지 않는다 — 교직원은 참여 여부와 무관하게 열린다', async () => {
     await act(async () => {
       root.render(
-        <Probe programDetailId="program-1" member studentViewer={false} />,
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member studentViewer={false} />
+        </QueryClientProvider>,
       );
     });
 
@@ -472,7 +517,11 @@ describe('useProductShellData 로딩 상태', () => {
     mocks.getProgramOverview.mockReturnValue(overview.promise);
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
     });
     expect(data().scopeOverviewStatus).toBe('pending');
     expect(data().scopeOverview).toBeUndefined();
@@ -490,7 +539,11 @@ describe('useProductShellData 로딩 상태', () => {
     mocks.getProgramOverview.mockReturnValue(overview.promise);
 
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member />
+        </QueryClientProvider>,
+      );
     });
     await act(async () => {
       overview.reject(apiError(500, 'INTERNAL'));
@@ -503,7 +556,11 @@ describe('useProductShellData 로딩 상태', () => {
 
   it('비회원은 overview를 부르지 않고 idle이다', async () => {
     await act(async () => {
-      root.render(<Probe programDetailId="program-1" member={false} />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId="program-1" member={false} />
+        </QueryClientProvider>,
+      );
     });
 
     expect(mocks.getProgramOverview).not.toHaveBeenCalled();
@@ -516,7 +573,11 @@ describe('useProductShellData 로딩 상태', () => {
     mocks.getProgramStatusCounts.mockReturnValue(counts.promise);
 
     await act(async () => {
-      root.render(<Probe programDetailId={null} member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId={null} member />
+        </QueryClientProvider>,
+      );
     });
     expect(data().facetStatus).toBe('pending');
     expect(data().scopeOverviewStatus).toBe('idle');
@@ -531,7 +592,11 @@ describe('useProductShellData 로딩 상태', () => {
     root = createRoot(container);
     mocks.getProgramStatusCounts.mockRejectedValue(new TypeError('network'));
     await act(async () => {
-      root.render(<Probe programDetailId={null} member />);
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe programDetailId={null} member />
+        </QueryClientProvider>,
+      );
     });
     expect(data().facetStatus).toBe('error');
   });

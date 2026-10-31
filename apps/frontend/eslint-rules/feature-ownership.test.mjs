@@ -23,6 +23,22 @@ function lint(
 
 describe('program and role ownership boundaries', () => {
   it.each([
+    'applications',
+    'authoring',
+    'catalog',
+    'documents',
+    'teams',
+    'staff-dashboard',
+  ])('accepts public query entries from %s', (owner) => {
+    expect(
+      lint(
+        `import { value } from '@/features/programs/${owner}/queries';`,
+        `/synthetic/src/features/programs/${owner === 'teams' ? 'catalog' : 'teams'}/screen.ts`,
+      ),
+    ).toEqual([]);
+  });
+
+  it.each([
     "import { value } from '@/features/programs/catalog/api';",
     "import type { ProgramDetail } from '../catalog/dto';",
     "import { value } from './internal-model';",

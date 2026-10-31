@@ -1,6 +1,18 @@
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../../test-support/render-with-query';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const queryClient = createTestQueryClient();
+beforeEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler(queueMicrotask);
+});
+afterEach(() => {
+  queryClient.clear();
+  notifyManager.setScheduler((callback) => setTimeout(callback, 0));
+});
 
 import { apiPath } from '@/lib/api-client';
 import type { ProgramDetail } from './dto';
@@ -143,11 +155,13 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
   async function openDetail(): Promise<void> {
     await act(async () => {
       root.render(
-        <ProgramDetailPage
-          renderSignInApply={stubSignInApply}
-          programId={PROGRAM_ID}
-          session="present"
-        />,
+        <QueryClientProvider client={queryClient}>
+          <ProgramDetailPage
+            renderSignInApply={stubSignInApply}
+            programId={PROGRAM_ID}
+            session="present"
+          />
+        </QueryClientProvider>,
       );
     });
     await vi.waitFor(() => {

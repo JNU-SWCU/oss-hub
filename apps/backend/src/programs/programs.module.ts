@@ -2,7 +2,7 @@ import { RepositoryProvisionEventService } from '../github/repository-provision-
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
+import { HttpSecurityModule } from '../platform/http-security.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
@@ -127,7 +127,7 @@ import { SubmissionInputService } from './submission-input.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 
 @Module({
-  imports: [AuthModule, PlatformModule, GithubModule, UsersModule],
+  imports: [PlatformModule, HttpSecurityModule, GithubModule, UsersModule],
   controllers: [
     ApplicationPreparationsController,
     StudentRepositoryUrlController,

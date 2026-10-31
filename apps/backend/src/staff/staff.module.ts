@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { UsersModule } from '../users/users.module';
 import { AccessRequestsController } from './access-requests.controller';
@@ -11,7 +10,7 @@ import { RankingModule } from '../ranking/ranking.module';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
 
 @Module({
-  imports: [AuthModule, ProgramsModule, RankingModule, UsersModule],
+  imports: [ProgramsModule, RankingModule, UsersModule],
   controllers: [StaffDashboardController, AccessRequestsController],
   providers: [
     StaffDashboardService,

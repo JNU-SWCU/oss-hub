@@ -86,7 +86,11 @@ describe('review background refresh', () => {
     expect(getReviewContext).toHaveBeenCalledTimes(2);
     visibility.mockReturnValue('visible');
     await act(() =>
-      Promise.resolve(document.dispatchEvent(new Event('visibilitychange'))),
+      Promise.resolve(
+        document.dispatchEvent(
+          new Event('visibilitychange', { bubbles: true }),
+        ),
+      ),
     );
     expect(getReviewContext).toHaveBeenCalledTimes(3);
     await screen.cleanup();

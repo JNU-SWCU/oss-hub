@@ -7,7 +7,7 @@ import {
   User,
 } from '@prisma/client';
 import { CONSENT_POLICY_VERSION } from '../../src/users/consents.service';
-import { UserProfileService } from '../../src/platform/user-profile.service';
+import { UserProfileService } from '../../src/users/user-profile.service';
 
 const userProfileService = new UserProfileService();
 

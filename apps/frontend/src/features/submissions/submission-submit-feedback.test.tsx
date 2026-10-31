@@ -1,7 +1,8 @@
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { SubmissionChecklistView } from './components/submission-checklist-view';

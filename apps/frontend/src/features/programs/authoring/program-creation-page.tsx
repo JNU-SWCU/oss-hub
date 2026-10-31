@@ -1,15 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateProgramLists } from '../catalog/list-queries';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
-import { ApiError } from '@/lib/api-client';
 import { programHref } from '../program-paths';
 import {
   createAuthoringProgram,
   deleteAuthoringUpload,
-  getAuthoringUploadPolicy,
   uploadAuthoringFile,
   uploadProgramCover,
 } from './program-authoring-api';
@@ -39,12 +38,14 @@ import {
   type ProgramAuthoringIssue,
 } from './program-authoring-validation';
 import { useProgramExitGuard } from './use-program-exit-guard';
+import { useAuthoringUploadPolicyQuery } from './queries';
 
 export function ProgramCreationPage({
   initialState,
 }: {
   readonly initialState?: ProgramAuthoringState;
 }) {
+  const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(
     programAuthoringReducer,
     undefined,
@@ -63,28 +64,8 @@ export function ProgramCreationPage({
   );
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [fileUpload, setFileUpload] = useState<SubmissionUploadLimit | null>(
-    null,
-  );
-  const [policyFailed, setPolicyFailed] = useState(false);
-  const loadPolicy = useCallback(async () => {
-    setPolicyFailed(false);
-    try {
-      const response = await getAuthoringUploadPolicy();
-      setFileUpload(response.fileUpload);
-    } catch (error: unknown) {
-      if (
-        !(error instanceof ApiError) &&
-        !(error instanceof TypeError) &&
-        !(error instanceof SyntaxError)
-      )
-        throw error;
-      setPolicyFailed(true);
-    }
-  }, []);
-  useEffect(() => {
-    void loadPolicy();
-  }, [loadPolicy]);
+  const policy = useAuthoringUploadPolicyQuery();
+  const fileUpload = policy.data?.fileUpload ?? null;
   const filesRef = useRef(new Map<string, File>());
   const runtimeRef = useRef(createProgramSubmissionRuntime());
   const stepRegionRef = useRef<HTMLDivElement>(null);
@@ -205,6 +186,7 @@ export function ProgramCreationPage({
       case 'ignored':
         return;
       case 'success':
+        void invalidateProgramLists(queryClient);
         clearProgramAuthoringRecoveryKey(window.sessionStorage);
         filesRef.current.clear();
         runtimeRef.current.uploads.clear();
@@ -229,7 +211,7 @@ export function ProgramCreationPage({
   };
 
   if (fileUpload === null) {
-    return policyFailed ? (
+    return policy.isError ? (
       <Alert variant="destructive">
         <AlertTitle>파일 업로드 제한을 불러오지 못했습니다.</AlertTitle>
         <AlertDescription>
@@ -237,7 +219,7 @@ export function ProgramCreationPage({
           <Button
             type="button"
             variant="outline"
-            onClick={() => void loadPolicy()}
+            onClick={() => void policy.refetch()}
           >
             다시 불러오기
           </Button>

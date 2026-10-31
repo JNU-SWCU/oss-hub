@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
+import { HttpSecurityModule } from '../platform/http-security.module';
 import { PlatformModule } from '../platform/platform.module';
-import { AuthModule } from '../auth/auth.module';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
@@ -18,6 +18,7 @@ import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
+import { UserProfileService } from './user-profile.service';
 import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import {
@@ -32,7 +33,7 @@ import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
-  imports: [PlatformModule, AuthModule],
+  imports: [PlatformModule, HttpSecurityModule],
 
   controllers: [
     AccountDeactivationController,
@@ -62,6 +63,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     ConsentsRepository,
     MemberOnboardingRepository,
     MemberOnboardingService,
+    UserProfileService,
   ],
   exports: [
     UsersService,
@@ -72,6 +74,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminProfileService,
     IndependentAuthorityService,
     MemberKindService,
+    UserProfileService,
   ],
 })
 export class UsersModule {}

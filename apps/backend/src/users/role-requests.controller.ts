@@ -1,10 +1,10 @@
 import { Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { MyStaffAccessRequestResponseDto } from './dto/my-staff-access-request-response.dto';
 import { RoleRequestResponseDto } from './dto/role-request-response.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -19,7 +19,7 @@ export class RoleRequestsController {
   ) {}
 
   @Get('me')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getMe(
     @Req() request: SessionIdentity,
   ): Promise<MyStaffAccessRequestResponseDto<RoleRequestResponseDto>> {
@@ -34,7 +34,8 @@ export class RoleRequestsController {
   }
 
   @Post()
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async retry(
     @Req() request: SessionIdentity,
   ): Promise<RoleRequestResponseDto> {

@@ -1,7 +1,9 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionRoleState } from '../_shell/use-session-role';
+import { featureKey } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => ({
   useSessionRole: vi.fn(),
@@ -77,6 +79,12 @@ describe('설정 알림 흐름', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    root.queryClient.setQueryDefaults(featureKey('profile'), {
+      gcTime: Infinity,
+    });
+    root.queryClient.setQueryDefaults(featureKey('notification-channel'), {
+      gcTime: Infinity,
+    });
   });
 
   afterEach(async () => {
@@ -202,6 +210,13 @@ describe('설정 알림 흐름', () => {
       notification.resolve(jsonResponse(SAVED_NOTIFICATION)),
     );
     expect(container.textContent).toContain('저장되었습니다.');
+    expect(
+      root.queryClient.getQueryState(featureKey('profile'))?.isInvalidated,
+    ).toBe(true);
+    expect(
+      root.queryClient.getQueryState(featureKey('notification-channel'))
+        ?.isInvalidated,
+    ).toBe(true);
     expect(
       field('settings-name').closest('form')?.querySelector('fieldset')
         ?.disabled,

@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 
-import { requestStaffRole } from '../api';
+import { useStaffRoleRequestMutation } from '../queries';
 import type { StaffAccessRequest, StaffAccessRequestStatus } from '../types';
 
 export const ROLE_REQUEST_RETRY_FAILURE_MESSAGE =
@@ -206,8 +206,11 @@ export function StaffAccessRequestScreen({
     }
     return { kind: 'loading' };
   });
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [retryError, setRetryError] = useState<string | null>(null);
+  const requestMutation = useStaffRoleRequestMutation();
+  const isRetrying = requestMutation.isPending;
+  const retryError = requestMutation.isError
+    ? staffAccessRequestRetryFailureMessage(requestMutation.error)
+    : null;
 
   useEffect(() => {
     switch (staffAccessRequestStatus) {
@@ -233,23 +236,12 @@ export function StaffAccessRequestScreen({
     }
   }, [staffAccessRequestRejectionReason, staffAccessRequestStatus, router]);
 
-  async function handleRetry(): Promise<void> {
+  function handleRetry(): void {
     if (isRetrying) {
       return;
     }
 
-    setIsRetrying(true);
-    setRetryError(null);
-
-    try {
-      await requestStaffRole();
-
-      onRefresh();
-    } catch (error) {
-      setRetryError(staffAccessRequestRetryFailureMessage(error));
-    } finally {
-      setIsRetrying(false);
-    }
+    requestMutation.mutate(undefined, { onSuccess: onRefresh });
   }
 
   switch (state.kind) {
@@ -268,7 +260,7 @@ export function StaffAccessRequestScreen({
           isRetrying={isRetrying}
           errorMessage={retryError}
           onRefresh={() => {
-            setRetryError(null);
+            requestMutation.reset();
             onRefresh();
           }}
           onRetry={() => void handleRetry()}

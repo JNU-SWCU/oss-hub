@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { EmptyState, FailureState } from '@/components';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { getProgramActivity } from '../api';
+import { useProgramActivityQuery } from '../queries';
 import { formatSeoulDate } from '../program-detail-format';
 import type { ProgramActivity } from '../dto';
 import type { ViewerRole } from '../../program-contract';
@@ -201,21 +200,12 @@ export function ActivityGraphContent({
   readonly programId: string;
   readonly applicationId?: string;
 }) {
-  const [state, setState] = useState<ActivityState>({ kind: 'loading' });
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      setState({
-        kind: 'ready',
-        activities: await getProgramActivity(programId),
-      });
-    } catch {
-      setState({ kind: 'failed' });
-    }
-  }, [programId]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const query = useProgramActivityQuery(programId);
+  const state: ActivityState = query.isPending
+    ? { kind: 'loading' }
+    : query.isError
+      ? { kind: 'failed' }
+      : { kind: 'ready', activities: query.data };
 
   const visibleState =
     state.kind === 'ready' && applicationId !== undefined
@@ -229,7 +219,7 @@ export function ActivityGraphContent({
   return (
     <ActivityPanelBody
       state={visibleState}
-      onRetry={() => void load()}
+      onRetry={() => void query.refetch()}
       compareTeams={applicationId === undefined}
     />
   );

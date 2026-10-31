@@ -7,7 +7,7 @@ import {
   IndependentAuthorityService,
 } from '../users/independent-authority.service';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { UserProfileService } from './user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 const independentAuthorityService = new IndependentAuthorityService(

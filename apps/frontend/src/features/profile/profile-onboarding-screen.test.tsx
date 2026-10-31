@@ -1,5 +1,6 @@
-import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { act, StrictMode } from 'react';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
+type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProfileMemberKind } from './profile-requirements';
 
@@ -146,6 +147,41 @@ describe('프로필 온보딩 화면', () => {
   const STUDENT_ID_ERROR = '학번은 숫자 6자리로 입력해 주세요.';
 
   const PHONE_ERROR = '전화번호는 숫자 10~11자리로 입력해 주세요.';
+
+  it('StrictMode effect 정리가 공유 중인 프로필 요청을 취소하지 않는다', async () => {
+    const pending = Promise.withResolvers<Response>();
+    const signals: AbortSignal[] = [];
+    const fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.signal) {
+        signals.push(init.signal);
+        init.signal.addEventListener(
+          'abort',
+          () => {
+            pending.reject(new DOMException('Aborted', 'AbortError'));
+          },
+          { once: true },
+        );
+      }
+      return pending.promise;
+    });
+    vi.stubGlobal('fetch', fetch);
+    await act(async () =>
+      root.render(
+        <StrictMode>
+          <ProfileOnboardingScreen memberKind="STUDENT" nextPath={NEXT_PATH} />
+        </StrictMode>,
+      ),
+    );
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
+    await act(async () =>
+      pending.resolve(
+        jsonResponse(profile({ department: null, isComplete: false })),
+      ),
+    );
+    expect(field('profile-student-id').value).toBe(LEGACY_STUDENT_ID);
+    expect(container.textContent).not.toContain('프로필을 불러오지 못했습니다');
+  });
 
   it('저장된 학번이 예전 형식이어도 완료된 학생을 붙잡지 않는다', async () => {
     await render();

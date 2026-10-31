@@ -1,14 +1,5 @@
-import {
-  Controller,
-  Get,
-  Header,
-  Inject,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Header, Inject, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ActivityTimelineRequestDto } from './dto/activity-timeline-request.dto';
 import { ActivityTimelineResponseDto } from './dto/activity-timeline-response.dto';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
@@ -17,6 +8,7 @@ import { ProgramActivityService } from '../programs/program-activity.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { StudentDashboardService } from './student-dashboard.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -35,7 +27,7 @@ export class StudentDashboardController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async dashboardSummary(
     @Req() request: SessionIdentity,
   ): Promise<StudentDashboardResponseDto> {
@@ -45,7 +37,7 @@ export class StudentDashboardController {
   }
 
   @Get('activity-timeline')
-  @UseGuards(SessionGuard)
+  @Protected()
   async activityTimeline(
     @Req() request: SessionIdentity,
     @Query() query: ActivityTimelineRequestDto,
@@ -60,7 +52,7 @@ export class StudentDashboardController {
 
   @Get('feedback')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   recentFeedback(
     @Req() request: SessionIdentity,
   ): Promise<MilestoneDocumentFeedbackResponseDto> {

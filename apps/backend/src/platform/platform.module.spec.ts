@@ -21,7 +21,6 @@ import { PlatformModule } from './platform.module';
 import { PrismaService } from './prisma.service';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { UserProfileService } from './user-profile.service';
 import { JoinCodeSecretService } from './join-code-secret.service';
 
 const getMetadataArray = (key: string): unknown[] => {
@@ -106,7 +105,6 @@ describe('PlatformModule', () => {
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
       AuditLogMetadataService,
-      UserProfileService,
       JoinCodeSecretService,
       AuditLogService,
     ]);

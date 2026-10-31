@@ -1,19 +1,11 @@
-import {
-  Controller,
-  Get,
-  Header,
-  Param,
-  Req,
-  UseGuards,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Header, Param, Req, Query } from '@nestjs/common';
 import { SubmissionChecklistResponseDto } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from './submission-matrix.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -26,7 +18,7 @@ export class ProgramSubmissionsController {
 
   @Get('me')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   checklist(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
@@ -38,7 +30,7 @@ export class ProgramSubmissionsController {
 
   @Get('matrix')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async matrix(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,

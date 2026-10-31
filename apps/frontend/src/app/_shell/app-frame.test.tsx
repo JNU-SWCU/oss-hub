@@ -1,4 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -76,9 +78,11 @@ function render(
     retry: () => {},
   });
   return renderToStaticMarkup(
-    <AppFrame brand="OSS Hub" actions={<button>로그인</button>}>
-      <p>본문</p>
-    </AppFrame>,
+    <QueryClientProvider client={createTestQueryClient()}>
+      <AppFrame brand="OSS Hub" actions={<button>로그인</button>}>
+        <p>본문</p>
+      </AppFrame>
+    </QueryClientProvider>,
   );
 }
 
@@ -276,9 +280,11 @@ describe('AppFrame', () => {
       retry: () => {},
     });
     const html = renderToStaticMarkup(
-      <AppFrame brand="OSS Hub" initialSidebarCollapsed>
-        <p>본문</p>
-      </AppFrame>,
+      <QueryClientProvider client={createTestQueryClient()}>
+        <AppFrame brand="OSS Hub" initialSidebarCollapsed>
+          <p>본문</p>
+        </AppFrame>
+      </QueryClientProvider>,
     );
     expect(html).toMatch(/data-slot="product-shell"[^>]*data-collapsed="true"/);
     expect(html).toMatch(/data-slot="app-sidebar"[^>]*data-collapsed="true"/);

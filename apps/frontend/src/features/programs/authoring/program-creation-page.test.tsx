@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
+import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { completedAuthoringState } from './program-creation-test-fixtures';
@@ -129,6 +130,22 @@ describe('ProgramCreationPage guided authoring', () => {
       expect(mocks.getAuthoringUploadPolicy).toHaveBeenCalledTimes(2);
     },
   );
+
+  it('동시에 열린 작성 화면은 업로드 정책 요청을 공유한다', async () => {
+    await act(async () =>
+      root.render(
+        <>
+          <ProgramCreationPage />
+          <ProgramCreationPage />
+        </>,
+      ),
+    );
+
+    expect(container.querySelectorAll('[aria-label="작성 단계"]')).toHaveLength(
+      2,
+    );
+    expect(mocks.getAuthoringUploadPolicy).toHaveBeenCalledTimes(1);
+  });
 
   it('does not mutate programs until final confirmation and clears recovery after success', async () => {
     mocks.createAuthoringProgram.mockResolvedValue({ id: 'program-created' });

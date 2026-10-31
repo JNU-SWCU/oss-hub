@@ -1,15 +1,13 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMilestoneDocumentCurrentFilesQuery } from './queries';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { downloadBlob } from '@/lib/download-blob';
-import {
-  downloadMilestoneDocumentCurrentFile,
-  listMilestoneDocumentCurrentFiles,
-} from './api';
+import { downloadMilestoneDocumentCurrentFile } from './api';
 import type { MilestoneDocumentCurrentFileItem } from './types';
 
 type CurrentFilesState =
@@ -21,38 +19,28 @@ type CurrentFilesState =
     };
 
 export function MilestoneDocumentCurrentFiles({
+  programId,
   milestoneId,
 }: {
+  readonly programId: string;
   readonly milestoneId: string;
 }) {
-  const [state, setState] = useState<CurrentFilesState>({ kind: 'loading' });
+  const result = useMilestoneDocumentCurrentFilesQuery(programId, milestoneId);
+  const state: CurrentFilesState = result.isError
+    ? {
+        kind: 'failed',
+        message:
+          result.error instanceof ApiError
+            ? result.error.problem.detail
+            : '현재 제출 파일을 불러오지 못했습니다.',
+      }
+    : result.data === undefined
+      ? { kind: 'loading' }
+      : { kind: 'ready', files: result.data };
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setState({ kind: 'loading' });
-    try {
-      const documents = await listMilestoneDocumentCurrentFiles(milestoneId);
-      setState({
-        kind: 'ready',
-        files: documents.filter(
-          (document) => document.viewerSubmission?.hasCurrentFile === true,
-        ),
-      });
-    } catch (error: unknown) {
-      setState({
-        kind: 'failed',
-        message:
-          error instanceof ApiError
-            ? error.problem.detail
-            : '현재 제출 파일을 불러오지 못했습니다.',
-      });
-    }
-  }, [milestoneId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = result.refetch;
 
   async function download(document: MilestoneDocumentCurrentFileItem) {
     setDownloadingId(document.id);

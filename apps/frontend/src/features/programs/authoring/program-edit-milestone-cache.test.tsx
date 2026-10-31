@@ -1,5 +1,6 @@
 import { act, StrictMode } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../../test-support/render-with-query';
+import { programFeatureKey } from '@/lib/query-keys';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditableMilestone, EditableProgram } from './dto';
 import { ProgramEditPage } from './program-edit-page';
@@ -96,12 +97,15 @@ const editableProgram: EditableProgram = {
 
 describe('프로그램 편집 마일스톤 일정 동기화', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    root.queryClient.setQueryDefaults(programFeatureKey('program-1', 'edit'), {
+      gcTime: Infinity,
+    });
     getEditableProgramMock.mockReset();
     getEditableMilestoneMock.mockReset().mockResolvedValue({
       milestone: originalMilestone,
@@ -127,12 +131,9 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     container.remove();
   });
 
-  it('늦게 도착한 이전 초기 응답이 편집 중인 교과 구분을 덮어쓰지 않는다', async () => {
-    const older = Promise.withResolvers<EditableProgram>();
+  it('StrictMode 초기 조회를 공유하고 편집 중인 교과 구분을 유지한다', async () => {
     const current = Promise.withResolvers<EditableProgram>();
-    getEditableProgramMock
-      .mockReturnValueOnce(older.promise)
-      .mockReturnValueOnce(current.promise);
+    getEditableProgramMock.mockReturnValueOnce(current.promise);
 
     await act(async () => {
       root.render(
@@ -141,7 +142,7 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
         </StrictMode>,
       );
     });
-    expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(1);
     await act(async () => {
       current.resolve({ ...editableProgram, trackType: null });
     });
@@ -156,10 +157,37 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
     expect(track.value).toBe('EXTRACURRICULAR');
 
     await act(async () => {
-      older.resolve({ ...editableProgram, trackType: null });
+      root.queryClient.setQueryData(programFeatureKey('program-1', 'edit'), {
+        ...editableProgram,
+        trackType: null,
+      });
     });
 
     expect(track.value).toBe('EXTRACURRICULAR');
+  });
+
+  it('30초 이내에 다시 열어도 캐시 대신 최신 서버 값으로 편집을 시작한다', async () => {
+    getEditableProgramMock.mockResolvedValue(editableProgram);
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    expect(
+      root.queryClient.getQueryData(programFeatureKey('program-1', 'edit')),
+    ).toEqual(editableProgram);
+    await act(async () => root.render(null));
+    getEditableProgramMock.mockResolvedValue({
+      ...editableProgram,
+      name: '변경된 프로그램',
+    });
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    expect(getEditableProgramMock).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('변경된 프로그램');
   });
 
   it('마일스톤 마감을 앞당긴 직후 새 마감 이후의 프로그램 종료일을 저장한다', async () => {

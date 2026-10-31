@@ -6,6 +6,7 @@ import { builtinRules } from 'eslint/use-at-your-own-risk';
 import { controllerExplicitReturn } from './eslint-rules/controller-explicit-return.mjs';
 import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
+import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
 import {
   bootstrapFiles,
   createRailsConfig,
@@ -118,6 +119,11 @@ export default tseslint.config(
         },
       },
     },
+  },
+  {
+    files: ['{src,test,prisma}/**/*.ts'],
+    plugins: { auth: { rules: { 'no-session-guard': noSessionGuard } } },
+    rules: { 'auth/no-session-guard': 'error' },
   },
   {
     files: ['src/*/*.controller.ts'],

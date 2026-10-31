@@ -1,5 +1,5 @@
 import { type AuthenticatedRequest } from './http-auth.types';
-import { LOGIN_HISTORY_EVENTS } from './auth.config';
+import { LOGIN_HISTORY_EVENTS } from '../platform/auth.config';
 import { LoginHistoryController } from './login-history.controller';
 import { LoginHistoryService } from './auth.service';
 
