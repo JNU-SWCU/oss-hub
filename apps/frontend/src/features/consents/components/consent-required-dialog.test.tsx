@@ -88,19 +88,20 @@ describe('ConsentRequiredDialog', () => {
 
   it('saves the new policy and closes without reopening after completion', async () => {
     const policyVersion = '2026-11-01';
-    fetchMock.mockImplementation(async (_target, init) =>
-      new Response(
-        JSON.stringify(
-          init?.method === 'POST'
-            ? {
-                policyVersion,
-                consentedAt: '2026-11-01T00:00:00.000Z',
-                nextUrl: '/onboarding/role',
-              }
-            : { ...policyResponse, policyVersion },
+    fetchMock.mockImplementation(
+      async (_target, init) =>
+        new Response(
+          JSON.stringify(
+            init?.method === 'POST'
+              ? {
+                  policyVersion,
+                  consentedAt: '2026-11-01T00:00:00.000Z',
+                  nextUrl: '/onboarding/role',
+                }
+              : { ...policyResponse, policyVersion },
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
     );
     function Host() {
       const [open, setOpen] = useState(true);
@@ -126,10 +127,12 @@ describe('ConsentRequiredDialog', () => {
     await act(async () => submit?.click());
 
     const submission = fetchMock.mock.calls.find(
-      ([target, init]) => target === apiPath('consents') && init?.method === 'POST',
+      ([target, init]) =>
+        target === apiPath('consents') && init?.method === 'POST',
     );
     const body = submission?.[1]?.body;
-    if (typeof body !== 'string') throw new Error('Missing consent request body');
+    if (typeof body !== 'string')
+      throw new Error('Missing consent request body');
     expect(JSON.parse(body)).toEqual({
       policyVersion,
       acceptedItems: ['PRIVACY'],

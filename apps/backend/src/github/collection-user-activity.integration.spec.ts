@@ -207,7 +207,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         ),
         'utf8',
       );
-      for (const statement of previousSql.split(';').filter((sql) => sql.trim())) {
+      for (const statement of previousSql
+        .split(';')
+        .filter((sql) => sql.trim())) {
         await tx.$executeRawUnsafe(statement);
       }
       await tx.$executeRaw`
@@ -218,10 +220,15 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       `;
 
       const migrationSql = readFileSync(
-        resolve(migrations, '20261031000000_add_activity_visibility/migration.sql'),
+        resolve(
+          migrations,
+          '20261031000000_add_activity_visibility/migration.sql',
+        ),
         'utf8',
       );
-      for (const statement of migrationSql.split(';').filter((sql) => sql.trim())) {
+      for (const statement of migrationSql
+        .split(';')
+        .filter((sql) => sql.trim())) {
         await tx.$executeRawUnsafe(statement);
       }
 
@@ -242,7 +249,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
           observedAt: NOW,
         },
       ]);
-      await tx.$executeRawUnsafe('DROP SCHEMA activity_visibility_migration CASCADE');
+      await tx.$executeRawUnsafe(
+        'DROP SCHEMA activity_visibility_migration CASCADE',
+      );
     });
   });
 
@@ -293,9 +302,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       repositoryCount: 6,
       observedAt: new Date('2026-08-18T00:00:00.000Z'),
     });
-    const privateBefore = await prisma.githubUserActivityHistory.findFirstOrThrow({
-      where: { githubId: ALPHA_GITHUB_ID },
-    });
+    const privateBefore =
+      await prisma.githubUserActivityHistory.findFirstOrThrow({
+        where: { githubId: ALPHA_GITHUB_ID },
+      });
 
     await buildService().run();
 

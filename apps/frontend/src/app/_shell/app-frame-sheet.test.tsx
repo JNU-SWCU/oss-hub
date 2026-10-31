@@ -298,7 +298,8 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
     expect(
       fetchMock.mock.calls.filter(
-        ([target, init]) => target === apiPath('consents') && init?.method === 'POST',
+        ([target, init]) =>
+          target === apiPath('consents') && init?.method === 'POST',
       ),
     ).toHaveLength(1);
   });

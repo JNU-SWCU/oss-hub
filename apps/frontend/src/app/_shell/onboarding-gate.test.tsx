@@ -26,7 +26,8 @@ vi.mock('next/navigation', () => ({
 vi.mock('./shell-nav', () => ({ ShellNav: () => null }));
 vi.mock('./bottom-tab-bar', () => ({ BottomTabBar: () => null }));
 vi.mock('./product-shell', () => ({
-  ShellMenuProvider: ({ children }: { readonly children: ReactNode }) => children,
+  ShellMenuProvider: ({ children }: { readonly children: ReactNode }) =>
+    children,
   ProductShell: ({ children }: { readonly children: ReactNode }) => children,
 }));
 
@@ -105,43 +106,40 @@ describe('OnboardingGate consent-required dialog', () => {
     root = createRoot(container);
   });
 
-  it(
-    'assigned student without current consent sees the dialog once, then remains consented after remount',
-    async () => {
-      mocks.useSessionRole.mockReturnValue({
-        status: 'assigned',
-        memberKind: 'STUDENT',
-        isProfileComplete: true,
-        retry: vi.fn(),
-      });
-      mocks.getCurrentConsent.mockResolvedValue({ consented: false });
-      const home = (
-        <AppFrame>
-          <p data-testid="home">학생 홈</p>
-        </AppFrame>
-      );
+  it('assigned student without current consent sees the dialog once, then remains consented after remount', async () => {
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.getCurrentConsent.mockResolvedValue({ consented: false });
+    const home = (
+      <AppFrame>
+        <p data-testid="home">학생 홈</p>
+      </AppFrame>
+    );
 
-      await act(async () => root.render(home));
+    await act(async () => root.render(home));
 
-      expect(container.querySelector('[data-testid="home"]')).toBeNull();
-      const completion = [...container.querySelectorAll('button')].find(
-        (button) => button.textContent === '동의 다이얼로그 완료',
-      );
-      expect(completion).toBeDefined();
-      mocks.getCurrentConsent.mockResolvedValue({ consented: true });
+    expect(container.querySelector('[data-testid="home"]')).toBeNull();
+    const completion = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === '동의 다이얼로그 완료',
+    );
+    expect(completion).toBeDefined();
+    mocks.getCurrentConsent.mockResolvedValue({ consented: true });
 
-      await act(async () => completion?.click());
-      expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
-      expect(container.querySelector('button')).toBeNull();
-      expect(
-        root.queryClient.getQueryData(featureKey('consents')),
-      ).toMatchObject({ consented: true });
-      await act(async () => root.render(null));
-      await act(async () => root.render(home));
-      expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
-      expect(container.querySelector('button')).toBeNull();
-    },
-  );
+    await act(async () => completion?.click());
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+    expect(root.queryClient.getQueryData(featureKey('consents'))).toMatchObject(
+      { consented: true },
+    );
+    await act(async () => root.render(null));
+    await act(async () => root.render(home));
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+  });
 
   it('new signup consents during onboarding and reaches home without another popup', async () => {
     mocks.pathname.mockReturnValue('/onboarding/role');
@@ -163,7 +161,9 @@ describe('OnboardingGate consent-required dialog', () => {
     );
     expect(completion).toBeDefined();
     await act(async () => completion?.click());
-    expect(container.querySelector('[data-testid="role-selection"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="role-selection"]'),
+    ).not.toBeNull();
     expect(mocks.getCurrentConsent).not.toHaveBeenCalled();
 
     mocks.useSessionRole.mockReturnValue({

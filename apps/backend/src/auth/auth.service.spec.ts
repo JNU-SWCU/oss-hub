@@ -132,7 +132,9 @@ describe('AuthService', () => {
     upsertUser.mockResolvedValue({ user: syntheticUser, isNew: true });
     fetchMock = jest.spyOn(globalThis, 'fetch');
     activityDb = new PrismaService();
-    const publicTokens = new CollectionPublicTokenService(loadRuntimeConfig({}));
+    const publicTokens = new CollectionPublicTokenService(
+      loadRuntimeConfig({}),
+    );
     service = new AuthService(
       buildConfig(),
       repository,
@@ -362,7 +364,8 @@ describe('AuthService', () => {
         .mockResolvedValue('synthetic-service-token');
       warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
       otherLogs = (['log', 'error', 'debug', 'verbose', 'fatal'] as const).map(
-        (method) => jest.spyOn(Logger.prototype, method).mockImplementation(() => {}),
+        (method) =>
+          jest.spyOn(Logger.prototype, method).mockImplementation(() => {}),
       );
     });
 
@@ -378,7 +381,8 @@ describe('AuthService', () => {
         expect(upsertUser).toHaveBeenCalledTimes(1);
         return Promise.resolve(
           metricsResponse(
-            new Headers(init?.headers).get('Authorization') === `Bearer ${token}`,
+            new Headers(init?.headers).get('Authorization') ===
+              `Bearer ${token}`,
           ),
         );
       });
@@ -453,26 +457,35 @@ describe('AuthService', () => {
     it.each([
       ['401', 'AUTH'],
       ['network', 'UPSTREAM'],
-    ])('%s 오류에도 로그인은 성공하고 kind 경고만 한 번 기록한다', async (failure, kind) => {
-      const input = prepareLogin();
-      fetchMock.mockImplementation((_url, init) => {
-        if (new Headers(init?.headers).get('Authorization') !== `Bearer ${token}`) {
-          return Promise.resolve(metricsResponse(false));
-        }
-        if (failure === '401') return Promise.resolve(jsonResponse(401, { token }));
-        return Promise.reject(new Error(`network response containing ${token}`));
-      });
+    ])(
+      '%s 오류에도 로그인은 성공하고 kind 경고만 한 번 기록한다',
+      async (failure, kind) => {
+        const input = prepareLogin();
+        fetchMock.mockImplementation((_url, init) => {
+          if (
+            new Headers(init?.headers).get('Authorization') !==
+            `Bearer ${token}`
+          ) {
+            return Promise.resolve(metricsResponse(false));
+          }
+          if (failure === '401')
+            return Promise.resolve(jsonResponse(401, { token }));
+          return Promise.reject(
+            new Error(`network response containing ${token}`),
+          );
+        });
 
-      const login = await service.completeLogin(input);
-      await flushPromises();
+        const login = await service.completeLogin(input);
+        await flushPromises();
 
-      expect(login).toEqual({ user: syntheticUser, isNew: true });
-      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(5);
-      expect(privateUpsert).not.toHaveBeenCalled();
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn).toHaveBeenCalledWith({ kind });
-      expectNoTokenInRepositoriesOrLogs();
-    });
+        expect(login).toEqual({ user: syntheticUser, isNew: true });
+        expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(5);
+        expect(privateUpsert).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith({ kind });
+        expectNoTokenInRepositoriesOrLogs();
+      },
+    );
 
     it('저장 실패도 로그인에 전파하지 않고 오류 내용을 로그에 남기지 않는다', async () => {
       const input = prepareLogin();
