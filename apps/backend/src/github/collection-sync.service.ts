@@ -1,4 +1,8 @@
 import {
+  COLLECTION_FAILURE_BACKOFF_BASE_MS,
+  COLLECTION_FAILURE_BACKOFF_MAX_MS,
+} from './collection-app.config';
+import {
   CollectionInventoryService,
   type SweepInventory,
 } from './collection-inventory.service';
@@ -643,9 +647,11 @@ export class CollectionSyncService {
         errorName,
       });
 
+      const failedAt = this.now();
       await this.incrementalRepository.recordRepositoryFailure(
         repository.githubRepositoryId,
-        this.now(),
+        (failureCount) =>
+          new Date(failedAt.getTime() + this.failureBackoffMs(failureCount)),
       );
       return { kind: 'FAILED', errorName };
     }
@@ -1249,6 +1255,13 @@ export class CollectionSyncService {
       token,
       now,
       new Date(now.getTime() + LEASE_MS),
+    );
+  }
+
+  private failureBackoffMs(failureCount: number): number {
+    return Math.min(
+      COLLECTION_FAILURE_BACKOFF_BASE_MS * 2 ** Math.min(failureCount - 1, 6),
+      COLLECTION_FAILURE_BACKOFF_MAX_MS,
     );
   }
 }

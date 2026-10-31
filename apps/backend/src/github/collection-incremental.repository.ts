@@ -225,14 +225,6 @@ const asiaSeoulDate = (at: Date): Date => {
   );
 };
 
-const REGULAR_INTERVAL_MS = 60 * 60 * 1000;
-
-const backoffMs = (failureCount: number): number =>
-  Math.min(
-    REGULAR_INTERVAL_MS * 2 ** Math.min(failureCount - 1, 6),
-    6 * 60 * 60 * 1000,
-  );
-
 const EXTERNAL_SCOPE = 'external';
 
 const sourceForScope = (scope: string): RepositorySource =>
@@ -572,7 +564,7 @@ export class CollectionIncrementalStoreRepository {
 
   async recordRepositoryFailure(
     githubRepositoryId: bigint,
-    now: Date,
+    nextRunAtAfter: (failureCount: number) => Date,
   ): Promise<void> {
     const current = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId },
@@ -583,7 +575,7 @@ export class CollectionIncrementalStoreRepository {
       where: { githubRepositoryId },
       data: {
         failureCount,
-        nextRunAt: new Date(now.getTime() + backoffMs(failureCount)),
+        nextRunAt: nextRunAtAfter(failureCount),
       },
     });
   }
