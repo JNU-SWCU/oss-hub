@@ -5,7 +5,7 @@ import type {
 } from './users.repository';
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>

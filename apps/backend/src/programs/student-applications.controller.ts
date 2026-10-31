@@ -10,9 +10,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { MyStudentApplicationResponseDto } from './dto/my-student-application-response.dto';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import {
@@ -20,11 +19,12 @@ import {
   StudentApplicationResponseDto,
 } from './dto/student-application-response.dto';
 import { StudentApplicationManagementService } from './student-application-management.service';
+import { Protected } from '../auth/authentication.guard';
 
 type StudentApplicationRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('programs/:programId/applications/me')
-@UseGuards(SessionGuard)
+@Protected()
 export class StudentApplicationsController {
   constructor(
     @Inject(StudentApplicationManagementService)

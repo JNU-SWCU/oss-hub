@@ -1,8 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { StaffAccessRequestStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { RoleRequestsController } from './role-requests.controller';
 import type { MemberOnboardingService } from './member-onboarding.service';
 import { type StaffAccessRequestRecord } from './member-onboarding.repository';
@@ -131,13 +130,12 @@ describe('RoleRequestsController', () => {
     });
   });
 
-  it('조회는 세션 guard, 재요청은 세션과 Origin guard를 적용한다', () => {
+  it('조회는 로컬 guard 없이 전역 인증 가드에 맡기고, 재요청은 Origin guard를 적용한다', () => {
     const target = RoleRequestsController.prototype;
 
-    const getGuards = readGuards(target, 'getMe');
-    const postGuards = readGuards(target, 'retry');
-
-    expect(getGuards).toEqual([SessionGuard]);
-    expect(postGuards).toEqual([SessionGuard, OriginGuard]);
+    expect(() => readGuards(target, 'getMe')).toThrow(
+      MissingHandlerMetadataError,
+    );
+    expect(readGuards(target, 'retry')).toEqual([OriginGuard]);
   });
 });

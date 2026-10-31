@@ -1,8 +1,8 @@
-import { Controller, Get, Header, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Req } from '@nestjs/common';
 import { SubmissionFormResponseDto } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
+import { Protected } from '../auth/authentication.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -12,7 +12,7 @@ export class SubmissionFormsController {
 
   @Get('submission-form')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async form(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,

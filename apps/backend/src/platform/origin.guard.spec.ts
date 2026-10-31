@@ -1,5 +1,5 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { DomainException } from '../platform/error-code.error';
+import { DomainException } from './error-code.error';
 import { AuthConfig } from './auth.config';
 import { OriginGuard } from './origin.guard';
 

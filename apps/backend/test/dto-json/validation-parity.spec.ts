@@ -3,7 +3,7 @@ import { AdminAccessMutationService } from '../../src/users/admin-access-mutatio
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
-import { UserProfileService } from '../../src/platform/user-profile.service';
+import { UserProfileService } from '../../src/users/user-profile.service';
 import { BadRequestException, ValidationPipe, type Type } from '@nestjs/common';
 import { CreateBoardPostRequestDto } from '../../src/programs/dto/create-board-post-request.dto';
 import { UpdateBoardPostRequestDto } from '../../src/programs/dto/update-board-post-request.dto';

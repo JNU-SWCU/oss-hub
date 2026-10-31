@@ -3,7 +3,6 @@ import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
 import { DomainException } from '../platform/error-code.error';
-import { PROCESS_RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   COLLECTION_ERROR_CODES,
@@ -12,11 +11,7 @@ import {
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 export const COLLECTION_CRON_JOB_NAME = 'collection-reconciliation';
-export const DEFAULT_COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
-
-export const COLLECTION_CRON_EXPRESSION =
-  PROCESS_RUNTIME_CONFIG.COLLECTION_CRON_EXPRESSION?.trim() ||
-  DEFAULT_COLLECTION_CRON_EXPRESSION;
+export const COLLECTION_CRON_EXPRESSION = '0 0 * * * *';
 
 @Injectable()
 export class CollectionTriggerService {

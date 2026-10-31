@@ -8,10 +8,8 @@ import {
   Req,
   Res,
   StreamableFile,
-  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ProgramDocumentArchiveRequestDto } from './dto/program-document-archive-request.dto';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -20,6 +18,7 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { DownloadResponseService } from './download-response.service';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('programs/:programId/documents/collection/archive')
 export class ProgramDocumentArchivesController {
@@ -32,7 +31,7 @@ export class ProgramDocumentArchivesController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async archive(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Param('programId') programId: string,

@@ -6,7 +6,7 @@ import type {
   AuthUser,
   GithubProfile,
 } from './http-auth.types';
-import { LOGIN_HISTORY_EVENTS, AuthConfig } from './auth.config';
+import { LOGIN_HISTORY_EVENTS, AuthConfig } from '../platform/auth.config';
 import {
   LoginHistoryRepository,
   AuthRepository,
@@ -15,8 +15,8 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { UserProfileService } from '../platform/user-profile.service';
-import { AuthSessionService } from './auth-session.service';
+import { UserProfileService } from '../users/user-profile.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 @Injectable()
 export class LoginHistoryService {

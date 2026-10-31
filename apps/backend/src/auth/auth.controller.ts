@@ -11,11 +11,11 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { LoginHistoryService, AuthService } from './auth.service';
-import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
 import { MeResponseDto, SessionResponseDto } from './dto/session-response.dto';
-import { OriginGuard } from './origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { type OptionalSessionRequest } from './http-auth.types';
 import {
   assertNeverHttpAuth,
@@ -26,7 +26,7 @@ import {
 import {
   AuthSessionService,
   SESSION_MAX_AGE_SECONDS,
-} from './auth-session.service';
+} from '../platform/auth-session.service';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 

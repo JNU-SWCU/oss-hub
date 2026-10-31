@@ -1,11 +1,6 @@
 import { RequestMethod, type Type } from '@nestjs/common';
-import {
-  GUARDS_METADATA,
-  METHOD_METADATA,
-  PATH_METADATA,
-} from '@nestjs/common/constants';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { MetadataScanner } from '@nestjs/core/metadata-scanner';
-import { SessionGuard } from './session.guard';
 import { compareStringsByCodeUnit } from '../app-controller-discovery';
 import {
   AUTH_ROUTE_ACCESS,
@@ -26,11 +21,6 @@ export interface AuthRouteManifestEntry {
 interface AccessMetadata {
   readonly access: AuthRouteAccess;
   readonly key: symbol;
-}
-
-interface ControllerAuthState {
-  readonly declaredAccess: AuthRouteAccess | undefined;
-  readonly hasSessionGuard: boolean;
 }
 
 const ACCESS_METADATA: readonly AccessMetadata[] = [
@@ -82,13 +72,10 @@ function controllerRoutes(
   globalPrefix: string,
 ): AuthRouteManifestEntry[] {
   const controllerPaths = metadataPaths(controller) ?? [''];
-  const controllerAuthState: ControllerAuthState = {
-    declaredAccess: requireValidAccessMetadata(
-      controller,
-      `${controller.name} class`,
-    ),
-    hasSessionGuard: hasSessionGuard(controller),
-  };
+  const controllerAccess = requireValidAccessMetadata(
+    controller,
+    `${controller.name} class`,
+  );
   const prototypeValue: unknown = controller.prototype;
   if (typeof prototypeValue !== 'object' || prototypeValue === null) {
     throw new Error(`Invalid controller prototype: ${controller.name}`);
@@ -112,7 +99,7 @@ function controllerRoutes(
       const access = resolveHandlerAccess(
         handler,
         handlerName,
-        controllerAuthState,
+        controllerAccess,
       );
       const handlerPaths = metadataPaths(handler) ?? [''];
 
@@ -124,13 +111,6 @@ function controllerRoutes(
         })),
       );
     });
-}
-
-function hasSessionGuard(target: object): boolean {
-  const guards =
-    (Reflect.getMetadata(GUARDS_METADATA, target) as unknown[] | undefined) ??
-    [];
-  return guards.includes(SessionGuard);
 }
 
 function requireValidAccessMetadata(
@@ -156,18 +136,15 @@ function requireValidAccessMetadata(
 function resolveHandlerAccess(
   handler: object,
   handlerName: string,
-  controllerAuthState: ControllerAuthState,
+  controllerAccess: AuthRouteAccess | undefined,
 ): AuthRouteAccess {
   const handlerAccess = requireValidAccessMetadata(
     handler,
     `${handlerName} handler`,
   );
-  const declaredAccess = handlerAccess ?? controllerAuthState.declaredAccess;
+  const declaredAccess = handlerAccess ?? controllerAccess;
   if (declaredAccess !== undefined) {
     return declaredAccess;
-  }
-  if (controllerAuthState.hasSessionGuard || hasSessionGuard(handler)) {
-    return AUTH_ROUTE_ACCESS.PROTECTED;
   }
   throw new Error(`Missing authentication metadata: ${handlerName}`);
 }

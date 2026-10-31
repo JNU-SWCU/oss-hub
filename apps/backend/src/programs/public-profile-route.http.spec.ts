@@ -1,16 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersController } from '../users/users.controller';
 import { UsersService } from '../users/users.service';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -67,7 +67,7 @@ describe.each(controllerOrders)(
         providers: [
           ...STATELESS_PROVIDERS,
           AuthSessionService,
-          SessionGuard,
+          ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
           OriginGuard,
           { provide: UsersService, useValue: usersService },
           { provide: PublicProjectsService, useValue: publicProjectsService },

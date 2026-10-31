@@ -6,8 +6,7 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
-import { AuthConfig } from '../auth/auth.config';
-import { SessionGuard } from '../auth/session.guard';
+import { AuthConfig } from '../platform/auth.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -22,6 +21,7 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 const actors = [
   ['anonymous', null],
@@ -112,6 +112,21 @@ beforeAll(async () => {
       SubmissionRepositoryPublishingController,
     ],
     providers: [
+      protectedRouteGuardStub({
+        canActivate(context: ExecutionContext) {
+          const request = context.switchToHttp().getRequest<{
+            headers: Record<string, string>;
+            sessionGithubId?: bigint;
+          }>();
+          const index = Number(request.headers['x-actor']);
+          if (index === 0)
+            throw new DomainException(
+              AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
+            );
+          request.sessionGithubId = BigInt(index);
+          return true;
+        },
+      }),
       {
         provide: AuthConfig,
         useValue: { allowedOrigin: 'http://frontend.test' },
@@ -136,22 +151,6 @@ beforeAll(async () => {
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
-    .overrideGuard(SessionGuard)
-    .useValue({
-      canActivate(context: ExecutionContext) {
-        const request = context.switchToHttp().getRequest<{
-          headers: Record<string, string>;
-          sessionGithubId?: bigint;
-        }>();
-        const index = Number(request.headers['x-actor']);
-        if (index === 0)
-          throw new DomainException(
-            AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
-          );
-        request.sessionGithubId = BigInt(index);
-        return true;
-      },
-    })
     .compile();
   application = moduleRef.createNestApplication();
   application.setGlobalPrefix('api/v1');

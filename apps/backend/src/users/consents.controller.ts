@@ -7,20 +7,20 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { ConsentsService } from './consents.service';
 import { ConsentCurrentResponseDto } from './dto/consent-current-response.dto';
 import { ConsentResponseDto } from './dto/consent-response.dto';
 import { CreateConsentRequestDto } from './dto/create-consent-request.dto';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('consents')
 export class ConsentsController {
   constructor(private readonly consentsService: ConsentsService) {}
 
   @Get('current')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getCurrent(
     @Req() request: AuthenticatedRequest,
   ): Promise<ConsentCurrentResponseDto> {
@@ -31,7 +31,8 @@ export class ConsentsController {
   }
 
   @Post()
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @HttpCode(200)
   async create(
     @Req() request: AuthenticatedRequest,

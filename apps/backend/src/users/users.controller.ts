@@ -9,12 +9,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { UsersService } from './users.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -33,7 +33,7 @@ export class UsersController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
+  @Protected()
   async getMyProfile(
     @Req() request: SessionIdentity,
   ): Promise<UserProfileResponseDto> {
@@ -43,7 +43,8 @@ export class UsersController {
   }
 
   @Post()
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async completeMyProfile(
     @Req() request: SessionIdentity,
     @Body() body: UpdateMyProfileRequestDto,
@@ -57,7 +58,8 @@ export class UsersController {
   }
 
   @Patch()
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async patchMyProfile(
     @Req() request: SessionIdentity,
     @Body() body: UpdateMyProfileRequestDto,

@@ -7,19 +7,18 @@ import {
   Param,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { SessionGuard } from '../../src/auth/session.guard';
 import type { AuthenticatedRequest } from '../../src/auth/http-auth.types';
 import {
   E2eControlError,
   E2eProgramAuthoringService,
 } from './e2e-program-authoring.service';
 import { E2E_NOW } from './e2e-program-authoring-fixture';
+import { Protected } from '../../src/auth/authentication.guard';
 
 @Controller('_e2e/program-authoring')
-@UseGuards(SessionGuard)
+@Protected()
 export class E2eProgramAuthoringController {
   constructor(private readonly service: E2eProgramAuthoringService) {}
 

@@ -10,10 +10,9 @@ import {
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationsController } from './applications.controller';
@@ -35,7 +34,7 @@ import type { StaffInsightsRepository } from '../staff/staff-insights.repository
 import { StaffInsightsService } from '../staff/staff-insights.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -43,6 +42,7 @@ import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { StaffInsightsQueryService } from '../staff/staff-insights-query.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -786,7 +786,7 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       { provide: ApplicationsService, useValue: applicationsService },
       { provide: StaffDashboardService, useValue: staffDashboardService },

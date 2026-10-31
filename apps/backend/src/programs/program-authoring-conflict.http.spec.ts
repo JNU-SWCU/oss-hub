@@ -4,13 +4,13 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { SessionGuard } from '../auth/session.guard';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
+import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let app: INestApplication;
 let baseUrl: string;
@@ -21,6 +21,14 @@ describe('program authoring conflict HTTP contract', () => {
     const module = await Test.createTestingModule({
       controllers: [ProgramAuthoringController],
       providers: [
+        protectedRouteGuardStub({
+          canActivate: (context: ExecutionContext) => {
+            context
+              .switchToHttp()
+              .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 42n;
+            return true;
+          },
+        }),
         {
           provide: ProgramAuthoringService,
           useValue: { create },
@@ -29,15 +37,6 @@ describe('program authoring conflict HTTP contract', () => {
       ],
     })
       .useMocker((token) => (token === Function ? undefined : {}))
-      .overrideGuard(SessionGuard)
-      .useValue({
-        canActivate: (context: ExecutionContext) => {
-          context
-            .switchToHttp()
-            .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 42n;
-          return true;
-        },
-      })
       .overrideGuard(OriginGuard)
       .useValue({ canActivate: () => true })
       .compile();

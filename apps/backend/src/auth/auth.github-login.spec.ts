@@ -2,13 +2,13 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { LoginHistoryService, AuthService } from './auth.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { AuthConfig } from './auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import { createResponse } from './auth.controller.spec.helpers';
 import { AuthRepository } from './auth.repository';
 import { GithubLoginRequestDto } from './dto/github-login-request.dto';
-import { UserProfileService } from '../platform/user-profile.service';
-import { AuthSessionService } from './auth-session.service';
+import { UserProfileService } from '../users/user-profile.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const authSessionService = new AuthSessionService();

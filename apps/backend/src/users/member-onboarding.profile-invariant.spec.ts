@@ -15,7 +15,7 @@ import type {
   MemberUser,
 } from './member-onboarding.repository';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const GITHUB_ID = 424242n;
 const USER: MemberUser = {

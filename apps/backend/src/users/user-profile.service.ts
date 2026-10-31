@@ -1,7 +1,7 @@
 import type {
   AuthorityLabel,
   AuthorityLabelSource,
-} from '../users/authority-label.types';
+} from './authority-label.types';
 import { MemberKind } from '@prisma/client';
 import {
   ProfileFieldRequirement,
@@ -9,7 +9,7 @@ import {
   USER_DEPARTMENT_MAX_LENGTH,
   UserProfileFields,
   UserProfileRecord,
-} from '../users/profile-validation.config';
+} from './profile-validation.config';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()

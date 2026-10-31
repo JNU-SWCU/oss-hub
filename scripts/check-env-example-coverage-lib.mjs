@@ -27,16 +27,6 @@ export const ENV_CONTRACT_EXEMPTIONS = Object.freeze([
     checks: Object.freeze([CHECK.backendInjection]),
     reason: 'submissions maintenance CLI 전용 키이다.',
   }),
-  Object.freeze({
-    key: 'GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES',
-    checks: Object.freeze([CHECK.backendInjection]),
-    reason: 'collection smoke CLI 전용 키이다.',
-  }),
-  Object.freeze({
-    key: 'GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS',
-    checks: Object.freeze([CHECK.backendInjection]),
-    reason: 'collection smoke CLI 전용 키이다.',
-  }),
 ]);
 
 export function extractEnvExampleKeys(text) {

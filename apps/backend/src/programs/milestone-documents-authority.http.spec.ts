@@ -1,10 +1,9 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { UsersAuthorityService } from '../users/users-authority.service';
@@ -15,8 +14,9 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -92,7 +92,7 @@ beforeAll(async () => {
     controllers: [MilestoneDocumentsController],
     providers: [
       ...STATELESS_PROVIDERS,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       MilestoneDocumentsService,
       UsersAuthorityService,

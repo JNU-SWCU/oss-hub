@@ -1,5 +1,5 @@
 import { MemberKind } from '@prisma/client';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 
 const userProfileService = new UserProfileService();
 

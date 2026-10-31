@@ -2,7 +2,7 @@ import { MemberKind } from '@prisma/client';
 import { AUTHORITY_TARGETS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
 const independentAuthorityService = new IndependentAuthorityService(

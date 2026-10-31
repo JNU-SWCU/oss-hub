@@ -2,10 +2,9 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -17,9 +16,10 @@ import { ProgramTeamDeletionRepository } from './program-team-deletion.repositor
 import { ProgramTeamsRepository } from './program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -100,7 +100,7 @@ beforeAll(async () => {
           TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
         }),
       },
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       UsersAuthorityService,
       UsersAuthorityRepository,

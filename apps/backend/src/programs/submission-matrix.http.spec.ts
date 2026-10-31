@@ -1,9 +1,8 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   SubmissionMatrixRepository,
@@ -11,8 +10,9 @@ import {
 } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { ProgramSubmissionsController } from './program-submissions.controller';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -104,7 +104,7 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       SubmissionMatrixService,
-      SessionGuard,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {
         provide: AuthConfig,
         useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },

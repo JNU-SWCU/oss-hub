@@ -12,7 +12,7 @@ import {
   ProgramOverviewRecord,
   type PublicTeamRow,
 } from './program-overview.repository';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 export interface ProgramOverviewViewerStats {
   role: AuthorityLabel | null;

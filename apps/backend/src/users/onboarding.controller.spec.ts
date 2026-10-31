@@ -1,8 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { plainToInstance } from 'class-transformer';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { DomainException } from '../platform/error-code.error';
 import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { OnboardingController } from './onboarding.controller';
@@ -108,6 +107,6 @@ describe('OnboardingController', () => {
 
     const guards = readGuards(target, 'selectRole');
 
-    expect(guards).toEqual([SessionGuard, OriginGuard]);
+    expect(guards).toEqual([OriginGuard]);
   });
 });

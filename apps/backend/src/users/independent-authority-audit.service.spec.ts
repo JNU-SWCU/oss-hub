@@ -13,7 +13,7 @@ import {
 import { IndependentAuthorityService } from './independent-authority.service';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
 

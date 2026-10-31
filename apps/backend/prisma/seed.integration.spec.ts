@@ -23,7 +23,7 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { AuthConfig } from '../src/auth/auth.config';
+import { AuthConfig } from '../src/platform/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -32,7 +32,7 @@ import { ObjectStorageConfig } from '../src/platform/object-storage.config';
 import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconciliation.service';
 import type { AuthUserRecord } from '../src/auth/auth.repository';
-import { UserProfileService } from '../src/platform/user-profile.service';
+import { UserProfileService } from '../src/users/user-profile.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
 

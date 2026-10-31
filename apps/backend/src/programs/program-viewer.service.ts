@@ -2,7 +2,7 @@ import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
-import { UserProfileService } from '../platform/user-profile.service';
+import { UserProfileService } from '../users/user-profile.service';
 
 export type ProgramViewerRole = AuthorityLabel | 'PENDING' | null;
 

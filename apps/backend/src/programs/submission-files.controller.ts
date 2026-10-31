@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { MultipartFileUploadInterceptor } from '../platform/multipart-file-upload.interceptor';
 import { UploadedSubmissionFileResponseDto } from './dto/uploaded-submission-file-response.dto';
 import {
@@ -25,9 +25,9 @@ import {
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { DownloadResponseService } from './download-response.service';
+import { Protected } from '../auth/authentication.guard';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -57,7 +57,7 @@ export class SubmissionFilesController {
   ) {}
 
   @Get(':fileId')
-  @UseGuards(SessionGuard)
+  @Protected()
   async download(
     @Req() request: SubmissionRequest,
     @Param('fileId') fileId: string,
@@ -71,7 +71,8 @@ export class SubmissionFilesController {
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(SubmissionFileUploadInterceptor)
   async upload(
     @Req() request: SubmissionRequest,
@@ -95,7 +96,8 @@ export class SubmissionFilesController {
 
   @Post('checks')
   @HttpCode(204)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   @UseInterceptors(SubmissionFileUploadInterceptor)
   check(@UploadedFile() file: SubmissionFileUpload | undefined): Promise<void> {
     return this.service.check(file);

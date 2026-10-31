@@ -1,9 +1,9 @@
 import { Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { SessionGuard } from '../auth/session.guard';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
 import { CollectionAdminService } from '../github/collection-admin.service';
+import { Protected } from '../auth/authentication.guard';
 
 @Controller('admin/collection')
 export class CollectionAdminController {
@@ -11,7 +11,8 @@ export class CollectionAdminController {
 
   @Post('trigger')
   @HttpCode(202)
-  @UseGuards(SessionGuard, OriginGuard)
+  @Protected()
+  @UseGuards(OriginGuard)
   async trigger(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
   ): Promise<CollectionTriggerResponseDto> {

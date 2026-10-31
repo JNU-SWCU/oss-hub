@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
 import { GithubModule } from '../github/github.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
@@ -13,7 +12,7 @@ import { StudentDashboardRepository } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
 
 @Module({
-  imports: [AuthModule, ProgramsModule, GithubModule],
+  imports: [ProgramsModule, GithubModule],
   controllers: [StudentDashboardController, MyRepositoriesController],
   providers: [
     StudentDashboardRepository,
