@@ -5,7 +5,7 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';

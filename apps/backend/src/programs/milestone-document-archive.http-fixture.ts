@@ -1,6 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
@@ -12,7 +12,7 @@ import {
   type ProgramDocumentArchiveScope,
 } from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { DownloadResponseService } from './download-response.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 

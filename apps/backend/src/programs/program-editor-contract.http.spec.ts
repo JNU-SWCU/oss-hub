@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramsController } from './programs.controller';
 import { MilestonesController } from './milestones.controller';

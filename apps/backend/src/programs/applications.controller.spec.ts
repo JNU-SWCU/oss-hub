@@ -3,7 +3,7 @@ import {
   ApplicationStatus,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsController } from './applications.controller';
 import {

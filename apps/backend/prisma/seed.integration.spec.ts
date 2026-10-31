@@ -23,7 +23,7 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { AuthConfig } from '../src/auth/auth.config';
+import { AuthConfig } from '../src/platform/auth.config';
 import { AuthRepository } from '../src/auth/auth.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';

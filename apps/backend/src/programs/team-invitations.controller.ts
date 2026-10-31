@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { AcceptTeamInvitationResponseDto } from './dto/accept-team-invitation-response.dto';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';

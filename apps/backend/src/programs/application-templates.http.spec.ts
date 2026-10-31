@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
-import { OriginGuard } from '../auth/origin.guard';
+import { AuthConfig } from '../platform/auth.config';
+import { OriginGuard } from '../platform/origin.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ApplicationTemplatesController } from './application-templates.controller';

@@ -7,7 +7,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { DeadlineDigestPreviewResponseDto } from './dto/deadline-digest-preview-response.dto';

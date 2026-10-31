@@ -6,7 +6,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { AccountStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { UserAccessController } from './user-access.controller';

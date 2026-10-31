@@ -1,5 +1,5 @@
 import { Controller, Get, Inject, Post, Req, UseGuards } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MyStaffAccessRequestResponseDto } from './dto/my-staff-access-request-response.dto';
 import { RoleRequestResponseDto } from './dto/role-request-response.dto';

@@ -1,7 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import type { RuntimeConfig } from '../platform/runtime-config.config';
-import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
+import type { RuntimeConfig } from './runtime-config.config';
+import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 
 export type InitialAccountSeed = {
   readonly memberKind: MemberKind | null;

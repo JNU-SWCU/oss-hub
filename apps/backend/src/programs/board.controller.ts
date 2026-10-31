@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { BoardPostPinResponseDto } from './dto/board-post-pin-response.dto';
 import { DeletedResponseDto } from './dto/deleted-response.dto';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { BoardService } from './board.service';
 import {

@@ -3,7 +3,7 @@ import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramAuthoringController } from './program-authoring.controller';

@@ -8,7 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { NotificationSettingsResponseDto } from './dto/notification-settings-response.dto';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';

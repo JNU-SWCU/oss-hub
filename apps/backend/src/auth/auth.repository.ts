@@ -17,7 +17,7 @@ import {
   LOGIN_HISTORY_PROVIDER,
   AuthConfig,
   type InitialAccountSeed,
-} from './auth.config';
+} from '../platform/auth.config';
 import { StaffAccessRequestSeedConflictError } from './auth.error';
 import type { MemberKind } from '@prisma/client';
 

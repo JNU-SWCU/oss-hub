@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { StaffAccessRequestStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { RoleRequestsController } from './role-requests.controller';
 import type { MemberOnboardingService } from './member-onboarding.service';

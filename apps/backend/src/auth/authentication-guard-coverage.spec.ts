@@ -12,16 +12,16 @@ import { discoverAppModuleControllers } from '../app-controller-discovery';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
 import { createAuthRouteManifest } from './auth-route-manifest.fixture';
-import type { AuthConfig } from './auth.config';
+import type { AuthConfig } from '../platform/auth.config';
 import { AuthModule } from './auth.module';
 import type { AuthService } from './auth.service';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import {
   AUTH_ROUTE_ACCESS,
   type AuthRouteAccess,
   AuthenticationGuard,
 } from './authentication.guard';
-import { OriginGuard } from './origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 
 const unexpectedLookup = (): never => {
   throw new Error('anonymous request must not load a principal');

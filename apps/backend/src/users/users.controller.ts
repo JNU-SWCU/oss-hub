@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';

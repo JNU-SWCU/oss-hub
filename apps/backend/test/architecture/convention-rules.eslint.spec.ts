@@ -696,7 +696,7 @@ valid(
   'src/programs/rule-case.controller.ts',
   `import { Controller, Post, UseGuards } from '@nestjs/common';
 import { Protected } from '../auth/authentication.guard';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 @Controller('things')
 export class ThingsController {
   @Post()

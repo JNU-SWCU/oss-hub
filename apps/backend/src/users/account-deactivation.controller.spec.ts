@@ -1,10 +1,10 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { AccountStatus } from '@prisma/client';
-import type { AuthConfig } from '../auth/auth.config';
-import { OriginGuard } from '../auth/origin.guard';
+import type { AuthConfig } from '../platform/auth.config';
+import { OriginGuard } from '../platform/origin.guard';
 import { AccountDeactivationController } from './account-deactivation.controller';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 

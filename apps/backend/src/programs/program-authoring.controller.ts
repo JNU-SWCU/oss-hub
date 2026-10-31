@@ -20,7 +20,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   ProgramNoticePreviewService,

@@ -17,12 +17,12 @@ import {
   ProgramCoverService,
   ProgramCreationService,
 } from './program-creation.service';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import {
   type AuthenticatedRequest,
   type OptionalSessionRequest,
 } from '../auth/http-auth.types';
-import { HTTP_AUTH_KINDS } from '../auth/auth.config';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { DeleteProgramResponseDto } from './dto/delete-program-response.dto';
 import { PurgeProgramResponseDto } from './dto/purge-program-response.dto';
 import {

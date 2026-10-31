@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { UpdateMyProfileRequestDto } from './dto/update-my-profile-request.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';

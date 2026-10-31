@@ -8,11 +8,11 @@ import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { DomainException } from '../platform/error-code.error';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.error';
-import { AuthConfig, HTTP_AUTH_KINDS } from './auth.config';
+import { AuthConfig, HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { AuthService } from './auth.service';
 
 import type { ActiveAccountPrincipal } from './http-auth.types';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 export const AUTH_ROUTE_ACCESS = {
   PUBLIC: 'PUBLIC',

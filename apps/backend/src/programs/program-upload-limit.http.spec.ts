@@ -1,7 +1,7 @@
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionsRepository } from './submissions.repository';

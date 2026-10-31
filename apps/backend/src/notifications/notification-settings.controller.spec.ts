@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { NotificationSettingsController } from './notification-settings.controller';
 import type { NotificationSettingsService } from './application-decision-notifications.service';
 import { UpdateNotificationEmailRequestDto } from './dto/update-notification-email-request.dto';

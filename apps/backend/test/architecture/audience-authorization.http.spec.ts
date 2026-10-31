@@ -11,8 +11,8 @@ import { ApplicationJoinCodeService } from '../../src/programs/application-prepa
 import { ApplicationsService } from '../../src/programs/applications.service';
 import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
 import { StaffInsightsService } from '../../src/staff/staff-insights.service';
-import { AuthConfig } from '../../src/auth/auth.config';
-import { OriginGuard } from '../../src/auth/origin.guard';
+import { AuthConfig } from '../../src/platform/auth.config';
+import { OriginGuard } from '../../src/platform/origin.guard';
 import { AuthService } from '../../src/auth/auth.service';
 import { configureHttpApp } from '../../src/configure-http-app';
 import { MyRepositoriesController } from '../../src/student/my-repositories.controller';
@@ -63,7 +63,7 @@ import { MemberKindService } from '../../src/users/member-kind.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
-import { AuthSessionService } from '../../src/auth/auth-session.service';
+import { AuthSessionService } from '../../src/platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../global-authentication-guard.fixture';
 

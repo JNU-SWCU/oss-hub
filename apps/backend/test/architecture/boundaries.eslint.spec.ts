@@ -468,15 +468,15 @@ edge(
   true,
 );
 edge(
-  'controller may use root auth guard',
+  'controller may use platform origin guard',
   'src/programs/root-auth.controller.ts',
-  'src/auth/authentication.guard.ts',
+  'src/platform/origin.guard.ts',
   true,
 );
 edge(
   'controller may read exported auth config',
   'src/programs/auth-config.controller.ts',
-  'src/auth/auth.config.ts',
+  'src/platform/auth.config.ts',
   true,
 );
 edge(

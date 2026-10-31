@@ -3,7 +3,7 @@ import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
 import { AuditLogService } from '../platform/audit-log.service';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../github/collection-admin.service';
 import { UsersAuthorityService } from '../users/users-authority.service';

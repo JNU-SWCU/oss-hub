@@ -1,4 +1,4 @@
-import { type InitialAccountSeed, AuthConfig } from './auth.config';
+import { type InitialAccountSeed, AuthConfig } from '../platform/auth.config';
 import {
   AccountStatus,
   StaffAccessRequestStatus,

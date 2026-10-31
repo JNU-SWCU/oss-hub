@@ -3,7 +3,8 @@ import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
+import { HttpSecurityModule } from '../platform/http-security.module';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -18,7 +19,7 @@ import { UserAccessController } from '../admin/user-access.controller';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
 import { type AdminAccessActor } from './admin-access-read.repository';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 
@@ -90,7 +91,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
 
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
-      imports: [PlatformModule, AuthModule, UsersModule],
+      imports: [PlatformModule, HttpSecurityModule, AuthModule, UsersModule],
       controllers: [UserAccessController],
     }).useMocker((token) => (token === Function ? undefined : {}));
 

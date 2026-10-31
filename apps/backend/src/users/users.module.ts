@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
+import { HttpSecurityModule } from '../platform/http-security.module';
 import { PlatformModule } from '../platform/platform.module';
-import { AuthModule } from '../auth/auth.module';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
@@ -32,7 +32,7 @@ import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
-  imports: [PlatformModule, AuthModule],
+  imports: [PlatformModule, HttpSecurityModule],
 
   controllers: [
     AccountDeactivationController,

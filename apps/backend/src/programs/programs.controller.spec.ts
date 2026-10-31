@@ -1,7 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { PROTECTED_ROUTE_METADATA } from '../auth/authentication.guard';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
@@ -12,13 +12,13 @@ import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
-import { HTTP_AUTH_KINDS } from '../auth/auth.config';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsService, type ProgramDetailResult } from './programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 describe('program-editor.controller', () => {
   const controllerMethod = (name: keyof ProgramsController): object => {

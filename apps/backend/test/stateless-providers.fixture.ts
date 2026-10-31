@@ -5,7 +5,7 @@ import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryPublishService } from '../src/github/repository-publish.service';
 import { RepositoryProvisionRulesService } from '../src/github/repository-provision-rules.service';
-import { AuthSessionService } from '../src/auth/auth-session.service';
+import { AuthSessionService } from '../src/platform/auth-session.service';
 import { ApplicationAnswersService } from '../src/programs/application-answers.service';
 import { DownloadResponseService } from '../src/programs/download-response.service';
 import { MilestoneCompletionService } from '../src/programs/milestone-completion.service';

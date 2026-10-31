@@ -4,7 +4,7 @@ import {
   ApplicationStatus,
 } from '@prisma/client';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { ApplicationsService } from './applications.service';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';

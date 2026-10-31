@@ -9,9 +9,9 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';

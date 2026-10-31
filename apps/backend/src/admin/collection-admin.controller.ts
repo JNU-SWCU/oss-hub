@@ -1,5 +1,5 @@
 import { Controller, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
 import { CollectionAdminService } from '../github/collection-admin.service';

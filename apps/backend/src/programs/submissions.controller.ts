@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
 import {
   CreateSubmissionReviewResponseDto,

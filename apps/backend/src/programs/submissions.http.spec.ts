@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';

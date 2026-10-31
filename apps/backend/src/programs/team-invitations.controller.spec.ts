@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { TeamInvitationStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
 import { TeamInvitationsController } from './team-invitations.controller';

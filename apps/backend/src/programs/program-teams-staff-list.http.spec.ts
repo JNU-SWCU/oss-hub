@@ -2,10 +2,10 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';
 import { TeamsErrorCode } from './teams-error-code.error';
@@ -22,7 +22,7 @@ import {
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { AuthSessionService } from '../auth/auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';

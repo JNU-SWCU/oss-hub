@@ -6,7 +6,7 @@ import {
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
-import { AuthConfig } from '../auth/auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { UsersAuthorityService } from '../users/users-authority.service';

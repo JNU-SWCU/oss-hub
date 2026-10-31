@@ -15,12 +15,12 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
-import { AuthConfig } from './auth.config';
+import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from './auth.service';
 import type { AuthUser } from './http-auth.types';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { OptionalSession, Public } from './authentication.guard';
-import { AuthSessionService } from './auth-session.service';
+import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 
