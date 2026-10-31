@@ -197,7 +197,13 @@ export class AuthRouteStatusHarness {
             createMilestone: jest.fn(),
           },
         },
-        { provide: ProgramsService, useValue: programsService },
+        {
+          provide: ProgramsService,
+          useValue: Object.assign(
+            Object.create(ProgramsService.prototype) as object,
+            programsService,
+          ),
+        },
         { provide: ProgramActivityService, useValue: { activity: jest.fn() } },
         {
           provide: ProgramViewerService,

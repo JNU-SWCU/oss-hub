@@ -172,6 +172,25 @@ export class ProgramsService {
     };
   }
 
+  listQueryFromRequest(request: ProgramListQuery): ProgramListQuery {
+    return {
+      page: request.page,
+      pageSize: request.pageSize,
+      search: request.search.trim(),
+      status: request.status,
+      year: request.year,
+      sort: request.sort,
+      direction: request.direction,
+    };
+  }
+
+  listFromRequest(
+    request: ProgramListQuery,
+    viewer: ProgramViewer,
+  ): Promise<ProgramListPage> {
+    return this.list(this.listQueryFromRequest(request), viewer);
+  }
+
   async list(
     query: ProgramListQuery,
     viewer: ProgramViewer = ANONYMOUS_VIEWER,

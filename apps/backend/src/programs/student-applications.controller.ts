@@ -57,11 +57,7 @@ export class StudentApplicationsController {
     @Body() body: UpdateStudentApplicationRequestDto,
   ): Promise<StudentApplicationResponseDto> {
     return StudentApplicationResponseDto.from(
-      await this.service.updateMine(
-        request.sessionGithubId,
-        programId,
-        body.toInput(),
-      ),
+      await this.service.updateMine(request.sessionGithubId, programId, body),
     );
   }
 

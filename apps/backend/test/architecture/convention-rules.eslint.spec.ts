@@ -30,6 +30,7 @@ const rules = {
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
   'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
+  'request-dto-no-methods': await load('request-dto-no-methods.mjs', 'requestDtoNoMethods'),
 };
 let current;
 RuleTester.describe = (_name, fn) => fn();
@@ -778,6 +779,32 @@ for (const [name, filename, code, errors] of [
     ...errors,
   ]);
 }
+
+valid(
+  'request-dto-no-methods',
+  'accepts a request DTO that only declares fields',
+  requestFile,
+  `import { IsString } from 'class-validator';
+export class ThingRequestDto { @IsString() declare readonly name: string; }`,
+);
+invalid(
+  'request-dto-no-methods',
+  'rejects a conversion method on a request DTO',
+  requestFile,
+  `import { IsString } from 'class-validator';
+export class ThingRequestDto {
+  @IsString() declare readonly name: string;
+  toQuery() { return { name: this.name }; }
+}`,
+  ['method'],
+);
+invalid(
+  'request-dto-no-methods',
+  'rejects a getter on a request DTO',
+  requestFile,
+  `export class ThingRequestDto { get trimmed() { return ''; } }`,
+  ['method'],
+);
 
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];

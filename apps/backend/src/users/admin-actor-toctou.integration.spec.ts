@@ -206,6 +206,10 @@ it(
           new UserProfileService(),
         ),
       ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     const mutation = service.patchProfile(actor.githubId, target.id, {
@@ -271,6 +275,10 @@ it(
           new AuditLogMetadataService(),
           new UserProfileService(),
         ),
+      ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
       ),
     );
 

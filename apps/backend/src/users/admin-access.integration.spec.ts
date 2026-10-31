@@ -174,7 +174,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     });
 
     const profileService = {
-      patchProfile: () => {
+      patchProfileFromRequest: () => {
         throw new Error('patchProfile should not be called in this spec');
       },
     };
@@ -190,10 +190,6 @@ describe('Admin access real PostgreSQL transactions', () => {
       Object.assign(
         Object.create(MemberKindService.prototype) as MemberKindService,
         { patchMemberKind: jest.fn() },
-      ),
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
       ),
     );
     const request = {

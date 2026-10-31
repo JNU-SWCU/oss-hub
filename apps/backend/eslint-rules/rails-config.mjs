@@ -14,6 +14,7 @@ import {
   injectableRoleClass,
   serviceExports,
 } from './module-exports.mjs';
+import { requestDtoNoMethods } from './request-dto-no-methods.mjs';
 
 const layers = [
   'controller',
@@ -640,6 +641,7 @@ export async function createRailsConfig(rootDir) {
             'config-exports': configExports,
             'service-exports': serviceExports,
             'injectable-role-class': injectableRoleClass,
+            'request-dto-no-methods': requestDtoNoMethods,
             'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
@@ -864,6 +866,10 @@ export async function createRailsConfig(rootDir) {
       files: ['src/**/*.service.ts'],
       ignores: testFiles,
       rules: { 'architecture/service-exports': 'error' },
+    },
+    {
+      files: ['src/**/dto/*-request.dto.ts'],
+      rules: { 'architecture/request-dto-no-methods': 'error' },
     },
     {
       files: ['src/**/*.types.ts'],

@@ -113,7 +113,7 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return this.collectionService
-      .collectForStaff(milestoneId, query.toQuery())
+      .collectForStaffFromRequest(milestoneId, query)
       .then((result) =>
         MilestoneDocumentDeliveryCollectionResponseDto.from(result),
       );
@@ -152,10 +152,10 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: UpdateMilestoneDocumentGraceRequestDto,
   ): Promise<void> {
-    return this.service.updateGraceDueAt(
+    return this.service.updateGraceDueAtFromRequest(
       milestoneId,
       documentId,
-      body.toDate(),
+      body,
     );
   }
 
@@ -207,7 +207,7 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
-      .historyForStaff(milestoneId, documentId, applicationId, query.toQuery())
+      .historyForStaff(milestoneId, documentId, applicationId, query)
       .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
   }
 
@@ -225,7 +225,7 @@ export class MilestoneDocumentsController {
         request.sessionGithubId,
         milestoneId,
         documentId,
-        query.toQuery(),
+        query,
       )
       .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
   }

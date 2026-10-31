@@ -5,8 +5,4 @@ export class UpdateMilestoneDocumentGraceRequestDto {
   @IsISO8601({ strict: true })
   @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   declare readonly graceDueAt: string | null;
-
-  toDate(): Date | null {
-    return this.graceDueAt === null ? null : new Date(this.graceDueAt);
-  }
 }

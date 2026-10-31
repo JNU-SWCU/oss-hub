@@ -28,7 +28,6 @@ import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-aut
 import { IndependentAuthorityService } from '../users/independent-authority.service';
 import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
 import { MemberKindService } from '../users/member-kind.service';
-import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<
@@ -42,21 +41,23 @@ export class UserAccessController {
     @Inject(AdminAccessService)
     private readonly service: Pick<
       AdminAccessService,
-      'list' | 'facets' | 'patchAccess'
+      'list' | 'facets' | 'patchAccessFromRequest'
     >,
     @Inject(AdminProfileService)
-    private readonly profileService: Pick<AdminProfileService, 'patchProfile'>,
+    private readonly profileService: Pick<
+      AdminProfileService,
+      'patchProfileFromRequest'
+    >,
     @Inject(IndependentAuthorityService)
     private readonly authorityService: Pick<
       IndependentAuthorityService,
-      'patchAdminAccess' | 'adminCommandFromRequest'
+      'patchAdminAccessFromRequest'
     >,
     @Inject(MemberKindService)
     private readonly memberKindService: Pick<
       MemberKindService,
-      'patchMemberKind' | 'commandFromRequest'
+      'patchMemberKindFromRequest'
     >,
-    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   @Get('access')
@@ -67,7 +68,7 @@ export class UserAccessController {
     @Query() query: AdminAccessListRequestDto,
   ): Promise<AdminAccessUserPageResponseDto> {
     return AdminAccessUserPageResponseDto.from(
-      await this.service.list(request.principal, query.toQuery()),
+      await this.service.list(request.principal, query),
     );
   }
 
@@ -79,7 +80,7 @@ export class UserAccessController {
     @Query() query: AdminAccessListRequestDto,
   ): Promise<AdminAccessFacetsResponseDto> {
     return AdminAccessFacetsResponseDto.from(
-      await this.service.facets(request.principal, query.toQuery()),
+      await this.service.facets(request.principal, query),
     );
   }
 
@@ -91,12 +92,11 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchAdminAccessRequestDto,
   ): Promise<AdminAccessMutationResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return AdminAccessMutationResponseDto.from(
-      await this.service.patchAccess(
+      await this.service.patchAccessFromRequest(
         request.sessionGithubId,
         id,
-        this.adminAccessMutationService.commandFromPatchAccessRequest(body),
+        body,
       ),
     );
   }
@@ -109,12 +109,11 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchAdminUserProfileRequestDto,
   ): Promise<AdminProfileUpdateResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return AdminProfileUpdateResponseDto.from(
-      await this.profileService.patchProfile(
+      await this.profileService.patchProfileFromRequest(
         request.sessionGithubId,
         id,
-        body.toCommand(),
+        body,
       ),
     );
   }
@@ -127,12 +126,11 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchIndependentAuthorityRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return IndependentAuthorityMutationResponseDto.from(
-      await this.authorityService.patchAdminAccess(
+      await this.authorityService.patchAdminAccessFromRequest(
         request.sessionGithubId,
         id,
-        this.authorityService.adminCommandFromRequest(body),
+        body,
       ),
     );
   }
@@ -145,12 +143,11 @@ export class UserAccessController {
     @Param('id') id: string,
     @Body() body: PatchMemberKindRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return IndependentAuthorityMutationResponseDto.from(
-      await this.memberKindService.patchMemberKind(
+      await this.memberKindService.patchMemberKindFromRequest(
         request.sessionGithubId,
         id,
-        this.memberKindService.commandFromRequest(body),
+        body,
       ),
     );
   }

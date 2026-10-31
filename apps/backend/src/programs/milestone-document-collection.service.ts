@@ -1,3 +1,4 @@
+import type { MilestoneDocumentCollectionFilter } from './milestone-document-rules.service';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
@@ -117,12 +118,55 @@ export class MilestoneDocumentCurrentFileService {
   }
 }
 
+const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
+
+export interface MilestoneDocumentCollectionRequest {
+  readonly page?: number;
+  readonly pageSize?: number;
+  readonly filter?: MilestoneDocumentCollectionFilter;
+  readonly deliveryStatus?: DocumentDeliveryStatus;
+  readonly documentId?: string;
+  readonly submissionState?: 'ALL' | 'SUBMITTED' | 'MISSING';
+}
+
 @Injectable()
 export class MilestoneDocumentCollectionService {
   constructor(
     private readonly repository: MilestoneDocumentCollectionReadRepository,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
+
+  collectionQueryFromRequest(
+    request: MilestoneDocumentCollectionRequest,
+  ): MilestoneDocumentDeliveryQuery {
+    return {
+      page: request.page ?? 1,
+      pageSize:
+        request.pageSize ?? MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE,
+      filter: request.filter ?? 'ALL',
+      ...(request.documentId === undefined
+        ? {}
+        : {
+            document: {
+              id: request.documentId,
+              submissionState: request.submissionState ?? 'ALL',
+            },
+          }),
+      ...(request.deliveryStatus === undefined
+        ? {}
+        : { deliveryStatus: request.deliveryStatus }),
+    };
+  }
+
+  collectForStaffFromRequest(
+    milestoneId: string,
+    request: MilestoneDocumentCollectionRequest,
+  ): Promise<MilestoneDocumentDeliveryCollectionResult> {
+    return this.collectForStaff(
+      milestoneId,
+      this.collectionQueryFromRequest(request),
+    );
+  }
 
   async collectForStaff(
     milestoneId: string,

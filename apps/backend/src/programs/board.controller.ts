@@ -42,11 +42,7 @@ export class BoardController {
     @Query() query: BoardPostListRequestDto,
   ): Promise<BoardPostsPageResponseDto> {
     return BoardPostsPageResponseDto.from(
-      await this.service.listPosts(
-        programId,
-        query.toQuery(),
-        request.sessionGithubId,
-      ),
+      await this.service.listPosts(programId, query, request.sessionGithubId),
     );
   }
 

@@ -346,7 +346,10 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       {
         provide: MilestoneDocumentCollectionService,
-        useValue: { collectForStaff },
+        useValue: Object.assign(
+          Object.create(MilestoneDocumentCollectionService.prototype) as object,
+          { collectForStaff },
+        ),
       },
       {
         provide: MilestoneDocumentsService,

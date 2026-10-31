@@ -9,7 +9,6 @@ import {
   Min,
 } from 'class-validator';
 import {
-  type ApplicationListQuery,
   type ApplicationListStatus,
   type ApplicationListView,
 } from '../applications.repository';
@@ -42,14 +41,4 @@ export class ApplicationListRequestDto {
 
   @Allow()
   readonly mode?: unknown;
-
-  toQuery(): ApplicationListQuery {
-    return {
-      page: this.page,
-      pageSize: this.pageSize,
-      search: this.search.trim(),
-      status: this.status,
-      view: this.view,
-    };
-  }
 }

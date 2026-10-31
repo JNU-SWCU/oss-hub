@@ -102,7 +102,7 @@ export class ProgramsController {
         : null;
     const viewer = await this.viewers.fromGithubId(githubId);
     return ProgramListPageResponseDto.from(
-      await this.programs.list(query.toQuery(), viewer),
+      await this.programs.listFromRequest(query, viewer),
     );
   }
 

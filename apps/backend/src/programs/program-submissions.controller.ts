@@ -46,7 +46,7 @@ export class ProgramSubmissionsController {
     @Param('programId') programId: string,
     @Query() query: SubmissionMatrixRequestDto,
   ): Promise<SubmissionMatrixResponseDto> {
-    const result = await this.matrixService.matrix(programId, query.toQuery());
+    const result = await this.matrixService.matrix(programId, query);
     return SubmissionMatrixResponseDto.from(result, programId);
   }
 }

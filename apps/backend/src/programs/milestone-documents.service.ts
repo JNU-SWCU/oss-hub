@@ -252,12 +252,23 @@ export class MilestoneDocumentsService {
     });
   }
 
+  historyQueryFromRequest(request: {
+    readonly cursor?: string | null;
+    readonly limit?: number;
+  }): {
+    readonly cursor: string | null;
+    readonly limit: number;
+  } {
+    return { cursor: request.cursor ?? null, limit: request.limit ?? 20 };
+  }
+
   async historyForStaff(
     milestoneId: string,
     documentId: string,
     applicationId: string,
-    query: { readonly cursor: string | null; readonly limit: number },
+    request: { readonly cursor?: string | null; readonly limit?: number },
   ): Promise<MilestoneDocumentHistoryResult> {
+    const query = this.historyQueryFromRequest(request);
     const document = await this.repository.findDocumentContext(documentId);
     if (document === null || document.milestoneId !== milestoneId) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -291,8 +302,9 @@ export class MilestoneDocumentsService {
     sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
-    query: { readonly cursor: string | null; readonly limit: number },
+    request: { readonly cursor?: string | null; readonly limit?: number },
   ): Promise<MilestoneDocumentHistoryResult> {
+    const query = this.historyQueryFromRequest(request);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
     if (viewer === null) {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
@@ -362,6 +374,18 @@ export class MilestoneDocumentsService {
       return store.updateDocument(documentId, toUpdateInput(input));
     });
     return record;
+  }
+
+  updateGraceDueAtFromRequest(
+    milestoneId: string,
+    documentId: string,
+    request: { readonly graceDueAt: string | null },
+  ): Promise<void> {
+    return this.updateGraceDueAt(
+      milestoneId,
+      documentId,
+      request.graceDueAt === null ? null : new Date(request.graceDueAt),
+    );
   }
 
   async updateGraceDueAt(

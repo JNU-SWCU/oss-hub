@@ -48,7 +48,7 @@ export class NotificationSettingsController {
     return NotificationSettingsResponseDto.from(
       await this.service.updateMyNotificationEmail(
         request.sessionGithubId,
-        body.toInput(),
+        body,
       ),
     );
   }

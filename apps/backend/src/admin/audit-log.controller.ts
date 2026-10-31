@@ -25,7 +25,7 @@ export class AuditLogController {
     @Query() query: AuditLogListRequestDto,
   ): Promise<AuditLogPageResponseDto> {
     return AuditLogPageResponseDto.from(
-      await this.service.list(query.toQuery()),
+      await this.service.listFromRequest(query),
     );
   }
 }

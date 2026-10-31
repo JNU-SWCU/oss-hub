@@ -74,11 +74,19 @@ export class BoardService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
+  listQueryFromRequest(request: {
+    readonly page?: number;
+    readonly limit?: number;
+  }): BoardPostListQuery {
+    return { page: request.page ?? 1, limit: request.limit ?? 20 };
+  }
+
   async listPosts(
     programId: string,
-    query: BoardPostListQuery,
+    request: { readonly page?: number; readonly limit?: number },
     sessionGithubId: bigint,
   ): Promise<BoardPostsPageResult> {
+    const query = this.listQueryFromRequest(request);
     const { actorId, actorIsStaff } = await this.assertAccess(
       programId,
       sessionGithubId,

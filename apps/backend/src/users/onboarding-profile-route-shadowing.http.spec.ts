@@ -1,3 +1,4 @@
+import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../platform/auth.config';
@@ -34,21 +35,38 @@ const usersService = {
   completeMyProfile: jest.fn().mockResolvedValue(myProfile),
   patchMyProfile: jest.fn().mockResolvedValue(myProfile),
 };
-const adminAccessService = {
-  list: jest.fn(),
-  facets: jest.fn(),
-  get: jest.fn(),
-  getHistory: jest.fn(),
-  patchAccess: jest.fn(),
-};
-const adminProfileService = {
-  patchProfile: jest.fn().mockResolvedValue({
-    id: 'admin-target',
-    name: null,
-    studentId: null,
-    department: null,
-  }),
-};
+const adminAccessMutationService = new AdminAccessMutationService(
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
+const adminAccessService = Object.assign(
+  Object.create(AdminAccessService.prototype) as object,
+  {
+    adminAccessMutationService,
+    list: jest.fn(),
+    facets: jest.fn(),
+    get: jest.fn(),
+    getHistory: jest.fn(),
+    patchAccess: jest.fn(),
+  },
+);
+const adminProfileService = Object.assign(
+  Object.create(AdminProfileService.prototype) as object,
+  {
+    adminAccessMutationService,
+    adminProfileMutationService: new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      adminAccessMutationService,
+    ),
+    patchProfile: jest.fn().mockResolvedValue({
+      id: 'admin-target',
+      name: null,
+      studentId: null,
+      department: null,
+    }),
+  },
+);
 
 describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순서', () => {
   let application: INestApplication;

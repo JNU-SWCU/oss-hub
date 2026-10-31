@@ -40,7 +40,7 @@ export class ProgramApplicationsController {
     @Inject(ApplicationsService)
     private readonly service: Pick<
       ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+      'createFromRequest' | 'listForProgram' | 'listTeamManagementForProgram'
     >,
   ) {}
 
@@ -53,14 +53,13 @@ export class ProgramApplicationsController {
   ): Promise<
     ApplicationListPageResponseDto | TeamManagementListPageResponseDto
   > {
-    const listQuery = query.toQuery();
-    if (listQuery.view === 'team-management') {
+    if (query.view === 'team-management') {
       return TeamManagementListPageResponseDto.from(
-        await this.service.listTeamManagementForProgram(programId, listQuery),
+        await this.service.listTeamManagementForProgram(programId, query),
       );
     }
     return ApplicationListPageResponseDto.from(
-      await this.service.listForProgram(programId, listQuery),
+      await this.service.listForProgram(programId, query),
     );
   }
 
@@ -73,10 +72,10 @@ export class ProgramApplicationsController {
     @Param('programId') programId: string,
     @Body() body: CreateApplicationRequestDto,
   ): Promise<CreateApplicationResponseDto> {
-    const application = await this.service.create(
+    const application = await this.service.createFromRequest(
       request.sessionGithubId,
       programId,
-      body.toInput(),
+      body,
     );
     return CreateApplicationResponseDto.from(application);
   }
