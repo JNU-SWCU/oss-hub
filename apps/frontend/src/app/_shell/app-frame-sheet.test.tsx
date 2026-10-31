@@ -3,6 +3,7 @@ import { createTestQueryClient } from '../../../test-support/render-with-query';
 import { act, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiPath } from '@/lib/api-client';
 
 const queryClient = createTestQueryClient();
 beforeEach(() => {
@@ -19,22 +20,26 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-const mocks = vi.hoisted(() => ({
-  usePathname: vi.fn(),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
-  push: vi.fn(),
-  useSessionRole: vi.fn(),
-  getProgramOverview: vi.fn(),
-  getProgramNavigationMilestones: vi.fn(),
-  getProgramStatusCounts: vi.fn(),
-  getRankingYears: vi.fn(),
-  getMyApplication: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const push = vi.fn();
+  return {
+    usePathname: vi.fn(),
+    useSearchParams: vi.fn(() => new URLSearchParams()),
+    push,
+    router: { push },
+    useSessionRole: vi.fn(),
+    getProgramOverview: vi.fn(),
+    getProgramNavigationMilestones: vi.fn(),
+    getProgramStatusCounts: vi.fn(),
+    getRankingYears: vi.fn(),
+    getMyApplication: vi.fn(),
+  };
+});
 
 vi.mock('next/navigation', () => ({
   usePathname: mocks.usePathname,
   useSearchParams: mocks.useSearchParams,
-  useRouter: () => ({ push: mocks.push }),
+  useRouter: () => mocks.router,
 }));
 vi.mock('next/link', () => ({
   default: ({
@@ -185,6 +190,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
       value: originalMatchMedia,
     });
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   function scopeBar(): HTMLElement | null {
@@ -225,6 +231,77 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
       trigger().click();
     });
   }
+
+  it('reuses one consent GET for the real dialog and stays closed after accepting', async () => {
+    const policyVersion = '2026-11-01';
+    let consented = false;
+    let consentGets = 0;
+    const fetchMock = vi.fn<typeof fetch>(async (target, init) => {
+      if (target === apiPath('consents/current')) {
+        consentGets += 1;
+        return new Response(
+          JSON.stringify({
+            policyVersion,
+            requiredItems: [
+              {
+                key: 'GITHUB_ACTIVITY',
+                label: 'GitHub 활동 수집·공개 범위',
+                documentUrl: '/policies/github-activity',
+              },
+            ],
+            consented,
+            nextUrl: '/onboarding/role',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (target === apiPath('consents') && init?.method === 'POST') {
+        consented = true;
+        return new Response(
+          JSON.stringify({
+            policyVersion,
+            consentedAt: '2026-11-01T00:00:00.000Z',
+            nextUrl: '/onboarding/role',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      throw new TypeError('Unexpected consent request');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    mockSession(STUDENT_SESSION);
+    const home = <p data-testid="home">학생 홈</p>;
+    await renderFrame('/dashboard', '', home);
+
+    expect(dialog()).not.toBeNull();
+    const checkbox = document.body.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(checkbox).not.toBeNull();
+    expect(consentGets).toBe(1);
+    expect(container.querySelector('[data-testid="home"]')).toBeNull();
+
+    await act(async () => checkbox?.click());
+    const submit = document.body.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    expect(submit?.disabled).toBe(false);
+    await act(async () => submit?.click());
+
+    expect(consented).toBe(true);
+    expect(consentGets).toBe(2);
+    expect(dialog()).toBeNull();
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    await act(async () => root.render(null));
+    await renderFrame('/dashboard', '', home);
+    expect(dialog()).toBeNull();
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(
+      fetchMock.mock.calls.filter(
+        ([target, init]) => target === apiPath('consents') && init?.method === 'POST',
+      ),
+    ).toHaveLength(1);
+  });
 
   it('/dashboard는 닫힌 시트, 데스크톱 aside, 브랜드 제목이 있는 스코프 바를 렌더한다', async () => {
     mockSession(STUDENT_ADMIN_SESSION);
