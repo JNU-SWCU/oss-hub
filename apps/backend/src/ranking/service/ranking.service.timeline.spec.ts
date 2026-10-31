@@ -65,22 +65,22 @@ describe('RankingService.findTimeline', () => {
     expect(harness.findViewerGithubLogin).not.toHaveBeenCalled();
   });
 
-  it('dataAsOf 를 그대로 싣고 starEstimated 를 지점별로 전한다', async () => {
+  it('dataAsOf 를 그대로 싣고 지점을 월별로 만들다', async () => {
     harness.findMetrics.mockResolvedValue([
       activity(1n, 'alpha', { commitCount: 100 }),
     ]);
     harness.findMonthlySnapshots.mockResolvedValue([
-      snapshot(1n, '2026-01-31', { commitCount: 5, starEstimated: true }),
-      snapshot(1n, '2026-09-30', { commitCount: 50, starEstimated: false }),
+      snapshot(1n, '2026-01-31', { commitCount: 5 }),
+      snapshot(1n, '2026-09-30', { commitCount: 50 }),
     ]);
 
     const timeline = await harness.service.findTimeline(2026, null);
 
     expect(timeline.dataAsOf).toBe(DATA_AS_OF);
     expect(timeline.points).toEqual([
-      { date: '2026-01-31', starEstimated: true },
-      { date: '2026-09-30', starEstimated: false },
-      { date: '2026-10-31', starEstimated: false },
+      { date: '2026-01-31' },
+      { date: '2026-09-30' },
+      { date: '2026-10-31' },
     ]);
     expect(harness.findMonthlySnapshots).toHaveBeenCalledWith(2026);
   });

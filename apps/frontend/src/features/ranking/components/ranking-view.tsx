@@ -360,20 +360,16 @@ export function RankingView({
         title="랭킹"
         description={RANKING_METRIC_DESCRIPTION}
         actions={
-          ranking ? (
-            <>
-              {showStaffFields ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onExportCsv}
-                  disabled={isExportingCsv}
-                >
-                  <Download data-icon="inline-start" />
-                  CSV 다운로드
-                </Button>
-              ) : null}
-            </>
+          showStaffFields ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onExportCsv}
+              disabled={isExportingCsv}
+            >
+              <Download data-icon="inline-start" />
+              CSV 다운로드
+            </Button>
           ) : null
         }
       />

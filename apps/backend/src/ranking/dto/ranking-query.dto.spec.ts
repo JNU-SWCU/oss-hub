@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
@@ -12,7 +11,6 @@ import {
   RankingQueryRequestDto,
   RankingTimelineQueryRequestDto,
   resolveRankingQueryYear,
-  resolveRankingTimelineQueryYear,
 } from './ranking-query.dto';
 
 async function validateYear(year: string | undefined) {
@@ -59,31 +57,19 @@ describe('RankingTimelineQueryRequestDto year', () => {
     },
   );
 
-  it.each(['all', 'ALL', '1999', '2101', 'abc'] as const)(
+  it.each(['all', 'ALL', '1999', '2101', 'abc', ''] as const)(
     'rejects year=%s',
     async (year) => {
       const errors = await validateTimelineYear(year);
       expect(errors.some((error) => error.property === 'year')).toBe(true);
     },
   );
-});
 
-describe('resolveRankingTimelineQueryYear', () => {
-  it('year 가 없으면 Asia/Seoul 올해를, 있으면 그 연도를 정수로 돌려준다', () => {
+  it('질의 문자열 연도를 정수로 바꿔 싣는다', () => {
     expect(
-      resolveRankingTimelineQueryYear({}, new Date('2026-12-31T15:30:00.000Z')),
-    ).toBe(2027);
-    expect(resolveRankingTimelineQueryYear({ year: '2026' })).toBe(2026);
+      plainToInstance(RankingTimelineQueryRequestDto, { year: '2026' }).year,
+    ).toBe(2026);
   });
-
-  it.each([RANKING_YEAR_ALL, 'abc', '1999', '2101'])(
-    'year=%s 는 BadRequestException 이다',
-    (year) => {
-      expect(() => resolveRankingTimelineQueryYear({ year })).toThrow(
-        BadRequestException,
-      );
-    },
-  );
 });
 
 describe('resolveRankingQueryYear (Q5)', () => {

@@ -1,11 +1,8 @@
 import { expect, test } from 'vitest';
 import type { RankingTimeline, RankingTimelineSeries } from '../types';
 import {
-  RANKING_HISTORY_STROKE,
   buildRankingHistoryChart,
   formatRankChange,
-  rankingHistoryStrokeWidth,
-  rankingPointLabel,
   rankingRankChanges,
   type RankingRankChange,
 } from './ranking-history-model';
@@ -25,7 +22,6 @@ function timelineOf(
     dataAsOf: null,
     points: Array.from({ length: pointCount }, (_unused, index) => ({
       date: `2026-${String(index + 1).padStart(2, '0')}-28`,
-      starEstimated: false,
     })),
     series,
   };
@@ -47,20 +43,6 @@ function changeText(
   return change === undefined ? 'MISSING' : formatRankChange(change);
 }
 
-test.each([
-  [1, false, RANKING_HISTORY_STROKE.lead],
-  [3, false, RANKING_HISTORY_STROKE.lead],
-  [4, false, RANKING_HISTORY_STROKE.legend],
-  [10, false, RANKING_HISTORY_STROKE.legend],
-  [11, false, RANKING_HISTORY_STROKE.rest],
-  [300, true, RANKING_HISTORY_STROKE.lead],
-])(
-  '%i위(열람자=%s) 선 굵기는 최종 순위로 갈리고 열람자는 언제나 가장 굵다',
-  (rank, isViewer, width) => {
-    expect(rankingHistoryStrokeWidth(rank, isViewer)).toBe(width);
-  },
-);
-
 test('행 하나가 지점 하나다 — 계열별 누적 점수를 키로 싣고 빈 달은 null 로 두며 월 이름표를 붙인다', () => {
   const chart = buildRankingHistoryChart(
     timelineOf([
@@ -70,10 +52,9 @@ test('행 하나가 지점 하나다 — 계열별 누적 점수를 키로 싣�
   );
 
   expect(chart.rows).toEqual([
-    { index: 0, label: '1월', s0: 10, s1: null },
-    { index: 1, label: '2월', s0: 40, s1: 20 },
+    { label: '1월', s0: 10, s1: null },
+    { label: '2월', s0: 40, s1: 20 },
   ]);
-  expect(rankingPointLabel('2026-12-31')).toBe('12월');
 });
 
 test('범례는 상위 10명과 열람자만 담고, 열람자 선은 전용 색으로 가장 마지막에 그려진다', () => {
@@ -95,7 +76,9 @@ test('범례는 상위 10명과 열람자만 담고, 열람자 선은 전용 색
   expect(last?.githubLogin).toBe('student-42');
   expect(last?.color).toBe('var(--chart-3)');
   expect(last?.faded).toBe(false);
+  expect(last?.strokeWidth).toBe(2.8);
   expect(first?.faded).toBe(true);
+  expect(first?.strokeWidth).toBe(0.9);
   expect(first?.color).toBe(
     'color-mix(in oklch, var(--muted-foreground) 55%, var(--card))',
   );
@@ -114,6 +97,9 @@ test('상위 10명은 색·선모양 조합이 서로 겹치지 않는다', () =
     chart.legend.find((line) => line.finalRank === 1)?.dash,
   ).toBeUndefined();
   expect(chart.legend.find((line) => line.finalRank === 4)?.dash).toBe('7 5');
+  expect(chart.legend.map((line) => line.strokeWidth)).toEqual([
+    2.8, 2.8, 2.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8,
+  ]);
   expect(
     new Set(
       chart.legend.filter((line) => !line.isViewer).map((line) => line.color),

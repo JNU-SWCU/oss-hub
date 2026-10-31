@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  GithubUserActivitySnapshotSource,
-} from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface CollectionActivityUserRow {
@@ -62,12 +59,7 @@ export class CollectionUserActivityRepository {
       return;
     }
 
-    const snapshotRow = {
-      year,
-      ...row,
-      source: GithubUserActivitySnapshotSource.SWEEP,
-      starEstimated: false,
-    };
+    const snapshotRow = { year, ...row };
     await this.db.$transaction([
       history,
       this.db.githubUserActivitySnapshot.upsert({

@@ -29,9 +29,13 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isCalendarYear(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
+}
+
 function isRankingYear(value: unknown): value is RankingYear {
   if (value === RANKING_YEAR_ALL) return true;
-  return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
+  return isCalendarYear(value);
 }
 
 function readOptionalCount(value: unknown): number | null {
@@ -199,46 +203,29 @@ export function parseRankingPage(value: unknown): RankingPage {
     nextCycleAt:
       typeof value.nextCycleAt === 'string' ? value.nextCycleAt : null,
   };
-  switch (viewerClass) {
-    case RANKING_VIEWER_CLASSES.PUBLIC:
-      return {
-        ...envelope,
-        viewerClass,
-        items: parseRankingItems(value.items, parsePublicRankingItem),
-      };
-    case RANKING_VIEWER_CLASSES.MEMBER:
-      return {
-        ...envelope,
-        viewerClass,
-        items: parseRankingItems(value.items, parsePublicRankingItem),
-      };
-    case RANKING_VIEWER_CLASSES.STAFF:
-      return {
-        ...envelope,
-        viewerClass,
-        items: parseRankingItems(value.items, parseStaffRankingItem),
-      };
-    default:
-      return assertNeverViewerClass(viewerClass);
+  if (viewerClass === RANKING_VIEWER_CLASSES.STAFF) {
+    return {
+      ...envelope,
+      viewerClass,
+      items: parseRankingItems(value.items, parseStaffRankingItem),
+    };
   }
-}
-
-function assertNeverViewerClass(value: never): never {
-  throw new TypeError(`Unexpected ranking viewer class: ${String(value)}`);
+  return {
+    ...envelope,
+    viewerClass,
+    items: parseRankingItems(value.items, parsePublicRankingItem),
+  };
 }
 
 export function parseRankingYears(value: unknown): RankingYears {
-  if (
-    !isRecord(value) ||
-    !Array.isArray(value.years) ||
-    !value.years.every(
-      (year: unknown): year is number =>
-        typeof year === 'number' && Number.isInteger(year) && year >= 2000,
-    )
-  ) {
+  if (!isRecord(value) || !Array.isArray(value.years)) {
     throw new RankingResponseError();
   }
-  return { years: value.years.map((year) => year) };
+  const years: readonly unknown[] = value.years;
+  if (!years.every(isCalendarYear)) {
+    throw new RankingResponseError();
+  }
+  return { years };
 }
 
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -256,10 +243,6 @@ function isCalendarDate(value: unknown): value is string {
   );
 }
 
-function isTimelineYear(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
-}
-
 function isOptionalGithubLogin(
   value: unknown,
 ): value is string | null | undefined {
@@ -267,14 +250,10 @@ function isOptionalGithubLogin(
 }
 
 function parseTimelinePoint(value: unknown): RankingTimelinePoint | null {
-  if (
-    !isRecord(value) ||
-    !isCalendarDate(value.date) ||
-    typeof value.starEstimated !== 'boolean'
-  ) {
+  if (!isRecord(value) || !isCalendarDate(value.date)) {
     return null;
   }
-  return { date: value.date, starEstimated: value.starEstimated };
+  return { date: value.date };
 }
 
 function readAlignedValues(
@@ -317,7 +296,7 @@ function parseTimelineSeries(
 export function parseRankingTimeline(value: unknown): RankingTimeline {
   if (
     !isRecord(value) ||
-    !isTimelineYear(value.year) ||
+    !isCalendarYear(value.year) ||
     !isOptionalGithubLogin(value.viewerGithubLogin) ||
     !isOptionalIsoInstant(value.dataAsOf) ||
     !Array.isArray(value.points) ||
@@ -331,23 +310,10 @@ export function parseRankingTimeline(value: unknown): RankingTimeline {
     throw new RankingResponseError();
   }
 
-  const points: RankingTimelinePoint[] = [];
-  for (const rawPoint of value.points) {
-    const point = parseTimelinePoint(rawPoint);
-    if (point === null) {
-      throw new RankingResponseError();
-    }
-    points.push(point);
-  }
-
-  const series: RankingTimelineSeries[] = [];
-  for (const rawSeries of value.series) {
-    const parsed = parseTimelineSeries(rawSeries, points.length);
-    if (parsed === null) {
-      throw new RankingResponseError();
-    }
-    series.push(parsed);
-  }
+  const points = parseRankingItems(value.points, parseTimelinePoint);
+  const series = parseRankingItems(value.series, (rawSeries) =>
+    parseTimelineSeries(rawSeries, points.length),
+  );
 
   return {
     year: value.year,

@@ -9,7 +9,7 @@ const REST_COLOR =
 const DASH_PATTERNS = [undefined, '7 5', '2 4', '8 3 2 3', '1 6'] as const;
 export const RANKING_HISTORY_COMPACT_LEGEND_LIMIT = 5;
 
-export const RANKING_HISTORY_STROKE = {
+const RANKING_HISTORY_STROKE = {
   lead: 2.8,
   legend: 1.8,
   rest: 0.9,
@@ -29,7 +29,6 @@ export interface RankingHistoryLine {
 }
 
 interface RankingHistoryRow {
-  readonly index: number;
   readonly label: string;
   readonly [seriesKey: string]: number | string | null;
 }
@@ -44,7 +43,7 @@ export type RankingRankChange =
   | { readonly kind: 'up' | 'down'; readonly delta: number }
   | { readonly kind: 'same' | 'new' | 'unknown' };
 
-export function rankingHistoryStrokeWidth(
+function rankingHistoryStrokeWidth(
   finalRank: number,
   isViewer: boolean,
 ): number {
@@ -53,7 +52,7 @@ export function rankingHistoryStrokeWidth(
   return RANKING_HISTORY_STROKE.rest;
 }
 
-export function rankingPointLabel(date: string): string {
+function rankingPointLabel(date: string): string {
   return `${String(Number(date.slice(5, 7)))}월`;
 }
 
@@ -67,7 +66,6 @@ export function buildRankingHistoryChart(
     ...Object.fromEntries(
       lines.map((line) => [line.key, line.totals[index] ?? null]),
     ),
-    index,
     label: rankingPointLabel(point.date),
   }));
   const legend = lines
@@ -137,10 +135,7 @@ function lineOf(
 }
 
 function styleIndexOf(finalRank: number): number {
-  return Math.min(
-    Math.floor((finalRank - 1) / SERIES_COLORS.length),
-    DASH_PATTERNS.length - 1,
-  );
+  return Math.floor((finalRank - 1) / SERIES_COLORS.length);
 }
 
 function colorOf(

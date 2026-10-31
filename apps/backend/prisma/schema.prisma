@@ -990,11 +990,6 @@ model GithubUserActivityHistory {
   @@index([year])
 }
 
-enum GithubUserActivitySnapshotSource {
-  SWEEP
-  BACKFILL
-}
-
 model GithubUserActivitySnapshot {
   githubId     BigInt
   snapshotDate DateTime @db.Date
@@ -1006,9 +1001,6 @@ model GithubUserActivitySnapshot {
   issueCount       Int @default(0)
   repositoryCount  Int @default(0)
   starCount        Int @default(0)
-
-  starEstimated Boolean                          @default(false)
-  source        GithubUserActivitySnapshotSource
 
   observedAt DateTime
 

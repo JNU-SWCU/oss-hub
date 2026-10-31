@@ -13,11 +13,11 @@ import {
   RANKING_VIEWER_CLASSES,
   type RankingViewerClass,
 } from '../domain/ranking';
+import { rankingYearInAsiaSeoul } from '../domain/ranking-event';
 import {
   RankingQueryRequestDto,
   RankingTimelineQueryRequestDto,
   resolveRankingQueryYear,
-  resolveRankingTimelineQueryYear,
 } from '../dto/ranking-query.dto';
 import {
   RankingPageResponseDto,
@@ -55,7 +55,7 @@ export class RankingController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingTimelineResponseDto> {
     const timeline = await this.rankingService.findTimeline(
-      resolveRankingTimelineQueryYear(query),
+      query.year ?? rankingYearInAsiaSeoul(new Date()),
       githubIdFrom(request),
     );
     applyViewerCacheHeaders(response, timeline.viewerClass);

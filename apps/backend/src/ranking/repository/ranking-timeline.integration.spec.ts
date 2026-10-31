@@ -1,12 +1,7 @@
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
-import {
-  AccountStatus,
-  AffiliationKind,
-  GithubUserActivitySnapshotSource,
-  MemberKind,
-} from '@prisma/client';
+import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import type { Request } from 'express';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { attachAnonymousAuth } from '../../auth/controller/http-auth';
@@ -60,7 +55,6 @@ interface SyntheticSnapshot {
   readonly student: SyntheticStudent;
   readonly date: string;
   readonly commitCount: number;
-  readonly starEstimated: boolean;
 }
 
 const SNAPSHOTS: readonly SyntheticSnapshot[] = [
@@ -68,31 +62,26 @@ const SNAPSHOTS: readonly SyntheticSnapshot[] = [
     student,
     date: '2099-01-31',
     commitCount: (index + 1) * 10,
-    starEstimated: true,
   })),
   {
     student: STUDENTS[0] as SyntheticStudent,
     date: '2099-02-15',
     commitCount: 5,
-    starEstimated: false,
   },
   ...STUDENTS.map((student, index) => ({
     student,
     date: '2099-02-28',
     commitCount: index === 0 ? 50 : index,
-    starEstimated: false,
   })),
   ...STUDENTS.map((student, index) => ({
     student,
     date: '2099-03-31',
     commitCount: 60 + index,
-    starEstimated: false,
   })),
   ...['2099-01-31', '2099-02-28', '2099-03-31'].map((date) => ({
     student: IDLE_STUDENT,
     date,
     commitCount: 0,
-    starEstimated: false,
   })),
 ];
 
@@ -145,8 +134,6 @@ async function seed(): Promise<void> {
         issueCount: 0,
         repositoryCount: 0,
         starCount: 0,
-        starEstimated: row.starEstimated,
-        source: GithubUserActivitySnapshotSource.SWEEP,
         observedAt: new Date(`${row.date}T01:00:00.000Z`),
       },
     });
@@ -195,7 +182,6 @@ describe('RankingRepository.findMonthlySnapshots (실 Postgres)', () => {
     expect(februaryOfFirst).toMatchObject({
       snapshotDate: new Date('2099-02-28T00:00:00.000Z'),
       commitCount: 50,
-      starEstimated: false,
     });
 
     const otherYear = (await repository.findMonthlySnapshots(YEAR + 1)).filter(
@@ -213,10 +199,10 @@ describe('RankingService.findTimeline (실 Postgres)', () => {
     const page = await service.findPage(YEAR, 1, 100, null);
 
     expect(timeline.points).toEqual([
-      { date: '2099-01-31', starEstimated: true },
-      { date: '2099-02-28', starEstimated: false },
-      { date: '2099-03-31', starEstimated: false },
-      { date: `${YEAR}-12-31`, starEstimated: false },
+      { date: '2099-01-31' },
+      { date: '2099-02-28' },
+      { date: '2099-03-31' },
+      { date: `${YEAR}-12-31` },
     ]);
 
     const seeded = timeline.series.filter((series) =>

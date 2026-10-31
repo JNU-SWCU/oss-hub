@@ -389,10 +389,7 @@ const rankingTimeline = (viewerClass: 'public' | 'member' | 'staff') => ({
   viewerClass,
   viewerGithubLogin: null,
   dataAsOf: '2026-08-20T01:00:00.000Z',
-  points: [
-    { date: '2026-01-31', starEstimated: true },
-    { date: '2026-02-28', starEstimated: false },
-  ],
+  points: [{ date: '2026-01-31' }, { date: '2026-02-28' }],
   series: [
     { githubLogin: 'mina', ranks: [1, 2], totals: [10, 20] },
     { githubLogin: 'suho', ranks: [2, 1], totals: [5, 30] },
@@ -418,10 +415,7 @@ test('공개 타임라인 응답을 화면 계약으로 변환한다', () => {
     viewerClass: 'public',
     viewerGithubLogin: null,
     dataAsOf: new Date('2026-08-20T01:00:00.000Z'),
-    points: [
-      { date: '2026-01-31', starEstimated: true },
-      { date: '2026-02-28', starEstimated: false },
-    ],
+    points: [{ date: '2026-01-31' }, { date: '2026-02-28' }],
     series: [
       { githubLogin: 'mina', ranks: [1, 2], totals: [10, 20] },
       { githubLogin: 'suho', ranks: [2, 1], totals: [5, 30] },
@@ -477,15 +471,9 @@ test.each([
     'series 가 배열이 아니면',
     { ...rankingTimeline('public'), series: { 0: 'nope' } },
   ],
-  ['지점에 starEstimated 가 없으면', withPoints([{ date: '2026-01-31' }])],
-  [
-    '지점 날짜가 YYYY-MM-DD 가 아니면',
-    withPoints([{ date: '2026/01/31', starEstimated: false }]),
-  ],
-  [
-    '지점 날짜가 존재하지 않는 날이면',
-    withPoints([{ date: '2026-02-30', starEstimated: false }]),
-  ],
+  ['지점에 날짜가 없으면', withPoints([{}])],
+  ['지점 날짜가 YYYY-MM-DD 가 아니면', withPoints([{ date: '2026/01/31' }])],
+  ['지점 날짜가 존재하지 않는 날이면', withPoints([{ date: '2026-02-30' }])],
   [
     'githubLogin 이 문자열이 아니면',
     withSeries('public', [

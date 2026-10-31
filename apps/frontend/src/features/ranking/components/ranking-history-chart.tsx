@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Line,
@@ -58,7 +58,7 @@ export function RankingHistoryChart({
 }) {
   const [focused, setFocused] = useState<string | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
-  const chart = buildRankingHistoryChart(timeline);
+  const chart = useMemo(() => buildRankingHistoryChart(timeline), [timeline]);
   const toggle = (login: string) => {
     setHidden((previous) => {
       const next = new Set(previous);
@@ -70,7 +70,7 @@ export function RankingHistoryChart({
     if (focused !== null) return focused === line.githubLogin ? 1 : 0.12;
     return line.faded ? FADED_OPACITY : 1;
   };
-  if (chart.lines.length === 0 || chart.rows.length === 0) {
+  if (chart.lines.length === 0 || chart.rows.length < 2) {
     return <Note state="empty" text="아직 그릴 활동 기록이 없습니다." />;
   }
 
@@ -85,9 +85,6 @@ export function RankingHistoryChart({
         <h3 className={styles.title}>순위 변화</h3>
         <p className={styles.caption}>
           월말 스냅샷과 지금까지 쌓인 누적 점수입니다.
-          {timeline.points.some((point) => point.starEstimated)
-            ? ' 일부 달의 Star는 추정값입니다.'
-            : ''}
         </p>
       </div>
       <ul className={styles.legend} aria-label="상위 참여자">
@@ -129,11 +126,7 @@ export function RankingHistoryChart({
         aria-label={summaryOf(timeline, chart)}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={[...chart.rows]}
-            margin={MARGIN}
-            accessibilityLayer={false}
-          >
+          <LineChart data={[...chart.rows]} margin={MARGIN}>
             <CartesianGrid
               stroke="var(--border)"
               strokeDasharray="3 5"

@@ -95,8 +95,6 @@ describe('GithubUserActivitySnapshot 적재 (실 Postgres)', () => {
         issueCount: 3,
         repositoryCount: 4,
         starCount: 7,
-        source: 'SWEEP',
-        starEstimated: false,
         observedAt: new Date('2026-08-19T01:30:00.000Z'),
       }),
     ]);

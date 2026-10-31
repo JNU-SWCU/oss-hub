@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   HTTP_AUTH_KINDS,
@@ -18,10 +17,7 @@ describe('RankingController.findTimeline', () => {
     { githubLogin: 'alpha', ranks: [1, 1], totals: [5, 100] },
     { githubLogin: 'bravo', ranks: [null, 2], totals: [null, 50] },
   ];
-  const POINTS = [
-    { date: '2026-01-31', starEstimated: true },
-    { date: '2026-10-31', starEstimated: false },
-  ];
+  const POINTS = [{ date: '2026-01-31' }, { date: '2026-10-31' }];
 
   function timeline(
     viewerClass: RankingTimeline['viewerClass'],
@@ -77,7 +73,7 @@ describe('RankingController.findTimeline', () => {
       const { response, headers } = recordingResponse();
 
       const body = await controller.findTimeline(
-        { year: '2026' },
+        { year: 2026 },
         requestWithAuth(githubId),
         response,
       );
@@ -90,14 +86,20 @@ describe('RankingController.findTimeline', () => {
     },
   );
 
-  it('year=all 은 400 이고 서비스까지 내려가지 않는다', async () => {
-    await expect(
-      controller.findTimeline(
-        { year: 'all' },
+  it('year 가 없으면 Asia/Seoul 올해로 조회한다', async () => {
+    findTimeline.mockResolvedValue(timeline('public', null));
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-12-31T15:30:00.000Z'));
+
+    try {
+      await controller.findTimeline(
+        {},
         requestWithAuth(null),
         recordingResponse().response,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(findTimeline).not.toHaveBeenCalled();
+      );
+      expect(findTimeline).toHaveBeenCalledWith(2027, null);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -33,7 +33,6 @@ export interface RankingSnapshotRow {
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
-  readonly starEstimated: boolean;
 }
 
 const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
@@ -164,8 +163,7 @@ export class RankingRepository {
         "pullRequestCount",
         "issueCount",
         "repositoryCount",
-        "starCount",
-        "starEstimated"
+        "starCount"
       FROM "GithubUserActivitySnapshot"
       WHERE "year" = ${year}
       ORDER BY

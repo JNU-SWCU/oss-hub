@@ -81,7 +81,7 @@ const timelinePayload: RankingTimeline = {
   viewerClass: 'staff',
   viewerGithubLogin: 'synthetic-top',
   dataAsOf: null,
-  points: [{ date: '2026-08-19', starEstimated: false }],
+  points: [{ date: '2026-08-19' }],
   series: [{ githubLogin: 'synthetic-top', ranks: [1], totals: [2] }],
 };
 

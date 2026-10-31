@@ -1,6 +1,5 @@
 import {
   buildRankingTimeline,
-  RANKING_TIMELINE_MIN_YEAR,
   withoutZeroTotalSeries,
   type RankingTimelineMetric,
   type RankingTimelineSeries,
@@ -30,7 +29,6 @@ function snapshot(
   githubId: bigint,
   date: string,
   commitCount: number,
-  starEstimated = false,
 ): RankingTimelineSnapshot {
   return {
     githubId,
@@ -40,7 +38,6 @@ function snapshot(
     issueCount: 0,
     repositoryCount: 0,
     starCount: 0,
-    starEstimated,
   };
 }
 
@@ -53,7 +50,6 @@ describe('buildRankingTimeline', () => {
   const snapshots = [
     snapshot(1n, '2026-01-31', 5),
     snapshot(1n, '2026-03-31', 30),
-    snapshot(2n, '2026-01-20', 1),
     snapshot(2n, '2026-01-31', 9),
     snapshot(3n, '2026-03-15', 20),
   ];
@@ -68,9 +64,9 @@ describe('buildRankingTimeline', () => {
     });
 
     expect(timeline.points).toEqual([
-      { date: '2026-01-31', starEstimated: false },
-      { date: '2026-03-31', starEstimated: false },
-      { date: '2026-10-31', starEstimated: false },
+      { date: '2026-01-31' },
+      { date: '2026-03-31' },
+      { date: '2026-10-31' },
     ]);
     expect(timeline.series).toEqual([
       { githubLogin: 'alpha', ranks: [2, 1, 1], totals: [5, 30, 100] },
@@ -113,25 +109,33 @@ describe('buildRankingTimeline', () => {
     },
   );
 
-  it('starEstimated 는 그 달 스냅샷의 OR 이고 캐리포워드는 이전 값을 물려받는다', () => {
+  it('캐리포워드는 이전 달 값을 물려받는다', () => {
     const timeline = buildRankingTimeline({
       year: 2026,
       metrics: [metric(1n, 'alpha', 20), metric(2n, 'bravo', 10)],
       snapshots: [
-        snapshot(1n, '2026-01-31', 5, true),
-        snapshot(2n, '2026-02-28', 7, false),
-        snapshot(1n, '2026-03-31', 9, false),
-        snapshot(2n, '2026-03-31', 8, false),
+        snapshot(1n, '2026-01-31', 5),
+        snapshot(2n, '2026-02-28', 7),
+        snapshot(1n, '2026-03-31', 9),
+        snapshot(2n, '2026-03-31', 8),
       ],
       dataAsOf: DATA_AS_OF,
       now: NOW,
     });
 
     expect(timeline.points).toEqual([
-      { date: '2026-01-31', starEstimated: true },
-      { date: '2026-02-28', starEstimated: true },
-      { date: '2026-03-31', starEstimated: false },
-      { date: '2026-10-31', starEstimated: false },
+      { date: '2026-01-31' },
+      { date: '2026-02-28' },
+      { date: '2026-03-31' },
+      { date: '2026-10-31' },
+    ]);
+    expect(timeline.series).toEqual([
+      { githubLogin: 'alpha', ranks: [1, 2, 1, 1], totals: [5, 5, 9, 20] },
+      {
+        githubLogin: 'bravo',
+        ranks: [null, 1, 2, 2],
+        totals: [null, 7, 8, 10],
+      },
     ]);
   });
 
@@ -144,24 +148,13 @@ describe('buildRankingTimeline', () => {
       now: NOW,
     });
 
-    expect(timeline.points).toEqual([
-      { date: '2026-10-31', starEstimated: false },
-    ]);
+    expect(timeline.points).toEqual([{ date: '2026-10-31' }]);
     expect(timeline.series).toEqual([
       { githubLogin: 'alpha', ranks: [1], totals: [20] },
     ]);
   });
 
-  it(`${RANKING_TIMELINE_MIN_YEAR} 이전 연도와 빈 모집단은 빈 타임라인이다`, () => {
-    expect(
-      buildRankingTimeline({
-        year: RANKING_TIMELINE_MIN_YEAR - 1,
-        metrics,
-        snapshots,
-        dataAsOf: DATA_AS_OF,
-        now: NOW,
-      }),
-    ).toEqual({ points: [], series: [] });
+  it('빈 모집단은 빈 타임라인이다', () => {
     expect(
       buildRankingTimeline({
         year: 2026,

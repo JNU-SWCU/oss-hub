@@ -6,14 +6,12 @@ export interface RankingCandidate extends ActivityCounts {
   readonly total: number;
 }
 
+const LOGIN_COLLATOR = new Intl.Collator('en-US');
+
 export function compareRankingCandidates(
   left: RankingCandidate,
   right: RankingCandidate,
 ): number {
-  const normalizedLoginOrder = normalizeLogin(left.githubLogin).localeCompare(
-    normalizeLogin(right.githubLogin),
-    'en-US',
-  );
   return (
     right.total - left.total ||
     right.commitCount - left.commitCount ||
@@ -21,7 +19,10 @@ export function compareRankingCandidates(
     right.issueCount - left.issueCount ||
     right.repositoryCount - left.repositoryCount ||
     right.starCount - left.starCount ||
-    normalizedLoginOrder ||
+    LOGIN_COLLATOR.compare(
+      normalizeLogin(left.githubLogin),
+      normalizeLogin(right.githubLogin),
+    ) ||
     compareGithubIds(left.githubId, right.githubId)
   );
 }

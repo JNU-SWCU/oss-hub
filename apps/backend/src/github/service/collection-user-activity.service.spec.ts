@@ -149,16 +149,12 @@ describe('CollectionUserActivityService', () => {
         issueCount: 3,
         repositoryCount: 4,
         starCount: 5,
-        source: 'SWEEP',
-        starEstimated: false,
         observedAt: new Date('2026-12-31T15:30:00.000Z'),
       }) as unknown,
       update: expect.objectContaining({
         year: 2027,
         commitCount: 10,
         starCount: 5,
-        source: 'SWEEP',
-        starEstimated: false,
       }) as unknown,
     });
   });

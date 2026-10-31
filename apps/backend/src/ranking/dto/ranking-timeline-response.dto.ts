@@ -5,43 +5,13 @@ import type {
   RankingTimelineSeries,
 } from '../domain/ranking-timeline';
 
-class RankingTimelinePointResponseDto {
-  readonly date: string;
-  readonly starEstimated: boolean;
-
-  private constructor(point: RankingTimelinePoint) {
-    this.date = point.date;
-    this.starEstimated = point.starEstimated;
-  }
-
-  static from(point: RankingTimelinePoint): RankingTimelinePointResponseDto {
-    return new RankingTimelinePointResponseDto(point);
-  }
-}
-
-class RankingTimelineSeriesResponseDto {
-  readonly githubLogin: string;
-  readonly ranks: readonly (number | null)[];
-  readonly totals: readonly (number | null)[];
-
-  private constructor(series: RankingTimelineSeries) {
-    this.githubLogin = series.githubLogin;
-    this.ranks = series.ranks;
-    this.totals = series.totals;
-  }
-
-  static from(series: RankingTimelineSeries): RankingTimelineSeriesResponseDto {
-    return new RankingTimelineSeriesResponseDto(series);
-  }
-}
-
 export class RankingTimelineResponseDto {
   readonly year: number;
   readonly viewerClass: RankingViewerClass;
   readonly viewerGithubLogin: string | null;
   readonly dataAsOf: string | null;
-  readonly points: readonly RankingTimelinePointResponseDto[];
-  readonly series: readonly RankingTimelineSeriesResponseDto[];
+  readonly points: readonly RankingTimelinePoint[];
+  readonly series: readonly RankingTimelineSeries[];
 
   private constructor(timeline: RankingTimeline) {
     this.year = timeline.year;
@@ -49,12 +19,8 @@ export class RankingTimelineResponseDto {
     this.viewerGithubLogin = timeline.viewerGithubLogin;
     this.dataAsOf =
       timeline.dataAsOf === null ? null : timeline.dataAsOf.toISOString();
-    this.points = timeline.points.map((point) =>
-      RankingTimelinePointResponseDto.from(point),
-    );
-    this.series = timeline.series.map((series) =>
-      RankingTimelineSeriesResponseDto.from(series),
-    );
+    this.points = timeline.points;
+    this.series = timeline.series;
   }
 
   static from(timeline: RankingTimeline): RankingTimelineResponseDto {

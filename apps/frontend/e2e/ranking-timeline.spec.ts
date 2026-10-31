@@ -56,7 +56,7 @@ const TIMELINE_BODY = {
   viewerClass: 'member',
   viewerGithubLogin: VIEWER,
   dataAsOf: '2026-03-19T02:30:00.000Z',
-  points: POINTS.map((date, index) => ({ date, starEstimated: index === 0 })),
+  points: POINTS.map((date) => ({ date })),
   series: SERIES,
 };
 

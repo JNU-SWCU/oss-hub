@@ -23,12 +23,10 @@ export interface RankingTimelineMetric extends ActivityCounts {
 export interface RankingTimelineSnapshot extends ActivityCounts {
   readonly githubId: bigint;
   readonly snapshotDate: Date;
-  readonly starEstimated: boolean;
 }
 
 export interface RankingTimelinePoint {
   readonly date: string;
-  readonly starEstimated: boolean;
 }
 
 export interface RankingTimelineSeries {
@@ -57,16 +55,11 @@ export interface RankingTimeline extends RankingTimelineBuild {
   readonly dataAsOf: Date | null;
 }
 
-interface CarriedMetrics {
-  readonly counts: ActivityCounts;
-  readonly starEstimated: boolean;
-}
-
 interface SeriesRow {
   readonly metric: RankingTimelineMetric;
   readonly ranks: (number | null)[];
   readonly totals: (number | null)[];
-  carried: CarriedMetrics | null;
+  carried: ActivityCounts | null;
 }
 
 interface RankedRow {
@@ -82,7 +75,7 @@ interface MonthlyBucket {
 export function buildRankingTimeline(
   input: RankingTimelineBuildInput,
 ): RankingTimelineBuild {
-  if (input.year < RANKING_TIMELINE_MIN_YEAR || input.metrics.length === 0) {
+  if (input.metrics.length === 0) {
     return { points: [], series: [] };
   }
 
@@ -110,7 +103,7 @@ export function buildRankingTimeline(
       candidate: candidateOf(row.metric, row.metric),
     })),
   );
-  points.push({ date: lastDate, starEstimated: false });
+  points.push({ date: lastDate });
 
   return {
     points,
@@ -137,11 +130,10 @@ function appendSnapshotPoint(
   bucket: MonthlyBucket,
 ): RankingTimelinePoint {
   const ranked: RankedRow[] = [];
-  let starEstimated = false;
   for (const row of rows) {
     const snapshot = bucket.rows.get(row.metric.githubId);
     if (snapshot !== undefined) {
-      row.carried = { counts: snapshot, starEstimated: snapshot.starEstimated };
+      row.carried = snapshot;
     }
     const carried = row.carried;
     if (carried === null) {
@@ -149,11 +141,10 @@ function appendSnapshotPoint(
       row.totals.push(null);
       continue;
     }
-    starEstimated = starEstimated || carried.starEstimated;
-    ranked.push({ row, candidate: candidateOf(row.metric, carried.counts) });
+    ranked.push({ row, candidate: candidateOf(row.metric, carried) });
   }
   rankRows(ranked);
-  return { date: calendarDateInUtc(bucket.maxDate), starEstimated };
+  return { date: calendarDateInUtc(bucket.maxDate) };
 }
 
 function rankRows(ranked: readonly RankedRow[]): readonly RankedRow[] {
@@ -198,13 +189,7 @@ function collectMonthlyBuckets(
       maxDate: snapshot.snapshotDate,
       rows: new Map<bigint, RankingTimelineSnapshot>(),
     };
-    const previous = bucket.rows.get(snapshot.githubId);
-    if (
-      previous === undefined ||
-      previous.snapshotDate.getTime() <= snapshot.snapshotDate.getTime()
-    ) {
-      bucket.rows.set(snapshot.githubId, snapshot);
-    }
+    bucket.rows.set(snapshot.githubId, snapshot);
     if (bucket.maxDate.getTime() < snapshot.snapshotDate.getTime()) {
       bucket.maxDate = snapshot.snapshotDate;
     }

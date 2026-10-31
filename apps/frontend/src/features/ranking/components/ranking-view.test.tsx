@@ -814,7 +814,7 @@ test('공개 화면도 지표 여덟 열을 렌더한다 — 순위 칸에 변�
   expect(html).not.toContain(STAFF_ROW.name);
   expect(html).not.toContain('>이름<');
   expect(html).not.toContain('CSV 다운로드');
-  expect(html).toContain('data-slot="page-header-actions"');
+  expect(html).not.toContain('data-slot="page-header-actions"');
   expect(html).toContain('data-ranking-as-of="none"');
   expect(html).not.toContain('data-slot="program-countdown"');
 });
@@ -901,10 +901,9 @@ test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — �
   expect(html).toContain('synthetic-top');
 });
 
-test('기준 시각은 PageHeader actions 의 time 요소에 있다', () => {
+test('기준 시각은 time 요소로 그린다', () => {
   const html = personAxisMarkup([publicPersonAxisItem()], {});
 
-  expect(html).toContain('data-slot="page-header-actions"');
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
   expect(html).toContain('<time');
   expect(html).toContain('dateTime="2026-08-19T02:30:00.000Z"');
@@ -1048,7 +1047,7 @@ const timelineFixture: RankingTimeline = {
   viewerClass: 'public',
   viewerGithubLogin: null,
   dataAsOf: null,
-  points: [{ date: '2026-03-19', starEstimated: false }],
+  points: [{ date: '2026-03-19' }],
   series: [{ githubLogin: 'synthetic-top', ranks: [1], totals: [42] }],
 };
 

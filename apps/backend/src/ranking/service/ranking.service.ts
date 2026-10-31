@@ -64,42 +64,30 @@ export class RankingService {
     ]);
     const start = (page - 1) * pageSize;
     const slice = entries.slice(start, start + pageSize);
-    const nextCycleAt = nextScheduledCollectionAt(new Date());
+    const envelope = {
+      year,
+      page,
+      pageSize,
+      total: entries.length,
+      dataAsOf,
+      nextCycleAt: nextScheduledCollectionAt(new Date()),
+    };
 
     if (viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
-      return {
-        year,
-        items: slice.map(toPublicEntry),
-        page,
-        pageSize,
-        total: entries.length,
-        dataAsOf,
-        viewerClass,
-        nextCycleAt,
-      };
+      return { ...envelope, viewerClass, items: slice.map(toPublicEntry) };
     }
 
     try {
       return {
-        year,
-        items: await this.attachStaffNames(slice),
-        page,
-        pageSize,
-        total: entries.length,
-        dataAsOf,
+        ...envelope,
         viewerClass: RANKING_VIEWER_CLASSES.STAFF,
-        nextCycleAt,
+        items: await this.attachStaffNames(slice),
       };
     } catch {
       return {
-        year,
-        items: slice.map(toPublicEntry),
-        page,
-        pageSize,
-        total: entries.length,
-        dataAsOf,
+        ...envelope,
         viewerClass: RANKING_VIEWER_CLASSES.PUBLIC,
-        nextCycleAt,
+        items: slice.map(toPublicEntry),
       };
     }
   }
@@ -140,15 +128,22 @@ export class RankingService {
   }
 
   private async findTimelineBuild(year: number): Promise<TimelineBuild> {
-    const cacheKey = `timeline:${year}`;
-    const existingBuild = this.inFlightTimelines.get(cacheKey);
-    if (existingBuild) return existingBuild;
-
-    const build = this.buildTimeline(year).finally(() =>
-      this.inFlightTimelines.delete(cacheKey),
+    return this.singleFlight(this.inFlightTimelines, `timeline:${year}`, () =>
+      this.buildTimeline(year),
     );
-    this.inFlightTimelines.set(cacheKey, build);
-    return build;
+  }
+
+  private singleFlight<T>(
+    inFlight: Map<string, Promise<T>>,
+    key: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const existing = inFlight.get(key);
+    if (existing) return existing;
+
+    const started = run().finally(() => inFlight.delete(key));
+    inFlight.set(key, started);
+    return started;
   }
 
   private async buildTimeline(year: number): Promise<TimelineBuild> {
@@ -174,16 +169,11 @@ export class RankingService {
   private async findPublicEntries(
     year: RankingYear,
   ): Promise<readonly RankedPublicEntry[]> {
-    const cacheKey =
-      year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`;
-    const existingBuild = this.inFlightBuilds.get(cacheKey);
-    if (existingBuild) return existingBuild;
-
-    const build = this.buildPublicEntries(year).finally(() =>
-      this.inFlightBuilds.delete(cacheKey),
+    return this.singleFlight(
+      this.inFlightBuilds,
+      year === RANKING_YEAR_ALL ? RANKING_YEAR_ALL : `year:${year}`,
+      () => this.buildPublicEntries(year),
     );
-    this.inFlightBuilds.set(cacheKey, build);
-    return build;
   }
 
   private async buildPublicEntries(
@@ -192,32 +182,14 @@ export class RankingService {
     const activity = await this.ranking.findMetrics(
       year === RANKING_YEAR_ALL ? {} : { currentYear: year },
     );
-    const candidates = activity.map((row) => ({
-      githubId: row.githubId,
-      githubLogin: row.githubLogin,
-      department: row.department,
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
-      repositoryCount: row.repositoryCount,
-      starCount: row.starCount,
-      total: activityTotal(row),
-    }));
 
-    return [...candidates]
+    return activity
+      .map((row) => ({ ...row, total: activityTotal(row) }))
       .sort(compareRankingCandidates)
       .map((entry, index) => ({
-        githubId: entry.githubId,
+        ...entry,
         rank: index + 1,
         displayName: entry.githubLogin,
-        githubLogin: entry.githubLogin,
-        department: entry.department,
-        commitCount: entry.commitCount,
-        pullRequestCount: entry.pullRequestCount,
-        issueCount: entry.issueCount,
-        repositoryCount: entry.repositoryCount,
-        starCount: entry.starCount,
-        total: entry.total,
       }));
   }
 

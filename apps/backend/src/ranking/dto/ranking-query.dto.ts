@@ -10,10 +10,8 @@ import {
   type RankingYear,
   resolveRankingYearFromQuery,
 } from '../domain/ranking';
-import { rankingYearInAsiaSeoul } from '../domain/ranking-event';
 
 const RANKING_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
-const RANKING_TIMELINE_YEAR_PARAM_PATTERN = /^(20\d{2}|2100)$/;
 
 export class RankingQueryRequestDto {
   @IsOptional()
@@ -38,28 +36,11 @@ export class RankingQueryRequestDto {
 
 export class RankingTimelineQueryRequestDto {
   @IsOptional()
-  @Matches(RANKING_TIMELINE_YEAR_PARAM_PATTERN)
-  readonly year?: string;
-}
-
-export function resolveRankingTimelineQueryYear(
-  query: Pick<RankingTimelineQueryRequestDto, 'year'>,
-  now: Date = new Date(),
-): number {
-  if (query.year === undefined || query.year === '') {
-    return rankingYearInAsiaSeoul(now);
-  }
-  const year = Number(query.year);
-  if (
-    !Number.isInteger(year) ||
-    year < RANKING_YEAR_MIN ||
-    year > RANKING_YEAR_MAX
-  ) {
-    throw new BadRequestException(
-      `year must be an integer between ${RANKING_YEAR_MIN} and ${RANKING_YEAR_MAX}`,
-    );
-  }
-  return year;
+  @Type(() => Number)
+  @IsInt()
+  @Min(RANKING_YEAR_MIN)
+  @Max(RANKING_YEAR_MAX)
+  readonly year?: number;
 }
 
 export function resolveRankingQueryYear(

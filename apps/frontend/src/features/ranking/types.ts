@@ -48,12 +48,8 @@ interface RankingPageEnvelope {
 }
 
 export interface PublicRankingPage extends RankingPageEnvelope {
-  readonly viewerClass: typeof RANKING_VIEWER_CLASSES.PUBLIC;
-  readonly items: readonly PublicRankingItem[];
-}
-
-interface MemberRankingPage extends RankingPageEnvelope {
-  readonly viewerClass: typeof RANKING_VIEWER_CLASSES.MEMBER;
+  readonly viewerClass:
+    typeof RANKING_VIEWER_CLASSES.PUBLIC | typeof RANKING_VIEWER_CLASSES.MEMBER;
   readonly items: readonly PublicRankingItem[];
 }
 
@@ -62,8 +58,7 @@ export interface StaffRankingPage extends RankingPageEnvelope {
   readonly items: readonly StaffRankingItem[];
 }
 
-export type RankingPage =
-  PublicRankingPage | MemberRankingPage | StaffRankingPage;
+export type RankingPage = PublicRankingPage | StaffRankingPage;
 
 export interface RankingYears {
   readonly years: readonly number[];
@@ -71,7 +66,6 @@ export interface RankingYears {
 
 export interface RankingTimelinePoint {
   readonly date: string;
-  readonly starEstimated: boolean;
 }
 
 export interface RankingTimelineSeries {

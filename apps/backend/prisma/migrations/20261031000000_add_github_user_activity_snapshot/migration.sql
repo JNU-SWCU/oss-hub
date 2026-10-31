@@ -1,6 +1,4 @@
 
-CREATE TYPE "GithubUserActivitySnapshotSource" AS ENUM ('SWEEP', 'BACKFILL');
-
 CREATE TABLE "GithubUserActivitySnapshot" (
     "githubId" BIGINT NOT NULL,
     "snapshotDate" DATE NOT NULL,
@@ -11,8 +9,6 @@ CREATE TABLE "GithubUserActivitySnapshot" (
     "issueCount" INTEGER NOT NULL DEFAULT 0,
     "repositoryCount" INTEGER NOT NULL DEFAULT 0,
     "starCount" INTEGER NOT NULL DEFAULT 0,
-    "starEstimated" BOOLEAN NOT NULL DEFAULT false,
-    "source" "GithubUserActivitySnapshotSource" NOT NULL,
     "observedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "GithubUserActivitySnapshot_pkey" PRIMARY KEY ("githubId","snapshotDate")

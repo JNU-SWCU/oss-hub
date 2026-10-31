@@ -198,9 +198,10 @@ export class CollectionDiscoveryClient {
         );
       }
     }
-    let total = 0;
-    for (const stars of starsByRepository.values()) total += stars;
-    return total;
+    return [...starsByRepository.values()].reduce(
+      (total, stars) => total + stars,
+      0,
+    );
   }
 
   private async request(payload: {
