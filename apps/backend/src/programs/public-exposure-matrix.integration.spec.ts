@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
   AffiliationKind,
@@ -64,6 +65,7 @@ const publicProjectsService = new PublicProjectsService(
 const rankingService = new RankingService(
   new RankingRepository(prisma),
   new RankingYearService(),
+  new CollectionScheduleService(),
 );
 
 const github = {

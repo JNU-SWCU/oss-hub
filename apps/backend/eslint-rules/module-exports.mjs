@@ -103,6 +103,52 @@ export const configExports = exportedFunctionRule(
   (name) => CONFIG_FACTORY_NAME.test(name),
 );
 
+const ROLE_CLASS_NAME = /(Service|Repository)$/;
+
+function isInjectableDecorator(decorator) {
+  const { expression } = decorator;
+  return (
+    expression.type === 'CallExpression' &&
+    expression.callee.type === 'Identifier' &&
+    expression.callee.name === 'Injectable'
+  );
+}
+
+export const injectableRoleClass = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      notInjectable:
+        '{{name}}는 @Injectable()로 등록하고 생성자 주입으로 받는다.',
+      staticMember:
+        '{{name}}의 static 멤버는 인스턴스 메서드로 바꿔 생성자 주입으로 쓴다.',
+    },
+  },
+  create(context) {
+    return {
+      ClassDeclaration(node) {
+        const name = node.id?.name ?? '';
+        if (!ROLE_CLASS_NAME.test(name)) return;
+        if (!node.parent.type.startsWith('Export')) return;
+        if (!(node.decorators ?? []).some(isInjectableDecorator))
+          context.report({
+            node: node.id,
+            messageId: 'notInjectable',
+            data: { name },
+          });
+        for (const member of node.body.body)
+          if (member.static)
+            context.report({
+              node: member,
+              messageId: 'staticMember',
+              data: { name },
+            });
+      },
+    };
+  },
+};
+
 export const serviceExports = exportedFunctionRule(
   '서비스 파일은 클래스와 타입만 export한다. 함수는 메서드로 옮겨 생성자 주입으로 쓴다.',
   () => false,

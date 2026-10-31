@@ -9,7 +9,11 @@ import tseslint from 'typescript-eslint';
 import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../../scripts/prisma-enum-names.mjs';
-import { configExports, serviceExports } from './module-exports.mjs';
+import {
+  configExports,
+  injectableRoleClass,
+  serviceExports,
+} from './module-exports.mjs';
 
 const layers = [
   'controller',
@@ -635,6 +639,7 @@ export async function createRailsConfig(rootDir) {
             'repository-exports': repositoryExports,
             'config-exports': configExports,
             'service-exports': serviceExports,
+            'injectable-role-class': injectableRoleClass,
             'types-only': typesOnly,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,

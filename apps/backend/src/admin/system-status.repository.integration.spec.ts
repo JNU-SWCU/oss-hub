@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   prisma,
@@ -16,7 +17,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const status = new SystemStatusRepository(prisma);
-const statusService = new SystemStatusService(status, () => new Date());
+const statusService = new SystemStatusService(
+  status,
+  () => new Date(),
+  new CollectionScheduleService(),
+);
 const ADMIN_ID = 'synthetic-system-status-admin';
 const ADMIN_GITHUB_ID = 9_517_000_000_001n;
 

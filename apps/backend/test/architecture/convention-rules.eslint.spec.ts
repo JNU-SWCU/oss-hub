@@ -29,6 +29,7 @@ const rules = {
   'config-exports': await load('module-exports.mjs', 'configExports'),
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
+  'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
 };
 let current;
 RuleTester.describe = (_name, fn) => fn();
@@ -726,6 +727,57 @@ invalid(
   'export const guard = 1;',
   ['forbidden'],
 );
+
+const repositoryFile = 'src/programs/rule-case.repository.ts';
+for (const [name, filename, code] of [
+  [
+    'an injectable service',
+    serviceFile,
+    '@Injectable() export class ThingService { run() { return 1; } }',
+  ],
+  [
+    'an injectable repository',
+    repositoryFile,
+    '@Injectable() export class ThingRepository { constructor(private readonly prisma: PrismaService) {} }',
+  ],
+  [
+    'a local helper class',
+    serviceFile,
+    'class Parser { parse() { return 1; } }',
+  ],
+] as const) {
+  valid('injectable-role-class', `allows ${name}`, filename, code);
+}
+for (const [name, filename, code, errors] of [
+  [
+    'a service without @Injectable',
+    serviceFile,
+    'export class ThingService { run() { return 1; } }',
+    ['notInjectable'],
+  ],
+  [
+    'a repository of static helpers',
+    repositoryFile,
+    'export class ThingRepository { static where() { return {}; } }',
+    ['notInjectable', 'staticMember'],
+  ],
+  [
+    'a static member on an injectable service',
+    serviceFile,
+    '@Injectable() export class ThingService { static readonly providers = []; }',
+    ['staticMember'],
+  ],
+  [
+    'a different decorator',
+    serviceFile,
+    '@Controller() export class ThingService {}',
+    ['notInjectable'],
+  ],
+] as const) {
+  invalid('injectable-role-class', `rejects ${name}`, filename, code, [
+    ...errors,
+  ]);
+}
 
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];

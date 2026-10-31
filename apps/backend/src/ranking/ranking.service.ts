@@ -61,6 +61,7 @@ export class RankingService {
   constructor(
     private readonly ranking: RankingRepository,
     private readonly rankingYearService: RankingYearService,
+    private readonly collectionSchedule: CollectionScheduleService,
   ) {}
 
   async findPage(
@@ -76,7 +77,7 @@ export class RankingService {
     ]);
     const start = (page - 1) * pageSize;
     const slice = entries.slice(start, start + pageSize);
-    const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       new Date(),
     );
 

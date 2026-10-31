@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import { authorityFactsFor } from '../users/canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -95,6 +96,7 @@ export class PublicExposurePersonaHttpHarness {
     const rankingService = new RankingService(
       new RankingRepository(this.prisma),
       new RankingYearService(),
+      new CollectionScheduleService(),
     );
 
     const github = {
