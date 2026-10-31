@@ -1,7 +1,4 @@
-import {
-  RANKING_VIEWER_CLASSES,
-  type RankingViewerClass,
-} from '../domain/ranking';
+import type { RankingViewerClass } from '../domain/ranking';
 import type {
   RankingTimeline,
   RankingTimelinePoint,
@@ -22,23 +19,7 @@ class RankingTimelinePointResponseDto {
   }
 }
 
-class PublicRankingTimelineSeriesResponseDto {
-  readonly githubLogin: string;
-  readonly ranks: readonly (number | null)[];
-
-  private constructor(series: RankingTimelineSeries) {
-    this.githubLogin = series.githubLogin;
-    this.ranks = series.ranks;
-  }
-
-  static from(
-    series: RankingTimelineSeries,
-  ): PublicRankingTimelineSeriesResponseDto {
-    return new PublicRankingTimelineSeriesResponseDto(series);
-  }
-}
-
-class MemberRankingTimelineSeriesResponseDto {
+class RankingTimelineSeriesResponseDto {
   readonly githubLogin: string;
   readonly ranks: readonly (number | null)[];
   readonly totals: readonly (number | null)[];
@@ -49,28 +30,9 @@ class MemberRankingTimelineSeriesResponseDto {
     this.totals = series.totals;
   }
 
-  static from(
-    series: RankingTimelineSeries,
-  ): MemberRankingTimelineSeriesResponseDto {
-    return new MemberRankingTimelineSeriesResponseDto(series);
+  static from(series: RankingTimelineSeries): RankingTimelineSeriesResponseDto {
+    return new RankingTimelineSeriesResponseDto(series);
   }
-}
-
-type RankingTimelineSeriesResponseDto =
-  | PublicRankingTimelineSeriesResponseDto
-  | MemberRankingTimelineSeriesResponseDto;
-
-function projectSeries(
-  timeline: RankingTimeline,
-): readonly RankingTimelineSeriesResponseDto[] {
-  if (timeline.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
-    return timeline.series.map((series) =>
-      PublicRankingTimelineSeriesResponseDto.from(series),
-    );
-  }
-  return timeline.series.map((series) =>
-    MemberRankingTimelineSeriesResponseDto.from(series),
-  );
 }
 
 export class RankingTimelineResponseDto {
@@ -90,7 +52,9 @@ export class RankingTimelineResponseDto {
     this.points = timeline.points.map((point) =>
       RankingTimelinePointResponseDto.from(point),
     );
-    this.series = projectSeries(timeline);
+    this.series = timeline.series.map((series) =>
+      RankingTimelineSeriesResponseDto.from(series),
+    );
   }
 
   static from(timeline: RankingTimeline): RankingTimelineResponseDto {

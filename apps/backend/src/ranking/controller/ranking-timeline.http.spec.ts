@@ -128,7 +128,7 @@ afterAll(async () => {
 });
 
 describe('GET /api/v1/ranking/timeline (HTTP)', () => {
-  it('익명 호출은 지점을 최소 하나 싣고 totals 를 전혀 싣지 않는다', async () => {
+  it('익명 호출도 지점을 최소 하나와 totals 를 싣는다', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/ranking/timeline?year=${YEAR}`,
     );
@@ -137,9 +137,7 @@ describe('GET /api/v1/ranking/timeline (HTTP)', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('vary')).toBeNull();
 
-    const payload = await response.text();
-    expect(payload).not.toContain('totals');
-    const body: unknown = JSON.parse(payload);
+    const body: unknown = await response.json();
     expect(body).toMatchObject({
       year: YEAR,
       viewerClass: 'public',
@@ -149,7 +147,11 @@ describe('GET /api/v1/ranking/timeline (HTTP)', () => {
 
     const timeline = body as {
       points: readonly { date: string; starEstimated: boolean }[];
-      series: readonly { githubLogin: string; ranks: readonly unknown[] }[];
+      series: readonly {
+        githubLogin: string;
+        ranks: readonly unknown[];
+        totals: readonly unknown[];
+      }[];
     };
     expect(timeline.points.length).toBeGreaterThanOrEqual(1);
     expect(timeline.points).toHaveLength(CURRENT_MONTH);
@@ -163,8 +165,13 @@ describe('GET /api/v1/ranking/timeline (HTTP)', () => {
       'synthetic-carol',
     ]);
     for (const series of timeline.series) {
-      expect(Object.keys(series).sort()).toEqual(['githubLogin', 'ranks']);
+      expect(Object.keys(series).sort()).toEqual([
+        'githubLogin',
+        'ranks',
+        'totals',
+      ]);
       expect(series.ranks).toHaveLength(timeline.points.length);
+      expect(series.totals).toHaveLength(timeline.points.length);
     }
   });
 

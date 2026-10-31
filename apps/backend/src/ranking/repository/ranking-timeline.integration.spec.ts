@@ -345,19 +345,21 @@ describe('GET /api/v1/ranking/timeline (실 Postgres · 익명 HTTP)', () => {
     await application?.close();
   });
 
-  it('익명 호출은 DB 스냅샷에서 만든 지점을 싣고 totals 는 한 번도 싣지 않는다', async () => {
+  it('익명 호출도 DB 스냅샷에서 만든 지점과 totals 를 싣는다', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/ranking/timeline?year=${YEAR}`,
     );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    const payload = await response.text();
-    expect(payload).not.toContain('totals');
 
-    const body = JSON.parse(payload) as {
+    const body = (await response.json()) as {
       points: readonly { date: string }[];
-      series: readonly { githubLogin: string; ranks: readonly unknown[] }[];
+      series: readonly {
+        githubLogin: string;
+        ranks: readonly unknown[];
+        totals: readonly unknown[];
+      }[];
     };
     expect(body.points.length).toBeGreaterThanOrEqual(1);
     expect(body.points.map((point) => point.date)).toEqual([
@@ -376,6 +378,9 @@ describe('GET /api/v1/ranking/timeline (실 Postgres · 익명 HTTP)', () => {
       [2, 3, 2, 3],
       [1, 2, 1, 4],
     ]);
+    for (const series of body.series) {
+      expect(series.totals).toHaveLength(body.points.length);
+    }
   });
 
   it('year=all 은 400 이다', async () => {

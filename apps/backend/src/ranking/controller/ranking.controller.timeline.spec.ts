@@ -63,7 +63,7 @@ describe('RankingController.findTimeline', () => {
     findTimeline.mockReset();
   });
 
-  it('public 응답의 계열에는 totals 키 자체가 없고 no-store 만 내린다', async () => {
+  it('public 응답도 totals 를 싣고 no-store 만 내린다', async () => {
     findTimeline.mockResolvedValue(timeline('public', null));
     const { response, headers } = recordingResponse();
 
@@ -73,14 +73,10 @@ describe('RankingController.findTimeline', () => {
       response,
     );
 
-    expect(Object.keys(body.series[0] ?? {}).sort()).toEqual([
-      'githubLogin',
-      'ranks',
+    expect(body.series).toEqual([
+      { githubLogin: 'alpha', ranks: [1, 1], totals: [5, 100] },
+      { githubLogin: 'bravo', ranks: [null, 2], totals: [null, 50] },
     ]);
-    for (const series of body.series) {
-      expect(series).not.toHaveProperty('totals');
-    }
-    expect(JSON.stringify(body)).not.toContain('totals');
     expect(body.points).toEqual([
       { date: '2026-01-31', starEstimated: true },
       { date: '2026-10-31', starEstimated: false },
