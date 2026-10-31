@@ -166,10 +166,10 @@ function WobbleDefs() {
       <filter
         id={WOBBLE_FILTER_ID}
         filterUnits="userSpaceOnUse"
-        x={-100000}
-        y={-100000}
-        width={200000}
-        height={200000}
+        x={-48}
+        y={-48}
+        width={2400}
+        height={1200}
         colorInterpolationFilters="sRGB"
       >
         <feTurbulence
