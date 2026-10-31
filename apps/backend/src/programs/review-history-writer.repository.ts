@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { ApplicationReviewEventKind, type Prisma } from '@prisma/client';
 import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
 
@@ -20,8 +21,9 @@ export interface AppendedReviewHistory {
   readonly revision: number;
 }
 
+@Injectable()
 export class ReviewHistoryWriterRepository {
-  static async appendReviewHistory(
+  async appendReviewHistory(
     client: ReviewHistoryWriterClient,
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {

@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -14,9 +15,16 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const applicationsRepository = new ApplicationsRepository(prisma);
+const applicationsRepository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+);
 const now = () => NOW;
-const repository = new StudentApplicationManagementRepository(prisma, now);
+const repository = new StudentApplicationManagementRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  now,
+);
 const service = new StudentApplicationManagementService(
   repository,
   applicationsRepository,

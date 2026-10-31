@@ -532,7 +532,10 @@ export interface ApplicationCreateStore {
 }
 
 class PrismaApplicationsTransactionRepository implements ApplicationsTransactionStore {
-  constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
+  constructor(
+    private readonly transaction: PrismaTypes.TransactionClient,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
@@ -541,10 +544,7 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return ReviewHistoryWriterRepository.appendReviewHistory(
-      this.transaction,
-      input,
-    );
+    return this.reviewHistory.appendReviewHistory(this.transaction, input);
   }
 
   async findApplicationById(
@@ -754,7 +754,10 @@ class PrismaApplicationsTransactionRepository implements ApplicationsTransaction
 }
 
 class PrismaApplicationCreateRepository implements ApplicationCreateStore {
-  constructor(private readonly database: ApplicationDatabase) {}
+  constructor(
+    private readonly database: ApplicationDatabase,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
+  ) {}
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.database;
@@ -763,10 +766,7 @@ class PrismaApplicationCreateRepository implements ApplicationCreateStore {
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return ReviewHistoryWriterRepository.appendReviewHistory(
-      this.database,
-      input,
-    );
+    return this.reviewHistory.appendReviewHistory(this.database, input);
   }
 
   async lockProgramForApply(
@@ -950,13 +950,21 @@ class PrismaApplicationCreateRepository implements ApplicationCreateStore {
 
 @Injectable()
 export class ApplicationsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
+  ) {}
 
   async withTransaction<T>(
     operation: (store: ApplicationsTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaApplicationsTransactionRepository(transaction)),
+      operation(
+        new PrismaApplicationsTransactionRepository(
+          transaction,
+          this.reviewHistory,
+        ),
+      ),
     );
   }
 
@@ -964,7 +972,9 @@ export class ApplicationsRepository {
     operation: (store: ApplicationCreateStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaApplicationCreateRepository(transaction)),
+      operation(
+        new PrismaApplicationCreateRepository(transaction, this.reviewHistory),
+      ),
     );
   }
 

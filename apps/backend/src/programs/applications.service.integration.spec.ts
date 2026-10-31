@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   AffiliationKind,
@@ -31,7 +32,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma);
+const repository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+);
 const service = new ApplicationsService(
   repository,
   new AuditLogService(
@@ -50,7 +54,10 @@ const service = new ApplicationsService(
   new RepositoryProvisionEventService(),
 );
 const studentService = new StudentApplicationManagementService(
-  new StudentApplicationManagementRepository(prisma),
+  new StudentApplicationManagementRepository(
+    prisma,
+    new ReviewHistoryWriterRepository(),
+  ),
   repository,
   new ApplicationAnswersService(),
 );
@@ -367,7 +374,10 @@ describe('ApplicationsService integration', () => {
         datasources: { db: { url: databaseUrl.toString() } },
       });
       const applicantService = new ApplicationsService(
-        new ApplicationsRepository(applicantPrisma),
+        new ApplicationsRepository(
+          applicantPrisma,
+          new ReviewHistoryWriterRepository(),
+        ),
         new AuditLogService(
           new AuditLogRepository(applicantPrisma),
           new AuditLogMetadataService(),

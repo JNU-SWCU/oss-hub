@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
@@ -43,8 +44,14 @@ const APPLICATION = {
 
 function createRepository() {
   const prisma = new PrismaService();
-  const repository = new StudentApplicationManagementRepository(prisma);
-  const applicationsRepository = new ApplicationsRepository(prisma);
+  const repository = new StudentApplicationManagementRepository(
+    prisma,
+    new ReviewHistoryWriterRepository(),
+  );
+  const applicationsRepository = new ApplicationsRepository(
+    prisma,
+    new ReviewHistoryWriterRepository(),
+  );
   const findActiveStudentByGithubId = jest
     .spyOn(applicationsRepository, 'findActiveStudentByGithubId')
     .mockResolvedValue(STUDENT);

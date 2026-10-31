@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { ApplicationsRepository } from './applications.repository';
 import type { PrismaService } from '../platform/prisma.service';
@@ -26,7 +27,10 @@ function buildStoreHarness(overrides: {
     $transaction: (operation: (tx: typeof transaction) => Promise<unknown>) =>
       operation(transaction),
   } as unknown as PrismaService;
-  const repository = new ApplicationsRepository(prisma);
+  const repository = new ApplicationsRepository(
+    prisma,
+    new ReviewHistoryWriterRepository(),
+  );
   return { repository, queryRaw, teamMemberFindUnique };
 }
 

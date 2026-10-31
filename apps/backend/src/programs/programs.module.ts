@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
@@ -239,6 +240,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
         ),
     },
     StudentApplicationManagementRepository,
+    ReviewHistoryWriterRepository,
     StudentApplicationManagementService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,

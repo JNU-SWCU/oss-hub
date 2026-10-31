@@ -19,15 +19,15 @@ import {
 import { PlatformRepository } from '../platform/platform.repository';
 
 class StudentResubmissionRepository {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
+  ) {}
 
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory> {
-    return ReviewHistoryWriterRepository.appendReviewHistory(
-      this.transaction,
-      input,
-    );
+    return this.reviewHistory.appendReviewHistory(this.transaction, input);
   }
 }
 
@@ -125,6 +125,7 @@ export type StudentApplicationManagementClock = () => Date;
 export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly reviewHistory: ReviewHistoryWriterRepository,
     @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
     private readonly clock: StudentApplicationManagementClock = () =>
       new Date(),
@@ -188,6 +189,7 @@ export class StudentApplicationManagementRepository {
       if (resubmitted) {
         await new StudentResubmissionRepository(
           transaction,
+          this.reviewHistory,
         ).appendReviewHistory({
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.RESUBMITTED,

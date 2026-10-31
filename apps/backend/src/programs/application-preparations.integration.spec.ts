@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
@@ -31,7 +32,7 @@ const preparations = new ApplicationPreparationsService(
   new ApplicationPreparationsRepository(prisma),
 );
 const applications = new ApplicationsService(
-  new ApplicationsRepository(prisma),
+  new ApplicationsRepository(prisma, new ReviewHistoryWriterRepository()),
   audit,
   new ApplicationJoinCodeService(
     {

@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import {
   ApplicationReviewEventKind,
   ApplicationStatus,
@@ -54,7 +55,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma);
+const repository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+);
 const service = new ApplicationsService(
   repository,
   new AuditLogService(

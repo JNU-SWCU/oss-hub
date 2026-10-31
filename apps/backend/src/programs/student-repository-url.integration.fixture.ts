@@ -1,3 +1,4 @@
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
@@ -30,7 +31,10 @@ let targetId = '';
 let caseNumber = 0;
 let targetGithubId = 0n;
 const repository = new StudentRepositoryUrlRepository(prisma);
-const applications = new ApplicationsRepository(prisma);
+const applications = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+);
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
