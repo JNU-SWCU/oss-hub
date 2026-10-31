@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   LoginHistoryEvent,
   AccountStatus,
@@ -25,21 +26,27 @@ import type { AuditLogTransactionWriter } from '../platform/audit-log-transactio
 import type { UserProfileSource } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 
+@Injectable()
 export class AdminAccessReadRepository {
-  static async listAdminAccessUsers(
+  constructor(
+    private readonly adminAccessReadOrderingRepository: AdminAccessReadOrderingRepository,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
+
+  async listAdminAccessUsers(
     prisma: Pick<PrismaService, 'user' | '$queryRaw'>,
     query: AdminAccessListQuery,
     sortContext: 'directory' | 'requestQueue' = 'directory',
   ): Promise<AdminAccessUserPageRecord> {
-    const where = adminAccessWhere(query);
+    const where = adminAccessWhere(this.platformRepository, query);
     const [orderedIds, total, facets] = await Promise.all([
-      AdminAccessReadOrderingRepository.listOrderedAdminAccessUserIds(
+      this.adminAccessReadOrderingRepository.listOrderedAdminAccessUserIds(
         prisma,
         query,
         sortContext,
       ),
       prisma.user.count({ where }),
-      AdminAccessReadRepository.listAdminAccessFacets(prisma, query),
+      this.listAdminAccessFacets(prisma, query),
     ]);
     const ids = orderedIds.map(({ id }) => id);
     const users =
@@ -47,15 +54,13 @@ export class AdminAccessReadRepository {
         ? []
         : await prisma.user.findMany({
             where: { AND: [where, { id: { in: ids } }] },
-            select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
+            select: this.ADMIN_ACCESS_USER_SELECT,
           });
     const usersById = new Map(users.map((user) => [user.id, user] as const));
     return {
       items: ids.flatMap((id) => {
         const user = usersById.get(id);
-        return user
-          ? [AdminAccessReadRepository.toAdminAccessUserRow(user)]
-          : [];
+        return user ? [this.toAdminAccessUserRow(user)] : [];
       }),
       page: query.page,
       limit: query.limit,
@@ -64,13 +69,21 @@ export class AdminAccessReadRepository {
     };
   }
 
-  static async listAdminAccessFacets(
+  async listAdminAccessFacets(
     prisma: Pick<PrismaService, 'user'>,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    const roleBase = adminAccessWhere(query, 'role');
-    const accountStatusBase = adminAccessWhere(query, 'accountStatus');
-    const pendingRequestBase = adminAccessWhere(query, 'pendingRequest');
+    const roleBase = adminAccessWhere(this.platformRepository, query, 'role');
+    const accountStatusBase = adminAccessWhere(
+      this.platformRepository,
+      query,
+      'accountStatus',
+    );
+    const pendingRequestBase = adminAccessWhere(
+      this.platformRepository,
+      query,
+      'pendingRequest',
+    );
     const [
       unassigned,
       student,
@@ -141,20 +154,18 @@ export class AdminAccessReadRepository {
     };
   }
 
-  static async findAdminAccessUserById(
+  async findAdminAccessUserById(
     prisma: Pick<PrismaService, 'user'>,
     userId: string,
   ): Promise<AdminAccessUserDetailRow | null> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
+      select: this.ADMIN_ACCESS_USER_SELECT,
     });
-    return user
-      ? AdminAccessReadRepository.toAdminAccessUserDetailRow(user)
-      : null;
+    return user ? this.toAdminAccessUserDetailRow(user) : null;
   }
 
-  static toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
+  toAdminAccessUserRow(user: AdminAccessUserSource): AdminAccessUserRow {
     const pendingRequest = user.staffAccessRequests[0];
     return {
       id: user.id,
@@ -180,16 +191,16 @@ export class AdminAccessReadRepository {
     };
   }
 
-  static toAdminAccessUserDetailRow(
+  toAdminAccessUserDetailRow(
     user: AdminAccessUserDetailSource,
   ): AdminAccessUserDetailRow {
     return {
-      ...AdminAccessReadRepository.toAdminAccessUserRow(user),
+      ...this.toAdminAccessUserRow(user),
       staffNumber: user.profile?.staffNumber ?? null,
     };
   }
 
-  static readonly ADMIN_ACCESS_USER_SELECT = {
+  readonly ADMIN_ACCESS_USER_SELECT = {
     id: true,
     githubId: true,
     nickname: true,
@@ -223,6 +234,7 @@ export class AdminAccessReadRepository {
 type FacetDimension = 'role' | 'accountStatus' | 'pendingRequest';
 
 function adminAccessWhere(
+  platformRepository: PlatformRepository,
   query: AdminAccessListQuery,
   omitted?: FacetDimension,
 ): Prisma.UserWhereInput {
@@ -230,7 +242,7 @@ function adminAccessWhere(
   if (query.query) {
     clauses.push({
       OR: [
-        PlatformRepository.userProfileNameWhere(query.query),
+        platformRepository.userProfileNameWhere(query.query),
         {
           nickname: {
             contains: query.query,
@@ -411,7 +423,7 @@ export interface AdminAccessRepositoryPort {
 }
 
 type PrismaAdminAccessUser = Prisma.UserGetPayload<{
-  select: typeof AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT;
+  select: AdminAccessReadRepository['ADMIN_ACCESS_USER_SELECT'];
 }>;
 
 export type AdminAccessUserSource = Omit<PrismaAdminAccessUser, 'profile'> &

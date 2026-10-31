@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEmail } from 'class-validator';
-import { type UpdateNotificationEmailInput } from '../application-decision-notifications.repository';
 
 function trimString({ value }: { value: unknown }): unknown {
   return typeof value === 'string' ? value.trim() : value;
@@ -13,11 +12,4 @@ export class UpdateNotificationEmailRequestDto {
 
   @IsBoolean()
   declare readonly notifyEnabled: boolean;
-
-  toInput(): UpdateNotificationEmailInput {
-    return {
-      notificationEmail: this.notificationEmail,
-      notifyEnabled: this.notifyEnabled,
-    };
-  }
 }

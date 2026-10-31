@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MyStaffAccessRequestResponseDto } from './dto/my-staff-access-request-response.dto';
 import { RoleRequestResponseDto } from './dto/role-request-response.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -22,15 +22,11 @@ export class RoleRequestsController {
   @Protected()
   async getMe(
     @Req() request: SessionIdentity,
-  ): Promise<MyStaffAccessRequestResponseDto<RoleRequestResponseDto>> {
+  ): Promise<MyStaffAccessRequestResponseDto> {
     const staffAccessRequest = await this.rolesService.getMyRequest(
       request.sessionGithubId,
     );
-    return MyStaffAccessRequestResponseDto.from(
-      staffAccessRequest
-        ? RoleRequestResponseDto.from(staffAccessRequest)
-        : null,
-    );
+    return MyStaffAccessRequestResponseDto.from(staffAccessRequest);
   }
 
   @Post()

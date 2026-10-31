@@ -1,3 +1,4 @@
+import { SubmissionInputService } from './submission-input.service';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -117,6 +118,7 @@ export class SubmissionsService {
     >,
     private readonly programRulesService: ProgramRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly submissionInputService: SubmissionInputService,
   ) {}
 
   async form(
@@ -163,6 +165,28 @@ export class SubmissionsService {
       canSubmit: blockedReason === null,
       blockedReason,
     };
+  }
+
+  createFromRequest(
+    githubId: bigint,
+    request: Parameters<SubmissionInputService['toCreateSubmissionInput']>[0],
+  ): Promise<CreatedSubmissionResult> {
+    return this.create(
+      githubId,
+      this.submissionInputService.toCreateSubmissionInput(request),
+    );
+  }
+
+  resubmitFromRequest(
+    githubId: bigint,
+    submissionId: string,
+    request: Parameters<SubmissionInputService['toResubmitSubmissionInput']>[0],
+  ): Promise<ResubmittedSubmissionResult> {
+    return this.resubmit(
+      githubId,
+      submissionId,
+      this.submissionInputService.toResubmitSubmissionInput(request),
+    );
   }
 
   async create(

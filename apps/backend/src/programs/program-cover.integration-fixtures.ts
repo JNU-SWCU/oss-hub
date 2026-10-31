@@ -1,3 +1,8 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
@@ -20,13 +25,28 @@ export const GITHUB_ID = 9_126_600_001n;
 export const COVER_ACTOR = { id: ACTOR, githubId: GITHUB_ID };
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
   new SubmissionFileRulesService(),
 );
-export const publicCovers = new ProgramCoverRepository(prisma);
+export const publicCovers = new ProgramCoverRepository(
+  prisma,
+  new ProgramAuthoringUploadTransactionRepository(),
+);
 export const record = jest.fn(() => Promise.resolve());
 let authoringService: ProgramAuthoringService;
 export function authoring(): ProgramAuthoringService {
@@ -95,6 +115,8 @@ beforeAll(async () => {
   await prisma.$connect();
   const moduleRef = await Test.createTestingModule({
     providers: [
+      ...STATELESS_PROVIDERS,
+      ProgramCoverRepository,
       ProgramAuthoringService,
       ProgramAuthoringRepository,
       AuditLogMetadataService,

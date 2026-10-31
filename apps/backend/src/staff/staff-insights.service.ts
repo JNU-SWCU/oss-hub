@@ -81,6 +81,14 @@ export class StaffInsightsService {
     private readonly staffInsightsQueryService: StaffInsightsQueryService,
   ) {}
 
+  summarizeFromRequest(request: {
+    readonly year?: string;
+  }): Promise<StaffInsightsSummary> {
+    return this.summarize(
+      this.staffInsightsQueryService.parseInsightsYearQuery(request.year),
+    );
+  }
+
   async summarize(scope: InsightsYearScope): Promise<StaffInsightsSummary> {
     const [students, participations, activity, dataAsOf, years] =
       await Promise.all([

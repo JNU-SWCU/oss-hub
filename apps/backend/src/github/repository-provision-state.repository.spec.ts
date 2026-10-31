@@ -1,3 +1,5 @@
+import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   ApplicationStatus,
   RepositoryConnectionMode,
@@ -256,11 +258,16 @@ function serviceFor(db: MockDb): RepositoryProvisionStateService {
     repositoryFor(db),
     new RepositoryUrlService(),
     new RepositoryProvisionEventService(),
+    new RepositoryProvisionStateHelpersRepository(),
   );
 }
 
 function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
-  return new RepositoryProvisionStateRepository(db as unknown as PrismaService);
+  return new RepositoryProvisionStateRepository(
+    db as unknown as PrismaService,
+    new RepositoryProvisionGenerationRepository(),
+    new RepositoryProvisionStateHelpersRepository(),
+  );
 }
 
 function jobRow(

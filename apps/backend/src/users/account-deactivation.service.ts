@@ -1,3 +1,6 @@
+import type { Response } from 'express';
+import { AuthConfig } from '../platform/auth.config';
+import { AuthSessionService } from '../platform/auth-session.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -29,7 +32,23 @@ export class AccountDeactivationService {
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
+    private readonly authConfig: AuthConfig,
+    private readonly authSessionService: AuthSessionService,
   ) {}
+
+  async deactivateAndClearSession(
+    githubId: bigint,
+    response: Pick<Response, 'setHeader'>,
+  ): Promise<AccountDeactivationResult> {
+    const result = await this.deactivate(githubId);
+    response.setHeader(
+      'Set-Cookie',
+      this.authSessionService.serializeClearedSessionCookie(
+        this.authConfig.useSecureCookies,
+      ),
+    );
+    return result;
+  }
 
   deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
     return this.repository.withTransaction(async (store) => {

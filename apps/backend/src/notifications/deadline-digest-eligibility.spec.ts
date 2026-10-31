@@ -1,3 +1,4 @@
+import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 import { AccountStatus } from '@prisma/client';
 import {
   type DeadlineProgramSource,
@@ -9,6 +10,7 @@ const deadlineDigestService = new DeadlineDigestService(
   undefined as never,
   undefined as never,
   undefined as never,
+  new DeadlineDigestMailService(),
 );
 
 const NOW = new Date('2026-08-14T00:00:00.000Z');

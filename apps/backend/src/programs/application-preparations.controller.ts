@@ -23,7 +23,7 @@ import { CreateApplicationPreparationRequestDto } from './dto/create-application
 import { InviteApplicationPreparationRequestDto } from './dto/invite-application-preparation-request.dto';
 import { MyApplicationPreparationResponseDto } from './dto/my-application-preparation-response.dto';
 import { SearchApplicationPreparationRequestDto } from './dto/search-application-preparation-request.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('application-preparations')
 @Protected()
@@ -39,9 +39,7 @@ export class ApplicationPreparationsController {
       request.sessionGithubId,
       programId,
     );
-    return MyApplicationPreparationResponseDto.from(
-      preparation ? ApplicationPreparationResponseDto.from(preparation) : null,
-    );
+    return MyApplicationPreparationResponseDto.from(preparation);
   }
   @Post('programs/:programId')
   @UseGuards(OriginGuard)

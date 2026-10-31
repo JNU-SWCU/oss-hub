@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
@@ -62,6 +63,7 @@ describe('milestone-document-current-file.service', () => {
         buildReader(null),
         storage,
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
 
       await expect(
@@ -91,6 +93,7 @@ describe('milestone-document-current-file.service', () => {
         reader,
         buildStorage(get),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
 
       const first = await service.download(
@@ -129,6 +132,7 @@ describe('milestone-document-current-file.service', () => {
         }),
         buildStorage(),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
 
       const result = await service.download(
@@ -149,6 +153,7 @@ describe('milestone-document-current-file.service', () => {
         buildReader(CURRENT_FILE),
         buildStorage(() => Promise.reject(new Error('synthetic raw error'))),
         new SubmissionFileRulesService(),
+        new DownloadResponseService(),
       );
 
       await expect(

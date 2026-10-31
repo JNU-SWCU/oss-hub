@@ -1,3 +1,4 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramCoverRepository } from './program-cover.repository';
@@ -8,6 +9,7 @@ describe('program-cover.repository', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ProgramCoverRepository,
+        ProgramAuthoringUploadTransactionRepository,
         { provide: PrismaService, useValue: { programCover: { findFirst } } },
       ],
     }).compile();

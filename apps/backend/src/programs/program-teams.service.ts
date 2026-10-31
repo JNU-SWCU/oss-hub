@@ -344,6 +344,24 @@ export class ProgramTeamsService {
     );
   }
 
+  deleteForStaffFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: {
+      readonly expectedScope: TeamDeletionScopeCounts;
+      readonly notificationMessage?: string | null;
+    },
+  ): Promise<DeletedTeamView> {
+    return this.deleteForStaff(
+      githubId,
+      programId,
+      teamId,
+      request.expectedScope,
+      request.notificationMessage ?? null,
+    );
+  }
+
   async deleteForStaff(
     githubId: bigint,
     programId: string,
@@ -545,6 +563,20 @@ export class ProgramTeamsService {
           now,
         ),
     };
+  }
+
+  getRepositoryUrlHistoryFromRequest(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    request: { readonly cursor?: string },
+  ): Promise<RepositoryUrlHistoryPage> {
+    return this.getRepositoryUrlHistory(
+      githubId,
+      programId,
+      teamId,
+      this.repositoryUrlHistoryCursorFromRequest(request),
+    );
   }
 
   async getRepositoryUrlHistory(

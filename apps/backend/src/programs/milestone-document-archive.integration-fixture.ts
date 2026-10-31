@@ -1,3 +1,8 @@
+import { DownloadResponseService } from './download-response.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
@@ -17,10 +22,17 @@ export class ProgramArchiveIntegrationFixture {
   readonly prisma = new PrismaService();
   readonly storage = new S3ObjectStorageClient(new ObjectStorageConfig());
   readonly service = new MilestoneDocumentArchiveService(
-    new MilestoneDocumentsRepository(this.prisma),
+    new MilestoneDocumentsRepository(
+      this.prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(this.prisma),
+    ),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
     new MilestoneDocumentRulesService(new ProgramRulesService()),
+    new DownloadResponseService(),
   );
 
   async seed(): Promise<void> {

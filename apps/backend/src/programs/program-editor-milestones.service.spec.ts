@@ -1,3 +1,4 @@
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -18,7 +19,10 @@ const programEditorService = new ProgramEditorService(
   undefined as never,
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
   new SubmissionFileRulesService(),
 );
 

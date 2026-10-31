@@ -1,3 +1,7 @@
+import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
+import { PlatformRepository } from './platform.repository';
+import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
@@ -24,6 +28,9 @@ import { RolesGuard } from './roles.guard';
 @Module({
   controllers: [HealthController],
   providers: [
+    RepositoryProvisionGenerationRepository,
+    PrismaSerializationRetryRepository,
+    PlatformRepository,
     {
       provide: RUNTIME_CONFIG,
       useValue: PROCESS_RUNTIME_CONFIG,
@@ -33,6 +40,7 @@ import { RolesGuard } from './roles.guard';
     { provide: OBJECT_STORAGE, useClass: S3ObjectStorageClient },
     { provide: OBJECT_INVENTORY, useClass: S3ObjectInventoryClient },
     HealthRepository,
+    LockProgramTreeRepository,
     HealthService,
     AuditLogRepository,
     AuditLogMetadataService,
@@ -42,6 +50,7 @@ import { RolesGuard } from './roles.guard';
   ],
   exports: [
     RUNTIME_CONFIG,
+    LockProgramTreeRepository,
     PrismaService,
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
@@ -49,6 +58,9 @@ import { RolesGuard } from './roles.guard';
     JoinCodeSecretService,
     AuditLogService,
     RolesGuard,
+    PlatformRepository,
+    PrismaSerializationRetryRepository,
+    RepositoryProvisionGenerationRepository,
   ],
 })
 export class PlatformModule {}

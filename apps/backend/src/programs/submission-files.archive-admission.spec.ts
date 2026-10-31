@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import type { SubmissionFilesRepository } from './submission-files.repository';
@@ -196,6 +197,7 @@ function setup() {
     storage,
     new ProgramRulesService(),
     new SubmissionFileRulesService(),
+    new DownloadResponseService(),
   );
   return { repository, service, storage };
 }

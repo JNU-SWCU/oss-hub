@@ -1,3 +1,5 @@
+import { SubmissionInputService } from './submission-input.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
   MemberKind,
@@ -32,9 +34,10 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionsService(
-  new SubmissionsRepository(prisma),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
   new ProgramRulesService(),
   new SubmissionFileRulesService(),
+  new SubmissionInputService(),
 );
 const MILESTONES_PROGRAM_ID = seedId('milestones', 'program');
 const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');

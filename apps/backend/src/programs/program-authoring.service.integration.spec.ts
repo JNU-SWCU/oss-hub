@@ -1,3 +1,6 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import {
   ProgramTrackType,
@@ -29,17 +32,32 @@ const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   new AuditLogMetadataService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
-    new ProgramAuthoringRepository(harness.prisma),
+    new ProgramAuthoringRepository(
+      harness.prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        harness.prisma,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
+    ),
     { record: jest.fn() } as unknown as AuditLogService,
     new AuditLogMetadataService(),
     new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramUploadRulesService(
+      new SubmissionFileRulesService(),
+      new ProgramNoticeFetchClient(),
+    ),
+    new ProgramAuthoringUploadTransactionRepository(),
   );
 
   beforeAll(async () => {

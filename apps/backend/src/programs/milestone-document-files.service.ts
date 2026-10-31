@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
+import { Inject, Injectable, StreamableFile } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -15,7 +17,6 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
@@ -68,7 +69,36 @@ export class MilestoneDocumentFilesService {
     private readonly submissionFiles: SubmissionFilesService,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async downloadTemplateTo(
+    response: Response,
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadTemplate(
+      sessionGithubId,
+      milestoneId,
+      documentId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
+
+  async downloadSubmissionFileTo(
+    response: Response,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadSubmissionFile(
+      milestoneId,
+      documentId,
+      applicationId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
 
   async upload(
     sessionGithubId: bigint,
@@ -366,7 +396,10 @@ export class MilestoneDocumentFilesService {
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
     }
-    const normalizedFileName = normalizeMultipartFileName(file.originalname);
+    const normalizedFileName =
+      this.submissionFileRulesService.normalizeMultipartFileName(
+        file.originalname,
+      );
     const valid =
       purpose === 'TEMPLATE'
         ? this.submissionFileRulesService.hasValidSubmissionTemplateSignature(

@@ -10,11 +10,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { type DocumentDeliveryStatus } from '../milestone-document-collection-read.repository';
-import { type MilestoneDocumentDeliveryQuery } from '../milestone-document-collection.service';
 import type { MilestoneDocumentCollectionFilter } from '../milestone-document-rules.service';
 import { MILESTONE_DOCUMENT_COLLECTION_FILTERS } from '../milestone-document-rules.service';
-
-const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;
 
 export class MilestoneDocumentCollectionRequestDto {
@@ -50,24 +47,4 @@ export class MilestoneDocumentCollectionRequestDto {
   @IsOptional()
   @IsIn(['ALL', 'SUBMITTED', 'MISSING'])
   declare readonly submissionState?: 'ALL' | 'SUBMITTED' | 'MISSING';
-
-  toQuery(): MilestoneDocumentDeliveryQuery {
-    return {
-      page: this.page ?? 1,
-      pageSize:
-        this.pageSize ?? MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE,
-      filter: this.filter ?? 'ALL',
-      ...(this.documentId === undefined
-        ? {}
-        : {
-            document: {
-              id: this.documentId,
-              submissionState: this.submissionState ?? 'ALL',
-            },
-          }),
-      ...(this.deliveryStatus === undefined
-        ? {}
-        : { deliveryStatus: this.deliveryStatus }),
-    };
-  }
 }

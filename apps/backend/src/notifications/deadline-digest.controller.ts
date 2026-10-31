@@ -12,8 +12,9 @@ import { DeadlineDigestPreviewResponseDto } from './dto/deadline-digest-preview-
 import { DeadlineDigestSendResponseDto } from './dto/deadline-digest-send-response.dto';
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   NOTIFICATIONS_ERROR_CODES,
@@ -39,7 +40,7 @@ export class DeadlineDigestController {
     @Body() input: DeadlineDigestGuidanceRequestDto,
   ): Promise<DeadlineDigestPreviewResponseDto> {
     return DeadlineDigestPreviewResponseDto.from(
-      await this.service.previewProgram(programId, new Date(), input),
+      await this.service.previewProgramFromRequest(programId, input),
     );
   }
 

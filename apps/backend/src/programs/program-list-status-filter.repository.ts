@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import {
   PROGRAM_LIST_QUERY_STATUSES,
@@ -37,8 +38,9 @@ export type ProgramListStatusInput = {
   readonly endAt: Date;
 };
 
+@Injectable()
 export class ProgramListStatusFilterRepository {
-  static deriveProgramListStatus(
+  deriveProgramListStatus(
     program: ProgramListStatusInput,
     now: Date,
   ): ProgramListDerivedStatus {
@@ -49,7 +51,7 @@ export class ProgramListStatusFilterRepository {
     return 'in_progress';
   }
 
-  static programListSortRank(status: ProgramListDerivedStatus): 0 | 1 | 2 | 3 {
+  programListSortRank(status: ProgramListDerivedStatus): 0 | 1 | 2 | 3 {
     switch (status) {
       case 'recruiting':
         return 0;
@@ -62,7 +64,7 @@ export class ProgramListStatusFilterRepository {
     }
   }
 
-  static programListPrismaWhere(
+  programListPrismaWhere(
     status: ProgramListQueryStatus,
     now: Date,
   ): Prisma.ProgramWhereInput {
@@ -108,7 +110,7 @@ export class ProgramListStatusFilterRepository {
     return whereByStatus[status];
   }
 
-  static programListSqlStatusPredicate(
+  programListSqlStatusPredicate(
     status: ProgramListQueryStatus,
     now: Date,
   ): Prisma.Sql {
@@ -121,14 +123,14 @@ export class ProgramListStatusFilterRepository {
     return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
   }
 
-  static programEndYearRange(year: number) {
+  programEndYearRange(year: number) {
     return {
       gte: new Date(Date.UTC(year, 0, 1, -9)),
       lt: new Date(Date.UTC(year + 1, 0, 1, -9)),
     };
   }
 
-  static programListSortRankSql(now: Date): Prisma.Sql {
+  programListSortRankSql(now: Date): Prisma.Sql {
     return Prisma.sql`
     CASE (${programListStatusCaseSql(now)})
       WHEN 'recruiting' THEN 0
@@ -139,9 +141,7 @@ export class ProgramListStatusFilterRepository {
   `;
   }
 
-  static programListStatusSortRank(
-    status: ProgramListDerivedStatus,
-  ): 0 | 1 | 2 | 3 {
+  programListStatusSortRank(status: ProgramListDerivedStatus): 0 | 1 | 2 | 3 {
     switch (status) {
       case 'recruiting':
         return 0;
@@ -154,7 +154,7 @@ export class ProgramListStatusFilterRepository {
     }
   }
 
-  static programListOrderBySql(
+  programListOrderBySql(
     sort: ProgramListQuerySort | undefined,
     direction: ProgramListQueryDirection | undefined,
     now: Date,
@@ -174,7 +174,7 @@ export class ProgramListStatusFilterRepository {
       `;
       default:
         return Prisma.sql`
-        ${ProgramListStatusFilterRepository.programListSortRankSql(now)} ASC,
+        ${this.programListSortRankSql(now)} ASC,
         p."applicationEndAt" ASC,
         p."name" ASC,
         p."id" ASC
@@ -182,21 +182,17 @@ export class ProgramListStatusFilterRepository {
     }
   }
 
-  static programListSqlWhere(
+  programListSqlWhere(
     status: ProgramListQueryStatus,
     search: string,
     now: Date,
     year?: number,
   ): Prisma.Sql {
     const conditions: Prisma.Sql[] = [
-      ProgramListStatusFilterRepository.programListSqlStatusPredicate(
-        status,
-        now,
-      ),
+      this.programListSqlStatusPredicate(status, now),
     ];
     if (year !== undefined) {
-      const { gte, lt } =
-        ProgramListStatusFilterRepository.programEndYearRange(year);
+      const { gte, lt } = this.programEndYearRange(year);
       conditions.push(Prisma.sql`p."endAt" >= ${gte} AND p."endAt" < ${lt}`);
     }
     if (search) {
@@ -205,7 +201,7 @@ export class ProgramListStatusFilterRepository {
     return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
   }
 
-  static programStatusCountsSql(now: Date): Prisma.Sql {
+  programStatusCountsSql(now: Date): Prisma.Sql {
     const statusCase = programListStatusCaseSql(now);
     return Prisma.sql`
     SELECT

@@ -1,5 +1,12 @@
 import { ValidatedProgramAuthoringUpload } from './program-authoring-upload-transaction.repository';
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Optional,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
@@ -33,6 +40,36 @@ export class ProgramAuthoringUploadService {
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  async uploadFromRequest(
+    actorId: string,
+    file: ProgramAuthoringUploadFile | undefined,
+  ): Promise<ProgramAuthoringUploadResponse> {
+    try {
+      return await this.upload(actorId, file);
+    } catch (error) {
+      throw uploadHttpError(error);
+    }
+  }
+
+  async uploadCoverFromRequest(
+    actorId: string,
+    file: ProgramAuthoringUploadFile | undefined,
+  ): Promise<ProgramAuthoringUploadResponse> {
+    try {
+      return await this.uploadCover(actorId, file);
+    } catch (error) {
+      throw uploadHttpError(error);
+    }
+  }
+
+  async deleteFromRequest(actorId: string, id: string): Promise<void> {
+    try {
+      await this.delete(actorId, id);
+    } catch (error) {
+      throw uploadHttpError(error);
+    }
+  }
 
   async upload(
     actorId: string,
@@ -146,4 +183,21 @@ export class ProgramAuthoringUploadService {
 
 function isOpaqueId(value: string): boolean {
   return value.length > 0 && value === value.trim();
+}
+
+function uploadHttpError(error: unknown): Error {
+  if (!(error instanceof ProgramAuthoringUploadError)) throw error;
+  switch (error.code) {
+    case 'PROGRAM_AUTHORING_UPLOAD_NOT_FOUND':
+      return new NotFoundException('Upload was not found.');
+    case 'PROGRAM_AUTHORING_UPLOAD_ATTACHED_CONFLICT':
+      return new ConflictException('Upload is already attached.');
+    case 'PROGRAM_AUTHORING_UPLOAD_STORAGE_UNAVAILABLE':
+      return new ConflictException('Upload storage is currently unavailable.');
+    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_ACTOR':
+    case 'PROGRAM_AUTHORING_UPLOAD_INVALID_FILE':
+    case 'PROGRAM_AUTHORING_UPLOAD_FILE_TOO_LARGE':
+    case 'PROGRAM_AUTHORING_UPLOAD_UNSUPPORTED_FILE_TYPE':
+      return new BadRequestException('Upload is invalid.');
+  }
 }

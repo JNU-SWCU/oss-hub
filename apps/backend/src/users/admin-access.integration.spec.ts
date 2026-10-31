@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { MemberKindService } from './member-kind.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus } from '@prisma/client';
@@ -25,7 +29,14 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new AdminAccessRepository(prisma);
+const repository = new AdminAccessRepository(
+  prisma,
+  new AdminAccessHistoryRepository(),
+  new AdminAccessReadRepository(
+    new AdminAccessReadOrderingRepository(),
+    new PlatformRepository(),
+  ),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
@@ -68,7 +79,21 @@ describe('Admin access real PostgreSQL transactions', () => {
 
     const synchronizedService = new IndependentAuthorityService(
       new BarrierIndependentAuthorityRepository(
-        new IndependentAuthorityRepository(prisma),
+        new IndependentAuthorityRepository(
+          prisma,
+          new AdminAccessReadRepository(
+            new AdminAccessReadOrderingRepository(),
+            new PlatformRepository(),
+          ),
+          new AdminAccessRepository(
+            prisma,
+            new AdminAccessHistoryRepository(),
+            new AdminAccessReadRepository(
+              new AdminAccessReadOrderingRepository(),
+              new PlatformRepository(),
+            ),
+          ),
+        ),
       ),
       auditLog,
       new AuditLogMetadataService(),
@@ -149,7 +174,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     });
 
     const profileService = {
-      patchProfile: () => {
+      patchProfileFromRequest: () => {
         throw new Error('patchProfile should not be called in this spec');
       },
     };
@@ -165,10 +190,6 @@ describe('Admin access real PostgreSQL transactions', () => {
       Object.assign(
         Object.create(MemberKindService.prototype) as MemberKindService,
         { patchMemberKind: jest.fn() },
-      ),
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
       ),
     );
     const request = {

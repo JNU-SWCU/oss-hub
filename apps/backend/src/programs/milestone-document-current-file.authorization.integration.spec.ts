@@ -1,3 +1,10 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { DownloadResponseService } from './download-response.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Readable } from 'node:stream';
 import { PlatformModule } from '../platform/platform.module';
 import { buffer } from 'node:stream/consumers';
@@ -123,11 +130,18 @@ const users = {
 } as const;
 
 const prisma = new PrismaService();
-const documentsRepository = new MilestoneDocumentsRepository(prisma);
+const documentsRepository = new MilestoneDocumentsRepository(
+  prisma,
+  new LockProgramTreeRepository(),
+  new PlatformRepository(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new MilestoneDocumentCollectionReadRepository(prisma),
+);
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
 const storage: ObjectStoragePort = {
@@ -145,6 +159,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
   ),
   storage,
   new SubmissionFileRulesService(),
+  new DownloadResponseService(),
 );
 
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
@@ -356,6 +371,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
       providers: [
+        ...STATELESS_PROVIDERS,
+        SubmissionsRepository,
         SubmissionFilesService,
         SubmissionFilesRepository,
         ProgramRulesService,
@@ -383,6 +400,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       submissionsModule.get(SubmissionFilesService),
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
+      new DownloadResponseService(),
     );
 
     await cleanup();

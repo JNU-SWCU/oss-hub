@@ -5,12 +5,12 @@ import {
   Get,
   Module,
 } from '@nestjs/common';
+import { PUBLIC_ROUTE_METADATA } from '../src/auth/authentication.guard';
 import {
   OptionalSession,
   Protected,
   Public,
-  PUBLIC_ROUTE_METADATA,
-} from '../src/auth/authentication.guard';
+} from '../src/auth/auth-route.decorator';
 
 @Controller('fixture/missing')
 export class MissingMetadataController {

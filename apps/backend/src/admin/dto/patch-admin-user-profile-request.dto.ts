@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, Matches, ValidateBy } from 'class-validator';
-import type { AdminProfileUpdateCommand } from '../../users/admin-profile-mutation.service';
 import { PROFILE_TEXT_PATTERN } from '../../users/profile-validation.config';
 
 export class PatchAdminUserProfileRequestDto {
@@ -21,18 +20,6 @@ export class PatchAdminUserProfileRequestDto {
   @IsString()
   @IsProfileText('isValidDepartment')
   declare readonly department?: string;
-
-  toCommand(): AdminProfileUpdateCommand {
-    return {
-      ...(typeof this.name === 'string' ? { name: this.name } : {}),
-      ...(typeof this.studentId === 'string'
-        ? { studentId: this.studentId }
-        : {}),
-      ...(typeof this.department === 'string'
-        ? { department: this.department }
-        : {}),
-    };
-  }
 }
 
 function trimString({ value }: { value: unknown }): unknown {

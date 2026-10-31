@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { BoardPostListQuery } from '../board.service';
 
 export class BoardPostListRequestDto {
   @IsOptional()
@@ -15,8 +14,4 @@ export class BoardPostListRequestDto {
   @Min(1)
   @Max(100)
   declare readonly limit?: number;
-
-  toQuery(): BoardPostListQuery {
-    return { page: this.page ?? 1, limit: this.limit ?? 20 };
-  }
 }

@@ -1,3 +1,8 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DomainException } from '../platform/error-code.error';
@@ -15,10 +20,22 @@ const PROGRAM_NAME = 'Issue 101 Same Name Program';
 
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
   new SubmissionFileRulesService(),
 );
 

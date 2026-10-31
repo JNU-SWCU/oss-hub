@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   ProgramAuthoringUploadLifecycle,
@@ -130,26 +131,22 @@ export interface ValidatedProgramAuthoringUpload {
   readonly sha256: string;
 }
 
+@Injectable()
 export class ProgramAuthoringUploadTransactionRepository {
-  static async lockAttachableProgramAuthoringUploads(
+  async lockAttachableProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     actorId: string,
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    const uploads =
-      await ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
-        transaction,
-        tokenIds,
-      );
-    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
-      actorId,
+    const uploads = await this.lockProgramAuthoringUploads(
+      transaction,
       tokenIds,
-      uploads,
     );
+    this.assertAttachableProgramAuthoringUploads(actorId, tokenIds, uploads);
     return uploads;
   }
 
-  static lockProgramAuthoringUploads(
+  lockProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
@@ -166,7 +163,7 @@ export class ProgramAuthoringUploadTransactionRepository {
   `);
   }
 
-  static assertAttachableProgramAuthoringUploads(
+  assertAttachableProgramAuthoringUploads(
     actorId: string,
     tokenIds: readonly string[],
     uploads: readonly ProgramAuthoringUploadToken[],
@@ -199,7 +196,7 @@ export class ProgramAuthoringUploadTransactionRepository {
     }
   }
 
-  static async consumePendingProgramAuthoringUploads(
+  async consumePendingProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     actorId: string,
     consumptions: readonly ProgramAuthoringPendingUploadConsumption[],

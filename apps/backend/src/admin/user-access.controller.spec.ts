@@ -11,10 +11,11 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { RolesErrorCode } from '../users/roles-error-code.error';
 import { UserAccessController } from './user-access.controller';
 import { AdminAccessService } from '../users/admin-access.service';
-import type { AdminProfileService } from '../users/admin-profile.service';
 import { AdminAccessListRequestDto } from './dto/admin-access-list-request.dto';
 import { PatchAdminAccessRequestDto } from './dto/patch-admin-access-request.dto';
-import type { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
+import { PatchAdminUserProfileRequestDto } from './dto/patch-admin-user-profile-request.dto';
+import { AdminProfileService } from '../users/admin-profile.service';
+import { AdminProfileMutationService } from '../users/admin-profile-mutation.service';
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import { IndependentAuthorityService } from '../users/independent-authority.service';
 import { MemberKindService } from '../users/member-kind.service';
@@ -78,10 +79,6 @@ describe('admin-access.controller', () => {
           profileService,
           authorityServiceHarness(),
           memberKindServiceHarness(),
-          new AdminAccessMutationService(
-            new AuditLogMetadataService(),
-            new UserProfileService(),
-          ),
         );
         const query = Object.assign(new AdminAccessListRequestDto(), {
           sort,
@@ -90,7 +87,8 @@ describe('admin-access.controller', () => {
 
         await controller.list(REQUEST, query);
 
-        expect(service.list).toHaveBeenCalledWith(REQUEST.principal, {
+        expect(service.list).toHaveBeenCalledWith(REQUEST.principal, query);
+        expect(service.listQueryFromRequest(query)).toEqual({
           query: '',
           page: 1,
           limit: 20,
@@ -108,10 +106,6 @@ describe('admin-access.controller', () => {
         profileService,
         authorityServiceHarness(),
         memberKindServiceHarness(),
-        new AdminAccessMutationService(
-          new AuditLogMetadataService(),
-          new UserProfileService(),
-        ),
       );
       const command = {
         expectedRole: 'STUDENT',
@@ -139,19 +133,16 @@ describe('admin-access.controller', () => {
         profileService,
         authorityServiceHarness(),
         memberKindServiceHarness(),
-        new AdminAccessMutationService(
-          new AuditLogMetadataService(),
-          new UserProfileService(),
-        ),
       );
       const command = {
         name: '테스트관리자',
         studentId: '260001',
         department: '컴퓨터공학과',
       } as const;
-      const body = {
-        toCommand: () => command,
-      } as PatchAdminUserProfileRequestDto;
+      const body = Object.assign(
+        new PatchAdminUserProfileRequestDto(),
+        command,
+      );
 
       await controller.patchProfile(REQUEST, 'target-user', body);
 
@@ -170,10 +161,6 @@ describe('admin-access.controller', () => {
         profileService,
         authorityServiceHarness(),
         memberKindServiceHarness(),
-        new AdminAccessMutationService(
-          new AuditLogMetadataService(),
-          new UserProfileService(),
-        ),
       );
       const body = {
         toCommand: jest.fn(),
@@ -195,10 +182,6 @@ describe('admin-access.controller', () => {
         profileService,
         authorityServiceHarness(),
         memberKindServiceHarness(),
-        new AdminAccessMutationService(
-          new AuditLogMetadataService(),
-          new UserProfileService(),
-        ),
       );
       const body = {
         toCommand: jest.fn(),
@@ -222,10 +205,6 @@ describe('admin-access.controller', () => {
           profileService,
           authorityServiceHarness(),
           memberKindServiceHarness(),
-          new AdminAccessMutationService(
-            new AuditLogMetadataService(),
-            new UserProfileService(),
-          ),
         );
         const body = {
           toCommand: jest.fn(),
@@ -248,39 +227,6 @@ describe('admin-access.controller', () => {
       },
     );
   });
-
-  function serviceHarness() {
-    return {
-      list: jest.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        limit: 20,
-        total: 0,
-        facets: emptyFacets(),
-      }),
-      facets: jest.fn().mockResolvedValue(emptyFacets()),
-      patchAccess: jest.fn().mockResolvedValue({}),
-    } satisfies Pick<AdminAccessService, 'list' | 'facets' | 'patchAccess'>;
-  }
-
-  function profileServiceHarness() {
-    return {
-      patchProfile: jest.fn().mockResolvedValue({
-        id: 'target-user',
-        name: null,
-        studentId: null,
-        department: null,
-      }),
-    } satisfies Pick<AdminProfileService, 'patchProfile'>;
-  }
-
-  function emptyFacets() {
-    return {
-      roles: { unassigned: 0, student: 0, staff: 0, admin: 0 },
-      accountStatuses: { active: 0, deactivated: 0 },
-      pendingRequests: { none: 0, pending: 0 },
-    };
-  }
 });
 
 describe('independent-authority.controller', () => {
@@ -317,14 +263,10 @@ describe('independent-authority.controller', () => {
       patchAdminAccess: jest.fn().mockResolvedValue(result()),
     });
     const controller = new UserAccessController(
-      { list: jest.fn(), facets: jest.fn(), patchAccess: jest.fn() },
-      { patchProfile: jest.fn() },
+      serviceHarness(),
+      profileServiceHarness(),
       service,
       memberKindServiceHarness(),
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
-      ),
     );
     const adminBody = Object.assign(new PatchIndependentAuthorityRequestDto(), {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -350,18 +292,68 @@ describe('independent-authority.controller', () => {
   }
 });
 
+const adminAccessMutationService = new AdminAccessMutationService(
+  new AuditLogMetadataService(),
+  new UserProfileService(),
+);
+
+function onPrototype<T extends object>(prototype: T, members: object): T {
+  return Object.assign(Object.create(prototype) as T, {
+    adminAccessMutationService,
+    ...members,
+  });
+}
+
+function serviceHarness() {
+  return onPrototype(AdminAccessService.prototype, {
+    list: jest.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      limit: 20,
+      total: 0,
+      facets: emptyListFacets(),
+    }),
+    facets: jest.fn().mockResolvedValue(emptyListFacets()),
+    patchAccess: jest.fn().mockResolvedValue({}),
+  }) as AdminAccessService & {
+    list: jest.Mock;
+    facets: jest.Mock;
+    patchAccess: jest.Mock;
+  };
+}
+
+function profileServiceHarness() {
+  return onPrototype(AdminProfileService.prototype, {
+    adminProfileMutationService: new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      adminAccessMutationService,
+    ),
+    patchProfile: jest.fn().mockResolvedValue({
+      id: 'target-user',
+      name: null,
+      studentId: null,
+      department: null,
+    }),
+  }) as AdminProfileService & { patchProfile: jest.Mock };
+}
+
+function emptyListFacets() {
+  return {
+    roles: { unassigned: 0, student: 0, staff: 0, admin: 0 },
+    accountStatuses: { active: 0, deactivated: 0 },
+    pendingRequests: { none: 0, pending: 0 },
+  };
+}
+
 function authorityServiceHarness() {
-  return Object.assign(
-    Object.create(
-      IndependentAuthorityService.prototype,
-    ) as IndependentAuthorityService,
-    { patchAdminAccess: jest.fn() },
-  );
+  return onPrototype(IndependentAuthorityService.prototype, {
+    patchAdminAccess: jest.fn(),
+  }) as IndependentAuthorityService & { patchAdminAccess: jest.Mock };
 }
 
 function memberKindServiceHarness() {
-  return Object.assign(
-    Object.create(MemberKindService.prototype) as MemberKindService,
-    { patchMemberKind: jest.fn() },
-  );
+  return onPrototype(MemberKindService.prototype, {
+    patchMemberKind: jest.fn(),
+  }) as MemberKindService & { patchMemberKind: jest.Mock };
 }

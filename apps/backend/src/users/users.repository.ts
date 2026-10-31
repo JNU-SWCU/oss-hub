@@ -123,7 +123,10 @@ export interface FillStudentIdInput {
 
 @Injectable()
 export class UsersRepository implements UsersRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
     const user = await this.prisma.user.findUnique({
@@ -174,7 +177,10 @@ export class UsersRepository implements UsersRepositoryPort {
           input.phone,
         );
         if (input.requestsStaffAccess) {
-          await PlatformRepository.requestStaffAccess(transaction, expected.id);
+          await this.platformRepository.requestStaffAccess(
+            transaction,
+            expected.id,
+          );
         }
         return 'completed';
       });
@@ -203,7 +209,7 @@ export class UsersRepository implements UsersRepositoryPort {
     recordPhoneAudit: RecordPhoneAudit,
   ): Promise<StudentIdFillOutcome> {
     return this.prisma.$transaction(async (transaction) => {
-      const outcome = await PlatformRepository.fillStudentIdIfEmpty(
+      const outcome = await this.platformRepository.fillStudentIdIfEmpty(
         transaction,
         input.expected.id,
         input.studentId,

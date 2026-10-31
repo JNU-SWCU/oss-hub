@@ -1,3 +1,6 @@
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentCollectionResponseDto,
   MilestoneDocumentDeliveryCollectionResponseDto,
@@ -34,9 +37,16 @@ const service = new MilestoneDocumentCollectionService(
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyService = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(harness.prisma),
+  new MilestoneDocumentsRepository(
+    harness.prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(harness.prisma),
+  ),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;
 const late = new Date(fixture.dueSoon.getTime() + 1);

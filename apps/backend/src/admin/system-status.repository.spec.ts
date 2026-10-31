@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { SystemStatusRepository } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
@@ -69,6 +70,7 @@ const statusWith = (
   new SystemStatusService(
     repositoryWith(streams),
     () => new Date(),
+    new CollectionScheduleService(),
   ).getStatus();
 
 describe('SystemStatusService — stream 종류 (실제 repository)', () => {

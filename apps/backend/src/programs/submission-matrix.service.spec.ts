@@ -1,3 +1,5 @@
+import type { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
@@ -282,7 +284,10 @@ describe('SubmissionMatrixService', () => {
 describe('submissionMatrixApplicationWhere', () => {
   it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -295,19 +300,28 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
     };
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -318,7 +332,10 @@ describe('submissionMatrixApplicationWhere', () => {
     const contains = { contains: 'Hong', mode: 'insensitive' };
 
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: 'Hong',
         applicationMode: null,
       }),

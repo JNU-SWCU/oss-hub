@@ -1,10 +1,11 @@
 import { createServer, request, type Server } from 'node:http';
 import type { RequestOptions } from 'node:https';
 import {
-  fetchProgramNotice,
-  isPublicNoticeAddress,
+  ProgramNoticeFetchClient,
   type NoticeTransport,
 } from './program-notice-fetch.client';
+
+const client = new ProgramNoticeFetchClient();
 
 const source = new URL(
   'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
@@ -62,7 +63,7 @@ beforeEach(() => {
 });
 
 it('reads bounded HTML through an HTTP seam while pinning the validated DNS address', async () => {
-  expect(await fetchProgramNotice(source, transport)).toBe(body);
+  expect(await client.read(source, transport)).toBe(body);
   expect(captured).toMatchObject({
     family: 4,
     agent: false,
@@ -96,12 +97,12 @@ it.each([
   '2001:db8::1',
   'invalid',
 ])('rejects nonpublic or unsupported DNS address %s', (address) => {
-  expect(isPublicNoticeAddress(address)).toBe(false);
+  expect(client.isPublicNoticeAddress(address)).toBe(false);
 });
 
 it('rejects mixed DNS answers before making a request', async () => {
   resolve.mockResolvedValue(['8.8.8.8', '127.0.0.1']);
-  await expect(fetchProgramNotice(source, transport)).rejects.toMatchObject({
+  await expect(client.read(source, transport)).rejects.toMatchObject({
     errorCode: { code: 'PROGRAM_NOTICE_FETCH_FAILED' },
   });
   expect(captured).toBeUndefined();
@@ -111,7 +112,7 @@ it.each([301, 302, 307, 308, 404, 500])(
   'rejects status %i without following redirects',
   async (code) => {
     status = code;
-    await expect(fetchProgramNotice(source, transport)).rejects.toThrow();
+    await expect(client.read(source, transport)).rejects.toThrow();
     expect(resolve).toHaveBeenCalledTimes(1);
   },
 );
@@ -120,27 +121,27 @@ it.each(['application/json', 'image/png', 'text/html; charset=shift_jis'])(
   'rejects unsupported response type %s',
   async (type) => {
     contentType = type;
-    await expect(fetchProgramNotice(source, transport)).rejects.toThrow();
+    await expect(client.read(source, transport)).rejects.toThrow();
   },
 );
 
 it('rejects compressed upstream bodies instead of exposing a decompression bomb', async () => {
   encoding = 'gzip';
-  await expect(fetchProgramNotice(source, transport)).rejects.toThrow();
+  await expect(client.read(source, transport)).rejects.toThrow();
 });
 
 it('rejects a streamed body larger than the byte bound', async () => {
   body = 'a'.repeat(2 * 1024 * 1024 + 1);
-  await expect(fetchProgramNotice(source, transport)).rejects.toThrow();
+  await expect(client.read(source, transport)).rejects.toThrow();
 });
 
 it('times out a stalled upstream connection', async () => {
   stalled = true;
-  await expect(fetchProgramNotice(source, transport, 30)).rejects.toThrow();
+  await expect(client.read(source, transport, 30)).rejects.toThrow();
 });
 
 it('bounds DNS resolution by the same overall deadline and never starts a late request', async () => {
   resolve.mockImplementation(() => new Promise(() => {}));
-  await expect(fetchProgramNotice(source, transport, 30)).rejects.toThrow();
+  await expect(client.read(source, transport, 30)).rejects.toThrow();
   expect(captured).toBeUndefined();
 });

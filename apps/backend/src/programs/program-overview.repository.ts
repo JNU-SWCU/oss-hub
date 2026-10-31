@@ -99,7 +99,10 @@ export interface SubmittedDocumentPairRow {
 
 @Injectable()
 export class ProgramOverviewRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findByProgramId(
     programId: string,
@@ -246,7 +249,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

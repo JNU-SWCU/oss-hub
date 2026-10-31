@@ -1,7 +1,7 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { HealthResponseDto } from './dto/health-response.dto';
 import { HealthService } from './health.service';
-import { Public } from '../auth/authentication.guard';
+import { Public } from '../auth/auth-route.decorator';
 
 @Controller('health')
 @Public()
@@ -10,11 +10,7 @@ export class HealthController {
 
   @Get()
   async getHealth(): Promise<HealthResponseDto> {
-    const reachable = await this.healthService.isDatabaseReachable();
-    if (!reachable) {
-      throw new ServiceUnavailableException();
-    }
-
+    await this.healthService.assertDatabaseReachable();
     return HealthResponseDto.from();
   }
 }

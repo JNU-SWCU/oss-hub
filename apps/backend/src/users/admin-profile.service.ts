@@ -1,3 +1,4 @@
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
@@ -17,7 +18,21 @@ export class AdminProfileService {
     private readonly profileRepository: AdminProfileRepositoryPort,
     private readonly auditLog: AuditLogService,
     private readonly adminProfileMutationService: AdminProfileMutationService,
+    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
+
+  patchProfileFromRequest(
+    actorGithubId: bigint,
+    userId: string,
+    request: AdminProfileUpdateCommand,
+  ): Promise<AdminProfileUpdateResult> {
+    this.adminAccessMutationService.requireValidUserId(userId);
+    return this.patchProfile(
+      actorGithubId,
+      userId,
+      this.adminProfileMutationService.commandFromPatchProfileRequest(request),
+    );
+  }
 
   patchProfile(
     actorGithubId: bigint,

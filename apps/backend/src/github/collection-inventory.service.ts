@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type {
   CollectionIncrementalRepository,
   CollectionRepositoryRow,
@@ -14,6 +15,7 @@ export interface SweepInventory {
   readonly repositories: readonly CollectionRepositoryRow[];
 }
 
+@Injectable()
 export class CollectionInventoryService {
   constructor(
     private readonly incrementalRepository: Pick<

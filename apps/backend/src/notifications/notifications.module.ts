@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { HttpSecurityModule } from '../platform/http-security.module';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestRepository } from './deadline-digest.repository';
+import { DeadlineDigestService } from './deadline-digest.service';
 import {
-  DeadlineDigestService,
+  DeadlineDigestMailService,
   mailSenderProvider,
-} from './deadline-digest.service';
+} from './deadline-digest-mail.service';
 import { NotificationSettingsController } from './notification-settings.controller';
 import {
   NotificationSettingsRepository,
@@ -31,6 +32,7 @@ import { ApplicationDecisionNotificationsController } from './application-decisi
     NotificationSettingsService,
     DeadlineDigestRepository,
     DeadlineDigestService,
+    DeadlineDigestMailService,
     mailSenderProvider,
   ],
   exports: [DeadlineDigestService],

@@ -1,3 +1,6 @@
+import { ProgramViewerService } from './program-viewer.service';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -16,12 +19,17 @@ const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'program-list-order:';
 const NOW = new Date('2026-08-01T00:00:00.000Z');
 const prisma = new PrismaService();
-const repository = new ProgramsRepository(prisma);
+const repository = new ProgramsRepository(
+  prisma,
+  new PlatformRepository(),
+  new ProgramListStatusFilterRepository(),
+);
 const service = new ProgramsService(
   repository,
   new MilestoneCompletionService(),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
+  Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
 
 async function cleanup(): Promise<void> {

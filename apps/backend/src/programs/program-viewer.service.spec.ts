@@ -1,3 +1,5 @@
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
@@ -10,7 +12,11 @@ function serviceFor(user: unknown) {
   const findUnique = jest.fn().mockResolvedValue(user);
   const prisma = { user: { findUnique } } as unknown as PrismaService;
   return new ProgramViewerService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     new UserProfileService(),
   );
 }
@@ -125,7 +131,11 @@ describe('ProgramViewerService', () => {
     });
     const prisma = { user: { findUnique } } as unknown as PrismaService;
     const service = new ProgramViewerService(
-      new ProgramsRepository(prisma),
+      new ProgramsRepository(
+        prisma,
+        new PlatformRepository(),
+        new ProgramListStatusFilterRepository(),
+      ),
       new UserProfileService(),
     );
 

@@ -10,15 +10,12 @@ import {
 } from 'class-validator';
 import { AccountStatus } from '@prisma/client';
 import type {
-  AdminAccessListQuery,
   AdminAccessPendingFilter,
   AdminAccessRoleFilter,
   AdminAccessSortDirection,
   AdminAccessSortField,
 } from '../../users/admin-access-read-ordering.repository';
 import {
-  ADMIN_ACCESS_DEFAULT_DIRECTION,
-  ADMIN_ACCESS_DEFAULT_SORT,
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
   ADMIN_ACCESS_SORT_DIRECTIONS,
@@ -66,21 +63,4 @@ export class AdminAccessListRequestDto {
   @Min(1)
   @Max(100)
   declare readonly limit?: number;
-
-  toQuery(): AdminAccessListQuery {
-    return {
-      query: this.query ?? '',
-      ...(this.role === undefined ? {} : { role: this.role }),
-      ...(this.accountStatus === undefined
-        ? {}
-        : { accountStatus: this.accountStatus }),
-      ...(this.pendingRequest === undefined
-        ? {}
-        : { pendingRequest: this.pendingRequest }),
-      sort: this.sort ?? ADMIN_ACCESS_DEFAULT_SORT,
-      direction: this.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION,
-      page: this.page ?? 1,
-      limit: this.limit ?? 20,
-    };
-  }
 }

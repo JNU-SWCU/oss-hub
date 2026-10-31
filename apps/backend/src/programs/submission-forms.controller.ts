@@ -2,7 +2,7 @@ import { Controller, Get, Header, Param, Req } from '@nestjs/common';
 import { SubmissionFormResponseDto } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

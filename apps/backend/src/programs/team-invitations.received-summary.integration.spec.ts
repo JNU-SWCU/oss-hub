@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AffiliationKind,
   MemberKind,
@@ -39,7 +40,10 @@ const PROGRAM_A_NAME = '초대 요약 프로그램 A';
 const PROGRAM_B_NAME = '초대 요약 프로그램 B';
 
 const prisma = new PrismaService();
-const repository = new TeamInvitationsRepository(prisma);
+const repository = new TeamInvitationsRepository(
+  prisma,
+  new PlatformRepository(),
+);
 
 async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({

@@ -1,3 +1,5 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
@@ -35,7 +37,11 @@ const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   new AuditLogMetadataService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('program-notice-preview.service', () => {
@@ -45,7 +51,9 @@ describe('program-notice-preview.service', () => {
   function setup() {
     const read = jest.fn(() => Promise.resolve(html));
     return {
-      service: new ProgramNoticePreviewService({ read }),
+      service: new ProgramNoticePreviewService(
+        Object.assign(new ProgramNoticeFetchClient(), { read }),
+      ),
       read,
     };
   }
@@ -81,7 +89,9 @@ describe('program-notice-preview.service', () => {
       finish = resolve;
     });
     const read = jest.fn(() => pending);
-    const service = new ProgramNoticePreviewService({ read });
+    const service = new ProgramNoticePreviewService(
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
+    );
     const requests = [1, 2, 3, 4].map(() =>
       service.preview('staff-synthetic', source),
     );
@@ -101,7 +111,9 @@ describe('program-notice-preview.service', () => {
 
   it('limits all actors combined to sixty requests per rolling minute', async () => {
     const read = jest.fn(() => Promise.resolve(html));
-    const service = new ProgramNoticePreviewService({ read });
+    const service = new ProgramNoticePreviewService(
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
+    );
     for (let index = 0; index < 60; index++)
       await service.preview(`staff-${index}`, source);
     await expect(service.preview('staff-61', source)).rejects.toMatchObject({
@@ -202,7 +214,11 @@ function setup() {
       auditLog,
       new AuditLogMetadataService(),
       new ProgramRulesService(),
-      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new ProgramUploadRulesService(
+        new SubmissionFileRulesService(),
+        new ProgramNoticeFetchClient(),
+      ),
+      new ProgramAuthoringUploadTransactionRepository(),
     ),
   };
 }

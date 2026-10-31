@@ -3,8 +3,9 @@ import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { CollectionTriggerResponseDto } from './dto/collection-trigger-response.dto';
 import { CollectionAdminService } from '../github/collection-admin.service';
-import { Protected } from '../auth/authentication.guard';
-import { ADMIN_AUDIENCE, Roles } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { ADMIN_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   COLLECTION_ERROR_CODES,

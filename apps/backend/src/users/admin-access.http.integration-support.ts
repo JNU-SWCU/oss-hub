@@ -1,3 +1,4 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
@@ -46,6 +47,7 @@ export class AdminAccessHttpHarness {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController, AccessRequestsController],
       providers: [
+        ...STATELESS_PROVIDERS,
         AdminAccessService,
         AdminAccessRepository,
         AdminAccessMutationService,

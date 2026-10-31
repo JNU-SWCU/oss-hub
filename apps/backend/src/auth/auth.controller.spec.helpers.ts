@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthConfig } from '../platform/auth.config';
@@ -53,12 +54,14 @@ export function createController(
     useSecureCookies: true,
   } as AuthConfig;
   return new AuthController(
-    service,
-    config,
-    {
-      recordLogin,
-    } as unknown as LoginHistoryService,
-    new AuthSessionService(),
+    new AuthFlowService(
+      service,
+      config,
+      {
+        recordLogin,
+      } as unknown as LoginHistoryService,
+      new AuthSessionService(),
+    ),
   );
 }
 

@@ -12,8 +12,9 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';
 import { RepositoryPublishResponseDto } from './dto/submission-review-context-response.dto';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
@@ -43,11 +44,11 @@ export class SubmissionRepositoryPublishingController {
     @Param('repositoryId') repositoryId: string,
     @Body() body: ConfirmRepositoryPublishRequestDto,
   ): Promise<RepositoryPublishResponseDto> {
-    this.service.assertPublishConfirmed(body);
     return RepositoryPublishResponseDto.from(
-      await this.service.publishRepository(
+      await this.service.publishRepositoryFromRequest(
         repositoryId,
         request.sessionGithubId,
+        body,
       ),
     );
   }

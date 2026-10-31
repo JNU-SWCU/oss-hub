@@ -35,7 +35,10 @@ describe('program authoring conflict HTTP contract', () => {
         }),
         {
           provide: ProgramAuthoringService,
-          useValue: { create },
+          useValue: Object.assign(
+            Object.create(ProgramAuthoringService.prototype) as object,
+            { create },
+          ),
         },
         { provide: ProgramAuthoringUploadService, useValue: {} },
       ],

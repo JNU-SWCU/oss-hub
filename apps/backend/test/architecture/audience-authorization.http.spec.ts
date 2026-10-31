@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../../src/github/collection-schedule.service';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
@@ -288,6 +289,7 @@ describe('Audience authorization HTTP characterization', () => {
         AdminProfileMutationService,
         AuditLogService,
         SystemStatusService,
+        CollectionScheduleService,
         {
           provide: AuthService,
           useValue: {

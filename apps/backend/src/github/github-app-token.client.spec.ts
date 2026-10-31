@@ -6,7 +6,6 @@ import {
   GithubOperationsError,
 } from './github-app.error';
 import {
-  createGithubAppJwt,
   GithubAppTokenClient,
   GithubAppFetcher,
 } from './github-app-token.client';
@@ -26,13 +25,13 @@ function jsonResponse(
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-describe('createGithubAppJwt', () => {
+describe('GithubAppTokenClient.createJwt', () => {
   it('60초 clock skew와 10분 이내 만료를 가진 RS256 JWT를 만든다', async () => {
     const { privateKey, publicKey } = generateKeyPairSync('rsa', {
       modulusLength: 2048,
     });
 
-    const token = await createGithubAppJwt(
+    const token = await new GithubAppTokenClient(() => credentials).createJwt(
       {
         ...credentials,
         privateKey: privateKey

@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import {
   type MilestoneDocumentArchiveCell,
   type MilestoneDocumentArchiveCellState,
@@ -16,6 +17,7 @@ const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
   undefined as never,
   undefined as never,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new DownloadResponseService(),
 );
 
 const BOM = '﻿';

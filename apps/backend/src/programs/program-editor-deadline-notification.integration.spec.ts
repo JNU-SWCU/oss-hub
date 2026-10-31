@@ -1,3 +1,9 @@
+import { DeadlineDigestMailService } from '../notifications/deadline-digest-mail.service';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ApplicationStatus,
   MemberKind,
@@ -42,10 +48,22 @@ const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
 
 const prisma = new PrismaService();
 const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  ),
   new ProgramCoverUrlService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
   new SubmissionFileRulesService(),
 );
 
@@ -59,6 +77,7 @@ const digest = new DeadlineDigestService(
     },
   },
   { FRONTEND_URL: 'https://oss-hub.invalid' },
+  new DeadlineDigestMailService(),
 );
 
 function updateRequest(notifyOnDeadline: boolean) {

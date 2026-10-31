@@ -58,10 +58,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   ['SessionResponseDto anonymous', () => SessionResponseDto.from()],
-  [
-    'SessionResponseDto authenticated',
-    () => SessionResponseDto.from(MeResponseDto.from(user)),
-  ],
+  ['SessionResponseDto authenticated', () => SessionResponseDto.from(user)],
 ];
 
 describe('auth response DTO JSON', () => {

@@ -4,9 +4,9 @@ import { StaffInsightsRequestDto } from './dto/staff-insights-request.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsService } from './staff-insights.service';
-import { StaffInsightsQueryService } from './staff-insights-query.service';
-import { Protected } from '../auth/authentication.guard';
-import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -24,8 +24,10 @@ export class StaffDashboardController {
     @Inject(StaffDashboardService)
     private readonly service: Pick<StaffDashboardService, 'summary'>,
     @Inject(StaffInsightsService)
-    private readonly insights: Pick<StaffInsightsService, 'summarize'>,
-    private readonly staffInsightsQueryService: StaffInsightsQueryService,
+    private readonly insights: Pick<
+      StaffInsightsService,
+      'summarizeFromRequest'
+    >,
   ) {}
 
   @Get('summary')
@@ -44,9 +46,7 @@ export class StaffDashboardController {
     @Query() query: StaffInsightsRequestDto,
   ): Promise<StaffInsightsResponseDto> {
     return StaffInsightsResponseDto.from(
-      await this.insights.summarize(
-        this.staffInsightsQueryService.parseInsightsYearQuery(query.year),
-      ),
+      await this.insights.summarizeFromRequest(query),
     );
   }
 }

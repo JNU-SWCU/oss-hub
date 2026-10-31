@@ -1,3 +1,5 @@
+import { ProgramViewerService } from './program-viewer.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import type { ProgramViewer } from './program-viewer.service';
 import {
   ApplicationStatus,
@@ -82,14 +84,17 @@ describe('deriveProgramListStatus (period interpretation)', () => {
 
     for (const { program, expected } of cases) {
       expect(
-        ProgramListStatusFilterRepository.deriveProgramListStatus(program, NOW),
+        new ProgramListStatusFilterRepository().deriveProgramListStatus(
+          program,
+          NOW,
+        ),
       ).toBe(expected);
     }
   });
 
   it('resolves boundaries with a single status (U2)', () => {
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
         baseProgram({
           applicationStartAt: NOW,
           applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -100,7 +105,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('recruiting');
 
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
           applicationEndAt: NOW,
@@ -111,7 +116,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('recruiting');
 
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -124,7 +129,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
 
   it('remains in progress before its required endAt (U3)', () => {
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
         baseProgram({
           applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -142,7 +147,10 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       endAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(program, NOW),
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
+        program,
+        NOW,
+      ),
     ).toBe('ended');
   });
 
@@ -154,13 +162,16 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       endAt: new Date('2026-12-01T00:00:00.000Z'),
     });
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(archived, NOW),
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(
+        archived,
+        NOW,
+      ),
     ).toBe('ended');
-    expect(ProgramListStatusFilterRepository.programListSortRank('ended')).toBe(
-      3,
-    );
     expect(
-      ProgramListStatusFilterRepository.programListSortRank('recruiting'),
+      new ProgramListStatusFilterRepository().programListSortRank('ended'),
+    ).toBe(3);
+    expect(
+      new ProgramListStatusFilterRepository().programListSortRank('recruiting'),
     ).toBe(0);
   });
 });
@@ -177,7 +188,11 @@ describe('ProgramsRepository list', () => {
     $queryRaw: queryRaw,
     program: { count },
   } as unknown as PrismaService;
-  const repository = new ProgramsRepository(prisma);
+  const repository = new ProgramsRepository(
+    prisma,
+    new PlatformRepository(),
+    new ProgramListStatusFilterRepository(),
+  );
 
   beforeEach(() => {
     count.mockReset();
@@ -324,7 +339,11 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
   const prisma = {
     application: { findMany, groupBy },
   } as unknown as PrismaService;
-  const repository = new ProgramsRepository(prisma);
+  const repository = new ProgramsRepository(
+    prisma,
+    new PlatformRepository(),
+    new ProgramListStatusFilterRepository(),
+  );
 
   beforeEach(() => {
     findMany.mockReset();
@@ -447,7 +466,11 @@ describe('ProgramsRepository countProgramsByStatus', () => {
   const prisma = {
     $queryRaw: queryRaw,
   } as unknown as PrismaService;
-  const repository = new ProgramsRepository(prisma);
+  const repository = new ProgramsRepository(
+    prisma,
+    new PlatformRepository(),
+    new ProgramListStatusFilterRepository(),
+  );
 
   beforeEach(() => {
     queryRaw.mockReset();
@@ -500,10 +523,13 @@ describe('status filter single source', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');
     for (const status of PROGRAM_LIST_QUERY_STATUSES) {
       expect(
-        ProgramListStatusFilterRepository.programListPrismaWhere(status, now),
+        new ProgramListStatusFilterRepository().programListPrismaWhere(
+          status,
+          now,
+        ),
       ).toBeDefined();
       const sql =
-        ProgramListStatusFilterRepository.programListSqlStatusPredicate(
+        new ProgramListStatusFilterRepository().programListSqlStatusPredicate(
           status,
           now,
         );
@@ -546,6 +572,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     await expect(
@@ -576,6 +603,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     const page = await service.list(
@@ -609,6 +637,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 1n,
@@ -655,6 +684,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 1n,
@@ -695,6 +725,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     const page = await service.list(
@@ -731,6 +762,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 2n,
@@ -774,6 +806,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 3n,
@@ -807,6 +840,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
     const viewer = {
       githubId: 4n,
@@ -842,6 +876,7 @@ describe('ProgramsService list', () => {
       new MilestoneCompletionService(),
       new ProgramCoverUrlService(),
       new ProgramRulesService(),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     );
 
     await expect(service.statusCounts()).resolves.toEqual(counts);
@@ -853,14 +888,17 @@ describe('status-counts consistency with list totalItems filters', () => {
   it('keeps all in the published+archived universe and ends U4 only once', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');
     expect(
-      ProgramListStatusFilterRepository.programListPrismaWhere('all', now),
+      new ProgramListStatusFilterRepository().programListPrismaWhere(
+        'all',
+        now,
+      ),
     ).toEqual({
       lifecycle: {
         in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
       },
     });
     expect(
-      ProgramListStatusFilterRepository.programListPrismaWhere(
+      new ProgramListStatusFilterRepository().programListPrismaWhere(
         'recruiting',
         now,
       ),
@@ -871,7 +909,10 @@ describe('status-counts consistency with list totalItems filters', () => {
       endAt: { gte: now },
     });
     expect(
-      ProgramListStatusFilterRepository.programListPrismaWhere('ended', now),
+      new ProgramListStatusFilterRepository().programListPrismaWhere(
+        'ended',
+        now,
+      ),
     ).toEqual({
       OR: [
         { lifecycle: ProgramLifecycle.ARCHIVED },
@@ -888,7 +929,7 @@ describe('status-counts consistency with list totalItems filters', () => {
       endAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     expect(
-      ProgramListStatusFilterRepository.deriveProgramListStatus(u4, now),
+      new ProgramListStatusFilterRepository().deriveProgramListStatus(u4, now),
     ).toBe('ended');
   });
 });

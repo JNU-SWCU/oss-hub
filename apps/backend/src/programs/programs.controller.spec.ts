@@ -283,14 +283,22 @@ const publicDetail: ProgramDetailResult = {
 
 describe('ProgramsController read boundaries', () => {
   const creation = { create: jest.fn() };
-  const programs = {
-    detail: jest.fn(),
-    list: jest.fn(),
-    statusCounts: jest.fn(),
-    endedYears: jest.fn(),
-  };
-  const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
+  const activity = Object.assign(
+    Object.create(ProgramActivityService.prototype) as object,
+    { activity: jest.fn(), programViewerService: viewers },
+  );
+  const programs = Object.assign(
+    Object.create(ProgramsService.prototype) as object,
+    {
+      detail: jest.fn(),
+      list: jest.fn(),
+      statusCounts: jest.fn(),
+      endedYears: jest.fn(),
+      programViewerService: viewers,
+    },
+  );
+
   let controller: ProgramsController;
   let moduleRef: TestingModule;
 
@@ -336,15 +344,13 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, anonymousRequest() as never);
+    await controller.list(query, anonymousRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
     expect(programs.list).toHaveBeenCalledWith(
@@ -365,15 +371,13 @@ describe('ProgramsController read boundaries', () => {
     const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
     viewers.fromGithubId.mockResolvedValue(viewer);
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, authenticatedRequest() as never);
+    await controller.list(query, authenticatedRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
     expect(programs.list).toHaveBeenCalledWith(
@@ -397,15 +401,13 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, anonymousRequest(true) as never);
+    await controller.list(query, anonymousRequest(true) as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
   });
@@ -425,17 +427,15 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'recruiting' as const,
-        sort: 'name' as const,
-        direction: 'asc' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'recruiting' as const,
+      sort: 'name' as const,
+      direction: 'asc' as const,
     };
 
-    await controller.list(query as never, anonymousRequest() as never);
+    await controller.list(query, anonymousRequest() as never);
 
     expect(programs.list).toHaveBeenCalledWith(
       {

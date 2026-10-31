@@ -25,7 +25,40 @@ export class ProgramDocumentChangeRequestsService {
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
+
+  targetsFromRequest(
+    programId: string,
+    request: {
+      readonly scope: ProgramDocumentChangeRequestScope['kind'];
+      readonly teamId?: string | null;
+    },
+  ): Promise<ProgramDocumentChangeRequestPreview> {
+    return this.targets(
+      programId,
+      this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
+        request.scope,
+        request.teamId,
+      ),
+    );
+  }
+
+  requestChangesFromRequest(
+    reviewerId: string,
+    programId: string,
+    request: Parameters<
+      MilestoneDocumentRulesService['toProgramDocumentChangeRequestInput']
+    >[0],
+  ): Promise<{ readonly requestedCount: number }> {
+    return this.requestChanges(
+      reviewerId,
+      programId,
+      this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
+        request,
+      ),
+    );
+  }
 
   async targets(
     programId: string,
@@ -102,7 +135,7 @@ export class ProgramDocumentChangeRequestsService {
             throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
           }
           const reviewedAt =
-            MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+            this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
               now(),
               submission.latestHistoryCreatedAt,
             );

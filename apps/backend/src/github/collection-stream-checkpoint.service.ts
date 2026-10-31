@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type {
   CollectionCommit,
   CollectionPullRequest,
@@ -14,6 +15,7 @@ function bigIntOrNull(value: string | null): bigint | null {
   return value === null ? null : BigInt(value);
 }
 
+@Injectable()
 export class CollectionStreamCheckpointService {
   constructor(
     private readonly incrementalRepository: Pick<

@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
@@ -64,13 +68,21 @@ const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
-const deletionRepository = new ProgramTeamDeletionRepository(prisma);
+const deletionRepository = new ProgramTeamDeletionRepository(
+  prisma,
+  new TeamDeletionScopeRepository(),
+  new PrismaSerializationRetryRepository(),
+);
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
 const service = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ),
   auditLog,
   deletionRepository,
   new AuditLogMetadataService(),

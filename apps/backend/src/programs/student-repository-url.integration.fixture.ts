@@ -1,3 +1,7 @@
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
@@ -29,8 +33,18 @@ let oldId = '';
 let targetId = '';
 let caseNumber = 0;
 let targetGithubId = 0n;
-const repository = new StudentRepositoryUrlRepository(prisma);
-const applications = new ApplicationsRepository(prisma);
+const repository = new StudentRepositoryUrlRepository(
+  prisma,
+  new PlatformRepository(),
+  new StudentRepositoryUrlContextRepository(new PlatformRepository()),
+  new RepositoryProvisionGenerationRepository(),
+);
+const applications = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
+);
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),

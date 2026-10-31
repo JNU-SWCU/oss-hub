@@ -26,6 +26,7 @@ export class MilestoneDocumentReviewsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
 
   reviewInputFromRequest(
@@ -80,6 +81,22 @@ export class MilestoneDocumentReviewsService {
     }
   }
 
+  reviewFromRequest(
+    reviewerId: string,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    request: MilestoneDocumentReviewRequest,
+  ): ReturnType<MilestoneDocumentReviewsService['review']> {
+    return this.review(
+      reviewerId,
+      milestoneId,
+      documentId,
+      applicationId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+
   async review(
     reviewerId: string,
     milestoneId: string,
@@ -132,7 +149,7 @@ export class MilestoneDocumentReviewsService {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
       const reviewedAt =
-        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+        this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
           now(),
           submission.latestHistoryCreatedAt,
         );

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  StreamableFile,
 } from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
@@ -48,6 +49,18 @@ export class ProgramCoverService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
   ) {}
+
+  async streamable(
+    programId: string,
+    coverId: string,
+  ): Promise<StreamableFile> {
+    const cover = await this.read(programId, coverId);
+    return new StreamableFile(cover.body, {
+      type: cover.contentType,
+      length: cover.size,
+      disposition: 'inline',
+    });
+  }
 
   async read(programId: string, coverId: string) {
     const cover = await this.repository.findPublicCover(programId, coverId);

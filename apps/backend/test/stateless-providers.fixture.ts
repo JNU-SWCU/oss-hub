@@ -1,3 +1,14 @@
+import { PlatformRepository } from '../src/platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../src/platform/prisma-serialization-retry.repository';
+import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
+import { ProgramAuthoringUploadTransactionRepository } from '../src/programs/program-authoring-upload-transaction.repository';
+import { MilestoneDocumentSubmissionRepository } from '../src/programs/milestone-document-submission.repository';
+import { ProgramListStatusFilterRepository } from '../src/programs/program-list-status-filter.repository';
+import { StudentRepositoryUrlContextRepository } from '../src/programs/student-repository-url-context.repository';
+import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
+import { AdminAccessReadOrderingRepository } from '../src/users/admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from '../src/users/admin-access-read.repository';
+import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
@@ -21,6 +32,17 @@ import { AdminAccessMutationService } from '../src/users/admin-access-mutation.s
 import { AdminProfileMutationService } from '../src/users/admin-profile-mutation.service';
 
 export const STATELESS_PROVIDERS = [
+  PlatformRepository,
+  PrismaSerializationRetryRepository,
+  RepositoryProvisionGenerationRepository,
+  ProgramAuthoringUploadTransactionRepository,
+  MilestoneDocumentSubmissionRepository,
+  ProgramListStatusFilterRepository,
+  StudentRepositoryUrlContextRepository,
+  AdminAccessHistoryRepository,
+  AdminAccessReadOrderingRepository,
+  AdminAccessReadRepository,
+  ProgramNoticeFetchClient,
   AuditLogMetadataService,
   UserProfileService,
   JoinCodeSecretService,

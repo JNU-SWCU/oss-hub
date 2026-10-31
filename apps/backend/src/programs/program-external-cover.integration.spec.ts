@@ -1,3 +1,7 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { ProgramViewerService } from './program-viewer.service';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { Test } from '@nestjs/testing';
 import { ProgramsController } from './programs.controller';
@@ -44,6 +48,8 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController],
     providers: [
+      ...STATELESS_PROVIDERS,
+      ProgramCoverRepository,
       ProgramCoverService,
       { provide: ProgramCoverRepository, useValue: publicCovers },
       { provide: OBJECT_STORAGE, useValue: { get } },
@@ -100,10 +106,15 @@ it('creates and replays an external cover with public projections and no storage
     }),
   ).toBe(0);
   const programs = new ProgramsService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
     new ProgramRulesService(),
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({
     page: 1,

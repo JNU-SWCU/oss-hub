@@ -1,3 +1,8 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentKind,
   ReviewDecision,
@@ -27,11 +32,22 @@ assertIsolatedIntegrationDatabase({
 
 const fixture = new MilestoneDocumentFlowFixture();
 const documentReviews = new MilestoneDocumentReviewsService(
-  new MilestoneDocumentsRepository(fixture.prisma),
+  new MilestoneDocumentsRepository(
+    fixture.prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+  ),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 const legacyReviews = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(fixture.prisma),
+  new SubmissionReviewsRepository(
+    fixture.prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(fixture.prisma, new PlatformRepository()),
+  ),
   { publish: jest.fn() },
   new RepositoryPublishService(),
   new RepositoryUrlService(),

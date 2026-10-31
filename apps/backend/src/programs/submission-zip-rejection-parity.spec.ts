@@ -1,3 +1,4 @@
+import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -100,6 +101,7 @@ function submissionService() {
     storage,
     new ProgramRulesService(),
     new SubmissionFileRulesService(),
+    new DownloadResponseService(),
   );
 }
 
@@ -134,6 +136,7 @@ function milestoneDocumentService() {
     submissionFiles as unknown as SubmissionFilesService,
     new MilestoneDocumentRulesService(new ProgramRulesService()),
     new SubmissionFileRulesService(),
+    new DownloadResponseService(),
   );
 }
 

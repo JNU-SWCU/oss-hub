@@ -1,3 +1,4 @@
+import { SubmissionInputService } from './submission-input.service';
 import {
   ApplicationStatus,
   MilestoneSubmissionType,
@@ -64,6 +65,7 @@ function buildService(
       repository,
       new ProgramRulesService(),
       new SubmissionFileRulesService(),
+      new SubmissionInputService(),
     ),
     findChecklistApplication,
     listChecklistMilestones,

@@ -1,10 +1,7 @@
 import {
-  applyDecorators,
   type CanActivate,
   type ExecutionContext,
   Injectable,
-  SetMetadata,
-  UseGuards,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
@@ -25,17 +22,6 @@ export const ROLES_METADATA = Symbol('required-roles');
 export interface RolesRequirement {
   readonly roles: readonly Role[];
   readonly forbidden: () => Error;
-}
-
-export function Roles(
-  roles: readonly Role[],
-  forbidden: () => Error,
-): MethodDecorator {
-  const requirement: RolesRequirement = { roles, forbidden };
-  return applyDecorators(
-    SetMetadata(ROLES_METADATA, requirement),
-    UseGuards(RolesGuard),
-  );
 }
 
 @Injectable()

@@ -32,7 +32,7 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -55,7 +55,7 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -70,7 +70,7 @@ describe('OwnRepositoryUrlValidationService', () => {
   it('존재하지 않는 외부 저장소는 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -95,7 +95,7 @@ describe('OwnRepositoryUrlValidationService', () => {
       description: null,
     });
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -110,7 +110,7 @@ describe('OwnRepositoryUrlValidationService', () => {
   it('접근할 수 없는 조직 저장소도 NOT_FOUND_OR_PRIVATE다', async () => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -131,7 +131,7 @@ describe('OwnRepositoryUrlValidationService', () => {
   ])('형식이 잘못된 URL(%s)은 INVALID_FORMAT이다', async (malformed) => {
     const github = githubMock();
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),
@@ -152,7 +152,7 @@ describe('OwnRepositoryUrlValidationService', () => {
       ),
     );
     const service = new OwnRepositoryUrlValidationService(
-      github,
+      github as unknown as GithubAppClient,
       new RepositoryProvisionGithubService(
         new RepositoryUrlService(),
         new RepositoryProvisionRulesService(),

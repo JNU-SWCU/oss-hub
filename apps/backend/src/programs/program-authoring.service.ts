@@ -1,4 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { ProgramErrorCode } from './program-error-code.error';
+import { PROGRAM_ERROR_CODES } from './program-error-code.error';
+import { type ProblemDetailExtensions } from '../platform/error-code.error';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
   ProgramAuthoringRepository,
@@ -7,9 +11,7 @@ import {
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
   ProgramNoticeFetchClient,
-  extractProgramNotice,
   type ProgramNoticePreview,
-  parseProgramNoticeUrl,
 } from './program-notice-fetch.client';
 import { ProgramCategory } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -108,13 +110,10 @@ export class ProgramNoticePreviewService {
 
   private attempts: { readonly actorId: string; readonly at: number }[] = [];
 
-  constructor(
-    @Inject(ProgramNoticeFetchClient)
-    private readonly client: Pick<ProgramNoticeFetchClient, 'read'>,
-  ) {}
+  constructor(private readonly client: ProgramNoticeFetchClient) {}
 
   async preview(actorId: string, input: string): Promise<ProgramNoticePreview> {
-    const source = parseProgramNoticeUrl(input);
+    const source = this.client.parseProgramNoticeUrl(input);
     const now = Date.now();
     this.attempts = this.attempts.filter(
       (attempt) => attempt.at > now - 60_000,
@@ -128,7 +127,10 @@ export class ProgramNoticePreviewService {
     this.attempts.push({ actorId, at: now });
     this.active++;
     try {
-      return extractProgramNotice(await this.client.read(source), source);
+      return this.client.extractProgramNotice(
+        await this.client.read(source),
+        source,
+      );
     } finally {
       this.active--;
     }
@@ -149,7 +151,38 @@ export class ProgramAuthoringService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly programRulesService: ProgramRulesService,
     private readonly programUploadRulesService: ProgramUploadRulesService,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
   ) {}
+
+  async createFromRequest(
+    actor: { readonly id: string; readonly githubId: bigint },
+    idempotencyKey: string | undefined,
+    request: ProgramAuthoringRequest,
+  ): Promise<ProgramAuthoringProgram> {
+    if (idempotencyKey === undefined || idempotencyKey.trim().length === 0) {
+      throw new BadRequestException('A valid idempotency key is required.');
+    }
+    try {
+      return await this.create(actor, idempotencyKey, request);
+    } catch (error) {
+      if (error instanceof ProgramAuthoringIdempotencyConflictError) {
+        const extensions: ProblemDetailExtensions & {
+          readonly existingProgramId: string;
+        } = { existingProgramId: error.existingProgramId };
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.AUTHORING_REQUEST_CONFLICT],
+          extensions,
+        );
+      }
+      if (
+        error instanceof ProgramAuthoringValidationError ||
+        error instanceof ProgramAuthoringUploadTokenError
+      ) {
+        throw new BadRequestException('The authoring request is invalid.');
+      }
+      throw error;
+    }
+  }
 
   async create(
     actor: { readonly id: string; readonly githubId: bigint },
@@ -190,7 +223,7 @@ export class ProgramAuthoringService {
     plan: ProgramAuthoringPlan,
   ): Promise<ProgramAuthoringProgram> {
     const uploads = await store.lockUploads(plan.uploadTokenIds);
-    ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+    this.programAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
       actorId,
       plan.uploadTokenIds,
       uploads,

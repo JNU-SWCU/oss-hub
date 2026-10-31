@@ -162,7 +162,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
   });
   expect(
     await prisma.application.count({
-      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(1);
 
@@ -170,7 +170,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
 
   expect(
     await prisma.application.count({
-      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(0);
 });
@@ -195,7 +195,7 @@ it('links a managed organization repository without re-arming provisioning', asy
         availableAt: now,
       },
     });
-    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
+    await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
       parseProvisionPayload,

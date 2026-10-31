@@ -1,3 +1,6 @@
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
+import type { OptionalSessionRequest } from '../auth/http-auth.types';
+import { ProgramViewerService } from './program-viewer.service';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -146,6 +149,7 @@ export class ProgramsService {
     private readonly milestoneCompletionService: MilestoneCompletionService,
     private readonly programCoverUrlService: ProgramCoverUrlService,
     private readonly programRulesService: ProgramRulesService,
+    private readonly programViewerService: ProgramViewerService,
   ) {}
 
   private async findStudentApplicationAxes(programId: string, userId: string) {
@@ -170,6 +174,45 @@ export class ProgramsService {
       submissions,
       milestoneDocumentSubmissions: documentSubmissions,
     };
+  }
+
+  listQueryFromRequest(request: ProgramListQuery): ProgramListQuery {
+    return {
+      page: request.page,
+      pageSize: request.pageSize,
+      search: request.search.trim(),
+      status: request.status,
+      year: request.year,
+      sort: request.sort,
+      direction: request.direction,
+    };
+  }
+
+  async listFromRequest(
+    request: ProgramListQuery,
+    auth: OptionalSessionRequest['auth'],
+  ): Promise<ProgramListPage> {
+    const githubId =
+      auth.kind === HTTP_AUTH_KINDS.AUTHENTICATED
+        ? auth.principal.githubId
+        : null;
+    const viewer = await this.programViewerService.fromGithubId(githubId);
+    return this.list(this.listQueryFromRequest(request), viewer);
+  }
+
+  async detailForGithubId(
+    programId: string,
+    githubId: bigint,
+    request: { readonly view?: string },
+  ): Promise<ProgramDetailResult> {
+    return this.detail(
+      programId,
+      await this.programViewerService.fromGithubId(
+        githubId,
+        programId,
+        request.view === 'operations',
+      ),
+    );
   }
 
   async list(

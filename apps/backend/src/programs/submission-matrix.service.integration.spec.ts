@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -33,7 +34,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
-  new SubmissionMatrixRepository(prisma),
+  new SubmissionMatrixRepository(prisma, new PlatformRepository()),
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 

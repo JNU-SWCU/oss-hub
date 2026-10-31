@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import {
   ApplicationStatus,
@@ -29,7 +30,7 @@ const milestoneName = '합성 중간 보고';
 const now = new Date('2026-09-20T03:00:00.000Z');
 const prisma = new PrismaService();
 const service = new MilestoneDocumentFeedbackService(
-  new MilestoneDocumentFeedbackRepository(prisma),
+  new MilestoneDocumentFeedbackRepository(prisma, new PlatformRepository()),
   () => now,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );

@@ -1,3 +1,5 @@
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import {
@@ -21,10 +23,15 @@ const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   new AuditLogMetadataService(),
   new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramUploadRulesService(
+    new SubmissionFileRulesService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 const programUploadRulesService = new ProgramUploadRulesService(
   new SubmissionFileRulesService(),
+  new ProgramNoticeFetchClient(),
 );
 
 describe('program-authoring-payload-hash', () => {

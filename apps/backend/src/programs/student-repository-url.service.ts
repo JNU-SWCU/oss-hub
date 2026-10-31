@@ -1,8 +1,5 @@
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import {
-  StudentRepositoryUrlTransactionRepository,
-  StudentRepositoryUrlRepository,
-} from './student-repository-url-transaction.repository';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
@@ -106,79 +103,72 @@ export class StudentRepositoryUrlService {
     const resolution = await this.resolve(input.repositoryUrl);
     if (resolution.kind === 'EXTERNAL')
       await this.consents.requireCurrent(context.applicant.githubId);
-    try {
-      const { view, relinked } = await this.repository.withTransaction(
-        async (store) => {
-          const current = await store.lockTeamContext(
-            programId,
-            teamId,
-            githubId,
-          );
-          this.requireEditable(current);
-          if (
-            current.repository?.githubRepositoryId ===
-              resolution.repository.githubRepositoryId &&
-            this.url(current)?.toLowerCase() ===
-              `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
-          )
-            return {
-              view: {
-                repositoryUrl: this.url(current),
-                canEditRepositoryUrl: true,
-              },
-              relinked: false,
-            };
-          const repositoryId = await store.relink(
-            current,
-            resolution,
-            (stored) =>
-              this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
-                stored,
-              ),
-          );
-          const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
-          await this.audit.record(
-            {
-              actorGithubId: githubId,
-              action: APPLICATION_REPOSITORY_URL_CHANGED,
-              targetType: 'APPLICATION',
-              targetId: current.id,
-              metadata: {
-                schemaVersion: 2,
-                programId,
-                teamId: current.teamId,
-                programName: current.program.name,
-                actorGithubLogin: current.editor.nickname,
-                before: {
-                  repositoryId: current.repository?.id ?? null,
-                  repositoryUrl: this.url(current),
-                },
-                after: { repositoryId, repositoryUrl },
-              },
-            },
-            store.auditLogWriter,
-          );
-          return {
-            view: { repositoryUrl, canEditRepositoryUrl: true },
-            relinked: true,
-          };
-        },
-      );
-
-      if (relinked)
-        this.collection.collectRepository(
-          resolution.repository.githubRepositoryId,
+    const { view, relinked } = await this.repository.withTransaction(
+      async (store) => {
+        const current = await store.lockTeamContext(
+          programId,
+          teamId,
+          githubId,
         );
-      return view;
-    } catch (error) {
-      if (
-        StudentRepositoryUrlTransactionRepository.isStudentRepositoryUrlConflict(
-          error,
+        this.requireEditable(current);
+        if (
+          current.repository?.githubRepositoryId ===
+            resolution.repository.githubRepositoryId &&
+          this.url(current)?.toLowerCase() ===
+            `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
         )
-      )
-        throw repositoryUrlError('conflict');
-      throw error;
-    }
+          return {
+            view: {
+              repositoryUrl: this.url(current),
+              canEditRepositoryUrl: true,
+            },
+            relinked: false,
+          };
+        const repositoryId = await store
+          .relink(current, resolution, (stored) =>
+            this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+              stored,
+            ),
+          )
+          .catch((error: unknown) => {
+            throw store.isStudentRepositoryUrlConflict(error)
+              ? repositoryUrlError('conflict')
+              : error;
+          });
+        const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
+        await this.audit.record(
+          {
+            actorGithubId: githubId,
+            action: APPLICATION_REPOSITORY_URL_CHANGED,
+            targetType: 'APPLICATION',
+            targetId: current.id,
+            metadata: {
+              schemaVersion: 2,
+              programId,
+              teamId: current.teamId,
+              programName: current.program.name,
+              actorGithubLogin: current.editor.nickname,
+              before: {
+                repositoryId: current.repository?.id ?? null,
+                repositoryUrl: this.url(current),
+              },
+              after: { repositoryId, repositoryUrl },
+            },
+          },
+          store.auditLogWriter,
+        );
+        return {
+          view: { repositoryUrl, canEditRepositoryUrl: true },
+          relinked: true,
+        };
+      },
+    );
+
+    if (relinked)
+      this.collection.collectRepository(
+        resolution.repository.githubRepositoryId,
+      );
+    return view;
   }
 
   private async resolve(url: string) {

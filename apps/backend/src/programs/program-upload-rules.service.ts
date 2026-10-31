@@ -17,12 +17,8 @@ import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 import { ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import {
-  parseProgramNoticeUrl,
-  parseProgramNoticeImageUrl,
-} from './program-notice-fetch.client';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID, createHash } from 'node:crypto';
-import { normalizeMultipartFileName } from '../platform/multipart-file-upload.interceptor';
 import { extname } from 'node:path';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
@@ -53,7 +49,9 @@ export class ProgramUploadRulesService {
 
     const originalFileName =
       this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
-        normalizeMultipartFileName(file.originalname),
+        this.submissionFileRulesService.normalizeMultipartFileName(
+          file.originalname,
+        ),
       );
     if (
       !this.submissionFileRulesService.hasValidSubmissionTemplateSignature(
@@ -110,7 +108,9 @@ export class ProgramUploadRulesService {
     }
     const originalFileName =
       this.submissionFileRulesService.sanitizeSubmissionFileOriginalName(
-        normalizeMultipartFileName(file.originalname),
+        this.submissionFileRulesService.normalizeMultipartFileName(
+          file.originalname,
+        ),
       );
     const extension = extname(originalFileName).toLowerCase();
     const mimeType =
@@ -154,8 +154,10 @@ export class ProgramUploadRulesService {
     }
     if (input.externalCover == null) return input.externalCover;
     try {
-      const source = parseProgramNoticeUrl(input.externalCover.sourceUrl);
-      const image = parseProgramNoticeImageUrl(
+      const source = this.noticeClient.parseProgramNoticeUrl(
+        input.externalCover.sourceUrl,
+      );
+      const image = this.noticeClient.parseProgramNoticeImageUrl(
         input.externalCover.imageUrl,
         source,
       );
@@ -188,6 +190,7 @@ export class ProgramUploadRulesService {
 
   constructor(
     private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly noticeClient: ProgramNoticeFetchClient,
   ) {}
 }
 

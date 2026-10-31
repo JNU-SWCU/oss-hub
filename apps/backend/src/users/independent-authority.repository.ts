@@ -89,45 +89,76 @@ export interface IndependentAuthorityRepositoryPort {
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+@Injectable()
+export class IndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessReadRepository: AdminAccessReadRepository,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
+  withTransaction<T>(
+    operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(this.independentAuthorityStore(transaction)),
+    );
   }
 
-  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return AdminAccessRepository.findAdminActorByGithubId(
-      this.transaction,
+  private independentAuthorityStore(
+    transaction: Prisma.TransactionClient,
+  ): IndependentAuthorityTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
+      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
+      findUserForUpdate: this.findUserForUpdateIn.bind(this, transaction),
+      updateAuthority: this.updateAuthorityIn.bind(this, transaction),
+      insertRevokedRequest: this.insertRevokedRequestIn.bind(this, transaction),
+    };
+  }
+
+  private findActorByGithubIdIn(
+    transaction: Prisma.TransactionClient,
+    githubId: bigint,
+  ): Promise<AdminAccessActor | null> {
+    return this.adminAccessRepository.findAdminActorByGithubId(
+      transaction,
       githubId,
     );
   }
 
-  lockActiveAdmins(): Promise<number> {
-    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
+  private lockActiveAdminsIn(
+    transaction: Prisma.TransactionClient,
+  ): Promise<number> {
+    return this.adminAccessRepository.lockActiveAdminRows(transaction);
   }
 
-  async findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
-    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
+  private async findUserForUpdateIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<AdminAccessUserRow | null> {
+    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
     );
     if (rows.length !== 1) {
       return null;
     }
-    const user = await this.transaction.user.findUnique({
+    const user = await transaction.user.findUnique({
       where: { id: userId },
-      select: AdminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
+      select: this.adminAccessReadRepository.ADMIN_ACCESS_USER_SELECT,
     });
     return user === null
       ? null
-      : AdminAccessReadRepository.toAdminAccessUserRow(user);
+      : this.adminAccessReadRepository.toAdminAccessUserRow(user);
   }
 
-  async updateAuthority(
+  private async updateAuthorityIn(
+    transaction: Prisma.TransactionClient,
     userId: string,
     transition: IndependentAuthorityTransition,
   ): Promise<void> {
-    await this.transaction.user.update({
+    await transaction.user.update({
       where: { id: userId },
       data: {
         selectedMemberKind: transition.selectedMemberKind,
@@ -137,25 +168,13 @@ class PrismaIndependentAuthorityRepository implements IndependentAuthorityTransa
     });
   }
 
-  insertRevokedRequest(
+  private insertRevokedRequestIn(
+    transaction: Prisma.TransactionClient,
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    return AdminAccessRepository.insertRevokedStaffAccessRequest(
-      this.transaction,
+    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
+      transaction,
       input,
-    );
-  }
-}
-
-@Injectable()
-export class IndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
-
-  withTransaction<T>(
-    operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((transaction) =>
-      operation(new PrismaIndependentAuthorityRepository(transaction)),
     );
   }
 }

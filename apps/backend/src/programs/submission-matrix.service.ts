@@ -22,6 +22,15 @@ export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
   readonly pageSize: number;
 }
 
+export interface SubmissionMatrixRequest {
+  readonly q?: string;
+  readonly applicationMode?: MatrixApplicationMode | null;
+  readonly page?: number;
+  readonly pageSize?: number;
+}
+
+const MATRIX_DEFAULT_PAGE_SIZE = 20;
+
 export type MatrixCellStatus = SubmissionStatus | 'NOT_SUBMITTED';
 
 interface MatrixCellResult {
@@ -62,10 +71,22 @@ export class SubmissionMatrixService {
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
+  matrixQueryFromRequest(
+    request: SubmissionMatrixRequest,
+  ): SubmissionMatrixQuery {
+    return {
+      q: request.q?.trim() ?? '',
+      applicationMode: request.applicationMode ?? null,
+      page: request.page ?? 1,
+      pageSize: request.pageSize ?? MATRIX_DEFAULT_PAGE_SIZE,
+    };
+  }
+
   async matrix(
     programId: string,
-    query: SubmissionMatrixQuery,
+    request: SubmissionMatrixRequest,
   ): Promise<SubmissionMatrixResult> {
+    const query = this.matrixQueryFromRequest(request);
     if (!(await this.repository.programExists(programId))) {
       throw this.error(SubmissionsErrorCode.PROGRAM_NOT_FOUND);
     }

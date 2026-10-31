@@ -1,3 +1,7 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import { authorityFactsFor } from '../users/canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -69,8 +73,14 @@ export class PublicExposurePersonaHttpHarness {
   constructor(private readonly fixtureNamespace: string) {}
 
   readonly prisma = new PrismaService();
-  readonly metrics = new PublicProjectMetricsRepository(this.prisma);
-  readonly eligibilityMetrics = new PublicEligibilityRepository(this.prisma);
+  readonly metrics = new PublicProjectMetricsRepository(
+    this.prisma,
+    new PlatformRepository(),
+  );
+  readonly eligibilityMetrics = new PublicEligibilityRepository(
+    this.prisma,
+    new PlatformRepository(),
+  );
   private application: INestApplication | null = null;
   private baseUrl = '';
   private sequence = 0;
@@ -95,6 +105,7 @@ export class PublicExposurePersonaHttpHarness {
     const rankingService = new RankingService(
       new RankingRepository(this.prisma),
       new RankingYearService(),
+      new CollectionScheduleService(),
     );
 
     const github = {
@@ -104,16 +115,23 @@ export class PublicExposurePersonaHttpHarness {
       new AuditLogRepository(this.prisma),
       new AuditLogMetadataService(),
     );
-    const repositoriesRepository = new RepositoriesRepository(this.prisma);
+    const repositoriesRepository = new RepositoriesRepository(
+      this.prisma,
+      new RepositoryProvisionGenerationRepository(),
+    );
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
-      github,
+      github as unknown as GithubAppClient,
       auditLogService,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
     );
     const submissionReviewsService = new SubmissionReviewsService(
-      new SubmissionReviewsRepository(this.prisma),
+      new SubmissionReviewsRepository(
+        this.prisma,
+        new PlatformRepository(),
+        new SubmissionsRepository(this.prisma, new PlatformRepository()),
+      ),
       repositoriesService,
       new RepositoryPublishService(),
       new RepositoryUrlService(),

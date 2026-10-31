@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import {
   AccountStatus,
   MemberKind,
@@ -14,7 +18,7 @@ import {
 import { UserProfileService } from './user-profile.service';
 
 describe('admin-actor-locks.repository', () => {
-  type ActorRow = Parameters<typeof AdminAccessRepository.toAdminActor>[0];
+  type ActorRow = Parameters<AdminAccessRepository['toAdminActor']>[0];
 
   function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
     return {
@@ -37,7 +41,14 @@ describe('admin-actor-locks.repository', () => {
         hasAdminAccess: true,
       });
 
-      const actor = AdminAccessRepository.toAdminActor(row);
+      const actor = new AdminAccessRepository(
+        {} as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
+      ).toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(true);
       expect(actor.hasAdminAccess).toBe(true);
@@ -46,7 +57,14 @@ describe('admin-actor-locks.repository', () => {
     it('does not imply staff access from admin access', () => {
       const row = actorRow({ hasAdminAccess: true, hasStaffAccess: false });
 
-      const actor = AdminAccessRepository.toAdminActor(row);
+      const actor = new AdminAccessRepository(
+        {} as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
+      ).toAdminActor(row);
 
       expect(actor.hasStaffAccess).toBe(false);
       expect(actor.hasAdminAccess).toBe(true);
@@ -81,8 +99,14 @@ describe('admin-actor-locks.repository', () => {
         },
       } as unknown as Prisma.TransactionClient;
 
-      const count =
-        await AdminAccessRepository.lockActiveAdminRows(transaction);
+      const count = await new AdminAccessRepository(
+        {} as PrismaService,
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
+      ).lockActiveAdminRows(transaction);
 
       expect(count).toBe(2);
       expect(queries).toHaveLength(1);
@@ -130,10 +154,17 @@ describe('AdminAccessRepository', () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(1);
-    const repository = new AdminAccessRepository({
-      $queryRaw: queryRaw,
-      user: { findMany, count },
-    } as unknown as PrismaService);
+    const repository = new AdminAccessRepository(
+      {
+        $queryRaw: queryRaw,
+        user: { findMany, count },
+      } as unknown as PrismaService,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    );
 
     const result = await repository.list({
       query: 'synthetic',
@@ -264,17 +295,24 @@ describe('AdminAccessRepository', () => {
         loginAt: new Date('2026-07-23T00:00:00.000Z'),
       },
     ]);
-    const repository = new AdminAccessRepository({
-      user: { findUnique: jest.fn().mockResolvedValue(detail) },
-      staffAccessRequest: {
-        findMany: staffAccessRequestFindMany,
-        count: jest.fn().mockResolvedValue(1),
-      },
-      loginHistory: {
-        findMany: loginFindMany,
-        count: jest.fn().mockResolvedValue(1),
-      },
-    } as unknown as PrismaService);
+    const repository = new AdminAccessRepository(
+      {
+        user: { findUnique: jest.fn().mockResolvedValue(detail) },
+        staffAccessRequest: {
+          findMany: staffAccessRequestFindMany,
+          count: jest.fn().mockResolvedValue(1),
+        },
+        loginHistory: {
+          findMany: loginFindMany,
+          count: jest.fn().mockResolvedValue(1),
+        },
+      } as unknown as PrismaService,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    );
 
     const [user, staffAccessRequests, logins] = await Promise.all([
       repository.findById('target'),

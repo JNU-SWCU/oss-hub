@@ -34,7 +34,7 @@ function row(overrides: Partial<RawRow> = {}): RawRow {
 describe('assertCurrentRequest', () => {
   it('같은 요청 세대와 lease면 잠근 job identity를 돌려준다', async () => {
     await expect(
-      RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+      new RepositoryProvisionStateHelpersRepository().assertCurrentRequest(
         transaction(row()),
         JOB_ID,
         WORKER_ID,
@@ -48,7 +48,7 @@ describe('assertCurrentRequest', () => {
 
   it('세대가 바뀌었으면 후속 lease 상태와 무관하게 옛 requestId로 superseded를 낸다', async () => {
     await expect(
-      RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+      new RepositoryProvisionStateHelpersRepository().assertCurrentRequest(
         transaction(
           row({
             currentEventId: 'synthetic-request-r2',
@@ -68,7 +68,7 @@ describe('assertCurrentRequest', () => {
 
   it('세대는 같지만 lease가 아니면 기존 lease-loss 의미를 유지한다', async () => {
     await expect(
-      RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
+      new RepositoryProvisionStateHelpersRepository().assertCurrentRequest(
         transaction(row({ lockedBy: 'other-worker' })),
         JOB_ID,
         WORKER_ID,
