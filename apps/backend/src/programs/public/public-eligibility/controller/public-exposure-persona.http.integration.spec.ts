@@ -357,13 +357,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     const publicItemKeys = [
       'commitCount',
       'githubLogin',
-      'pullRequestCount',
-      'rank',
-    ];
-
-    const memberItemKeys = [
-      'commitCount',
-      'githubLogin',
       'issueCount',
       'pullRequestCount',
       'rank',
@@ -371,6 +364,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       'starCount',
       'total',
     ];
+    const memberItemKeys = publicItemKeys;
 
     const staffItemKeys = [
       'commitCount',
@@ -526,10 +520,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       '"accountStatus"',
       '"githubId"',
       '"releaseCount"',
-      '"issueCount"',
-      '"repositoryCount"',
-      '"starCount"',
-      '"total"',
     ]) {
       expect(publicRankingSerialized).not.toContain(forbiddenKey);
     }
@@ -679,11 +669,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       githubLogin: studentPersona.nickname,
       commitCount: 10,
       pullRequestCount: 4,
+      issueCount: 3,
+      repositoryCount: 2,
+      starCount: 1,
     });
-    expect(entry).not.toHaveProperty('issueCount');
-    expect(entry).not.toHaveProperty('repositoryCount');
-    expect(entry).not.toHaveProperty('starCount');
-    expect(entry).not.toHaveProperty('total');
+    expect(entry).toHaveProperty('total');
     expect(entry).not.toHaveProperty('department');
     expect(entry).not.toHaveProperty('displayName');
     expect(JSON.stringify(ranking.items)).not.toContain(
