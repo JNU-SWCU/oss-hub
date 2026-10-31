@@ -53,13 +53,22 @@ interface FilterChipProps extends Omit<
   readonly pressed: boolean;
 }
 
-function FilterChip({ pressed, type = 'button', ...props }: FilterChipProps) {
+function FilterChip({
+  pressed,
+  type = 'button',
+  className,
+  ...props
+}: FilterChipProps) {
   return (
     <Button
       type={type}
       variant="toggle"
       size="sm"
       aria-pressed={pressed}
+      className={cn(
+        'h-auto min-h-control max-w-full py-1.5 whitespace-normal break-keep [overflow-wrap:anywhere]',
+        className,
+      )}
       {...props}
     />
   );
