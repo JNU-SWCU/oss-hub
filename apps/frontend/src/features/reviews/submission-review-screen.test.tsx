@@ -126,7 +126,9 @@ it.each(['review', 'publish'] as const)(
 
     await act(() =>
       Promise.resolve(
-        writer === 'review' ? currentProps().onSave() : currentProps().onPublish(),
+        writer === 'review'
+          ? currentProps().onSave()
+          : currentProps().onPublish(),
       ),
     );
 
@@ -167,16 +169,24 @@ it('ignores an earlier refresh and blocks focus refresh while publishing', async
   await act(() => Promise.resolve(currentProps().onPublish()));
   await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
   expect(getReviewContext).toHaveBeenCalledTimes(2);
-  await act(() => Promise.resolve(earlier.resolve({
-    ...CONTEXT,
-    currentRevision: { ...CONTEXT.currentRevision, number: 3 },
-  })));
+  await act(() =>
+    Promise.resolve(
+      earlier.resolve({
+        ...CONTEXT,
+        currentRevision: { ...CONTEXT.currentRevision, number: 3 },
+      }),
+    ),
+  );
   expect(currentProps().context.currentRevision.number).toBe(2);
-  await act(() => Promise.resolve(publication.resolve({
-    repositoryId: 'repository-ready',
-    visibility: 'PUBLIC',
-    publishedAt: '2026-10-31T00:00:00.000Z',
-  })));
+  await act(() =>
+    Promise.resolve(
+      publication.resolve({
+        repositoryId: 'repository-ready',
+        visibility: 'PUBLIC',
+        publishedAt: '2026-10-31T00:00:00.000Z',
+      }),
+    ),
+  );
   expect(getReviewContext).toHaveBeenCalledTimes(3);
 });
 

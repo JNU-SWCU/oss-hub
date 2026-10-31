@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { StaffAccessRequest } from '@/features/roles/onboarding/types';
@@ -38,7 +38,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 describe('면이 없는 회원의 분류', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
     vi.clearAllMocks();

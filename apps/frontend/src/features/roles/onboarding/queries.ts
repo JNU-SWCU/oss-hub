@@ -1,6 +1,24 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { featureKey } from '@/lib/query-keys';
-import { requestStaffRole } from './api';
+import {
+  fetchMyRoleSelection,
+  fetchMyStaffAccessRequest,
+  requestStaffRole,
+} from './api';
+
+export function useOnboardingStatusQuery(subject: string | null) {
+  return useQuery({
+    queryKey: featureKey('role-requests', 'me', subject),
+    queryFn: async () => {
+      const [request, selection] = await Promise.all([
+        fetchMyStaffAccessRequest(),
+        fetchMyRoleSelection(),
+      ]);
+      return { request, selection };
+    },
+    enabled: subject !== null,
+  });
+}
 
 export function useStaffRoleRequestMutation() {
   const client = useQueryClient();

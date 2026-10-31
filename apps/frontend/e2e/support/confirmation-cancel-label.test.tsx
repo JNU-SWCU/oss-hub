@@ -1,5 +1,5 @@
 import { act, type ReactElement } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createQueryRoot as createRoot } from '../../test-support/render-with-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountDeactivationSection } from '@/features/profile/settings/components/account-deactivation-section';
 import { ApplicationConfirmationDialog } from '@/features/programs/applications/application-confirmation-dialog';
@@ -121,7 +121,7 @@ const cases: readonly {
 
 describe('확정하지 않고 닫는 공통 버튼 이름', () => {
   let container: HTMLDivElement;
-  let root: Root;
+  let root: ReturnType<typeof createRoot>;
 
   beforeEach(() => {
     container = document.createElement('div');
