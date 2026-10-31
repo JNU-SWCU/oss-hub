@@ -8,6 +8,7 @@ import {
   type Route,
 } from '@playwright/test';
 
+import { adminAccessMutationSuccessMessage } from '../src/features/roles/access-administration/admin-access-mutation-policy';
 import {
   SYNTHETIC_SELF,
   adminUserHistoryFor,
@@ -380,7 +381,7 @@ test('행에서 학생을 교직원으로 바꾸면 확인 후 PATCH 하고 목�
   await expect.poll(() => store.listGets).toBe(listGets + 1);
   await expect(trigger).toHaveText('교직원');
   await expect(panel(page).getByRole('status')).toHaveText(
-    'synthetic-user-01님에 대한 교직원 유형 적용 처리를 완료했습니다.',
+    adminAccessMutationSuccessMessage('SET_MEMBER_STAFF', 'synthetic-user-01'),
   );
   await expect(page.getByText('사용자 목록을 불러오는 중…')).toHaveCount(0);
   await expect(page).toHaveURL(/\/dashboard\/users$/);
@@ -436,7 +437,10 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
   await expect.poll(() => store.listGets).toBe(listGets + 1);
   await expect(trigger).toHaveText('학생');
   await expect(panel(page).getByRole('status')).toHaveText(
-    'synthetic-user-04님에 대한 학생 유형 적용 처리를 완료했습니다.',
+    adminAccessMutationSuccessMessage(
+      'SET_MEMBER_STUDENT',
+      'synthetic-user-04',
+    ),
   );
   await expect(trigger).toBeFocused();
   await expect(page).toHaveURL(/\/dashboard\/users$/);
@@ -472,7 +476,10 @@ for (const width of [MOBILE.width, 1280] as const) {
 
     const notice = panel(page).getByRole('status');
     await expect(notice).toHaveText(
-      'synthetic-user-14님에 대한 계정 비활성화 처리를 완료했습니다.',
+      adminAccessMutationSuccessMessage(
+        'SET_STATUS_DEACTIVATED',
+        'synthetic-user-14',
+      ),
     );
     await expect(notice).toBeInViewport();
     await expect.poll(() => store.listGets).toBe(listGets + 1);

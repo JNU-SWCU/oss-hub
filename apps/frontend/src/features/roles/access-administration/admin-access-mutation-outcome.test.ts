@@ -3,6 +3,7 @@ import { ApiError } from '@/lib/api-client';
 import type { AdminAccessMutationResponse } from './admin-access-api';
 import { executeAdminAccessMutation } from './admin-access-mutation-execution';
 import { runAdminAccessMutation } from './admin-access-mutation-outcome';
+import { adminAccessMutationErrorMessage } from './admin-access-mutation-policy';
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 
 vi.mock('./admin-access-mutation-execution', () => ({
@@ -97,7 +98,7 @@ describe('runAdminAccessMutation', () => {
       }),
     ).resolves.toEqual({
       kind: 'error',
-      message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      message: adminAccessMutationErrorMessage(new TypeError('network')),
     });
   });
 });

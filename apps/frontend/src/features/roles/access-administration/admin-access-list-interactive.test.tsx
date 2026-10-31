@@ -175,6 +175,20 @@ function nextFocus(element: HTMLElement): Promise<void> {
   });
 }
 
+function rejectAfter(ms: number): {
+  promise: Promise<never>;
+  cancel: () => void;
+} {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('포커스 복귀 신호를 받지 못했습니다.')),
+      ms,
+    );
+  });
+  return { promise, cancel: () => clearTimeout(timer) };
+}
+
 describe('AdminAccessView — 행 클릭 상호작용', () => {
   it('행을 클릭하면 onRowClick이 해당 아이템으로 호출된다', () => {
     const onRowClick = vi.fn();
@@ -707,14 +721,14 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
       await act(async () => detail.resolve(detailResponse()));
       expect(dialog()).not.toBeNull();
 
-      let refocusedCount = 0;
-      statusTrigger.addEventListener('focus', () => (refocusedCount += 1), {
-        once: true,
-      });
-      await act(async () => dialogButton('비활성화 확정').click());
-      await vi.waitFor(() => expect(refocusedCount).toBe(1), {
-        timeout: 2_000,
-      });
+      const refocused = nextFocus(statusTrigger);
+      const refocusTimeout = rejectAfter(2_000);
+      try {
+        await act(async () => dialogButton('비활성화 확정').click());
+        await Promise.race([refocused, refocusTimeout.promise]);
+      } finally {
+        refocusTimeout.cancel();
+      }
 
       expect(dialog()).toBeNull();
       expect(document.activeElement).toBe(statusTrigger);
