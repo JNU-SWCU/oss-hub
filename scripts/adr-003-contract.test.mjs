@@ -42,12 +42,11 @@ test('ADR-003 contract lists the planned modules', () => {
       'github',
       'platform',
     ]);
-    assert.equal(contract.rootSuffixes.length, 14);
+    assert.equal(contract.rootSuffixes.length, 11);
     assert.deepEqual(contract.dtoSuffixes, [
       '-request.dto.ts',
       '-response.dto.ts',
     ]);
-    assert.deepEqual(contract.crossAppExceptions, []);
   }
 });
 

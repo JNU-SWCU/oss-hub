@@ -2,45 +2,38 @@
 
 ## Context
 
-백엔드 `src/`에는 20개가 넘는 폴더가 계층별 하위 폴더(controller, service, repository, domain)로 흩어져 있어서 한 기능을 보려면 여러 곳을 오가야 했습니다. 파일 이름과 DTO 모양도 모듈마다 달랐습니다. 이 ADR은 10개 모듈로 묶는 구조와, 린트로 강제할 수 있는 규칙만 정합니다.
+백엔드는 10개 Nest 모듈로 나누고, [Nest 기본 구조](https://docs.nestjs.com/modules)를 따릅니다. 강제할 수 있는 규칙만 둡니다.
 
 ## Decision
 
 ### 모듈 맵
 
-| 모듈 | 흡수하는 기존 폴더 |
+| 모듈 | 범위 |
 | --- | --- |
-| `auth` | `auth`, `login-history` |
-| `users` | `users`, `roles` (onboarding, role-requests), `consents` |
-| `programs` | `programs` (`public/*` 포함), `board`, `team-invitations`, `applications`, `submissions`, `submission-reviews`, `milestone-documents` |
-| `ranking` | `ranking` |
-| `student` | 새 모듈. 학생 대시보드, 내 저장소 조회 |
-| `staff` | 새 모듈. 스태프 대시보드, 인사이트, 스태프 메뉴 조회 |
-| `admin` | 새 모듈. 관리자 users 컨트롤러, 감사 로그 조회, `system-status`, 수집 관리 |
-| `notifications` | `notifications` |
-| `github` | `github` (collection, repositories) |
-| `platform` | `prisma`, `runtime-config`, `storage`, `health`, `common`, 감사 로그 쓰기 |
+| `auth` | 인증, 로그인 이력 |
+| `users` | 사용자, 온보딩, 역할 요청, 동의 |
+| `programs` | 프로그램과 공개 조회, 게시판, 팀 초대, 지원, 제출, 제출 리뷰, 마일스톤 문서 |
+| `ranking` | 랭킹 |
+| `student` | 학생 대시보드, 내 저장소 조회 |
+| `staff` | 스태프 대시보드, 인사이트, 스태프 메뉴 조회 |
+| `admin` | 관리자 사용자 관리, 감사 로그 조회, 시스템 상태, 수집 관리 |
+| `notifications` | 알림 |
+| `github` | 수집, 저장소 |
+| `platform` | Prisma, 런타임 설정, 스토리지, 헬스체크, 공통, 감사 로그 쓰기 |
 
-### 폴더 규칙
+### 폴더와 파일
 
-- 모듈 폴더는 깊이 1이고, 하위 폴더는 `dto/`만 둡니다.
-- 폴더 하나가 Nest 모듈 하나입니다.
+- 폴더 하나가 Nest 모듈 하나이고, 깊이는 1입니다. 하위 폴더는 `dto/`만 둡니다.
 - 모듈의 공개 API는 `exports`에 올린 provider뿐입니다.
-
-### 네이밍
-
-- 파일 이름은 kebab-case. 리소스는 복수형(`programs`), 개념은 단수형(`auth`, `ranking`).
-- 루트 파일 접미사는 닫힌 목록 14개: `.module` `.controller` `.service` `.repository` `.guard` `.interceptor` `.filter` `.client` `.job` `.scheduler` `.policy` `.error` `.types` `.config`.
-- 클래스 이름은 PascalCase(stem) + 접미사. 예: `program-board.service.ts` -> `ProgramBoardService`.
-- DTO 파일은 `dto/*-request.dto.ts`, `dto/*-response.dto.ts`.
-- 예외: `src/main.ts`, `src/app.module.ts`, `src/app-controller-discovery.ts`, `test/**/*.ts`, `src/**/*.spec.ts`, `src/**/*.integration.spec.ts`, `src/**/*.spec.helpers.ts`, `src/**/*.test.ts`, `src/**/*fixture.ts`, `src/**/*fixtures.ts`, `src/**/*support.ts`.
+- 파일 이름은 kebab-case입니다. 리소스는 복수형, 개념은 단수형입니다.
+- 클래스 이름은 PascalCase(stem) + 접미사입니다. 접미사와 예외 파일은 아래 계약 블록이 정합니다.
+- 타입은 그것을 만드는 코드 옆에 둡니다. `.types.ts`는 여러 모듈이 공유하는 타입에만 씁니다.
 
 ### DTO
 
-- Request DTO는 필드와 class-validator 데코레이터만 둡니다.
-- Request DTO 상속은 Create와 Update가 validator까지 필드 단위로 같을 때만 씁니다(`UpdateXRequestDto extends CreateXRequestDto`).
-- Response DTO는 `declare readonly` 필드와, 기존 JSON 키 순서대로 객체 리터럴을 돌려주는 `static from()`을 둡니다. mapped-types는 쓰지 않습니다.
-- 값이 없을 때는 null 대신 명시적인 상태 필드를 둡니다. Nest는 null을 빈 200 본문으로 보내기 때문입니다.
+- Request DTO는 필드와 class-validator 데코레이터만 둡니다. 상속은 Create와 Update가 validator까지 같을 때만 씁니다.
+- Response DTO는 `declare readonly` 필드와, 기존 JSON 키 순서대로 객체 리터럴을 돌려주는 `static from()`을 둡니다. 계산된 값은 서비스가 만들어 `from()`에 넘깁니다.
+- 값이 없을 때는 null 대신 명시적인 상태 필드를 둡니다.
 
 ```ts
 export class ProgramSummaryResponseDto {
@@ -51,27 +44,19 @@ export class ProgramSummaryResponseDto {
 
 ### 배치
 
-- 읽기 엔드포인트는 그것을 부르는 메뉴 중 가장 낮은 권한의 오디언스 모듈(`student`, `staff`, `admin`)에 둡니다.
-- 쓰기는 데이터를 소유한 모듈에 남깁니다.
-- 방향: 쓰기 repository는 aggregate당 하나로 모읍니다. 이번 단계에서는 실행하지 않습니다.
+- 읽기 엔드포인트는 그것을 부르는 메뉴 중 가장 낮은 권한의 오디언스 모듈(`student`, `staff`, `admin`)에 둡니다. 쓰기는 데이터를 소유한 모듈에 남깁니다.
+- 쓰기 repository를 aggregate당 하나로 모으는 것이 앞으로의 방향입니다.
 - frontend와 backend는 서로의 경로를 참조하지 않습니다.
+
+### 없앤 규칙
+
+- 파일 크기 규칙: 작은 파일을 흡수하지 않습니다. 파일 하나에 개념 하나를 둡니다([Angular 스타일 가이드](https://angular.dev/style-guide)).
+- type 전용 파일 분리: 위 `.types.ts` 규칙으로 대체합니다.
+- `.scheduler`, `.job`, `.policy` 역할: `@Cron`/`@Interval`은 모듈 서비스의 메서드에 둡니다([task scheduling](https://docs.nestjs.com/techniques/task-scheduling)). CLI는 `src/cli.ts` 하나에서 `createApplicationContext`로 실행합니다([standalone applications](https://docs.nestjs.com/standalone-applications)). 도메인 규칙 함수는 서비스나 repository에 둡니다.
 
 ## Consequences
 
-규칙은 다음 검사로 강제합니다.
-
-| 규칙 id | 검사 |
-| --- | --- |
-| `conventions/controller-explicit-return` | 컨트롤러 핸들러가 명시적 응답 DTO 타입을 반환 |
-| `conventions/response-dto-shape` | Response DTO가 `declare readonly` 필드와 `static from()`만 가짐 |
-| `conventions/request-dto-decorated` | Request DTO의 모든 필드에 class-validator 데코레이터 |
-| `conventions/file-name-convention` | 파일 이름이 kebab-case와 닫힌 접미사 목록을 따름 |
-| `conventions/file-class-match` | 클래스 이름이 파일 stem과 접미사에 맞음 |
-| `cross-app/no-cross-app-path` | frontend와 backend 사이 경로 참조 금지 |
-| `boundaries/no-unknown-files` | 모듈 맵 밖의 폴더나 파일 금지 |
-| `architecture/no-cycle` | 모듈 사이 순환 의존 금지 |
-
-검토 후 채택하지 않은 안: 중첩 컨텍스트, vertical slice, `@Expose` 직렬화, mapped-types, nestjs-zod, nestia.
+아래 계약 블록의 `rules`가 위 규칙을 린트 오류로 강제합니다. 중첩 컨텍스트, vertical slice, `@Expose` 직렬화, mapped-types, nestjs-zod, nestia는 채택하지 않았습니다.
 
 ```json adr-003-contract
 {
@@ -96,9 +81,6 @@ export class ProgramSummaryResponseDto {
     ".interceptor",
     ".filter",
     ".client",
-    ".job",
-    ".scheduler",
-    ".policy",
     ".error",
     ".types",
     ".config"
@@ -117,8 +99,9 @@ export class ProgramSummaryResponseDto {
     "boundaries/no-unknown-files",
     "architecture/no-cycle"
   ],
-  "exemptFiles": [
+  "outOfScopeFiles": [
     "src/main.ts",
+    "src/cli.ts",
     "src/app.module.ts",
     "src/app-controller-discovery.ts",
     "test/**/*.ts",
@@ -129,7 +112,6 @@ export class ProgramSummaryResponseDto {
     "src/**/*fixture.ts",
     "src/**/*fixtures.ts",
     "src/**/*support.ts"
-  ],
-  "crossAppExceptions": []
+  ]
 }
 ```
