@@ -31,8 +31,14 @@ import {
 } from './dto/program-team-response.dto';
 import { ProgramTeamsService } from './program-teams.service';
 import { Protected } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { DomainException } from '../platform/error-code.error';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffOnly = () =>
+  new DomainException(TEAMS_ERROR_CODES[TeamsErrorCode.STAFF_ONLY]);
 
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -92,28 +98,24 @@ export class ProgramTeamsController {
 
   @Get()
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async list(
-    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
   ): Promise<StaffProgramTeamResponseDto[]> {
     return StaffProgramTeamResponseDto.fromAll(
-      await this.service.listForStaff(request.sessionGithubId, programId),
+      await this.service.listForStaff(programId),
     );
   }
 
   @Get(':teamId')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async detail(
-    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
   ): Promise<StaffTeamDetailResponseDto> {
     return StaffTeamDetailResponseDto.from(
-      await this.service.getForStaff(
-        request.sessionGithubId,
-        programId,
-        teamId,
-      ),
+      await this.service.getForStaff(programId, teamId),
     );
   }
 

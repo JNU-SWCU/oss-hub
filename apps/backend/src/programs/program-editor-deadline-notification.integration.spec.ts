@@ -224,7 +224,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     expect(stored?.notifyOnDeadline).toBe(false);
 
     const failure = await digest
-      .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
+      .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
     expect(errorCode(failure)).toBe(NotificationsErrorCode.DEADLINE_DISABLED);
   });
@@ -242,11 +242,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     });
     expect(stored?.notifyOnDeadline).toBe(true);
 
-    const preview = await digest.previewProgram(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      NOW,
-    );
+    const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 1,
       milestoneCount: 1,
@@ -274,11 +270,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       },
     });
 
-    const preview = await digest.previewProgram(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      NOW,
-    );
+    const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 0,
       recipientCount: 0,
@@ -291,10 +283,9 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       PROGRAM_ID,
       updateRequest(true),
     );
-    expect(
-      (await digest.previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW))
-        .recipientCount,
-    ).toBe(2);
+    expect((await digest.previewProgram(PROGRAM_ID, NOW)).recipientCount).toBe(
+      2,
+    );
 
     await editor.updateProgram(
       STAFF_GITHUB_ID,
@@ -303,7 +294,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     );
 
     const failure = await digest
-      .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
+      .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
     expect(errorCode(failure)).toBe(NotificationsErrorCode.DEADLINE_DISABLED);
   });

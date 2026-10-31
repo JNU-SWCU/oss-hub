@@ -13,7 +13,6 @@ import {
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
-import type { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -23,28 +22,8 @@ import { ApplicationAnswersService } from './application-answers.service';
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const APPLICATION_ID = 'synthetic-application';
-const SESSION_GITHUB_ID = 4_242n;
-const STAFF_ACTOR_ID = 'synthetic-staff';
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');
 const UPDATED_AT = new Date('2026-08-06T01:00:00.000Z');
-
-type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
-type AuthorityMock = jest.Mock<
-  ReturnType<AssertActiveStaff>,
-  Parameters<AssertActiveStaff>
->;
-
-function allowStaff(): AuthorityMock {
-  return jest
-    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
-    .mockResolvedValue({ actorId: STAFF_ACTOR_ID });
-}
-
-function denyStaff(): AuthorityMock {
-  return jest.fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>(
-    (_sessionGithubId, forbidden) => Promise.reject(forbidden()),
-  );
-}
 
 const LIST_QUERY = {
   page: 1,
@@ -127,7 +106,6 @@ function mapItem(source: ApplicationListSource | null | undefined) {
         undefined as never,
         undefined as never,
         undefined as never,
-        undefined as never,
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
@@ -137,45 +115,6 @@ function mapItem(source: ApplicationListSource | null | undefined) {
 }
 
 describe('ApplicationsService.getForStaff', () => {
-  it('교직원 권한이 없으면 APP_018 로 막고 신청도 이력도 읽지 않는다', async () => {
-    const findApplicationForStaff = jest.fn();
-    const listReviewHistory = jest.fn();
-    const repository = {
-      findApplicationForStaff,
-      listReviewHistory,
-    } as unknown as ApplicationsRepository;
-    const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(
-      repository,
-      noopAuditLog,
-      {
-        assertActiveStaff,
-      },
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
-
-    await expect(
-      service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.STAFF_LIST_ONLY, status: 403 },
-    });
-    expect(assertActiveStaff).toHaveBeenCalledWith(
-      SESSION_GITHUB_ID,
-      expect.any(Function),
-    );
-    expect(findApplicationForStaff).not.toHaveBeenCalled();
-    expect(listReviewHistory).not.toHaveBeenCalled();
-  });
-
   it('없는 신청이면 404 APPLICATION_NOT_FOUND 를 던진다', async () => {
     const findApplicationForStaff = jest.fn().mockResolvedValue(null);
     const repository = {
@@ -185,9 +124,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
@@ -200,9 +136,7 @@ describe('ApplicationsService.getForStaff', () => {
       new RepositoryProvisionEventService(),
     );
 
-    await expect(
-      service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
-    ).rejects.toMatchObject({
+    await expect(service.getForStaff(APPLICATION_ID)).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,
         status: 404,
@@ -224,9 +158,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
@@ -246,9 +177,7 @@ describe('ApplicationsService.getForStaff', () => {
       )
       .mockReturnValue(item);
 
-    await expect(
-      service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
-    ).resolves.toEqual({
+    await expect(service.getForStaff(APPLICATION_ID)).resolves.toEqual({
       application: item,
       reviewHistory,
     });
@@ -263,9 +192,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      {
-        assertActiveStaff: allowStaff(),
-      },
       new ApplicationJoinCodeService(
         {
           TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
@@ -278,9 +204,7 @@ describe('ApplicationsService.getForStaff', () => {
       new RepositoryProvisionEventService(),
     );
 
-    await expect(
-      service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
-    ).rejects.toBeDefined();
+    await expect(service.getForStaff(APPLICATION_ID)).rejects.toBeDefined();
     expect(listReviewHistory).toHaveBeenCalledWith(APPLICATION_ID);
   });
 });

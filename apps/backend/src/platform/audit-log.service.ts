@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { DomainException } from './error-code.error';
 import {
   AUDIT_LOG_ERROR_CODES,
@@ -24,7 +23,6 @@ export class AuditLogService {
     @Inject(AuditLogRepository)
     private readonly repository: Pick<
       AuditLogRepository,
-      | 'findActorByGithubId'
       | 'list'
       | 'record'
       | 'findProgramNames'
@@ -34,19 +32,7 @@ export class AuditLogService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
-  async list(
-    actorGithubId: bigint,
-    query: AuditLogListQuery,
-  ): Promise<AuditLogPage> {
-    const actor = await this.repository.findActorByGithubId(actorGithubId);
-    if (
-      actor?.hasAdminAccess !== true ||
-      actor.accountStatus !== AccountStatus.ACTIVE
-    ) {
-      throw new DomainException(
-        AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.ADMIN_ONLY],
-      );
-    }
+  async list(query: AuditLogListQuery): Promise<AuditLogPage> {
     if (query.from && query.to && query.from > query.to) {
       throw new DomainException(
         AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.INVALID_DATE_RANGE],

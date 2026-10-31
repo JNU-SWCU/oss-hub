@@ -1,7 +1,6 @@
-import { ProgramCategory, AccountStatus } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import type {
   ProgramTeamsRepository,
   RecordTeamMembershipAudit,
@@ -76,19 +75,6 @@ const DETAIL: TeamDetailRecord = {
   ],
 };
 
-const ACTIVE_STAFF_ACTOR = {
-  id: 'synthetic-staff',
-  hasStaffAccess: true,
-  hasAdminAccess: false,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-function buildAuthority(): UsersAuthorityService {
-  return new UsersAuthorityService({
-    findActorByGithubId: jest.fn().mockResolvedValue(ACTIVE_STAFF_ACTOR),
-  });
-}
-
 function buildService(overrides: {
   readonly student?: TeamStudentActor | null;
   readonly program?: TeamProgramRecord | null;
@@ -147,7 +133,6 @@ function buildService(overrides: {
       repository,
       { record } as unknown as AuditLogService,
       deletionRepository,
-      buildAuthority(),
       new AuditLogMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
@@ -576,7 +561,6 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         repository,
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
-        buildAuthority(),
         new AuditLogMetadataService(),
         new RepositoryPublishService(),
         new RepositoryUrlService(),

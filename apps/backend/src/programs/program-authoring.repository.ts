@@ -1,11 +1,7 @@
 import { ProgramCoverRepository } from './program-cover.repository';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  Prisma,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { Prisma, ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramAuthoringUploadTransactionRepository,
@@ -53,28 +49,9 @@ export interface ProgramAuthoringTransactionStore {
   ): Promise<void>;
 }
 
-type AuthoringActor = {
-  readonly id: string;
-  readonly accountStatus: AccountStatus;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-};
-
 @Injectable()
 export class ProgramAuthoringRepository {
   constructor(private readonly prisma: PrismaService) {}
-
-  findActor(githubId: bigint): Promise<AuthoringActor | null> {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        id: true,
-        accountStatus: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-      },
-    });
-  }
 
   async findReplay(
     actorId: string,

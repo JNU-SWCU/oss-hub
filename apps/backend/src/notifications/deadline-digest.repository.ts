@@ -51,7 +51,6 @@ export type DigestNotificationStatus = 'SENT' | 'FAILED';
 export interface DeadlineDigestRepositoryPort {
   findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
   findDeadlineProgram(programId: string): Promise<DeadlineProgramSource | null>;
-  findActiveStaffOrAdmin(githubId: bigint): Promise<boolean>;
   findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]>;
   claimNotification(
     userId: string,
@@ -162,21 +161,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         ),
       })),
     };
-  }
-
-  async findActiveStaffOrAdmin(githubId: bigint): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-    return (
-      user?.accountStatus === AccountStatus.ACTIVE &&
-      (user.hasStaffAccess || user.hasAdminAccess)
-    );
   }
 
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {

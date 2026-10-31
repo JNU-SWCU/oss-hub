@@ -46,7 +46,6 @@ import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import {
   DomainException,
@@ -130,11 +129,6 @@ export class ApplicationsService {
   constructor(
     private readonly repository: ApplicationsRepository,
     private readonly auditLog: AuditLogService,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     @Inject(ApplicationJoinCodeService)
     private readonly joinCodes: Pick<
       ApplicationJoinCodeService,
@@ -357,13 +351,9 @@ export class ApplicationsService {
   }
 
   async listForProgram(
-    sessionGithubId: bigint,
     programId: string,
     query: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
     await this.requireProgram(programId);
     const page = await this.repository.listApplicationsForProgram(
       programId,
@@ -378,13 +368,9 @@ export class ApplicationsService {
   }
 
   async listTeamManagementForProgram(
-    sessionGithubId: bigint,
     programId: string,
     query: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
     await this.requireProgram(programId);
     return this.repository.listTeamManagementForProgram(programId, query);
   }
@@ -396,13 +382,7 @@ export class ApplicationsService {
     }
   }
 
-  async getForStaff(
-    sessionGithubId: bigint,
-    applicationId: string,
-  ): Promise<StaffApplicationDetail> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+  async getForStaff(applicationId: string): Promise<StaffApplicationDetail> {
     const [application, reviewHistory] = await Promise.all([
       this.repository.findApplicationForStaff(applicationId),
       this.repository.listReviewHistory(applicationId),
@@ -420,22 +400,16 @@ export class ApplicationsService {
     };
   }
 
-  async staffSummary(sessionGithubId: bigint): Promise<StaffDashboardSummary> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+  async staffSummary(): Promise<StaffDashboardSummary> {
     return this.repository.listStaffDashboardSummary();
   }
 
   async decide(
-    actorGithubId: bigint,
+    actor: { readonly id: string; readonly githubId: bigint },
     applicationId: string,
     input: ApplicationDecisionCommand,
   ): Promise<ApplicationDecisionResult> {
-    const { actorId } = await this.authority.assertActiveStaff(
-      actorGithubId,
-      () => this.error(ApplicationsErrorCode.STAFF_ONLY),
-    );
+    const actorId = actor.id;
     const action =
       this.applicationAnswersService.applicationDecisionAction(input);
     const idempotencyKey = `repository-provision:${applicationId}`;
@@ -492,7 +466,7 @@ export class ApplicationsService {
 
         await this.auditLog.record(
           {
-            actorGithubId,
+            actorGithubId: actor.githubId,
             action: this.auditActionFor(plan.kind),
             targetType: 'APPLICATION',
             targetId: applicationId,

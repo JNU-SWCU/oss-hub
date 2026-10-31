@@ -6,8 +6,17 @@ import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto'
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { Protected } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { DomainException } from '../platform/error-code.error';
+import {
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.error';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffOnly = () =>
+  new DomainException(SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.STAFF_ONLY]);
 
 @Controller('programs/:programId/submissions')
 export class ProgramSubmissionsController {
@@ -31,16 +40,12 @@ export class ProgramSubmissionsController {
   @Get('matrix')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async matrix(
-    @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
     @Query() query: SubmissionMatrixRequestDto,
   ): Promise<SubmissionMatrixResponseDto> {
-    const result = await this.matrixService.matrix(
-      request.sessionGithubId,
-      programId,
-      query.toQuery(),
-    );
+    const result = await this.matrixService.matrix(programId, query.toQuery());
     return SubmissionMatrixResponseDto.from(result, programId);
   }
 }

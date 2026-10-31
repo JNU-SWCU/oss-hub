@@ -30,14 +30,7 @@ const LEGACY_APPLICATION_DECISION_V1_METADATA = {
 } as const;
 
 function listRecords(repository: AuditLogRepository, query: AuditLogListQuery) {
-  jest.spyOn(repository, 'findActorByGithubId').mockResolvedValue({
-    id: 'admin',
-    hasStaffAccess: false,
-    hasAdminAccess: true,
-    accountStatus: AccountStatus.ACTIVE,
-  });
   return new AuditLogService(repository, new AuditLogMetadataService()).list(
-    1n,
     query,
   );
 }

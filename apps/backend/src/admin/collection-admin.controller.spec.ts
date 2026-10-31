@@ -4,9 +4,9 @@ import { Test } from '@nestjs/testing';
 
 import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
+import { RolesGuard } from '../platform/roles.guard';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../github/collection-admin.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
 import {
@@ -15,10 +15,6 @@ import {
 } from '../github/collection-user-activity.service';
 import { type AuditLogRecord } from '../platform/audit-log.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-
-const authority = {
-  assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
-} as unknown as UsersAuthorityService;
 
 function createController(
   sync: CollectionSyncService,
@@ -32,7 +28,6 @@ function createController(
       cutover,
       audit,
       activity,
-      authority,
       new AuditLogMetadataService(),
     ),
   );
@@ -80,7 +75,6 @@ describe('CollectionAdminController', () => {
       controllers: [CollectionAdminController],
       providers: [
         CollectionAdminService,
-        { provide: UsersAuthorityService, useValue: authority },
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         AuditLogMetadataService,
@@ -243,7 +237,7 @@ describe('CollectionAdminController', () => {
       handler,
     );
 
-    expect(guards).toEqual([OriginGuard]);
+    expect(guards).toEqual([OriginGuard, RolesGuard]);
     expect(statusCode).toBe(202);
   });
 

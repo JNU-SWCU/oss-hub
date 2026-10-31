@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -25,20 +24,13 @@ export class ProgramDocumentChangeRequestsService {
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async targets(
-    sessionGithubId: bigint,
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
   ): Promise<ProgramDocumentChangeRequestPreview> {
-    await this.assertStaff(sessionGithubId);
     const applicationIds = await this.applicationIdsInScope(programId, scope);
     const candidates = await this.repository.findChangeRequestCandidates(
       programId,
@@ -63,12 +55,11 @@ export class ProgramDocumentChangeRequestsService {
   }
 
   async requestChanges(
-    sessionGithubId: bigint,
+    reviewerId: string,
     programId: string,
     input: ProgramDocumentChangeRequestInput,
     now: () => Date = () => new Date(),
   ): Promise<{ readonly requestedCount: number }> {
-    const { actorId: reviewerId } = await this.assertStaff(sessionGithubId);
     if (input.resubmissionDueAt.getTime() <= now().getTime()) {
       throw this.error(
         MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
@@ -140,12 +131,6 @@ export class ProgramDocumentChangeRequestsService {
     );
 
     return { requestedCount };
-  }
-
-  private assertStaff(sessionGithubId: bigint) {
-    return this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
   }
 
   private async assertProgram(programId: string): Promise<void> {

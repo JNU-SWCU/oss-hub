@@ -48,13 +48,13 @@ import {
 import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
 import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
 import {
-  ProgramAuthoringForbiddenError,
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
 } from './program-authoring.error';
 import { Protected } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
 
-type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type SessionIdentity = Pick<AuthenticatedRequest, 'principal'>;
 
 function uploadHttpError(error: unknown): Error {
   if (!(error instanceof ProgramAuthoringUploadError)) throw error;
@@ -73,6 +73,9 @@ function uploadHttpError(error: unknown): Error {
   }
 }
 
+const authoringUnavailable = () =>
+  new ConflictException('Program authoring is unavailable.');
+
 @Controller('program-authoring')
 export class ProgramAuthoringController {
   constructor(
@@ -83,15 +86,14 @@ export class ProgramAuthoringController {
 
   @Get('upload-policy')
   @Protected()
-  async uploadPolicy(
-    @Req() request: SessionIdentity,
-  ): Promise<ProgramAuthoringUploadPolicyResponseDto> {
-    await this.requireAuthor(request.sessionGithubId);
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
+  uploadPolicy(): ProgramAuthoringUploadPolicyResponseDto {
     return ProgramAuthoringUploadPolicyResponseDto.from();
   }
 
   @Post('uploads')
   @Protected()
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -104,10 +106,7 @@ export class ProgramAuthoringController {
   ): Promise<ProgramAuthoringUploadResponseDto> {
     try {
       return ProgramAuthoringUploadResponseDto.from(
-        await this.uploads.upload(
-          await this.requireAuthor(request.sessionGithubId),
-          file,
-        ),
+        await this.uploads.upload(request.principal.id, file),
       );
     } catch (error) {
       throw uploadHttpError(error);
@@ -116,6 +115,7 @@ export class ProgramAuthoringController {
 
   @Post('cover-uploads')
   @Protected()
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -128,10 +128,7 @@ export class ProgramAuthoringController {
   ): Promise<ProgramAuthoringUploadResponseDto> {
     try {
       return ProgramAuthoringUploadResponseDto.from(
-        await this.uploads.uploadCover(
-          await this.requireAuthor(request.sessionGithubId),
-          file,
-        ),
+        await this.uploads.uploadCover(request.principal.id, file),
       );
     } catch (error) {
       throw uploadHttpError(error);
@@ -141,16 +138,14 @@ export class ProgramAuthoringController {
   @Delete('uploads/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Protected()
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
   async deleteUpload(
     @Req() request: SessionIdentity,
     @Param('id') uploadId: string,
   ): Promise<void> {
     try {
-      await this.uploads.delete(
-        await this.requireAuthor(request.sessionGithubId),
-        uploadId,
-      );
+      await this.uploads.delete(request.principal.id, uploadId);
     } catch (error) {
       throw uploadHttpError(error);
     }
@@ -158,6 +153,7 @@ export class ProgramAuthoringController {
 
   @Post('programs')
   @Protected()
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionIdentity,
@@ -169,15 +165,12 @@ export class ProgramAuthoringController {
     }
     try {
       const program = await this.authoring.create(
-        request.sessionGithubId,
+        request.principal,
         idempotencyKey,
         input,
       );
       return ProgramIdResponseDto.from(program);
     } catch (error) {
-      if (error instanceof ProgramAuthoringForbiddenError) {
-        throw new ConflictException('Program authoring is unavailable.');
-      }
       if (error instanceof ProgramAuthoringIdempotencyConflictError) {
         const extensions: ProblemDetailExtensions & {
           readonly existingProgramId: string;
@@ -197,27 +190,17 @@ export class ProgramAuthoringController {
     }
   }
 
-  private async requireAuthor(githubId: bigint): Promise<string> {
-    try {
-      return await this.authoring.requireAuthor(githubId);
-    } catch (error) {
-      if (error instanceof ProgramAuthoringForbiddenError) {
-        throw new ConflictException('Program authoring is unavailable.');
-      }
-      throw error;
-    }
-  }
-
   @Post('notice-preview')
   @HttpCode(200)
   @Protected()
+  @Roles(STAFF_AUDIENCE, authoringUnavailable)
   @UseGuards(OriginGuard)
   async preview(
-    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
+    @Req() request: SessionIdentity,
     @Body() input: ProgramNoticePreviewRequestDto,
   ): Promise<ProgramNoticePreviewResponseDto> {
     return ProgramNoticePreviewResponseDto.from(
-      await this.previews.preview(request.sessionGithubId, input.url),
+      await this.previews.preview(request.principal.id, input.url),
     );
   }
 }

@@ -53,6 +53,12 @@ import {
   Protected,
   OptionalSession,
 } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { DomainException } from '../platform/error-code.error';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from './program-error-code.error';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -61,6 +67,14 @@ const ANONYMOUS_VIEWER = {
   userId: null,
   role: null,
 } as const;
+
+const createForbidden = () =>
+  new DomainException(PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN]);
+
+const deleteForbidden = () =>
+  new DomainException(
+    PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
+  );
 
 @Controller('programs')
 @Protected()
@@ -108,6 +122,7 @@ export class ProgramsController {
   @Post()
   @HttpCode(201)
   @Protected()
+  @Roles(STAFF_AUDIENCE, createForbidden)
   @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionIdentity,
@@ -178,6 +193,7 @@ export class ProgramsController {
 
   @Delete(':id/purge')
   @Protected()
+  @Roles(STAFF_AUDIENCE, deleteForbidden)
   @UseGuards(OriginGuard)
   async purge(
     @Param('id') programId: string,
@@ -195,6 +211,7 @@ export class ProgramsController {
 
   @Delete(':id')
   @Protected()
+  @Roles(STAFF_AUDIENCE, deleteForbidden)
   @UseGuards(OriginGuard)
   async delete(
     @Param('id') programId: string,

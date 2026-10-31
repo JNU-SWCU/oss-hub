@@ -31,8 +31,6 @@ import {
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -86,7 +84,6 @@ const repositoriesService = new RepositoriesService(
 const submissionReviewsService = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositoriesService,
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),

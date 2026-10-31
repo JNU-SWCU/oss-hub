@@ -17,6 +17,7 @@ import { SubmissionFileRulesService } from './submission-file-rules.service';
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
 export const GITHUB_ID = 9_126_600_001n;
+export const COVER_ACTOR = { id: ACTOR, githubId: GITHUB_ID };
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
   new ProgramEditorRepository(prisma),

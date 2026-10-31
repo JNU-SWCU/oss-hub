@@ -20,7 +20,10 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  databaseSessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -68,9 +71,8 @@ export class AdminAccessHttpHarness {
         {
           provide: AuthService,
           useValue: {
-            getMe: jest
-              .fn()
-              .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+            getMe: (githubId: bigint) =>
+              databaseSessionPrincipal(this.prisma, githubId),
           },
         },
       ],

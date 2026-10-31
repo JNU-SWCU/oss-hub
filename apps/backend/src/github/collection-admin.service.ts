@@ -4,7 +4,6 @@ import { CollectionSweepRunnerService } from './collection-sweep-runner.service'
 import { AuditLogService } from '../platform/audit-log.service';
 import { COLLECTION_TRIGGER_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   COLLECTION_ERROR_CODES,
@@ -29,7 +28,6 @@ export class CollectionAdminService {
     private readonly auditLog: Pick<AuditLogService, 'record'>,
     @Inject(CollectionUserActivityService)
     userActivity: Pick<CollectionUserActivityService, 'run'>,
-    private readonly authority: UsersAuthorityService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {
     this.sweeps = new CollectionSweepRunnerService(
@@ -40,20 +38,9 @@ export class CollectionAdminService {
     );
   }
 
-  private async assertAdmin(sessionGithubId: bigint): Promise<void> {
-    await this.authority.assertAdmin(
-      sessionGithubId,
-      () =>
-        new DomainException(
-          COLLECTION_ERROR_CODES[CollectionErrorCode.ADMIN_REQUIRED],
-        ),
-    );
-  }
-
   async trigger(
     sessionGithubId: bigint,
   ): Promise<{ runId: string; status: 'PENDING' }> {
-    await this.assertAdmin(sessionGithubId);
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],

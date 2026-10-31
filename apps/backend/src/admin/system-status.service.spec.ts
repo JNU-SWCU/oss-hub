@@ -1,5 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import type { CollectionScheduleService } from '../github/collection-schedule.service';
 import {
   SystemStatusRepository,
@@ -25,7 +23,6 @@ jest.mock('../github/collection-schedule.service', () => ({
 const nextScheduledAt = mockNextScheduledCollectionAt;
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
-const ACTOR_ID = 133n;
 
 function snapshot(
   overrides: Partial<CollectionIncrementalStatusSnapshotDto> = {},
@@ -64,7 +61,6 @@ function externalStatus(
 }
 
 describe('SystemStatusService', () => {
-  const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
   const getRecentSweepActivity = jest.fn();
@@ -72,7 +68,6 @@ describe('SystemStatusService', () => {
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
     {
-      findActor,
       countFinalProvisionFailures,
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
@@ -83,11 +78,6 @@ describe('SystemStatusService', () => {
   );
 
   beforeEach(() => {
-    findActor.mockReset().mockResolvedValue({
-      hasStaffAccess: false,
-      hasAdminAccess: true,
-      accountStatus: AccountStatus.ACTIVE,
-    });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
     getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
     nextScheduledAt
@@ -99,7 +89,7 @@ describe('SystemStatusService', () => {
   });
 
   it('ACTIVE ADMIN에게만 정확한 공개 DTO를 반환한다', async () => {
-    await expect(service.getStatus(ACTOR_ID)).resolves.toEqual({
+    await expect(service.getStatus()).resolves.toEqual({
       collection: {
         health: 'NORMAL',
         dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
@@ -130,33 +120,12 @@ describe('SystemStatusService', () => {
         cumulativeIssueCount: 0,
       },
     });
-    expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
     expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
     expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
     expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    ['없는 사용자', null],
-    ['비 ADMIN', { role: 'STAFF', accountStatus: AccountStatus.ACTIVE }],
-    [
-      '비활성 ADMIN',
-      { role: 'ADMIN', accountStatus: AccountStatus.DEACTIVATED },
-    ],
-  ])('%s는 거부하고 상태 데이터를 조회하지 않는다', async (_label, actor) => {
-    findActor.mockResolvedValue(actor);
-    await expect(service.getStatus(ACTOR_ID)).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
-    expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
-    expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
-    expect(nextScheduledAt).not.toHaveBeenCalled();
-    expect(getRecentSweepActivity).not.toHaveBeenCalled();
-    expect(getExternalCollectionStatus).not.toHaveBeenCalled();
-    expect(countFinalProvisionFailures).not.toHaveBeenCalled();
   });
 
   it('추적 중인 저장소가 없으면 EMPTY다', async () => {
@@ -173,7 +142,7 @@ describe('SystemStatusService', () => {
         lastRepositorySuccessAt: null,
       }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'EMPTY', safeReason: 'NO_TRACKED_REPOSITORIES' },
     });
   });
@@ -182,7 +151,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ retryPendingStreamCount: 1, pendingStreamCount: 2 }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'FAILED', safeReason: 'UPSTREAM_RATE_LIMITED' },
     });
   });
@@ -191,7 +160,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ pendingStreamCount: 3 }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'PARTIAL', safeReason: 'RUN_INCOMPLETE' },
     });
   });
@@ -200,7 +169,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ backfillingStreamCount: 1 }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'PARTIAL', safeReason: 'RUN_INCOMPLETE' },
     });
   });
@@ -209,7 +178,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ latestCheckpointAt: new Date('2026-07-25T10:29:59.999Z') }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'DELAYED', safeReason: 'STALE_DATA' },
     });
   });
@@ -218,7 +187,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ latestCheckpointAt: new Date('2026-07-25T10:30:00.000Z') }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { health: 'NORMAL', safeReason: null },
     });
   });
@@ -230,7 +199,7 @@ describe('SystemStatusService', () => {
         lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
       }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { currentRunStatus: 'PROCESSING' },
     });
   });
@@ -239,7 +208,7 @@ describe('SystemStatusService', () => {
     getIncrementalStatusSnapshot.mockResolvedValue(
       snapshot({ lastCycleStartedAt: null, lastCycleCompletedAt: null }),
     );
-    await expect(service.getStatus(ACTOR_ID)).resolves.toMatchObject({
+    await expect(service.getStatus()).resolves.toMatchObject({
       collection: { currentRunStatus: 'IDLE' },
     });
   });
@@ -276,7 +245,7 @@ describe('SystemStatusService', () => {
     ];
     getIncrementalStatusStreams.mockResolvedValue(detail);
 
-    const result = await service.getStatus(ACTOR_ID);
+    const result = await service.getStatus();
 
     expect(result.collectionStreams).toEqual([
       {
@@ -351,7 +320,7 @@ describe('SystemStatusService', () => {
     ];
     getRecentSweepActivity.mockResolvedValue(activity);
 
-    const result = await service.getStatus(ACTOR_ID);
+    const result = await service.getStatus();
 
     expect(result.collectionActivity).toEqual([
       {
@@ -391,7 +360,7 @@ describe('SystemStatusService', () => {
     it('수집 스케줄이 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
       nextScheduledAt.mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
 
-      const result = await service.getStatus(ACTOR_ID);
+      const result = await service.getStatus();
 
       expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
       expect(result.collection.nextCycleAt).toEqual(
@@ -402,14 +371,14 @@ describe('SystemStatusService', () => {
     it('수집 스케줄이 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
       nextScheduledAt.mockReturnValue(null);
 
-      const result = await service.getStatus(ACTOR_ID);
+      const result = await service.getStatus();
 
       expect(result.collection.nextCycleAt).toBeNull();
       expect(result.collection.health).toBe('NORMAL');
     });
 
     it('상태 스냅샷 조회를 시작하기 전에 스케줄을 먼저 계산한다', async () => {
-      await service.getStatus(ACTOR_ID);
+      await service.getStatus();
 
       expect(nextScheduledAt).toHaveBeenCalledTimes(1);
       expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
@@ -426,7 +395,7 @@ describe('SystemStatusService', () => {
     it('탐색된 external 저장소가 없으면 lastSweep은 null이고 나머지 값도 0이다', async () => {
       getExternalCollectionStatus.mockResolvedValue(externalStatus());
 
-      const result = await service.getStatus(ACTOR_ID);
+      const result = await service.getStatus();
 
       expect(result.externalCollection).toEqual({
         trackedRepositoryCount: 0,
@@ -464,7 +433,7 @@ describe('SystemStatusService', () => {
         }),
       );
 
-      const result = await service.getStatus(ACTOR_ID);
+      const result = await service.getStatus();
 
       expect(result.externalCollection).toEqual({
         trackedRepositoryCount: 3,

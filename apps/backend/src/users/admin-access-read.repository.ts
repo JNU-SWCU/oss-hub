@@ -300,6 +300,11 @@ export type AdminAccessActor = {
   readonly accountStatus: AccountStatus;
 };
 
+export type AdminAccessPrincipal = Pick<
+  AdminAccessActor,
+  'githubId' | 'hasStaffAccess' | 'hasAdminAccess' | 'accountStatus'
+>;
+
 export type AdminAccessUserRecord = Omit<AdminAccessUser, 'isSelf'> & {
   readonly githubId: bigint;
   readonly memberKind: MemberKind | null;

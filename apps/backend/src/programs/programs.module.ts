@@ -60,7 +60,6 @@ import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 import { AuditLogService } from '../platform/audit-log.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import {
   ApplicationPreparationsService,
@@ -212,7 +211,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
       inject: [
         ApplicationsRepository,
         AuditLogService,
-        UsersAuthorityService,
         ApplicationJoinCodeService,
         AuditLogMetadataService,
         RepositoryUrlService,
@@ -222,7 +220,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
       useFactory: (
         repository: ApplicationsRepository,
         auditLog: AuditLogService,
-        authority: UsersAuthorityService,
         joinCodes: ApplicationJoinCodeService,
         auditLogMetadata: AuditLogMetadataService,
         repositoryUrl: RepositoryUrlService,
@@ -232,7 +229,6 @@ import { RepositoryUrlService } from '../github/repository-url.service';
         new ApplicationsService(
           repository,
           auditLog,
-          authority,
           joinCodes,
           auditLogMetadata,
           repositoryUrl,

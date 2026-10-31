@@ -76,7 +76,6 @@ describe('ProgramsModule milestone documents', () => {
       MilestoneDocumentsRepository,
       Object,
       SubmissionFilesService,
-      Object,
       MilestoneDocumentRulesService,
       SubmissionFileRulesService,
     ]);

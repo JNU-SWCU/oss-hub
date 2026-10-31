@@ -13,12 +13,10 @@ const auditLogMetadataService = new AuditLogMetadataService();
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 
 const ADMIN_GITHUB_ID = 1001n;
-const STAFF_GITHUB_ID = 1002n;
 
 function createRepository(): jest.Mocked<
   Pick<
     AuditLogRepository,
-    | 'findActorByGithubId'
     | 'list'
     | 'record'
     | 'findProgramNames'
@@ -27,14 +25,6 @@ function createRepository(): jest.Mocked<
   >
 > {
   return {
-    findActorByGithubId: jest.fn((githubId) =>
-      Promise.resolve({
-        id: githubId === ADMIN_GITHUB_ID ? 'admin-id' : 'staff-id',
-        hasAdminAccess: githubId === ADMIN_GITHUB_ID,
-        hasStaffAccess: githubId !== ADMIN_GITHUB_ID,
-        accountStatus: AccountStatus.ACTIVE,
-      }),
-    ),
     list: jest.fn().mockResolvedValue({
       rows: [
         {
@@ -91,24 +81,11 @@ describe('AuditLogService', () => {
       limit: 20,
     };
 
-    const result = await service.list(ADMIN_GITHUB_ID, query);
+    const result = await service.list(query);
 
     expect(repository.list.mock.calls).toEqual([[query]]);
     expect(result.items.map((record) => record.id)).toEqual(['newer', 'older']);
     expect(result).toMatchObject({ page: 1, limit: 20, total: 2 });
-  });
-
-  it('STAFF 조회는 차단한다', async () => {
-    const service = new AuditLogService(
-      createRepository(),
-      new AuditLogMetadataService(),
-    );
-
-    await expect(
-      service.list(STAFF_GITHUB_ID, { page: 1, limit: 20 }),
-    ).rejects.toMatchObject({
-      errorCode: { code: AuditLogErrorCode.ADMIN_ONLY, status: 403 },
-    });
   });
 
   it('시작일이 종료일보다 늦으면 400으로 거부한다', async () => {
@@ -118,7 +95,7 @@ describe('AuditLogService', () => {
     );
 
     await expect(
-      service.list(ADMIN_GITHUB_ID, {
+      service.list({
         from: '2026-07-25',
         to: '2026-07-24',
         page: 1,

@@ -8,7 +8,7 @@ import {
 } from './admin-access-mutation.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import {
-  type AdminAccessActor,
+  type AdminAccessPrincipal,
   type AdminAccessRepositoryPort,
   type AdminAccessUserDetailRecord,
   type AdminAccessUserRecord,
@@ -33,12 +33,10 @@ export class AdminAccessService {
   ) {}
 
   async list(
-    actorGithubId: bigint,
+    principal: AdminAccessPrincipal,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessUserPage> {
-    const actor = this.adminAccessMutationService.requireActiveAdmin(
-      await this.repository.findActorByGithubId(actorGithubId),
-    );
+    const actor = this.adminAccessMutationService.requireActiveAdmin(principal);
     const page = await this.repository.list(query);
     return {
       ...page,
@@ -52,12 +50,11 @@ export class AdminAccessService {
   }
 
   async listRequests(
-    actorGithubId: bigint,
+    principal: AdminAccessPrincipal,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessUserPage> {
-    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
-      await this.repository.findActorByGithubId(actorGithubId),
-    );
+    const actor =
+      this.adminAccessMutationService.requireActiveStaffOrAdmin(principal);
     const page = await this.repository.list(
       {
         ...query,
@@ -77,34 +74,30 @@ export class AdminAccessService {
   }
 
   async get(
-    actorGithubId: bigint,
+    principal: AdminAccessPrincipal,
     userId: string,
   ): Promise<AdminAccessUserDetail> {
-    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
-      await this.repository.findActorByGithubId(actorGithubId),
-    );
+    const actor =
+      this.adminAccessMutationService.requireActiveStaffOrAdmin(principal);
     const target = await this.requireVisibleTarget(actor, userId);
     return withSelfState(target, actor);
   }
 
   async facets(
-    actorGithubId: bigint,
+    principal: AdminAccessPrincipal,
     query: AdminAccessListQuery,
   ): Promise<AdminAccessFacets> {
-    this.adminAccessMutationService.requireActiveAdmin(
-      await this.repository.findActorByGithubId(actorGithubId),
-    );
+    this.adminAccessMutationService.requireActiveAdmin(principal);
     return this.repository.facets(query);
   }
 
   async getHistory(
-    actorGithubId: bigint,
+    principal: AdminAccessPrincipal,
     userId: string,
     query: AdminAccessHistoryQuery,
   ): Promise<AdminAccessUserHistory> {
-    const actor = this.adminAccessMutationService.requireActiveStaffOrAdmin(
-      await this.repository.findActorByGithubId(actorGithubId),
-    );
+    const actor =
+      this.adminAccessMutationService.requireActiveStaffOrAdmin(principal);
     await this.requireVisibleTarget(actor, userId);
     const [staffAccessRequests, loginHistory] = await Promise.all([
       this.repository.listStaffAccessRequestHistory(
@@ -142,7 +135,7 @@ export class AdminAccessService {
   }
 
   private async requireVisibleTarget(
-    actor: AdminAccessActor,
+    actor: AdminAccessPrincipal,
     userId: string,
   ): Promise<AdminAccessUserDetailRecord> {
     const target = await this.requireTarget(userId);
@@ -160,7 +153,7 @@ export class AdminAccessService {
 
 function withSelfState<T extends AdminAccessUserRecord>(
   user: T,
-  actor: AdminAccessActor,
+  actor: AdminAccessPrincipal,
 ): Omit<T, 'githubId'> & { readonly isSelf: boolean } {
   const { githubId, ...publicUser } = user;
   return { ...publicUser, isSelf: githubId === actor.githubId };

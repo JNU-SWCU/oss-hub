@@ -89,8 +89,8 @@ describe('StaffDashboardService', () => {
       new ProgramCoverUrlService(),
     );
 
-    const summary = await service.summary(4242n);
-    expect(applicationSummary).toHaveBeenCalledWith(4242n);
+    const summary = await service.summary();
+    expect(applicationSummary).toHaveBeenCalledWith();
 
     expect(summary.programs[0]).toEqual({
       coverImageUrl: null,
@@ -199,8 +199,8 @@ describe('StaffDashboardService', () => {
       new ProgramCoverUrlService(),
     );
 
-    await expect(service.summary(4242n)).rejects.toBe(error);
-    expect(applicationSummary).toHaveBeenCalledWith(4242n);
+    await expect(service.summary()).rejects.toBe(error);
+    expect(applicationSummary).toHaveBeenCalledWith();
     expect(summarize).not.toHaveBeenCalled();
     expect(listByProgram).not.toHaveBeenCalled();
   });

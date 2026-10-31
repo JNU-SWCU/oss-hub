@@ -278,21 +278,6 @@ describe('ProgramsService', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('rejects inactive staff before a program is stored', async () => {
-    findUnique.mockResolvedValue({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      accountStatus: AccountStatus.DEACTIVATED,
-    });
-
-    await expect(service.create(101n, input)).rejects.toMatchObject<
-      Partial<DomainException>
-    >({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
-    });
-    expect(create).not.toHaveBeenCalled();
-  });
-
   it('records PROGRAM_CREATED on the same TransactionClient as create', async () => {
     findUnique.mockResolvedValue({
       hasStaffAccess: true,

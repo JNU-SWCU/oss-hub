@@ -2,6 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   authoring,
   editor,
+  COVER_ACTOR,
   GITHUB_ID,
   prisma,
   request,
@@ -14,8 +15,8 @@ assertIsolatedIntegrationDatabase({
 });
 
 it('allows exactly one program to consume a pending cover across concurrent saves', async () => {
-  const first = await authoring().create(GITHUB_ID, 'first', request());
-  const second = await authoring().create(GITHUB_ID, 'second', request());
+  const first = await authoring().create(COVER_ACTOR, 'first', request());
+  const second = await authoring().create(COVER_ACTOR, 'second', request());
   const upload = await seedUpload();
   const input = { ...request(), coverUploadId: upload.id };
   const saves = await Promise.allSettled([
@@ -40,7 +41,7 @@ it('allows exactly one program to consume a pending cover across concurrent save
 
 it('enforces one cover per program independently of service validation', async () => {
   const upload = await seedUpload();
-  const program = await authoring().create(GITHUB_ID, 'unique', {
+  const program = await authoring().create(COVER_ACTOR, 'unique', {
     ...request(),
     coverUploadId: upload.id,
   });

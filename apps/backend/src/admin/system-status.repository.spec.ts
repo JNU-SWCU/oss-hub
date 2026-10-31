@@ -66,9 +66,10 @@ const threeReadyStreams = [
 const statusWith = (
   streams: ReadonlyArray<{ streamType: string; status: string }>,
 ) =>
-  new SystemStatusService(repositoryWith(streams), () => new Date()).getStatus(
-    1n,
-  );
+  new SystemStatusService(
+    repositoryWith(streams),
+    () => new Date(),
+  ).getStatus();
 
 describe('SystemStatusService — stream 종류 (실제 repository)', () => {
   it('ISSUE 행이 아직 없는 저장소는 그 stream을 부분(PARTIAL)으로 센다', async () => {

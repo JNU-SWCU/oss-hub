@@ -1,6 +1,5 @@
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus } from '@prisma/client';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
 import {
   ProgramTeamsRepository,
@@ -17,7 +16,6 @@ import { ProgramRulesService } from './program-rules.service';
 
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
-const STAFF_GITHUB_ID = 5301n;
 
 type AuthorityActor = {
   readonly id: string;
@@ -31,27 +29,6 @@ const STAFF_USER: AuthorityActor = {
   hasStaffAccess: true,
   hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
-};
-
-const ADMIN_USER: AuthorityActor = {
-  id: 'synthetic-admin',
-  hasStaffAccess: false,
-  hasAdminAccess: true,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-const STUDENT_USER: AuthorityActor = {
-  id: 'synthetic-student',
-  hasStaffAccess: false,
-  hasAdminAccess: false,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-const INACTIVE_STAFF_USER: AuthorityActor = {
-  id: 'synthetic-inactive-staff',
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-  accountStatus: AccountStatus.DEACTIVATED,
 };
 
 function buildService(overrides: {
@@ -76,7 +53,6 @@ function buildService(overrides: {
     repository,
     { record: jest.fn() } as unknown as AuditLogService,
     deletionRepository,
-    new UsersAuthorityService({ findActorByGithubId }),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
@@ -108,11 +84,7 @@ describe('ProgramTeamsService.getForStaff', () => {
       },
     });
 
-    const detail = await service.getForStaff(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      TEAM_ID,
-    );
+    const detail = await service.getForStaff(PROGRAM_ID, TEAM_ID);
 
     expect(detail.teamId).toBe(TEAM_ID);
     expect(detail.members.map((member) => member.userId)).toEqual([
@@ -165,11 +137,7 @@ describe('ProgramTeamsService.getForStaff', () => {
       },
     });
 
-    const detail = await service.getForStaff(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      TEAM_ID,
-    );
+    const detail = await service.getForStaff(PROGRAM_ID, TEAM_ID);
 
     expect(detail.application).toEqual({
       id: 'application-1',
@@ -195,7 +163,7 @@ describe('ProgramTeamsService.getForStaff', () => {
     const { service, findStaffTeamDetail } = buildService({ detail: null });
 
     await expect(
-      service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
+      service.getForStaff(PROGRAM_ID, TEAM_ID),
     ).rejects.toMatchObject({
       errorCode: { code: TeamsErrorCode.TEAM_NOT_FOUND, status: 404 },
     });
@@ -234,7 +202,7 @@ describe('ProgramTeamsService.getForStaff', () => {
     const payload: unknown = JSON.parse(
       JSON.stringify(
         StaffTeamDetailResponseDto.from(
-          await service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
+          await service.getForStaff(PROGRAM_ID, TEAM_ID),
         ),
       ),
     );
@@ -289,69 +257,6 @@ describe('ProgramTeamsService.getForStaff', () => {
       expect(serialized).not.toContain(forbidden);
     }
   });
-});
-
-describe('ProgramTeamsService.getForStaff 권한', () => {
-  const DETAIL: StaffTeamDetailRecord = {
-    id: TEAM_ID,
-    name: '오픈소스팀',
-    leaderId: 'user-a',
-    repositoryContributions: null,
-    repositoryUrlHistory: { rows: [], hasMore: false },
-    members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
-    application: null,
-  };
-
-  it.each([
-    ['STAFF', STAFF_USER],
-    ['ADMIN', ADMIN_USER],
-  ] as const)(
-    'ACTIVE %s 는 세션 식별자로 권한을 확인한 뒤 상세를 읽는다',
-    async (_label, actor) => {
-      const {
-        service,
-        findActorByGithubId,
-        findStaffTeamDetail,
-        readScopeCounts,
-      } = buildService({ actor, detail: DETAIL });
-
-      const detail = await service.getForStaff(
-        STAFF_GITHUB_ID,
-        PROGRAM_ID,
-        TEAM_ID,
-      );
-
-      expect(detail.teamId).toBe(TEAM_ID);
-      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
-      expect(findStaffTeamDetail).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
-      expect(readScopeCounts).toHaveBeenCalledWith(TEAM_ID);
-    },
-  );
-
-  it.each([
-    ['STUDENT', STUDENT_USER],
-    ['비활성 STAFF', INACTIVE_STAFF_USER],
-    ['없는 계정', null],
-  ] as const)(
-    '%s 은 팀 조회 전에 403 TEAM_003 으로 막힌다',
-    async (_label, actor) => {
-      const {
-        service,
-        findActorByGithubId,
-        findStaffTeamDetail,
-        readScopeCounts,
-      } = buildService({ actor, detail: DETAIL });
-
-      await expect(
-        service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
-      ).rejects.toMatchObject({
-        errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
-      });
-      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
-      expect(findStaffTeamDetail).not.toHaveBeenCalled();
-      expect(readScopeCounts).not.toHaveBeenCalled();
-    },
-  );
 });
 
 describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
@@ -505,7 +410,6 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
 
     expect(
       new ProgramTeamsService(
-        undefined as never,
         undefined as never,
         undefined as never,
         undefined as never,
