@@ -15,7 +15,7 @@ afterEach(() => {
 });
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { invalidateProgram } from '@/features/programs/catalog/queries';
-import { invalidateBoardList } from '@/features/board/board-list-refetch';
+import { invalidateBoard } from '@/features/board/queries';
 import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -243,7 +243,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
   });
 
-  it('같은 프로그램 게시글 변경만 집계를 갱신하고 이전 프로그램 구독은 해제한다', async () => {
+  it('같은 프로그램 게시글 변경만 집계를 갱신하고 떠난 프로그램 집계는 다시 읽지 않는다', async () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockResolvedValue([]);
     await act(async () =>
@@ -253,13 +253,13 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         </QueryClientProvider>,
       ),
     );
-    await act(async () => invalidateBoardList('other-program'));
+    await act(async () => invalidateBoard(queryClient, 'other-program'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
     mocks.getProgramOverview.mockResolvedValue({
       ...OVERVIEW,
       boardPostCount: 1,
     });
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(container.textContent).toContain('"boardPostCount":1');
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
     expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
@@ -270,7 +270,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         </QueryClientProvider>,
       ),
     );
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
     expect(container.textContent).not.toContain('"scopeOverview":');
   });
@@ -300,7 +300,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
           </QueryClientProvider>,
         ),
       );
-      await act(async () => invalidateBoardList('program-1'));
+      await act(async () => invalidateBoard(queryClient, 'program-1'));
       expect(container.textContent).toContain('"boardPostCount":1');
       await act(async () => {
         if (settle === 'resolve') resolveInitial(OVERVIEW);
@@ -331,8 +331,10 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
         }),
       )
       .mockResolvedValue(OVERVIEW);
-    await act(async () => invalidateBoardList('program-1'));
-    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => {
+      void invalidateBoard(queryClient, 'program-1');
+    });
+    await act(async () => invalidateBoard(queryClient, 'program-1'));
     expect(mocks.getProgramOverview).toHaveBeenCalledTimes(3);
     expect(container.textContent).toContain('"boardPostCount":0');
     await act(async () => resolveOlder({ ...OVERVIEW, boardPostCount: 1 }));
