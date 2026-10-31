@@ -526,7 +526,7 @@ test('AUTH_INITIAL_ROLES는 manifest와 무관하게 명시 mapping이 필요하
   );
 });
 
-test('면제 원장은 필요한 6개 key만 좁은 check에 등록한다', () => {
+test('면제 원장은 필요한 4개 key만 좁은 check에 등록한다', () => {
   const ledger = Object.fromEntries(
     ENV_CONTRACT_EXEMPTIONS.map((entry) => [entry.key, [...entry.checks]]),
   );
@@ -540,12 +540,6 @@ test('면제 원장은 필요한 6개 key만 좁은 check에 등록한다', () =
     'backend-injection',
   ]);
   assert.deepEqual(ledger.SUBMISSION_FILE_CLEANUP_OPERATOR_ID, [
-    'backend-injection',
-  ]);
-  assert.deepEqual(ledger.GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES, [
-    'backend-injection',
-  ]);
-  assert.deepEqual(ledger.GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS, [
     'backend-injection',
   ]);
   assert.equal('OSS_HUB_INTEGRATION_RUNNER' in ledger, false);
@@ -562,14 +556,12 @@ test('DIGEST_FORCE_TO는 문서화와 backend 주입을 면제한다', () => {
   assert.equal(result.ok, true, messages(result).join('\n'));
 });
 
-test('cleanup·smoke key는 문서화가 필요하지만 backend 주입은 면제한다', () => {
+test('cleanup key는 문서화가 필요하지만 backend 주입은 면제한다', () => {
   const keys = [
     'SUBMISSION_FILE_CLEANUP_MAINTENANCE_ENABLED',
     'SUBMISSION_FILE_CLEANUP_OPERATOR_ID',
-    'GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES',
-    'GITHUB_COLLECTION_APP_SMOKE_PRIVATE_ALIAS',
   ];
-  const envText = keys.map((key) => `${key}=`).join('\n');
+  const envText = keys.map((key) => `${key}=\n`).join('');
   const result = evaluateFixture({
     composeText: 'services: {}\n',
     envText,
