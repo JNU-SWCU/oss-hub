@@ -11,7 +11,6 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import {
   MilestoneDocumentCollectionReadRepository,
   type DocumentDeliveryStatus,
@@ -122,29 +121,14 @@ export class MilestoneDocumentCurrentFileService {
 export class MilestoneDocumentCollectionService {
   constructor(
     private readonly repository: MilestoneDocumentCollectionReadRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
   async collectForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     query: MilestoneDocumentDeliveryQuery,
     now = new Date(),
   ): Promise<MilestoneDocumentDeliveryCollectionResult> {
-    await this.authority.assertActiveStaff(
-      sessionGithubId,
-      () =>
-        new DomainException(
-          MILESTONE_DOCUMENTS_ERROR_CODES[
-            MilestoneDocumentsErrorCode.STAFF_ONLY
-          ],
-        ),
-    );
     return this.repository.withSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null)

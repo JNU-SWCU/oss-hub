@@ -12,8 +12,6 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
@@ -72,8 +70,6 @@ describe('authenticated milestone document list filename contract', () => {
         { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,
-        UsersAuthorityRepository,
-        UsersAuthorityService,
         MilestoneDocumentRulesService,
         ProgramRulesService,
         SubmissionFileRulesService,

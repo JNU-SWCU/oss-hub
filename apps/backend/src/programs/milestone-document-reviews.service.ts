@@ -1,6 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ReviewDecision } from '@prisma/client';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -26,11 +25,6 @@ export interface MilestoneDocumentReviewRequest {
 export class MilestoneDocumentReviewsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
   ) {}
 
@@ -87,17 +81,13 @@ export class MilestoneDocumentReviewsService {
   }
 
   async review(
-    sessionGithubId: bigint,
+    reviewerId: string,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     input: CreateMilestoneDocumentReviewInput,
     now: () => Date = () => new Date(),
   ): Promise<CreatedMilestoneDocumentReview> {
-    const { actorId: reviewerId } = await this.authority.assertActiveStaff(
-      sessionGithubId,
-      () => this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (

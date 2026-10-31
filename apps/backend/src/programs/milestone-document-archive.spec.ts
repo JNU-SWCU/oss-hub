@@ -15,7 +15,6 @@ const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
   undefined as never,
   undefined as never,
   undefined as never,
-  undefined as never,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 

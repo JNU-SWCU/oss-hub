@@ -11,15 +11,12 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { ProgramRulesService } from './program-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService(
-    undefined as never,
     undefined as never,
     new MilestoneDocumentRulesService(new ProgramRulesService()),
   );
@@ -32,17 +29,12 @@ const harness = createDeadlineDigestIntegrationHarness();
 const repository = new MilestoneDocumentCollectionReadRepository(
   harness.prisma,
 );
-const authority = new UsersAuthorityService(
-  new UsersAuthorityRepository(harness.prisma),
-);
 const service = new MilestoneDocumentCollectionService(
   repository,
-  authority,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
 );
 const legacyService = new MilestoneDocumentsService(
   new MilestoneDocumentsRepository(harness.prisma),
-  authority,
   new MilestoneDocumentRulesService(new ProgramRulesService()),
   new SubmissionFileRulesService(),
 );
@@ -81,7 +73,6 @@ it('preserves the existing collection response, approved population and paging c
 
   const result = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       { ...query, pageSize: 2 },
       fixture.now,
@@ -91,7 +82,6 @@ it('preserves the existing collection response, approved population and paging c
     );
   const old = await legacyService
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       { ...query, pageSize: 2 },
       fixture.now,
@@ -147,7 +137,6 @@ it('keeps an on-time first submission complete after a late resubmission and rej
 
   const result = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       { ...query, deliveryStatus: 'COMPLETE' },
       fixture.now,
@@ -184,7 +173,6 @@ it.each([
 
     const result = await service
       .collectForStaff(
-        fixture.staffOnGithub,
         fixture.notifyMilestone,
         { ...query, deliveryStatus },
         fixture.now,
@@ -201,7 +189,6 @@ it.each([
 it('filters missing rows before pagination and keeps whole-population counts', async () => {
   const result = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
       fixture.now,
@@ -232,7 +219,6 @@ it('does not call optional-only milestones complete or missing', async () => {
 
   const result = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
       fixture.now,
@@ -286,12 +272,7 @@ it('holds counts and visible details at one snapshot while another connection su
     };
   });
   const after = await service
-    .collectForStaff(
-      fixture.staffOnGithub,
-      fixture.notifyMilestone,
-      query,
-      fixture.now,
-    )
+    .collectForStaff(fixture.notifyMilestone, query, fixture.now)
     .then((result) =>
       MilestoneDocumentDeliveryCollectionResponseDto.from(result),
     );
@@ -310,7 +291,6 @@ it('holds counts and visible details at one snapshot while another connection su
 it('selects a document before paging and hydrates the same submitted cell', async () => {
   const result = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       {
         ...query,
@@ -332,7 +312,6 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
   ]);
   const missing = await service
     .collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       {
         ...query,
@@ -357,7 +336,6 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
 it('rejects a document outside the milestone instead of reporting every team missing', async () => {
   await expect(
     service.collectForStaff(
-      fixture.staffOnGithub,
       fixture.notifyMilestone,
       {
         ...query,

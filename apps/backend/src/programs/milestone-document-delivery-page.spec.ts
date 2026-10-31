@@ -5,7 +5,6 @@ import { ProgramRulesService } from './program-rules.service';
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService(
     undefined as never,
-    undefined as never,
     new MilestoneDocumentRulesService(new ProgramRulesService()),
   );
 

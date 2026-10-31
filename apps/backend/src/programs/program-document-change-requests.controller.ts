@@ -19,8 +19,19 @@ import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-doc
 import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { Protected } from '../auth/authentication.guard';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
+import { DomainException } from '../platform/error-code.error';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.error';
 
-type SessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type SessionRequest = Pick<AuthenticatedRequest, 'principal'>;
+
+const staffOnly = () =>
+  new DomainException(
+    MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
+  );
 
 @Controller('programs/:programId/documents/change-requests')
 export class ProgramDocumentChangeRequestsController {
@@ -32,14 +43,13 @@ export class ProgramDocumentChangeRequestsController {
   @Get('targets')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async targets(
-    @Req() request: SessionRequest,
     @Param('programId') programId: string,
     @Query() query: ProgramDocumentChangeRequestTargetsRequestDto,
   ): Promise<ProgramDocumentChangeRequestTargetsResponseDto> {
     return ProgramDocumentChangeRequestTargetsResponseDto.from(
       await this.changeRequests.targets(
-        request.sessionGithubId,
         programId,
         this.milestoneDocumentRulesService.toProgramDocumentChangeRequestScope(
           query.scope,
@@ -52,6 +62,7 @@ export class ProgramDocumentChangeRequestsController {
   @Post()
   @HttpCode(201)
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async create(
     @Req() request: SessionRequest,
@@ -60,7 +71,7 @@ export class ProgramDocumentChangeRequestsController {
   ): Promise<ProgramDocumentChangeRequestCountResponseDto> {
     return ProgramDocumentChangeRequestCountResponseDto.from(
       await this.changeRequests.requestChanges(
-        request.sessionGithubId,
+        request.principal.id,
         programId,
         this.milestoneDocumentRulesService.toProgramDocumentChangeRequestInput(
           body,

@@ -50,8 +50,18 @@ import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 import { Protected } from '../auth/authentication.guard';
+import { DomainException } from '../platform/error-code.error';
+import { Roles, STAFF_AUDIENCE } from '../platform/roles.guard';
 
-type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type ViewerRequest = Pick<
+  AuthenticatedRequest,
+  'sessionGithubId' | 'principal'
+>;
+
+const staffOnly = () =>
+  new DomainException(
+    MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
+  );
 
 const archiveLogger = new Logger('MilestoneDocumentArchive');
 
@@ -96,13 +106,13 @@ export class MilestoneDocumentsController {
   @Get('collection')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   collection(
-    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return this.collectionService
-      .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
+      .collectForStaff(milestoneId, query.toQuery())
       .then((result) =>
         MilestoneDocumentDeliveryCollectionResponseDto.from(result),
       );
@@ -111,15 +121,14 @@ export class MilestoneDocumentsController {
   @Get('collection/archive')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async archive(
-    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentArchiveRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = this.archiveService.milestoneArchiveScopeFromRequest(query);
     const archive = await this.archiveService.archiveForStaff(
-      request.sessionGithubId,
       milestoneId,
       scope,
     );
@@ -135,15 +144,14 @@ export class MilestoneDocumentsController {
   @Patch(':documentId/grace')
   @HttpCode(204)
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   updateGrace(
-    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Body() body: UpdateMilestoneDocumentGraceRequestDto,
   ): Promise<void> {
     return this.service.updateGraceDueAt(
-      request.sessionGithubId,
       milestoneId,
       documentId,
       body.toDate(),
@@ -171,15 +179,14 @@ export class MilestoneDocumentsController {
   @Get(':documentId/applications/:applicationId/file')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async downloadSubmissionFile(
-    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const file = await this.filesService.downloadSubmissionFile(
-      request.sessionGithubId,
       milestoneId,
       documentId,
       applicationId,
@@ -191,21 +198,15 @@ export class MilestoneDocumentsController {
   @Get(':documentId/applications/:applicationId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   history(
-    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service
-      .historyForStaff(
-        request.sessionGithubId,
-        milestoneId,
-        documentId,
-        applicationId,
-        query.toQuery(),
-      )
+      .historyForStaff(milestoneId, documentId, applicationId, query.toQuery())
       .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
   }
 
@@ -231,6 +232,7 @@ export class MilestoneDocumentsController {
   @Post(':documentId/applications/:applicationId/reviews')
   @HttpCode(201)
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   review(
     @Req() request: ViewerRequest,
@@ -241,7 +243,7 @@ export class MilestoneDocumentsController {
   ): Promise<MilestoneDocumentReviewResponseDto> {
     return this.reviewsService
       .review(
-        request.sessionGithubId,
+        request.principal.id,
         milestoneId,
         documentId,
         applicationId,

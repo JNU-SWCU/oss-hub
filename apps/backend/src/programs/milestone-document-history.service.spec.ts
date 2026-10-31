@@ -7,12 +7,6 @@ import { MilestoneDocumentRulesService } from './milestone-document-rules.servic
 import { ProgramRulesService } from './program-rules.service';
 import { SubmissionFileRulesService } from './submission-file-rules.service';
 
-const authority = {
-  assertActiveStaff: jest
-    .fn()
-    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
-};
-
 describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
     const repository = {
@@ -41,13 +35,12 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(
       repository,
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })
@@ -82,10 +75,9 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     await expect(
       new MilestoneDocumentsService(
         repository,
-        authority,
         new MilestoneDocumentRulesService(new ProgramRulesService()),
         new SubmissionFileRulesService(),
-      ).historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
         limit: 20,
       }),
@@ -145,7 +137,6 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
@@ -173,13 +164,12 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })
@@ -200,13 +190,12 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: null,
         }),
       ),
-      authority,
       new MilestoneDocumentRulesService(new ProgramRulesService()),
       new SubmissionFileRulesService(),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })
