@@ -14,7 +14,6 @@ import {
   pendingDashboardFixture,
   rejectedDashboardFixture,
 } from './fixtures';
-import { loadStudentDashboard } from './load-student-dashboard';
 import type {
   DashboardFeedbackItem,
   DashboardItem,
@@ -971,31 +970,5 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
       '마친 프로그램 1',
       '신청 상태 2',
     ]);
-  });
-});
-
-describe('loadStudentDashboard', () => {
-  it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
-    const fetchDashboard = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('network error'))
-      .mockResolvedValueOnce(dashboardFixture);
-
-    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
-      status: 'error',
-    });
-    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
-      status: 'success',
-      data: dashboardFixture,
-    });
-    expect(fetchDashboard).toHaveBeenCalledTimes(2);
-  });
-
-  it('Error가 아닌 예외도 오류 결과로 정규화한다', async () => {
-    const fetchDashboard = vi.fn().mockRejectedValue('unexpected');
-
-    await expect(loadStudentDashboard(fetchDashboard)).resolves.toEqual({
-      status: 'error',
-    });
   });
 });

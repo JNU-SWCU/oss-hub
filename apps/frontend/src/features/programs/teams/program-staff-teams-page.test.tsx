@@ -1,7 +1,7 @@
 import { act } from 'react';
-import type { Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import {
-  createListScreenRoot as createRoot,
   listNavigation,
   useTestSearchParams,
 } from '../../../../test-support/list-screen-root';
@@ -100,10 +100,9 @@ function statusSelects(): HTMLSelectElement[] {
   return [...container.querySelectorAll('select')];
 }
 
-beforeEach(() => {
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+beforeEach(async () => {
+  root = await renderWithQuery(null);
+  container = root.container;
   listTeamManagementApplicationsMock.mockResolvedValue(
     page([item('a', 'SUBMITTED')]),
   );
@@ -112,7 +111,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await root.unmount();
   container.remove();
   vi.clearAllMocks();
 });

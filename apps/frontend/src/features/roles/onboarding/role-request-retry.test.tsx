@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
@@ -58,7 +59,7 @@ describe('교직원 재요청 실패 안내', () => {
     );
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mocks.replace.mockReset();
     mocks.refresh.mockReset();
     refreshShared = vi.fn();
@@ -77,16 +78,12 @@ describe('교직원 재요청 실패 안내', () => {
         throw new Error(`예상하지 못한 요청: ${method} ${url}`);
       }),
     );
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+    root = await renderWithQuery(null);
+    container = root.container;
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await root.unmount();
     container.remove();
     vi.unstubAllGlobals();
   });

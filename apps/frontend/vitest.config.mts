@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
 const happyDomTests = [
+  'test-support/dashboard-admin-queries.test.tsx',
   'test-support/read-only-screens.test.tsx',
   'src/features/submissions/submission-checklist-page.test.tsx',
   'src/features/programs/teams/queries.test.tsx',

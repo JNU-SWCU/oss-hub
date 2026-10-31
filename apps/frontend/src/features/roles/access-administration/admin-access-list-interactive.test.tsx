@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -73,14 +74,13 @@ const baseViewProps = {
 let container: HTMLDivElement;
 let root: Root;
 
-beforeEach(() => {
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+beforeEach(async () => {
+  root = await renderWithQuery(null);
+  container = root.container;
 });
 
-afterEach(() => {
-  act(() => root.unmount());
+afterEach(async () => {
+  await root.unmount();
   container.remove();
 });
 

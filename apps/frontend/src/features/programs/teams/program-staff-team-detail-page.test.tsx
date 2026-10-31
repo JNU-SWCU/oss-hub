@@ -1,6 +1,6 @@
 import { act } from 'react';
-import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
-type Root = ReturnType<typeof createRoot>;
+import { renderWithQuery } from '../../../../test-support/render-with-query';
+type Root = Awaited<ReturnType<typeof renderWithQuery>>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
@@ -211,10 +211,9 @@ describe('ProgramStaffTeamDetailPage', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(() => {
-    container = document.createElement('div');
-    document.body.append(container);
-    root = createRoot(container);
+  beforeEach(async () => {
+    root = await renderWithQuery(null);
+    container = root.container;
     getStaffProgramTeamDetailMock.mockReset();
     publishRepositoryMock.mockReset();
     renameProgramTeamMock.mockReset();
@@ -229,8 +228,8 @@ describe('ProgramStaffTeamDetailPage', () => {
     vi.mocked(removeStaffTeamMember).mockReset();
   });
 
-  afterEach(() => {
-    act(() => root.unmount());
+  afterEach(async () => {
+    await root.unmount();
     container.remove();
   });
 
