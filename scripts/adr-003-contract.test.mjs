@@ -72,6 +72,8 @@ test('every ADR-003 rule id is an error in the backend ESLint config', () => {
     'src/programs/programs.controller.ts',
     'src/programs/dto/x-request.dto.ts',
     'src/programs/dto/x-response.dto.ts',
+    'src/programs/x.config.ts',
+    'src/programs/x.service.ts',
   ]) {
     const config = JSON.parse(
       execFileSync(

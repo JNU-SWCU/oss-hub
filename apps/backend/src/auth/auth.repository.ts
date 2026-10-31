@@ -274,7 +274,7 @@ export class AuthRepository {
   }
 }
 
-interface AuthLoginRow {
+export interface AuthLoginRow {
   readonly user: AuthUserRecord;
   readonly isNew: boolean;
 }

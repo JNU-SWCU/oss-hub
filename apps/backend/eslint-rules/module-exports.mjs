@@ -12,7 +12,9 @@ function isFunctionBinding(context, specifier) {
   const definition = scope?.set.get(name)?.defs[0];
   if (!definition) return false;
   if (definition.type === 'FunctionName') return true;
-  return definition.type === 'Variable' && isFunctionValue(definition.node.init);
+  return (
+    definition.type === 'Variable' && isFunctionValue(definition.node.init)
+  );
 }
 
 function exportedFunctionRule(message, isAllowed) {
