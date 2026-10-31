@@ -44,13 +44,41 @@ describe('팀 초대 대상 자격', () => {
       'not-eligible',
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
-    const repository = new TeamInvitationsRepository({
-      user: { findUnique: jest.fn().mockResolvedValue(user) },
-    } as unknown as PrismaService);
+    const repository = Object.assign(
+      new TeamInvitationsRepository({
+        user: { findUnique: jest.fn().mockResolvedValue(user) },
+      } as unknown as PrismaService),
+      {
+        findUserIdByGithubId: jest.fn().mockResolvedValue(leaderId),
+        findTeamContext: jest.fn().mockResolvedValue({
+          teamId,
+          programId,
+          leaderId,
+          teamMaxSize: 4,
+        }),
+        createInvitation: jest.fn().mockResolvedValue({ kind: 'team-full' }),
+      },
+    );
+    const service = new TeamInvitationsService(
+      repository,
+      { record: jest.fn() } as unknown as AuditLogService,
+      new AuditLogMetadataService(),
+    );
 
-    const result = await repository.getInviteeEligibility(inviteeId);
+    const invitation = service.create(leaderGithubId, teamId, inviteeId);
 
-    expect(result).toBe(expected);
+    await expect(invitation).rejects.toMatchObject({
+      errorCode: {
+        code: {
+          'not-found': 'TIV_006',
+          'not-eligible': 'TIV_013',
+          eligible: 'TIV_009',
+        }[expected],
+      },
+    });
+    expect(repository.createInvitation).toHaveBeenCalledTimes(
+      expected === 'eligible' ? 1 : 0,
+    );
   });
 
   it('후보 검색은 ACTIVE STUDENT만 조회한다', async () => {
@@ -80,7 +108,10 @@ describe('팀 초대 대상 자격', () => {
         leaderId,
         teamMaxSize: 4,
       }),
-      getInviteeEligibility: jest.fn().mockResolvedValue('not-eligible'),
+      findInviteeAccount: jest.fn().mockResolvedValue({
+        accountStatus: AccountStatus.ACTIVE,
+        profile: { memberKind: MemberKind.STAFF },
+      }),
       isActiveStaff: jest.fn().mockResolvedValue(false),
       isUserInProgramTeam: jest.fn().mockResolvedValue(false),
       countTeamMembers: jest.fn().mockResolvedValue(1),

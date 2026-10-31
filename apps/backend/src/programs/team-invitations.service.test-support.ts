@@ -1,3 +1,4 @@
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { TeamInvitationStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
@@ -47,7 +48,7 @@ export type MockRepository = TeamInvitationsRepository & {
   findTeamContext: jest.Mock;
   isTeamMember: jest.Mock;
   isActiveStaff: jest.Mock;
-  getInviteeEligibility: jest.Mock;
+  findInviteeAccount: jest.Mock;
   searchCandidates: jest.Mock;
   createInvitation: jest.Mock;
   cancelPendingInvitationAsLeader: jest.Mock;
@@ -76,7 +77,10 @@ export function buildService(
     isTeamMember: jest.fn().mockResolvedValue(true),
 
     isActiveStaff: jest.fn().mockResolvedValue(false),
-    getInviteeEligibility: jest.fn().mockResolvedValue('eligible'),
+    findInviteeAccount: jest.fn().mockResolvedValue({
+      accountStatus: AccountStatus.ACTIVE,
+      profile: { memberKind: MemberKind.STUDENT },
+    }),
     searchCandidates: jest.fn().mockResolvedValue([]),
     createInvitation: jest
       .fn()

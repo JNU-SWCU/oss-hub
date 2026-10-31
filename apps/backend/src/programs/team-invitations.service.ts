@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -12,6 +13,7 @@ import {
   type InvitationCandidateRecord,
   type ReceivedTeamInvitationRecord,
   type SentTeamInvitationRecord,
+  type InviteeAccountRow,
 } from './team-invitations.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
@@ -63,8 +65,9 @@ export class TeamInvitationsService {
     if (inviteeUserId === actorId) {
       throw this.error(TeamInvitationErrorCode.SELF_INVITE_FORBIDDEN);
     }
-    const inviteeEligibility =
-      await this.repository.getInviteeEligibility(inviteeUserId);
+    const inviteeEligibility = this.inviteeEligibility(
+      await this.repository.findInviteeAccount(inviteeUserId),
+    );
     switch (inviteeEligibility) {
       case 'not-found':
         throw this.error(TeamInvitationErrorCode.INVITEE_NOT_FOUND);
@@ -209,5 +212,15 @@ export class TeamInvitationsService {
 
   private error(code: TeamInvitationErrorCode): DomainException {
     return new DomainException(TEAM_INVITATION_ERROR_CODES[code]);
+  }
+
+  private inviteeEligibility(
+    account: InviteeAccountRow | null,
+  ): 'eligible' | 'not-found' | 'not-eligible' {
+    if (account === null) return 'not-found';
+    return account.profile?.memberKind === MemberKind.STUDENT &&
+      account.accountStatus === AccountStatus.ACTIVE
+      ? 'eligible'
+      : 'not-eligible';
   }
 }
