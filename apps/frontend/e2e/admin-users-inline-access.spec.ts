@@ -749,6 +749,35 @@ test('가입 신청 큐에는 드롭다운이 없다 (1280px)', async ({ page })
   audit.assertClean();
 });
 
+test('관리자 단독 계정은 사이드바에서 가입 신청 큐로 들어간다', async ({
+  page,
+}) => {
+  const audit = installBrowserAudit(page);
+  await installSyntheticAuthority(
+    page,
+    {
+      role: 'ADMIN',
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+    },
+    adminUsersHandlers(createStore()),
+  );
+  await page.setViewportSize(DESKTOP);
+  await page.goto('/dashboard/users');
+  await page
+    .locator('[data-slot="app-sidebar-nav"]')
+    .getByRole('link', { name: '가입 신청', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: '가입 신청', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('region', { name: '가입 신청 표' }),
+  ).toContainText('합성 사용자 05');
+  audit.assertClean();
+});
+
 test('권한 필드가 없는 목록 응답은 배지로 렌더링되고 오류가 없다 (1280px)', async ({
   page,
 }) => {
