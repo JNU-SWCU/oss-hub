@@ -31,6 +31,7 @@ const policyResponse = {
     },
   ],
   consented: false,
+  acceptedPolicyVersion: null,
   nextUrl: '/onboarding/role',
 } as const;
 

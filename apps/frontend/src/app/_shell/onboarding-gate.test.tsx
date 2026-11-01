@@ -94,6 +94,7 @@ describe('OnboardingGate consent-required dialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     mocks.pathname.mockReturnValue('/dashboard');
     mocks.getCurrentConsent.mockResolvedValue({ consented: true });
     mocks.useSessionRole.mockReturnValue({
@@ -139,6 +140,68 @@ describe('OnboardingGate consent-required dialog', () => {
     await act(async () => root.render(home));
     expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
     expect(container.querySelector('button')).toBeNull();
+  });
+
+  it('이전 버전 동의자는 본문과 함께 공지를 한 번만 보고, 확인 뒤에는 다시 보지 않는다', async () => {
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.getCurrentConsent.mockResolvedValue({
+      consented: true,
+      policyVersion: '2026-11-01',
+      acceptedPolicyVersion: '2026-10-19',
+    });
+    const home = (
+      <AppFrame>
+        <p data-testid="home">학생 홈</p>
+      </AppFrame>
+    );
+    const notice = () =>
+      document.body.querySelector('[data-testid="policy-notice"]');
+
+    await act(async () => root.render(home));
+
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(notice()).not.toBeNull();
+    const confirm = [...document.body.querySelectorAll('button')].find(
+      (button) => button.textContent === '확인',
+    );
+    await act(async () => confirm?.click());
+    expect(notice()).toBeNull();
+
+    await act(async () => root.render(null));
+    await act(async () => root.render(home));
+    expect(notice()).toBeNull();
+  });
+
+  it('현재 버전 동의자에게는 공지를 띄우지 않는다', async () => {
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.getCurrentConsent.mockResolvedValue({
+      consented: true,
+      policyVersion: '2026-11-01',
+      acceptedPolicyVersion: '2026-11-01',
+    });
+
+    await act(async () =>
+      root.render(
+        <AppFrame>
+          <p data-testid="home">학생 홈</p>
+        </AppFrame>,
+      ),
+    );
+
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(
+      document.body.querySelector('[data-testid="policy-notice"]'),
+    ).toBeNull();
   });
 
   it('new signup consents during onboarding and reaches home without another popup', async () => {

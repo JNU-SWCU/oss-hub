@@ -15,6 +15,7 @@ const currentConsentResponse = {
     { key: 'BETA', label: '두 번째 항목', documentUrl: '/policies/beta' },
   ],
   consented: false,
+  acceptedPolicyVersion: null,
   nextUrl: '/next-from-server',
 };
 
@@ -113,6 +114,7 @@ test('알 수 없는 현재 정책 응답을 안전한 타입 오류로 거부�
         policyVersion: 'policy-test-v2',
         requiredItems: [{ key: 'ALPHA', label: '항목' }],
         consented: false,
+        acceptedPolicyVersion: null,
         nextUrl: '/next-from-server',
       }),
       {
