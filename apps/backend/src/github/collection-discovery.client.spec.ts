@@ -162,12 +162,35 @@ function fakeTokenProvider(
   };
 }
 
+interface ContributedRepository {
+  readonly nameWithOwner: string;
+  readonly stargazerCount: number;
+  readonly ownerType?: 'Organization' | 'User';
+  readonly ownerLogin?: string;
+  readonly isPrivate?: boolean;
+}
+
+const contributionNode = (repository: ContributedRepository) => ({
+  repository: {
+    nameWithOwner: repository.nameWithOwner,
+    isPrivate: repository.isPrivate ?? false,
+    stargazerCount: repository.stargazerCount,
+    owner: {
+      __typename: repository.ownerType ?? 'Organization',
+      login: repository.ownerLogin ?? repository.nameWithOwner.split('/')[0],
+    },
+  },
+});
+
 function activityBody(overrides: {
   totalCommitContributions?: number;
   totalPullRequestContributions?: number;
   totalIssueContributions?: number;
   totalRepositoryContributions?: number;
   stargazerCounts?: number[];
+  organizationLogins?: string[];
+  commitContributions?: ContributedRepository[];
+  pullRequestContributions?: ContributedRepository[];
   totalCount?: number;
   hasNextPage?: boolean;
   endCursor?: string | null;
@@ -181,6 +204,11 @@ function activityBody(overrides: {
         remaining: 4_999,
       },
       user: {
+        organizations: {
+          nodes: (overrides.organizationLogins ?? []).map((login) => ({
+            login,
+          })),
+        },
         contributionsCollection: {
           totalCommitContributions: overrides.totalCommitContributions ?? 0,
           totalPullRequestContributions:
@@ -188,6 +216,12 @@ function activityBody(overrides: {
           totalIssueContributions: overrides.totalIssueContributions ?? 0,
           totalRepositoryContributions:
             overrides.totalRepositoryContributions ?? 0,
+          commitContributionsByRepository: (
+            overrides.commitContributions ?? []
+          ).map(contributionNode),
+          pullRequestContributionsByRepository: (
+            overrides.pullRequestContributions ?? []
+          ).map(contributionNode),
         },
         repositories: {
           totalCount: overrides.totalCount ?? stargazerCounts.length,
@@ -196,6 +230,36 @@ function activityBody(overrides: {
             hasNextPage: overrides.hasNextPage ?? false,
             endCursor: overrides.endCursor ?? null,
           },
+        },
+      },
+    },
+  });
+}
+
+function rawUserBody(parts: {
+  organizations?: unknown;
+  commitContributionsByRepository?: unknown;
+  pullRequestContributionsByRepository?: unknown;
+}) {
+  return json({
+    data: {
+      rateLimit: { cost: 1, remaining: 4_999 },
+      user: {
+        organizations: parts.organizations,
+        contributionsCollection: {
+          totalCommitContributions: 1,
+          totalPullRequestContributions: 1,
+          totalIssueContributions: 1,
+          totalRepositoryContributions: 1,
+          commitContributionsByRepository:
+            parts.commitContributionsByRepository,
+          pullRequestContributionsByRepository:
+            parts.pullRequestContributionsByRepository,
+        },
+        repositories: {
+          totalCount: 0,
+          nodes: [],
+          pageInfo: { hasNextPage: false, endCursor: null },
         },
       },
     },
@@ -572,11 +636,14 @@ describe('CollectionDiscoveryClient', () => {
           data: {
             rateLimit: { cost: 1, remaining: 4999 },
             user: {
+              organizations: { nodes: [] },
               contributionsCollection: {
                 totalCommitContributions: 2,
                 totalPullRequestContributions: 0,
                 totalIssueContributions: 0,
                 totalRepositoryContributions: 0,
+                commitContributionsByRepository: [],
+                pullRequestContributionsByRepository: [],
               },
               repositories: {
                 totalCount: 2,
@@ -631,6 +698,214 @@ describe('CollectionDiscoveryClient', () => {
       const init = fetcher.mock.calls[0]?.[1];
       expect(init?.body as string).not.toContain('injected-fake-token');
     });
+  });
+
+  describe('fetchUserActivityMetrics organization star scope', () => {
+    const runMetrics = (fetcher: Fetcher) =>
+      new CollectionDiscoveryClient(
+        config,
+        fakeTokenProvider(),
+        fetcher,
+      ).fetchUserActivityMetrics(
+        'octostudent',
+        '2026-01-01T00:00:00Z',
+        '2026-12-31T23:59:59Z',
+      );
+
+    it.each([
+      [
+        'owned repo stars plus a member-org repo the user committed to',
+        {
+          stargazerCounts: [10],
+          organizationLogins: ['Xia-Ataraxia'],
+          commitContributions: [
+            { nameWithOwner: 'Xia-Ataraxia/core', stargazerCount: 105 },
+          ],
+        },
+        115,
+      ],
+      [
+        'a member-org repo the user only opened pull requests in',
+        {
+          organizationLogins: ['Xia-Ataraxia'],
+          pullRequestContributions: [
+            { nameWithOwner: 'Xia-Ataraxia/web', stargazerCount: 40 },
+          ],
+        },
+        40,
+      ],
+      [
+        'a repo in both contribution lists counted once, matched case-insensitively',
+        {
+          organizationLogins: ['XIA-ataraxia'],
+          commitContributions: [
+            { nameWithOwner: 'Xia-Ataraxia/core', stargazerCount: 105 },
+          ],
+          pullRequestContributions: [
+            {
+              nameWithOwner: 'xia-ataraxia/Core',
+              ownerLogin: 'xia-ataraxia',
+              stargazerCount: 105,
+            },
+          ],
+        },
+        105,
+      ],
+      [
+        'nothing from non-member orgs, User-owned repos or private member-org repos',
+        {
+          organizationLogins: ['Xia-Ataraxia'],
+          commitContributions: [
+            { nameWithOwner: 'openclaw/openclaw', stargazerCount: 20_000 },
+            {
+              nameWithOwner: 'Xia-Ataraxia/owned-by-user',
+              ownerType: 'User' as const,
+              stargazerCount: 500,
+            },
+            {
+              nameWithOwner: 'Xia-Ataraxia/secret',
+              isPrivate: true,
+              stargazerCount: 999,
+            },
+            { nameWithOwner: 'Xia-Ataraxia/core', stargazerCount: 105 },
+          ],
+          pullRequestContributions: [
+            {
+              nameWithOwner: 'google-gemini/gemini-cli',
+              stargazerCount: 70_000,
+            },
+          ],
+        },
+        105,
+      ],
+    ])('counts %s', async (_label, body, starCount) => {
+      const fetcher = fetchMock().mockResolvedValueOnce(activityBody(body));
+
+      await expect(runMetrics(fetcher)).resolves.toMatchObject({ starCount });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads organizations and contributed repos from the first page only while paging owned repos', async () => {
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(
+          activityBody({
+            stargazerCounts: [7],
+            organizationLogins: ['Xia-Ataraxia'],
+            commitContributions: [
+              { nameWithOwner: 'Xia-Ataraxia/core', stargazerCount: 105 },
+            ],
+            hasNextPage: true,
+            endCursor: 'CURSOR_PAGE_2',
+          }),
+        )
+        .mockResolvedValueOnce(
+          activityBody({
+            stargazerCounts: [3],
+            organizationLogins: ['Other-Org'],
+            commitContributions: [
+              { nameWithOwner: 'Other-Org/ignored', stargazerCount: 1_000 },
+            ],
+          }),
+        );
+
+      await expect(runMetrics(fetcher)).resolves.toMatchObject({
+        starCount: 115,
+      });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops with a typed RESPONSE error when the owned repo pages never end', async () => {
+      const fetcher = fetchMock().mockImplementation(() =>
+        Promise.resolve(
+          activityBody({
+            stargazerCounts: [1],
+            organizationLogins: ['Xia-Ataraxia'],
+            commitContributions: [
+              { nameWithOwner: 'Xia-Ataraxia/core', stargazerCount: 105 },
+            ],
+            hasNextPage: true,
+            endCursor: 'CURSOR_NEXT',
+          }),
+        ),
+      );
+
+      await expect(runMetrics(fetcher)).rejects.toMatchObject({
+        kind: 'RESPONSE',
+      });
+      expect(fetcher).toHaveBeenCalledTimes(50);
+    });
+
+    it('skips null organization nodes and null contribution entries instead of failing', async () => {
+      const fetcher = fetchMock().mockResolvedValueOnce(
+        rawUserBody({
+          organizations: { nodes: [null, { login: 'Xia-Ataraxia' }] },
+          commitContributionsByRepository: [
+            null,
+            contributionNode({
+              nameWithOwner: 'Xia-Ataraxia/core',
+              stargazerCount: 105,
+            }),
+          ],
+          pullRequestContributionsByRepository: [null],
+        }),
+      );
+
+      await expect(runMetrics(fetcher)).resolves.toMatchObject({
+        starCount: 105,
+      });
+    });
+
+    it.each([
+      [
+        'a missing organizations connection',
+        {
+          organizations: undefined,
+          commitContributionsByRepository: [],
+          pullRequestContributionsByRepository: [],
+        },
+      ],
+      [
+        'a commit contribution list that is not an array',
+        {
+          organizations: { nodes: [{ login: 'Xia-Ataraxia' }] },
+          commitContributionsByRepository: {},
+          pullRequestContributionsByRepository: [],
+        },
+      ],
+      [
+        'a contributed repository without an owner',
+        {
+          organizations: { nodes: [{ login: 'Xia-Ataraxia' }] },
+          commitContributionsByRepository: [
+            {
+              repository: {
+                nameWithOwner: 'Xia-Ataraxia/core',
+                isPrivate: false,
+                stargazerCount: 105,
+              },
+            },
+          ],
+          pullRequestContributionsByRepository: [],
+        },
+      ],
+    ])(
+      'throws a typed RESPONSE error rather than crashing on %s',
+      async (_label, parts) => {
+        const fetcher = fetchMock().mockResolvedValue(rawUserBody(parts));
+
+        const error = await runMetrics(fetcher).then(
+          (value) => {
+            throw new Error(
+              `expected a typed rejection, resolved with ${JSON.stringify(value)}`,
+            );
+          },
+          (thrown: unknown) => thrown,
+        );
+
+        expect(error).toBeInstanceOf(CollectionDiscoveryClientError);
+        expect(error).toMatchObject({ kind: 'RESPONSE' });
+      },
+    );
   });
 
   it('throws RESPONSE on a malformed body shape instead of silently defaulting', async () => {
