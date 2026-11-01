@@ -21,6 +21,12 @@ export function memberSurfaces(access: MemberAccess): readonly MemberSurface[] {
   return surfaces;
 }
 
+export function hasStaffAudience(
+  access: Pick<MemberAccess, 'hasStaffAccess' | 'hasAdminAccess'>,
+): boolean {
+  return access.hasStaffAccess || access.hasAdminAccess;
+}
+
 export function hasMemberSurface(
   access: MemberAccess,
   allowed: readonly MemberSurface[],
