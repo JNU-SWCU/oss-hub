@@ -92,6 +92,7 @@ async function openRanking(
             documentUrl: '/policies/privacy',
           },
         ],
+        acceptedPolicyVersion: '2026-11-01',
         consented: true,
         nextUrl: '/ranking',
       }),
