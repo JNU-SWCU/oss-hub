@@ -30,6 +30,7 @@
     },
     "apps/backend": {
       "entry": [
+        "scripts/seed-ranking-monthly.mjs",
         "src/main.ts",
         "src/cli.ts",
         "test/e2e-program-authoring/main.ts",
@@ -57,7 +58,11 @@
         "{src,e2e,test-support,scripts}/**/*.{js,mjs,cjs,ts,tsx}",
         "*.{js,mjs,cjs,ts,mts}"
       ],
-      "ignoreDependencies": ["pretendard", "@prisma/client"],
+      "ignoreDependencies": [
+        "pretendard",
+        "@prisma/client",
+        "@fontsource/comic-neue"
+      ],
       "paths": {
         "server-only": [
           "./node_modules/next/dist/compiled/server-only/index.js"

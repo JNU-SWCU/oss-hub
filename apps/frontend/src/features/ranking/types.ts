@@ -65,6 +65,18 @@ export interface StaffRankingPage extends RankingPageEnvelope {
 export type RankingPage =
   PublicRankingPage | MemberRankingPage | StaffRankingPage;
 
+export interface RankingTimelineSeries {
+  readonly githubLogin: string;
+  readonly ranks: readonly (number | null)[];
+  readonly totals: readonly (number | null)[];
+}
+
+export interface RankingTimeline {
+  readonly year: number;
+  readonly months: readonly number[];
+  readonly series: readonly RankingTimelineSeries[];
+}
+
 export interface RankingYears {
   readonly years: readonly number[];
 }

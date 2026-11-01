@@ -33,6 +33,7 @@ export interface CollectionActivityUserRow {
 export interface CollectionUserActivityObservationInput {
   readonly githubId: bigint;
   readonly year: number;
+  readonly month: number;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -71,17 +72,53 @@ export class CollectionUserActivityRepository {
   async upsertObservation(
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
-    const { githubId, year, ...row } = observation;
+    const { githubId, year, month, githubLogin, ...counts } = observation;
     const visibility = ActivityVisibility.PUBLIC;
-    await this.db.githubUserActivityHistory.upsert({
-      where: { githubId_year_visibility: { githubId, year, visibility } },
-      create: { githubId, year, ...row, visibility },
-      update: { ...row, visibility },
+    const row = { githubLogin, ...counts };
+    await this.db.$transaction(async (transaction) => {
+      await transaction.githubUserActivityHistory.upsert({
+        where: { githubId_year_visibility: { githubId, year, visibility } },
+        create: { githubId, year, ...row, visibility },
+        update: { ...row, visibility },
+      });
+      const privateCounts =
+        await transaction.githubUserActivityHistory.findUnique({
+          where: {
+            githubId_year_visibility: {
+              githubId,
+              year,
+              visibility: ActivityVisibility.PRIVATE,
+            },
+          },
+          select: {
+            commitCount: true,
+            pullRequestCount: true,
+            issueCount: true,
+            repositoryCount: true,
+          },
+        });
+      const monthly = {
+        ...counts,
+        commitCount: counts.commitCount + (privateCounts?.commitCount ?? 0),
+        pullRequestCount:
+          counts.pullRequestCount + (privateCounts?.pullRequestCount ?? 0),
+        issueCount: counts.issueCount + (privateCounts?.issueCount ?? 0),
+        repositoryCount:
+          counts.repositoryCount + (privateCounts?.repositoryCount ?? 0),
+      };
+      await transaction.githubUserActivityMonthly.upsert({
+        where: { githubId_year_month: { githubId, year, month } },
+        create: { githubId, year, month, ...monthly },
+        update: monthly,
+      });
     });
   }
 
   async upsertPrivateObservation(
-    observation: Omit<CollectionUserActivityObservationInput, 'starCount'>,
+    observation: Omit<
+      CollectionUserActivityObservationInput,
+      'starCount' | 'month'
+    >,
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
     const visibility = ActivityVisibility.PRIVATE;

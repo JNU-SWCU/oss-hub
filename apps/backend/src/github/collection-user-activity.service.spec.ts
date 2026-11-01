@@ -32,6 +32,7 @@ describe('CollectionUserActivityService', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
   const upsert = jest.fn();
+  const monthlyUpsert = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
 
   const now = () => new Date('2026-08-19T00:00:00.000Z');
@@ -41,6 +42,12 @@ describe('CollectionUserActivityService', () => {
       new CollectionUserActivityRepository({
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
+        githubUserActivityMonthly: { upsert: monthlyUpsert },
+        $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
+          operation({
+            githubUserActivityHistory: { findUnique, upsert },
+            githubUserActivityMonthly: { upsert: monthlyUpsert },
+          }),
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
@@ -60,6 +67,8 @@ describe('CollectionUserActivityService', () => {
     findUnique.mockResolvedValue(null);
     upsert.mockReset();
     upsert.mockResolvedValue(undefined);
+    monthlyUpsert.mockReset();
+    monthlyUpsert.mockResolvedValue(undefined);
     fetchUserActivityMetrics.mockReset();
   });
 
@@ -112,6 +121,19 @@ describe('CollectionUserActivityService', () => {
         commitCount: 10,
         starCount: 5,
       }) as unknown,
+    });
+    expect(monthlyUpsert).toHaveBeenCalledWith({
+      where: {
+        githubId_year_month: { githubId: 4242n, year: 2026, month: 8 },
+      },
+      create: expect.objectContaining({
+        githubId: 4242n,
+        year: 2026,
+        month: 8,
+        commitCount: 10,
+        starCount: 5,
+      }) as unknown,
+      update: expect.objectContaining({ commitCount: 10 }) as unknown,
     });
     expect(result).toEqual({
       observedUserCount: 1,

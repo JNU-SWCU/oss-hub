@@ -12,6 +12,34 @@ export class RankingYearService {
     );
   }
 
+  compareRanked(left: RankedActivity, right: RankedActivity): number {
+    const normalizedLoginOrder = left.githubLogin
+      .normalize()
+      .toLocaleLowerCase('en-US')
+      .localeCompare(
+        right.githubLogin.normalize().toLocaleLowerCase('en-US'),
+        'en-US',
+      );
+    return (
+      right.total - left.total ||
+      right.commitCount - left.commitCount ||
+      right.pullRequestCount - left.pullRequestCount ||
+      right.issueCount - left.issueCount ||
+      right.repositoryCount - left.repositoryCount ||
+      right.starCount - left.starCount ||
+      normalizedLoginOrder ||
+      (left.githubId < right.githubId
+        ? -1
+        : left.githubId > right.githubId
+          ? 1
+          : 0)
+    );
+  }
+
+  rankingMonthInAsiaSeoul(date: Date): number {
+    return new Date(date.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCMonth() + 1;
+  }
+
   rankingYearInAsiaSeoul(date: Date): number {
     return new Date(date.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
   }
@@ -70,6 +98,12 @@ export interface ActivityCounts {
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
+}
+
+export interface RankedActivity extends ActivityCounts {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+  readonly total: number;
 }
 
 export const RANKING_YEAR_ALL = 'all' as const;

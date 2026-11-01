@@ -16,10 +16,19 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const api = vi.hoisted(() => ({
   getRanking: vi.fn(),
+  getRankingTimeline: vi.fn(),
   downloadTextFile: vi.fn(),
 }));
 
-vi.mock('../api', () => ({ getRanking: api.getRanking }));
+vi.mock('../api', () => ({
+  getRanking: api.getRanking,
+  getRankingTimeline: api.getRankingTimeline,
+}));
+vi.mock('./ranking-history-chart', () => ({
+  RankingHistoryChart: () => null,
+  RankingHistoryChartError: () => null,
+  RankingHistoryChartLoading: () => null,
+}));
 vi.mock('../csv', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../csv')>();
   return { ...actual, downloadTextFile: api.downloadTextFile };
@@ -80,6 +89,11 @@ describe('RankingScreen', () => {
   let root: Root;
 
   beforeEach(() => {
+    api.getRankingTimeline.mockResolvedValue({
+      year: 2026,
+      months: [],
+      series: [],
+    });
     listNavigation.search = 'year=2026';
     container = document.createElement('div');
     document.body.append(container);

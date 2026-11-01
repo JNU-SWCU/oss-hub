@@ -183,29 +183,7 @@ export class RankingService {
     }));
 
     return [...candidates]
-      .sort((left, right) => {
-        const normalizedLoginOrder = left.githubLogin
-          .normalize()
-          .toLocaleLowerCase('en-US')
-          .localeCompare(
-            right.githubLogin.normalize().toLocaleLowerCase('en-US'),
-            'en-US',
-          );
-        return (
-          right.total - left.total ||
-          right.commitCount - left.commitCount ||
-          right.pullRequestCount - left.pullRequestCount ||
-          right.issueCount - left.issueCount ||
-          right.repositoryCount - left.repositoryCount ||
-          right.starCount - left.starCount ||
-          normalizedLoginOrder ||
-          (left.githubId < right.githubId
-            ? -1
-            : left.githubId > right.githubId
-              ? 1
-              : 0)
-        );
-      })
+      .sort((left, right) => this.rankingYearService.compareRanked(left, right))
       .map((entry, index) => ({
         githubId: entry.githubId,
         rank: index + 1,

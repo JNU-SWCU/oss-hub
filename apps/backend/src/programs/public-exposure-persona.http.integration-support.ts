@@ -39,6 +39,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
+import { RankingTimelineService } from '../ranking/ranking-timeline.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
@@ -151,6 +152,13 @@ export class PublicExposurePersonaHttpHarness {
       providers: [
         { provide: PublicProjectsService, useValue: publicProjectsService },
         { provide: RankingService, useValue: rankingService },
+        {
+          provide: RankingTimelineService,
+          useValue: new RankingTimelineService(
+            new RankingRepository(this.prisma),
+            new RankingYearService(),
+          ),
+        },
         RankingYearService,
         {
           provide: SubmissionReviewsService,

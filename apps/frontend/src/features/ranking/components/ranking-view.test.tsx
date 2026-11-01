@@ -126,7 +126,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).not.toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8 sm:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
   expect(html).toContain(githubLogin);
@@ -779,7 +779,7 @@ test('공개 화면도 지표 여덟 열을 렌더한다 — 신원만 빠진다
   });
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8 sm:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   for (const column of [
     'rank',
@@ -837,7 +837,7 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
   expect(html).toContain(STAFF_ROW.department);
   expect(html).toContain('CSV 다운로드');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8 sm:w-20,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
 });
 
@@ -999,7 +999,7 @@ test('member 화면도 공개와 같은 지표 여덟 열이다 — 이름·학�
   const html = memberAxisMarkup([publicPersonAxisItem()]);
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-8 sm:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   for (const value of ['128', '24', '17', '9', '213', '391']) {
     expect(html).toContain(`>${value}<`);
