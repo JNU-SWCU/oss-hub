@@ -71,7 +71,7 @@ export function useConsentFlow({
         const consent = await queryClient.fetchQuery({
           queryKey: featureKey('consents'),
           queryFn: ({ signal: querySignal }) => getCurrentConsent(querySignal),
-          staleTime: 0,
+          staleTime: Infinity,
         });
         if (signal?.aborted) return;
         applyFlowState(applyCurrentConsent(consent));

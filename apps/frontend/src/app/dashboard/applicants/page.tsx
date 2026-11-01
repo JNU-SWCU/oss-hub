@@ -5,7 +5,7 @@ import { AdminAccessScreen } from '@/features/roles/access-administration/compon
 
 export default function ApplicantQueuePage() {
   return (
-    <RolePanelShell allow={['staff']}>
+    <RolePanelShell allow={['staff', 'admin']}>
       <Suspense fallback={null}>
         <AdminAccessScreen workspace="queue" />
       </Suspense>

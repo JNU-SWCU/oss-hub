@@ -11,9 +11,9 @@ import {
   ConsentUser,
 } from './member-onboarding.repository';
 
-export const CONSENT_POLICY_VERSION = '2026-10-19';
+export const CONSENT_POLICY_VERSION = '2026-11-01';
 
-const COMPATIBLE_CONSENT_POLICY_VERSIONS = ['2026-08-11'] as const;
+const COMPATIBLE_CONSENT_POLICY_VERSIONS = [] as const;
 
 export const CONSENT_ITEM_KEYS = {
   PRIVACY_COLLECTION: 'PRIVACY_COLLECTION',

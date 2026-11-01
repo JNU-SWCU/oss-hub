@@ -6,10 +6,14 @@ export const STUDENT_MENU: NavItem[] = [
   { label: '내 활동', href: '/dashboard/activity' },
 ];
 
-export const STAFF_MENU: NavItem[] = [
-  { label: '운영 대시보드', href: '/dashboard' },
+export const STAFF_OPERATIONS_MENU: NavItem[] = [
   { label: '학생 활성', href: '/dashboard/insights' },
   { label: '가입 신청', href: '/dashboard/applicants' },
+];
+
+export const STAFF_MENU: NavItem[] = [
+  { label: '운영 대시보드', href: '/dashboard' },
+  ...STAFF_OPERATIONS_MENU,
 ];
 
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
