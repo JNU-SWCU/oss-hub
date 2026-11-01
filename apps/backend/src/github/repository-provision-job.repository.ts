@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
   AccountStatus,
+  ActivityVisibility,
   Prisma,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -55,7 +56,13 @@ export class CollectionUserActivityRepository {
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
     const existing = await this.db.githubUserActivityHistory.findUnique({
-      where: { githubId_year: { githubId, year } },
+      where: {
+        githubId_year_visibility: {
+          githubId,
+          year,
+          visibility: ActivityVisibility.PUBLIC,
+        },
+      },
       select: { githubId: true },
     });
     return existing !== null;
@@ -65,10 +72,23 @@ export class CollectionUserActivityRepository {
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
+    const visibility = ActivityVisibility.PUBLIC;
     await this.db.githubUserActivityHistory.upsert({
-      where: { githubId_year: { githubId, year } },
-      create: { githubId, year, ...row },
-      update: row,
+      where: { githubId_year_visibility: { githubId, year, visibility } },
+      create: { githubId, year, ...row, visibility },
+      update: { ...row, visibility },
+    });
+  }
+
+  async upsertPrivateObservation(
+    observation: Omit<CollectionUserActivityObservationInput, 'starCount'>,
+  ): Promise<void> {
+    const { githubId, year, ...row } = observation;
+    const visibility = ActivityVisibility.PRIVATE;
+    await this.db.githubUserActivityHistory.upsert({
+      where: { githubId_year_visibility: { githubId, year, visibility } },
+      create: { githubId, year, ...row, visibility, starCount: 0 },
+      update: { ...row, visibility, starCount: 0 },
     });
   }
 }

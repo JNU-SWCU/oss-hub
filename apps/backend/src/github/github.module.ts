@@ -12,6 +12,7 @@ import {
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { COLLECTION_PROVIDERS } from './collection-public-token.service';
 import { CollectionTriggerService } from './collection-trigger.service';
+import { CollectionUserActivityService } from './collection-user-activity.service';
 import { GithubAppClient } from './github-app.client';
 import { GithubAppTokenClient } from './github-app-token.client';
 import { GithubOperationsConfig } from './github-operations.config';
@@ -73,6 +74,7 @@ import { RepositoryProvisionGithubService } from './repository-provision-github.
     CollectionAdminService,
     CollectionScheduleService,
     CollectionTriggerService,
+    CollectionUserActivityService,
     RepositoriesService,
     RepositoriesReadService,
     OwnRepositoryUrlValidationService,

@@ -146,6 +146,7 @@ describe('GithubModule', () => {
       CollectionAdminService,
       CollectionScheduleService,
       CollectionTriggerService,
+      CollectionUserActivityService,
       RepositoriesService,
       RepositoriesReadService,
       OwnRepositoryUrlValidationService,
