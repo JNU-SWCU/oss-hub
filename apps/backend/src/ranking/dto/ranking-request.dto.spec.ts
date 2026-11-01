@@ -1,7 +1,10 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { RankingRequestDto } from './ranking-request.dto';
+import {
+  RankingRequestDto,
+  RankingTimelineRequestDto,
+} from './ranking-request.dto';
 import {
   RankingYearService,
   LEGACY_RANKING_PERIODS,
@@ -82,5 +85,18 @@ describe('resolveRankingQueryYear (Q5)', () => {
 
   it('year·period 가 모두 없으면 올해로 본다', () => {
     expect(rankingYearService.resolveRankingQueryYear({}, fixedNow)).toBe(2026);
+  });
+});
+
+describe('RankingTimelineRequestDto', () => {
+  it.each([
+    ['2026', 0],
+    ['all', 1],
+    ['0x7ea', 1],
+    [undefined, 1],
+  ])('year=%s 검증 오류 %i건', async (year, errors) => {
+    expect(
+      await validate(plainToInstance(RankingTimelineRequestDto, { year })),
+    ).toHaveLength(errors);
   });
 });

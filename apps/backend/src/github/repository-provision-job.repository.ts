@@ -32,6 +32,7 @@ export interface CollectionActivityUserRow {
 export interface CollectionUserActivityObservationInput {
   readonly githubId: bigint;
   readonly year: number;
+  readonly month: number;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -64,12 +65,20 @@ export class CollectionUserActivityRepository {
   async upsertObservation(
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
-    const { githubId, year, ...row } = observation;
-    await this.db.githubUserActivityHistory.upsert({
-      where: { githubId_year: { githubId, year } },
-      create: { githubId, year, ...row },
-      update: row,
-    });
+    const { githubId, year, month, githubLogin, ...counts } = observation;
+    const row = { githubLogin, ...counts };
+    await this.db.$transaction([
+      this.db.githubUserActivityHistory.upsert({
+        where: { githubId_year: { githubId, year } },
+        create: { githubId, year, ...row },
+        update: row,
+      }),
+      this.db.githubUserActivityMonthly.upsert({
+        where: { githubId_year_month: { githubId, year, month } },
+        create: { githubId, year, month, ...counts },
+        update: counts,
+      }),
+    ]);
   }
 }
 

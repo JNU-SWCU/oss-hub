@@ -4,6 +4,7 @@ import { LEGACY_RANKING_PERIODS } from '../ranking-year.service';
 import type { LegacyRankingPeriod } from '../ranking-year.service';
 
 const RANKING_YEAR_PARAM_PATTERN = /^(all|20\d{2}|2100)$/i;
+const RANKING_TIMELINE_YEAR_PATTERN = /^(20\d{2}|2100)$/;
 
 export class RankingRequestDto {
   @IsOptional()
@@ -24,4 +25,9 @@ export class RankingRequestDto {
   @Min(1)
   @Max(100)
   readonly pageSize: number = 20;
+}
+
+export class RankingTimelineRequestDto {
+  @Matches(RANKING_TIMELINE_YEAR_PATTERN)
+  readonly year!: string;
 }

@@ -4,6 +4,10 @@ import type {
   RankingViewerClass,
 } from '../ranking.service';
 import type { RankingYear } from '../ranking-year.service';
+import type {
+  RankingTimeline,
+  RankingTimelineSeries,
+} from '../ranking-timeline.service';
 
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;
@@ -134,5 +138,19 @@ export class RankingYearsResponseDto {
 
   static from(years: readonly number[]): RankingYearsResponseDto {
     return { years };
+  }
+}
+
+export class RankingTimelineResponseDto {
+  declare readonly year: number;
+  declare readonly months: readonly number[];
+  declare readonly series: readonly RankingTimelineSeries[];
+
+  static from(timeline: RankingTimeline): RankingTimelineResponseDto {
+    return {
+      year: timeline.year,
+      months: timeline.months,
+      series: timeline.series,
+    };
   }
 }

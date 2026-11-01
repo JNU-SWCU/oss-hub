@@ -19,6 +19,16 @@ export interface RankingMetricRow {
   readonly starCount: number;
 }
 
+export interface RankingMonthlySnapshotRow {
+  readonly githubId: bigint;
+  readonly month: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
 export interface RankingMetricsQuery {
   readonly currentYear?: number;
 }
@@ -131,6 +141,23 @@ export class RankingRepository {
           starCount: totals?.starCount ?? 0,
         };
       });
+  }
+
+  async findMonthlySnapshots(
+    year: number,
+  ): Promise<readonly RankingMonthlySnapshotRow[]> {
+    return this.prisma.githubUserActivityMonthly.findMany({
+      where: { year },
+      select: {
+        githubId: true,
+        month: true,
+        commitCount: true,
+        pullRequestCount: true,
+        issueCount: true,
+        repositoryCount: true,
+        starCount: true,
+      },
+    });
   }
 
   async findNamesByGithubIds(

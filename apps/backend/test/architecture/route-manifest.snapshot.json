@@ -516,6 +516,11 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/ranking/timeline",
+    "access": "PUBLIC"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/ranking/years",
     "access": "PUBLIC"
   },
