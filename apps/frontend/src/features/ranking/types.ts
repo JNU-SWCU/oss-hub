@@ -16,9 +16,6 @@ export interface PublicRankingItem {
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
-}
-
-export interface MemberRankingItem extends PublicRankingItem {
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
@@ -57,7 +54,7 @@ export interface PublicRankingPage extends RankingPageEnvelope {
 
 interface MemberRankingPage extends RankingPageEnvelope {
   readonly viewerClass: typeof RANKING_VIEWER_CLASSES.MEMBER;
-  readonly items: readonly MemberRankingItem[];
+  readonly items: readonly PublicRankingItem[];
 }
 
 export interface StaffRankingPage extends RankingPageEnvelope {
