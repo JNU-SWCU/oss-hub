@@ -9,6 +9,26 @@ export const ProgramViewContext = createContext<ProgramScopeViewerRole | null>(
   null,
 );
 
+export function resolveProgramOperationsView(
+  programView: ProgramScopeViewerRole | null,
+  session: {
+    readonly memberKind: 'STUDENT' | 'STAFF' | null;
+    readonly hasStaffAccess: boolean;
+    readonly hasAdminAccess: boolean;
+  },
+): boolean | null {
+  if (programView !== null) {
+    return programView === 'STAFF' || programView === 'ADMIN';
+  }
+  if (
+    session.memberKind === 'STUDENT' &&
+    (session.hasStaffAccess || session.hasAdminAccess)
+  ) {
+    return null;
+  }
+  return session.hasStaffAccess;
+}
+
 export function isProgramOperationsPath(pathname: string): boolean {
   return /^\/programs\/[^/]+\/(?:edit|milestones\/[^/]+\/documents|submissions\/[^/]+\/review|teams\/[^/]+)\/?$/.test(
     pathname,
