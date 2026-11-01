@@ -197,6 +197,8 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
+        '/dashboard/insights',
+        '/dashboard/applicants',
       ],
     ],
     [
@@ -214,14 +216,21 @@ describe('sidebarGroupsFor (context)', () => {
     [
       'admin-only',
       { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
-      ['/dashboard/users', '/dashboard/audit-logs', '/dashboard/system-status'],
+      [
+        '/dashboard/users',
+        '/dashboard/audit-logs',
+        '/dashboard/system-status',
+        '/dashboard/insights',
+        '/dashboard/applicants',
+      ],
     ],
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
-    '%s surface를 권한 함축 없이 합집합으로 보인다',
+    '%s 메뉴는 백엔드 audience대로 중복 없이 보인다',
     (_, access, expected) => {
       const actual = dashboardHrefs(access);
 
       expect(actual).toEqual(expected);
+      expect(new Set(actual).size).toBe(actual.length);
     },
   );
 

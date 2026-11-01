@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import { hasStaffAudience } from './member-access';
 import { programDetailIdFromPathname } from './section-facets';
 import type {
   ProgramScopeSidebarGroup,
@@ -26,7 +27,7 @@ export function resolveProgramOperationsView(
   ) {
     return null;
   }
-  return session.hasStaffAccess;
+  return hasStaffAudience(session);
 }
 
 export function isProgramOperationsPath(pathname: string): boolean {

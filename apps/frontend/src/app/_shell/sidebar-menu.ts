@@ -14,7 +14,12 @@ import {
 } from '@/features/ranking/types';
 import type { MemberAccess, MemberSurface } from './member-access';
 import { memberSurfaces } from './member-access';
-import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
+import {
+  ADMIN_SYSTEM_MENU,
+  STAFF_MENU,
+  STAFF_OPERATIONS_MENU,
+  STUDENT_MENU,
+} from './role-menus';
 import {
   facetSectionFromHrefPath,
   SECTION_FACETS,
@@ -375,6 +380,15 @@ const SURFACE_GROUPS: Readonly<
   admin: { label: '관리자', menu: ADMIN_SYSTEM_MENU },
 };
 
+function surfaceMenu(
+  surface: MemberSurface,
+  access: MemberAccess,
+): readonly NavItem[] {
+  return surface === 'admin' && !access.hasStaffAccess
+    ? [...ADMIN_SYSTEM_MENU, ...STAFF_OPERATIONS_MENU]
+    : SURFACE_GROUPS[surface].menu;
+}
+
 export function sidebarBrandTitle(
   section: ShellSection,
   groups: readonly SidebarGroup[],
@@ -415,7 +429,7 @@ export function sidebarGroupsFor(
     return memberSurfaces(access).map((surface) => ({
       label: SURFACE_GROUPS[surface].label,
       items: withIcons(
-        SURFACE_GROUPS[surface].menu.map((item) =>
+        surfaceMenu(surface, access).map((item) =>
           surface === 'student' &&
           access.hasStaffAccess &&
           item.href === '/dashboard'
