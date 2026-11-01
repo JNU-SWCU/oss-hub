@@ -45,7 +45,7 @@ export class CollectionPublicTokenService {
   clear(): void {}
 }
 
-export const COLLECTION_ACTIVITY_PROVIDERS: Provider[] = [
+export const COLLECTION_PROVIDERS: Provider[] = [
   CollectionPublicTokenService,
   {
     provide: CollectionDiscoveryClient,
@@ -66,10 +66,6 @@ export const COLLECTION_ACTIVITY_PROVIDERS: Provider[] = [
         discoveryClient,
       ),
   },
-];
-
-export const COLLECTION_PROVIDERS: Provider[] = [
-  ...COLLECTION_ACTIVITY_PROVIDERS,
   {
     provide: CollectionSyncService,
     inject: [
