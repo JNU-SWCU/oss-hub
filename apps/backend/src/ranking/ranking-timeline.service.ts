@@ -22,6 +22,8 @@ export interface RankingTimeline {
 
 @Injectable()
 export class RankingTimelineService {
+  private readonly inFlightBuilds = new Map<number, Promise<RankingTimeline>>();
+
   constructor(
     private readonly ranking: RankingRepository,
     private readonly rankingYear: RankingYearService,
@@ -30,7 +32,15 @@ export class RankingTimelineService {
   async findTimelineFromRequest(request: {
     readonly year: string;
   }): Promise<RankingTimeline> {
-    return this.findTimeline(Number(request.year));
+    const year = Number(request.year);
+    const existingBuild = this.inFlightBuilds.get(year);
+    if (existingBuild) return existingBuild;
+
+    const build = this.findTimeline(year).finally(() =>
+      this.inFlightBuilds.delete(year),
+    );
+    this.inFlightBuilds.set(year, build);
+    return build;
   }
 
   async findTimeline(

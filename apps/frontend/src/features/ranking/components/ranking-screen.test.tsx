@@ -89,6 +89,11 @@ describe('RankingScreen', () => {
   let root: Root;
 
   beforeEach(() => {
+    api.getRankingTimeline.mockResolvedValue({
+      year: 2026,
+      months: [],
+      series: [],
+    });
     listNavigation.search = 'year=2026';
     container = document.createElement('div');
     document.body.append(container);

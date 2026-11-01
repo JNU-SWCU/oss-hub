@@ -76,4 +76,24 @@ describe('RankingTimelineService', () => {
 
     expect(timeline.months).toEqual([12]);
   });
+
+  it('같은 연도의 동시 요청은 조회를 한 번만 하고, 끝나면 다시 조회한다', async () => {
+    const findMetrics = jest.fn().mockResolvedValue([]);
+    const service = new RankingTimelineService(
+      {
+        findMetrics,
+        findMonthlySnapshots: jest.fn().mockResolvedValue([]),
+      } as unknown as RankingRepository,
+      new RankingYearService(),
+    );
+
+    await Promise.all([
+      service.findTimelineFromRequest({ year: '2026' }),
+      service.findTimelineFromRequest({ year: '2026' }),
+    ]);
+    expect(findMetrics).toHaveBeenCalledTimes(1);
+
+    await service.findTimelineFromRequest({ year: '2026' });
+    expect(findMetrics).toHaveBeenCalledTimes(2);
+  });
 });

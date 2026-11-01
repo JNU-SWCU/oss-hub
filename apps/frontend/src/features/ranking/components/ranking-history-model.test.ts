@@ -134,3 +134,20 @@ test('순위 변화는 직전 지점과 비교해 올림·내림·유지·신규
   ).toBe(0);
   expect(rankingRankChanges(null).size).toBe(0);
 });
+
+test('기록이 한 달뿐인 계열은 선이 그려지지 않으므로 점으로 보여 준다', () => {
+  const chart = buildRankingHistoryChart(
+    timelineOf([
+      { githubLogin: 'rookie', ranks: [null, 2], totals: [null, 5] },
+      { githubLogin: 'steady', ranks: [1, 1], totals: [10, 20] },
+    ]),
+    null,
+  );
+
+  expect(
+    chart.lines.find((line) => line.githubLogin === 'rookie')?.showDot,
+  ).toBe(true);
+  expect(
+    chart.lines.find((line) => line.githubLogin === 'steady')?.showDot,
+  ).toBe(false);
+});

@@ -185,4 +185,9 @@ test('390px 에서도 가로 스크롤이 생기지 않는다', async ({ page })
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(1);
+
+  const tableOverflow = await page
+    .getByRole('region', { name: '활동 랭킹 표' })
+    .evaluate((region) => region.scrollWidth - region.clientWidth);
+  expect(tableOverflow).toBeLessThanOrEqual(1);
 });

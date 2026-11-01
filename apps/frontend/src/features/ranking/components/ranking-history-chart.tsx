@@ -181,7 +181,7 @@ export function RankingHistoryChart({
                 onMouseEnter={() => setFocused(line.githubLogin)}
                 onMouseLeave={() => setFocused(null)}
                 className={line.faded ? undefined : styles.sketched}
-                dot={line.isViewer ? { r: 2.5 } : false}
+                dot={line.showDot ? { r: 2.5 } : false}
                 activeDot={line.isViewer}
                 connectNulls={false}
                 isAnimationActive={false}

@@ -26,6 +26,7 @@ export interface RankingHistoryLine {
   readonly strokeWidth: number;
   readonly faded: boolean;
   readonly isViewer: boolean;
+  readonly showDot: boolean;
 }
 
 interface RankingHistoryRow {
@@ -128,6 +129,8 @@ function lineOf(
     strokeWidth: rankingHistoryStrokeWidth(finalRank, isViewer),
     faded: !isViewer && !ranked,
     isViewer,
+    showDot:
+      isViewer || series.totals.filter((total) => total !== null).length === 1,
   };
 }
 

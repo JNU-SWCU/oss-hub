@@ -61,12 +61,12 @@ function RankCell({ item }: { readonly item: PublicRankingItem }) {
     kind: 'unknown' as const,
   };
   return (
-    <span className="inline-flex items-center gap-2 tabular-nums">
+    <span className="inline-flex flex-col items-start tabular-nums sm:flex-row sm:items-center sm:gap-2">
       <span className="min-w-5">{item.rank}</span>
       <span
         data-rank-change={change.kind}
         className={cn(
-          'rounded-full px-1.5 text-[0.7rem] font-semibold leading-5',
+          'rounded-full text-[0.625rem] font-semibold leading-4 sm:px-1.5 sm:text-[0.7rem] sm:leading-5',
           RANK_CHANGE_CLASS[change.kind],
         )}
       >
@@ -80,7 +80,7 @@ const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'rank',
   header: '순위',
   cell: (item) => <RankCell item={item} />,
-  headClassName: 'w-20',
+  headClassName: 'w-8 sm:w-20',
 };
 
 const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {

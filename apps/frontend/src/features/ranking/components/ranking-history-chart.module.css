@@ -132,8 +132,7 @@
   stroke-linejoin: round;
 }
 
-.sketched :global(path.recharts-line-curve),
-:global(path.recharts-line-curve).sketched {
+.sketched :global(path.recharts-line-curve) {
   filter: url('#ranking-history-wobble');
 }
 
