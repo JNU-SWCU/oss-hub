@@ -161,6 +161,26 @@ describe('DocumentsRoute role boundary', () => {
     expect(state.matrixProps).toBeNull();
   });
 
+  it.each([
+    ['교직원 접근', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['관리자 접근', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
+    '%s이 있는 학생은 보기가 정해지기 전에 어느 화면도 마운트하지 않는다',
+    async (_label, access) => {
+      state.session = { ...STUDENT, ...access };
+      await act(async () => {
+        root.render(
+          <ProgramViewContext.Provider value={null}>
+            <DocumentsRoute programId="program:basic" />
+          </ProgramViewContext.Provider>,
+        );
+      });
+
+      expect(state.checklistProps).toBeNull();
+      expect(state.matrixProps).toBeNull();
+    },
+  );
+
   it('운영 화면으로 전환하면 안내 문구 없이 운영 매트릭스를 연다', async () => {
     state.session = { ...STUDENT, hasStaffAccess: true };
     state.searchParams = new URLSearchParams('view=operations');

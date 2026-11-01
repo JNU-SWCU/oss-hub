@@ -4,7 +4,10 @@ import { useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgram } from '@/features/programs/catalog/queries';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ProgramViewContext } from '../../../_shell/program-shell-policy';
+import {
+  ProgramViewContext,
+  resolveProgramOperationsView,
+} from '../../../_shell/program-shell-policy';
 import { PageBody } from '@/components/page-body';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
@@ -36,10 +39,8 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
   const selectedMilestoneId = searchParams.get('milestoneId');
   const queryClient = useQueryClient();
 
-  const operationsView =
-    programView === null
-      ? session.hasStaffAccess
-      : programView === 'STAFF' || programView === 'ADMIN';
+  const operationsView = resolveProgramOperationsView(programView, session);
+  if (operationsView === null) return null;
   if (operationsView) {
     return (
       <SubmissionMatrixScreen

@@ -1,7 +1,10 @@
 'use client';
 
 import { useContext } from 'react';
-import { ProgramViewContext } from '../../../_shell/program-shell-policy';
+import {
+  ProgramViewContext,
+  resolveProgramOperationsView,
+} from '../../../_shell/program-shell-policy';
 import { ProgramStaffTeamsPage } from '@/features/programs/teams/program-staff-teams-page';
 import { ProgramTeamsPage } from '@/features/programs/teams/program-teams-page';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
@@ -11,13 +14,11 @@ export function ProgramTeamsRouteView({
 }: {
   readonly programId: string;
 }) {
-  const { hasStaffAccess } = useSharedSessionRole();
+  const session = useSharedSessionRole();
 
   const programView = useContext(ProgramViewContext);
-  const operationsView =
-    programView === null
-      ? hasStaffAccess
-      : programView === 'STAFF' || programView === 'ADMIN';
+  const operationsView = resolveProgramOperationsView(programView, session);
+  if (operationsView === null) return null;
   return operationsView ? (
     <ProgramStaffTeamsPage programId={programId} />
   ) : (
