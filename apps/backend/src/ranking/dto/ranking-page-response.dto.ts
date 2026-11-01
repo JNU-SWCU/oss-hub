@@ -10,28 +10,12 @@ class PublicRankingEntryResponseDto {
   declare readonly githubLogin: string;
   declare readonly commitCount: number;
   declare readonly pullRequestCount: number;
-
-  static from(entry: RankingEntry): PublicRankingEntryResponseDto {
-    return {
-      rank: entry.rank,
-      githubLogin: entry.githubLogin,
-      commitCount: entry.commitCount,
-      pullRequestCount: entry.pullRequestCount,
-    };
-  }
-}
-
-class MemberRankingEntryResponseDto {
-  declare readonly rank: number;
-  declare readonly githubLogin: string;
-  declare readonly commitCount: number;
-  declare readonly pullRequestCount: number;
   declare readonly issueCount: number;
   declare readonly repositoryCount: number;
   declare readonly starCount: number;
   declare readonly total: number;
 
-  static from(entry: RankingEntry): MemberRankingEntryResponseDto {
+  static from(entry: RankingEntry): PublicRankingEntryResponseDto {
     return {
       rank: entry.rank,
       githubLogin: entry.githubLogin,
@@ -76,19 +60,14 @@ class StaffRankingEntryResponseDto {
 }
 
 type RankingEntryResponseDto =
-  | PublicRankingEntryResponseDto
-  | MemberRankingEntryResponseDto
-  | StaffRankingEntryResponseDto;
+  PublicRankingEntryResponseDto | StaffRankingEntryResponseDto;
 
 function projectItems(page: RankingPage): readonly RankingEntryResponseDto[] {
   switch (page.viewerClass) {
     case 'public':
-      return page.items.map((entry) =>
-        PublicRankingEntryResponseDto.from(entry),
-      );
     case 'member':
       return page.items.map((entry) =>
-        MemberRankingEntryResponseDto.from(entry),
+        PublicRankingEntryResponseDto.from(entry),
       );
     case 'staff':
       return page.items.map((entry) =>
