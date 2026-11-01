@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
 import {
   RANKING_YEAR_ALL,
-  type MemberRankingItem,
   type PublicRankingItem,
   type PublicRankingPage,
   type StaffRankingItem,
@@ -105,6 +104,10 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
               githubLogin,
               commitCount: 3,
               pullRequestCount: 2,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 5,
             },
           ],
           page: 1,
@@ -123,7 +126,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).not.toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
   expect(html).toContain(githubLogin);
@@ -151,6 +154,10 @@ test('표 캡션을 렌더하지 않는다', () => {
               githubLogin: 'mina',
               commitCount: 1,
               pullRequestCount: 0,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 1,
             },
           ],
           page: 1,
@@ -230,12 +237,20 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
               githubLogin: 'same-login',
               commitCount: 3,
               pullRequestCount: 2,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 5,
             },
             {
               rank: 2,
               githubLogin: 'same-login',
               commitCount: 2,
               pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 3,
             },
           ],
           page: 1,
@@ -275,6 +290,10 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
               pullRequestCount: 2,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 7,
             },
           ],
           page: 1,
@@ -307,12 +326,20 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
               pullRequestCount: 2,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 7,
             },
             {
               rank: 2,
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
               pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 4,
             },
           ],
           page: 1,
@@ -351,6 +378,10 @@ test('outcome-4: 발행 이전 stale 관측 때문에 프로젝트에는 여전�
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
               pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 4,
             },
           ],
           page: 1,
@@ -383,6 +414,10 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
               githubLogin: 'synthetic-outcome5-applicant-login',
               commitCount: 3,
               pullRequestCount: 1,
+              issueCount: 0,
+              repositoryCount: 0,
+              starCount: 0,
+              total: 4,
             },
           ],
           page: 1,
@@ -496,6 +531,10 @@ const publicPersonAxisItem = (
   githubLogin: 'synthetic-top',
   commitCount: 128,
   pullRequestCount: 24,
+  issueCount: 17,
+  repositoryCount: 9,
+  starCount: 213,
+  total: 391,
   ...overrides,
 });
 
@@ -599,6 +638,10 @@ test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 �
         githubLogin: 'synthetic-newcomer',
         commitCount: 0,
         pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        total: 0,
       }),
     ],
     {},
@@ -641,6 +684,10 @@ test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만
       publicPersonAxisItem({
         commitCount: 0,
         pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        total: 0,
       }),
     ],
     { dataAsOf: null },
@@ -661,6 +708,10 @@ test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목
       githubLogin: login,
       commitCount: 0,
       pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
+      total: 0,
     });
   const html = personAxisMarkup(
     [
@@ -689,6 +740,10 @@ test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다'
         githubLogin: 'synthetic-newcomer',
         commitCount: 0,
         pullRequestCount: 0,
+        issueCount: 0,
+        repositoryCount: 0,
+        starCount: 0,
+        total: 0,
       }),
     ],
     {},
@@ -717,28 +772,30 @@ const staffTierRow = (): StaffRankingItem =>
     department: STAFF_ROW.department,
   });
 
-test('공개 화면은 rank·login·commit·PR 네 열만 렌더한다 — 신원도 Issue·Repo·Star·합계도 없다', () => {
+test('공개 화면도 지표 여덟 열을 렌더한다 — 신원만 빠진다', () => {
   const html = personAxisMarkup([publicTierRow()], {
     dataAsOf: null,
     viewerClass: 'public',
   });
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
-  for (const column of ['rank', 'member', 'commit', 'pr']) {
-    expect(html).toContain(`data-column-head="${column}"`);
-    expect(html).toContain(`data-column-id="${column}"`);
-  }
-
-  for (const excludedColumn of [
-    'department',
-    'name',
+  for (const column of [
+    'rank',
+    'member',
+    'commit',
+    'pr',
     'issue',
     'repository',
     'star',
     'total',
   ]) {
+    expect(html).toContain(`data-column-head="${column}"`);
+    expect(html).toContain(`data-column-id="${column}"`);
+  }
+
+  for (const excludedColumn of ['department', 'name']) {
     expect(html).not.toContain(`data-column-head="${excludedColumn}"`);
     expect(html).not.toContain(`data-column-id="${excludedColumn}"`);
   }
@@ -913,22 +970,8 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   expect(allZero).toContain('집계된 활동이 아직 없습니다');
 });
 
-const memberPersonAxisItem = (
-  overrides: Partial<MemberRankingItem> = {},
-): MemberRankingItem => ({
-  rank: 1,
-  githubLogin: 'synthetic-top',
-  commitCount: 128,
-  pullRequestCount: 24,
-  issueCount: 17,
-  repositoryCount: 9,
-  starCount: 213,
-  total: 391,
-  ...overrides,
-});
-
 function memberAxisMarkup(
-  items: readonly MemberRankingItem[],
+  items: readonly PublicRankingItem[],
   dataAsOf: Date | null = new Date('2026-08-19T02:30:00.000Z'),
 ): string {
   return renderToStaticMarkup(
@@ -952,8 +995,8 @@ function memberAxisMarkup(
   );
 }
 
-test('member 화면은 공개 4열에 Issue·Repo·Star·합계를 더한 8열이다 — 이름·학과는 없다', () => {
-  const html = memberAxisMarkup([memberPersonAxisItem()]);
+test('member 화면도 공개와 같은 지표 여덟 열이다 — 이름·학과는 없다', () => {
+  const html = memberAxisMarkup([publicPersonAxisItem()]);
 
   expect(html).toContain(
     'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
@@ -971,7 +1014,7 @@ test('member 화면은 공개 4열에 Issue·Repo·Star·합계를 더한 8열�
 
 test('member 계층의 활동 없음 판정은 합계 열을 쓴다 — 화면에 있는 숫자로 판단한다', () => {
   const zeroCommitOnly = memberAxisMarkup([
-    memberPersonAxisItem({
+    publicPersonAxisItem({
       commitCount: 0,
       pullRequestCount: 0,
       issueCount: 0,
@@ -981,7 +1024,7 @@ test('member 계층의 활동 없음 판정은 합계 열을 쓴다 — 화면�
     }),
   ]);
   const allZero = memberAxisMarkup([
-    memberPersonAxisItem({
+    publicPersonAxisItem({
       commitCount: 0,
       pullRequestCount: 0,
       issueCount: 0,
