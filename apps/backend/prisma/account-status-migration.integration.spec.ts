@@ -20,6 +20,10 @@ import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixtur
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
+import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
+import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
+import { CollectionDiscoveryClient } from '../src/github/collection-discovery.client';
+import { CollectionPublicTokenService } from '../src/github/collection-public-token.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { AuthSessionService } from '../src/platform/auth-session.service';
 
@@ -55,6 +59,13 @@ describe('accountStatus migration regression', () => {
     new AuthRepository(prisma, authConfig),
     new UserProfileService(),
     new AuthSessionService(),
+    new CollectionUserActivityService(
+      new CollectionUserActivityRepository(prisma),
+      new CollectionDiscoveryClient(
+        {},
+        new CollectionPublicTokenService(loadRuntimeConfig({})),
+      ),
+    ),
   );
 
   const rolesService = new MemberOnboardingService(

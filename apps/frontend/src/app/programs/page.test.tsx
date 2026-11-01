@@ -69,9 +69,22 @@ describe('ProgramsPage 생성 capability', () => {
   });
 
   it('프로필을 마친 학생에게도 생성 동선을 열지 않는다', () => {
-    const html = renderedCapability('STUDENT', false, true, true);
+    const html = renderedCapability('STUDENT', false, false, true);
 
     expect(html).toContain('data-can-create="false"');
     expect(html).toContain('data-viewer-role="STUDENT"');
+  });
+
+  it('관리자 권한은 백엔드 audience와 같이 생성 동선을 쓴다', () => {
+    const studentAdmin = renderedCapability('STUDENT', false, true, true);
+
+    expect(studentAdmin).toContain('data-can-create="true"');
+    expect(studentAdmin).toContain('data-viewer-role="STUDENT"');
+    expect(renderedCapability(null, false, true, true)).toContain(
+      'data-can-create="true"',
+    );
+    expect(renderedCapability(null, false, true, false)).toContain(
+      'data-can-create="false"',
+    );
   });
 });

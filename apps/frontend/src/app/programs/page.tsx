@@ -1,6 +1,7 @@
 'use client';
 
 import { ProgramListPage } from '@/features/programs/catalog/program-list-page';
+import { hasStaffAudience } from '../_shell/member-access';
 import { SectionFacetChips } from '../_shell/section-facet-chips';
 import { useSessionRole } from '../_shell/use-session-role';
 
@@ -9,7 +10,7 @@ export default function ProgramsPage() {
   const canCreateProgram =
     session.status === 'assigned' &&
     session.isProfileComplete &&
-    session.hasStaffAccess;
+    hasStaffAudience(session);
   const viewerRole =
     session.status !== 'assigned'
       ? null

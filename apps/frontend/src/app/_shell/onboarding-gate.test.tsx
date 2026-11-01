@@ -1,14 +1,17 @@
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createQueryRoot as createRoot } from '../../../test-support/render-with-query';
 type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/lib/api-client';
+import { featureKey } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => {
   const replace = vi.fn();
   return {
     getMyProfile: vi.fn(),
+    getCurrentConsent: vi.fn(),
+    pathname: vi.fn(),
     replace,
     router: { replace },
     useSessionRole: vi.fn(),
@@ -17,7 +20,22 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('next/navigation', () => ({
   useRouter: () => mocks.router,
+  usePathname: mocks.pathname,
 }));
+
+vi.mock('./shell-nav', () => ({ ShellNav: () => null }));
+vi.mock('./bottom-tab-bar', () => ({ BottomTabBar: () => null }));
+vi.mock('./product-shell', () => ({
+  ShellMenuProvider: ({ children }: { readonly children: ReactNode }) =>
+    children,
+  ProductShell: ({ children }: { readonly children: ReactNode }) => children,
+}));
+
+vi.mock('@/features/consents/api', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/features/consents/api')>();
+  return { ...actual, getCurrentConsent: mocks.getCurrentConsent };
+});
 
 vi.mock('@/features/profile/api', async (importOriginal) => {
   const actual =
@@ -52,6 +70,7 @@ vi.mock('./use-session-role', () => ({
 }));
 
 import { OnboardingGate } from './onboarding-gate';
+import { AppFrame } from './app-frame';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -75,6 +94,8 @@ describe('OnboardingGate consent-required dialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.pathname.mockReturnValue('/dashboard');
+    mocks.getCurrentConsent.mockResolvedValue({ consented: true });
     mocks.useSessionRole.mockReturnValue({
       status: 'unassigned',
       staffAccessRequestStatus: null,
@@ -83,6 +104,116 @@ describe('OnboardingGate consent-required dialog', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+  });
+
+  it('assigned student without current consent sees the dialog once, then remains consented after remount', async () => {
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.getCurrentConsent.mockResolvedValue({ consented: false });
+    const home = (
+      <AppFrame>
+        <p data-testid="home">학생 홈</p>
+      </AppFrame>
+    );
+
+    await act(async () => root.render(home));
+
+    expect(container.querySelector('[data-testid="home"]')).toBeNull();
+    const completion = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === '동의 다이얼로그 완료',
+    );
+    expect(completion).toBeDefined();
+    mocks.getCurrentConsent.mockResolvedValue({ consented: true });
+
+    await act(async () => completion?.click());
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+    expect(root.queryClient.getQueryData(featureKey('consents'))).toMatchObject(
+      { consented: true },
+    );
+    await act(async () => root.render(null));
+    await act(async () => root.render(home));
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+  });
+
+  it('new signup consents during onboarding and reaches home without another popup', async () => {
+    mocks.pathname.mockReturnValue('/onboarding/role');
+    mocks.getMyProfile
+      .mockRejectedValueOnce(consentRequiredError())
+      .mockResolvedValueOnce({ isComplete: false });
+
+    await act(async () =>
+      root.render(
+        <AppFrame>
+          <OnboardingGate target="role">
+            <p data-testid="role-selection">역할 선택 화면</p>
+          </OnboardingGate>
+        </AppFrame>,
+      ),
+    );
+    const completion = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === '동의 다이얼로그 완료',
+    );
+    expect(completion).toBeDefined();
+    await act(async () => completion?.click());
+    expect(
+      container.querySelector('[data-testid="role-selection"]'),
+    ).not.toBeNull();
+    expect(mocks.getCurrentConsent).not.toHaveBeenCalled();
+
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.pathname.mockReturnValue('/dashboard');
+    mocks.getCurrentConsent.mockResolvedValue({
+      policyVersion: '2026-11-01',
+      consented: true,
+    });
+    await act(async () =>
+      root.render(
+        <AppFrame>
+          <p data-testid="home">학생 홈</p>
+        </AppFrame>,
+      ),
+    );
+    expect(mocks.getCurrentConsent).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="home"]')).not.toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+  });
+
+  it('retries a failed consent check without bypassing consent', async () => {
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      memberKind: 'STUDENT',
+      isProfileComplete: true,
+      retry: vi.fn(),
+    });
+    mocks.getCurrentConsent
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockResolvedValueOnce({ consented: false });
+
+    await act(async () =>
+      root.render(
+        <AppFrame>
+          <p data-testid="home">학생 홈</p>
+        </AppFrame>,
+      ),
+    );
+
+    expect(container.querySelector('[data-testid="home"]')).toBeNull();
+    const retry = container.querySelector('button');
+    expect(retry).not.toBeNull();
+    await act(async () => retry?.click());
+    expect(container.textContent).toContain('동의 다이얼로그 완료');
+    expect(container.querySelector('[data-testid="home"]')).toBeNull();
   });
 
   afterEach(async () => {
