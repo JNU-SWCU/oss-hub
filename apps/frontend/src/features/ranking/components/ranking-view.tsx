@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import {
   RANKING_VIEWER_CLASSES,
   type RankingPage,
-  type MemberRankingItem,
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
@@ -43,7 +42,7 @@ interface RankingViewProps {
 const EMPTY_CELL = '-';
 
 const RANKING_METRIC_DESCRIPTION =
-  'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
+  'Commit · PR · Issue · Repo를 합산합니다. Star는 내 저장소와 그해 직접 커밋·PR한 조직 저장소의 누적입니다.';
 
 const NO_RANK_CHANGES: ReadonlyMap<string, RankingRankChange> = new Map();
 const RankChangesContext = createContext(NO_RANK_CHANGES);
@@ -115,9 +114,6 @@ const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
     cellClassName: 'text-right tabular-nums',
     headClassName: 'w-12 text-right',
   },
-];
-
-const MEMBER_METRIC_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
   {
     id: 'issue',
     header: 'Issue',
@@ -159,11 +155,6 @@ const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   ...OPEN_METRIC_COLUMNS,
 ];
 
-const MEMBER_RANKING_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
-  ...PUBLIC_RANKING_COLUMNS,
-  ...MEMBER_METRIC_COLUMNS,
-];
-
 const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
   RANK_COLUMN,
   {
@@ -196,7 +187,6 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
     headClassName: 'w-20',
   },
   ...OPEN_METRIC_COLUMNS,
-  ...MEMBER_METRIC_COLUMNS,
 ];
 
 const RANKING_TABLE_CLASS = cn(
@@ -226,18 +216,11 @@ function RankingTable({
   }
   switch (ranking.viewerClass) {
     case RANKING_VIEWER_CLASSES.PUBLIC:
-      return (
-        <DataTable
-          {...shared}
-          columns={PUBLIC_RANKING_COLUMNS}
-          data={[...ranking.items]}
-        />
-      );
     case RANKING_VIEWER_CLASSES.MEMBER:
       return (
         <DataTable
           {...shared}
-          columns={MEMBER_RANKING_COLUMNS}
+          columns={PUBLIC_RANKING_COLUMNS}
           data={[...ranking.items]}
         />
       );
@@ -271,12 +254,7 @@ function collectionNotice(
     };
   }
 
-  const hasNoActivity =
-    ranking.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC
-      ? ranking.items.every(
-          (item) => item.commitCount + item.pullRequestCount === 0,
-        )
-      : ranking.items.every((item) => item.total === 0);
+  const hasNoActivity = ranking.items.every((item) => item.total === 0);
   if (ranking.items.length > 0 && hasNoActivity) {
     return {
       title: '집계된 활동이 아직 없습니다',

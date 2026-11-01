@@ -291,11 +291,14 @@ describe('AuthService', () => {
       jsonResponse(200, {
         data: {
           user: {
+            organizations: { nodes: [] },
             contributionsCollection: {
               totalCommitContributions: own ? 19194 : 10655,
               totalPullRequestContributions: own ? 40 : 12,
               totalIssueContributions: own ? 3 : 5,
               totalRepositoryContributions: own ? 9 : 4,
+              commitContributionsByRepository: [],
+              pullRequestContributionsByRepository: [],
             },
             repositories: {
               nodes: [{ stargazerCount: own ? 99 : 10 }],

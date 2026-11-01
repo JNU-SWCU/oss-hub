@@ -90,7 +90,7 @@ describe('RankingController', () => {
     ).toBeUndefined();
   });
 
-  it('public 항목은 허용된 네 키만 응답한다 — Issue·Repo·Star·합계도 빠진다', async () => {
+  it('public 항목도 지표 여덟 키를 싣고 신원만 빠진다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -126,12 +126,20 @@ describe('RankingController', () => {
       githubLogin: 'mina',
       commitCount: 2,
       pullRequestCount: 1,
+      issueCount: 3,
+      repositoryCount: 4,
+      starCount: 5,
+      total: 15,
     });
     expect(Object.keys(body.items[0] ?? {}).sort()).toEqual([
       'commitCount',
       'githubLogin',
+      'issueCount',
       'pullRequestCount',
       'rank',
+      'repositoryCount',
+      'starCount',
+      'total',
     ]);
 
     for (const excluded of [
@@ -141,10 +149,6 @@ describe('RankingController', () => {
       'id',
       'name',
       'userId',
-      'issueCount',
-      'repositoryCount',
-      'starCount',
-      'total',
     ]) {
       expect(body.items[0]).not.toHaveProperty(excluded);
     }
