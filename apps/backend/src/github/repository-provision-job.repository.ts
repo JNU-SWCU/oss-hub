@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import {
   AccountStatus,
+  ActivityVisibility,
   Prisma,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -56,7 +57,13 @@ export class CollectionUserActivityRepository {
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
     const existing = await this.db.githubUserActivityHistory.findUnique({
-      where: { githubId_year: { githubId, year } },
+      where: {
+        githubId_year_visibility: {
+          githubId,
+          year,
+          visibility: ActivityVisibility.PUBLIC,
+        },
+      },
       select: { githubId: true },
     });
     return existing !== null;
@@ -66,19 +73,60 @@ export class CollectionUserActivityRepository {
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
     const { githubId, year, month, githubLogin, ...counts } = observation;
+    const visibility = ActivityVisibility.PUBLIC;
     const row = { githubLogin, ...counts };
-    await this.db.$transaction([
-      this.db.githubUserActivityHistory.upsert({
-        where: { githubId_year: { githubId, year } },
-        create: { githubId, year, ...row },
-        update: row,
-      }),
-      this.db.githubUserActivityMonthly.upsert({
+    await this.db.$transaction(async (transaction) => {
+      await transaction.githubUserActivityHistory.upsert({
+        where: { githubId_year_visibility: { githubId, year, visibility } },
+        create: { githubId, year, ...row, visibility },
+        update: { ...row, visibility },
+      });
+      const privateCounts =
+        await transaction.githubUserActivityHistory.findUnique({
+          where: {
+            githubId_year_visibility: {
+              githubId,
+              year,
+              visibility: ActivityVisibility.PRIVATE,
+            },
+          },
+          select: {
+            commitCount: true,
+            pullRequestCount: true,
+            issueCount: true,
+            repositoryCount: true,
+          },
+        });
+      const monthly = {
+        ...counts,
+        commitCount: counts.commitCount + (privateCounts?.commitCount ?? 0),
+        pullRequestCount:
+          counts.pullRequestCount + (privateCounts?.pullRequestCount ?? 0),
+        issueCount: counts.issueCount + (privateCounts?.issueCount ?? 0),
+        repositoryCount:
+          counts.repositoryCount + (privateCounts?.repositoryCount ?? 0),
+      };
+      await transaction.githubUserActivityMonthly.upsert({
         where: { githubId_year_month: { githubId, year, month } },
-        create: { githubId, year, month, ...counts },
-        update: counts,
-      }),
-    ]);
+        create: { githubId, year, month, ...monthly },
+        update: monthly,
+      });
+    });
+  }
+
+  async upsertPrivateObservation(
+    observation: Omit<
+      CollectionUserActivityObservationInput,
+      'starCount' | 'month'
+    >,
+  ): Promise<void> {
+    const { githubId, year, ...row } = observation;
+    const visibility = ActivityVisibility.PRIVATE;
+    await this.db.githubUserActivityHistory.upsert({
+      where: { githubId_year_visibility: { githubId, year, visibility } },
+      create: { githubId, year, ...row, visibility, starCount: 0 },
+      update: { ...row, visibility, starCount: 0 },
+    });
   }
 }
 

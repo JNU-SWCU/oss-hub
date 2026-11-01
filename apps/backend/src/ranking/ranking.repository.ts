@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MemberKind, type Prisma } from '@prisma/client';
+import {
+  AccountStatus,
+  ActivityVisibility,
+  MemberKind,
+  type Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
@@ -82,6 +87,7 @@ export class RankingRepository {
         select: {
           githubId: true,
           year: true,
+          visibility: true,
           commitCount: true,
           pullRequestCount: true,
           issueCount: true,
@@ -102,8 +108,10 @@ export class RankingRepository {
         starYear: number;
       }
     >();
+    const NO_STAR_YEAR = Number.NEGATIVE_INFINITY;
     for (const row of activityRows) {
       const key = row.githubId.toString();
+      const isPublic = row.visibility === ActivityVisibility.PUBLIC;
       const current = folded.get(key);
       if (current === undefined) {
         folded.set(key, {
@@ -111,8 +119,8 @@ export class RankingRepository {
           pullRequestCount: row.pullRequestCount,
           issueCount: row.issueCount,
           repositoryCount: row.repositoryCount,
-          starCount: row.starCount,
-          starYear: row.year,
+          starCount: isPublic ? row.starCount : 0,
+          starYear: isPublic ? row.year : NO_STAR_YEAR,
         });
         continue;
       }
@@ -120,7 +128,7 @@ export class RankingRepository {
       current.pullRequestCount += row.pullRequestCount;
       current.issueCount += row.issueCount;
       current.repositoryCount += row.repositoryCount;
-      if (row.year >= current.starYear) {
+      if (isPublic && row.year >= current.starYear) {
         current.starCount = row.starCount;
         current.starYear = row.year;
       }

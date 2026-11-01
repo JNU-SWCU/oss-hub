@@ -21,6 +21,8 @@ const happyDomTests = [
   'src/app/programs/\\[id\\]/program-detail-screen.test.tsx',
   'src/app/programs/\\[id\\]/program-detail-view-consistency.test.tsx',
   'src/app/programs/\\[id\\]/apply/program-apply-route.test.tsx',
+  'src/app/programs/\\[id\\]/board/board-list-route.test.tsx',
+  'src/app/programs/\\[id\\]/board/\\[postId\\]/board-detail-route.test.tsx',
   'src/app/programs/\\[id\\]/documents/documents-route.test.tsx',
   'src/app/programs/\\[id\\]/edit/program-edit-route.test.tsx',
   'src/app/programs/\\[id\\]/teams/program-teams-route-view.test.tsx',

@@ -4,7 +4,7 @@ import { StaffInsightsScreen } from '@/features/staff-insights/staff-insights-sc
 
 export default function StaffInsightsPage() {
   return (
-    <RolePanelShell allow={['staff']}>
+    <RolePanelShell allow={['staff', 'admin']}>
       <Suspense fallback={null}>
         <StaffInsightsScreen />
       </Suspense>

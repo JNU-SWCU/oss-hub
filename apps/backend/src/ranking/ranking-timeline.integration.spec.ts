@@ -107,3 +107,30 @@ it('수집이 달마다 남긴 값으로 순위 변화를 만들고, 같은 달 
     },
   ]);
 });
+
+it('월별 값은 공개 수집값에 그 시점의 비공개 건수를 더한다', async () => {
+  const repository = new CollectionUserActivityRepository(prisma);
+  await repository.upsertPrivateObservation({
+    ...CLIMBER,
+    year: YEAR,
+    commitCount: 7,
+    pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 0,
+    observedAt: new Date(Date.UTC(YEAR, 2, 1)),
+  });
+  await observe(CLIMBER, 3, 60);
+
+  await expect(
+    prisma.githubUserActivityMonthly.findUniqueOrThrow({
+      where: {
+        githubId_year_month: {
+          githubId: CLIMBER.githubId,
+          year: YEAR,
+          month: 3,
+        },
+      },
+      select: { commitCount: true, pullRequestCount: true },
+    }),
+  ).resolves.toEqual({ commitCount: 67, pullRequestCount: 1 });
+});

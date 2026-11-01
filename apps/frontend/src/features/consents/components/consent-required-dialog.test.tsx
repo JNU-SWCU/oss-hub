@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createQueryRoot as createRoot } from '../../../../test-support/render-with-query';
 type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -84,6 +84,62 @@ describe('ConsentRequiredDialog', () => {
     container.remove();
     document.body.innerHTML = '';
     vi.unstubAllGlobals();
+  });
+
+  it('saves the new policy and closes without reopening after completion', async () => {
+    const policyVersion = '2026-11-01';
+    fetchMock.mockImplementation(
+      async (_target, init) =>
+        new Response(
+          JSON.stringify(
+            init?.method === 'POST'
+              ? {
+                  policyVersion,
+                  consentedAt: '2026-11-01T00:00:00.000Z',
+                  nextUrl: '/onboarding/role',
+                }
+              : { ...policyResponse, policyVersion },
+          ),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return (
+        <ConsentRequiredDialog
+          open={open}
+          onOpenChange={setOpen}
+          onCompleted={() => setOpen(false)}
+        />
+      );
+    }
+    await act(async () => root.render(<Host />));
+    const checkbox = document.body.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(checkbox).not.toBeNull();
+    await act(async () => checkbox?.click());
+    const submit = document.body.querySelector<HTMLButtonElement>(
+      'button[type="submit"]',
+    );
+    expect(submit?.disabled).toBe(false);
+
+    await act(async () => submit?.click());
+
+    const submission = fetchMock.mock.calls.find(
+      ([target, init]) =>
+        target === apiPath('consents') && init?.method === 'POST',
+    );
+    const body = submission?.[1]?.body;
+    if (typeof body !== 'string')
+      throw new Error('Missing consent request body');
+    expect(JSON.parse(body)).toEqual({
+      policyVersion,
+      acceptedItems: ['PRIVACY'],
+    });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    await act(async () => root.render(<Host />));
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('keeps policy documents in modal-safe dialog presentation at desktop width', async () => {

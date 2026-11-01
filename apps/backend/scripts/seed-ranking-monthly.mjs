@@ -49,7 +49,7 @@ async function main() {
   const rows = [];
   try {
     const observed = await prisma.githubUserActivityHistory.findMany({
-      where: { year },
+      where: { year, visibility: 'PUBLIC' },
       select: { githubId: true, githubLogin: true, starCount: true },
     });
     for (const user of observed) {

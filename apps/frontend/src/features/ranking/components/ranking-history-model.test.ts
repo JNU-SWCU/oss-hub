@@ -3,6 +3,8 @@ import type { RankingTimeline, RankingTimelineSeries } from '../types';
 import {
   buildRankingHistoryChart,
   formatRankChange,
+  rankingHistoryLogRows,
+  rankingHistoryLogTicks,
   rankingRankChanges,
   type RankingRankChange,
 } from './ranking-history-model';
@@ -150,4 +152,20 @@ test('기록이 한 달뿐인 계열은 선이 그려지지 않으므로 점으�
   expect(
     chart.lines.find((line) => line.githubLogin === 'steady')?.showDot,
   ).toBe(false);
+});
+
+test('로그 보기는 0점을 1로 올리고 빈 달은 비워 두며, 눈금은 최고점을 넘지 않는 10의 거듭제곱이다', () => {
+  const chart = buildRankingHistoryChart(
+    timelineOf([
+      { githubLogin: 'mina', ranks: [1, 1], totals: [0, 1200] },
+      { githubLogin: 'suho', ranks: [null, 2], totals: [null, 40] },
+    ]),
+    null,
+  );
+
+  expect(rankingHistoryLogRows(chart.rows)).toEqual([
+    { label: '1월', s0: 1, s1: null },
+    { label: '2월', s0: 1200, s1: 40 },
+  ]);
+  expect(rankingHistoryLogTicks(chart.lines)).toEqual([1, 10, 100, 1000]);
 });

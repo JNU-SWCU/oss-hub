@@ -18,6 +18,8 @@ import { comicNeue } from './comic-font';
 import {
   buildRankingHistoryChart,
   RANKING_HISTORY_COMPACT_LEGEND_LIMIT,
+  rankingHistoryLogRows,
+  rankingHistoryLogTicks,
   type RankingHistoryChart as HistoryChart,
   type RankingHistoryLine,
 } from './ranking-history-model';
@@ -64,6 +66,7 @@ export function RankingHistoryChart({
 }) {
   const [focused, setFocused] = useState<string | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [logScale, setLogScale] = useState(false);
   const chart = useMemo(
     () => buildRankingHistoryChart(timeline, viewerGithubLogin),
     [timeline, viewerGithubLogin],
@@ -94,7 +97,19 @@ export function RankingHistoryChart({
     >
       <WobbleDefs />
       <div className={styles.head}>
-        <h3 className={styles.title}>순위 변화</h3>
+        <div className={styles.titleRow}>
+          <h3 className={styles.title}>순위 변화</h3>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className={cn(styles.scaleToggle, 'h-auto px-1')}
+            aria-pressed={logScale}
+            onClick={() => setLogScale((current) => !current)}
+          >
+            로그 축
+          </Button>
+        </div>
         <p className={styles.caption}>월별로 쌓인 올해 누적 점수입니다.</p>
       </div>
       <ul className={styles.legend} aria-label="상위 참여자">
@@ -136,7 +151,12 @@ export function RankingHistoryChart({
         aria-label={summaryOf(timeline, chart)}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={[...chart.rows]} margin={MARGIN}>
+          <LineChart
+            data={[
+              ...(logScale ? rankingHistoryLogRows(chart.rows) : chart.rows),
+            ]}
+            margin={MARGIN}
+          >
             <CartesianGrid
               stroke="var(--border)"
               strokeDasharray="3 5"
@@ -156,6 +176,14 @@ export function RankingHistoryChart({
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
+              {...(logScale
+                ? {
+                    scale: 'log' as const,
+                    domain: [1, 'dataMax'] as [number, string],
+                    ticks: [...rankingHistoryLogTicks(chart.lines)],
+                    allowDataOverflow: true,
+                  }
+                : {})}
             />
             <Tooltip
               cursor={CURSOR}

@@ -79,6 +79,24 @@ async function openRanking(
       }),
     }),
   );
+  await page.route('**/api/v1/consents/current', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        policyVersion: '2026-11-01',
+        requiredItems: [
+          {
+            key: 'privacy',
+            label: '개인정보 수집·이용',
+            documentUrl: '/policies/privacy',
+          },
+        ],
+        consented: true,
+        nextUrl: '/ranking',
+      }),
+    }),
+  );
   await page.route('**/api/v1/ranking/years*', (route) =>
     route.fulfill({ status: 200, body: JSON.stringify({ years: [2026] }) }),
   );
@@ -155,6 +173,25 @@ test('범례를 누르면 그 선이 빠지고 다시 누르면 돌아온다', a
   await first.click();
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(curves).toHaveCount(total);
+});
+
+test('로그 축 버튼은 선을 유지한 채 세로축을 10배 눈금으로 바꾼다', async ({
+  page,
+}) => {
+  await openRanking(page);
+  const toggle = page.getByRole('button', { name: '로그 축' });
+  const curves = page.locator(`${CHART} ${CURVE}`);
+  const total = await curves.count();
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(curves).toHaveCount(total);
+  await expect(
+    page.locator(`${CHART} .recharts-cartesian-axis-tick-value`, {
+      hasText: /^100$/,
+    }),
+  ).toBeVisible();
 });
 
 test('순위표 변화 칸은 직전 달과 비교한 값을 쓴다', async ({ page }) => {

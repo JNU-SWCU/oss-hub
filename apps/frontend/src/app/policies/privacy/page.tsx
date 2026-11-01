@@ -20,7 +20,7 @@ export default function Page() {
         운영자(ADMIN)는 운영을 위해 실명과 학과도 볼 수 있습니다. 학번과
         연락처는 랭킹에 표시하지 않습니다. 집계 숫자의 범위와 노출 항목은{' '}
         <a href="/policies/github-activity">
-          GitHub 활동 수집·공개 범위(정책 버전 2026-10-19)
+          GitHub 활동 수집·공개 범위(정책 버전 2026-11-01)
         </a>{' '}
         문서를 따릅니다.
       </p>

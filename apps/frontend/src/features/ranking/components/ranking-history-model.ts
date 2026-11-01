@@ -72,6 +72,33 @@ export function buildRankingHistoryChart(
   return { rows, lines: [...lines].sort(byPaintOrder), legend };
 }
 
+export function rankingHistoryLogRows(
+  rows: readonly RankingHistoryRow[],
+): readonly RankingHistoryRow[] {
+  return rows.map((row) => ({
+    ...Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        key,
+        typeof value === 'number' ? Math.max(value, 1) : value,
+      ]),
+    ),
+    label: row.label,
+  }));
+}
+
+export function rankingHistoryLogTicks(
+  lines: readonly RankingHistoryLine[],
+): readonly number[] {
+  const max = Math.max(1, ...lines.flatMap(lineTotalsOf));
+  const ticks = [1];
+  while ((ticks.at(-1) ?? 1) * 10 <= max) ticks.push((ticks.at(-1) ?? 1) * 10);
+  return ticks;
+}
+
+function lineTotalsOf(line: RankingHistoryLine): readonly number[] {
+  return line.totals.filter((total) => total !== null);
+}
+
 export function rankingRankChanges(
   timeline: RankingTimeline | null,
 ): ReadonlyMap<string, RankingRankChange> {

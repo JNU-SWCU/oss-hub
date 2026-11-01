@@ -32,6 +32,25 @@
   gap: var(--space-1);
 }
 
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.scaleToggle {
+  font-family: var(--font-comic), var(--font-sans);
+  font-size: var(--step-small);
+  color: var(--muted-foreground);
+}
+
+.scaleToggle[aria-pressed='true'] {
+  color: var(--foreground);
+  text-decoration: underline wavy;
+  text-underline-offset: 3px;
+}
+
 .title {
   margin: 0;
   font-family: var(--font-comic), var(--font-sans);
