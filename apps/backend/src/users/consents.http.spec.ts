@@ -207,6 +207,7 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
       },
     ],
     consented: false,
+    acceptedPolicyVersion: null,
     nextUrl: '/onboarding/role',
   });
 });

@@ -20,6 +20,7 @@ export class ConsentCurrentResponseDto {
   declare readonly policyVersion: string;
   declare readonly requiredItems: ConsentRequiredItemResponseDto[];
   declare readonly consented: boolean;
+  declare readonly acceptedPolicyVersion: string | null;
   declare readonly nextUrl: string;
 
   static from(status: ConsentStatus): ConsentCurrentResponseDto {
@@ -29,6 +30,7 @@ export class ConsentCurrentResponseDto {
         ConsentRequiredItemResponseDto.from(item),
       ),
       consented: status.consented,
+      acceptedPolicyVersion: status.acceptedPolicyVersion,
       nextUrl: status.policy.nextUrl,
     };
   }

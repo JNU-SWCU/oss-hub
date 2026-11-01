@@ -13,7 +13,10 @@ import {
 
 export const CONSENT_POLICY_VERSION = '2026-11-01';
 
-const COMPATIBLE_CONSENT_POLICY_VERSIONS = [] as const;
+const COMPATIBLE_CONSENT_POLICY_VERSIONS = [
+  '2026-10-19',
+  '2026-08-11',
+] as const;
 
 export const CONSENT_ITEM_KEYS = {
   PRIVACY_COLLECTION: 'PRIVACY_COLLECTION',
@@ -62,6 +65,7 @@ export const CURRENT_CONSENT_POLICY: ConsentPolicy = {
 export interface ConsentStatus {
   policy: ConsentPolicy;
   consented: boolean;
+  acceptedPolicyVersion: string | null;
 }
 
 export interface ConsentGrant {
@@ -87,10 +91,18 @@ export class ConsentsService {
     ]) {
       const consent = await this.repository.findConsent(user.id, policyVersion);
       if (consent) {
-        return { policy: CURRENT_CONSENT_POLICY, consented: true };
+        return {
+          policy: CURRENT_CONSENT_POLICY,
+          consented: true,
+          acceptedPolicyVersion: policyVersion,
+        };
       }
     }
-    return { policy: CURRENT_CONSENT_POLICY, consented: false };
+    return {
+      policy: CURRENT_CONSENT_POLICY,
+      consented: false,
+      acceptedPolicyVersion: null,
+    };
   }
 
   async requireCurrent(githubId: bigint): Promise<void> {

@@ -250,6 +250,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
               },
             ],
             consented,
+            acceptedPolicyVersion: consented ? '2026-11-01' : null,
             nextUrl: '/onboarding/role',
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },

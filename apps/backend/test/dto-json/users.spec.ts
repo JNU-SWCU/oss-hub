@@ -40,6 +40,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       ConsentCurrentResponseDto.from({
         policy: CURRENT_CONSENT_POLICY,
         consented: false,
+        acceptedPolicyVersion: null,
       }),
   ],
   [

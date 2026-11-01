@@ -12,6 +12,7 @@ import type { CurrentConsent } from '@/features/consents/api';
 import { useCurrentConsentQuery } from '@/features/consents/queries';
 import { featureKey } from '@/lib/query-keys';
 import { ConsentRequiredDialog } from '@/features/consents/components/consent-required-dialog';
+import { PolicyNoticeDialog } from '@/features/consents/components/policy-notice-dialog';
 import { BottomTabBar } from './bottom-tab-bar';
 import { ProductShell, ShellMenuProvider } from './product-shell';
 import { ProgramNameReportProvider } from './program-name-report-context';
@@ -77,11 +78,17 @@ function SessionAppFrame({
     );
   }, [queryClient]);
   const consentRequiredDialog = shouldCheckConsent ? (
-    <ConsentRequiredDialog
-      open={consentStatus === 'required'}
-      onOpenChange={() => {}}
-      onCompleted={handleConsentCompleted}
-    />
+    <>
+      <ConsentRequiredDialog
+        open={consentStatus === 'required'}
+        onOpenChange={() => {}}
+        onCompleted={handleConsentCompleted}
+      />
+      {consent.data?.acceptedPolicyVersion &&
+      consent.data.acceptedPolicyVersion !== consent.data.policyVersion ? (
+        <PolicyNoticeDialog policyVersion={consent.data.policyVersion} />
+      ) : null}
+    </>
   ) : null;
   const content =
     !shouldCheckConsent ||

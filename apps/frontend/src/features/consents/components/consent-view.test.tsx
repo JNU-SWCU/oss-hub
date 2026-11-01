@@ -22,6 +22,7 @@ const policy: CurrentConsent = {
     },
   ],
   consented: false,
+  acceptedPolicyVersion: null,
   nextUrl: '/onboarding/role',
 };
 

@@ -215,8 +215,7 @@ describe('설정 화면', () => {
       );
       expect(notice?.textContent).toContain('비공개 저장소 기여 건수');
       expect(notice?.textContent).toContain('랭킹 지표 합계');
-      expect(notice?.textContent).toContain('다음 로그인 때');
-      expect(notice?.textContent).toContain('한 번 동의');
+      expect(notice?.textContent).toContain('공지로 안내');
       expect(
         notice?.querySelector('input, button, [role="dialog"]'),
       ).toBeNull();
