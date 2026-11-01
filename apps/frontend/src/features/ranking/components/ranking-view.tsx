@@ -36,7 +36,7 @@ interface RankingViewProps {
 const EMPTY_CELL = '-';
 
 const RANKING_METRIC_DESCRIPTION =
-  'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
+  'Commit · PR · Issue · Repo를 합산합니다. Star는 내 저장소와 그해 직접 커밋·PR한 조직 저장소의 누적입니다.';
 
 const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'rank',

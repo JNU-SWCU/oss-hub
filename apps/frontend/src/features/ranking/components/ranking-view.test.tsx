@@ -625,7 +625,7 @@ test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
   });
 
   expect(html).toContain('누적');
-  expect(html).toContain('계정 전체 누적');
+  expect(html).toContain('조직 저장소의 누적');
   expect(html).toContain('(누적)');
 });
 
@@ -915,7 +915,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
     expect(staff).toContain(header);
   }
   expect(staff).toContain('(누적)');
-  expect(staff).toContain('계정 전체 누적');
+  expect(staff).toContain('조직 저장소의 누적');
   expect(staff).toContain('첫 수집 전입니다');
   expect(staff).toContain('data-ranking-as-of="none"');
   expect(staff).toContain('CSV 다운로드');
