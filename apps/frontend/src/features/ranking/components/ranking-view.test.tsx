@@ -123,7 +123,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
   expect(html).toContain('break-keep');
   expect(html).not.toContain('table-fixed');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
   );
   expect(html).not.toContain(displayName);
   expect(html).toContain(githubLogin);
@@ -724,7 +724,7 @@ test('공개 화면은 rank·login·commit·PR 네 열만 렌더한다 — 신�
   });
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
+    'data-column-widths="rank:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right"',
   );
   for (const column of ['rank', 'member', 'commit', 'pr']) {
     expect(html).toContain(`data-column-head="${column}"`);
@@ -780,7 +780,7 @@ test('viewerClass staff 이면 이름 열과 CSV 버튼을 그린다', () => {
   expect(html).toContain(STAFF_ROW.department);
   expect(html).toContain('CSV 다운로드');
   expect(html).toContain(
-    'data-column-widths="rank:w-8,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-20,name:w-24,member:w-24,department:w-20,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
 });
 
@@ -956,7 +956,7 @@ test('member 화면은 공개 4열에 Issue·Repo·Star·합계를 더한 8열�
   const html = memberAxisMarkup([memberPersonAxisItem()]);
 
   expect(html).toContain(
-    'data-column-widths="rank:w-8,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
+    'data-column-widths="rank:w-20,member:w-24,commit:w-12 text-right,pr:w-12 text-right,issue:w-12 text-right,repository:w-12 text-right,star:w-12 text-right,total:w-12 text-right"',
   );
   for (const value of ['128', '24', '17', '9', '213', '391']) {
     expect(html).toContain(`>${value}<`);

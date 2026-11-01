@@ -6,6 +6,8 @@ import {
   type MemberRankingItem,
   type PublicRankingItem,
   type RankingPage,
+  type RankingTimeline,
+  type RankingTimelineSeries,
   type RankingViewerClass,
   type RankingYear,
   type RankingYears,
@@ -270,4 +272,65 @@ export async function getRankingYears(
     signal ? { signal } : undefined,
   );
   return parseRankingYears(response).years;
+}
+
+function isNullableCounts(
+  value: unknown,
+  length: number,
+): value is readonly (number | null)[] {
+  return (
+    Array.isArray(value) &&
+    value.length === length &&
+    value.every((item) => item === null || isNonNegativeInteger(item))
+  );
+}
+
+function parseTimelineSeries(
+  value: unknown,
+  length: number,
+): RankingTimelineSeries {
+  if (
+    !isRecord(value) ||
+    typeof value.githubLogin !== 'string' ||
+    !isNullableCounts(value.ranks, length) ||
+    !isNullableCounts(value.totals, length)
+  ) {
+    throw new RankingResponseError();
+  }
+  return {
+    githubLogin: value.githubLogin,
+    ranks: value.ranks,
+    totals: value.totals,
+  };
+}
+
+export function parseRankingTimeline(value: unknown): RankingTimeline {
+  if (
+    !isRecord(value) ||
+    !isPositiveInteger(value.year) ||
+    !Array.isArray(value.months) ||
+    !value.months.every(isPositiveInteger) ||
+    !Array.isArray(value.series)
+  ) {
+    throw new RankingResponseError();
+  }
+  const months: readonly number[] = value.months;
+  return {
+    year: value.year,
+    months,
+    series: value.series.map((series: unknown) =>
+      parseTimelineSeries(series, months.length),
+    ),
+  };
+}
+
+export async function getRankingTimeline(
+  year: number,
+  signal?: AbortSignal,
+): Promise<RankingTimeline> {
+  const response = await apiClient<unknown>(
+    `ranking/timeline?year=${String(year)}`,
+    signal ? { signal } : undefined,
+  );
+  return parseRankingTimeline(response);
 }

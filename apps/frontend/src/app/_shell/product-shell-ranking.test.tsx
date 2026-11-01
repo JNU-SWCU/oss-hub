@@ -48,6 +48,11 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+vi.mock('@/features/ranking/components/ranking-history-chart', () => ({
+  RankingHistoryChart: () => null,
+  RankingHistoryChartError: () => null,
+  RankingHistoryChartLoading: () => null,
+}));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
 vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,

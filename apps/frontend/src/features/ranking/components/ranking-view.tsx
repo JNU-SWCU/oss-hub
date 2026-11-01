@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { Download, Hourglass, ListOrdered, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,10 @@ import {
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
+import {
+  formatRankChange,
+  type RankingRankChange,
+} from './ranking-history-model';
 
 export type RankingViewState =
   | { readonly kind: 'loading' }
@@ -26,6 +30,8 @@ interface RankingViewProps {
   readonly page: number;
 
   readonly filters?: ReactNode;
+  readonly chart?: ReactNode;
+  readonly rankChanges?: ReadonlyMap<string, RankingRankChange>;
   readonly state: RankingViewState;
   readonly onPageChange: (page: number) => void;
   readonly onRetry: () => void;
@@ -39,11 +45,42 @@ const EMPTY_CELL = '-';
 const RANKING_METRIC_DESCRIPTION =
   'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
 
+const NO_RANK_CHANGES: ReadonlyMap<string, RankingRankChange> = new Map();
+const RankChangesContext = createContext(NO_RANK_CHANGES);
+
+const RANK_CHANGE_CLASS = {
+  up: 'bg-accent/10 text-accent',
+  down: 'bg-destructive/10 text-destructive',
+  new: 'bg-primary/10 text-primary',
+  same: 'text-muted-foreground',
+  unknown: 'hidden',
+} as const;
+
+function RankCell({ item }: { readonly item: PublicRankingItem }) {
+  const change = useContext(RankChangesContext).get(item.githubLogin) ?? {
+    kind: 'unknown' as const,
+  };
+  return (
+    <span className="inline-flex items-center gap-2 tabular-nums">
+      <span className="min-w-5">{item.rank}</span>
+      <span
+        data-rank-change={change.kind}
+        className={cn(
+          'rounded-full px-1.5 text-[0.7rem] font-semibold leading-5',
+          RANK_CHANGE_CLASS[change.kind],
+        )}
+      >
+        {formatRankChange(change)}
+      </span>
+    </span>
+  );
+}
+
 const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
   id: 'rank',
   header: '순위',
-  cell: (item) => item.rank,
-  headClassName: 'w-8',
+  cell: (item) => <RankCell item={item} />,
+  headClassName: 'w-20',
 };
 
 const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
@@ -269,6 +306,8 @@ function rankingAsOfAction(ranking: RankingPage): ReactNode {
 export function RankingView({
   page,
   filters,
+  chart,
+  rankChanges,
   state,
   onPageChange,
   onRetry,
@@ -352,10 +391,17 @@ export function RankingView({
               description="참여자의 공개 GitHub 활동이 수집되면 이곳에 표시됩니다."
             />
           ) : (
-            <RankingTable
-              ranking={ranking}
-              isLoading={state.kind === 'loading'}
-            />
+            <>
+              {chart}
+              <RankChangesContext.Provider
+                value={rankChanges ?? NO_RANK_CHANGES}
+              >
+                <RankingTable
+                  ranking={ranking}
+                  isLoading={state.kind === 'loading'}
+                />
+              </RankChangesContext.Provider>
+            </>
           )}
         </>
       )}

@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import {
   parseRankingPage,
+  parseRankingTimeline,
   parseRankingYears,
   RankingResponseError,
 } from './api';
@@ -423,4 +424,15 @@ test('staff 항목의 name 은 문자열 또는 null 이다', () => {
 
   const omitted = parseStaff();
   expect(omitted.items[0]?.name).toBeNull();
+});
+
+test('타임라인은 월과 계열을 읽고, 계열 길이가 월 수와 다르면 거부한다', () => {
+  const series = { githubLogin: 'mina', ranks: [null, 1], totals: [null, 40] };
+
+  expect(
+    parseRankingTimeline({ year: 2026, months: [1, 2], series: [series] }),
+  ).toEqual({ year: 2026, months: [1, 2], series: [series] });
+  expect(() =>
+    parseRankingTimeline({ year: 2026, months: [1], series: [series] }),
+  ).toThrow(RankingResponseError);
 });
