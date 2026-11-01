@@ -1,6 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { ReviewDecision } from '@prisma/client';
-import { UsersAuthorityService } from '../users/users-authority.service';
+import { Injectable } from '@nestjs/common';
+import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -12,7 +11,6 @@ import {
 } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
 
 export interface MilestoneDocumentReviewRequest {
   readonly decision: ReviewDecision;
@@ -26,13 +24,19 @@ export interface MilestoneDocumentReviewRequest {
 export class MilestoneDocumentReviewsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
+
+  reviewDecisionToSubmissionStatus(decision: ReviewDecision): SubmissionStatus {
+    switch (decision) {
+      case ReviewDecision.APPROVED:
+        return SubmissionStatus.APPROVED;
+      case ReviewDecision.CHANGES_REQUESTED:
+        return SubmissionStatus.CHANGES_REQUESTED;
+      case ReviewDecision.REJECTED:
+        return SubmissionStatus.REJECTED;
+    }
+  }
 
   reviewInputFromRequest(
     request: MilestoneDocumentReviewRequest,
@@ -86,18 +90,30 @@ export class MilestoneDocumentReviewsService {
     }
   }
 
+  reviewFromRequest(
+    reviewerId: string,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    request: MilestoneDocumentReviewRequest,
+  ): ReturnType<MilestoneDocumentReviewsService['review']> {
+    return this.review(
+      reviewerId,
+      milestoneId,
+      documentId,
+      applicationId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+
   async review(
-    sessionGithubId: bigint,
+    reviewerId: string,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     input: CreateMilestoneDocumentReviewInput,
     now: () => Date = () => new Date(),
   ): Promise<CreatedMilestoneDocumentReview> {
-    const { actorId: reviewerId } = await this.authority.assertActiveStaff(
-      sessionGithubId,
-      () => this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (
@@ -142,7 +158,7 @@ export class MilestoneDocumentReviewsService {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }
       const reviewedAt =
-        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+        this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
           now(),
           submission.latestHistoryCreatedAt,
         );
@@ -168,9 +184,7 @@ export class MilestoneDocumentReviewsService {
       });
       await store.updateSubmissionStatus(
         submission.id,
-        this.milestoneDocumentRulesService.reviewDecisionToSubmissionStatus(
-          input.decision,
-        ),
+        this.reviewDecisionToSubmissionStatus(input.decision),
       );
       return review;
     });

@@ -1,7 +1,12 @@
+import { MilestoneDocumentCollectionService } from '../milestone-document-collection.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { MilestoneDocumentCollectionRequestDto } from './milestone-document-collection-request.dto';
+
+const collectionService = Object.create(
+  MilestoneDocumentCollectionService.prototype,
+) as MilestoneDocumentCollectionService;
 
 it('parses document and submission selectors while preserving existing pagination', async () => {
   const dto = plainToInstance(MilestoneDocumentCollectionRequestDto, {
@@ -12,7 +17,7 @@ it('parses document and submission selectors while preserving existing paginatio
     submissionState: 'MISSING',
   });
   expect(await validate(dto)).toEqual([]);
-  expect(dto.toQuery()).toEqual({
+  expect(collectionService.collectionQueryFromRequest(dto)).toEqual({
     page: 2,
     pageSize: 20,
     filter: 'ALL',
@@ -25,11 +30,15 @@ it('defaults a selected document to all teams without changing old requests', as
     documentId: 'synthetic-document',
   });
   expect(await validate(dto)).toEqual([]);
-  expect(dto.toQuery().document).toEqual({
+  expect(collectionService.collectionQueryFromRequest(dto).document).toEqual({
     id: 'synthetic-document',
     submissionState: 'ALL',
   });
-  expect(new MilestoneDocumentCollectionRequestDto().toQuery()).toEqual({
+  expect(
+    collectionService.collectionQueryFromRequest(
+      new MilestoneDocumentCollectionRequestDto(),
+    ),
+  ).toEqual({
     page: 1,
     pageSize: 20,
     filter: 'ALL',

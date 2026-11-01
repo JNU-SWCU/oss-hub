@@ -10,11 +10,11 @@ describe('RankingController', () => {
   const findPage = jest.fn();
   const listYears = jest.fn();
   const controller = new RankingController(
-    {
+    Object.assign(Object.create(RankingService.prototype) as object, {
       findPage,
       listYears,
-    } as unknown as RankingService,
-    new RankingYearService(),
+      rankingYearService: new RankingYearService(),
+    }) as unknown as RankingService,
   );
 
   const emptyPage = {

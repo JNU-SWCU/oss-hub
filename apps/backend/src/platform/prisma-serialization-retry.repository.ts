@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 const SERIALIZATION_FAILURE_CODE = 'P2034';
@@ -11,8 +12,9 @@ function defaultBackoffMs(attempt: number): number {
   return 25 * attempt;
 }
 
+@Injectable()
 export class PrismaSerializationRetryRepository {
-  static isSerializationFailure(
+  isSerializationFailure(
     error: unknown,
   ): error is Prisma.PrismaClientKnownRequestError {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
@@ -28,7 +30,7 @@ export class PrismaSerializationRetryRepository {
     return meta?.code === POSTGRES_SERIALIZATION_FAILURE;
   }
 
-  static async withSerializationRetry<T>(
+  async withSerializationRetry<T>(
     run: () => Promise<T>,
     options: SerializationRetryOptions = {},
   ): Promise<T> {
@@ -39,7 +41,7 @@ export class PrismaSerializationRetryRepository {
       try {
         return await run();
       } catch (error) {
-        if (!PrismaSerializationRetryRepository.isSerializationFailure(error)) {
+        if (!this.isSerializationFailure(error)) {
           throw error;
         }
         if (attempt >= maxAttempts) {

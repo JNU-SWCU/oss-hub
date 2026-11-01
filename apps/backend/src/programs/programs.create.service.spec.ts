@@ -1,3 +1,7 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ProgramCategory,
@@ -15,7 +19,6 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
@@ -60,10 +63,15 @@ describe('ProgramsService', () => {
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramCreationService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
-    new ProgramRulesService(),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
   );
 
   beforeEach(() => {
@@ -274,21 +282,6 @@ describe('ProgramsService', () => {
           },
         ],
       },
-    });
-    expect(create).not.toHaveBeenCalled();
-  });
-
-  it('rejects inactive staff before a program is stored', async () => {
-    findUnique.mockResolvedValue({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      accountStatus: AccountStatus.DEACTIVATED,
-    });
-
-    await expect(service.create(101n, input)).rejects.toMatchObject<
-      Partial<DomainException>
-    >({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
     });
     expect(create).not.toHaveBeenCalled();
   });

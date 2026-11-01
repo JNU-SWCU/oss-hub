@@ -11,7 +11,10 @@ export interface RepositoryObservationRow {
 
 @Injectable()
 export class PublicEligibilityRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findRepositoryObservations(
     repositoryIds: readonly bigint[],
@@ -19,7 +22,7 @@ export class PublicEligibilityRepository {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...repositoryIds] },
-        ...PlatformRepository.linkedRepositoryFilter(),
+        ...this.platformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,

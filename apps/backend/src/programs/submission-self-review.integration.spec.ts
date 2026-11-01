@@ -1,3 +1,9 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   MilestoneDocumentKind,
   ReviewDecision,
@@ -11,16 +17,11 @@ import {
 import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -28,22 +29,27 @@ assertIsolatedIntegrationDatabase({
 });
 
 const fixture = new MilestoneDocumentFlowFixture();
-const authority = new UsersAuthorityService(
-  new UsersAuthorityRepository(fixture.prisma),
-);
 const documentReviews = new MilestoneDocumentReviewsService(
-  new MilestoneDocumentsRepository(fixture.prisma),
-  authority,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentsRepository(
+    fixture.prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+  ),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 const legacyReviews = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(fixture.prisma),
+  new SubmissionReviewsRepository(
+    fixture.prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(fixture.prisma, new PlatformRepository()),
+  ),
   { publish: jest.fn() },
-  authority,
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
 );
 const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];
@@ -57,9 +63,13 @@ async function review(
   actorGithubId: bigint,
   decision: ReviewDecision,
 ): Promise<unknown> {
+  const { id: reviewerId } = await fixture.prisma.user.findUniqueOrThrow({
+    where: { githubId: actorGithubId },
+    select: { id: true },
+  });
   if (path === 'document') {
     return documentReviews.review(
-      actorGithubId,
+      reviewerId,
       flowIds.milestone,
       flowIds.document,
       flowIds.application,
@@ -89,7 +99,7 @@ async function review(
       },
       select: { id: true },
     });
-  return legacyReviews.review(actorGithubId, submission.id, {
+  return legacyReviews.review(reviewerId, submission.id, {
     revision: 1,
     decision,
     comment: '합성 검토 사유',

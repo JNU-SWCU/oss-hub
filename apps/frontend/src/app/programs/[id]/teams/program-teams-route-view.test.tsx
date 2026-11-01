@@ -79,6 +79,26 @@ describe('ProgramTeamsRouteView', () => {
     },
   );
 
+  it.each([
+    ['교직원 접근', { hasStaffAccess: true, hasAdminAccess: false }],
+    ['관리자 접근', { hasStaffAccess: false, hasAdminAccess: true }],
+  ])(
+    '%s이 있는 학생은 보기가 정해지기 전에 어느 팀 화면도 띄우지 않는다',
+    (_label, access) => {
+      act(() =>
+        root.render(
+          <SessionRoleProvider value={{ ...sessionFor('STUDENT'), ...access }}>
+            <ProgramViewContext.Provider value={null}>
+              <ProgramTeamsRouteView programId="program-1" />
+            </ProgramViewContext.Provider>
+          </SessionRoleProvider>,
+        ),
+      );
+
+      expect(container.textContent).toBe('');
+    },
+  );
+
   it('학생에게는 팀 구성 화면을 준다', () => {
     renderAs('STUDENT');
 

@@ -22,6 +22,7 @@ import type { AccessAuditAction } from '../platform/audit-log.repository';
 import type { AccessAuditMetadata } from '../platform/audit-log-metadata.config';
 import {
   type AdminAccessActor,
+  type AdminAccessPrincipal,
   type AdminAccessUserRecord,
 } from './admin-access-read.repository';
 import { DomainException } from '../platform/error-code.error';
@@ -935,7 +936,7 @@ export class AdminAccessMutationService {
     return entry;
   }
 
-  requireActiveAdmin(actor: AdminAccessActor | null): AdminAccessActor {
+  requireActiveAdmin<T extends AdminAccessPrincipal>(actor: T | null): T {
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
@@ -947,7 +948,9 @@ export class AdminAccessMutationService {
     return actor;
   }
 
-  requireActiveStaffOrAdmin(actor: AdminAccessActor | null): AdminAccessActor {
+  requireActiveStaffOrAdmin<T extends AdminAccessPrincipal>(
+    actor: T | null,
+  ): T {
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
@@ -959,7 +962,7 @@ export class AdminAccessMutationService {
     return actor;
   }
 
-  isAdminActor(actor: AdminAccessActor): boolean {
+  isAdminActor(actor: AdminAccessPrincipal): boolean {
     return actor.hasAdminAccess;
   }
 

@@ -16,7 +16,6 @@ import type {
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
-import type { UsersAuthorityService } from '../users/users-authority.service';
 import {
   ApplicationDuplicateError,
   ApplicationJoinCodeDigestConflictError,
@@ -30,11 +29,8 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
-type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
-
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
-const STAFF_ACTOR_ID = 'synthetic-staff';
 const PROGRAM_ID = 'synthetic-program';
 const STUDENT: ApplicationStudentActor = {
   id: 'synthetic-student',
@@ -170,15 +166,10 @@ function buildService(overrides: {
     findRepositoryProvisionEvent: jest.fn(),
   } as unknown as ApplicationsRepository;
 
-  const assertActiveStaff = jest
-    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
-    .mockResolvedValue({ actorId: STAFF_ACTOR_ID });
-
   return {
     service: new ApplicationsService(
       repository,
       { record } as unknown as AuditLogService,
-      { assertActiveStaff },
       joinCodeService,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),

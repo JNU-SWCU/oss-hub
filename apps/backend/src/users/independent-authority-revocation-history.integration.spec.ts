@@ -1,3 +1,8 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AdminAccessRepository } from './admin-access.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -21,7 +26,21 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const authority = new IndependentAuthorityService(
-  new IndependentAuthorityRepository(prisma),
+  new IndependentAuthorityRepository(
+    prisma,
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    ),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
@@ -38,7 +57,7 @@ const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
   requireCurrent: jest.fn().mockResolvedValue(undefined),
 };
 const roles = new MemberOnboardingService(
-  new MemberOnboardingRepository(prisma),
+  new MemberOnboardingRepository(prisma, new PlatformRepository()),
   consentsService,
   new UserProfileService(),
 );

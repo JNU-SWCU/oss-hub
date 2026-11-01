@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 export type Fetcher = (
   input: string | URL,
   init?: RequestInit,
@@ -5,6 +6,7 @@ export type Fetcher = (
 
 const MIN_PACING_MS = 250;
 
+@Injectable()
 export class ProviderRequestQueueClient {
   private tail: Promise<unknown> = Promise.resolve();
   private lastDispatchAt = 0;

@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
@@ -46,6 +48,8 @@ describe('StudentApplicationManagementRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -65,6 +69,8 @@ describe('StudentApplicationManagementRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -87,6 +93,8 @@ describe('StudentApplicationManagementRepository', () => {
       .mockResolvedValue({ ...APPLICATION, rejectionReason: '합성 반려 사유' });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -102,6 +110,8 @@ describe('StudentApplicationManagementRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ application: { findFirst } }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -133,6 +143,8 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -162,6 +174,8 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -202,6 +216,8 @@ describe('StudentApplicationManagementRepository', () => {
     );
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -231,6 +247,8 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -261,6 +279,8 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -291,6 +311,8 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         () => NOW,
       );
 
@@ -315,6 +337,8 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -349,6 +373,8 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -369,6 +395,8 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -396,6 +424,8 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -412,6 +442,8 @@ describe('StudentApplicationManagementRepository', () => {
     transaction.$queryRaw.mockResolvedValue([]);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
+      new ReviewHistoryWriterRepository(),
+      new PlatformRepository(),
       () => NOW,
     );
 
@@ -458,6 +490,8 @@ describe('StudentApplicationManagementRepository', () => {
       const clock = jest.fn(() => NOW);
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
+        new ReviewHistoryWriterRepository(),
+        new PlatformRepository(),
         clock,
       );
 

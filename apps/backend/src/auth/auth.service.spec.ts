@@ -13,7 +13,7 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
 import { Logger } from '@nestjs/common';
 import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
-import { CollectionPublicTokenService } from '../github/collection-providers.service';
+import { CollectionPublicTokenService } from '../github/collection-public-token.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionDiscoveryClient } from '../github/collection-discovery.client';
 import { PrismaService } from '../platform/prisma.service';

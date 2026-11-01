@@ -25,13 +25,13 @@ vi.mock('./documents-route', () => ({
 import ProgramDocumentsPage from './page';
 
 describe('ProgramDocumentsPage access contract', () => {
-  it('학생과 교직원이 같은 서류 화면에 들어가도록 허용한다', async () => {
+  it('학생과 교직원, 관리자가 같은 서류 화면에 들어가도록 허용한다', async () => {
     const page = await ProgramDocumentsPage({
       params: Promise.resolve({ id: 'program%3Abasic' }),
     });
     const html = renderToStaticMarkup(page);
 
-    expect(html).toContain('data-allow="student,staff"');
+    expect(html).toContain('data-allow="student,staff,admin"');
     expect(html).toContain('data-documents-program-id="program:basic"');
   });
 });

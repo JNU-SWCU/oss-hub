@@ -99,16 +99,53 @@ export interface AuthTransactionStore {
   upsertUser(profile: GithubProfile): Promise<AuthLoginRow>;
 }
 
-class PrismaAuthTransactionRepository implements AuthTransactionStore {
+@Injectable()
+export class AuthRepository {
+  private readonly logger = new Logger(AuthRepository.name);
+
   constructor(
-    private readonly transaction: Prisma.TransactionClient,
+    private readonly prisma: PrismaService,
     private readonly config: AuthConfig,
-    private readonly logger: Logger,
   ) {}
 
-  async upsertUser(profile: GithubProfile): Promise<AuthLoginRow> {
+  withTransaction<T>(
+    operation: (store: AuthTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(this.authTransactionStore(transaction)),
+    );
+  }
+
+  async findByGithubId(githubId: bigint): Promise<AuthUserRecord | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: AUTH_USER_SELECT,
+    });
+    return user ? toDomain(user) : null;
+  }
+
+  async incrementSessionVersion(githubId: bigint): Promise<void> {
+    await this.prisma.user.update({
+      where: { githubId },
+      data: { sessionVersion: { increment: 1 } },
+      select: { id: true },
+    });
+  }
+
+  private authTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): AuthTransactionStore {
+    return {
+      upsertUser: this.upsertUserIn.bind(this, transaction),
+    };
+  }
+
+  private async upsertUserIn(
+    transaction: Prisma.TransactionClient,
+    profile: GithubProfile,
+  ): Promise<AuthLoginRow> {
     const initialRole = this.config.resolveInitialRole(profile.githubId);
-    const created = await this.transaction.user.createMany({
+    const created = await transaction.user.createMany({
       data: {
         githubId: profile.githubId,
         nickname: profile.login,
@@ -119,16 +156,16 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
     });
     let user: AuthUserRow;
     if (created.count === 1) {
-      user = await this.transaction.user.findUniqueOrThrow({
+      user = await transaction.user.findUniqueOrThrow({
         where: { githubId: profile.githubId },
         select: AUTH_USER_SELECT,
       });
     } else {
-      const current = await this.transaction.user.findUniqueOrThrow({
+      const current = await transaction.user.findUniqueOrThrow({
         where: { githubId: profile.githubId },
         select: AUTH_USER_SELECT,
       });
-      user = await this.transaction.user.update({
+      user = await transaction.user.update({
         where: { githubId: profile.githubId },
         data: {
           nickname: profile.login,
@@ -146,7 +183,7 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
       user.accountStatus === AccountStatus.ACTIVE &&
       !hasSeededAuthority(user)
     ) {
-      const promoted = await this.transaction.user.updateMany({
+      const promoted = await transaction.user.updateMany({
         where: {
           id: user.id,
           accountStatus: AccountStatus.ACTIVE,
@@ -166,16 +203,17 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
       });
       if (promoted.count === 1) {
         if (initialRole.hasStaffAccess) {
-          const pendingRequest =
-            await this.transaction.staffAccessRequest.findFirst({
+          const pendingRequest = await transaction.staffAccessRequest.findFirst(
+            {
               where: {
                 userId: user.id,
                 status: StaffAccessRequestStatus.PENDING,
               },
-            });
+            },
+          );
           if (pendingRequest) {
             const transitioned =
-              await this.transaction.staffAccessRequest.updateMany({
+              await transaction.staffAccessRequest.updateMany({
                 where: {
                   id: pendingRequest.id,
                   status: StaffAccessRequestStatus.PENDING,
@@ -191,7 +229,7 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
               throw new StaffAccessRequestSeedConflictError();
             }
           } else {
-            await this.transaction.staffAccessRequest.create({
+            await transaction.staffAccessRequest.create({
               data: {
                 userId: user.id,
                 status: StaffAccessRequestStatus.APPROVED,
@@ -206,19 +244,18 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
         } else {
           this.logger.log(`초기 시드 적용: ${describeSeed(initialRole)}`);
         }
-        user = await this.transaction.user.findUniqueOrThrow({
+        user = await transaction.user.findUniqueOrThrow({
           where: { id: user.id },
           select: AUTH_USER_SELECT,
         });
       } else {
-        const revokedRequest =
-          await this.transaction.staffAccessRequest.findFirst({
-            where: {
-              userId: user.id,
-              status: StaffAccessRequestStatus.REVOKED,
-            },
-            select: { id: true },
-          });
+        const revokedRequest = await transaction.staffAccessRequest.findFirst({
+          where: {
+            userId: user.id,
+            status: StaffAccessRequestStatus.REVOKED,
+          },
+          select: { id: true },
+        });
         if (revokedRequest) {
           this.logger.debug(
             `초기 시드 미적용: ${describeSeed(initialRole)} — 회수된 계정이다.`,
@@ -231,46 +268,6 @@ class PrismaAuthTransactionRepository implements AuthTransactionStore {
       }
     }
     return { user: toDomain(user), isNew: created.count === 1 };
-  }
-}
-
-@Injectable()
-export class AuthRepository {
-  private readonly logger = new Logger(AuthRepository.name);
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly config: AuthConfig,
-  ) {}
-
-  withTransaction<T>(
-    operation: (store: AuthTransactionStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaAuthTransactionRepository(
-          transaction,
-          this.config,
-          this.logger,
-        ),
-      ),
-    );
-  }
-
-  async findByGithubId(githubId: bigint): Promise<AuthUserRecord | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: AUTH_USER_SELECT,
-    });
-    return user ? toDomain(user) : null;
-  }
-
-  async incrementSessionVersion(githubId: bigint): Promise<void> {
-    await this.prisma.user.update({
-      where: { githubId },
-      data: { sessionVersion: { increment: 1 } },
-      select: { id: true },
-    });
   }
 }
 

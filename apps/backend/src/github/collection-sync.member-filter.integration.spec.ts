@@ -3,8 +3,9 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { CollectionSyncService } from './collection-sync.service';
+import { CollectionAppClient } from './collection-app.client';
+import type { CollectionAppConfigValues } from './collection-app.config';
 import type {
-  CollectionAppClient,
   CollectionCommit,
   CollectionIssue,
   CollectionPullRequest,
@@ -48,6 +49,14 @@ const fingerprint = (endpoint: string): RequestFingerprint => ({
   accept: 'application/vnd.github+json',
   apiVersion: '2022-11-28',
 });
+
+const fingerprintKeys = new CollectionAppClient(
+  {} as CollectionAppConfigValues,
+  {
+    getToken: () => Promise.resolve('synthetic-token'),
+    clear: () => undefined,
+  },
+);
 
 const providerRepository = (): ProviderRepository => ({
   id: GITHUB_REPOSITORY_ID.toString(),
@@ -149,6 +158,8 @@ const createClient = (
           : null,
         fingerprint: fingerprint('/repos/o/r/issues'),
       }),
+    requestFingerprintKey: (value: RequestFingerprint) =>
+      fingerprintKeys.requestFingerprintKey(value),
   }) as unknown as CollectionAppClient;
 
 describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {

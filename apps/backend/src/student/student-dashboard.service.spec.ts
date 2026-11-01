@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
@@ -884,7 +885,10 @@ describe('StudentDashboardRepository', () => {
     user: { findUnique },
     application: { findMany },
   } as unknown as PrismaService;
-  const repository = new StudentDashboardRepository(prisma);
+  const repository = new StudentDashboardRepository(
+    prisma,
+    new PlatformRepository(),
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

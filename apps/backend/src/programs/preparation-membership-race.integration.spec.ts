@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -74,7 +75,10 @@ function pauseBeforeCommit(
 }
 
 function preparation(client: PrismaService, path: 'create' | 'accept') {
-  const repository = new ApplicationPreparationsRepository(client);
+  const repository = new ApplicationPreparationsRepository(
+    client,
+    new PlatformRepository(),
+  );
   return path === 'accept'
     ? repository.respond(preparationInvitationId, actorId, 'accept', now)
     : repository.create(programId, actorId, 'Synthetic preparation', now);
@@ -132,7 +136,10 @@ describe('official and preparation membership exclusion', () => {
         invitedById: teamLeaderId,
       },
     });
-    const repository = new ApplicationPreparationsRepository(prisma);
+    const repository = new ApplicationPreparationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
     const draft = await repository.create(
       programId,
       leaderId,
@@ -164,20 +171,18 @@ describe('official and preparation membership exclusion', () => {
       const firstOperation =
         first === 'preparation'
           ? preparation(firstClient, preparationPath)
-          : new TeamInvitationsRepository(firstClient).withAcceptTransaction(
-              invitationId,
-              actorId,
-              now,
-            );
+          : new TeamInvitationsRepository(
+              firstClient,
+              new PlatformRepository(),
+            ).withAcceptTransaction(invitationId, actorId, now);
       operations.push(firstOperation);
       await paused.promise;
       const secondOperation =
         first === 'preparation'
-          ? new TeamInvitationsRepository(secondClient).withAcceptTransaction(
-              invitationId,
-              actorId,
-              now,
-            )
+          ? new TeamInvitationsRepository(
+              secondClient,
+              new PlatformRepository(),
+            ).withAcceptTransaction(invitationId, actorId, now)
           : preparation(secondClient, preparationPath);
       operations.push(secondOperation.catch(() => undefined));
       await releaseAfterBlocked(

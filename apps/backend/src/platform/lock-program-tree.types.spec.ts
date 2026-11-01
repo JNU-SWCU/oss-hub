@@ -3,9 +3,9 @@ import * as ts from 'typescript';
 
 describe('program tree witness types', () => {
   it.each([
-    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'documents', after: p, documentKind: 'ALL' });",
-    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'documents', documentKind: 'ALL' });",
-    "LockProgramTreeRepository.lockProgramTree(tx, { stage: 'milestone', milestoneId: 'm', after: m });",
+    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents', after: p, documentKind: 'ALL' });",
+    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents', documentKind: 'ALL' });",
+    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'milestone', milestoneId: 'm', after: m });",
     "const forged: MilestoneLock = { id: 'm', programId: 'p' };",
   ])('rejects invalid witness construction or transitions: %s', (statement) => {
     const file = path.resolve(__dirname, 'witness-contract.ts');

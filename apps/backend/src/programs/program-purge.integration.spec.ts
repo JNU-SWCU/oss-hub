@@ -1,3 +1,6 @@
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
@@ -66,9 +69,10 @@ const auditLog = new AuditLogService(
   new AuditLogMetadataService(),
 );
 const lifecycle = new ProgramLifecycleService(
-  new ProgramLifecycleRepository(prisma),
+  new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
   auditLog,
   new AuditLogMetadataService(),
+  new PrismaSerializationRetryRepository(),
 );
 const storageConfig = new ObjectStorageConfig();
 const storageSettings = storageConfig.requireSettings();
@@ -89,7 +93,11 @@ const purgeFileCleanup = new ProgramPurgeFileCleanupService(
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const submissionFileCleanup = new SubmissionFileCleanupService(
-  new SubmissionFilesRepository(prisma),
+  new SubmissionFilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   storage,
 );
 
@@ -894,7 +902,7 @@ async function seedStandaloneProgram(label: string): Promise<string> {
 
 async function currentDeletionScopeCounts(programId: string) {
   return prisma.$transaction((transaction) =>
-    ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+    new ProgramDeletionScopeRepository().readProgramDeletionScopeCounts(
       transaction,
       programId,
     ),
@@ -1727,34 +1735,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.not.toBeNull();
   });
 
-  it('학생은 delete·purge 모두 403 PRG_011을 받고 프로그램은 그대로 남는다', async () => {
-    const fixture = await seedFullChildGraph('student-forbidden');
-    const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
-    await expect(
-      lifecycle.delete(STUDENT_GITHUB_ID, fixture.programId),
-    ).rejects.toBeInstanceOf(DomainException);
-    await expect(
-      lifecycle.delete(STUDENT_GITHUB_ID, fixture.programId),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN },
-    });
-    await expect(
-      lifecycle.purge(STUDENT_GITHUB_ID, fixture.programId, expectedScope),
-    ).rejects.toMatchObject({
-      errorCode: { code: ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN },
-    });
-
-    await expect(
-      prisma.program.findUnique({ where: { id: fixture.programId } }),
-    ).resolves.not.toBeNull();
-    const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
-    ]);
-    expect(after.milestones).toBe(1);
-    expect(after.applications).toBe(2);
-  });
-
   it('stale_state: purge 이후 같은 프로그램에 대한 기존 가드 delete는 정지된 blockingCounts가 아니라 PROGRAM_NOT_FOUND를 던진다', async () => {
     const fixture = await seedFullChildGraph('stale-state');
 
@@ -1804,9 +1784,13 @@ describe('Program purge integration — full child graph, worker file deletion, 
       record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
     } as unknown as AuditLogService;
     const failingLifecycle = new ProgramLifecycleService(
-      new ProgramLifecycleRepository(prisma),
+      new ProgramLifecycleRepository(
+        prisma,
+        new ProgramDeletionScopeRepository(),
+      ),
       failingAuditLog,
       new AuditLogMetadataService(),
+      new PrismaSerializationRetryRepository(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
 
@@ -2080,9 +2064,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
               requestedOptions = options;
             },
           ),
+          new ProgramDeletionScopeRepository(),
         ),
         auditLog,
         new AuditLogMetadataService(),
+        new PrismaSerializationRetryRepository(),
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
 

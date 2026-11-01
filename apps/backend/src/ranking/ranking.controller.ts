@@ -1,26 +1,17 @@
 import { Controller, Get, Header, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
-import {
-  assertNeverHttpAuth,
-  OptionalSession,
-  Public,
-} from '../auth/authentication.guard';
-import { HTTP_AUTH_KINDS } from '../platform/auth.config';
+import { OptionalSession, Public } from '../auth/auth-route.decorator';
 import { RankingRequestDto } from './dto/ranking-request.dto';
 import {
   RankingPageResponseDto,
   RankingYearsResponseDto,
 } from './dto/ranking-page-response.dto';
-import { RankingService, RANKING_VIEWER_CLASSES } from './ranking.service';
-import { RankingYearService } from './ranking-year.service';
+import { RankingService } from './ranking.service';
 
 @Controller('ranking')
 export class RankingController {
-  constructor(
-    private readonly rankingService: RankingService,
-    private readonly rankingYearService: RankingYearService,
-  ) {}
+  constructor(private readonly rankingService: RankingService) {}
 
   @Get()
   @OptionalSession()
@@ -29,19 +20,13 @@ export class RankingController {
     @Req() request: OptionalSessionRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<RankingPageResponseDto> {
-    const page = await this.rankingService.findPage(
-      this.rankingYearService.resolveRankingQueryYear(query),
-      query.page,
-      query.pageSize,
-      githubIdFrom(request),
+    return RankingPageResponseDto.from(
+      await this.rankingService.findPageFromRequest(
+        query,
+        request.auth,
+        response,
+      ),
     );
-    if (page.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
-      response.setHeader('Cache-Control', 'no-store');
-    } else {
-      response.setHeader('Cache-Control', 'private, no-store');
-      response.setHeader('Vary', 'Cookie');
-    }
-    return RankingPageResponseDto.from(page);
   }
 
   @Get('years')
@@ -49,16 +34,5 @@ export class RankingController {
   @Header('Cache-Control', 'no-store')
   async listYears(): Promise<RankingYearsResponseDto> {
     return RankingYearsResponseDto.from(await this.rankingService.listYears());
-  }
-}
-
-function githubIdFrom(request: OptionalSessionRequest): bigint | null {
-  switch (request.auth.kind) {
-    case HTTP_AUTH_KINDS.ANONYMOUS:
-      return null;
-    case HTTP_AUTH_KINDS.AUTHENTICATED:
-      return request.auth.principal.githubId;
-    default:
-      return assertNeverHttpAuth(request.auth);
   }
 }

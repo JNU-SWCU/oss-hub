@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
@@ -102,7 +103,28 @@ export class ProgramActivityService {
       ProgramActivityRepository,
       'findRepositoryActivity' | 'findProgramActivityApplications'
     >,
+    private readonly programViewerService: ProgramViewerService,
   ) {}
+
+  async activityForGithubId(
+    programId: string,
+    githubId: bigint,
+  ): Promise<readonly ProgramActivityResult[]> {
+    return this.activity(
+      programId,
+      await this.programViewerService.fromGithubId(githubId),
+    );
+  }
+
+  async activityTimelineForGithubId(
+    githubId: bigint,
+    granularity: ActivityGranularity,
+  ): Promise<ActivityTimelineResult> {
+    return this.activityTimeline(
+      await this.programViewerService.studentFromGithubId(githubId),
+      granularity,
+    );
+  }
 
   async activity(
     programId: string,

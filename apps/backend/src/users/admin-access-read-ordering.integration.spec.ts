@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -16,7 +20,14 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new AdminAccessService(
-  new AdminAccessRepository(prisma),
+  new AdminAccessRepository(
+    prisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
@@ -51,6 +62,12 @@ const expectedUserIds = [
   orderingUserIds.profileZulu,
 ] as const;
 let actorGithubId: bigint;
+const adminPrincipal = () => ({
+  githubId: actorGithubId,
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+});
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -135,7 +152,7 @@ afterAll(async () => {
 it('orders profile and legacy display names across bounded pages without gaps or duplicates', async () => {
   const pages = await Promise.all(
     [1, 2, 3, 4].map((page) =>
-      service.list(actorGithubId, {
+      service.list(adminPrincipal(), {
         query: queryFragment,
         page,
         limit: pageLimit,
@@ -186,7 +203,7 @@ it('orders the pending request queue by request creation time, not account creat
     ],
   });
 
-  const page = await service.listRequests(actorGithubId, {
+  const page = await service.listRequests(adminPrincipal(), {
     query: requestSortFragment,
     sort: 'createdAt',
     direction: 'desc',

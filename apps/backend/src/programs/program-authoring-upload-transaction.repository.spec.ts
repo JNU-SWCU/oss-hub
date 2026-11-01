@@ -41,7 +41,7 @@ describe('program authoring upload transaction', () => {
     ]);
 
     await expect(
-      ProgramAuthoringUploadTransactionRepository.lockAttachableProgramAuthoringUploads(
+      new ProgramAuthoringUploadTransactionRepository().lockAttachableProgramAuthoringUploads(
         prisma as never,
         ACTOR_ID,
         ['b', 'a'],
@@ -55,7 +55,7 @@ describe('program authoring upload transaction', () => {
     const prisma = transaction();
 
     await expect(
-      ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+      new ProgramAuthoringUploadTransactionRepository().lockProgramAuthoringUploads(
         prisma as never,
         [],
       ),
@@ -92,7 +92,7 @@ describe('program authoring upload transaction', () => {
     'rejects %s upload tokens before consumption',
     (_case, actorId, tokenIds, uploads, reason) => {
       try {
-        ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+        new ProgramAuthoringUploadTransactionRepository().assertAttachableProgramAuthoringUploads(
           actorId,
           tokenIds,
           uploads,
@@ -112,7 +112,7 @@ describe('program authoring upload transaction', () => {
     const first = upload({ id: 'a', storageKey: 'program-authoring/a' });
     const second = upload({ id: 'b', storageKey: 'program-authoring/b' });
 
-    await ProgramAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+    await new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
       prisma as never,
       ACTOR_ID,
       [
@@ -174,7 +174,7 @@ describe('program authoring upload transaction', () => {
     prisma.programAuthoringUpload.deleteMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      ProgramAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+      new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
         prisma as never,
         ACTOR_ID,
         [{ milestoneDocumentId: 'document-id', upload: upload() }],

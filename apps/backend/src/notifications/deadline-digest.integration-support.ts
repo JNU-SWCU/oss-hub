@@ -1,3 +1,4 @@
+import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 import {
   ApplicationStatus,
   MilestoneSubmissionType,
@@ -223,8 +224,13 @@ export function createDeadlineDigestIntegrationHarness() {
       await prisma.$disconnect();
     },
     service: (mailSender: MailSender) =>
-      new DeadlineDigestService(repository, mailSender, {
-        FRONTEND_URL: 'https://oss.example',
-      }),
+      new DeadlineDigestService(
+        repository,
+        mailSender,
+        {
+          FRONTEND_URL: 'https://oss.example',
+        },
+        new DeadlineDigestMailService(),
+      ),
   };
 }

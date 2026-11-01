@@ -29,6 +29,14 @@ const rules = {
   'config-exports': await load('module-exports.mjs', 'configExports'),
   'service-exports': await load('module-exports.mjs', 'serviceExports'),
   'no-session-guard': await load('no-session-guard.mjs', 'noSessionGuard'),
+  'injectable-role-class': await load('module-exports.mjs', 'injectableRoleClass'),
+  'no-generic-role-file-names': await load('no-generic-role-file-names.mjs', 'noGenericRoleFileNames'),
+  'thin-controller': await load('thin-controller.mjs', 'thinController'),
+  'no-passthrough-factory': await load(
+    'no-passthrough-factory.mjs',
+    'noPassthroughFactory',
+  ),
+  'request-dto-no-methods': await load('request-dto-no-methods.mjs', 'requestDtoNoMethods'),
 };
 let current;
 RuleTester.describe = (_name, fn) => fn();
@@ -47,14 +55,20 @@ const typedTester = new RuleTester({
     parser: tseslint.parser,
     parserOptions: {
       projectService: {
-        allowDefaultProject: ['src/programs/rule-case.controller.ts'],
+        allowDefaultProject: [
+          'src/programs/rule-case.controller.ts',
+          'src/programs/rule-case.module.ts',
+        ],
         defaultProject: 'tsconfig.json',
       },
       tsconfigRootDir: backendRoot,
     },
   },
 });
-const typedRules = new Set(['controller-explicit-return']);
+const typedRules = new Set([
+  'controller-explicit-return',
+  'no-passthrough-factory',
+]);
 const output = [];
 for (const item of JSON.parse(casesJson)) {
   const test = { code: item.code, filename: path.join(backendRoot, item.filename) };
@@ -726,6 +740,458 @@ invalid(
   'export const guard = 1;',
   ['forbidden'],
 );
+
+const repositoryFile = 'src/programs/rule-case.repository.ts';
+for (const [name, filename, code] of [
+  [
+    'an injectable service',
+    serviceFile,
+    '@Injectable() export class ThingService { run() { return 1; } }',
+  ],
+  [
+    'an injectable repository',
+    repositoryFile,
+    '@Injectable() export class ThingRepository { constructor(private readonly prisma: PrismaService) {} }',
+  ],
+] as const) {
+  valid('injectable-role-class', `allows ${name}`, filename, code);
+}
+for (const [name, filename, code, errors] of [
+  [
+    'a service without @Injectable',
+    serviceFile,
+    'export class ThingService { run() { return 1; } }',
+    ['notInjectable'],
+  ],
+  [
+    'a repository of static helpers',
+    repositoryFile,
+    'export class ThingRepository { static where() { return {}; } }',
+    ['notInjectable', 'staticMember'],
+  ],
+  [
+    'a static member on an injectable service',
+    serviceFile,
+    '@Injectable() export class ThingService { static readonly providers = []; }',
+    ['staticMember'],
+  ],
+  [
+    'a different decorator',
+    serviceFile,
+    '@Controller() export class ThingService {}',
+    ['notInjectable'],
+  ],
+  [
+    'a non-exported repository of static helpers',
+    repositoryFile,
+    'class ThingRepository { static run() { return 1; } }',
+    ['notInjectable', 'staticMember'],
+  ],
+  [
+    'a non-exported transaction store class',
+    repositoryFile,
+    'class ThingTransactionStore { constructor(private readonly transaction: unknown) {} }',
+    ['notInjectable'],
+  ],
+  [
+    'a local helper class without a role suffix',
+    serviceFile,
+    'class Parser { parse() { return 1; } }',
+    ['notInjectable'],
+  ],
+] as const) {
+  invalid('injectable-role-class', `rejects ${name}`, filename, code, [
+    ...errors,
+  ]);
+}
+
+valid(
+  'request-dto-no-methods',
+  'accepts a request DTO that only declares fields',
+  requestFile,
+  `import { IsString } from 'class-validator';
+export class ThingRequestDto { @IsString() declare readonly name: string; }`,
+);
+invalid(
+  'request-dto-no-methods',
+  'rejects a conversion method on a request DTO',
+  requestFile,
+  `import { IsString } from 'class-validator';
+export class ThingRequestDto {
+  @IsString() declare readonly name: string;
+  toQuery() { return { name: this.name }; }
+}`,
+  ['method'],
+);
+invalid(
+  'request-dto-no-methods',
+  'rejects a getter on a request DTO',
+  requestFile,
+  `export class ThingRequestDto { get trimmed() { return ''; } }`,
+  ['method'],
+);
+
+for (const [name, filename, code, errors] of [
+  [
+    'a client without @Injectable',
+    'src/programs/rule-case.client.ts',
+    'export class ThingClient { read() { return 1; } }',
+    ['notInjectable'],
+  ],
+  [
+    'a guard without @Injectable',
+    'src/programs/rule-case.guard.ts',
+    'export class ThingGuard { canActivate() { return true; } }',
+    ['notInjectable'],
+  ],
+  [
+    'an interceptor without @Injectable',
+    'src/programs/rule-case.interceptor.ts',
+    'export class ThingInterceptor { intercept() { return 1; } }',
+    ['notInjectable'],
+  ],
+] as const) {
+  invalid('injectable-role-class', `rejects ${name}`, filename, code, [
+    ...errors,
+  ]);
+}
+valid(
+  'injectable-role-class',
+  'allows an injectable client',
+  'src/programs/rule-case.client.ts',
+  '@Injectable() export class ThingClient { read() { return 1; } }',
+);
+for (const filename of [
+  'src/programs/rule-case.client.ts',
+  'src/programs/rule-case.guard.ts',
+  'src/programs/rule-case.interceptor.ts',
+]) {
+  invalid(
+    'service-exports',
+    `rejects an exported function in ${filename}`,
+    filename,
+    'export function helper() { return 1; }',
+    ['forbidden'],
+  );
+}
+
+valid(
+  'thin-controller',
+  'accepts a route that maps HTTP input to one service call',
+  controllerFile(),
+  `import { Controller, Get, Param } from '@nestjs/common';
+@Controller('things')
+export class ThingsController {
+  constructor(private readonly service: ThingService) {}
+  @Get(':id')
+  async get(@Param('id') id: string): Promise<ThingResponseDto> {
+    return ThingResponseDto.from(await this.service.get(id));
+  }
+}`,
+);
+valid(
+  'thin-controller',
+  'accepts a conditional expression that picks one of two response DTOs for the service result',
+  controllerFile(),
+  `export class ThingsController {
+  async get(id: string) {
+    const result = await this.service.find(id);
+    return result.kind === 'full'
+      ? FullThingResponseDto.from(result.thing)
+      : ThingSummaryResponseDto.from(result.thing);
+  }
+}`,
+);
+valid(
+  'thin-controller',
+  'accepts a negated and combined equality predicate over the service result',
+  controllerFile(),
+  `export class ThingsController {
+  async get(id: string) {
+    const result = await this.service.find(id);
+    return !result.archived && result.kind !== 'summary'
+      ? FullThingResponseDto.from(result.thing)
+      : ThingSummaryResponseDto.from(result.thing);
+  }
+}`,
+);
+for (const [name, body] of [
+  [
+    'a static response DTO',
+    'uploadPolicy() { return ThingPolicyResponseDto.from(); }',
+  ],
+  [
+    'a response DTO of a parameter',
+    'get(id: string) { return ThingResponseDto.from(id); }',
+  ],
+  ['a literal', "ping() { return 'ok'; }"],
+  ['a constant', 'limits() { return THING_LIMITS; }'],
+] as const) {
+  valid(
+    'thin-controller',
+    `accepts a route without a service call that returns ${name}`,
+    controllerFile(),
+    `export class ThingsController { ${body} }`,
+  );
+}
+valid(
+  'thin-controller',
+  'accepts mapping a service result list to response DTOs',
+  controllerFile(),
+  `export class ThingsController {
+  async list() {
+    return (await this.service.list()).map((thing) => ThingResponseDto.from(thing));
+  }
+}`,
+);
+for (const [name, body, errors] of [
+  [
+    'a switch statement in a route',
+    'get(kind: string) { switch (kind) { default: return this.service.get(kind); } }',
+    ['branching'],
+  ],
+  [
+    'a private helper method',
+    'private helper(): number { return 1; }',
+    ['hiddenMethod'],
+  ],
+  [
+    'branching in a route',
+    'get(id: string) { if (id) { return this.service.get(id); } return null; }',
+    ['branching'],
+  ],
+  [
+    'try/catch in a route',
+    'async get(id: string) { try { return await this.service.get(id); } catch { return null; } }',
+    ['branching'],
+  ],
+  [
+    'two service calls in a route',
+    'async get(id: string) { this.rules.check(id); return this.service.get(id); }',
+    ['serviceCalls'],
+  ],
+  [
+    'a clock read in a route',
+    'get() { return this.service.list(new Date()); }',
+    ['clock'],
+  ],
+  [
+    'a business conditional passed to the service',
+    'get(input) { return this.service.run(input.admin ? deleteAll() : retainAll()); }',
+    ['conditional', 'domainCall', 'domainCall'],
+  ],
+  [
+    'a conditional with a non-DTO arm',
+    'async get(id: string) { const thing = await this.service.find(id); return thing ? ThingResponseDto.from(thing) : null; }',
+    ['conditional'],
+  ],
+  [
+    'a response choice that reads request input',
+    'async get(input) { const result = await this.service.find(input.id); return input.full ? FullThingResponseDto.from(result) : ThingSummaryResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a response choice over a non-service value',
+    'get(thing) { return thing.full ? FullThingResponseDto.from(thing) : ThingSummaryResponseDto.from(thing); }',
+    ['noService', 'conditional'],
+  ],
+  [
+    'a choice between non-response classes',
+    'async get(id: string) { const result = await this.service.find(id); return result.ok ? Thing.from(result) : Other.from(result); }',
+    ['conditional', 'domainCall', 'domainCall'],
+  ],
+  [
+    'an operator in a service call argument',
+    'get(input) { return this.service.run(input.price * 2); }',
+    ['expression'],
+  ],
+  [
+    'a comparison passed to the service',
+    "get(query) { return this.service.run(query.view === 'operations'); }",
+    ['expression'],
+  ],
+  [
+    'a nullish default passed to the service',
+    'get(body) { return this.service.run(body.message ?? null); }',
+    ['expression'],
+  ],
+  [
+    'a string built for the service',
+    'get(id) { return this.service.run(`thing-${id}`); }',
+    ['expression'],
+  ],
+  [
+    'a local variable other than the service result',
+    'get(input) { const price = input.price; return this.service.run(price); }',
+    ['expression'],
+  ],
+  [
+    'a calculation without a service call or other call',
+    'get(input) { return ThingResponseDto.from({ price: input.price * 2 }); }',
+    ['noService'],
+  ],
+  [
+    'an operator result without a service call',
+    'get(input) { return input.price * 2; }',
+    ['noService'],
+  ],
+  [
+    'a local computation without a service call',
+    'get(input) { const price = input.price; return ThingResponseDto.from(price); }',
+    ['noService'],
+  ],
+  [
+    'an update expression in the response predicate',
+    'async get(id) { const result = await this.service.find(id); return result.kind === result.count++ ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a relational response predicate',
+    'async get(id) { const result = await this.service.find(id); return result.price > 100 ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'an assignment in the response predicate',
+    "async get(id) { const result = await this.service.find(id); return (result.kind = 'a') === 'a' ? AResponseDto.from(result) : BResponseDto.from(result); }",
+    ['conditional'],
+  ],
+  [
+    'a delete in the response predicate',
+    'async get(id) { const result = await this.service.find(id); return delete result.kind ? AResponseDto.from(result) : BResponseDto.from(result); }',
+    ['conditional'],
+  ],
+  [
+    'a comma in the response predicate',
+    "async get(id) { const result = await this.service.find(id); return (result.count, result.kind) === 'a' ? AResponseDto.from(result) : BResponseDto.from(result); }",
+    ['conditional'],
+  ],
+  [
+    'an update expression in a response mapping argument',
+    "async get(id) { const result = await this.service.find(id); return result.kind === 'a' ? AResponseDto.from(result.count++) : BResponseDto.from(result); }",
+    ['conditional'],
+  ],
+  [
+    'domain parsing in a route',
+    'get(input: string) { return this.service.run(JSON.parse(input)); }',
+    ['domainCall'],
+  ],
+  [
+    'a domain calculation without a service call',
+    'get(input) { return calculatePrice(input); }',
+    ['noService', 'domainCall'],
+  ],
+  [
+    'promise chaining in a route',
+    'get(id: string) { return this.service.get(id).then((thing) => normalize(thing)); }',
+    ['domainCall', 'domainCall'],
+  ],
+  [
+    'constructing a value in a route',
+    'async get(id: string) { return new StreamableFile(await this.service.read(id)); }',
+    ['domainCall'],
+  ],
+] as const) {
+  invalid(
+    'thin-controller',
+    `rejects ${name}`,
+    controllerFile(),
+    `export class ThingsController { ${body} }`,
+    [...errors],
+  );
+}
+
+const moduleFile = 'src/programs/rule-case.module.ts';
+const moduleDeclarations =
+  'class A {} class B {} class ThingService { constructor(a: A, b: B) {} } class ThingClient { constructor(a: A, now: () => Date = () => new Date()) {} } ';
+for (const [name, code] of [
+  ['a class provider', 'export const providers = [ThingService];'],
+  [
+    'a factory that leaves a defaulted function argument to the class',
+    'export const providers = [{ provide: ThingClient, inject: [A], useFactory: (a: A) => new ThingClient(a) }];',
+  ],
+  [
+    'a factory that closes over a function argument',
+    'export const providers = [{ provide: ThingClient, inject: [A], useFactory: (a: A) => new ThingClient(a, () => new Date(0)) }];',
+  ],
+  [
+    'a factory that selects an implementation at runtime',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => (a ? new ThingService(a, b) : new ThingService(new A(), b)) }];',
+  ],
+] as const) {
+  valid(
+    'no-passthrough-factory',
+    `allows ${name}`,
+    moduleFile,
+    moduleDeclarations + code,
+  );
+}
+for (const [name, code] of [
+  [
+    'an arrow factory that forwards every constructor argument',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => new ThingService(a, b) }];',
+  ],
+  [
+    'a block factory that forwards every constructor argument',
+    'export const providers = [{ provide: ThingService, inject: [A, B], useFactory: (a: A, b: B) => { return new ThingService(a, b); } }];',
+  ],
+] as const) {
+  invalid(
+    'no-passthrough-factory',
+    `rejects ${name}`,
+    moduleFile,
+    moduleDeclarations + code,
+    ['passThrough'],
+  );
+}
+
+for (const word of [
+  'rules',
+  'rule',
+  'helpers',
+  'helper',
+  'utils',
+  'util',
+  'common',
+  'policy',
+  'misc',
+  'shared',
+]) {
+  for (const role of [
+    'service',
+    'repository',
+    'client',
+    'guard',
+    'interceptor',
+  ]) {
+    invalid(
+      'no-generic-role-file-names',
+      `rejects ${word} in a .${role} file stem`,
+      `src/programs/program-${word}-case.${role}.ts`,
+      'export const value = 1;',
+      ['generic'],
+    );
+  }
+}
+for (const [name, filename] of [
+  ['a concept-named service', 'src/programs/program-schedule.service.ts'],
+  [
+    'a generic word inside a longer word',
+    'src/programs/program-ruleset-sharedness.service.ts',
+  ],
+  [
+    'a DTO named after an API concept',
+    'src/programs/dto/program-authoring-upload-policy-response.dto.ts',
+  ],
+  ['a spec helper file', 'src/ranking/ranking.service.spec.helpers.ts'],
+  ['an error file', 'src/programs/program-rules-case.error.ts'],
+] as const) {
+  valid(
+    'no-generic-role-file-names',
+    `allows ${name}`,
+    filename,
+    'export const value = 1;',
+  );
+}
 
 describe('backend convention lint rules', () => {
   let results: { ok: boolean; message?: string }[];

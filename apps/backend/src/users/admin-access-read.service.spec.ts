@@ -6,7 +6,6 @@ import {
   ADMIN_GITHUB_ID,
   InMemoryAdminAccessRepository,
   PENDING_REQUEST,
-  STAFF_GITHUB_ID,
   accessUser,
   adminActor,
   auditLogHarness,
@@ -35,7 +34,7 @@ describe('AdminAccessService reads', () => {
       ),
     );
 
-    const result = await service.list(ADMIN_GITHUB_ID, {
+    const result = await service.list(adminActor(), {
       query: '',
       page: 1,
       limit: 20,
@@ -58,8 +57,8 @@ describe('AdminAccessService reads', () => {
     );
 
     const [facets, history] = await Promise.all([
-      service.facets(ADMIN_GITHUB_ID, { query: '', page: 1, limit: 20 }),
-      service.getHistory(ADMIN_GITHUB_ID, 'target', {
+      service.facets(adminActor(), { query: '', page: 1, limit: 20 }),
+      service.getHistory(adminActor(), 'target', {
         staffAccessRequests: { page: 2, limit: 5 },
         loginHistory: { page: 3, limit: 10 },
       }),
@@ -73,7 +72,6 @@ describe('AdminAccessService reads', () => {
   });
 
   it.each([
-    ['missing', null, AuthErrorCode.UNAUTHENTICATED, 401],
     [
       'deactivated',
       adminActor({ accountStatus: AccountStatus.DEACTIVATED }),
@@ -90,7 +88,6 @@ describe('AdminAccessService reads', () => {
     'rejects %s actors before reading users',
     async (_, actor, code, status) => {
       const repository = new InMemoryAdminAccessRepository();
-      repository.actor = actor;
       const service = new AdminAccessService(
         repository,
         auditLogHarness().service,
@@ -101,7 +98,7 @@ describe('AdminAccessService reads', () => {
       );
 
       await expect(
-        service.list(ADMIN_GITHUB_ID, { query: '', page: 1, limit: 20 }),
+        service.list(actor, { query: '', page: 1, limit: 20 }),
       ).rejects.toMatchObject({ errorCode: { code, status } });
     },
   );
@@ -119,12 +116,12 @@ describe('AdminAccessService reads', () => {
     );
 
     await expect(
-      service.get(ADMIN_GITHUB_ID, 'missing-user'),
+      service.get(adminActor(), 'missing-user'),
     ).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
     await expect(
-      service.getHistory(ADMIN_GITHUB_ID, 'missing-user', {
+      service.getHistory(adminActor(), 'missing-user', {
         staffAccessRequests: { page: 1, limit: 20 },
         loginHistory: { page: 1, limit: 20 },
       }),
@@ -135,7 +132,6 @@ describe('AdminAccessService reads', () => {
 
   it('lets STAFF list the pending queue but not the directory', async () => {
     const repository = new InMemoryAdminAccessRepository();
-    repository.actor = staffActor();
     repository.target = accessUser({
       ...roleFacts(null),
       pendingRequest: PENDING_REQUEST,
@@ -150,12 +146,12 @@ describe('AdminAccessService reads', () => {
     );
 
     await expect(
-      service.list(STAFF_GITHUB_ID, { query: '', page: 1, limit: 20 }),
+      service.list(staffActor(), { query: '', page: 1, limit: 20 }),
     ).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     await expect(
-      service.listRequests(STAFF_GITHUB_ID, {
+      service.listRequests(staffActor(), {
         query: '',
         page: 1,
         limit: 20,
@@ -168,7 +164,6 @@ describe('AdminAccessService reads', () => {
 
   it('hides a user without a pending request from STAFF as ROL_010', async () => {
     const repository = new InMemoryAdminAccessRepository();
-    repository.actor = staffActor();
     repository.target = accessUser({ pendingRequest: null });
     const service = new AdminAccessService(
       repository,
@@ -179,11 +174,11 @@ describe('AdminAccessService reads', () => {
       ),
     );
 
-    await expect(service.get(STAFF_GITHUB_ID, 'target')).rejects.toMatchObject({
+    await expect(service.get(staffActor(), 'target')).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
     await expect(
-      service.getHistory(STAFF_GITHUB_ID, 'target', {
+      service.getHistory(staffActor(), 'target', {
         staffAccessRequests: { page: 1, limit: 20 },
         loginHistory: { page: 1, limit: 20 },
       }),
@@ -194,7 +189,6 @@ describe('AdminAccessService reads', () => {
 
   it('lets STAFF read a pending target', async () => {
     const repository = new InMemoryAdminAccessRepository();
-    repository.actor = staffActor();
     repository.target = accessUser({
       ...roleFacts(null),
       pendingRequest: PENDING_REQUEST,
@@ -208,11 +202,9 @@ describe('AdminAccessService reads', () => {
       ),
     );
 
-    await expect(service.get(STAFF_GITHUB_ID, 'target')).resolves.toMatchObject(
-      {
-        id: 'target',
-        pendingRequest: PENDING_REQUEST,
-      },
-    );
+    await expect(service.get(staffActor(), 'target')).resolves.toMatchObject({
+      id: 'target',
+      pendingRequest: PENDING_REQUEST,
+    });
   });
 });

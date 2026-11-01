@@ -1,3 +1,9 @@
+import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
+import { ProgramTemplatesService } from '../../src/programs/program-templates.service';
+import { SubmissionFileAdmissionService } from '../../src/programs/submission-file-admission.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
+import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from '../../src/programs/program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
@@ -7,16 +13,20 @@ import {
 } from './e2e-program-authoring-graph-adoption';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
-import { ProgramRulesService } from '../../src/programs/program-rules.service';
-import { ProgramUploadRulesService } from '../../src/programs/program-upload-rules.service';
-import { SubmissionFileRulesService } from '../../src/programs/submission-file-rules.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 const PREFIX = 'e2e:program-authoring:';

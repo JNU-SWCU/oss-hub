@@ -1,4 +1,5 @@
 import { RequestMethod } from '@nestjs/common';
+import { RolesGuard } from '../platform/roles.guard';
 import {
   GUARDS_METADATA,
   HTTP_CODE_METADATA,
@@ -58,8 +59,17 @@ function declarationOrder(name: ControllerMethodName): number {
 }
 
 function serviceStub(
-  overrides: Partial<ControllerService> = {},
+  overrides: Partial<ControllerService> & {
+    readonly getRepositoryUrlHistory?: ProgramTeamsService['getRepositoryUrlHistory'];
+  } = {},
 ): ControllerService {
+  const {
+    getRepositoryUrlHistory = jest.fn<
+      ReturnType<ProgramTeamsService['getRepositoryUrlHistory']>,
+      Parameters<ProgramTeamsService['getRepositoryUrlHistory']>
+    >(),
+    ...rest
+  } = overrides;
   return {
     getMe: jest.fn(),
     leave: jest.fn(),
@@ -67,14 +77,23 @@ function serviceStub(
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
     getActivity: jest.fn(),
-    getRepositoryUrlHistory: jest.fn(),
-    repositoryUrlHistoryCursorFromRequest: (request) =>
-      teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
+    getRepositoryUrlHistoryFromRequest: (
+      githubId,
+      programId,
+      teamId,
+      request,
+    ) =>
+      getRepositoryUrlHistory(
+        githubId,
+        programId,
+        teamId,
+        teamsRequestParser.repositoryUrlHistoryCursorFromRequest(request),
+      ),
     rename: jest.fn(),
-    deleteForStaff: jest.fn(),
+    deleteForStaffFromRequest: jest.fn(),
     removeMemberForStaff: jest.fn(),
     transferLeaderForStaff: jest.fn(),
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -98,8 +117,8 @@ describe('ProgramTeamsController', () => {
     expect(readGuards('me')).toEqual([]);
   });
 
-  it('list(교직원 팀 목록) 에 로컬 가드를 두지 않는다', () => {
-    expect(readGuards('list')).toEqual([]);
+  it('list(교직원 팀 목록) 에는 역할 가드만 둔다', () => {
+    expect(readGuards('list')).toEqual([RolesGuard]);
   });
 
   it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
@@ -205,12 +224,9 @@ describe('ProgramTeamsController', () => {
       serviceStub({ listForStaff }),
     );
 
-    const response = await controller.list(
-      { sessionGithubId: 4242n },
-      'program-1',
-    );
+    const response = await controller.list('program-1');
 
-    expect(listForStaff).toHaveBeenCalledWith(4242n, 'program-1');
+    expect(listForStaff).toHaveBeenCalledWith('program-1');
     expect(response).toEqual([
       {
         teamId: 'team-1',
@@ -328,8 +344,8 @@ describe('ProgramTeamsController', () => {
     });
   });
 
-  it('detail(교직원 팀 상세) 에 로컬 가드를 두지 않는다', () => {
-    expect(readGuards('detail')).toEqual([]);
+  it('detail(교직원 팀 상세) 에는 역할 가드만 둔다', () => {
+    expect(readGuards('detail')).toEqual([RolesGuard]);
   });
 
   it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
@@ -357,13 +373,9 @@ describe('ProgramTeamsController', () => {
     });
     const controller = new ProgramTeamsController(serviceStub({ getForStaff }));
 
-    const response = await controller.detail(
-      { sessionGithubId: 4242n },
-      'program-1',
-      'team-1',
-    );
+    const response = await controller.detail('program-1', 'team-1');
 
-    expect(getForStaff).toHaveBeenCalledWith(4242n, 'program-1', 'team-1');
+    expect(getForStaff).toHaveBeenCalledWith('program-1', 'team-1');
     expect(response).toEqual({
       teamId: 'team-1',
       name: '오픈소스팀',
@@ -523,7 +535,10 @@ describe('ProgramTeamsController.remove', () => {
       .fn()
       .mockResolvedValue({ teamId: 'team-1', deleted: true, deletedCounts });
     const controller = new ProgramTeamsController(
-      serviceStub({ deleteForStaff }),
+      Object.assign(
+        Object.create(ProgramTeamsService.prototype) as ProgramTeamsService,
+        { deleteForStaff },
+      ),
     );
     const expectedScope = {
       ...deletedCounts,

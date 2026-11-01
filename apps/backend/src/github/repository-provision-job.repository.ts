@@ -7,7 +7,10 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import { RepositoryProvisionStateHelpersRepository } from './repository-provision-state-helpers.repository';
+import {
+  RepositoryProvisionLeaseLostError,
+  RepositoryProvisionSupersededError,
+} from './repository-provision-state.error';
 
 @Injectable()
 export class CollectionCutoverRepository {
@@ -110,6 +113,73 @@ type ClaimedRepositoryProvisionJobRow = ClaimedRepositoryProvisionJob;
 export class RepositoryProvisionJobRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  claimedJobWhere(jobId: string, workerId: string) {
+    return {
+      id: jobId,
+      status: RepositoryProvisionJobStatus.PROCESSING,
+      lockedBy: workerId,
+    } as const;
+  }
+
+  async assertProvisionLease(
+    transaction: Prisma.TransactionClient | PrismaService,
+    jobId: string,
+    workerId: string,
+  ): Promise<void> {
+    const count = await transaction.repositoryProvisionJob.count({
+      where: this.claimedJobWhere(jobId, workerId),
+    });
+    this.assertSingleProvisionUpdate(count);
+  }
+
+  async assertCurrentRequest(
+    transaction: Prisma.TransactionClient,
+    jobId: string,
+    workerId: string,
+    expectedRequestId: string,
+  ): Promise<{
+    readonly applicationId: string;
+    readonly repositoryId: string | null;
+  }> {
+    const rows = await transaction.$queryRaw<
+      readonly {
+        readonly applicationId: string;
+        readonly currentEventId: string | null;
+        readonly repositoryId: string | null;
+        readonly status: RepositoryProvisionJobStatus;
+        readonly lockedBy: string | null;
+      }[]
+    >(Prisma.sql`
+    SELECT "applicationId", "currentEventId", "repositoryId", "status", "lockedBy"
+    FROM "RepositoryProvisionJob"
+    WHERE "id" = ${jobId}
+    FOR UPDATE
+  `);
+    const row = rows[0];
+    if (row === undefined) {
+      throw new RepositoryProvisionLeaseLostError();
+    }
+    if (row.currentEventId !== expectedRequestId) {
+      throw new RepositoryProvisionSupersededError(expectedRequestId);
+    }
+    if (
+      row.status !== RepositoryProvisionJobStatus.PROCESSING ||
+      row.lockedBy !== workerId
+    ) {
+      throw new RepositoryProvisionLeaseLostError();
+    }
+    return {
+      applicationId: row.applicationId,
+      repositoryId: row.repositoryId,
+    };
+  }
+
+  assertSingleProvisionUpdate(count: number): void {
+    if (count !== 1) {
+      throw new RepositoryProvisionLeaseLostError();
+    }
+  }
+
   async claimNext(
     input: ClaimRepositoryProvisionJobInput,
   ): Promise<ClaimedRepositoryProvisionJob | null> {
@@ -211,12 +281,7 @@ export class RepositoryProvisionJobRepository {
     now: Date,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await RepositoryProvisionStateHelpersRepository.assertCurrentRequest(
-        transaction,
-        jobId,
-        workerId,
-        requestId,
-      );
+      await this.assertCurrentRequest(transaction, jobId, workerId, requestId);
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: {
           id: jobId,
@@ -226,9 +291,7 @@ export class RepositoryProvisionJobRepository {
         },
         data: { lockedAt: now },
       });
-      RepositoryProvisionStateHelpersRepository.assertSingleProvisionUpdate(
-        updated.count,
-      );
+      this.assertSingleProvisionUpdate(updated.count);
     });
   }
 }

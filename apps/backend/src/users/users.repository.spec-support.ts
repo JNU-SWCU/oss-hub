@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   UsersRepository,
@@ -89,7 +90,7 @@ export function usersRepositoryHarness(
     recordPhoneAudit,
     recordStaffNumberAudit,
     transaction,
-    repository: new UsersRepository(prisma),
+    repository: new UsersRepository(prisma, new PlatformRepository()),
   };
 }
 

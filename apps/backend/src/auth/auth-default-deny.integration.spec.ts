@@ -19,7 +19,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from './auth.service';
 import type { AuthUser } from './http-auth.types';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { OptionalSession, Public } from './authentication.guard';
+import { OptionalSession, Public } from './auth-route.decorator';
 import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();

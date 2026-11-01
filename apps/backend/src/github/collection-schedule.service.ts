@@ -1,8 +1,10 @@
+import { Injectable } from '@nestjs/common';
 import { CronTime } from 'cron';
 import { COLLECTION_CRON_EXPRESSION } from './collection-trigger.service';
 
+@Injectable()
 export class CollectionScheduleService {
-  static nextScheduledCollectionAt(from: Date): Date | null {
+  nextScheduledCollectionAt(from: Date): Date | null {
     try {
       const cronTime = new CronTime(COLLECTION_CRON_EXPRESSION, 'Asia/Seoul');
       return cronTime.getNextDateFrom(from).toJSDate();

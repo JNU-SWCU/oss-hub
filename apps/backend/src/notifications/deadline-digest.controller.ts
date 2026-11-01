@@ -4,19 +4,27 @@ import {
   Header,
   Param,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { DeadlineDigestPreviewResponseDto } from './dto/deadline-digest-preview-response.dto';
 import { DeadlineDigestSendResponseDto } from './dto/deadline-digest-send-response.dto';
 import { DeadlineDigestSendRequestDto } from './dto/deadline-digest-send-request.dto';
 import { DeadlineDigestGuidanceRequestDto } from './dto/deadline-digest-guidance-request.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
+import { DomainException } from '../platform/error-code.error';
+import {
+  NOTIFICATIONS_ERROR_CODES,
+  NotificationsErrorCode,
+} from './notifications-error-code.error';
 
-type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+const staffOnly = () =>
+  new DomainException(
+    NOTIFICATIONS_ERROR_CODES[NotificationsErrorCode.STAFF_ONLY],
+  );
 
 @Controller('programs/:programId/deadline-digest')
 export class DeadlineDigestController {
@@ -25,37 +33,28 @@ export class DeadlineDigestController {
   @Post('preview')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async preview(
-    @Req() request: SessionIdentity,
     @Param('programId') programId: string,
     @Body() input: DeadlineDigestGuidanceRequestDto,
   ): Promise<DeadlineDigestPreviewResponseDto> {
     return DeadlineDigestPreviewResponseDto.from(
-      await this.service.previewProgram(
-        request.sessionGithubId,
-        programId,
-        new Date(),
-        input,
-      ),
+      await this.service.previewProgramFromRequest(programId, input),
     );
   }
 
   @Post('send')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async send(
-    @Req() request: SessionIdentity,
     @Param('programId') programId: string,
     @Body() input: DeadlineDigestSendRequestDto,
   ): Promise<DeadlineDigestSendResponseDto> {
     return DeadlineDigestSendResponseDto.from(
-      await this.service.sendProgramFromPreview(
-        request.sessionGithubId,
-        programId,
-        input,
-      ),
+      await this.service.sendProgramFromPreview(programId, input),
     );
   }
 }

@@ -124,7 +124,10 @@ const postDetailSelect = {
 
 @Injectable()
 export class BoardRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findAccessActor(sessionGithubId: bigint) {
     return this.prisma.user.findUnique({
@@ -146,7 +149,7 @@ export class BoardRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });

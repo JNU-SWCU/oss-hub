@@ -1,3 +1,4 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
@@ -32,12 +33,6 @@ const pageCalls: Array<{
 }> = [];
 
 const repository: SubmissionMatrixRepositoryPort = {
-  findActiveStaffOrAdmin: (githubId) =>
-    Promise.resolve(
-      githubId === STAFF_GITHUB_ID || githubId === ADMIN_GITHUB_ID
-        ? { id: 'synthetic-viewer' }
-        : null,
-    ),
   programExists: (programId) => Promise.resolve(programId === PROGRAM_ID),
   findMilestones: () =>
     Promise.resolve([
@@ -104,6 +99,10 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       SubmissionMatrixService,
+      {
+        provide: MilestoneDocumentCollectionService,
+        useValue: new MilestoneDocumentCollectionService({} as never),
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {
         provide: AuthConfig,
@@ -112,9 +111,13 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest
-            .fn()
-            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          getMe: (githubId: bigint) =>
+            Promise.resolve({
+              id: 'synthetic',
+              sessionVersion: 0,
+              hasStaffAccess: githubId === STAFF_GITHUB_ID,
+              hasAdminAccess: githubId === ADMIN_GITHUB_ID,
+            }),
         },
       },
       { provide: SubmissionMatrixRepository, useValue: repository },

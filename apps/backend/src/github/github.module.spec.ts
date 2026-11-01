@@ -25,7 +25,7 @@ import {
   RepositoriesService,
   RepositoryOwnEnrollmentService,
 } from './repositories.service';
-import { CollectionPublicTokenService } from './collection-providers.service';
+import { CollectionPublicTokenService } from './collection-public-token.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
 import { RepositoryProvisionEventService } from './repository-provision-event.service';
 import { RepositoryPublishService } from './repository-publish.service';

@@ -2,8 +2,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionStatus,
 } from '@prisma/client';
-import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/users-authority.service';
+import { Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -36,12 +35,13 @@ import {
   type UpsertMilestoneDocumentInput,
 } from './milestone-document-collection-read.repository';
 import {
-  MilestoneDocumentRulesService,
-  MilestoneDocumentCollectionPage,
-  MilestoneDocumentCollectionCell,
-  MilestoneDocumentCollectionQuery,
-} from './milestone-document-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+  MilestoneDocumentCollectionService,
+  type MilestoneDocumentCollectionPage,
+  type MilestoneDocumentCollectionCell,
+  type MilestoneDocumentCollectionQuery,
+} from './milestone-document-collection.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { ProgramScheduleService } from './program-schedule.service';
 
 interface MilestoneDocumentViewerSubmissionResult {
   readonly submitted: boolean;
@@ -97,14 +97,21 @@ export interface MilestoneDocumentHistoryResult {
 export class MilestoneDocumentsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
+    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
   ) {}
+
+  parseMilestoneDocumentContent(input: {
+    readonly fileId?: string;
+    readonly text?: string;
+  }): MilestoneDocumentContentInput {
+    const text = input.text?.trim() || null;
+    const fileId = input.fileId?.trim() || null;
+    if (text === null && fileId === null) throw contentRequired();
+    return { text, fileId };
+  }
 
   async listByMilestone(
     milestoneId: string,
@@ -201,14 +208,10 @@ export class MilestoneDocumentsService {
   }
 
   async collectForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResult> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     return this.repository.withCollectionSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null) {
@@ -223,7 +226,7 @@ export class MilestoneDocumentsService {
       const coordinates =
         await store.findSubmissionCoordinatesForCollection(documentIds);
       const coordinatePage =
-        this.milestoneDocumentRulesService.buildMilestoneDocumentCollectionPage(
+        this.milestoneDocumentCollectionService.buildMilestoneDocumentCollectionPage(
           documents,
           applications,
           coordinates,
@@ -240,7 +243,7 @@ export class MilestoneDocumentsService {
       const detailByCell = new Map(
         submissions.map((submission) => [
           `${submission.applicationId}::${submission.milestoneDocumentId}`,
-          this.milestoneDocumentRulesService.toMilestoneDocumentCollectionCell(
+          this.milestoneDocumentCollectionService.toMilestoneDocumentCollectionCell(
             submission,
           ),
         ]),
@@ -261,16 +264,23 @@ export class MilestoneDocumentsService {
     });
   }
 
+  historyQueryFromRequest(request: {
+    readonly cursor?: string | null;
+    readonly limit?: number;
+  }): {
+    readonly cursor: string | null;
+    readonly limit: number;
+  } {
+    return { cursor: request.cursor ?? null, limit: request.limit ?? 20 };
+  }
+
   async historyForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     applicationId: string,
-    query: { readonly cursor: string | null; readonly limit: number },
+    request: { readonly cursor?: string | null; readonly limit?: number },
   ): Promise<MilestoneDocumentHistoryResult> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
+    const query = this.historyQueryFromRequest(request);
     const document = await this.repository.findDocumentContext(documentId);
     if (document === null || document.milestoneId !== milestoneId) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -291,7 +301,7 @@ export class MilestoneDocumentsService {
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
         content:
-          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+          this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
             item.content,
           ),
       })),
@@ -304,8 +314,9 @@ export class MilestoneDocumentsService {
     sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
-    query: { readonly cursor: string | null; readonly limit: number },
+    request: { readonly cursor?: string | null; readonly limit?: number },
   ): Promise<MilestoneDocumentHistoryResult> {
+    const query = this.historyQueryFromRequest(request);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
     if (viewer === null) {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
@@ -336,7 +347,7 @@ export class MilestoneDocumentsService {
         fileName: item.fileName,
         downloadableFileId: item.downloadableFileId,
         content:
-          this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+          this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
             item.content,
           ),
       })),
@@ -346,13 +357,9 @@ export class MilestoneDocumentsService {
   }
 
   async createDocument(
-    sessionGithubId: bigint,
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const record = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -367,14 +374,10 @@ export class MilestoneDocumentsService {
   }
 
   async updateDocument(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const record = await this.repository.withTransaction(async (store) => {
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
@@ -385,15 +388,23 @@ export class MilestoneDocumentsService {
     return record;
   }
 
+  updateGraceDueAtFromRequest(
+    milestoneId: string,
+    documentId: string,
+    request: { readonly graceDueAt: string | null },
+  ): Promise<void> {
+    return this.updateGraceDueAt(
+      milestoneId,
+      documentId,
+      request.graceDueAt === null ? null : new Date(request.graceDueAt),
+    );
+  }
+
   async updateGraceDueAt(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     graceDueAt: Date | null,
   ): Promise<void> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestoneForGrace(milestoneId);
       if (milestone === null)
@@ -406,7 +417,7 @@ export class MilestoneDocumentsService {
         (!Number.isFinite(graceDueAt.getTime()) ||
           graceDueAt.getTime() <= milestone.dueAt.getTime() ||
           graceDueAt.getTime() >=
-            this.submissionFileRulesService
+            this.programScheduleService
               .addOneCalendarYear(milestone.programEndAt)
               .getTime())
       )
@@ -416,13 +427,9 @@ export class MilestoneDocumentsService {
   }
 
   async reorderDocuments(
-    sessionGithubId: bigint,
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const records = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -437,14 +444,7 @@ export class MilestoneDocumentsService {
     return records;
   }
 
-  async deleteDocument(
-    sessionGithubId: bigint,
-    milestoneId: string,
-    documentId: string,
-  ): Promise<void> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
+  async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
 
@@ -469,6 +469,24 @@ export class MilestoneDocumentsService {
       }
       await store.deleteDocument(documentId);
     });
+  }
+
+  submitFromRequest(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    request: {
+      readonly content: Parameters<
+        MilestoneDocumentsService['parseMilestoneDocumentContent']
+      >[0];
+    },
+  ): ReturnType<MilestoneDocumentsService['submit']> {
+    return this.submit(
+      sessionGithubId,
+      milestoneId,
+      documentId,
+      this.parseMilestoneDocumentContent(request.content),
+    );
   }
 
   async submit(
@@ -516,15 +534,17 @@ export class MilestoneDocumentsService {
     const latestDecision = latestReview?.decision ?? null;
     const submissionStatus = currentSubmission?.status ?? null;
     const blocked =
-      this.milestoneDocumentRulesService.milestoneDocumentSubmissionBlock({
-        dueAt: documentContext.dueAt,
-        graceDueAt: documentContext.graceDueAt,
-        now,
-        hasSubmission: currentSubmission !== null,
-        latestDecision,
-        submissionStatus,
-        resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-      });
+      this.milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
+        {
+          dueAt: documentContext.dueAt,
+          graceDueAt: documentContext.graceDueAt,
+          now,
+          hasSubmission: currentSubmission !== null,
+          latestDecision,
+          submissionStatus,
+          resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+        },
+      );
     if (blocked !== null) {
       throw this.error(MilestoneDocumentsErrorCode[blocked]);
     }
@@ -538,7 +558,7 @@ export class MilestoneDocumentsService {
             milestoneId,
           };
     const submissionContent =
-      MilestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
+      this.milestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
         content.text,
       );
 
@@ -552,12 +572,14 @@ export class MilestoneDocumentsService {
           milestoneId,
 
           allowAfterDeadline:
-            this.milestoneDocumentRulesService.isPostDeadlineResubmissionOpen({
-              latestDecision,
-              submissionStatus,
-              resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-              now,
-            }),
+            this.milestoneDocumentSubmissionWindowService.isPostDeadlineResubmissionOpen(
+              {
+                latestDecision,
+                submissionStatus,
+                resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
+                now,
+              },
+            ),
 
           expectedSubmissionStatus: submissionStatus,
         },
@@ -653,5 +675,13 @@ function isExactDocumentIdSet(
     documentIds.length === existingIds.length &&
     requested.size === documentIds.length &&
     [...requested].every((documentId) => existing.has(documentId))
+  );
+}
+
+function contentRequired(): DomainException {
+  return new DomainException(
+    MILESTONE_DOCUMENTS_ERROR_CODES[
+      MilestoneDocumentsErrorCode.CONTENT_REQUIRED
+    ],
   );
 }

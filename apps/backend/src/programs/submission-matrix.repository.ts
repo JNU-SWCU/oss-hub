@@ -1,6 +1,5 @@
 import {
   Prisma,
-  AccountStatus,
   ApplicationStatus,
   MilestoneDocumentKind,
   SubmissionStatus,
@@ -59,10 +58,6 @@ async function findMatrixDocumentFirstSubmissions(
   }));
 }
 
-export interface SubmissionMatrixViewer {
-  readonly id: string;
-}
-
 export interface MatrixMilestoneRecord {
   readonly id: string;
   readonly name: string;
@@ -98,9 +93,6 @@ export interface MatrixApplicationPage {
 }
 
 export interface SubmissionMatrixRepositoryPort {
-  findActiveStaffOrAdmin(
-    githubId: bigint,
-  ): Promise<SubmissionMatrixViewer | null>;
   programExists(programId: string): Promise<boolean>;
   findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]>;
   findApprovedApplications(
@@ -171,20 +163,10 @@ function toMatrixApplication(
 
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
-
-  findActiveStaffOrAdmin(
-    githubId: bigint,
-  ): Promise<SubmissionMatrixViewer | null> {
-    return this.prisma.user.findFirst({
-      where: {
-        githubId,
-        accountStatus: AccountStatus.ACTIVE,
-        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
-      },
-      select: { id: true },
-    });
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async programExists(programId: string): Promise<boolean> {
     const program = await this.prisma.program.findUnique({
@@ -232,10 +214,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     skip: number,
     take: number,
   ): Promise<MatrixApplicationPage> {
-    const where = SubmissionMatrixRepository.submissionMatrixApplicationWhere(
-      programId,
-      filter,
-    );
+    const where = this.submissionMatrixApplicationWhere(programId, filter);
     const [applications, total] = await Promise.all([
       this.prisma.application.findMany({
         where,
@@ -301,7 +280,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     }));
   }
 
-  static submissionMatrixApplicationWhere(
+  submissionMatrixApplicationWhere(
     programId: string,
     filter: SubmissionMatrixFilter,
   ): Prisma.ApplicationWhereInput {
@@ -313,7 +292,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };
       where.OR = [
-        { applicant: PlatformRepository.userProfileNameWhere(filter.q) },
+        { applicant: this.platformRepository.userProfileNameWhere(filter.q) },
         { applicant: { nickname: contains } },
         { team: { name: contains } },
         { team: { members: { some: { user: { nickname: contains } } } } },

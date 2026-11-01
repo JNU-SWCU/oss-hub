@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../src/platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from '../src/users/admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from '../src/users/admin-access-read.repository';
+import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.error';
 import { AuthConfig } from '../src/platform/auth.config';
@@ -19,7 +23,7 @@ import { AdminAccessMutationService } from '../src/users/admin-access-mutation.s
 import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
 import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
 import { CollectionDiscoveryClient } from '../src/github/collection-discovery.client';
-import { CollectionPublicTokenService } from '../src/github/collection-providers.service';
+import { CollectionPublicTokenService } from '../src/github/collection-public-token.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { AuthSessionService } from '../src/platform/auth-session.service';
 
@@ -65,14 +69,21 @@ describe('accountStatus migration regression', () => {
   );
 
   const rolesService = new MemberOnboardingService(
-    new MemberOnboardingRepository(prisma),
+    new MemberOnboardingRepository(prisma, new PlatformRepository()),
     {
       requireCurrent: jest.fn(),
     } satisfies Pick<ConsentsService, 'requireCurrent'>,
     new UserProfileService(),
   );
   const adminAccessService = new AdminAccessService(
-    new AdminAccessRepository(prisma),
+    new AdminAccessRepository(
+      prisma,
+      new AdminAccessHistoryRepository(),
+      new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ),
+    ),
     new AuditLogService(
       new AuditLogRepository(prisma),
       new AuditLogMetadataService(),

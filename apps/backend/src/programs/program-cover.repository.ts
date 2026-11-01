@@ -30,7 +30,10 @@ export type ProgramCoverChange = {
 
 @Injectable()
 export class ProgramCoverRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+  ) {}
 
   async findPublicCover(programId: string, coverId: string) {
     const cover = await this.prisma.programCover.findFirst({
@@ -62,18 +65,18 @@ export class ProgramCoverRepository {
     };
   }
 
-  static async replaceProgramCover(
+  async replaceProgramCover(
     transaction: Prisma.TransactionClient,
     input: ProgramCoverChange & { readonly programId: string },
   ): Promise<void> {
     let upload: ProgramAuthoringUploadToken | null = null;
     if (input.uploadId != null) {
       const uploads =
-        await ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+        await this.programAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
           transaction,
           [input.uploadId],
         );
-      ProgramAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
+      this.programAuthoringUploadTransactionRepository.assertAttachableProgramAuthoringUploads(
         input.actorId,
         [input.uploadId],
         uploads,
@@ -99,13 +102,13 @@ export class ProgramCoverRepository {
       });
     }
     if (upload !== null) {
-      await ProgramCoverRepository.createProgramCover(transaction, {
+      await this.createProgramCover(transaction, {
         programId: input.programId,
         actorId: input.actorId,
         upload,
       });
     } else if (input.externalCover != null) {
-      await ProgramCoverRepository.createExternalProgramCover(
+      await this.createExternalProgramCover(
         transaction,
         input.programId,
         input.externalCover,
@@ -113,7 +116,7 @@ export class ProgramCoverRepository {
     }
   }
 
-  static async createExternalProgramCover(
+  async createExternalProgramCover(
     transaction: Prisma.TransactionClient,
     programId: string,
     externalCover: ProgramExternalCover,
@@ -123,7 +126,7 @@ export class ProgramCoverRepository {
     });
   }
 
-  static async createProgramCover(
+  async createProgramCover(
     transaction: Prisma.TransactionClient,
     input: {
       readonly programId: string;

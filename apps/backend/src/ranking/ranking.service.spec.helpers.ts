@@ -4,16 +4,14 @@ import { RankingService, type RankingViewerClass } from './ranking.service';
 import { RankingYearService } from './ranking-year.service';
 
 const mockNextScheduledCollectionAt = jest.fn<
-  ReturnType<typeof CollectionScheduleService.nextScheduledCollectionAt>,
-  Parameters<typeof CollectionScheduleService.nextScheduledCollectionAt>
+  ReturnType<CollectionScheduleService['nextScheduledCollectionAt']>,
+  Parameters<CollectionScheduleService['nextScheduledCollectionAt']>
 >();
 
-jest.mock('../github/collection-schedule.service', () => ({
-  CollectionScheduleService: {
-    nextScheduledCollectionAt: (from: Date) =>
-      mockNextScheduledCollectionAt(from),
-  },
-}));
+const collectionSchedule = {
+  nextScheduledCollectionAt: (from: Date) =>
+    mockNextScheduledCollectionAt(from),
+};
 
 const nextScheduledAt = mockNextScheduledCollectionAt;
 
@@ -58,7 +56,7 @@ export function setupRankingService(): {
     [readonly bigint[]]
   >;
   readonly nextScheduledCollectionAt: jest.MockedFunction<
-    typeof CollectionScheduleService.nextScheduledCollectionAt
+    CollectionScheduleService['nextScheduledCollectionAt']
   >;
 } {
   const findMetrics = jest.fn<
@@ -91,7 +89,11 @@ export function setupRankingService(): {
   } as unknown as RankingRepository;
 
   return {
-    service: new RankingService(ranking, new RankingYearService()),
+    service: new RankingService(
+      ranking,
+      new RankingYearService(),
+      collectionSchedule,
+    ),
     findMetrics,
     listYears,
     findDataAsOf,

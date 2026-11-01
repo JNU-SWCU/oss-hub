@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import {
   outsiderFindUnique,
   teamFindFirst,
@@ -15,7 +16,6 @@ import type { RepositoryUrlHistoryRows } from './program-team-repository-evidenc
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 afterEach(() => jest.clearAllMocks());
 
@@ -24,12 +24,19 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
     undefined as never,
     undefined as never,
     undefined as never,
-    undefined as never,
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
-    new ProgramRulesService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
   )['toRepositoryUrlHistoryPage'](history!, {
     programId: 'program',
     teamId: 'team',
@@ -99,12 +106,19 @@ it('reports an explicit repository relink as succeeded without inventing a provi
       undefined as never,
       undefined as never,
       undefined as never,
-      undefined as never,
       new AuditLogMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new ProgramRulesService(),
+      new StudentRepositoryUrlService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
     )['toTeamApplicationView'](detail!.application!).repositoryProvisioning
       .jobStatus,
   ).toBe('SUCCEEDED');

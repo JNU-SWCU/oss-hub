@@ -1,3 +1,6 @@
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
@@ -5,8 +8,6 @@ import { MilestoneDocumentArchiveService } from './milestone-document-archive.se
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
@@ -238,12 +239,9 @@ function buildService(
         findProgram: jest.fn(),
         findApprovedTeams: jest.fn(),
       },
-      {
-        assertActiveStaff: jest
-          .fn()
-          .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
-      },
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
+      new MilestoneDocumentFileNameService(),
+      new DownloadResponseService(),
     ),
     repositoryMocks,
     storageMocks,
@@ -259,7 +257,6 @@ describe('MilestoneDocumentArchiveService', () => {
 
     await expect(
       service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -273,7 +270,6 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service, repositoryMocks } = buildService();
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -290,7 +286,6 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service } = buildService();
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -306,7 +301,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -325,7 +319,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'DOCUMENT' },
         now,
@@ -344,7 +337,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -358,7 +350,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -375,7 +366,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -393,7 +383,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -415,7 +404,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'DOCUMENT', documentId: 'doc-plan' },
         now,
@@ -435,7 +423,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service, repositoryMocks } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'DOCUMENT', documentId: 'doc-summary' },
         now,
@@ -457,7 +444,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'DOCUMENT', documentId: 'doc-plan' },
         now,
@@ -479,7 +465,6 @@ describe('MilestoneDocumentArchiveService', () => {
 
       await expect(
         service.archiveForStaff(
-          1n,
           syntheticMilestoneId,
           { kind: 'DOCUMENT', documentId: 'doc-of-another-milestone' },
           now,
@@ -497,7 +482,6 @@ describe('MilestoneDocumentArchiveService', () => {
       const { service } = buildService();
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -516,7 +500,6 @@ describe('MilestoneDocumentArchiveService', () => {
         const { service } = buildService(manyTeams(teams));
 
         const archive = await service.archiveForStaff(
-          1n,
           syntheticMilestoneId,
           { kind: 'ALL', grouping: 'TEAM' },
           now,
@@ -536,7 +519,6 @@ describe('MilestoneDocumentArchiveService', () => {
       });
 
       const archive = await service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -551,7 +533,6 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service, storageState, storageMocks } = buildService();
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -582,7 +563,6 @@ describe('MilestoneDocumentArchiveService', () => {
 
     await expect(
       service.archiveForStaff(
-        1n,
         syntheticMilestoneId,
         { kind: 'ALL', grouping: 'TEAM' },
         now,
@@ -614,7 +594,6 @@ describe('MilestoneDocumentArchiveService', () => {
     });
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -644,7 +623,6 @@ describe('MilestoneDocumentArchiveService', () => {
     });
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -680,7 +658,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -695,7 +672,6 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service, storageMocks } = buildService();
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -722,7 +698,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -745,7 +720,6 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service } = buildService({}, { get: jest.fn(() => pendingGet) });
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -771,7 +745,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -787,7 +760,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -810,7 +782,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,
@@ -849,7 +820,6 @@ describe('MilestoneDocumentArchiveService', () => {
     );
 
     const archive = await service.archiveForStaff(
-      1n,
       syntheticMilestoneId,
       { kind: 'ALL', grouping: 'TEAM' },
       now,

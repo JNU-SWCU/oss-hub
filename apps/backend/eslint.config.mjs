@@ -7,6 +7,7 @@ import { controllerExplicitReturn } from './eslint-rules/controller-explicit-ret
 import { fileClassMatch } from './eslint-rules/file-class-match.mjs';
 import { fileNameConvention } from './eslint-rules/file-name-convention.mjs';
 import { noSessionGuard } from './eslint-rules/no-session-guard.mjs';
+import { noPassthroughFactory } from './eslint-rules/no-passthrough-factory.mjs';
 import {
   bootstrapFiles,
   createRailsConfig,
@@ -116,6 +117,7 @@ export default tseslint.config(
           'request-dto-decorated': requestDtoDecorated,
           'file-name-convention': fileNameConvention,
           'file-class-match': fileClassMatch,
+          'no-passthrough-factory': noPassthroughFactory,
         },
       },
     },
@@ -128,6 +130,10 @@ export default tseslint.config(
   {
     files: ['src/*/*.controller.ts'],
     rules: { 'conventions/controller-explicit-return': 'error' },
+  },
+  {
+    files: ['src/**/*.module.ts'],
+    rules: { 'conventions/no-passthrough-factory': 'error' },
   },
   {
     files: ['src/*/dto/*-response.dto.ts'],

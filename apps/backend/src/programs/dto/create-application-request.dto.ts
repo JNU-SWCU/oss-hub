@@ -8,7 +8,6 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { type CreateApplicationInput } from '../applications.repository';
 
 export class CreateApplicationRequestDto {
   @IsDefined()
@@ -27,19 +26,4 @@ export class CreateApplicationRequestDto {
   @IsOptional()
   @IsBoolean()
   declare readonly isRepositoryPublicationPlanned?: boolean;
-
-  toInput(): CreateApplicationInput {
-    const trimmedTeamName = this.teamName?.trim();
-
-    return {
-      answers: this.answers,
-      teamName:
-        trimmedTeamName !== undefined && trimmedTeamName.length > 0
-          ? trimmedTeamName
-          : null,
-      applicationTemplateVersion: this.applicationTemplateVersion,
-      isRepositoryPublicationPlanned:
-        this.isRepositoryPublicationPlanned ?? true,
-    };
-  }
 }

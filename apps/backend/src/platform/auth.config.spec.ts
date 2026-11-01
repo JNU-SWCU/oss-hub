@@ -131,7 +131,9 @@ function requiredAuthEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
 }
 
 function authConfig(): AuthConfig {
-  return new AuthConfig(loadRuntimeConfig(process.env));
+  const config = new AuthConfig(loadRuntimeConfig(process.env));
+  config.validate();
+  return config;
 }
 
 describe('AuthConfig', () => {
@@ -341,10 +343,29 @@ describe('AuthConfig 초기 역할 시드', () => {
     });
   });
 
-  it('형식 오류는 생성자에서 즉시 실패한다', () => {
+  it('형식 오류는 validate에서 즉시 실패한다', () => {
     withEnv(requiredAuthEnv({ AUTH_INITIAL_ROLES: '0:ADMIN' }), () => {
       expect(() => authConfig()).toThrow('AUTH_INITIAL_ROLES');
     });
+  });
+});
+
+describe('AuthConfig 지연 로딩', () => {
+  it('환경변수가 없어도 생성되고 값을 읽을 때 같은 오류로 실패한다', () => {
+    const config = new AuthConfig(loadRuntimeConfig({}));
+
+    expect(() => config.sessionSecret).toThrow('SESSION_SECRET이 필수입니다.');
+    expect(() => config.frontendUrl).toThrow('SESSION_SECRET이 필수입니다.');
+    expect(() => config.requireOauth()).toThrow('SESSION_SECRET이 필수입니다.');
+  });
+
+  it('검증된 설정을 한 번만 읽는다', () => {
+    const runtime = loadRuntimeConfig(requiredAuthEnv());
+    const config = new AuthConfig(runtime);
+    const secret = config.sessionSecret;
+
+    expect(config.sessionSecret).toBe(secret);
+    expect(config.allowedOrigin).toBe('https://oss.example');
   });
 });
 

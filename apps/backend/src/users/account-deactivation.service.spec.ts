@@ -1,3 +1,5 @@
+import type { AuthConfig } from '../platform/auth.config';
+import { AuthSessionService } from '../platform/auth-session.service';
 import {
   AccountStatus,
   StaffAccessRequestStatus,
@@ -53,6 +55,8 @@ describe('AccountDeactivationService', () => {
       } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
+      { useSecureCookies: false } as AuthConfig,
+      new AuthSessionService(),
     );
 
     await expect(service.deactivate(42n)).resolves.toEqual({
@@ -108,6 +112,8 @@ describe('AccountDeactivationService', () => {
       { record } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
+      { useSecureCookies: false } as AuthConfig,
+      new AuthSessionService(),
     );
 
     await service.deactivate(42n);
@@ -137,6 +143,8 @@ describe('AccountDeactivationService', () => {
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
+      { useSecureCookies: false } as AuthConfig,
+      new AuthSessionService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -163,6 +171,8 @@ describe('AccountDeactivationService', () => {
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
+      { useSecureCookies: false } as AuthConfig,
+      new AuthSessionService(),
     );
 
     await expect(service.deactivate(42n)).rejects.toMatchObject({
@@ -189,6 +199,8 @@ describe('AccountDeactivationService', () => {
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
+      { useSecureCookies: false } as AuthConfig,
+      new AuthSessionService(),
     );
 
     await expect(service.deactivate(42n)).resolves.toEqual({

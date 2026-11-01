@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -64,6 +65,7 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
     const prisma = { user: { findMany } };
     const repository = new TeamInvitationsRepository(
       prisma as unknown as PrismaService,
+      new PlatformRepository(),
     );
 
     await repository.searchCandidates(
@@ -103,9 +105,12 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
 describe('TeamInvitationsRepository.findByTeamId', () => {
   it('보낸 초대는 초대 대상의 허용된 표시 정보만 select·투영한다', async () => {
     const findMany = jest.fn().mockResolvedValue([selectedInvitationRow]);
-    const repository = new TeamInvitationsRepository({
-      teamInvitation: { findMany },
-    } as unknown as PrismaService);
+    const repository = new TeamInvitationsRepository(
+      {
+        teamInvitation: { findMany },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
 
     const result = await repository.findByTeamId(syntheticTeamId);
 
@@ -195,10 +200,13 @@ describe('TeamInvitationsRepository.createInvitation', () => {
   }
 
   function buildRepository(tx: object) {
-    return new TeamInvitationsRepository({
-      $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
-        operation(tx as never),
-    } as unknown as PrismaService);
+    return new TeamInvitationsRepository(
+      {
+        $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
+          operation(tx as never),
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
   }
 
   function invite(repository: TeamInvitationsRepository, now?: Date) {

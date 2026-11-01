@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { GithubAppClient } from './github-app.client';
+import { GithubAppClient } from './github-app.client';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 import { RepositoryProvisionFailure } from './repository-provision-state.error';
@@ -20,10 +20,7 @@ export class OwnRepositoryUrlValidationService {
   private readonly logger = new Logger(OwnRepositoryUrlValidationService.name);
 
   constructor(
-    private readonly github: Pick<
-      GithubAppClient,
-      'organization' | 'findRepository' | 'findPublicRepository'
-    >,
+    private readonly github: GithubAppClient,
     private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
   ) {}
 

@@ -92,6 +92,18 @@ export class ProgramOverviewService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
+  getOverviewFromRequest(
+    programId: string,
+    viewerGithubId: bigint,
+    request: { readonly view?: string },
+  ): Promise<ProgramOverviewView> {
+    return this.getOverview(
+      programId,
+      viewerGithubId,
+      request.view === 'operations',
+    );
+  }
+
   async getOverview(
     programId: string,
     viewerGithubId: bigint,

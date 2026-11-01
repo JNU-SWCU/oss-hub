@@ -51,10 +51,13 @@ describe('withSerializationRetry', () => {
       .mockResolvedValueOnce('applied');
 
     const result =
-      await PrismaSerializationRetryRepository.withSerializationRetry(run, {
-        maxAttempts: 3,
-        backoffMs: NO_DELAY,
-      });
+      await new PrismaSerializationRetryRepository().withSerializationRetry(
+        run,
+        {
+          maxAttempts: 3,
+          backoffMs: NO_DELAY,
+        },
+      );
 
     expect(result).toBe('applied');
     expect(run).toHaveBeenCalledTimes(2);
@@ -65,7 +68,7 @@ describe('withSerializationRetry', () => {
     const run = jest.fn<Promise<string>, []>().mockRejectedValue(error);
 
     await expect(
-      PrismaSerializationRetryRepository.withSerializationRetry(run, {
+      new PrismaSerializationRetryRepository().withSerializationRetry(run, {
         maxAttempts: 3,
         backoffMs: NO_DELAY,
       }),
@@ -84,7 +87,7 @@ describe('withSerializationRetry', () => {
     });
 
     await expect(
-      PrismaSerializationRetryRepository.withSerializationRetry(run, {
+      new PrismaSerializationRetryRepository().withSerializationRetry(run, {
         maxAttempts: 3,
         backoffMs: NO_DELAY,
         onExhausted: () => conflict,
@@ -98,7 +101,7 @@ describe('withSerializationRetry', () => {
     const run = jest.fn<Promise<string>, []>().mockRejectedValue(error);
 
     await expect(
-      PrismaSerializationRetryRepository.withSerializationRetry(run, {
+      new PrismaSerializationRetryRepository().withSerializationRetry(run, {
         maxAttempts: 2,
         backoffMs: NO_DELAY,
       }),
@@ -113,10 +116,13 @@ describe('withSerializationRetry', () => {
       .mockResolvedValue('applied');
 
     const result =
-      await PrismaSerializationRetryRepository.withSerializationRetry(run, {
-        maxAttempts: 3,
-        backoffMs: NO_DELAY,
-      });
+      await new PrismaSerializationRetryRepository().withSerializationRetry(
+        run,
+        {
+          maxAttempts: 3,
+          backoffMs: NO_DELAY,
+        },
+      );
 
     expect(result).toBe('applied');
     expect(run).toHaveBeenCalledTimes(2);
@@ -127,7 +133,7 @@ describe('withSerializationRetry', () => {
     const run = jest.fn<Promise<string>, []>().mockRejectedValue(error);
 
     await expect(
-      PrismaSerializationRetryRepository.withSerializationRetry(run, {
+      new PrismaSerializationRetryRepository().withSerializationRetry(run, {
         maxAttempts: 3,
         backoffMs: NO_DELAY,
       }),
@@ -143,7 +149,7 @@ describe('withSerializationRetry', () => {
     const run = jest.fn<Promise<string>, []>().mockRejectedValue(error);
 
     await expect(
-      PrismaSerializationRetryRepository.withSerializationRetry(run, {
+      new PrismaSerializationRetryRepository().withSerializationRetry(run, {
         maxAttempts: 3,
         backoffMs: NO_DELAY,
       }),

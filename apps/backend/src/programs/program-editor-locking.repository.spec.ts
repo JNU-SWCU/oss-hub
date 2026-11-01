@@ -1,3 +1,7 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneSubmissionType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -43,6 +47,13 @@ describe('ProgramEditorRepository locking', () => {
     };
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -83,6 +94,13 @@ describe('ProgramEditorRepository locking', () => {
     };
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     const result = await repository.withTransaction((store) =>
@@ -129,6 +147,13 @@ describe('ProgramEditorRepository locking', () => {
     };
     const repository = new ProgramEditorRepository(
       prisma as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new ProgramDeletionScopeRepository(),
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        prisma as unknown as PrismaService,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
     );
 
     const result = await repository.withTransaction((store) =>

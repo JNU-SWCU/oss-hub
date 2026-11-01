@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -56,7 +57,7 @@ type StaffNumberAuditCallback = Parameters<
 >[2];
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersRepository(prisma, new PlatformRepository());
 const service = new UsersService(
   repository,
   { requireCurrent: () => Promise.resolve() },

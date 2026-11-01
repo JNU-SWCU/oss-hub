@@ -17,7 +17,6 @@ import {
 } from './repository-provision-state.config';
 import { RepositoryProvisionFailure } from './repository-provision-state.error';
 import {
-  RepositoryProvisionStateHelpersRepository,
   type CompleteRepositoryInvitationInput,
   type FailRepositoryInvitationInput,
   type FailRepositoryProvisionJobInput,
@@ -27,7 +26,7 @@ import {
   type RepositoryInvitationWork,
   type RepositoryProvisionContext,
   type RepositoryProvisionStateStore,
-} from './repository-provision-state-helpers.repository';
+} from './repository-provision-state.repository';
 import {
   RepositoryProvisionStateRepository,
   type MembershipCurrencyCheck,
@@ -128,9 +127,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
         job.repositoryId !== application.repository.id
           ? null
           : this.toProvisionedRepository(
-              RepositoryProvisionStateHelpersRepository.assertOwnedRepository(
-                application.repository,
-              ),
+              this.repository.assertOwnedRepository(application.repository),
             ),
     };
   }

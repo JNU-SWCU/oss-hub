@@ -26,7 +26,7 @@ import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request
 import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
 import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';
 import { UpdateBoardPostRequestDto } from './dto/update-board-post-request.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type BoardActor = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -42,11 +42,7 @@ export class BoardController {
     @Query() query: BoardPostListRequestDto,
   ): Promise<BoardPostsPageResponseDto> {
     return BoardPostsPageResponseDto.from(
-      await this.service.listPosts(
-        programId,
-        query.toQuery(),
-        request.sessionGithubId,
-      ),
+      await this.service.listPosts(programId, query, request.sessionGithubId),
     );
   }
 

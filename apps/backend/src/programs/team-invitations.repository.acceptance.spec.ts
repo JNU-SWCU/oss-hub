@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -112,10 +113,13 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
   }
 
   function buildRepository(tx: object) {
-    return new TeamInvitationsRepository({
-      $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
-        operation(tx as never),
-    } as unknown as PrismaService);
+    return new TeamInvitationsRepository(
+      {
+        $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
+          operation(tx as never),
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
   }
 
   function accept(

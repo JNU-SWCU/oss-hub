@@ -1,3 +1,7 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -17,7 +21,14 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const service = new AdminAccessService(
-  new AdminAccessRepository(prisma),
+  new AdminAccessRepository(
+    prisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
@@ -40,6 +51,12 @@ const ids = {
   deactivatedB: `${prefix}deactivated-b`,
 } as const;
 let actorGithubId: bigint;
+const adminPrincipal = () => ({
+  githubId: actorGithubId,
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+});
 
 async function cleanup(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
@@ -128,7 +145,7 @@ it.each([
 ] as const)(
   'orders role %s as unassigned then student then staff then admin',
   async (direction: AdminAccessSortDirection, expectedIds) => {
-    const page = await service.list(actorGithubId, {
+    const page = await service.list(adminPrincipal(), {
       query: `${queryFragment} role`,
       page: 1,
       limit: 10,
@@ -146,7 +163,7 @@ it.each([
 ] as const)(
   'orders accountStatus %s as active then deactivated with id tie-break',
   async (direction: AdminAccessSortDirection, expectedIds) => {
-    const page = await service.list(actorGithubId, {
+    const page = await service.list(adminPrincipal(), {
       query: `${queryFragment} status`,
       page: 1,
       limit: 10,

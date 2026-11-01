@@ -92,7 +92,11 @@ export interface RecordSubmissionFileDeleteFailureInput {
 
 @Injectable()
 export class SubmissionFilesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+    private readonly submissionsRepository: SubmissionsRepository,
+  ) {}
 
   async findActiveStudentByGithubId(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findFirst({
@@ -171,7 +175,7 @@ export class SubmissionFilesRepository {
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
       application: {
-        is: SubmissionsRepository.submissionParticipantWhere(user.id),
+        is: this.submissionsRepository.submissionParticipantWhere(user.id),
       },
     });
   }
@@ -185,7 +189,7 @@ export class SubmissionFilesRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         id: applicationId,
-        ...SubmissionsRepository.submissionParticipantWhere(uploaderId),
+        ...this.submissionsRepository.submissionParticipantWhere(uploaderId),
         program: { milestones: { some: { id: milestoneId } } },
       },
       select: {
@@ -209,7 +213,7 @@ export class SubmissionFilesRepository {
       const submissions =
         await this.prisma.milestoneDocumentSubmission.findMany({
           where: {
-            ...SubmissionsRepository.submissionPublicIdWhere(
+            ...this.submissionsRepository.submissionPublicIdWhere(
               resubmissionContext.submissionId,
             ),
             applicationId: application.id,
@@ -222,7 +226,7 @@ export class SubmissionFilesRepository {
           select: { status: true, revision: true },
         });
       const submission =
-        SubmissionsRepository.exactSubmissionByPublicId(submissions);
+        this.submissionsRepository.exactSubmissionByPublicId(submissions);
       if (submission === null) return null;
       resubmissionStatus = submission.status;
       currentRevision = submission.revision;
@@ -243,11 +247,12 @@ export class SubmissionFilesRepository {
 
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
-      const stillMember = await PlatformRepository.lockSubmissionMembership(
-        transaction,
-        input.applicationId,
-        input.uploaderId,
-      );
+      const stillMember =
+        await this.platformRepository.lockSubmissionMembership(
+          transaction,
+          input.applicationId,
+          input.uploaderId,
+        );
       if (!stillMember) {
         throw new SubmissionMembershipChangedError(
           input.applicationId,

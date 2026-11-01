@@ -1,3 +1,6 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import type { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
@@ -13,11 +16,8 @@ import {
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
-const OUTSIDER_GITHUB_ID = 9_124_000_002n;
 const PROGRAM_ID = 'synthetic-matrix-program';
 
 interface FakeFixtures {
@@ -86,30 +86,15 @@ function query(
 }
 
 describe('SubmissionMatrixService', () => {
-  it('활성 STAFF·ADMIN이 아니면 403 STAFF_ONLY로 닫힌다', async () => {
-    const repository = new FakeSubmissionMatrixRepository();
-    const service = new SubmissionMatrixService(
-      repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-    );
-
-    await expect(
-      service.matrix(OUTSIDER_GITHUB_ID, PROGRAM_ID, query()),
-    ).rejects.toMatchObject({
-      errorCode: { code: SubmissionsErrorCode.STAFF_ONLY, status: 403 },
-    });
-    expect(repository.pageCalls).toHaveLength(0);
-  });
-
   it('프로그램이 없으면 404 PROGRAM_NOT_FOUND', async () => {
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     await expect(
-      service.matrix(STAFF_GITHUB_ID, 'missing-program', query()),
+      service.matrix('missing-program', query()),
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.PROGRAM_NOT_FOUND, status: 404 },
     });
@@ -165,10 +150,10 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
-    const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
+    const matrix = await service.matrix(PROGRAM_ID, query());
 
     expect(repository.submissionCalls).toEqual([
       ['application-personal', 'application-team'],
@@ -258,10 +243,10 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
-    const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
+    const matrix = await service.matrix(PROGRAM_ID, query());
 
     expect(matrix.rows[0]).toMatchObject({
       displayName: 'synthetic-nameless',
@@ -274,11 +259,10 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     );
 
     const matrix = await service.matrix(
-      STAFF_GITHUB_ID,
       PROGRAM_ID,
       query({ q: 'hong', applicationMode: 'TEAM', page: 3, pageSize: 5 }),
     );
@@ -299,7 +283,10 @@ describe('SubmissionMatrixService', () => {
 describe('submissionMatrixApplicationWhere', () => {
   it('항상 프로그램 범위의 승인 신청만 겨냥한다', () => {
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -312,19 +299,28 @@ describe('submissionMatrixApplicationWhere', () => {
       status: ApplicationStatus.APPROVED,
     };
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'PERSONAL',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: 'TEAM',
       }),
     ).toEqual(base);
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: '',
         applicationMode: null,
       }),
@@ -335,7 +331,10 @@ describe('submissionMatrixApplicationWhere', () => {
     const contains = { contains: 'Hong', mode: 'insensitive' };
 
     expect(
-      SubmissionMatrixRepository.submissionMatrixApplicationWhere(PROGRAM_ID, {
+      new SubmissionMatrixRepository(
+        {} as PrismaService,
+        new PlatformRepository(),
+      ).submissionMatrixApplicationWhere(PROGRAM_ID, {
         q: 'Hong',
         applicationMode: null,
       }),

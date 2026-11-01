@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   ApplicationReviewEventKind,
   MemberKind,
@@ -26,7 +28,12 @@ const APPLICATION_A_ID = `${PREFIX}application-a`;
 const APPLICATION_B_ID = `${PREFIX}application-b`;
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma);
+const repository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
+);
 
 async function cleanup(): Promise<void> {
   await prisma.applicationReviewHistory.deleteMany({
@@ -147,10 +154,13 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
           where: { id: APPLICATION_A_ID },
           data: { status: 'APPROVED' },
         });
-        await ReviewHistoryWriterRepository.appendReviewHistory(transaction, {
-          ...entry(ApplicationReviewEventKind.APPROVED, APPLICATION_A_ID),
-          actorId: `${PREFIX}absent-actor`,
-        });
+        await new ReviewHistoryWriterRepository().appendReviewHistory(
+          transaction,
+          {
+            ...entry(ApplicationReviewEventKind.APPROVED, APPLICATION_A_ID),
+            actorId: `${PREFIX}absent-actor`,
+          },
+        );
       })
       .then(() => null)
       .catch((caught: unknown) => caught);

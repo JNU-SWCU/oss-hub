@@ -1,8 +1,6 @@
+import { ApplicationStatus } from '@prisma/client';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import {
-  StudentRepositoryUrlTransactionRepository,
-  StudentRepositoryUrlRepository,
-} from './student-repository-url-transaction.repository';
+import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../platform/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
@@ -22,7 +20,6 @@ import type {
 } from './student-repository-url-context.repository';
 import { repositoryUrlError } from './student-repository-url.error';
 import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
-import { ProgramRulesService } from './program-rules.service';
 
 export type StudentRepositoryUrlView = {
   readonly repositoryUrl: string | null;
@@ -60,9 +57,23 @@ export class StudentRepositoryUrlService {
       CollectionTriggerService,
       'collectRepository'
     >,
-    private readonly programRulesService: ProgramRulesService,
     private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
   ) {}
+
+  canEditStudentRepositoryUrl(
+    context: {
+      readonly status: ApplicationStatus;
+      readonly endAt: Date;
+      readonly isManager: boolean;
+    },
+    now: Date,
+  ): boolean {
+    return (
+      context.isManager &&
+      context.status === ApplicationStatus.APPROVED &&
+      now < context.endAt
+    );
+  }
 
   async getMine(
     githubId: bigint,
@@ -106,79 +117,72 @@ export class StudentRepositoryUrlService {
     const resolution = await this.resolve(input.repositoryUrl);
     if (resolution.kind === 'EXTERNAL')
       await this.consents.requireCurrent(context.applicant.githubId);
-    try {
-      const { view, relinked } = await this.repository.withTransaction(
-        async (store) => {
-          const current = await store.lockTeamContext(
-            programId,
-            teamId,
-            githubId,
-          );
-          this.requireEditable(current);
-          if (
-            current.repository?.githubRepositoryId ===
-              resolution.repository.githubRepositoryId &&
-            this.url(current)?.toLowerCase() ===
-              `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
-          )
-            return {
-              view: {
-                repositoryUrl: this.url(current),
-                canEditRepositoryUrl: true,
-              },
-              relinked: false,
-            };
-          const repositoryId = await store.relink(
-            current,
-            resolution,
-            (stored) =>
-              this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
-                stored,
-              ),
-          );
-          const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
-          await this.audit.record(
-            {
-              actorGithubId: githubId,
-              action: APPLICATION_REPOSITORY_URL_CHANGED,
-              targetType: 'APPLICATION',
-              targetId: current.id,
-              metadata: {
-                schemaVersion: 2,
-                programId,
-                teamId: current.teamId,
-                programName: current.program.name,
-                actorGithubLogin: current.editor.nickname,
-                before: {
-                  repositoryId: current.repository?.id ?? null,
-                  repositoryUrl: this.url(current),
-                },
-                after: { repositoryId, repositoryUrl },
-              },
-            },
-            store.auditLogWriter,
-          );
-          return {
-            view: { repositoryUrl, canEditRepositoryUrl: true },
-            relinked: true,
-          };
-        },
-      );
-
-      if (relinked)
-        this.collection.collectRepository(
-          resolution.repository.githubRepositoryId,
+    const { view, relinked } = await this.repository.withTransaction(
+      async (store) => {
+        const current = await store.lockTeamContext(
+          programId,
+          teamId,
+          githubId,
         );
-      return view;
-    } catch (error) {
-      if (
-        StudentRepositoryUrlTransactionRepository.isStudentRepositoryUrlConflict(
-          error,
+        this.requireEditable(current);
+        if (
+          current.repository?.githubRepositoryId ===
+            resolution.repository.githubRepositoryId &&
+          this.url(current)?.toLowerCase() ===
+            `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
         )
-      )
-        throw repositoryUrlError('conflict');
-      throw error;
-    }
+          return {
+            view: {
+              repositoryUrl: this.url(current),
+              canEditRepositoryUrl: true,
+            },
+            relinked: false,
+          };
+        const repositoryId = await store
+          .relink(current, resolution, (stored) =>
+            this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+              stored,
+            ),
+          )
+          .catch((error: unknown) => {
+            throw store.isStudentRepositoryUrlConflict(error)
+              ? repositoryUrlError('conflict')
+              : error;
+          });
+        const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
+        await this.audit.record(
+          {
+            actorGithubId: githubId,
+            action: APPLICATION_REPOSITORY_URL_CHANGED,
+            targetType: 'APPLICATION',
+            targetId: current.id,
+            metadata: {
+              schemaVersion: 2,
+              programId,
+              teamId: current.teamId,
+              programName: current.program.name,
+              actorGithubLogin: current.editor.nickname,
+              before: {
+                repositoryId: current.repository?.id ?? null,
+                repositoryUrl: this.url(current),
+              },
+              after: { repositoryId, repositoryUrl },
+            },
+          },
+          store.auditLogWriter,
+        );
+        return {
+          view: { repositoryUrl, canEditRepositoryUrl: true },
+          relinked: true,
+        };
+      },
+    );
+
+    if (relinked)
+      this.collection.collectRepository(
+        resolution.repository.githubRepositoryId,
+      );
+    return view;
   }
 
   private async resolve(url: string) {
@@ -217,7 +221,7 @@ export class StudentRepositoryUrlService {
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
     if (
-      !this.programRulesService.canEditStudentRepositoryUrl(
+      !this.canEditStudentRepositoryUrl(
         { status: context.status, endAt: context.program.endAt, isManager },
         new Date(),
       )
@@ -231,15 +235,14 @@ export class StudentRepositoryUrlService {
   ): StudentRepositoryUrlView {
     return {
       repositoryUrl: this.url(context),
-      canEditRepositoryUrl:
-        this.programRulesService.canEditStudentRepositoryUrl(
-          {
-            status: context.status,
-            endAt: context.program.endAt,
-            isManager: context.team.leaderId === studentId,
-          },
-          new Date(),
-        ),
+      canEditRepositoryUrl: this.canEditStudentRepositoryUrl(
+        {
+          status: context.status,
+          endAt: context.program.endAt,
+          isManager: context.team.leaderId === studentId,
+        },
+        new Date(),
+      ),
     };
   }
 

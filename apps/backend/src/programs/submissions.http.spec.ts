@@ -1,3 +1,5 @@
+import { DownloadResponseService } from './download-response.service';
+import { SubmissionInputService } from './submission-input.service';
 import {
   ValidationPipe,
   type ExecutionContext,
@@ -110,11 +112,28 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       {
         provide: SubmissionsService,
-        useValue: { form, create, checklist, resubmit },
+        useValue: Object.assign(
+          Object.create(SubmissionsService.prototype) as object,
+          {
+            form,
+            create,
+            checklist,
+            resubmit,
+            submissionInputService: new SubmissionInputService(),
+          },
+        ),
       },
       {
         provide: SubmissionFilesService,
-        useValue: { download, upload, check },
+        useValue: Object.assign(
+          Object.create(SubmissionFilesService.prototype) as object,
+          {
+            download,
+            upload,
+            check,
+            downloadResponseService: new DownloadResponseService(),
+          },
+        ),
       },
     ],
   })

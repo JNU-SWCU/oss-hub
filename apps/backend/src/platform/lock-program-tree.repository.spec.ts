@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
 
+const locks = new LockProgramTreeRepository();
+
 function transaction() {
   const query = jest.fn((sql: Prisma.Sql) =>
     Promise.resolve(
@@ -20,19 +22,19 @@ describe('lockProgramTree', () => {
     'preserves ordered %s scope without reacquisition',
     async (documentKind) => {
       const { tx, query } = transaction();
-      const p = await LockProgramTreeRepository.lockProgramTree(tx, {
+      const p = await locks.lockProgramTree(tx, {
         stage: 'program',
         programId: 'p',
       });
       if (!p) throw new Error('missing program');
-      const m = await LockProgramTreeRepository.lockProgramTree(tx, {
+      const m = await locks.lockProgramTree(tx, {
         stage: 'milestone',
         milestoneId: 'm',
         after: p,
       });
       if (!m) throw new Error('missing milestone');
       expect(
-        await LockProgramTreeRepository.lockProgramTree(tx, {
+        await locks.lockProgramTree(tx, {
           stage: 'documents',
           after: m,
           documentKind,
@@ -44,20 +46,20 @@ describe('lockProgramTree', () => {
       );
       expect(sql?.strings.join('')).toContain('ORDER BY "id"');
       await expect(
-        LockProgramTreeRepository.lockProgramTree(tx, {
+        locks.lockProgramTree(tx, {
           stage: 'program',
           programId: 'p',
         }),
       ).rejects.toHaveProperty('name', 'LockOrderError');
       await expect(
-        LockProgramTreeRepository.lockProgramTree(tx, {
+        locks.lockProgramTree(tx, {
           stage: 'milestone',
           milestoneId: 'm',
           after: p,
         }),
       ).rejects.toHaveProperty('name', 'LockOrderError');
       await expect(
-        LockProgramTreeRepository.lockProgramTree(tx, {
+        locks.lockProgramTree(tx, {
           stage: 'documents',
           after: m,
           documentKind,
@@ -70,39 +72,39 @@ describe('lockProgramTree', () => {
   it('rejects repeats and foreign witnesses before issuing SQL', async () => {
     const first = transaction();
     const second = transaction();
-    const p = await LockProgramTreeRepository.lockProgramTree(first.tx, {
+    const p = await locks.lockProgramTree(first.tx, {
       stage: 'program',
       programId: 'p',
     });
     if (!p) throw new Error('missing program');
     await expect(
-      LockProgramTreeRepository.lockProgramTree(first.tx, {
+      locks.lockProgramTree(first.tx, {
         stage: 'program',
         programId: 'other',
       }),
     ).rejects.toHaveProperty('name', 'LockOrderError');
     await expect(
-      LockProgramTreeRepository.lockProgramTree(second.tx, {
+      locks.lockProgramTree(second.tx, {
         stage: 'milestone',
         milestoneId: 'm',
         after: p,
       }),
     ).rejects.toHaveProperty('name', 'LockOrderError');
-    const m = await LockProgramTreeRepository.lockProgramTree(first.tx, {
+    const m = await locks.lockProgramTree(first.tx, {
       stage: 'milestone',
       milestoneId: 'm',
       after: p,
     });
     if (!m) throw new Error('missing milestone');
     await expect(
-      LockProgramTreeRepository.lockProgramTree(first.tx, {
+      locks.lockProgramTree(first.tx, {
         stage: 'milestone',
         milestoneId: 'other',
         after: p,
       }),
     ).rejects.toHaveProperty('name', 'LockOrderError');
     await expect(
-      LockProgramTreeRepository.lockProgramTree(second.tx, {
+      locks.lockProgramTree(second.tx, {
         stage: 'documents',
         after: m,
         documentKind: 'ALL',
@@ -113,18 +115,18 @@ describe('lockProgramTree', () => {
 
   it('permits milestone-only flows but refuses later parent locks', async () => {
     const { tx, query } = transaction();
-    const m = await LockProgramTreeRepository.lockProgramTree(tx, {
+    const m = await locks.lockProgramTree(tx, {
       stage: 'milestone',
       milestoneId: 'm',
     });
     if (!m) throw new Error('missing milestone');
     await expect(
-      LockProgramTreeRepository.lockProgramTree(tx, {
+      locks.lockProgramTree(tx, {
         stage: 'program',
         programId: 'p',
       }),
     ).rejects.toHaveProperty('name', 'LockOrderError');
-    await LockProgramTreeRepository.lockProgramTree(tx, {
+    await locks.lockProgramTree(tx, {
       stage: 'documents',
       after: m,
       documentKind: 'DOCUMENT',
@@ -136,7 +138,7 @@ describe('lockProgramTree', () => {
     const { tx, query } = transaction();
     query.mockResolvedValue([]);
     await expect(
-      LockProgramTreeRepository.lockProgramTree(tx, {
+      locks.lockProgramTree(tx, {
         stage: 'program',
         programId: 'missing',
       }),
@@ -144,7 +146,7 @@ describe('lockProgramTree', () => {
     const other = transaction();
     other.query.mockResolvedValue([]);
     await expect(
-      LockProgramTreeRepository.lockProgramTree(other.tx, {
+      locks.lockProgramTree(other.tx, {
         stage: 'milestone',
         milestoneId: 'missing',
       }),

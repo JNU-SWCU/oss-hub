@@ -61,19 +61,28 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
   let application: INestApplication;
   let baseUrl = '';
   let cookie = '';
-  const accessService = {
-    list: jest.fn(),
-    listRequests: jest.fn(),
-    facets: jest.fn(),
-    get: jest.fn().mockResolvedValue(detail),
-    getHistory: jest.fn(),
-    patchAccess: jest.fn(),
-  };
-  const authorityService = Object.assign(
-    Object.create(
-      IndependentAuthorityService.prototype,
-    ) as IndependentAuthorityService,
+  const accessService = Object.assign(
+    Object.create(AdminAccessService.prototype) as object,
     {
+      adminAccessMutationService: new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+      list: jest.fn(),
+      listRequests: jest.fn(),
+      facets: jest.fn(),
+      get: jest.fn().mockResolvedValue(detail),
+      getHistory: jest.fn(),
+      patchAccess: jest.fn(),
+    },
+  );
+  const authorityService = Object.assign(
+    Object.create(IndependentAuthorityService.prototype) as object,
+    {
+      adminAccessMutationService: new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
       patchStaffAccess: jest.fn(),
       patchAdminAccess: jest.fn().mockResolvedValue({
         id: 'target',

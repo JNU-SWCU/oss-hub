@@ -1,17 +1,13 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-
-const authority = {
-  assertActiveStaff: jest
-    .fn()
-    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
-};
 
 describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
@@ -41,13 +37,16 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(
       repository,
-      authority,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })
@@ -82,10 +81,13 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     await expect(
       new MilestoneDocumentsService(
         repository,
-        authority,
-        new MilestoneDocumentRulesService(new ProgramRulesService()),
-        new SubmissionFileRulesService(),
-      ).historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+        new MilestoneDocumentSubmissionWindowService(
+          new ProgramScheduleService(),
+        ),
+        new MilestoneDocumentCollectionService({} as never),
+        new ProgramScheduleService(),
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
         limit: 20,
       }),
@@ -145,9 +147,12 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      authority,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
@@ -173,13 +178,16 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      authority,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })
@@ -200,13 +208,16 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: null,
         }),
       ),
-      authority,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentCollectionService({} as never),
+      new ProgramScheduleService(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     );
 
     const result = await service
-      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: null,
         limit: 20,
       })

@@ -25,69 +25,79 @@ import {
   ResubmittedSubmissionResponseDto,
 } from './dto/submission-form-response.dto';
 import { SubmissionsService } from './submissions.service';
-import { SubmissionInputService } from './submission-input.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
+import { DomainException } from '../platform/error-code.error';
+import {
+  SUBMISSION_REVIEWS_ERROR_CODES,
+  SubmissionReviewsErrorCode,
+} from './submission-reviews-error-code.error';
 
-type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type ReviewActorRequest = Pick<AuthenticatedRequest, 'principal'>;
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffApprovalRequired = () =>
+  new DomainException(
+    SUBMISSION_REVIEWS_ERROR_CODES[
+      SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED
+    ],
+  );
 
 @Controller('submissions')
 export class SubmissionsController {
   constructor(
     private readonly service: SubmissionsService,
     private readonly reviewsService: SubmissionReviewsService,
-    private readonly submissionInputService: SubmissionInputService,
   ) {}
 
   @Post()
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  create(
+  async create(
     @Req() request: SubmissionRequest,
     @Body() body: CreateSubmissionRequestDto,
   ): Promise<CreatedSubmissionResponseDto> {
-    return this.service
-      .create(
-        request.sessionGithubId,
-        this.submissionInputService.toCreateSubmissionInput(body),
-      )
-      .then((result) => CreatedSubmissionResponseDto.from(result));
+    return CreatedSubmissionResponseDto.from(
+      await this.service.createFromRequest(request.sessionGithubId, body),
+    );
   }
 
   @Post(':submissionId/resubmissions')
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  resubmit(
+  async resubmit(
     @Req() request: SubmissionRequest,
     @Param('submissionId') submissionId: string,
     @Body() body: CreateResubmissionRequestDto,
   ): Promise<ResubmittedSubmissionResponseDto> {
-    return this.service
-      .resubmit(
+    return ResubmittedSubmissionResponseDto.from(
+      await this.service.resubmitFromRequest(
         request.sessionGithubId,
         submissionId,
-        this.submissionInputService.toResubmitSubmissionInput(body),
-      )
-      .then((result) => ResubmittedSubmissionResponseDto.from(result));
+        body,
+      ),
+    );
   }
 
   @Get(':submissionId/review-context')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffApprovalRequired)
   async context(
-    @Req() request: ReviewActorRequest,
     @Param('submissionId') submissionId: string,
   ): Promise<SubmissionReviewContextResponseDto> {
     return SubmissionReviewContextResponseDto.from(
-      await this.reviewsService.context(submissionId, request.sessionGithubId),
+      await this.reviewsService.context(submissionId),
     );
   }
 
   @Post(':submissionId/reviews')
   @HttpCode(201)
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffApprovalRequired)
   @UseGuards(OriginGuard)
   async review(
     @Req() request: ReviewActorRequest,
@@ -95,10 +105,10 @@ export class SubmissionsController {
     @Body() body: CreateSubmissionReviewRequestDto,
   ): Promise<CreateSubmissionReviewResponseDto> {
     return CreateSubmissionReviewResponseDto.from(
-      await this.reviewsService.review(
-        request.sessionGithubId,
+      await this.reviewsService.reviewFromRequest(
+        request.principal.id,
         submissionId,
-        this.reviewsService.reviewInputFromRequest(body),
+        body,
       ),
     );
   }

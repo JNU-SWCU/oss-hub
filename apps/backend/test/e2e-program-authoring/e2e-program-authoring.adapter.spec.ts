@@ -22,7 +22,7 @@ describe('E2eProgramAuthoringAdapter orchestration boundary', () => {
 
   it('previews through production eligibility at the frozen fixture instant', () => {
     expect(source).toMatch(
-      /this\.deadlines\.previewProgram\([\s\S]*?E2E_STAFF_GITHUB_ID,[\s\S]*?this\.fixtures\.graph\(\)\.programId,[\s\S]*?E2E_NOW,[\s\S]*?\);/u,
+      /this\.deadlines\.previewProgram\([\s\S]*?this\.fixtures\.graph\(\)\.programId,[\s\S]*?E2E_NOW,[\s\S]*?\);/u,
     );
   });
 });

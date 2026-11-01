@@ -151,7 +151,10 @@ async function assertEligible(
 
 @Injectable()
 export class ApplicationPreparationsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findActor(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findFirst({
@@ -252,7 +255,7 @@ export class ApplicationPreparationsRepository {
         ...STUDENT_MEMBER_WHERE,
         OR: [
           { nickname: { contains: query.trim(), mode: 'insensitive' } },
-          PlatformRepository.userProfileNameWhere(query.trim()),
+          this.platformRepository.userProfileNameWhere(query.trim()),
         ],
         teamMemberships: { none: { programId: row.programId } },
         preparationParticipants: {

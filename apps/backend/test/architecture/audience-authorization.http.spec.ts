@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../../src/github/collection-schedule.service';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
@@ -50,14 +51,10 @@ import { UserAccessController } from '../../src/admin/user-access.controller';
 import { AccessRequestsController } from '../../src/staff/access-requests.controller';
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
 import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
-import {
-  IndependentAuthorityRepository,
-  UsersAuthorityRepository,
-} from '../../src/users/independent-authority.repository';
+import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';
 import { MemberKindRepository } from '../../src/users/member-kind.repository';
 import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileService } from '../../src/users/admin-profile.service';
-import { UsersAuthorityService } from '../../src/users/users-authority.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberKindService } from '../../src/users/member-kind.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
@@ -65,7 +62,10 @@ import { AdminAccessMutationService } from '../../src/users/admin-access-mutatio
 import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
 import { AuthSessionService } from '../../src/platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -269,8 +269,6 @@ describe('Audience authorization HTTP characterization', () => {
         ...STATELESS_PROVIDERS,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
-        UsersAuthorityService,
-        UsersAuthorityRepository,
         StudentDashboardService,
         ProgramActivityService,
         ProgramViewerService,
@@ -291,10 +289,11 @@ describe('Audience authorization HTTP characterization', () => {
         AdminProfileMutationService,
         AuditLogService,
         SystemStatusService,
+        CollectionScheduleService,
         {
           provide: AuthService,
           useValue: {
-            getMe: () => ({ id: 'synthetic-actor', sessionVersion: 0 }),
+            getMe: () => sessionPrincipal(actor),
           },
         },
         {

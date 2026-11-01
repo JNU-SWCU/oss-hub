@@ -41,6 +41,8 @@ export interface RepositoryProvisionWorkerOptions {
   readonly retryBaseMs: number;
 }
 
+export const PROVISION_WORKER_OPTIONS = Symbol('PROVISION_WORKER_OPTIONS');
+
 export const DEFAULT_PROVISION_OPTIONS: RepositoryProvisionWorkerOptions = {
   leaseMs: DEFAULT_PROVISION_JOB_LEASE_MS,
   maxAttempts: DEFAULT_PROVISION_MAX_ATTEMPTS,

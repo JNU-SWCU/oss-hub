@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -46,6 +47,7 @@ describe('canonical auth session HTTP contract', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        AuthFlowService,
         AuthSessionService,
         AuthenticationGuard,
         OriginGuard,

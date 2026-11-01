@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
@@ -35,7 +36,7 @@ type StoredProfileFields = {
 const prisma = new PrismaService();
 
 const service = new UsersService(
-  new UsersRepository(prisma),
+  new UsersRepository(prisma, new PlatformRepository()),
   {
     requireCurrent: () => Promise.resolve(),
   },

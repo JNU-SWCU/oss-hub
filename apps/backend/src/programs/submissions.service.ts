@@ -1,3 +1,4 @@
+import { SubmissionInputService } from './submission-input.service';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -25,8 +26,8 @@ import {
   SubmissionAlreadyExistsError,
   SubmissionFileUnavailableError,
 } from './submissions.error';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 export type SubmissionBlockedReason =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';
@@ -115,8 +116,9 @@ export class SubmissionsService {
       SubmissionsRepository,
       keyof SubmissionsStore | 'withTransaction'
     >,
-    private readonly programRulesService: ProgramRulesService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
+    private readonly submissionInputService: SubmissionInputService,
   ) {}
 
   async form(
@@ -143,7 +145,7 @@ export class SubmissionsService {
       milestone,
       now,
     );
-    const deadline = this.programRulesService.programDeadline(
+    const deadline = this.programScheduleService.programDeadline(
       milestone.dueAt,
       now,
     );
@@ -163,6 +165,28 @@ export class SubmissionsService {
       canSubmit: blockedReason === null,
       blockedReason,
     };
+  }
+
+  createFromRequest(
+    githubId: bigint,
+    request: Parameters<SubmissionInputService['toCreateSubmissionInput']>[0],
+  ): Promise<CreatedSubmissionResult> {
+    return this.create(
+      githubId,
+      this.submissionInputService.toCreateSubmissionInput(request),
+    );
+  }
+
+  resubmitFromRequest(
+    githubId: bigint,
+    submissionId: string,
+    request: Parameters<SubmissionInputService['toResubmitSubmissionInput']>[0],
+  ): Promise<ResubmittedSubmissionResult> {
+    return this.resubmit(
+      githubId,
+      submissionId,
+      this.submissionInputService.toResubmitSubmissionInput(request),
+    );
   }
 
   async create(
@@ -195,7 +219,7 @@ export class SubmissionsService {
             throw this.error(SubmissionsErrorCode.FILE_RETENTION_UNAVAILABLE);
           }
           fileExpiresAt =
-            this.submissionFileRulesService.addOneCalendarYear(programEndAt);
+            this.programScheduleService.addOneCalendarYear(programEndAt);
         }
 
         const created = await store.createSubmission(
@@ -293,7 +317,7 @@ export class SubmissionsService {
           }
           target = lockedTarget;
           fileExpiresAt =
-            this.submissionFileRulesService.addOneCalendarYear(programEndAt);
+            this.programScheduleService.addOneCalendarYear(programEndAt);
         }
 
         if (target.applicationStatus !== ApplicationStatus.APPROVED) {
@@ -371,14 +395,14 @@ export class SubmissionsService {
               milestone.submission.status ===
                 SubmissionStatus.CHANGES_REQUESTED ||
               (milestone.submission.status === SubmissionStatus.SUBMITTED &&
-                !this.programRulesService.hasProgramDeadlinePassed(
+                !this.programScheduleService.hasProgramDeadlinePassed(
                   milestone.dueAt,
                   now,
                 )),
             file: milestone.submission.file && {
               ...milestone.submission.file,
               contentType:
-                this.submissionFileRulesService.safeSubmissionFileContentType(
+                this.submissionFileAdmissionService.safeSubmissionFileContentType(
                   milestone.submission.file.fileName,
                 ),
             },
@@ -401,7 +425,7 @@ export class SubmissionsService {
       throw submissionError(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (
       target.status !== SubmissionStatus.CHANGES_REQUESTED &&
-      this.programRulesService.hasProgramDeadlinePassed(target.dueAt, now)
+      this.programScheduleService.hasProgramDeadlinePassed(target.dueAt, now)
     ) {
       throw submissionError(SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED);
     }
@@ -415,7 +439,9 @@ export class SubmissionsService {
     now: Date,
   ): SubmissionBlockedReason | null {
     if (application.existingSubmission) return 'SUBMISSION_ALREADY_EXISTS';
-    if (this.programRulesService.hasProgramDeadlinePassed(milestone.dueAt, now))
+    if (
+      this.programScheduleService.hasProgramDeadlinePassed(milestone.dueAt, now)
+    )
       return 'MILESTONE_CLOSED';
     return null;
   }
@@ -428,7 +454,9 @@ export class SubmissionsService {
   ): void {
     if (application.existingSubmission)
       throw submissionError(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
-    if (this.programRulesService.hasProgramDeadlinePassed(milestone.dueAt, now))
+    if (
+      this.programScheduleService.hasProgramDeadlinePassed(milestone.dueAt, now)
+    )
       throw submissionError(SubmissionsErrorCode.MILESTONE_CLOSED);
     if (input.content.type !== milestone.submissionType)
       throw submissionError(SubmissionsErrorCode.CONTENT_TYPE_MISMATCH);

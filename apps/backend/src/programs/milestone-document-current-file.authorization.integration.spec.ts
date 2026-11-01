@@ -1,3 +1,15 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import { DownloadResponseService } from './download-response.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Readable } from 'node:stream';
 import { PlatformModule } from '../platform/platform.module';
 import { buffer } from 'node:stream/consumers';
@@ -19,17 +31,12 @@ import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -125,15 +132,19 @@ const users = {
 } as const;
 
 const prisma = new PrismaService();
-const documentsRepository = new MilestoneDocumentsRepository(prisma);
-const authority = new UsersAuthorityService(
-  new UsersAuthorityRepository(prisma),
+const documentsRepository = new MilestoneDocumentsRepository(
+  prisma,
+  new LockProgramTreeRepository(),
+  new PlatformRepository(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new MilestoneDocumentCollectionReadRepository(prisma),
 );
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
-  authority,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-  new SubmissionFileRulesService(),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
 const storage: ObjectStoragePort = {
@@ -150,7 +161,8 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
     >[0],
   ),
   storage,
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
+  new DownloadResponseService(),
 );
 
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
@@ -362,10 +374,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
       providers: [
+        ...STATELESS_PROVIDERS,
+        SubmissionsRepository,
         SubmissionFilesService,
         SubmissionFilesRepository,
-        ProgramRulesService,
-        SubmissionFileRulesService,
+        ProgramScheduleService,
+        SubmissionFileAdmissionService,
       ],
     })
       .overrideProvider(RUNTIME_CONFIG)
@@ -387,9 +401,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       documentsRepository,
       storage,
       submissionsModule.get(SubmissionFilesService),
-      authority,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
-      new SubmissionFileRulesService(),
+      new MilestoneDocumentSubmissionWindowService(
+        new ProgramScheduleService(),
+      ),
+      new MilestoneDocumentFileNameService(),
+      new SubmissionFileAdmissionService(),
+      new DownloadResponseService(),
     );
 
     await cleanup();
@@ -967,7 +984,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
 
   it('교직원 전용 경로는 되돌려진 신청의 같은 파일을 그대로 돌려준다', async () => {
     const file = await staffFilesService.downloadSubmissionFile(
-      users.staff.githubId,
       milestoneId,
       ownDocumentId,
       revertedApplicationId,

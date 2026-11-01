@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { LockOrderError } from './lock-program-tree.error';
 
@@ -25,23 +26,24 @@ type Step =
       documentKind: 'DOCUMENT' | 'ALL';
     };
 
+@Injectable()
 export class LockProgramTreeRepository {
-  static lockProgramTree(
+  lockProgramTree(
     tx: Prisma.TransactionClient,
     step: Extract<Step, { stage: 'program' }>,
   ): Promise<ProgramLock | null>;
 
-  static lockProgramTree(
+  lockProgramTree(
     tx: Prisma.TransactionClient,
     step: Extract<Step, { stage: 'milestone' }>,
   ): Promise<MilestoneLock | null>;
 
-  static lockProgramTree(
+  lockProgramTree(
     tx: Prisma.TransactionClient,
     step: Extract<Step, { stage: 'documents' }>,
   ): Promise<Readonly<{ documentIds: readonly string[] }>>;
 
-  static async lockProgramTree(
+  async lockProgramTree(
     tx: Prisma.TransactionClient,
     step: Step,
   ): Promise<

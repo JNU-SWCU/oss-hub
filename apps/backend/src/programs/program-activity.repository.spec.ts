@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   type ProgramActivitySummaryDataSource,
   ProgramActivitySummaryRepository,
@@ -65,9 +66,12 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
         issues: [{ createdAt: issueCreatedAt }],
       },
     ]);
-    const repository = new ProgramActivityRepository({
-      githubRepository: { findMany },
-    } as unknown as PrismaService);
+    const repository = new ProgramActivityRepository(
+      {
+        githubRepository: { findMany },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
     const authorWhere = { authorGithubId: 11n };
 
     await expect(

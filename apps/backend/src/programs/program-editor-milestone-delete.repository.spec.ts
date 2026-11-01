@@ -1,3 +1,7 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -62,6 +66,13 @@ describe('ProgramEditorRepository milestone deletion', () => {
     return {
       repository: new ProgramEditorRepository(
         prisma as unknown as PrismaService,
+        new LockProgramTreeRepository(),
+        new ProgramDeletionScopeRepository(),
+        new ProgramAuthoringUploadTransactionRepository(),
+        new ProgramCoverRepository(
+          prisma as unknown as PrismaService,
+          new ProgramAuthoringUploadTransactionRepository(),
+        ),
       ),
       transaction,
       callOrder,

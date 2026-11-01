@@ -32,6 +32,8 @@ interface AdminAccessMutationConfirmDialogProps {
   readonly isProcessing: boolean;
   readonly errorMessage: string | null;
   readonly profile?: CanonicalAdminAccessProfile;
+
+  readonly returnFocusTo?: HTMLElement | null;
   readonly onCancel: () => void;
   readonly onConfirm: (fields?: MemberKindMutationFields) => void;
 }
@@ -58,6 +60,7 @@ export function AdminAccessMutationConfirmDialog({
   isProcessing,
   errorMessage,
   profile,
+  returnFocusTo,
   onCancel,
   onConfirm,
 }: AdminAccessMutationConfirmDialogProps) {
@@ -68,7 +71,9 @@ export function AdminAccessMutationConfirmDialog({
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(getCurrentFocusTarget());
+  const returnFocusRef = useRef<HTMLElement | null>(
+    returnFocusTo ?? getCurrentFocusTarget(),
+  );
 
   useEffect(() => {
     if (invalidSubmitCount === 0) return;

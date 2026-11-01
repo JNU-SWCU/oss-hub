@@ -1,3 +1,10 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import {
   ProgramTrackType,
@@ -20,26 +27,44 @@ import {
 } from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('ProgramAuthoringService integration', () => {
   const harness = new ProgramAuthoringIntegrationHarness();
   const service = new ProgramAuthoringService(
-    new ProgramAuthoringRepository(harness.prisma),
+    new ProgramAuthoringRepository(
+      harness.prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+      new ProgramCoverRepository(
+        harness.prisma,
+        new ProgramAuthoringUploadTransactionRepository(),
+      ),
+    ),
     { record: jest.fn() } as unknown as AuditLogService,
     new AuditLogMetadataService(),
-    new ProgramRulesService(),
-    new ProgramUploadRulesService(new SubmissionFileRulesService()),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
+    new ProgramAuthoringUploadService(
+      {} as never,
+      {} as never,
+      new SubmissionFileAdmissionService(),
+      new ProgramNoticeFetchClient(),
+    ),
+    new ProgramAuthoringUploadTransactionRepository(),
   );
 
   beforeAll(async () => {
@@ -91,8 +116,8 @@ describe('ProgramAuthoringService integration', () => {
       ]),
     ]);
 
-    const created = await service.create(actor.githubId, 'graph-key', request);
-    const replayed = await service.create(actor.githubId, 'graph-key', request);
+    const created = await service.create(actor, 'graph-key', request);
+    const replayed = await service.create(actor, 'graph-key', request);
 
     expect(replayed.id).toBe(created.id);
     const graph = await harness.prisma.program.findUniqueOrThrow({
@@ -144,7 +169,7 @@ describe('ProgramAuthoringService integration', () => {
     if (boundaryMilestone === undefined)
       throw new TypeError('Missing boundary milestone fixture.');
 
-    const program = await service.create(actor.githubId, 'inclusive-end-key', {
+    const program = await service.create(actor, 'inclusive-end-key', {
       ...input,
       milestones: [{ ...boundaryMilestone, dueAt: input.endAt }],
     });
@@ -162,10 +187,10 @@ describe('ProgramAuthoringService integration', () => {
     const initial = authoringRequest('conflict', [
       authoringMilestone('default-item', []),
     ]);
-    await service.create(actor.githubId, 'conflict-key', initial);
+    await service.create(actor, 'conflict-key', initial);
 
     await expect(
-      service.create(actor.githubId, 'conflict-key', {
+      service.create(actor, 'conflict-key', {
         ...initial,
         description: 'A distinct canonical payload',
       }),
@@ -177,17 +202,17 @@ describe('ProgramAuthoringService integration', () => {
     const initial = authoringRequest('track-conflict', [
       authoringMilestone('default-item', []),
     ]);
-    const created = await service.create(actor.githubId, 'track-key', initial);
+    const created = await service.create(actor, 'track-key', initial);
 
     await expect(
-      service.create(actor.githubId, 'track-key', {
+      service.create(actor, 'track-key', {
         ...initial,
         trackType: ProgramTrackType.EXTRACURRICULAR,
       }),
     ).rejects.toMatchObject({ existingProgramId: created.id });
-    expect(
-      (await service.create(actor.githubId, 'track-key', initial)).id,
-    ).toBe(created.id);
+    expect((await service.create(actor, 'track-key', initial)).id).toBe(
+      created.id,
+    );
     expect(
       await harness.prisma.programCreateRequest.count({
         where: { actorId: actor.id },
@@ -200,7 +225,7 @@ describe('ProgramAuthoringService integration', () => {
     const initial = authoringRequest('legacy-track', [
       authoringMilestone('default-item', []),
     ]);
-    const created = await service.create(actor.githubId, 'legacy-key', initial);
+    const created = await service.create(actor, 'legacy-key', initial);
     const canonical =
       programAuthoringService.toCanonicalProgramAuthoringPayload(
         programAuthoringService.buildProgramAuthoringPlan(initial),
@@ -231,7 +256,7 @@ describe('ProgramAuthoringService integration', () => {
     });
 
     await expect(
-      service.create(actor.githubId, 'legacy-key', {
+      service.create(actor, 'legacy-key', {
         ...initial,
         trackType: ProgramTrackType.EXTRACURRICULAR,
       }),
@@ -260,7 +285,7 @@ describe('ProgramAuthoringService integration', () => {
 
       await expect(
         service.create(
-          actor.githubId,
+          actor,
           `token-${kind}-key`,
           requestWithTemplate(`token-${kind}`, tokenId),
         ),
@@ -283,7 +308,7 @@ describe('ProgramAuthoringService integration', () => {
       expiresAt: futureExpiry(),
     });
     const initial = requestWithTemplate('replayed-first', tokenId);
-    await service.create(actor.githubId, 'replayed-first-key', initial);
+    await service.create(actor, 'replayed-first-key', initial);
     const duplicate = authoringRequest('duplicate', [
       authoringMilestone('duplicate', [
         authoringDocument('first', tokenId),
@@ -293,7 +318,7 @@ describe('ProgramAuthoringService integration', () => {
 
     await expect(
       service.create(
-        actor.githubId,
+        actor,
         'replayed-second-key',
         requestWithTemplate('replayed-second', tokenId),
       ),
@@ -301,7 +326,7 @@ describe('ProgramAuthoringService integration', () => {
       reason: 'NOT_PENDING',
     });
     await expect(
-      service.create(actor.githubId, 'duplicate-key', duplicate),
+      service.create(actor, 'duplicate-key', duplicate),
     ).rejects.toBeInstanceOf(ProgramAuthoringValidationError);
     await expect(
       harness.prisma.program.count({

@@ -1,3 +1,7 @@
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -42,11 +46,24 @@ describe('program tree early returns', () => {
             }),
           },
         };
-        const repository = new ProgramEditorRepository({
-          $transaction: async (
-            operation: (tx: typeof transaction) => Promise<unknown>,
-          ) => operation(transaction),
-        } as unknown as PrismaService);
+        const repository = new ProgramEditorRepository(
+          {
+            $transaction: async (
+              operation: (tx: typeof transaction) => Promise<unknown>,
+            ) => operation(transaction),
+          } as unknown as PrismaService,
+          new LockProgramTreeRepository(),
+          new ProgramDeletionScopeRepository(),
+          new ProgramAuthoringUploadTransactionRepository(),
+          new ProgramCoverRepository(
+            {
+              $transaction: async (
+                operation: (tx: typeof transaction) => Promise<unknown>,
+              ) => operation(transaction),
+            } as unknown as PrismaService,
+            new ProgramAuthoringUploadTransactionRepository(),
+          ),
+        );
         await expect(
           repository.withTransaction<unknown>((store) => store[method]('m')),
         ).resolves.toBeNull();

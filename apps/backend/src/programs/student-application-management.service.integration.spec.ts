@@ -1,3 +1,6 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -14,9 +17,19 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const applicationsRepository = new ApplicationsRepository(prisma);
+const applicationsRepository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
+);
 const now = () => NOW;
-const repository = new StudentApplicationManagementRepository(prisma, now);
+const repository = new StudentApplicationManagementRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new PlatformRepository(),
+  now,
+);
 const service = new StudentApplicationManagementService(
   repository,
   applicationsRepository,

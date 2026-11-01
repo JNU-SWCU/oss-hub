@@ -8,7 +8,10 @@ import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  SYNTHETIC_STAFF_PRINCIPAL,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -53,9 +56,7 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest
-            .fn()
-            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          getMe: jest.fn().mockResolvedValue(SYNTHETIC_STAFF_PRINCIPAL),
         },
       },
       {

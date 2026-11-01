@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -30,7 +31,10 @@ const UNASSIGNED_ROLE_ID = `${TEST_PREFIX}candidate-unassigned`;
 const CANDIDATE_QUERY = 'eligibility-candidate';
 const RESPONDED_AT = new Date('2026-08-12T00:00:00.000Z');
 const prisma = new PrismaService();
-const repository = new TeamInvitationsRepository(prisma);
+const repository = new TeamInvitationsRepository(
+  prisma,
+  new PlatformRepository(),
+);
 
 async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_DELETION_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -28,22 +27,13 @@ export class ProgramLifecycleService {
     private readonly repository: ProgramLifecycleRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
 
   async delete(
     githubId: bigint,
     programId: string,
   ): Promise<{ readonly id: string; readonly deleted: true }> {
-    const actor = await this.repository.findDeletionActor(githubId);
-    if (
-      actor?.accountStatus !== AccountStatus.ACTIVE ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-      );
-    }
-
     return this.repository.withDeleteTransaction(async (transaction) => {
       const program = await this.repository.findProgramForDeletion(
         transaction,
@@ -109,16 +99,6 @@ export class ProgramLifecycleService {
     programId: string,
     expectedScope: ProgramDeletionScopeCounts,
   ): Promise<ProgramPurgeResult> {
-    const actor = await this.repository.findDeletionActor(githubId);
-    if (
-      actor?.accountStatus !== AccountStatus.ACTIVE ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-      );
-    }
-
     try {
       return await this.repository.withPurgeTransaction(async (transaction) => {
         const program = await this.repository.findProgramForDeletion(
@@ -190,9 +170,8 @@ export class ProgramLifecycleService {
       });
     } catch (error) {
       const serializationFailure =
-        PrismaSerializationRetryRepository.isSerializationFailure(error);
-      const foreignKeyConflict =
-        ProgramLifecycleRepository.isForeignKeyConflict(error);
+        this.prismaSerializationRetryRepository.isSerializationFailure(error);
+      const foreignKeyConflict = this.repository.isForeignKeyConflict(error);
       const deletedScopeMismatch =
         error instanceof ProgramPurgeDeletedScopeMismatchError;
       if (

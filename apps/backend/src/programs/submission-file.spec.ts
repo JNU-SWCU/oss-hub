@@ -1,3 +1,5 @@
+import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from './program-authoring-upload.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { MAX_FILE_BYTES } from './submission-files.service';
@@ -8,10 +10,8 @@ import {
   SUBMISSION_UPLOAD_MAX_LABEL,
   SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
 } from './submission-upload.config';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from './program-upload-rules.service';
 
-const submissionFileRulesService = new SubmissionFileRulesService();
+const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 
 describe('submission-file-content-type', () => {
   describe('submission file content type policy', () => {
@@ -19,7 +19,7 @@ describe('submission-file-content-type', () => {
       'accepts the allowed extension in %s',
       (fileName) => {
         expect(
-          submissionFileRulesService.isAllowedSubmissionFileType(fileName),
+          submissionFileAdmissionService.isAllowedSubmissionFileType(fileName),
         ).toBe(true);
       },
     );
@@ -28,17 +28,21 @@ describe('submission-file-content-type', () => {
       'rejects the unsupported name %s',
       (fileName) => {
         expect(
-          submissionFileRulesService.isAllowedSubmissionFileType(fileName),
+          submissionFileAdmissionService.isAllowedSubmissionFileType(fileName),
         ).toBe(false);
       },
     );
 
     it('maps an allowed extension to its canonical download type', () => {
       expect(
-        submissionFileRulesService.safeSubmissionFileContentType('report.pdf'),
+        submissionFileAdmissionService.safeSubmissionFileContentType(
+          'report.pdf',
+        ),
       ).toBe('application/pdf');
       expect(
-        submissionFileRulesService.safeSubmissionFileContentType('bundle.ZIP'),
+        submissionFileAdmissionService.safeSubmissionFileContentType(
+          'bundle.ZIP',
+        ),
       ).toBe('application/zip');
     });
 
@@ -50,17 +54,19 @@ describe('submission-file-content-type', () => {
       'rejects new image uploads while preserving stored %s downloads',
       (name, mime) => {
         expect(
-          submissionFileRulesService.isAllowedSubmissionFileType(name),
+          submissionFileAdmissionService.isAllowedSubmissionFileType(name),
         ).toBe(false);
         expect(
-          submissionFileRulesService.safeSubmissionFileContentType(name),
+          submissionFileAdmissionService.safeSubmissionFileContentType(name),
         ).toBe(mime);
       },
     );
 
     it('falls back to octet-stream when the extension is not allowed', () => {
       expect(
-        submissionFileRulesService.safeSubmissionFileContentType('report.html'),
+        submissionFileAdmissionService.safeSubmissionFileContentType(
+          'report.html',
+        ),
       ).toBe('application/octet-stream');
     });
   });
@@ -74,7 +80,7 @@ describe('submission-file-signature', () => {
       ['image.png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
     ])('rejects %s even when the image signature is valid', (name, bytes) => {
       expect(
-        submissionFileRulesService.hasValidSubmissionFileSignature(
+        submissionFileAdmissionService.hasValidSubmissionFileSignature(
           Buffer.from(bytes),
           name,
         ),
@@ -90,7 +96,10 @@ describe('submission-file-signature', () => {
       ['report.zip', Buffer.from([0x50, 0x4b, 0x03, 0x04])],
     ])('keeps the supported %s signature', (name, bytes) => {
       expect(
-        submissionFileRulesService.hasValidSubmissionFileSignature(bytes, name),
+        submissionFileAdmissionService.hasValidSubmissionFileSignature(
+          bytes,
+          name,
+        ),
       ).toBe(true);
     });
   });
@@ -119,7 +128,7 @@ describe('submission-upload', () => {
       for (const extension of extensions) {
         expect(extension.startsWith('.')).toBe(true);
         expect(
-          submissionFileRulesService.isAllowedSubmissionFileType(
+          submissionFileAdmissionService.isAllowedSubmissionFileType(
             `파일${extension}`,
           ),
         ).toBe(true);
@@ -129,7 +138,7 @@ describe('submission-upload', () => {
     it('입장 검사가 막는 확장자는 accept 목록에 없다', () => {
       for (const extension of ['.exe', '.txt', '.docx', '.sh']) {
         expect(
-          submissionFileRulesService.isAllowedSubmissionFileType(
+          submissionFileAdmissionService.isAllowedSubmissionFileType(
             `파일${extension}`,
           ),
         ).toBe(false);

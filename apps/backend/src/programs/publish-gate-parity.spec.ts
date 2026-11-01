@@ -1,3 +1,6 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   MilestoneDocumentKind,
   MilestoneSubmissionType,
@@ -23,7 +26,6 @@ import {
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -228,15 +230,10 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
     service: new SubmissionReviewsService(
       repository,
       repositories,
-      {
-        assertActiveStaff: jest
-          .fn()
-          .mockResolvedValue({ actorId: 'reviewer-1' }),
-      },
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     ),
   };
 }
@@ -368,9 +365,18 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         ],
       },
     });
-    const repository = new SubmissionReviewsRepository({
-      githubRepository: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new SubmissionReviewsRepository(
+      {
+        githubRepository: { findUnique },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+      new SubmissionsRepository(
+        {
+          githubRepository: { findUnique },
+        } as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
+    );
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 
@@ -402,9 +408,18 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         milestoneDocumentSubmissions: [],
       },
     });
-    const repository = new SubmissionReviewsRepository({
-      githubRepository: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new SubmissionReviewsRepository(
+      {
+        githubRepository: { findUnique },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+      new SubmissionsRepository(
+        {
+          githubRepository: { findUnique },
+        } as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
+    );
 
     const eligibility = await repository.findPublishEligibility('repository-1');
 

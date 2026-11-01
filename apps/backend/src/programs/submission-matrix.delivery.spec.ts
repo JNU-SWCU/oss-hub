@@ -1,11 +1,10 @@
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
 import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const dueAt = new Date('2026-09-10T12:00:00Z');
 const onTime = new Date('2026-09-10T11:00:00Z');
@@ -81,7 +80,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
   return {
     service: new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentCollectionService({} as never),
     ),
     repository,
     calls,
@@ -108,7 +107,7 @@ it.each([
     const { service } = setup(times);
 
     const result = SubmissionMatrixResponseDto.from(
-      await service.matrix(1136n, 'program', query),
+      await service.matrix('program', query),
       'program',
     );
 
@@ -140,7 +139,7 @@ it('does not treat another application or unrelated document as a required submi
     ]);
 
   const result = SubmissionMatrixResponseDto.from(
-    await service.matrix(1136n, 'program', query),
+    await service.matrix('program', query),
     'program',
   );
 
@@ -150,7 +149,7 @@ it('does not treat another application or unrelated document as a required submi
 it('reads first-submission coordinates once for only the selected page and required items', async () => {
   const { service, calls } = setup([onTime, dueAt]);
 
-  await service.matrix(1136n, 'program', query);
+  await service.matrix('program', query);
 
   expect(calls).toEqual([
     {

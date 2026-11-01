@@ -97,6 +97,20 @@ export class AdminProfileMutationService {
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
+  commandFromPatchProfileRequest(
+    request: AdminProfileUpdateCommand,
+  ): AdminProfileUpdateCommand {
+    return {
+      ...(typeof request.name === 'string' ? { name: request.name } : {}),
+      ...(typeof request.studentId === 'string'
+        ? { studentId: request.studentId }
+        : {}),
+      ...(typeof request.department === 'string'
+        ? { department: request.department }
+        : {}),
+    };
+  }
+
   async mutateAdminUserProfile(
     dependencies: MutationDependencies,
     input: MutationInput,

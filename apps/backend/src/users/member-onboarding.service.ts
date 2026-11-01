@@ -43,6 +43,13 @@ export class MemberOnboardingService {
     }
   }
 
+  selectMemberKindFromRequest(
+    githubId: bigint,
+    request: { readonly selectedRole: string },
+  ): Promise<MemberKindSelectionResult> {
+    return this.selectMemberKind(githubId, this.memberKindFromRequest(request));
+  }
+
   async selectMemberKind(
     githubId: bigint,
     selectedMemberKind: SelectableMemberKind,

@@ -21,8 +21,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
+@Injectable()
 export class StudentRepositoryUrlTransactionRepository {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+    private readonly studentRepositoryUrlContextRepository: StudentRepositoryUrlContextRepository,
+  ) {}
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
   }
@@ -39,7 +44,7 @@ export class StudentRepositoryUrlTransactionRepository {
       .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Application" WHERE "programId" = ${programId} AND "teamId" = ${teamId} FOR UPDATE`;
-    return StudentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
+    return this.studentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.transaction,
       programId,
       teamId,
@@ -124,7 +129,7 @@ export class StudentRepositoryUrlTransactionRepository {
       },
     });
 
-    await RepositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
+    await this.repositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },
       parsePayload,
@@ -132,7 +137,7 @@ export class StudentRepositoryUrlTransactionRepository {
     return repositoryId;
   }
 
-  static isStudentRepositoryUrlConflict(error: unknown): boolean {
+  isStudentRepositoryUrlConflict(error: unknown): boolean {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
@@ -142,7 +147,12 @@ export class StudentRepositoryUrlTransactionRepository {
 
 @Injectable()
 export class StudentRepositoryUrlRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+    private readonly studentRepositoryUrlContextRepository: StudentRepositoryUrlContextRepository,
+    private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+  ) {}
 
   findContext(
     programId: string,
@@ -151,10 +161,13 @@ export class StudentRepositoryUrlRepository {
     return this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(studentId),
+        ...this.platformRepository.programApplicationParticipantWhere(
+          studentId,
+        ),
       },
       select:
-        StudentRepositoryUrlContextRepository.STUDENT_REPOSITORY_URL_SELECT,
+        this.studentRepositoryUrlContextRepository
+          .STUDENT_REPOSITORY_URL_SELECT,
     });
   }
 
@@ -163,7 +176,7 @@ export class StudentRepositoryUrlRepository {
     teamId: string,
     actorGithubId: bigint,
   ): Promise<TeamRepositoryUrlContext | null> {
-    return StudentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
+    return this.studentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.prisma,
       programId,
       teamId,
@@ -175,7 +188,13 @@ export class StudentRepositoryUrlRepository {
     operation: (store: StudentRepositoryUrlTransactionRepository) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new StudentRepositoryUrlTransactionRepository(transaction)),
+      operation(
+        new StudentRepositoryUrlTransactionRepository(
+          transaction,
+          this.repositoryProvisionGenerationRepository,
+          this.studentRepositoryUrlContextRepository,
+        ),
+      ),
     );
   }
 }

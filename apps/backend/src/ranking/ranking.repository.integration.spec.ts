@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import {
   AccountStatus,
   ActivityVisibility,
@@ -241,7 +242,11 @@ describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
 
 describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () => {
   it('PRIVATE 기여로 하위 학생이 상위를 역전하고 행이 없는 학생은 그대로다', async () => {
-    const service = new RankingService(repository, new RankingYearService());
+    const service = new RankingService(
+      repository,
+      new RankingYearService(),
+      new CollectionScheduleService(),
+    );
     const summarize = async () =>
       (await collectCohortItems(service, null)).map((item) => ({
         githubLogin: item.githubLogin,
@@ -308,7 +313,11 @@ function excludedLogins(): readonly string[] {
 
 describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 학생만 담는다', () => {
   it('공개 페이지의 cohort 항목이 학생 2명뿐이고 실명 칸이 없다', async () => {
-    const service = new RankingService(repository, new RankingYearService());
+    const service = new RankingService(
+      repository,
+      new RankingYearService(),
+      new CollectionScheduleService(),
+    );
 
     const items = await collectCohortItems(service, null);
 
@@ -321,7 +330,11 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('pageSize=1로 전 페이지를 순회해도 제외된 계정은 어느 페이지에도 없다', async () => {
-    const service = new RankingService(repository, new RankingYearService());
+    const service = new RankingService(
+      repository,
+      new RankingYearService(),
+      new CollectionScheduleService(),
+    );
 
     const firstPage = await service.findPage(YEAR, 1, 1, null);
     const seen: string[] = [];
@@ -339,7 +352,11 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('같은 연도를 두 번 물어도 제외 경계가 그대로다', async () => {
-    const service = new RankingService(repository, new RankingYearService());
+    const service = new RankingService(
+      repository,
+      new RankingYearService(),
+      new CollectionScheduleService(),
+    );
 
     const first = await collectCohortItems(service, null);
     const second = await collectCohortItems(service, null);
@@ -351,7 +368,11 @@ describe('RankingService — 순위 페이지·페이지네이션·DTO 모두 �
   });
 
   it('교직원 열람자에게도 제외 경계와 실명 부착 대상이 학생뿐이다', async () => {
-    const service = new RankingService(repository, new RankingYearService());
+    const service = new RankingService(
+      repository,
+      new RankingYearService(),
+      new CollectionScheduleService(),
+    );
     const staffMember = MEMBERS.find((member) => member.key === 'staff');
     const viewerGithubId = staffMember?.githubId ?? null;
 

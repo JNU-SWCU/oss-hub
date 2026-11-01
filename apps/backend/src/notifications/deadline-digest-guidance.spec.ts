@@ -1,10 +1,4 @@
-import { DeadlineDigestService } from './deadline-digest.service';
-
-const deadlineDigestService = new DeadlineDigestService(
-  undefined as never,
-  undefined as never,
-  undefined as never,
-);
+import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 
 const context = {
   now: new Date('2026-08-14T00:00:00Z'),
@@ -26,9 +20,11 @@ describe('per-send deadline guidance', () => {
       displayName: 'synthetic-student',
       milestones: [milestone] as const,
     };
-    const original = DeadlineDigestService.buildStudentDeadlineMail(input);
+    const original = new DeadlineDigestMailService().buildStudentDeadlineMail(
+      input,
+    );
 
-    const mail = DeadlineDigestService.buildStudentDeadlineMail({
+    const mail = new DeadlineDigestMailService().buildStudentDeadlineMail({
       ...input,
       guidance,
     });
@@ -49,7 +45,7 @@ describe('per-send deadline guidance', () => {
     };
     const guidance = 'staff-only & <literal>';
 
-    const mail = deadlineDigestService.buildStaffDeadlineMail({
+    const mail = new DeadlineDigestMailService().buildStaffDeadlineMail({
       ...input,
       guidance,
     });
@@ -57,7 +53,7 @@ describe('per-send deadline guidance', () => {
     expect(mail.text).toContain(guidance);
     expect(mail.html).toContain('staff-only &amp; &lt;literal&gt;');
     expect(
-      deadlineDigestService.buildStaffDeadlineMail(input).text,
+      new DeadlineDigestMailService().buildStaffDeadlineMail(input).text,
     ).not.toContain(guidance);
   });
 });

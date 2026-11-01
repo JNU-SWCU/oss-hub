@@ -2,7 +2,13 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from './github-app.error';
-import { parseRepositoryInvitations } from './github-app.client';
+import { GithubAppClient } from './github-app.client';
+
+const client = new GithubAppClient({
+  organization: 'synthetic-org',
+  accessToken: () => Promise.resolve('synthetic-token'),
+  invalidateAccessToken: () => undefined,
+});
 
 function invalidResponseError(): GithubOperationsError {
   return new GithubOperationsError(
@@ -22,7 +28,7 @@ describe('parseRepositoryInvitations', () => {
       },
     ];
 
-    const invitations = parseRepositoryInvitations(payload);
+    const invitations = client.parseRepositoryInvitations(payload);
 
     expect(invitations).toEqual([
       { invitationId: 11, login: 'Synthetic-Student' },
@@ -30,48 +36,50 @@ describe('parseRepositoryInvitations', () => {
   });
 
   it('빈 목록은 열린 초대 없음으로 파싱한다', () => {
-    expect(parseRepositoryInvitations([])).toEqual([]);
+    expect(client.parseRepositoryInvitations([])).toEqual([]);
   });
 
   it('배열이 아닌 응답은 응답 오류로 중단한다', () => {
-    expect(() => parseRepositoryInvitations({ invitations: [] })).toThrow(
-      invalidResponseError(),
-    );
+    expect(() =>
+      client.parseRepositoryInvitations({ invitations: [] }),
+    ).toThrow(invalidResponseError());
   });
 
   it('invitation id가 없거나 정수가 아니면 응답 오류로 중단한다', () => {
     expect(() =>
-      parseRepositoryInvitations([{ invitee: { login: 'synthetic-student' } }]),
+      client.parseRepositoryInvitations([
+        { invitee: { login: 'synthetic-student' } },
+      ]),
     ).toThrow(invalidResponseError());
     expect(() =>
-      parseRepositoryInvitations([
+      client.parseRepositoryInvitations([
         { id: '11', invitee: { login: 'synthetic-student' } },
       ]),
     ).toThrow(invalidResponseError());
     expect(() =>
-      parseRepositoryInvitations([
+      client.parseRepositoryInvitations([
         { id: 1.5, invitee: { login: 'synthetic-student' } },
       ]),
     ).toThrow(invalidResponseError());
     expect(() =>
-      parseRepositoryInvitations([
+      client.parseRepositoryInvitations([
         { id: 0, invitee: { login: 'synthetic-student' } },
       ]),
     ).toThrow(invalidResponseError());
   });
 
   it('invitee login이 없거나 비면 응답 오류로 중단한다', () => {
-    expect(() => parseRepositoryInvitations([{ id: 11 }])).toThrow(
+    expect(() => client.parseRepositoryInvitations([{ id: 11 }])).toThrow(
       invalidResponseError(),
     );
     expect(() =>
-      parseRepositoryInvitations([{ id: 11, invitee: null }]),
+      client.parseRepositoryInvitations([{ id: 11, invitee: null }]),
     ).toThrow(invalidResponseError());
     expect(() =>
-      parseRepositoryInvitations([{ id: 11, invitee: { login: '' } }]),
+      client.parseRepositoryInvitations([{ id: 11, invitee: { login: '' } }]),
     ).toThrow(invalidResponseError());
     expect(() =>
-      parseRepositoryInvitations([{ id: 11, invitee: { login: 42 } }]),
+      client.parseRepositoryInvitations([{ id: 11, invitee: { login: 42 } }]),
     ).toThrow(invalidResponseError());
   });
 
@@ -81,7 +89,7 @@ describe('parseRepositoryInvitations', () => {
       { id: 12, invitee: {} },
     ];
 
-    expect(() => parseRepositoryInvitations(payload)).toThrow(
+    expect(() => client.parseRepositoryInvitations(payload)).toThrow(
       invalidResponseError(),
     );
   });

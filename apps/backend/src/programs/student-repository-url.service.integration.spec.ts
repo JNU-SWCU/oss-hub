@@ -38,7 +38,6 @@ const auditLogMetadataService = new AuditLogMetadataService();
 const applicationsService = new ApplicationsService(
   applications,
   audit,
-  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
   new ApplicationJoinCodeService(
     { TEAM_JOIN_CODE_SECRET: 'synthetic-url-relink-secret' },
     new JoinCodeSecretService(),
@@ -149,8 +148,7 @@ it('projects a successful relink without an original provision outbox', async ()
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    (await applicationsService.getForStaff(githubId, applicationId))
-      .application,
+    (await applicationsService.getForStaff(applicationId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
@@ -164,7 +162,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
   });
   expect(
     await prisma.application.count({
-      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(1);
 
@@ -172,7 +170,7 @@ it('takes a manual link out of the membership access sync on a provisioning-on p
 
   expect(
     await prisma.application.count({
-      where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
     }),
   ).toBe(0);
 });
@@ -197,7 +195,7 @@ it('links a managed organization repository without re-arming provisioning', asy
         availableAt: now,
       },
     });
-    await RepositoryProvisionGenerationRepository.transferProvisionGeneration(
+    await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
       transaction,
       { applicationId, newEventId: event.id, now },
       parseProvisionPayload,

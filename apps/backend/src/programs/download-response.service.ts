@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import type { ErrorCode } from '../platform/error-code.error';
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
+import type { Readable } from 'node:stream';
 
 @Injectable()
 export class DownloadResponseService {
@@ -16,6 +17,14 @@ export class DownloadResponseService {
       'Content-Disposition',
       attachmentDisposition(file.fileName),
     );
+  }
+
+  streamableFile(
+    response: Pick<Response, 'setHeader'>,
+    file: DownloadMetadata & { readonly body: Readable },
+  ): StreamableFile {
+    this.setDownloadHeaders(response, file);
+    return new StreamableFile(file.body);
   }
 
   respondWithDownloadFailure(

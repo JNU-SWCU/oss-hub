@@ -1,13 +1,15 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -27,10 +29,17 @@ const prisma = new PrismaService();
 const staffGithubId = 9600000001276001n;
 const staffId = 'test:1276:document-order:staff';
 const service = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(prisma),
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
-  new SubmissionFileRulesService(),
+  new MilestoneDocumentsRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new PlatformRepository(),
+    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new MilestoneDocumentCollectionReadRepository(prisma),
+  ),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
+  new MilestoneDocumentCollectionService({} as never),
+  new ProgramScheduleService(),
+  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
 );
 
 async function cleanup(): Promise<void> {
@@ -119,11 +128,7 @@ describe('MilestoneDocumentsService durable document order', () => {
   it('persists the requested whole-set order after the transaction returns', async () => {
     const [first, second, third] = DOCUMENT_IDS;
 
-    await service.reorderDocuments(staffGithubId, MILESTONE_ID, [
-      third,
-      first,
-      second,
-    ]);
+    await service.reorderDocuments(MILESTONE_ID, [third, first, second]);
 
     expect(await storedOrder()).toEqual([
       { id: third, sortOrder: 1 },
@@ -152,7 +157,7 @@ describe('MilestoneDocumentsService durable document order', () => {
     const otherBefore = await storedOrder(OTHER_MILESTONE_ID);
 
     await expect(
-      service.reorderDocuments(staffGithubId, MILESTONE_ID, ids),
+      service.reorderDocuments(MILESTONE_ID, ids),
     ).rejects.toMatchObject({
       errorCode: { code: 'MSD_019', status: 400 },
     });

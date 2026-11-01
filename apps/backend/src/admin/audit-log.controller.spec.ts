@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { RolesGuard } from '../platform/roles.guard';
 import {
   GUARDS_METADATA,
   METHOD_METADATA,
@@ -6,7 +7,7 @@ import {
 } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 import { AuditLogController } from './audit-log.controller';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 
 describe('AuditLogController', () => {
@@ -23,7 +24,7 @@ describe('AuditLogController', () => {
     expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(
       RequestMethod.GET,
     );
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([RolesGuard]);
   });
 
   it('세션 행위자와 필터를 서비스에 전달한다', async () => {
@@ -33,19 +34,18 @@ describe('AuditLogController', () => {
       limit: 20,
       total: 0,
     });
-    const controller = new AuditLogController({
-      list,
-    } as unknown as AuditLogService);
+    const controller = new AuditLogController(
+      Object.assign(Object.create(AuditLogService.prototype) as object, {
+        list,
+      }) as unknown as AuditLogService,
+    );
     const query = Object.assign(new AuditLogListRequestDto(), {
       actor: 'synthetic-admin',
     });
 
-    await controller.list(
-      { sessionGithubId: 1001n } as Parameters<AuditLogController['list']>[0],
-      query,
-    );
+    await controller.list(query);
 
-    expect(list).toHaveBeenCalledWith(1001n, {
+    expect(list).toHaveBeenCalledWith({
       actor: 'synthetic-admin',
       page: 1,
       limit: 20,

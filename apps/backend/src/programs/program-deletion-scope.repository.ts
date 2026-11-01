@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
 
 export type ProgramDeletionScopeCounts = {
@@ -20,8 +21,9 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
+@Injectable()
 export class ProgramDeletionScopeRepository {
-  static async readProgramDeletionScopeCounts(
+  async readProgramDeletionScopeCounts(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<ProgramDeletionScopeCounts> {

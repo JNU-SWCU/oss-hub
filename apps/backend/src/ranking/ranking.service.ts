@@ -1,3 +1,6 @@
+import type { Response } from 'express';
+import { type OptionalSessionRequest } from '../auth/http-auth.types';
+import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { RankingRepository } from './ranking.repository';
@@ -7,7 +10,7 @@ import {
   RANKING_YEAR_ALL,
 } from './ranking-year.service';
 
-export const RANKING_VIEWER_CLASSES = {
+const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
   MEMBER: 'member',
   STAFF: 'staff',
@@ -61,7 +64,31 @@ export class RankingService {
   constructor(
     private readonly ranking: RankingRepository,
     private readonly rankingYearService: RankingYearService,
+    private readonly collectionSchedule: CollectionScheduleService,
   ) {}
+
+  async findPageFromRequest(
+    request: Parameters<RankingYearService['resolveRankingQueryYear']>[0] & {
+      readonly page: number;
+      readonly pageSize: number;
+    },
+    auth: OptionalSessionRequest['auth'],
+    response: Pick<Response, 'setHeader'>,
+  ): Promise<RankingPage> {
+    const page = await this.findPage(
+      this.rankingYearService.resolveRankingQueryYear(request),
+      request.page,
+      request.pageSize,
+      githubIdFrom(auth),
+    );
+    if (page.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
+      response.setHeader('Cache-Control', 'no-store');
+    } else {
+      response.setHeader('Cache-Control', 'private, no-store');
+      response.setHeader('Vary', 'Cookie');
+    }
+    return page;
+  }
 
   async findPage(
     year: RankingYear,
@@ -76,7 +103,7 @@ export class RankingService {
     ]);
     const start = (page - 1) * pageSize;
     const slice = entries.slice(start, start + pageSize);
-    const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       new Date(),
     );
 
@@ -220,4 +247,19 @@ function toPublicEntry(entry: RankedPublicEntry): RankingEntry {
     starCount: entry.starCount,
     total: entry.total,
   };
+}
+
+function githubIdFrom(auth: OptionalSessionRequest['auth']): bigint | null {
+  switch (auth.kind) {
+    case HTTP_AUTH_KINDS.ANONYMOUS:
+      return null;
+    case HTTP_AUTH_KINDS.AUTHENTICATED:
+      return auth.principal.githubId;
+    default:
+      return assertNeverHttpAuth(auth);
+  }
+}
+
+function assertNeverHttpAuth(auth: never): never {
+  throw new TypeError(`Unexpected HTTP authentication kind: ${String(auth)}`);
 }

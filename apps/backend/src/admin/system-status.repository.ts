@@ -1,16 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  type CollectionRunKind,
-  type Prisma,
-} from '@prisma/client';
+import { type CollectionRunKind, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-
-export interface SystemStatusActor {
-  hasStaffAccess: boolean;
-  hasAdminAccess: boolean;
-  accountStatus: AccountStatus;
-}
 
 export interface CollectionIncrementalStatusSnapshotDto {
   readonly trackedRepositoryCount: number;
@@ -122,17 +112,6 @@ function toSweepActivity(row: {
 @Injectable()
 export class SystemStatusRepository {
   constructor(private readonly prisma: PrismaService) {}
-
-  findActor(githubId: bigint): Promise<SystemStatusActor | null> {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        accountStatus: true,
-      },
-    });
-  }
 
   countFinalProvisionFailures(): Promise<number> {
     return this.prisma.repositoryProvisionJob.count({

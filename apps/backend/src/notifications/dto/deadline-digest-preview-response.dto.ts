@@ -1,5 +1,5 @@
+import type { BuiltDeadlineMail } from '../deadline-digest-mail.service';
 import type {
-  BuiltDeadlineMail,
   PersonalizedDeadlinePreview,
   DeadlineDigestPreview,
 } from '../deadline-digest.service';

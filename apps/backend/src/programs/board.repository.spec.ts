@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   BoardPostCategory,
@@ -26,10 +27,10 @@ describe('BoardRepository authorization', () => {
       const findFirst = jest.fn().mockResolvedValue(result);
       const prisma = { application: { findFirst } } as unknown as PrismaService;
       await expect(
-        new BoardRepository(prisma).isApprovedParticipant(
-          syntheticProgramId,
-          syntheticAuthorId,
-        ),
+        new BoardRepository(
+          prisma,
+          new PlatformRepository(),
+        ).isApprovedParticipant(syntheticProgramId, syntheticAuthorId),
       ).resolves.toBe(result !== null);
       expect(findFirst).toHaveBeenCalledWith({
         where: {
@@ -45,7 +46,9 @@ describe('BoardRepository authorization', () => {
     const findUnique = jest.fn().mockResolvedValue(null);
     const prisma = { user: { findUnique } } as unknown as PrismaService;
     await expect(
-      new BoardRepository(prisma).findAccessActor(5001n),
+      new BoardRepository(prisma, new PlatformRepository()).findAccessActor(
+        5001n,
+      ),
     ).resolves.toBeNull();
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 5001n },
@@ -69,7 +72,7 @@ describe('BoardRepository.findByProgramId', () => {
       $transaction: transaction,
     } as unknown as PrismaService;
 
-    await new BoardRepository(prisma).findByProgramId(
+    await new BoardRepository(prisma, new PlatformRepository()).findByProgramId(
       syntheticProgramId,
       3,
       10,
@@ -111,11 +114,10 @@ describe('BoardRepository.findByProgramId', () => {
       $transaction: transaction,
     } as unknown as PrismaService;
 
-    const page = await new BoardRepository(prisma).findByProgramId(
-      syntheticProgramId,
-      1,
-      20,
-    );
+    const page = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findByProgramId(syntheticProgramId, 1, 20);
 
     expect(page).toEqual({
       items: [
@@ -175,11 +177,10 @@ describe('BoardRepository authorName', () => {
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     } as unknown as PrismaService;
 
-    const page = await new BoardRepository(prisma).findByProgramId(
-      syntheticProgramId,
-      1,
-      20,
-    );
+    const page = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findByProgramId(syntheticProgramId, 1, 20);
 
     expect(page.items.map((item) => item.authorName)).toEqual([
       '합성 학생',
@@ -233,9 +234,10 @@ describe('BoardRepository authorName', () => {
       boardPost: { findUnique },
     } as unknown as PrismaService;
 
-    const detail = await new BoardRepository(prisma).findDetailById(
-      syntheticPostId,
-    );
+    const detail = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findDetailById(syntheticPostId);
 
     expect(detail?.authorName).toBe('synthetic-author');
     expect(detail?.comments[0]?.authorName).toBe('합성 교직원');
@@ -253,7 +255,10 @@ describe('BoardRepository.deleteWithComments', () => {
       $transaction: transaction,
     } as unknown as PrismaService;
 
-    await new BoardRepository(prisma).deleteWithComments(syntheticPostId);
+    await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).deleteWithComments(syntheticPostId);
 
     expect(deleteMany).toHaveBeenCalledWith({
       where: { postId: syntheticPostId },
@@ -278,9 +283,10 @@ describe('BoardRepository.findCommentRefById', () => {
       boardComment: { findUnique },
     } as unknown as PrismaService;
 
-    const ref = await new BoardRepository(prisma).findCommentRefById(
-      syntheticCommentId,
-    );
+    const ref = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findCommentRefById(syntheticCommentId);
 
     expect(ref).toEqual({
       id: syntheticCommentId,
@@ -296,9 +302,10 @@ describe('BoardRepository.findCommentRefById', () => {
       boardComment: { findUnique },
     } as unknown as PrismaService;
 
-    const ref = await new BoardRepository(prisma).findCommentRefById(
-      syntheticCommentId,
-    );
+    const ref = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findCommentRefById(syntheticCommentId);
 
     expect(ref).toBeNull();
   });
@@ -372,9 +379,10 @@ describe('BoardRepository.findDetailById', () => {
       boardPost: { findUnique },
     } as unknown as PrismaService;
 
-    const detail = await new BoardRepository(prisma).findDetailById(
-      syntheticPostId,
-    );
+    const detail = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findDetailById(syntheticPostId);
 
     expect(detail?.comments).toEqual([
       {
@@ -462,9 +470,10 @@ describe('BoardRepository.findDetailById', () => {
       boardPost: { findUnique },
     } as unknown as PrismaService;
 
-    const detail = await new BoardRepository(prisma).findDetailById(
-      syntheticPostId,
-    );
+    const detail = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).findDetailById(syntheticPostId);
 
     expect(detail?.comments[0]?.authorMemberKind).toBeNull();
   });
@@ -490,7 +499,10 @@ describe('BoardRepository.createComment', () => {
       boardComment: { create },
     } as unknown as PrismaService;
 
-    const comment = await new BoardRepository(prisma).createComment({
+    const comment = await new BoardRepository(
+      prisma,
+      new PlatformRepository(),
+    ).createComment({
       postId: syntheticPostId,
       authorId: syntheticAuthorId,
       body: '새 댓글',

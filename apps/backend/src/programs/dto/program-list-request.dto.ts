@@ -9,7 +9,6 @@ import {
   Min,
 } from 'class-validator';
 import {
-  type ProgramListQuery,
   type ProgramListQueryDirection,
   type ProgramListQuerySort,
   type ProgramListQueryStatus,
@@ -53,16 +52,4 @@ export class ProgramListRequestDto {
   @IsOptional()
   @IsIn(PROGRAM_LIST_QUERY_DIRECTIONS)
   readonly direction?: ProgramListQueryDirection;
-
-  toQuery(): ProgramListQuery {
-    return {
-      page: this.page,
-      pageSize: this.pageSize,
-      search: this.search.trim(),
-      status: this.status,
-      year: this.year,
-      sort: this.sort,
-      direction: this.direction,
-    };
-  }
 }

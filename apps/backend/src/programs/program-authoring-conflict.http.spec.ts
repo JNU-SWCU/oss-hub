@@ -10,7 +10,10 @@ import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
-import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
+import {
+  protectedRouteGuardStub,
+  SYNTHETIC_STAFF_PRINCIPAL,
+} from '../../test/global-authentication-guard.fixture';
 
 let app: INestApplication;
 let baseUrl: string;
@@ -23,15 +26,19 @@ describe('program authoring conflict HTTP contract', () => {
       providers: [
         protectedRouteGuardStub({
           canActivate: (context: ExecutionContext) => {
-            context
-              .switchToHttp()
-              .getRequest<{ sessionGithubId: bigint }>().sessionGithubId = 42n;
+            Object.assign(context.switchToHttp().getRequest<object>(), {
+              sessionGithubId: 42n,
+              principal: SYNTHETIC_STAFF_PRINCIPAL,
+            });
             return true;
           },
         }),
         {
           provide: ProgramAuthoringService,
-          useValue: { create },
+          useValue: Object.assign(
+            Object.create(ProgramAuthoringService.prototype) as object,
+            { create },
+          ),
         },
         { provide: ProgramAuthoringUploadService, useValue: {} },
       ],
@@ -105,7 +112,7 @@ describe('program authoring conflict HTTP contract', () => {
   });
 
   it('keeps the legacy status-only client on the original key through repeated confirmation', async () => {
-    create.mockImplementation((_actor: bigint, key: string) => {
+    create.mockImplementation((_actor: unknown, key: string) => {
       if (key === 'synthetic-key') {
         throw new ProgramAuthoringIdempotencyConflictError(
           'synthetic-actor',

@@ -293,7 +293,7 @@ const NOTICE_QUERY =
 
 const IMAGE_PREFIX = /^https:\/\/sojoong\.kr(?::443)?\/wp-content\/uploads\//;
 
-export function parseProgramNoticeUrl(input: string): URL {
+function parseProgramNoticeUrl(input: string): URL {
   const prefix = input.match(NOTICE_PREFIX)?.[0];
   if (
     input.length > 2048 ||
@@ -309,7 +309,7 @@ export function parseProgramNoticeUrl(input: string): URL {
   );
 }
 
-export function parseProgramNoticeImageUrl(
+function parseProgramNoticeImageUrl(
   input: string,
   sourceUrl?: URL,
 ): URL | null {
@@ -361,7 +361,7 @@ export type ProgramNoticePreview = {
   readonly warnings: ProgramNoticeWarning[];
 };
 
-export function extractProgramNotice(
+function extractProgramNotice(
   html: string,
   sourceUrl: URL,
 ): ProgramNoticePreview {
@@ -468,16 +468,36 @@ const transport: NoticeTransport = {
 
 @Injectable()
 export class ProgramNoticeFetchClient {
-  read(source: URL): Promise<string> {
-    return fetchProgramNotice(source);
+  read(
+    source: URL,
+    client: NoticeTransport = transport,
+    timeoutMs = 8000,
+  ): Promise<string> {
+    return fetchProgramNotice(source, client, timeoutMs);
+  }
+
+  parseProgramNoticeUrl(input: string): URL {
+    return parseProgramNoticeUrl(input);
+  }
+
+  parseProgramNoticeImageUrl(input: string, sourceUrl?: URL): URL | null {
+    return parseProgramNoticeImageUrl(input, sourceUrl);
+  }
+
+  extractProgramNotice(html: string, sourceUrl: URL): ProgramNoticePreview {
+    return extractProgramNotice(html, sourceUrl);
+  }
+
+  isPublicNoticeAddress(address: string): boolean {
+    return isPublicNoticeAddress(address);
   }
 }
 
-export function isPublicNoticeAddress(address: string): boolean {
+function isPublicNoticeAddress(address: string): boolean {
   return isIPv4(address) && !blocked.check(address, 'ipv4');
 }
 
-export async function fetchProgramNotice(
+async function fetchProgramNotice(
   source: URL,
   client: NoticeTransport = transport,
   timeoutMs = 8000,

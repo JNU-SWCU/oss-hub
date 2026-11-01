@@ -3,9 +3,10 @@ import {
   RepositoryVisibility,
   ApplicationStatus,
 } from '@prisma/client';
+import { RolesGuard } from '../platform/roles.guard';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../platform/origin.guard';
-import type { ApplicationsService } from './applications.service';
+import { ApplicationsService } from './applications.service';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { ProgramApplicationsController } from './program-applications.controller';
@@ -27,9 +28,9 @@ describe('ProgramApplicationsController', () => {
     ).toEqual([OriginGuard]);
   });
 
-  it('GET 에 로컬 가드를 두지 않는다', () => {
+  it('GET 에는 역할 가드만 둔다', () => {
     expect(readGuards(ProgramApplicationsController.prototype, 'list')).toEqual(
-      [],
+      [RolesGuard],
     );
   });
 
@@ -44,14 +45,14 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<
-      ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
-    > = {
-      create,
-      listForProgram: jest.fn(),
-      listTeamManagementForProgram: jest.fn(),
-    };
+    const service = Object.assign(
+      Object.create(ApplicationsService.prototype) as object,
+      {
+        create,
+        listForProgram: jest.fn(),
+        listTeamManagementForProgram: jest.fn(),
+      },
+    ) as unknown as ApplicationsService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -93,14 +94,14 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<
-      ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
-    > = {
-      create,
-      listForProgram: jest.fn(),
-      listTeamManagementForProgram: jest.fn(),
-    };
+    const service = Object.assign(
+      Object.create(ApplicationsService.prototype) as object,
+      {
+        create,
+        listForProgram: jest.fn(),
+        listTeamManagementForProgram: jest.fn(),
+      },
+    ) as unknown as ApplicationsService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -133,14 +134,14 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<
-      ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
-    > = {
-      create,
-      listForProgram: jest.fn(),
-      listTeamManagementForProgram: jest.fn(),
-    };
+    const service = Object.assign(
+      Object.create(ApplicationsService.prototype) as object,
+      {
+        create,
+        listForProgram: jest.fn(),
+        listTeamManagementForProgram: jest.fn(),
+      },
+    ) as unknown as ApplicationsService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -175,14 +176,14 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<
-      ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
-    > = {
-      create,
-      listForProgram: jest.fn(),
-      listTeamManagementForProgram: jest.fn(),
-    };
+    const service = Object.assign(
+      Object.create(ApplicationsService.prototype) as object,
+      {
+        create,
+        listForProgram: jest.fn(),
+        listTeamManagementForProgram: jest.fn(),
+      },
+    ) as unknown as ApplicationsService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -241,14 +242,14 @@ describe('ProgramApplicationsController', () => {
       totalItems: 1,
       totalPages: 1,
     });
-    const service: Pick<
-      ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
-    > = {
-      create: jest.fn(),
-      listForProgram,
-      listTeamManagementForProgram: jest.fn(),
-    };
+    const service = Object.assign(
+      Object.create(ApplicationsService.prototype) as object,
+      {
+        create: jest.fn(),
+        listForProgram,
+        listTeamManagementForProgram: jest.fn(),
+      },
+    ) as unknown as ApplicationsService;
     const controller = new ProgramApplicationsController(service);
     const query = Object.assign(new ApplicationListRequestDto(), {
       page: 1,
@@ -257,13 +258,9 @@ describe('ProgramApplicationsController', () => {
       status: 'SUBMITTED' as const,
     });
 
-    const response = await controller.list(
-      { sessionGithubId: 4242n },
-      'synthetic-program',
-      query,
-    );
+    const response = await controller.list('synthetic-program', query);
 
-    expect(listForProgram).toHaveBeenCalledWith(4242n, 'synthetic-program', {
+    expect(listForProgram).toHaveBeenCalledWith('synthetic-program', {
       page: 1,
       pageSize: 20,
       search: '합성',

@@ -1,5 +1,6 @@
+import { Injectable } from '@nestjs/common';
 import type { ApplicationStatus } from '@prisma/client';
-import type { PrismaService } from '../platform/prisma.service';
+import { PrismaService } from '../platform/prisma.service';
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
@@ -231,6 +232,7 @@ export interface TeamActivityScope {
   } | null;
 }
 
+@Injectable()
 export class ProgramTeamRepositoryEvidenceRepository {
   constructor(private readonly prisma: PrismaService) {}
 

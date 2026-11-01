@@ -39,7 +39,7 @@ describe('readTeamDeletionScopeCounts', () => {
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
 
     await expect(
-      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+      new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
         transaction,
         'synthetic-team',
       ),
@@ -52,7 +52,7 @@ describe('readTeamDeletionScopeCounts', () => {
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
 
     await expect(
-      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+      new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
         transaction,
         'synthetic-team',
       ),
@@ -62,7 +62,7 @@ describe('readTeamDeletionScopeCounts', () => {
   it('TEAM_PURGE_DELETION_ORDER 가 덮는 표를 모두 조회하고 프로그램 전용 표는 건드리지 않는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+    await new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
       transaction,
       'synthetic-team',
     );
@@ -101,7 +101,7 @@ describe('readTeamDeletionScopeCounts', () => {
   it('DETACH 되는 저장소는 FK 상태까지 지문에 넣어 재연결·재발행을 범위 변경으로 본다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+    await new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
       transaction,
       'synthetic-team',
     );
@@ -116,7 +116,7 @@ describe('readTeamDeletionScopeCounts', () => {
   it('판정 알림은 payload.applicationId 로 이 팀의 신청에만 묶는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
-    await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+    await new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
       transaction,
       'synthetic-team',
     );
@@ -147,10 +147,12 @@ describe('readTeamDeletionScopeCounts', () => {
 describe('sameTeamDeletionScopeCounts', () => {
   it('지문이 다르면 수치가 같아도 다른 범위다 — 같은 수의 다른 행일 수 있다', () => {
     const swapped = { ...SCOPE, scopeFingerprint: 'f'.repeat(32) };
-    expect(TeamDeletionScopeRepository.sameCounts(SCOPE, swapped)).toBe(false);
-    expect(TeamDeletionScopeRepository.sameCountValues(SCOPE, swapped)).toBe(
-      true,
+    expect(new TeamDeletionScopeRepository().sameCounts(SCOPE, swapped)).toBe(
+      false,
     );
+    expect(
+      new TeamDeletionScopeRepository().sameCountValues(SCOPE, swapped),
+    ).toBe(true);
   });
 
   it('수치가 하나라도 다르면 어긋난 것으로 본다', () => {
@@ -163,7 +165,7 @@ describe('sameTeamDeletionScopeCounts', () => {
       'detachedRepositories',
     ] as const) {
       expect(
-        TeamDeletionScopeRepository.sameCounts(SCOPE, {
+        new TeamDeletionScopeRepository().sameCounts(SCOPE, {
           ...SCOPE,
           [key]: SCOPE[key] + 1,
         }),
@@ -172,8 +174,8 @@ describe('sameTeamDeletionScopeCounts', () => {
   });
 
   it('같은 스냅샷은 같다', () => {
-    expect(TeamDeletionScopeRepository.sameCounts(SCOPE, { ...SCOPE })).toBe(
-      true,
-    );
+    expect(
+      new TeamDeletionScopeRepository().sameCounts(SCOPE, { ...SCOPE }),
+    ).toBe(true);
   });
 });

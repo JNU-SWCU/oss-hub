@@ -270,6 +270,7 @@ type CollectionStoreClient = Pick<
   | 'user'
 >;
 
+@Injectable()
 export class CollectionIncrementalStoreRepository {
   constructor(private readonly db: CollectionStoreClient) {}
 

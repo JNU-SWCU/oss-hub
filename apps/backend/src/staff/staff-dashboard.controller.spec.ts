@@ -1,14 +1,14 @@
+import { StaffInsightsService } from './staff-insights.service';
 import {
   GUARDS_METADATA,
   HEADERS_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants';
+import { RolesGuard } from '../platform/roles.guard';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
-
-const SESSION_GITHUB_ID = 4242n;
 
 function readGuards(
   target: object,
@@ -24,7 +24,7 @@ function readGuards(
 }
 
 describe('StaffDashboardController', () => {
-  it('applies route metadata, no-store cache, and only the session guard', () => {
+  it('applies route metadata, no-store cache, and only the role guard', () => {
     const summary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,
       'summary',
@@ -41,9 +41,9 @@ describe('StaffDashboardController', () => {
       name: 'Cache-Control',
       value: 'private, no-store',
     });
-    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual(
-      [],
-    );
+    expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
+      RolesGuard,
+    ]);
   });
 
   it.each([null, 'https://sojoong.kr/wp-content/uploads/synthetic.jpg'])(
@@ -94,16 +94,10 @@ describe('StaffDashboardController', () => {
         ],
       });
       const service: Pick<StaffDashboardService, 'summary'> = { summary };
-      const insights = { summarize: jest.fn() };
-      const controller = new StaffDashboardController(
-        service,
-        insights,
-        new StaffInsightsQueryService(),
-      );
+      const insights = { summarizeFromRequest: jest.fn() };
+      const controller = new StaffDashboardController(service, insights);
 
-      await expect(
-        controller.summary({ sessionGithubId: SESSION_GITHUB_ID }),
-      ).resolves.toEqual({
+      await expect(controller.summary()).resolves.toEqual({
         programs: [
           {
             coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
@@ -146,7 +140,7 @@ describe('StaffDashboardController', () => {
         ],
       });
       expect(summary).toHaveBeenCalledTimes(1);
-      expect(summary).toHaveBeenCalledWith(SESSION_GITHUB_ID);
+      expect(summary).toHaveBeenCalledWith();
     },
   );
 
@@ -161,8 +155,10 @@ describe('StaffDashboardController', () => {
     });
     const controller = new StaffDashboardController(
       { summary: jest.fn() },
-      { summarize },
-      new StaffInsightsQueryService(),
+      Object.assign(Object.create(StaffInsightsService.prototype) as object, {
+        summarize,
+        staffInsightsQueryService: new StaffInsightsQueryService(),
+      }) as unknown as StaffInsightsService,
     );
     const insightsSummary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,
@@ -174,16 +170,14 @@ describe('StaffDashboardController', () => {
       );
     }
 
-    await expect(
-      controller.insightsSummary({ sessionGithubId: SESSION_GITHUB_ID }, {}),
-    ).resolves.toMatchObject({
+    await expect(controller.insightsSummary({})).resolves.toMatchObject({
       scope: { kind: 'all' },
       years: [2026],
     });
-    expect(summarize).toHaveBeenCalledWith(SESSION_GITHUB_ID, { kind: 'all' });
+    expect(summarize).toHaveBeenCalledWith({ kind: 'all' });
     expect(
       readGuards(StaffDashboardController.prototype, 'insightsSummary'),
-    ).toEqual([]);
+    ).toEqual([RolesGuard]);
     expect(Reflect.getMetadata(PATH_METADATA, insightsSummary)).toBe(
       'insights',
     );

@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 import type { Fetcher } from './provider-request-queue.client';
 
@@ -52,6 +53,7 @@ const USER_ACTIVITY_QUERY = `
 
 const MAX_ACTIVITY_PAGES = 50;
 
+@Injectable()
 export class CollectionDiscoveryClient {
   constructor(
     private readonly config: CollectionDiscoveryClientConfig,

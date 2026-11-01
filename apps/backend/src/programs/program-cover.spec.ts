@@ -1,14 +1,18 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import type { ProgramAuthoringUploadFile } from './program-authoring-upload.error';
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
-const programUploadRulesService = new ProgramUploadRulesService(
-  new SubmissionFileRulesService(),
+const programAuthoringUploadService = new ProgramAuthoringUploadService(
+  {} as never,
+  {} as never,
+  new SubmissionFileAdmissionService(),
+  new ProgramNoticeFetchClient(),
 );
 
 const PNG = Buffer.from(
@@ -47,7 +51,7 @@ function upload(
 describe('program cover policy', () => {
   it('accepts actual PNG bytes and normalizes the original name', () => {
     expect(
-      programUploadRulesService.validateProgramCoverUpload(
+      programAuthoringUploadService.validateProgramCoverUpload(
         file({ originalname: 'folder/COVER.PNG' }),
       ),
     ).toMatchObject({
@@ -63,7 +67,7 @@ describe('program cover policy', () => {
     (extension) => {
       const buffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0xff, 0xd9]);
       expect(
-        programUploadRulesService.validateProgramCoverUpload(
+        programAuthoringUploadService.validateProgramCoverUpload(
           file({
             buffer,
             size: buffer.length,
@@ -83,7 +87,7 @@ describe('program cover policy', () => {
     file({ originalname: 'cover.pdf', mimetype: 'application/pdf' }),
   ])('rejects mismatched or unsupported image content', (value) => {
     expect(() =>
-      programUploadRulesService.validateProgramCoverUpload(value),
+      programAuthoringUploadService.validateProgramCoverUpload(value),
     ).toThrow('PROGRAM_AUTHORING_UPLOAD_UNSUPPORTED_FILE_TYPE');
   });
 
@@ -93,7 +97,7 @@ describe('program cover policy', () => {
     file({ size: PNG.length + 1 }),
   ])('rejects empty or inconsistent input', (value) => {
     expect(() =>
-      programUploadRulesService.validateProgramCoverUpload(value),
+      programAuthoringUploadService.validateProgramCoverUpload(value),
     ).toThrow('PROGRAM_AUTHORING_UPLOAD_INVALID_FILE');
   });
 
@@ -101,13 +105,13 @@ describe('program cover policy', () => {
     const buffer = Buffer.alloc(PROGRAM_COVER_MAX_BYTES);
     PNG.copy(buffer);
     expect(
-      programUploadRulesService.validateProgramCoverUpload(
+      programAuthoringUploadService.validateProgramCoverUpload(
         file({ buffer, size: buffer.length }),
       ).sizeBytes,
     ).toBe(PROGRAM_COVER_MAX_BYTES);
     const oversized = Buffer.concat([buffer, Buffer.from([0])]);
     expect(() =>
-      programUploadRulesService.validateProgramCoverUpload(
+      programAuthoringUploadService.validateProgramCoverUpload(
         file({ buffer: oversized, size: oversized.length }),
       ),
     ).toThrow('PROGRAM_AUTHORING_UPLOAD_FILE_TOO_LARGE');
@@ -115,23 +119,23 @@ describe('program cover policy', () => {
 
   it('keeps document and cover upload tokens mutually exclusive', () => {
     expect(() =>
-      programUploadRulesService.assertProgramCoverUpload(upload()),
+      programAuthoringUploadService.assertProgramCoverUpload(upload()),
     ).not.toThrow();
     expect(() =>
-      programUploadRulesService.assertProgramCoverUpload(
+      programAuthoringUploadService.assertProgramCoverUpload(
         upload({ storageKey: 'program-authoring/private-image' }),
       ),
     ).toThrow();
     expect(() =>
-      programUploadRulesService.assertProgramCoverUpload(
+      programAuthoringUploadService.assertProgramCoverUpload(
         upload({ mimeType: 'application/pdf' }),
       ),
     ).toThrow();
     expect(() =>
-      programUploadRulesService.assertProgramTemplateUpload(upload()),
+      programAuthoringUploadService.assertProgramTemplateUpload(upload()),
     ).toThrow();
     expect(() =>
-      programUploadRulesService.assertProgramTemplateUpload(
+      programAuthoringUploadService.assertProgramTemplateUpload(
         upload({ storageKey: 'program-authoring/document' }),
       ),
     ).not.toThrow();

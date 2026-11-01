@@ -1,16 +1,21 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const programEditorService = new ProgramEditorService(
   undefined as never,
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
-  new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
 );
 
 const operation = {

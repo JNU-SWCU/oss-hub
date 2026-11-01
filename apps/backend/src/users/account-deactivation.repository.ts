@@ -56,54 +56,64 @@ type PrismaAccountDeactivationTarget = Prisma.UserGetPayload<{
 
 type LockedUserRow = Readonly<{ id: string }>;
 
-class PrismaAccountDeactivationTransactionRepository implements AccountDeactivationTransactionStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+@Injectable()
+export class AccountDeactivationRepository implements AccountDeactivationRepositoryPort {
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    private readonly adminAccessRepository: AdminAccessRepository,
+  ) {}
 
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.transaction;
+  withTransaction<T>(
+    operation: (store: AccountDeactivationTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((transaction) =>
+      operation(this.accountDeactivationTransactionStore(transaction)),
+    );
   }
 
-  async findForUpdate(
+  private accountDeactivationTransactionStore(
+    transaction: Prisma.TransactionClient,
+  ): AccountDeactivationTransactionStore {
+    return {
+      auditLogWriter: transaction,
+      findForUpdate: this.findForUpdateIn.bind(this, transaction),
+      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
+      deactivate: this.deactivateIn.bind(this, transaction),
+    };
+  }
+
+  private async findForUpdateIn(
+    transaction: Prisma.TransactionClient,
     githubId: bigint,
   ): Promise<AccountDeactivationTarget | null> {
-    const rows = await this.transaction.$queryRaw<readonly LockedUserRow[]>(
+    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
       Prisma.sql`SELECT id FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
     );
     const row = rows[0];
     if (!row) return null;
 
-    const user = await this.transaction.user.findUnique({
+    const user = await transaction.user.findUnique({
       where: { id: row.id },
       select: ACCOUNT_DEACTIVATION_TARGET_SELECT,
     });
     return user ? toAccountDeactivationTarget(user) : null;
   }
 
-  lockActiveAdmins(): Promise<number> {
-    return AdminAccessRepository.lockActiveAdminRows(this.transaction);
+  private lockActiveAdminsIn(
+    transaction: Prisma.TransactionClient,
+  ): Promise<number> {
+    return this.adminAccessRepository.lockActiveAdminRows(transaction);
   }
 
-  async deactivate(userId: string): Promise<boolean> {
-    const result = await this.transaction.user.updateMany({
+  private async deactivateIn(
+    transaction: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<boolean> {
+    const result = await transaction.user.updateMany({
       where: { id: userId, accountStatus: AccountStatus.ACTIVE },
       data: { accountStatus: AccountStatus.DEACTIVATED },
     });
     return result.count === 1;
-  }
-}
-
-@Injectable()
-export class AccountDeactivationRepository implements AccountDeactivationRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
-
-  withTransaction<T>(
-    operation: (store: AccountDeactivationTransactionStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((transaction) =>
-      operation(
-        new PrismaAccountDeactivationTransactionRepository(transaction),
-      ),
-    );
   }
 }
 

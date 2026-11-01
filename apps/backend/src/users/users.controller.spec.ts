@@ -20,20 +20,35 @@ const profile = {
 
 function controller() {
   const getMyProfile = jest.fn().mockResolvedValue(profile);
-  const completeMyProfile = jest.fn().mockResolvedValue(profile);
-  const patchMyProfile = jest.fn().mockResolvedValue(profile);
+  const completeMyProfile = jest
+    .fn<
+      ReturnType<UsersService['completeMyProfile']>,
+      Parameters<UsersService['completeMyProfile']>
+    >()
+    .mockResolvedValue(profile);
+  const patchMyProfile = jest
+    .fn<
+      ReturnType<UsersService['patchMyProfile']>,
+      Parameters<UsersService['patchMyProfile']>
+    >()
+    .mockResolvedValue(profile);
   const service: Pick<
     UsersService,
     | 'getMyProfile'
-    | 'completeMyProfile'
-    | 'patchMyProfile'
-    | 'profileInputFromRequest'
+    | 'completeMyProfileFromRequest'
+    | 'patchMyProfileFromRequest'
   > = {
     getMyProfile,
-    completeMyProfile,
-    patchMyProfile,
-    profileInputFromRequest: (request) =>
-      profileRequestParser.profileInputFromRequest(request),
+    completeMyProfileFromRequest: (githubId, request) =>
+      completeMyProfile(
+        githubId,
+        profileRequestParser.profileInputFromRequest(request),
+      ),
+    patchMyProfileFromRequest: (githubId, request) =>
+      patchMyProfile(
+        githubId,
+        profileRequestParser.profileInputFromRequest(request),
+      ),
   };
   return {
     controller: new UsersController(service),

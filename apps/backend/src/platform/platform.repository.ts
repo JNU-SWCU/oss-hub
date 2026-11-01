@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   ApplicationStatus,
@@ -9,20 +10,21 @@ import {
 } from '@prisma/client';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.config';
 
+@Injectable()
 export class PlatformRepository {
-  static programApplicationManagerWhere(userId: string) {
+  programApplicationManagerWhere(userId: string) {
     return {
       team: { leaderId: userId, members: { some: { userId } } },
     };
   }
 
-  static programApplicationParticipantWhere(userId: string) {
+  programApplicationParticipantWhere(userId: string) {
     return {
       team: { members: { some: { userId } } },
     };
   }
 
-  static userProfileNameWhere(query: string) {
+  userProfileNameWhere(query: string) {
     return {
       profile: {
         is: { name: { contains: query, mode: 'insensitive' as const } },
@@ -30,7 +32,7 @@ export class PlatformRepository {
     };
   }
 
-  static repositoryAccessSyncEventData(
+  repositoryAccessSyncEventData(
     applicationId: string,
     teamId: string,
     now: Date,
@@ -46,7 +48,7 @@ export class PlatformRepository {
     };
   }
 
-  static linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
+  linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
     return {
       OR: [
         { source: 'ORG_PROVISIONED' },
@@ -55,7 +57,7 @@ export class PlatformRepository {
     };
   }
 
-  static repositoryAccessSyncTargetWhere(
+  repositoryAccessSyncTargetWhere(
     teamId: string,
   ): Prisma.ApplicationWhereInput {
     return {
@@ -66,7 +68,7 @@ export class PlatformRepository {
     };
   }
 
-  static async requestStaffAccess(
+  async requestStaffAccess(
     transaction: StaffAccessRequestTransaction,
     userId: string,
   ): Promise<StaffAccessRequestOutcome> {
@@ -82,7 +84,7 @@ export class PlatformRepository {
     return { requestStatus: created.status };
   }
 
-  static async lockSubmissionMembership(
+  async lockSubmissionMembership(
     tx: Prisma.TransactionClient,
     applicationId: string,
     userId: string,
@@ -107,14 +109,14 @@ export class PlatformRepository {
     const current = await tx.application.findFirst({
       where: {
         id: applicationId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
     });
     return current !== null;
   }
 
-  static appendSubmissionReview<
+  appendSubmissionReview<
     TSelect extends Prisma.MilestoneDocumentReviewHistorySelect,
   >(
     transaction: Pick<
@@ -140,7 +142,7 @@ export class PlatformRepository {
     });
   }
 
-  static appendSubmissionReviewEvent(
+  appendSubmissionReviewEvent(
     transaction: Pick<
       Prisma.TransactionClient,
       'milestoneDocumentSubmissionHistory'
@@ -160,7 +162,7 @@ export class PlatformRepository {
     });
   }
 
-  static async fillStudentIdIfEmpty(
+  async fillStudentIdIfEmpty(
     transaction: ProfileTransaction,
     userId: string,
     studentId: string,
@@ -190,7 +192,7 @@ export class PlatformRepository {
     }
   }
 
-  static async upsertUserProfile(
+  async upsertUserProfile(
     transaction: ProfileTransaction,
     userId: string,
     profile: UserProfileWrite,

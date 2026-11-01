@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { programScopeViewerRole } from './program-shell-policy';
+import {
+  programScopeViewerRole,
+  resolveProgramOperationsView,
+} from './program-shell-policy';
+
+describe('resolveProgramOperationsView without a resolved program view', () => {
+  it.each([
+    [null, false, true, true],
+    ['STAFF', true, false, true],
+    ['STUDENT', false, true, null],
+    ['STUDENT', false, false, false],
+    ['STAFF', false, false, false],
+  ] as const)(
+    'memberKind=%s staff=%s admin=%s -> %s',
+    (memberKind, hasStaffAccess, hasAdminAccess, expected) => {
+      expect(
+        resolveProgramOperationsView(null, {
+          memberKind,
+          hasStaffAccess,
+          hasAdminAccess,
+        }),
+      ).toBe(expected);
+    },
+  );
+});
 
 describe('programScopeViewerRole participation resolution', () => {
   describe.each([

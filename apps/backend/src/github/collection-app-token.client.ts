@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { createPrivateKey } from 'node:crypto';
 import { importPKCS8, SignJWT } from 'jose';
 import { CollectionAppConfigValues } from './collection-app.config';
@@ -24,6 +25,7 @@ export interface CollectionAppInstallationIdentity {
   readonly organizationId: string;
 }
 
+@Injectable()
 export class CollectionAppTokenClient {
   private installation: CollectionAppInstallationIdentity | undefined;
   private installationRequest:

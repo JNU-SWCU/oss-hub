@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
   AffiliationKind,
@@ -31,8 +32,14 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const metrics = new PublicProjectMetricsRepository(prisma);
-const eligibilityMetrics = new PublicEligibilityRepository(prisma);
+const metrics = new PublicProjectMetricsRepository(
+  prisma,
+  new PlatformRepository(),
+);
+const eligibilityMetrics = new PublicEligibilityRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const eligibilityService = new PublicEligibilityService(eligibilityMetrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const service = new PublicProjectsService(

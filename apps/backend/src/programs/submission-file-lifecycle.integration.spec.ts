@@ -1,3 +1,8 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { DownloadResponseService } from './download-response.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   GetObjectCommand,
   HeadObjectCommand,
@@ -21,10 +26,8 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
-const submissionFileRulesService = new SubmissionFileRulesService();
+const programScheduleService = new ProgramScheduleService();
 
 const REQUIRED_ENV = [
   'DATABASE_URL',
@@ -49,7 +52,11 @@ if (integrationReady) {
 
 const describeIntegration = integrationReady ? describe : describe.skip;
 const prisma = new PrismaService();
-const files = new SubmissionFilesRepository(prisma);
+const files = new SubmissionFilesRepository(
+  prisma,
+  new PlatformRepository(),
+  new SubmissionsRepository(prisma, new PlatformRepository()),
+);
 const storageConfig = new ObjectStorageConfig();
 const storage = new S3ObjectStorageClient(storageConfig);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
@@ -113,8 +120,7 @@ async function createPending(options: {
       pendingExpiresAt:
         options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
       expiresAt:
-        options.expiresAt ??
-        submissionFileRulesService.addOneCalendarYear(BASE),
+        options.expiresAt ?? programScheduleService.addOneCalendarYear(BASE),
     },
   });
 }
@@ -429,7 +435,7 @@ describeIntegration(
       const row = await createPending({
         suffix: 'attach-expiry-race',
         pendingExpiresAt: BASE,
-        expiresAt: submissionFileRulesService.addOneCalendarYear(BASE),
+        expiresAt: programScheduleService.addOneCalendarYear(BASE),
       });
       const submission = await createSubmissionHistory('attach-expiry-race');
 
@@ -494,8 +500,9 @@ describeIntegration(
       const filesService = new SubmissionFilesService(
         files,
         storage,
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       );
       const downloaded = await filesService.download(
         seedGithubId(USER_ID),
@@ -514,8 +521,9 @@ describeIntegration(
       const filesService = new SubmissionFilesService(
         files,
         storage,
-        new ProgramRulesService(),
-        new SubmissionFileRulesService(),
+        new ProgramScheduleService(),
+        new SubmissionFileAdmissionService(),
+        new DownloadResponseService(),
       );
       const zipUpload = (buffer: Buffer) => ({
         buffer,

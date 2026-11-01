@@ -9,11 +9,9 @@ import type {
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { PROVISION_ERROR_CODES } from './repository-provision-state.config';
 import { RepositoryUrlService } from './repository-url.service';
-import { RepositoryProvisionRulesService } from './repository-provision-rules.service';
 
 const provisionGithubService = new RepositoryProvisionGithubService(
   new RepositoryUrlService(),
-  new RepositoryProvisionRulesService(),
 );
 
 const repositoryUrlService = new RepositoryUrlService();

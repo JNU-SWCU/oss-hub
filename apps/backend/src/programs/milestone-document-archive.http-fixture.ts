@@ -14,7 +14,10 @@ import {
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { DownloadResponseService } from './download-response.service';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  databaseSessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -35,7 +38,10 @@ export async function startArchiveHttp(
       { provide: AuthConfig, useValue: { sessionSecret } },
       {
         provide: AuthService,
-        useValue: { getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }) },
+        useValue: {
+          getMe: (githubId: bigint) =>
+            databaseSessionPrincipal(fixture.prisma, githubId),
+        },
       },
       { provide: MilestoneDocumentArchiveService, useValue: fixture.service },
     ],

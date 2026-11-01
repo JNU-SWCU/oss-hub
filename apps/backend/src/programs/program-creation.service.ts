@@ -3,16 +3,13 @@ import {
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  StreamableFile,
 } from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './program-cover.repository';
-import {
-  AccountStatus,
-  ProgramCategory,
-  type ProgramTrackType,
-} from '@prisma/client';
+import { ProgramCategory, type ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -22,7 +19,8 @@ import {
   ProgramErrorCode,
 } from './program-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
 
 export type CreatedProgram = {
   readonly id: string;
@@ -52,6 +50,18 @@ export class ProgramCoverService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
   ) {}
+
+  async streamable(
+    programId: string,
+    coverId: string,
+  ): Promise<StreamableFile> {
+    const cover = await this.read(programId, coverId);
+    return new StreamableFile(cover.body, {
+      type: cover.contentType,
+      length: cover.size,
+      disposition: 'inline',
+    });
+  }
 
   async read(programId: string, coverId: string) {
     const cover = await this.repository.findPublicCover(programId, coverId);
@@ -88,20 +98,11 @@ export class ProgramCreationService {
     private readonly repository: ProgramsRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
-    private readonly programRulesService: ProgramRulesService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
   ) {}
 
   async create(githubId: bigint, input: CreateProgramCommand) {
-    const user = await this.repository.findCreatorRole(githubId);
-    if (
-      user?.accountStatus !== AccountStatus.ACTIVE ||
-      (!user.hasStaffAccess && !user.hasAdminAccess)
-    ) {
-      throw new DomainException(
-        PROGRAM_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
-      );
-    }
-
     const name = input.name.trim();
     const organizer = input.organizer.trim();
     const description = input.description.trim();
@@ -109,7 +110,7 @@ export class ProgramCreationService {
     const applicationEndAt = new Date(input.applicationEndAt);
     const startAt = new Date(input.startAt ?? input.applicationEndAt);
     const endAt = new Date(input.endAt);
-    const template = this.programRulesService.getProgramTemplate(
+    const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
     );
     const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
@@ -144,7 +145,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
-      this.programRulesService.isProgramEndAtUndecided(endAt) ||
+      this.programScheduleService.isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(

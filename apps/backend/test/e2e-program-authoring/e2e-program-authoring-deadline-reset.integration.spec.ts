@@ -1,3 +1,4 @@
+import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { PrismaService } from '../../src/platform/prisma.service';
@@ -8,7 +9,6 @@ import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   E2E_NOW,
   E2E_PROGRAM_ID,
-  E2E_STAFF_GITHUB_ID,
   E2E_STUDENT_ID,
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
@@ -25,6 +25,7 @@ const service = new DeadlineDigestService(
   new DeadlineDigestRepository(prisma),
   e2eProgramAuthoringExternalPorts.mail,
   { FRONTEND_URL: 'https://oss.example' },
+  new DeadlineDigestMailService(),
 );
 
 beforeAll(async () => {
@@ -81,18 +82,9 @@ async function ensureMissingSubmission(): Promise<void> {
 }
 
 async function sendDigest(): Promise<void> {
-  const preview = await service.previewProgram(
-    E2E_STAFF_GITHUB_ID,
-    E2E_PROGRAM_ID,
-    E2E_NOW,
-  );
+  const preview = await service.previewProgram(E2E_PROGRAM_ID, E2E_NOW);
   expect(preview).toMatchObject({ recipientCount: 1, staffRecipientCount: 1 });
-  await service.sendProgramFromPreview(
-    E2E_STAFF_GITHUB_ID,
-    E2E_PROGRAM_ID,
-    preview,
-    E2E_NOW,
-  );
+  await service.sendProgramFromPreview(E2E_PROGRAM_ID, preview, E2E_NOW);
 }
 
 it('resets global staff daily claims so the next isolated scenario sends again', async () => {

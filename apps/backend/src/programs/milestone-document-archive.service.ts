@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { UsersAuthorityService } from '../users/users-authority.service';
+import type { Response } from 'express';
+import { DownloadResponseService } from './download-response.service';
+import { Inject, Injectable, Logger, StreamableFile } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../platform/error-code.error';
@@ -20,7 +21,8 @@ import {
 } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { SubmissionStatus } from '@prisma/client';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
+import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
@@ -249,6 +251,16 @@ interface ZipFileFinalSize {
   ): void;
 }
 
+const archiveLogger = new Logger('MilestoneDocumentArchive');
+
+const programArchiveLogger = new Logger('ProgramDocumentArchivesController');
+
+function failedStorageKey(error: Error): string {
+  return error instanceof MilestoneDocumentArchiveEntryError
+    ? error.storageKey
+    : 'unknown';
+}
+
 @Injectable()
 export class MilestoneDocumentArchiveService {
   constructor(
@@ -257,13 +269,64 @@ export class MilestoneDocumentArchiveService {
     private readonly storage: ObjectStoragePort,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
+    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
+    private readonly downloadResponseService: DownloadResponseService,
   ) {}
+
+  async streamArchiveForStaff(
+    response: Response,
+    milestoneId: string,
+    request: Parameters<
+      MilestoneDocumentArchiveService['milestoneArchiveScopeFromRequest']
+    >[0],
+  ): Promise<StreamableFile> {
+    const scope = this.milestoneArchiveScopeFromRequest(request);
+    const archive = await this.archiveForStaff(milestoneId, scope);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
+
+    response.once('close', () => archive.body.destroy());
+
+    return new StreamableFile(archive.body).setErrorHandler((error) => {
+      archiveLogger.error(
+        `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${milestoneId} scope=${scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
+      );
+      this.downloadResponseService.respondWithDownloadFailure(
+        response,
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        ],
+        'END',
+      );
+    });
+  }
+
+  async streamArchiveForProgramStaff(
+    response: Response,
+    programId: string,
+    request: Parameters<
+      MilestoneDocumentArchiveService['programArchiveScopeFromRequest']
+    >[0],
+  ): Promise<StreamableFile> {
+    const scope = this.programArchiveScopeFromRequest(request);
+    const archive = await this.archiveForProgramStaff(programId, scope);
+    this.downloadResponseService.setDownloadHeaders(response, archive);
+    response.once('close', () => archive.body.destroy());
+
+    return new StreamableFile(archive.body).setErrorHandler((error) => {
+      programArchiveLogger.error(
+        `Program archive failed: programId=${programId} scope=${scope.kind}`,
+        error.stack,
+      );
+      this.downloadResponseService.respondWithDownloadFailure(
+        response,
+        MILESTONE_DOCUMENTS_ERROR_CODES[
+          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        ],
+        'DESTROY',
+      );
+    });
+  }
 
   programArchiveScopeFromRequest(request: {
     readonly scope: ProgramDocumentArchiveScope['kind'];
@@ -323,14 +386,10 @@ export class MilestoneDocumentArchiveService {
   }
 
   async archiveForProgramStaff(
-    sessionGithubId: bigint,
     programId: string,
     scope: ProgramDocumentArchiveScope,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentArchive> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const program = await this.programs.findProgram(programId);
     if (program === null) {
       throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
@@ -367,19 +426,15 @@ export class MilestoneDocumentArchiveService {
     const fileName =
       scope.kind === 'MILESTONE' && milestone !== undefined
         ? this.archiveFileName(milestone.name, milestone.dueAt)
-        : `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
+        : `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
     return this.createArchive(documents, plan, fileName, now);
   }
 
   async archiveForStaff(
-    sessionGithubId: bigint,
     milestoneId: string,
     scope: MilestoneDocumentArchiveScope,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentArchive> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
-    );
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
       throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
@@ -623,7 +678,7 @@ export class MilestoneDocumentArchiveService {
   ): MilestoneDocumentArchiveOmission | null {
     const contentUnavailable =
       submission.content !== null &&
-      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
         submission.content,
       ) === null;
     const fileUnavailable =
@@ -651,11 +706,13 @@ export class MilestoneDocumentArchiveService {
     const entries: MilestoneDocumentArchiveEntry[] = [];
     if (submission.file !== null) {
       const fileName =
-        this.milestoneDocumentRulesService.milestoneDocumentDownloadFileName({
-          teamName: team.teamName,
-          documentName: document.name,
-          originalFileName: submission.file.originalFileName,
-        });
+        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
+          {
+            teamName: team.teamName,
+            documentName: document.name,
+            originalFileName: submission.file.originalFileName,
+          },
+        );
       entries.push({
         kind: 'STORED_FILE',
         path: `${prefix}${fileName}`,
@@ -666,13 +723,13 @@ export class MilestoneDocumentArchiveService {
     }
 
     const content =
-      this.milestoneDocumentRulesService.readMilestoneDocumentSubmittedContent(
+      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
         submission.content,
       );
     if (content !== null) {
       entries.push({
         kind: 'INLINE_TEXT',
-        path: `${prefix}${this.milestoneDocumentRulesService.milestoneDocumentTextEntryFileName(
+        path: `${prefix}${this.milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName(
           {
             teamName: team.teamName,
             documentName: document.name,
@@ -687,7 +744,7 @@ export class MilestoneDocumentArchiveService {
 
   private archiveFolderPath(name: string): string {
     const folder =
-      this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(
+      this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
         name,
       );
 
@@ -704,7 +761,7 @@ export class MilestoneDocumentArchiveService {
       month: '2-digit',
       day: '2-digit',
     }).format(dueAt);
-    return `${this.milestoneDocumentRulesService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
+    return `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
   }
 
   milestoneDocumentArchiveManifestCsv(

@@ -1,11 +1,7 @@
 import { ProgramCoverRepository } from './program-cover.repository';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  Prisma,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { Prisma, ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramAuthoringUploadTransactionRepository,
@@ -53,28 +49,13 @@ export interface ProgramAuthoringTransactionStore {
   ): Promise<void>;
 }
 
-type AuthoringActor = {
-  readonly id: string;
-  readonly accountStatus: AccountStatus;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-};
-
 @Injectable()
 export class ProgramAuthoringRepository {
-  constructor(private readonly prisma: PrismaService) {}
-
-  findActor(githubId: bigint): Promise<AuthoringActor | null> {
-    return this.prisma.user.findUnique({
-      where: { githubId },
-      select: {
-        id: true,
-        accountStatus: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-      },
-    });
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
+    private readonly programCoverRepository: ProgramCoverRepository,
+  ) {}
 
   async findReplay(
     actorId: string,
@@ -121,19 +102,27 @@ export class ProgramAuthoringRepository {
     operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new ProgramAuthoringTransactionRepository(transaction)),
+      operation(this.programAuthoringTransactionStore(transaction)),
     );
   }
-}
 
-class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransactionStore {
-  constructor(private readonly prisma: Prisma.TransactionClient) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.prisma;
+  private programAuthoringTransactionStore(
+    prisma: Prisma.TransactionClient,
+  ): ProgramAuthoringTransactionStore {
+    return {
+      auditLogWriter: prisma,
+      createProgram: this.createProgramIn.bind(this, prisma),
+      createRequest: this.createRequestIn.bind(this, prisma),
+      lockUploads: this.lockUploadsIn.bind(this, prisma),
+      createMilestone: this.createMilestoneIn.bind(this, prisma),
+      createDocument: this.createDocumentIn.bind(this, prisma),
+      createTemplate: this.createTemplateIn.bind(this, prisma),
+      attachUploads: this.attachUploadsIn.bind(this, prisma),
+    };
   }
 
-  async createProgram(
+  private async createProgramIn(
+    prisma: Prisma.TransactionClient,
     plan: ProgramAuthoringProgramPlan,
     cover?:
       | {
@@ -142,18 +131,18 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
         }
       | { readonly externalCover: ProgramExternalCover },
   ): Promise<ProgramAuthoringProgram> {
-    const program = await this.prisma.program.create({
+    const program = await prisma.program.create({
       data: plan,
     });
     if (cover !== undefined) {
       if ('externalCover' in cover) {
-        await ProgramCoverRepository.createExternalProgramCover(
-          this.prisma,
+        await this.programCoverRepository.createExternalProgramCover(
+          prisma,
           program.id,
           cover.externalCover,
         );
       } else {
-        await ProgramCoverRepository.createProgramCover(this.prisma, {
+        await this.programCoverRepository.createProgramCover(prisma, {
           programId: program.id,
           ...cover,
         });
@@ -162,29 +151,32 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     return program as ProgramAuthoringProgram;
   }
 
-  async createRequest(
+  private async createRequestIn(
+    prisma: Prisma.TransactionClient,
     input: ProgramAuthoringCreateRequestInput,
   ): Promise<string> {
-    const request = await this.prisma.programCreateRequest.create({
+    const request = await prisma.programCreateRequest.create({
       data: input,
     });
     return request.id;
   }
 
-  lockUploads(
+  private lockUploadsIn(
+    prisma: Prisma.TransactionClient,
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
-    return ProgramAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
-      this.prisma,
+    return this.programAuthoringUploadTransactionRepository.lockProgramAuthoringUploads(
+      prisma,
       tokenIds,
     );
   }
 
-  async createMilestone(
+  private async createMilestoneIn(
+    prisma: Prisma.TransactionClient,
     programId: string,
     plan: ProgramAuthoringMilestonePlan,
   ): Promise<string> {
-    const milestone = await this.prisma.milestone.create({
+    const milestone = await prisma.milestone.create({
       data: {
         programId,
         name: plan.name,
@@ -197,11 +189,12 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     return milestone.id;
   }
 
-  async createDocument(
+  private async createDocumentIn(
+    prisma: Prisma.TransactionClient,
     milestoneId: string,
     plan: ProgramAuthoringDocumentPlan,
   ): Promise<string> {
-    const document = await this.prisma.milestoneDocument.create({
+    const document = await prisma.milestoneDocument.create({
       data: {
         milestoneId,
         name: plan.name,
@@ -212,8 +205,11 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     return document.id;
   }
 
-  async createTemplate(input: ProgramAuthoringTemplateInput): Promise<void> {
-    await this.prisma.milestoneDocumentTemplateFile.create({
+  private async createTemplateIn(
+    prisma: Prisma.TransactionClient,
+    input: ProgramAuthoringTemplateInput,
+  ): Promise<void> {
+    await prisma.milestoneDocumentTemplateFile.create({
       data: {
         milestoneDocumentId: input.milestoneDocumentId,
         storageKey: input.upload.storageKey,
@@ -225,13 +221,14 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
     });
   }
 
-  async attachUploads(
+  private async attachUploadsIn(
+    prisma: Prisma.TransactionClient,
     actorId: string,
     requestId: string,
     tokenIds: readonly string[],
   ): Promise<void> {
     if (tokenIds.length === 0) return;
-    const attached = await this.prisma.programAuthoringUpload.updateMany({
+    const attached = await prisma.programAuthoringUpload.updateMany({
       where: {
         id: { in: [...tokenIds] },
         actorId,

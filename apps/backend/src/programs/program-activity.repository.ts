@@ -66,7 +66,10 @@ export interface ProgramRepositoryActivity {
 
 @Injectable()
 export class ProgramActivityRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findProgramActivityApplications(
     programId: string,
@@ -79,14 +82,16 @@ export class ProgramActivityRepository {
           {
             OR: [
               {
-                repository: { is: PlatformRepository.linkedRepositoryFilter() },
+                repository: {
+                  is: this.platformRepository.linkedRepositoryFilter(),
+                },
               },
               { status: 'APPROVED', repository: null },
             ],
           },
           ...(studentUserId
             ? [
-                PlatformRepository.programApplicationParticipantWhere(
+                this.platformRepository.programApplicationParticipantWhere(
                   studentUserId,
                 ),
               ]
@@ -153,7 +158,7 @@ export class ProgramActivityRepository {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...PlatformRepository.linkedRepositoryFilter(),
+        ...this.platformRepository.linkedRepositoryFilter(),
       },
       select: {
         githubRepositoryId: true,

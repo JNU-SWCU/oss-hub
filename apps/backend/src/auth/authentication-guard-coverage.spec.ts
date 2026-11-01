@@ -22,6 +22,7 @@ import {
   AuthenticationGuard,
 } from './authentication.guard';
 import { OriginGuard } from '../platform/origin.guard';
+import { RolesGuard } from '../platform/roles.guard';
 
 const unexpectedLookup = (): never => {
   throw new Error('anonymous request must not load a principal');
@@ -90,7 +91,7 @@ describe('global authentication guard coverage', () => {
     });
   });
 
-  it('keeps OriginGuard as the only route-level guard', () => {
+  it('allows only OriginGuard and RolesGuard as route-level guards', () => {
     const scanner = new MetadataScanner();
     const routeGuards = controllers.flatMap((controller) => [
       ...((Reflect.getMetadata(GUARDS_METADATA, controller) as
@@ -106,7 +107,7 @@ describe('global authentication guard coverage', () => {
         ),
     ]);
 
-    expect(new Set(routeGuards)).toEqual(new Set([OriginGuard]));
+    expect(new Set(routeGuards)).toEqual(new Set([OriginGuard, RolesGuard]));
   });
 
   it('rejects anonymous requests on every route that is not public or optional', async () => {

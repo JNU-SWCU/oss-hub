@@ -73,14 +73,15 @@ export type TeamDeletionResult =
 
 @Injectable()
 export class ProgramTeamDeletionRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly teamDeletionScope: TeamDeletionScopeRepository,
+    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
+  ) {}
 
   readScopeCounts(teamId: string): Promise<TeamDeletionScopeCounts> {
     return this.prisma.$transaction((transaction) =>
-      TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
-        transaction,
-        teamId,
-      ),
+      this.teamDeletionScope.readTeamDeletionScopeCounts(transaction, teamId),
     );
   }
 
@@ -109,12 +110,12 @@ export class ProgramTeamDeletionRepository {
           }
 
           const currentScopeCounts =
-            await TeamDeletionScopeRepository.readTeamDeletionScopeCounts(
+            await this.teamDeletionScope.readTeamDeletionScopeCounts(
               tx,
               teamId,
             );
           if (
-            !TeamDeletionScopeRepository.sameCounts(
+            !this.teamDeletionScope.sameCounts(
               expectedScope,
               currentScopeCounts,
             )
@@ -150,7 +151,7 @@ export class ProgramTeamDeletionRepository {
 
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (
-            !TeamDeletionScopeRepository.sameCountValues(
+            !this.teamDeletionScope.sameCountValues(
               currentScopeCounts,
               deletedCounts,
             )
@@ -175,7 +176,7 @@ export class ProgramTeamDeletionRepository {
       );
     } catch (error) {
       const serializationFailure =
-        PrismaSerializationRetryRepository.isSerializationFailure(error);
+        this.prismaSerializationRetryRepository.isSerializationFailure(error);
       const foreignKeyConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2003';

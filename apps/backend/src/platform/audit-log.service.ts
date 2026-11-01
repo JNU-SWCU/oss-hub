@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { DomainException } from './error-code.error';
 import {
   AUDIT_LOG_ERROR_CODES,
@@ -18,13 +17,21 @@ import type { AuditLogMetadataEvidence } from './audit-log-metadata.config';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 
+export interface AuditLogListRequest {
+  readonly actor?: string;
+  readonly action?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly page?: number;
+  readonly limit?: number;
+}
+
 @Injectable()
 export class AuditLogService {
   constructor(
     @Inject(AuditLogRepository)
     private readonly repository: Pick<
       AuditLogRepository,
-      | 'findActorByGithubId'
       | 'list'
       | 'record'
       | 'findProgramNames'
@@ -34,19 +41,22 @@ export class AuditLogService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
 
-  async list(
-    actorGithubId: bigint,
-    query: AuditLogListQuery,
-  ): Promise<AuditLogPage> {
-    const actor = await this.repository.findActorByGithubId(actorGithubId);
-    if (
-      actor?.hasAdminAccess !== true ||
-      actor.accountStatus !== AccountStatus.ACTIVE
-    ) {
-      throw new DomainException(
-        AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.ADMIN_ONLY],
-      );
-    }
+  listQueryFromRequest(request: AuditLogListRequest): AuditLogListQuery {
+    return {
+      ...(request.actor === undefined ? {} : { actor: request.actor }),
+      ...(request.action === undefined ? {} : { action: request.action }),
+      ...(request.from === undefined ? {} : { from: request.from }),
+      ...(request.to === undefined ? {} : { to: request.to }),
+      page: request.page ?? 1,
+      limit: request.limit ?? 20,
+    };
+  }
+
+  listFromRequest(request: AuditLogListRequest): Promise<AuditLogPage> {
+    return this.list(this.listQueryFromRequest(request));
+  }
+
+  async list(query: AuditLogListQuery): Promise<AuditLogPage> {
     if (query.from && query.to && query.from > query.to) {
       throw new DomainException(
         AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.INVALID_DATE_RANGE],

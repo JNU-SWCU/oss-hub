@@ -16,7 +16,7 @@ import {
 } from './dto/role-selection-response.dto';
 import { SelectRoleRequestDto } from './dto/select-role-request.dto';
 import { MemberOnboardingService } from './member-onboarding.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -26,7 +26,7 @@ export class OnboardingController {
     @Inject(MemberOnboardingService)
     private readonly rolesService: Pick<
       MemberOnboardingService,
-      'selectMemberKind' | 'getMySelection' | 'memberKindFromRequest'
+      'selectMemberKindFromRequest' | 'getMySelection'
     >,
   ) {}
 
@@ -48,9 +48,9 @@ export class OnboardingController {
     @Req() request: SessionIdentity,
     @Body() body: SelectRoleRequestDto,
   ): Promise<RoleSelectionResponseDto> {
-    const result = await this.rolesService.selectMemberKind(
+    const result = await this.rolesService.selectMemberKindFromRequest(
       request.sessionGithubId,
-      this.rolesService.memberKindFromRequest(body),
+      body,
     );
     return RoleSelectionResponseDto.from(result);
   }

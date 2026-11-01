@@ -1,3 +1,9 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramViewerService } from './program-viewer.service';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
@@ -7,6 +13,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 
 import {
   ACTOR,
+  COVER_ACTOR,
   GITHUB_ID,
   PREFIX,
   prisma,
@@ -19,7 +26,6 @@ import {
 } from './program-cover.integration-fixtures';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
 
@@ -31,18 +37,18 @@ assertIsolatedIntegrationDatabase({
 it('attaches one cover only on create and preserves idempotent replay after consuming its token', async () => {
   const token = await seedUpload();
   const input = { ...request(), coverUploadId: token.id };
-  const created = await authoring().create(GITHUB_ID, 'create-cover', input);
+  const created = await authoring().create(COVER_ACTOR, 'create-cover', input);
   const cover = await prisma.programCover.findUniqueOrThrow({
     where: { programId: created.id },
   });
   expect(
     await prisma.programAuthoringUpload.findUnique({ where: { id: token.id } }),
   ).toBeNull();
-  expect((await authoring().create(GITHUB_ID, 'create-cover', input)).id).toBe(
-    created.id,
-  );
+  expect(
+    (await authoring().create(COVER_ACTOR, 'create-cover', input)).id,
+  ).toBe(created.id);
   await expect(
-    authoring().create(GITHUB_ID, 'create-cover', {
+    authoring().create(COVER_ACTOR, 'create-cover', {
       ...input,
       coverUploadId: 'different-token',
     }),
@@ -51,10 +57,16 @@ it('attaches one cover only on create and preserves idempotent replay after cons
     programCoverUrlService.programCoverImageUrl(created.id, cover.id),
   );
   const programs = new ProgramsService(
-    new ProgramsRepository(prisma),
+    new ProgramsRepository(
+      prisma,
+      new PlatformRepository(),
+      new ProgramListStatusFilterRepository(),
+    ),
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
-    new ProgramRulesService(),
+    new ProgramScheduleService(),
+    new ProgramTemplatesService(),
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
   );
   const listing = await programs.list({
     page: 1,
@@ -97,7 +109,7 @@ it('rolls back cover attachment and token consumption if the rest of create fail
   const token = await seedUpload();
   record.mockRejectedValueOnce(new Error('synthetic save failure'));
   await expect(
-    authoring().create(GITHUB_ID, 'failed-create', {
+    authoring().create(COVER_ACTOR, 'failed-create', {
       ...request(),
       coverUploadId: token.id,
     }),
@@ -121,7 +133,7 @@ it('rolls back cover attachment and token consumption if the rest of create fail
 
 it('preserves omitted covers, atomically replaces/removes them, and immediately hides old URLs', async () => {
   const first = await seedUpload();
-  const program = await authoring().create(GITHUB_ID, 'edit-cover', {
+  const program = await authoring().create(COVER_ACTOR, 'edit-cover', {
     ...request(),
     coverUploadId: first.id,
   });
@@ -174,7 +186,7 @@ it.each(['replace', 'remove'])(
   'retains old cover after an in-transaction %s failure',
   async (operation) => {
     const first = await seedUpload();
-    const program = await authoring().create(GITHUB_ID, 'rollback-cover', {
+    const program = await authoring().create(COVER_ACTOR, 'rollback-cover', {
       ...request(),
       coverUploadId: first.id,
     });
@@ -184,7 +196,10 @@ it.each(['replace', 'remove'])(
     const second = await seedUpload();
     await expect(
       prisma.$transaction(async (transaction) => {
-        await ProgramCoverRepository.replaceProgramCover(transaction, {
+        await new ProgramCoverRepository(
+          prisma,
+          new ProgramAuthoringUploadTransactionRepository(),
+        ).replaceProgramCover(transaction, {
           programId: program.id,
           actorId: ACTOR,
           uploadId: operation === 'replace' ? second.id : null,
@@ -232,7 +247,7 @@ it.each(['foreign', 'expired', 'document'])(
       kind === 'expired' ? new Date(0) : new Date('2099-01-01'),
     );
     await expect(
-      authoring().create(GITHUB_ID, 'invalid-cover', {
+      authoring().create(COVER_ACTOR, 'invalid-cover', {
         ...request(),
         coverUploadId: token.id,
       }),
@@ -249,7 +264,11 @@ it.each([
   { sizeBytes: 0 },
   { sizeBytes: 5242881 },
 ])('enforces the migration cover safety constraint for %j', async (invalid) => {
-  const program = await authoring().create(GITHUB_ID, 'constraint', request());
+  const program = await authoring().create(
+    COVER_ACTOR,
+    'constraint',
+    request(),
+  );
   await expect(
     prisma.programCover.create({
       data: {

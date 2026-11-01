@@ -4,7 +4,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { UpdateStudentRepositoryUrlRequestDto } from './dto/update-student-repository-url-request.dto';
 import { StudentRepositoryUrlResponseDto } from './dto/student-repository-url-response.dto';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 @Controller('programs/:programId')
 @Protected()

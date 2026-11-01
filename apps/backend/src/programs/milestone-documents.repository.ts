@@ -348,541 +348,26 @@ function countSubmissionsForDocumentWith(
   });
 }
 
-class PrismaMilestoneDocumentWriteRepository implements MilestoneDocumentWriteStore {
-  private milestoneLock: MilestoneLock | null = null;
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
-
-  async isApplicationParticipant(
-    applicationId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const application = await this.transaction.application.findFirst({
-      where: {
-        id: applicationId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
-      },
-      select: { id: true },
-    });
-    return application !== null;
-  }
-
-  async lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
-    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-      },
-    );
-    if (this.milestoneLock === null) return null;
-    return this.transaction.milestone.findUniqueOrThrow({
-      where: { id: this.milestoneLock.id },
-      select: { id: true, dueAt: true },
-    });
-  }
-
-  async lockMilestoneForGrace(milestoneId: string) {
-    const initial = await this.transaction.milestone.findUnique({
-      where: { id: milestoneId },
-      select: { programId: true },
-    });
-    if (initial === null) return null;
-    const program = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'program',
-        programId: initial.programId,
-      },
-    );
-    if (program === null) return null;
-    this.milestoneLock = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'milestone',
-        milestoneId,
-        after: program,
-      },
-    );
-    if (this.milestoneLock === null) return null;
-    const milestone = await this.transaction.milestone.findUniqueOrThrow({
-      where: { id: milestoneId },
-      select: { id: true, dueAt: true, program: { select: { endAt: true } } },
-    });
-    return {
-      id: milestone.id,
-      dueAt: milestone.dueAt,
-      programEndAt: milestone.program.endAt,
-    };
-  }
-
-  async lockDocument(
-    documentId: string,
-  ): Promise<LockedMilestoneDocument | null> {
-    const rows = await this.transaction.$queryRaw<
-      readonly LockedMilestoneDocument[]
-    >(Prisma.sql`
-      SELECT "id", "milestoneId"
-      FROM "MilestoneDocument"
-      WHERE "id" = ${documentId}
-        AND "kind" = 'DOCUMENT'
-      FOR UPDATE
-    `);
-    return rows[0] ?? null;
-  }
-
-  async updateGraceDueAt(
-    documentId: string,
-    graceDueAt: Date | null,
-  ): Promise<void> {
-    await this.transaction.milestoneDocument.update({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
-      data: { graceDueAt },
-      select: { id: true },
-    });
-  }
-
-  async upsertTemplateFile(
-    input: MilestoneDocumentTemplateInput,
-  ): Promise<void> {
-    await this.transaction.milestoneDocumentTemplateFile.upsert({
-      where: { milestoneDocumentId: input.milestoneDocumentId },
-      update: {
-        storageKey: input.storageKey,
-        originalFileName: input.originalFileName,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
-      },
-      create: {
-        milestoneDocumentId: input.milestoneDocumentId,
-        storageKey: input.storageKey,
-        originalFileName: input.originalFileName,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
-      },
-    });
-  }
-
-  async lockDocumentIdsOfMilestone(
-    milestoneId: string,
-  ): Promise<readonly string[]> {
-    if (this.milestoneLock === null || this.milestoneLock.id !== milestoneId) {
-      throw new Error('Milestone must be locked before its documents.');
-    }
-    const result = await LockProgramTreeRepository.lockProgramTree(
-      this.transaction,
-      {
-        stage: 'documents',
-        after: this.milestoneLock,
-        documentKind: 'DOCUMENT',
-      },
-    );
-    return result.documentIds;
-  }
-
-  countSubmissionsForDocument(documentId: string): Promise<number> {
-    return countSubmissionsForDocumentWith(this.transaction, documentId);
-  }
-
-  async createDocument(
-    milestoneId: string,
-    input: UpdateMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentRecord> {
-    const last = await this.transaction.milestoneDocument.aggregate({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
-      _max: { sortOrder: true },
-    });
-    const sortOrder = (last._max.sortOrder ?? 0) + 1;
-    const created = await this.transaction.milestoneDocument.create({
-      data: {
-        milestoneId,
-        ...input,
-        sortOrder,
-        kind: MilestoneDocumentKind.DOCUMENT,
-      },
-      select: {
-        id: true,
-        milestoneId: true,
-        name: true,
-        required: true,
-        sortOrder: true,
-        graceDueAt: true,
-      },
-    });
-    return {
-      ...created,
-      templateFileId: null,
-      templateFileName: null,
-    };
-  }
-
-  async updateDocument(
-    documentId: string,
-    input: UpdateMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentRecord> {
-    const updated = await this.transaction.milestoneDocument.update({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
-      data: input,
-      select: documentRecordSelect,
-    });
-    return toDocumentRecord(updated);
-  }
-
-  async applyDocumentOrder(
-    milestoneId: string,
-    documentIds: readonly string[],
-  ): Promise<MilestoneDocumentRecord[]> {
-    for (const [index, documentId] of documentIds.entries()) {
-      await this.transaction.milestoneDocument.update({
-        where: {
-          id: documentId,
-          milestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
-        },
-        data: { sortOrder: index + 1 },
-        select: { id: true },
-      });
-    }
-    const documents = await this.transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
-    return documents.map(toDocumentRecord);
-  }
-
-  async deleteDocument(documentId: string): Promise<void> {
-    await this.transaction.milestoneDocumentTemplateFile.deleteMany({
-      where: { milestoneDocumentId: documentId },
-    });
-    await this.transaction.milestoneDocument.delete({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
-    });
-  }
-
-  findSubmissionForReview(
-    milestoneDocumentId: string,
-    applicationId: string,
-  ): Promise<{
-    readonly id: string;
-    readonly revision: number;
-    readonly submissionHistoryId: string;
-    readonly latestHistoryCreatedAt: Date | null;
-  } | null> {
-    return this.findSubmissionForReviewWithHistory(
-      milestoneDocumentId,
-      applicationId,
-    );
-  }
-
-  private async findSubmissionForReviewWithHistory(
-    milestoneDocumentId: string,
-    applicationId: string,
-  ): Promise<{
-    readonly id: string;
-    readonly revision: number;
-    readonly submissionHistoryId: string;
-    readonly latestHistoryCreatedAt: Date | null;
-  } | null> {
-    const submission =
-      await this.transaction.milestoneDocumentSubmission.findUnique({
-        where: {
-          milestoneDocumentId_applicationId: {
-            milestoneDocumentId,
-            applicationId,
-          },
-        },
-        select: {
-          id: true,
-          revision: true,
-          histories: {
-            where: {
-              event: {
-                in: [
-                  MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                  MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-                ],
-              },
-            },
-            orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
-            take: 1,
-            select: { id: true, revision: true },
-          },
-        },
-      });
-    const history = submission?.histories[0];
-    if (
-      submission === null ||
-      history === undefined ||
-      history.revision !== submission.revision
-    ) {
-      return null;
-    }
-    const latestHistory =
-      await this.transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: { milestoneDocumentSubmissionId: submission.id },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: { createdAt: true },
-      });
-    return {
-      id: submission.id,
-      revision: submission.revision,
-      submissionHistoryId: history.id,
-      latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
-    };
-  }
-
-  async findLatestReviewIdForSubmission(
-    submissionId: string,
-  ): Promise<string | null> {
-    const review =
-      await this.transaction.milestoneDocumentReviewHistory.findFirst({
-        where: { milestoneDocumentSubmissionId: submissionId },
-        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-        select: { id: true },
-      });
-    return review?.id ?? null;
-  }
-
-  async createReview(
-    input: CreateMilestoneDocumentReviewInput,
-  ): Promise<CreatedMilestoneDocumentReview> {
-    await PlatformRepository.appendSubmissionReviewEvent(
-      this.transaction,
-      input,
-    );
-    const created = await PlatformRepository.appendSubmissionReview(
-      this.transaction,
-      input,
-      {
-        id: true,
-        decision: true,
-        comment: true,
-        reviewedAt: true,
-        resubmissionDueAt: true,
-        reviewer: { select: { nickname: true } },
-      },
-    );
-    return {
-      id: created.id,
-      decision: created.decision,
-      comment: created.comment,
-      reviewedAt: created.reviewedAt,
-      resubmissionDueAt: created.resubmissionDueAt,
-      reviewerNickname: created.reviewer.nickname,
-    };
-  }
-
-  async updateSubmissionStatus(
-    submissionId: string,
-    status: SubmissionStatus,
-  ): Promise<void> {
-    await this.transaction.milestoneDocumentSubmission.update({
-      where: { id: submissionId },
-      data: { status },
-      select: { id: true },
-    });
-  }
-
-  async lockProgramDocumentIds(programId: string): Promise<readonly string[]> {
-    const rows = await this.transaction.$queryRaw<readonly { id: string }[]>(
-      Prisma.sql`
-        SELECT document."id"
-        FROM "MilestoneDocument" document
-        JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
-        WHERE milestone."programId" = ${programId}
-          AND document."kind" = 'DOCUMENT'
-        ORDER BY document."id"
-        FOR UPDATE OF document
-      `,
-    );
-    return rows.map((row) => row.id);
-  }
-
-  async lockApprovedApplicationIds(
-    programId: string,
-    teamId: string | undefined,
-  ): Promise<readonly string[]> {
-    const rows = await this.transaction.$queryRaw<
-      readonly {
-        id: string;
-        status: ApplicationStatus;
-        teamId: string | null;
-        teamProgramId: string | null;
-      }[]
-    >(
-      Prisma.sql`
-        SELECT
-          application."id",
-          application."status",
-          application."teamId",
-          team."programId" AS "teamProgramId"
-        FROM "Application" application
-        LEFT JOIN "Team" team ON team."id" = application."teamId"
-        WHERE application."programId" = ${programId}
-        ORDER BY application."id"
-        FOR SHARE OF application
-      `,
-    );
-    return rows
-      .filter(
-        (row) =>
-          row.status === ApplicationStatus.APPROVED &&
-          row.teamProgramId === programId &&
-          (teamId === undefined || row.teamId === teamId),
-      )
-      .map((row) => row.id);
-  }
-
-  findChangeRequestCandidates(input: {
-    readonly documentIds: readonly string[];
-    readonly applicationIds: readonly string[];
-  }): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
-    if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
-      return Promise.resolve([]);
-    }
-    return this.transaction.milestoneDocumentSubmission.findMany({
-      where: {
-        milestoneDocumentId: { in: [...input.documentIds] },
-        applicationId: { in: [...input.applicationIds] },
-      },
-      orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, applicationId: true, status: true },
-    });
-  }
-}
-
-class PrismaMilestoneDocumentCollectionReadRepository implements MilestoneDocumentCollectionReadStore {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
-
-  async findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
-    return this.transaction.milestone.findUnique({
-      where: { id: milestoneId },
-      select: { id: true, programId: true, name: true, dueAt: true },
-    });
-  }
-
-  async findByMilestoneId(
-    milestoneId: string,
-  ): Promise<readonly MilestoneDocumentRecord[]> {
-    const documents = await this.transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
-      orderBy: { sortOrder: 'asc' },
-      select: documentRecordSelect,
-    });
-    return documents.map(toDocumentRecord);
-  }
-
-  async findApprovedApplicationsForCollection(
-    programId: string,
-  ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
-    const applications = await this.transaction.application.findMany({
-      where: { programId, status: ApplicationStatus.APPROVED },
-      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
-      select: collectionApplicationSelect,
-    });
-    return applications.map((application) => ({
-      applicationId: application.id,
-      teamName: application.team.name,
-      applicantName: application.applicant.profile?.name ?? null,
-      memberNicknames: application.team.members.map(
-        (member) => member.user.nickname,
-      ),
-    }));
-  }
-
-  async findSubmissionCoordinatesForCollection(
-    documentIds: readonly string[],
-  ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
-    if (documentIds.length === 0) return [];
-    return this.transaction.milestoneDocumentSubmission.findMany({
-      where: { milestoneDocumentId: { in: [...documentIds] } },
-      select: { milestoneDocumentId: true, applicationId: true },
-    });
-  }
-
-  async findSubmissionsForCollection(
-    documentIds: readonly string[],
-    now: Date,
-    applicationIds: readonly string[],
-  ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
-    if (documentIds.length === 0 || applicationIds.length === 0) return [];
-    const submissions =
-      await this.transaction.milestoneDocumentSubmission.findMany({
-        where: {
-          milestoneDocumentId: { in: [...documentIds] },
-          applicationId: { in: [...applicationIds] },
-        },
-        select: {
-          milestoneDocumentId: true,
-          applicationId: true,
-          submittedAt: true,
-          revision: true,
-          status: true,
-          content: true,
-          files: {
-            where: unexpiredAttachedFileWhere(now),
-            orderBy: currentRevisionFileOrderBy,
-            take: 1,
-            select: {
-              originalFileName: true,
-              sizeBytes: true,
-              submissionHistory: { select: { revision: true } },
-            },
-          },
-          reviewHistories: {
-            ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
-            take: 1,
-          },
-        },
-      });
-    return submissions.map((submission) => {
-      const review = submission.reviewHistories[0] ?? null;
-      const selectedFile = submission.files[0];
-      const file =
-        selectedFile !== undefined &&
-        selectedFile.submissionHistory !== null &&
-        selectedFile.submissionHistory.revision === submission.revision
-          ? {
-              originalFileName: selectedFile.originalFileName,
-              sizeBytes: selectedFile.sizeBytes,
-            }
-          : null;
-      return {
-        milestoneDocumentId: submission.milestoneDocumentId,
-        applicationId: submission.applicationId,
-        submittedAt: submission.submittedAt,
-        revision: submission.revision,
-        status: submission.status,
-        content: submission.content,
-        file,
-        review:
-          review === null
-            ? null
-            : {
-                id: review.id,
-                decision: review.decision,
-                comment: review.comment,
-                reviewedAt: review.reviewedAt,
-                resubmissionDueAt: review.resubmissionDueAt,
-              },
-      };
-    });
-  }
-}
+type MilestoneDocumentWriteScope = {
+  readonly transaction: Prisma.TransactionClient;
+  milestoneLock: MilestoneLock | null;
+};
 
 @Injectable()
 export class MilestoneDocumentsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly locks: LockProgramTreeRepository,
+    private readonly platformRepository: PlatformRepository,
+    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
+    private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
+  ) {}
 
   withTransaction<T>(
     operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaMilestoneDocumentWriteRepository(transaction)),
+      operation(this.milestoneDocumentWriteStore(transaction)),
     );
   }
 
@@ -909,9 +394,7 @@ export class MilestoneDocumentsRepository {
   ): Promise<T> {
     return this.prisma.$transaction(
       (transaction) =>
-        operation(
-          new PrismaMilestoneDocumentCollectionReadRepository(transaction),
-        ),
+        operation(this.milestoneDocumentCollectionReadStore(transaction)),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
@@ -989,7 +472,7 @@ export class MilestoneDocumentsRepository {
     const application = await this.prisma.application.findFirst({
       where: {
         programId,
-        ...PlatformRepository.programApplicationParticipantWhere(userId),
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
         id: true,
@@ -1045,7 +528,8 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
           take: 1,
         },
       },
@@ -1145,7 +629,8 @@ export class MilestoneDocumentsRepository {
     const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
       where: { milestoneDocumentSubmissionId: submission.id },
       orderBy:
-        MilestoneDocumentCollectionReadRepository.milestoneDocumentHistoryDescendingOrderBy,
+        this.milestoneDocumentCollectionReadRepository
+          .milestoneDocumentHistoryDescendingOrderBy,
       take: limit + 1,
       ...(cursor === null ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: {
@@ -1279,7 +764,8 @@ export class MilestoneDocumentsRepository {
           },
         },
         reviewHistories: {
-          ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
           take: 1,
         },
       },
@@ -1453,7 +939,7 @@ export class MilestoneDocumentsRepository {
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
-    return MilestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
+    return this.milestoneDocumentSubmissionRepository.upsertMilestoneDocumentSubmission(
       this.prisma,
       input,
     );
@@ -1508,5 +994,616 @@ export class MilestoneDocumentsRepository {
             ]
           : [],
     };
+  }
+
+  private milestoneDocumentWriteStore(
+    transaction: Prisma.TransactionClient,
+  ): MilestoneDocumentWriteStore {
+    const scope: MilestoneDocumentWriteScope = {
+      transaction,
+      milestoneLock: null,
+    };
+    return {
+      isApplicationParticipant: this.isApplicationParticipantIn.bind(
+        this,
+        scope,
+      ),
+      lockMilestone: this.lockMilestoneIn.bind(this, scope),
+      lockMilestoneForGrace: this.lockMilestoneForGraceIn.bind(this, scope),
+      lockDocument: this.lockDocumentIn.bind(this, scope),
+      updateGraceDueAt: this.updateGraceDueAtIn.bind(this, scope),
+      upsertTemplateFile: this.upsertTemplateFileIn.bind(this, scope),
+      lockDocumentIdsOfMilestone: this.lockDocumentIdsOfMilestoneIn.bind(
+        this,
+        scope,
+      ),
+      countSubmissionsForDocument: this.countSubmissionsForDocumentIn.bind(
+        this,
+        scope,
+      ),
+      createDocument: this.createDocumentIn.bind(this, scope),
+      updateDocument: this.updateDocumentIn.bind(this, scope),
+      applyDocumentOrder: this.applyDocumentOrderIn.bind(this, scope),
+      deleteDocument: this.deleteDocumentIn.bind(this, scope),
+      findSubmissionForReview: this.findSubmissionForReviewIn.bind(this, scope),
+      findLatestReviewIdForSubmission:
+        this.findLatestReviewIdForSubmissionIn.bind(this, scope),
+      createReview: this.createReviewIn.bind(this, scope),
+      updateSubmissionStatus: this.updateSubmissionStatusIn.bind(this, scope),
+      lockProgramDocumentIds: this.lockProgramDocumentIdsIn.bind(this, scope),
+      lockApprovedApplicationIds: this.lockApprovedApplicationIdsIn.bind(
+        this,
+        scope,
+      ),
+      findChangeRequestCandidates: this.findChangeRequestCandidatesIn.bind(
+        this,
+        scope,
+      ),
+    };
+  }
+
+  private async isApplicationParticipantIn(
+    scope: MilestoneDocumentWriteScope,
+    applicationId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const application = await scope.transaction.application.findFirst({
+      where: {
+        id: applicationId,
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return application !== null;
+  }
+
+  private async lockMilestoneIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneId: string,
+  ): Promise<LockedMilestone | null> {
+    scope.milestoneLock = await this.locks.lockProgramTree(scope.transaction, {
+      stage: 'milestone',
+      milestoneId,
+    });
+    if (scope.milestoneLock === null) return null;
+    return scope.transaction.milestone.findUniqueOrThrow({
+      where: { id: scope.milestoneLock.id },
+      select: { id: true, dueAt: true },
+    });
+  }
+
+  private async lockMilestoneForGraceIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneId: string,
+  ) {
+    const initial = await scope.transaction.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { programId: true },
+    });
+    if (initial === null) return null;
+    const program = await this.locks.lockProgramTree(scope.transaction, {
+      stage: 'program',
+      programId: initial.programId,
+    });
+    if (program === null) return null;
+    scope.milestoneLock = await this.locks.lockProgramTree(scope.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: program,
+    });
+    if (scope.milestoneLock === null) return null;
+    const milestone = await scope.transaction.milestone.findUniqueOrThrow({
+      where: { id: milestoneId },
+      select: { id: true, dueAt: true, program: { select: { endAt: true } } },
+    });
+    return {
+      id: milestone.id,
+      dueAt: milestone.dueAt,
+      programEndAt: milestone.program.endAt,
+    };
+  }
+
+  private async lockDocumentIn(
+    scope: MilestoneDocumentWriteScope,
+    documentId: string,
+  ): Promise<LockedMilestoneDocument | null> {
+    const rows = await scope.transaction.$queryRaw<
+      readonly LockedMilestoneDocument[]
+    >(Prisma.sql`
+      SELECT "id", "milestoneId"
+      FROM "MilestoneDocument"
+      WHERE "id" = ${documentId}
+        AND "kind" = 'DOCUMENT'
+      FOR UPDATE
+    `);
+    return rows[0] ?? null;
+  }
+
+  private async updateGraceDueAtIn(
+    scope: MilestoneDocumentWriteScope,
+    documentId: string,
+    graceDueAt: Date | null,
+  ): Promise<void> {
+    await scope.transaction.milestoneDocument.update({
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      data: { graceDueAt },
+      select: { id: true },
+    });
+  }
+
+  private async upsertTemplateFileIn(
+    scope: MilestoneDocumentWriteScope,
+    input: MilestoneDocumentTemplateInput,
+  ): Promise<void> {
+    await scope.transaction.milestoneDocumentTemplateFile.upsert({
+      where: { milestoneDocumentId: input.milestoneDocumentId },
+      update: {
+        storageKey: input.storageKey,
+        originalFileName: input.originalFileName,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        uploadedById: input.uploadedById,
+        uploadedAt: input.uploadedAt,
+      },
+      create: {
+        milestoneDocumentId: input.milestoneDocumentId,
+        storageKey: input.storageKey,
+        originalFileName: input.originalFileName,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        uploadedById: input.uploadedById,
+        uploadedAt: input.uploadedAt,
+      },
+    });
+  }
+
+  private async lockDocumentIdsOfMilestoneIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneId: string,
+  ): Promise<readonly string[]> {
+    if (
+      scope.milestoneLock === null ||
+      scope.milestoneLock.id !== milestoneId
+    ) {
+      throw new Error('Milestone must be locked before its documents.');
+    }
+    const result = await this.locks.lockProgramTree(scope.transaction, {
+      stage: 'documents',
+      after: scope.milestoneLock,
+      documentKind: 'DOCUMENT',
+    });
+    return result.documentIds;
+  }
+
+  private countSubmissionsForDocumentIn(
+    scope: MilestoneDocumentWriteScope,
+    documentId: string,
+  ): Promise<number> {
+    return countSubmissionsForDocumentWith(scope.transaction, documentId);
+  }
+
+  private async createDocumentIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneId: string,
+    input: UpdateMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord> {
+    const last = await scope.transaction.milestoneDocument.aggregate({
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      _max: { sortOrder: true },
+    });
+    const sortOrder = (last._max.sortOrder ?? 0) + 1;
+    const created = await scope.transaction.milestoneDocument.create({
+      data: {
+        milestoneId,
+        ...input,
+        sortOrder,
+        kind: MilestoneDocumentKind.DOCUMENT,
+      },
+      select: {
+        id: true,
+        milestoneId: true,
+        name: true,
+        required: true,
+        sortOrder: true,
+        graceDueAt: true,
+      },
+    });
+    return {
+      ...created,
+      templateFileId: null,
+      templateFileName: null,
+    };
+  }
+
+  private async updateDocumentIn(
+    scope: MilestoneDocumentWriteScope,
+    documentId: string,
+    input: UpdateMilestoneDocumentInput,
+  ): Promise<MilestoneDocumentRecord> {
+    const updated = await scope.transaction.milestoneDocument.update({
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      data: input,
+      select: documentRecordSelect,
+    });
+    return toDocumentRecord(updated);
+  }
+
+  private async applyDocumentOrderIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneId: string,
+    documentIds: readonly string[],
+  ): Promise<MilestoneDocumentRecord[]> {
+    for (const [index, documentId] of documentIds.entries()) {
+      await scope.transaction.milestoneDocument.update({
+        where: {
+          id: documentId,
+          milestoneId,
+          kind: MilestoneDocumentKind.DOCUMENT,
+        },
+        data: { sortOrder: index + 1 },
+        select: { id: true },
+      });
+    }
+    const documents = await scope.transaction.milestoneDocument.findMany({
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      orderBy: { sortOrder: 'asc' },
+      select: documentRecordSelect,
+    });
+    return documents.map(toDocumentRecord);
+  }
+
+  private async deleteDocumentIn(
+    scope: MilestoneDocumentWriteScope,
+    documentId: string,
+  ): Promise<void> {
+    await scope.transaction.milestoneDocumentTemplateFile.deleteMany({
+      where: { milestoneDocumentId: documentId },
+    });
+    await scope.transaction.milestoneDocument.delete({
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+    });
+  }
+
+  private findSubmissionForReviewIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneDocumentId: string,
+    applicationId: string,
+  ): Promise<{
+    readonly id: string;
+    readonly revision: number;
+    readonly submissionHistoryId: string;
+    readonly latestHistoryCreatedAt: Date | null;
+  } | null> {
+    return this.findSubmissionForReviewWithHistoryIn(
+      scope,
+      milestoneDocumentId,
+      applicationId,
+    );
+  }
+
+  private async findSubmissionForReviewWithHistoryIn(
+    scope: MilestoneDocumentWriteScope,
+    milestoneDocumentId: string,
+    applicationId: string,
+  ): Promise<{
+    readonly id: string;
+    readonly revision: number;
+    readonly submissionHistoryId: string;
+    readonly latestHistoryCreatedAt: Date | null;
+  } | null> {
+    const submission =
+      await scope.transaction.milestoneDocumentSubmission.findUnique({
+        where: {
+          milestoneDocumentId_applicationId: {
+            milestoneDocumentId,
+            applicationId,
+          },
+        },
+        select: {
+          id: true,
+          revision: true,
+          histories: {
+            where: {
+              event: {
+                in: [
+                  MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+                  MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                ],
+              },
+            },
+            orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
+            take: 1,
+            select: { id: true, revision: true },
+          },
+        },
+      });
+    const history = submission?.histories[0];
+    if (
+      submission === null ||
+      history === undefined ||
+      history.revision !== submission.revision
+    ) {
+      return null;
+    }
+    const latestHistory =
+      await scope.transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: { milestoneDocumentSubmissionId: submission.id },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { createdAt: true },
+      });
+    return {
+      id: submission.id,
+      revision: submission.revision,
+      submissionHistoryId: history.id,
+      latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
+    };
+  }
+
+  private async findLatestReviewIdForSubmissionIn(
+    scope: MilestoneDocumentWriteScope,
+    submissionId: string,
+  ): Promise<string | null> {
+    const review =
+      await scope.transaction.milestoneDocumentReviewHistory.findFirst({
+        where: { milestoneDocumentSubmissionId: submissionId },
+        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
+    return review?.id ?? null;
+  }
+
+  private async createReviewIn(
+    scope: MilestoneDocumentWriteScope,
+    input: CreateMilestoneDocumentReviewInput,
+  ): Promise<CreatedMilestoneDocumentReview> {
+    await this.platformRepository.appendSubmissionReviewEvent(
+      scope.transaction,
+      input,
+    );
+    const created = await this.platformRepository.appendSubmissionReview(
+      scope.transaction,
+      input,
+      {
+        id: true,
+        decision: true,
+        comment: true,
+        reviewedAt: true,
+        resubmissionDueAt: true,
+        reviewer: { select: { nickname: true } },
+      },
+    );
+    return {
+      id: created.id,
+      decision: created.decision,
+      comment: created.comment,
+      reviewedAt: created.reviewedAt,
+      resubmissionDueAt: created.resubmissionDueAt,
+      reviewerNickname: created.reviewer.nickname,
+    };
+  }
+
+  private async updateSubmissionStatusIn(
+    scope: MilestoneDocumentWriteScope,
+    submissionId: string,
+    status: SubmissionStatus,
+  ): Promise<void> {
+    await scope.transaction.milestoneDocumentSubmission.update({
+      where: { id: submissionId },
+      data: { status },
+      select: { id: true },
+    });
+  }
+
+  private async lockProgramDocumentIdsIn(
+    scope: MilestoneDocumentWriteScope,
+    programId: string,
+  ): Promise<readonly string[]> {
+    const rows = await scope.transaction.$queryRaw<readonly { id: string }[]>(
+      Prisma.sql`
+        SELECT document."id"
+        FROM "MilestoneDocument" document
+        JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
+        WHERE milestone."programId" = ${programId}
+          AND document."kind" = 'DOCUMENT'
+        ORDER BY document."id"
+        FOR UPDATE OF document
+      `,
+    );
+    return rows.map((row) => row.id);
+  }
+
+  private async lockApprovedApplicationIdsIn(
+    scope: MilestoneDocumentWriteScope,
+    programId: string,
+    teamId: string | undefined,
+  ): Promise<readonly string[]> {
+    const rows = await scope.transaction.$queryRaw<
+      readonly {
+        id: string;
+        status: ApplicationStatus;
+        teamId: string | null;
+        teamProgramId: string | null;
+      }[]
+    >(
+      Prisma.sql`
+        SELECT
+          application."id",
+          application."status",
+          application."teamId",
+          team."programId" AS "teamProgramId"
+        FROM "Application" application
+        LEFT JOIN "Team" team ON team."id" = application."teamId"
+        WHERE application."programId" = ${programId}
+        ORDER BY application."id"
+        FOR SHARE OF application
+      `,
+    );
+    return rows
+      .filter(
+        (row) =>
+          row.status === ApplicationStatus.APPROVED &&
+          row.teamProgramId === programId &&
+          (teamId === undefined || row.teamId === teamId),
+      )
+      .map((row) => row.id);
+  }
+
+  private findChangeRequestCandidatesIn(
+    scope: MilestoneDocumentWriteScope,
+    input: {
+      readonly documentIds: readonly string[];
+      readonly applicationIds: readonly string[];
+    },
+  ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
+    if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return scope.transaction.milestoneDocumentSubmission.findMany({
+      where: {
+        milestoneDocumentId: { in: [...input.documentIds] },
+        applicationId: { in: [...input.applicationIds] },
+      },
+      orderBy: { id: 'asc' },
+      select: { milestoneDocumentId: true, applicationId: true, status: true },
+    });
+  }
+
+  private milestoneDocumentCollectionReadStore(
+    transaction: Prisma.TransactionClient,
+  ): MilestoneDocumentCollectionReadStore {
+    return {
+      findMilestone: this.findMilestoneIn.bind(this, transaction),
+      findByMilestoneId: this.findByMilestoneIdIn.bind(this, transaction),
+      findApprovedApplicationsForCollection:
+        this.findApprovedApplicationsForCollectionIn.bind(this, transaction),
+      findSubmissionCoordinatesForCollection:
+        this.findSubmissionCoordinatesForCollectionIn.bind(this, transaction),
+      findSubmissionsForCollection: this.findSubmissionsForCollectionIn.bind(
+        this,
+        transaction,
+      ),
+    };
+  }
+
+  private async findMilestoneIn(
+    transaction: Prisma.TransactionClient,
+    milestoneId: string,
+  ): Promise<MilestoneContext | null> {
+    return transaction.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { id: true, programId: true, name: true, dueAt: true },
+    });
+  }
+
+  private async findByMilestoneIdIn(
+    transaction: Prisma.TransactionClient,
+    milestoneId: string,
+  ): Promise<readonly MilestoneDocumentRecord[]> {
+    const documents = await transaction.milestoneDocument.findMany({
+      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      orderBy: { sortOrder: 'asc' },
+      select: documentRecordSelect,
+    });
+    return documents.map(toDocumentRecord);
+  }
+
+  private async findApprovedApplicationsForCollectionIn(
+    transaction: Prisma.TransactionClient,
+    programId: string,
+  ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
+    const applications = await transaction.application.findMany({
+      where: { programId, status: ApplicationStatus.APPROVED },
+      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      select: collectionApplicationSelect,
+    });
+    return applications.map((application) => ({
+      applicationId: application.id,
+      teamName: application.team.name,
+      applicantName: application.applicant.profile?.name ?? null,
+      memberNicknames: application.team.members.map(
+        (member) => member.user.nickname,
+      ),
+    }));
+  }
+
+  private async findSubmissionCoordinatesForCollectionIn(
+    transaction: Prisma.TransactionClient,
+    documentIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
+    if (documentIds.length === 0) return [];
+    return transaction.milestoneDocumentSubmission.findMany({
+      where: { milestoneDocumentId: { in: [...documentIds] } },
+      select: { milestoneDocumentId: true, applicationId: true },
+    });
+  }
+
+  private async findSubmissionsForCollectionIn(
+    transaction: Prisma.TransactionClient,
+    documentIds: readonly string[],
+    now: Date,
+    applicationIds: readonly string[],
+  ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
+    if (documentIds.length === 0 || applicationIds.length === 0) return [];
+    const submissions = await transaction.milestoneDocumentSubmission.findMany({
+      where: {
+        milestoneDocumentId: { in: [...documentIds] },
+        applicationId: { in: [...applicationIds] },
+      },
+      select: {
+        milestoneDocumentId: true,
+        applicationId: true,
+        submittedAt: true,
+        revision: true,
+        status: true,
+        content: true,
+        files: {
+          where: unexpiredAttachedFileWhere(now),
+          orderBy: currentRevisionFileOrderBy,
+          take: 1,
+          select: {
+            originalFileName: true,
+            sizeBytes: true,
+            submissionHistory: { select: { revision: true } },
+          },
+        },
+        reviewHistories: {
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
+          take: 1,
+        },
+      },
+    });
+    return submissions.map((submission) => {
+      const review = submission.reviewHistories[0] ?? null;
+      const selectedFile = submission.files[0];
+      const file =
+        selectedFile !== undefined &&
+        selectedFile.submissionHistory !== null &&
+        selectedFile.submissionHistory.revision === submission.revision
+          ? {
+              originalFileName: selectedFile.originalFileName,
+              sizeBytes: selectedFile.sizeBytes,
+            }
+          : null;
+      return {
+        milestoneDocumentId: submission.milestoneDocumentId,
+        applicationId: submission.applicationId,
+        submittedAt: submission.submittedAt,
+        revision: submission.revision,
+        status: submission.status,
+        content: submission.content,
+        file,
+        review:
+          review === null
+            ? null
+            : {
+                id: review.id,
+                decision: review.decision,
+                comment: review.comment,
+                reviewedAt: review.reviewedAt,
+                resubmissionDueAt: review.resubmissionDueAt,
+              },
+      };
+    });
   }
 }

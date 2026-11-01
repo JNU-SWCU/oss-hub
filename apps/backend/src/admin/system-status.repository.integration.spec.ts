@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   prisma,
@@ -16,7 +17,11 @@ assertIsolatedIntegrationDatabase({
 });
 
 const status = new SystemStatusRepository(prisma);
-const statusService = new SystemStatusService(status, () => new Date());
+const statusService = new SystemStatusService(
+  status,
+  () => new Date(),
+  new CollectionScheduleService(),
+);
 const ADMIN_ID = 'synthetic-system-status-admin';
 const ADMIN_GITHUB_ID = 9_517_000_000_001n;
 
@@ -38,11 +43,11 @@ afterAll(async () => {
 });
 
 it('drops a detached organization repository from the tracked set so its missing streams stop reading as partial', async () => {
-  const before = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
+  const before = (await statusService.getStatus()).collection;
 
   await service.updateMine(githubId, programId, input);
 
-  const after = (await statusService.getStatus(ADMIN_GITHUB_ID)).collection;
+  const after = (await statusService.getStatus()).collection;
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
 
   expect(after.partialStreamCount).toBe(before.partialStreamCount - 4);

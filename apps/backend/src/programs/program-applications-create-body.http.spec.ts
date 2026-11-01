@@ -61,7 +61,13 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      { provide: ApplicationsService, useValue: { create } },
+      {
+        provide: ApplicationsService,
+        useValue: Object.assign(
+          Object.create(ApplicationsService.prototype) as object,
+          { create },
+        ),
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {

@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -7,7 +8,6 @@ import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {
@@ -26,9 +26,11 @@ import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -161,12 +163,19 @@ const service = new ProgramTeamsService(
   repository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository(),
-  new UsersAuthorityService({ findActorByGithubId: findUnique }),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new ProgramRulesService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
 
 const listForStaff = jest.fn(
@@ -273,9 +282,10 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest
-            .fn()
-            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          getMe: async () =>
+            sessionPrincipal(
+              (await findUnique()) as Parameters<typeof sessionPrincipal>[0],
+            ),
         },
       },
       {
@@ -355,7 +365,7 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  expect(listForStaff).toHaveBeenCalledWith(5001n, PROGRAM_ID);
+  expect(listForStaff).toHaveBeenCalledWith(PROGRAM_ID);
   expect(listStaffTeams).toHaveBeenCalledWith(PROGRAM_ID);
 });
 
@@ -492,5 +502,5 @@ it('대상 팀이 없으면 STAFF 상세 요청은 404 TEAM_010 이다', async (
     instance: DETAIL_INSTANCE,
     code: TeamsErrorCode.TEAM_NOT_FOUND,
   });
-  expect(getForStaff).toHaveBeenCalledWith(5103n, PROGRAM_ID, TEAM_ID);
+  expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
 });

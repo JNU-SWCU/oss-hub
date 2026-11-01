@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
   AccountStatus,
   AffiliationKind,
@@ -147,6 +149,10 @@ function startPausedLeaderLeave(): {
   const release = deferred();
   const teams = new ProgramTeamsRepository(
     pidCapturingPrisma(prisma, leaveBackend.capture),
+    new ProgramTeamRepositoryEvidenceRepository(
+      pidCapturingPrisma(prisma, leaveBackend.capture),
+    ),
+    new PlatformRepository(),
   );
   const leaving = trackPaused(
     teams.leave(PROGRAM_ID, LEADER_ID, async () => {
@@ -236,6 +242,7 @@ describe('Team invitation acceptance transaction races', () => {
 
       const acceptance = new TeamInvitationsRepository(
         pidCapturingPrisma(prisma, acceptBackend.capture),
+        new PlatformRepository(),
       ).withAcceptTransaction(INVITATION_ID, INVITEE_ID);
       await releaseAfterBlocked(
         prisma,
@@ -258,6 +265,7 @@ describe('Team invitation acceptance transaction races', () => {
 
     const acceptance = new TeamInvitationsRepository(
       pidCapturingPrisma(prisma, acceptBackend.capture),
+      new PlatformRepository(),
     ).withAcceptTransaction(INVITATION_ID, INVITEE_ID);
     await releaseAfterBlocked(
       prisma,
@@ -304,6 +312,7 @@ describe('Team invitation acceptance transaction races', () => {
 
     const invitation = new TeamInvitationsRepository(
       pidCapturingPrisma(prisma, inviteBackend.capture),
+      new PlatformRepository(),
     ).createInvitation({
       teamId: TEAM_ID,
       actorId: LEADER_ID,
@@ -338,10 +347,14 @@ describe('Team invitation acceptance transaction races', () => {
     const leave = startPausedLeaderLeave();
     await leave.paused;
     const cancelBackend = backendPid();
-    const invitations = new TeamInvitationsRepository(prisma);
+    const invitations = new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
 
     const staleCancel = new TeamInvitationsRepository(
       pidCapturingPrisma(prisma, cancelBackend.capture),
+      new PlatformRepository(),
     ).cancelPendingInvitationAsLeader(INVITATION_ID, LEADER_ID);
     await releaseAfterBlocked(
       prisma,
@@ -376,8 +389,14 @@ describe('Team invitation acceptance transaction races', () => {
   });
 
   it('마지막 한 자리를 두고 동시에 수락하면 정확히 한 명만 합류한다', async () => {
-    const first = new TeamInvitationsRepository(prisma);
-    const second = new TeamInvitationsRepository(prisma);
+    const first = new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
+    const second = new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
 
     const outcomes = await Promise.all([
       first.withAcceptTransaction(INVITATION_ID, INVITEE_ID),

@@ -108,6 +108,19 @@ export class MemberKindService {
     });
   }
 
+  patchMemberKindFromRequest(
+    actorGithubId: bigint,
+    userId: string,
+    request: MemberKindPatchRequest,
+  ): Promise<MemberKindMutationResult> {
+    this.adminAccessMutationService.requireValidUserId(userId);
+    return this.patchMemberKind(
+      actorGithubId,
+      userId,
+      this.commandFromRequest(request),
+    );
+  }
+
   patchMemberKind(
     actorGithubId: bigint,
     userId: string,

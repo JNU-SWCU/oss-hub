@@ -1,3 +1,12 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { DeadlineDigestMailService } from '../notifications/deadline-digest-mail.service';
+import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ApplicationStatus,
   MemberKind,
@@ -15,9 +24,6 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -42,11 +48,24 @@ const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
 
 const prisma = new PrismaService();
 const editor = new ProgramEditorService(
-  new ProgramEditorRepository(prisma),
+  new ProgramEditorRepository(
+    prisma,
+    new LockProgramTreeRepository(),
+    new ProgramDeletionScopeRepository(),
+    new ProgramAuthoringUploadTransactionRepository(),
+    new ProgramCoverRepository(
+      prisma,
+      new ProgramAuthoringUploadTransactionRepository(),
+    ),
+  ),
   new ProgramCoverUrlService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
-  new SubmissionFileRulesService(),
+  new ProgramScheduleService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
 );
 
 const sentMails: DeadlineDigestMail[] = [];
@@ -59,6 +78,7 @@ const digest = new DeadlineDigestService(
     },
   },
   { FRONTEND_URL: 'https://oss-hub.invalid' },
+  new DeadlineDigestMailService(),
 );
 
 function updateRequest(notifyOnDeadline: boolean) {
@@ -224,7 +244,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     expect(stored?.notifyOnDeadline).toBe(false);
 
     const failure = await digest
-      .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
+      .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
     expect(errorCode(failure)).toBe(NotificationsErrorCode.DEADLINE_DISABLED);
   });
@@ -242,11 +262,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     });
     expect(stored?.notifyOnDeadline).toBe(true);
 
-    const preview = await digest.previewProgram(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      NOW,
-    );
+    const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 1,
       milestoneCount: 1,
@@ -274,11 +290,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       },
     });
 
-    const preview = await digest.previewProgram(
-      STAFF_GITHUB_ID,
-      PROGRAM_ID,
-      NOW,
-    );
+    const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 0,
       recipientCount: 0,
@@ -291,10 +303,9 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       PROGRAM_ID,
       updateRequest(true),
     );
-    expect(
-      (await digest.previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW))
-        .recipientCount,
-    ).toBe(2);
+    expect((await digest.previewProgram(PROGRAM_ID, NOW)).recipientCount).toBe(
+      2,
+    );
 
     await editor.updateProgram(
       STAFF_GITHUB_ID,
@@ -303,7 +314,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     );
 
     const failure = await digest
-      .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
+      .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
     expect(errorCode(failure)).toBe(NotificationsErrorCode.DEADLINE_DISABLED);
   });

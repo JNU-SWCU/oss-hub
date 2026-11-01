@@ -1,5 +1,10 @@
+import { ProgramScheduleService } from './program-schedule.service';
+import { ProgramTemplatesService } from './program-templates.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
-  AccountStatus,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
@@ -26,42 +31,40 @@ import {
   type ProgramAuthoringRequest,
 } from './program-authoring-upload-transaction.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
-import { ProgramUploadRulesService } from './program-upload-rules.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
   new AuditLogMetadataService(),
-  new ProgramRulesService(),
-  new ProgramUploadRulesService(new SubmissionFileRulesService()),
+  new ProgramScheduleService(),
+  new ProgramTemplatesService(),
+  new ProgramAuthoringUploadService(
+    {} as never,
+    {} as never,
+    new SubmissionFileAdmissionService(),
+    new ProgramNoticeFetchClient(),
+  ),
+  new ProgramAuthoringUploadTransactionRepository(),
 );
 
 describe('program-notice-preview.service', () => {
   const source = 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document';
   const html =
     '<div class="kboard-title"><h1>Synthetic</h1></div><div class="kboard-content"><div class="content-view"><p>First</p><p>Second</p></div></div>';
-  const actor = {
-    id: 'staff-synthetic',
-    accountStatus: AccountStatus.ACTIVE,
-    hasStaffAccess: true,
-    hasAdminAccess: false,
-  };
   function setup() {
-    const findActor = jest.fn(() => Promise.resolve(actor));
     const read = jest.fn(() => Promise.resolve(html));
     return {
-      service: new ProgramNoticePreviewService({ findActor }, { read }),
-      findActor,
+      service: new ProgramNoticePreviewService(
+        Object.assign(new ProgramNoticeFetchClient(), { read }),
+      ),
       read,
     };
   }
 
   it('returns clean editable candidates for an active staff member without persistence', async () => {
     const { service } = setup();
-    expect(await service.preview(1n, source)).toEqual({
+    expect(await service.preview('staff-synthetic', source)).toEqual({
       sourceUrl: source,
       name: 'Synthetic',
       description: 'First\nSecond',
@@ -70,33 +73,13 @@ describe('program-notice-preview.service', () => {
     });
   });
 
-  it.each([
-    { ...actor, hasStaffAccess: false },
-    { ...actor, accountStatus: AccountStatus.DEACTIVATED },
-  ])('rejects an unauthorized actor before fetching: %j', async (value) => {
-    const read = jest.fn(() => Promise.resolve(html));
-    const service = new ProgramNoticePreviewService(
-      { findActor: () => Promise.resolve(value) },
-      { read },
-    );
-    await expect(service.preview(1n, source)).rejects.toThrow();
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('rejects a missing actor before fetching', async () => {
-    const read = jest.fn(() => Promise.resolve(html));
-    const service = new ProgramNoticePreviewService(
-      { findActor: () => Promise.resolve(null) },
-      { read },
-    );
-    await expect(service.preview(1n, source)).rejects.toThrow();
-    expect(read).not.toHaveBeenCalled();
-  });
-
   it('limits one actor to six requests in a rolling minute', async () => {
     const { service, read } = setup();
-    for (let index = 0; index < 6; index++) await service.preview(1n, source);
-    await expect(service.preview(1n, source)).rejects.toMatchObject({
+    for (let index = 0; index < 6; index++)
+      await service.preview('staff-synthetic', source);
+    await expect(
+      service.preview('staff-synthetic', source),
+    ).rejects.toMatchObject({
       errorCode: { status: 429 },
     });
     expect(read).toHaveBeenCalledTimes(6);
@@ -111,16 +94,21 @@ describe('program-notice-preview.service', () => {
     });
     const read = jest.fn(() => pending);
     const service = new ProgramNoticePreviewService(
-      { findActor: () => Promise.resolve(actor) },
-      { read },
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
     );
-    const requests = [1, 2, 3, 4].map(() => service.preview(1n, source));
-    await expect(service.preview(1n, source)).rejects.toMatchObject({
+    const requests = [1, 2, 3, 4].map(() =>
+      service.preview('staff-synthetic', source),
+    );
+    await expect(
+      service.preview('staff-synthetic', source),
+    ).rejects.toMatchObject({
       errorCode: { status: 429 },
     });
     finish(html);
     await Promise.all(requests);
-    await expect(service.preview(1n, source)).resolves.toMatchObject({
+    await expect(
+      service.preview('staff-synthetic', source),
+    ).resolves.toMatchObject({
       name: 'Synthetic',
     });
   });
@@ -128,12 +116,11 @@ describe('program-notice-preview.service', () => {
   it('limits all actors combined to sixty requests per rolling minute', async () => {
     const read = jest.fn(() => Promise.resolve(html));
     const service = new ProgramNoticePreviewService(
-      { findActor: (id) => Promise.resolve({ ...actor, id: `staff-${id}` }) },
-      { read },
+      Object.assign(new ProgramNoticeFetchClient(), { read }),
     );
     for (let index = 0; index < 60; index++)
-      await service.preview(BigInt(index), source);
-    await expect(service.preview(61n, source)).rejects.toMatchObject({
+      await service.preview(`staff-${index}`, source);
+    await expect(service.preview('staff-61', source)).rejects.toMatchObject({
       errorCode: { status: 429 },
     });
   });
@@ -141,6 +128,7 @@ describe('program-notice-preview.service', () => {
 
 const ACTOR_ID = 'actor-id';
 const GITHUB_ID = 7n;
+const ACTOR = { id: ACTOR_ID, githubId: GITHUB_ID };
 
 function request(templateUploadId?: string): ProgramAuthoringRequest {
   return {
@@ -213,19 +201,13 @@ function setup() {
     attachUploads: jest.fn().mockResolvedValue(undefined),
   };
   const repository = {
-    findActor: jest.fn().mockResolvedValue({
-      id: ACTOR_ID,
-      accountStatus: AccountStatus.ACTIVE,
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-    }),
     findReplay: jest.fn().mockResolvedValue(null),
     withTransaction: <T>(
       operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
     ) => operation(transaction),
   } satisfies Pick<
     ProgramAuthoringRepository,
-    'findActor' | 'findReplay' | 'withTransaction'
+    'findReplay' | 'withTransaction'
   >;
   return {
     repository,
@@ -235,8 +217,15 @@ function setup() {
       repository,
       auditLog,
       new AuditLogMetadataService(),
-      new ProgramRulesService(),
-      new ProgramUploadRulesService(new SubmissionFileRulesService()),
+      new ProgramScheduleService(),
+      new ProgramTemplatesService(),
+      new ProgramAuthoringUploadService(
+        {} as never,
+        {} as never,
+        new SubmissionFileAdmissionService(),
+        new ProgramNoticeFetchClient(),
+      ),
+      new ProgramAuthoringUploadTransactionRepository(),
     ),
   };
 }
@@ -252,7 +241,7 @@ describe('ProgramAuthoringService', () => {
     });
 
     await expect(
-      service.create(GITHUB_ID, 'key', {
+      service.create(ACTOR, 'key', {
         ...request(),
         trackType: ProgramTrackType.EXTRACURRICULAR,
       }),
@@ -284,7 +273,7 @@ describe('ProgramAuthoringService', () => {
       program: { ...program(), trackType },
     });
 
-    await expect(service.create(GITHUB_ID, 'key', request())).rejects.toEqual(
+    await expect(service.create(ACTOR, 'key', request())).rejects.toEqual(
       new ProgramAuthoringIdempotencyConflictError(
         ACTOR_ID,
         'key',
@@ -294,41 +283,22 @@ describe('ProgramAuthoringService', () => {
     expect(transaction.createProgram.mock.calls).toHaveLength(0);
   });
 
-  it.each([
-    null,
-    {
-      id: ACTOR_ID,
-      accountStatus: AccountStatus.DEACTIVATED,
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-    },
-    {
-      id: ACTOR_ID,
-      accountStatus: AccountStatus.ACTIVE,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    },
-  ])(
-    'rejects an unavailable upload author before starting writes',
-    async (actor) => {
-      const { repository, transaction, service } = setup();
-      repository.findActor.mockResolvedValueOnce(actor);
-
-      await expect(service.requireAuthor(GITHUB_ID)).rejects.toMatchObject({
-        name: 'ProgramAuthoringForbiddenError',
-      });
-      expect(repository.findActor).toHaveBeenCalledWith(GITHUB_ID);
-      expect(transaction.createProgram.mock.calls).toEqual([]);
-      expect(repository.findReplay).not.toHaveBeenCalled();
-    },
-  );
-
   it('resolves the narrowed store through the concrete repository provider', async () => {
     const { repository } = setup();
     const moduleRef = await Test.createTestingModule({
       providers: [
         ...STATELESS_PROVIDERS,
-        ProgramRulesService,
+        ProgramScheduleService,
+        ProgramTemplatesService,
+        {
+          provide: ProgramAuthoringUploadService,
+          useValue: new ProgramAuthoringUploadService(
+            {} as never,
+            {} as never,
+            new SubmissionFileAdmissionService(),
+            new ProgramNoticeFetchClient(),
+          ),
+        },
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
         AuditLogMetadataService,
@@ -360,7 +330,7 @@ describe('ProgramAuthoringService', () => {
       },
     ]);
 
-    const result = await service.create(GITHUB_ID, 'key', request('upload-id'));
+    const result = await service.create(ACTOR, 'key', request('upload-id'));
 
     expect(result.id).toBe('program-id');
     expect(transaction.createTemplate.mock.calls).toEqual([
@@ -392,7 +362,7 @@ describe('ProgramAuthoringService', () => {
     ]);
 
     await expect(
-      service.create(GITHUB_ID, 'key', request('upload-id')),
+      service.create(ACTOR, 'key', request('upload-id')),
     ).rejects.toMatchObject({ reason: 'NOT_OWNED' });
     expect(transaction.createProgram.mock.calls).toEqual([]);
   });
@@ -400,7 +370,7 @@ describe('ProgramAuthoringService', () => {
   it('records PROGRAM_CREATED once inside the success transaction', async () => {
     const { service, record, transaction } = setup();
 
-    await service.create(GITHUB_ID, 'key', request());
+    await service.create(ACTOR, 'key', request());
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
@@ -428,7 +398,7 @@ describe('ProgramAuthoringService', () => {
       program: created,
     });
 
-    await service.create(GITHUB_ID, 'key', request());
+    await service.create(ACTOR, 'key', request());
 
     expect(record).not.toHaveBeenCalled();
   });
@@ -445,7 +415,7 @@ describe('ProgramAuthoringService', () => {
       program: program(),
     });
 
-    await service.create(GITHUB_ID, 'key', request());
+    await service.create(ACTOR, 'key', request());
 
     expect(record).not.toHaveBeenCalled();
   });

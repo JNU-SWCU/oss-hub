@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import type { AuthorityLabel } from './authority-label.types';
 import {
   AccountStatus,
@@ -58,6 +59,9 @@ export type AdminAccessUser = {
   readonly githubLogin: string;
   readonly name: string | null;
   readonly role: AuthorityLabel | null;
+  readonly memberKind: MemberKind | null;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
@@ -150,8 +154,9 @@ const ORDER_DIRECTIONS = {
   [ADMIN_ACCESS_SORT_DIRECTIONS.DESC]: Prisma.sql`DESC`,
 } as const satisfies Readonly<Record<AdminAccessSortDirection, Prisma.Sql>>;
 
+@Injectable()
 export class AdminAccessReadOrderingRepository {
-  static listOrderedAdminAccessUserIds(
+  listOrderedAdminAccessUserIds(
     prisma: Pick<PrismaService, '$queryRaw'>,
     query: AdminAccessListQuery,
     sortContext: AdminAccessListSortContext = 'directory',

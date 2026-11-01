@@ -55,7 +55,10 @@ export interface RecentMilestoneDocumentReview {
 
 @Injectable()
 export class MilestoneDocumentFeedbackRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findRecentForParticipant(
     sessionGithubId: bigint,
@@ -75,7 +78,7 @@ export class MilestoneDocumentFeedbackRepository {
             application: {
               is: {
                 status: ApplicationStatus.APPROVED,
-                ...PlatformRepository.programApplicationParticipantWhere(
+                ...this.platformRepository.programApplicationParticipantWhere(
                   user.id,
                 ),
               },

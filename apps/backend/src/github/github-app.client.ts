@@ -1,13 +1,19 @@
+import { Injectable } from '@nestjs/common';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from './github-app.error';
-import {
-  isRecord,
-  type GithubAppFetcher,
-  type GithubInstallationTokenProvider,
   throwForGithubErrorResponse,
+} from './github-app.error';
+import type {
+  GithubAppFetcher,
+  GithubInstallationTokenProvider,
 } from './github-app-token.client';
+
+type UnknownRecord = { readonly [key: string]: unknown };
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 export type GithubRepositoryMetadata = {
   readonly githubRepositoryId: bigint;
@@ -84,31 +90,6 @@ function parseGithubPublicRepository(
   };
 }
 
-export function parseRepositoryInvitations(
-  value: unknown,
-): readonly GithubRepositoryInvitation[] {
-  if (!Array.isArray(value)) {
-    throw invalidGithubResponseError();
-  }
-  return value.map((invitation) => {
-    if (!isRecord(invitation) || !isRecord(invitation.invitee)) {
-      throw invalidGithubResponseError();
-    }
-    const invitationId = invitation.id;
-    const login = invitation.invitee.login;
-    if (
-      typeof invitationId !== 'number' ||
-      !Number.isSafeInteger(invitationId) ||
-      invitationId <= 0 ||
-      typeof login !== 'string' ||
-      login.length === 0
-    ) {
-      throw invalidGithubResponseError();
-    }
-    return { invitationId, login };
-  });
-}
-
 async function readGithubJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -148,12 +129,38 @@ export const COLLABORATOR_OUTCOMES = {
 export type CollaboratorOutcome =
   (typeof COLLABORATOR_OUTCOMES)[keyof typeof COLLABORATOR_OUTCOMES];
 
+@Injectable()
 export class GithubAppClient {
   constructor(
     private readonly tokenProvider: GithubInstallationTokenProvider,
     private readonly fetcher: GithubAppFetcher = globalThis.fetch,
     private readonly now: () => Date = () => new Date(),
   ) {}
+
+  parseRepositoryInvitations(
+    value: unknown,
+  ): readonly GithubRepositoryInvitation[] {
+    if (!Array.isArray(value)) {
+      throw invalidGithubResponseError();
+    }
+    return value.map((invitation) => {
+      if (!isRecord(invitation) || !isRecord(invitation.invitee)) {
+        throw invalidGithubResponseError();
+      }
+      const invitationId = invitation.id;
+      const login = invitation.invitee.login;
+      if (
+        typeof invitationId !== 'number' ||
+        !Number.isSafeInteger(invitationId) ||
+        invitationId <= 0 ||
+        typeof login !== 'string' ||
+        login.length === 0
+      ) {
+        throw invalidGithubResponseError();
+      }
+      return { invitationId, login };
+    });
+  }
 
   get organization(): string {
     return this.tokenProvider.organization;
@@ -292,7 +299,9 @@ export class GithubAppClient {
         `${repositoryPath}/invitations?per_page=${INVITATION_PAGE_SIZE}&page=${page}`,
       );
       await throwForGithubErrorResponse(response, this.now());
-      const parsed = parseRepositoryInvitations(await readGithubJson(response));
+      const parsed = this.parseRepositoryInvitations(
+        await readGithubJson(response),
+      );
       invitations.push(...parsed);
       if (parsed.length < INVITATION_PAGE_SIZE) {
         return invitations;

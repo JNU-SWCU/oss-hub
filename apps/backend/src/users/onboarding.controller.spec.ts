@@ -44,10 +44,12 @@ function createOnboardingController(
     Promise.resolve({ selectedMemberKind: null }),
 ): OnboardingController {
   return new OnboardingController({
-    selectMemberKind,
+    selectMemberKindFromRequest: (githubId, request) =>
+      selectMemberKind(
+        githubId,
+        onboardingRequestParser.memberKindFromRequest(request),
+      ),
     getMySelection,
-    memberKindFromRequest: (request) =>
-      onboardingRequestParser.memberKindFromRequest(request),
   });
 }
 

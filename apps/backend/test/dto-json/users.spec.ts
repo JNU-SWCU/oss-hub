@@ -57,10 +57,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   ],
   [
     'MyStaffAccessRequestResponseDto request',
-    () =>
-      MyStaffAccessRequestResponseDto.from(
-        RoleRequestResponseDto.from(pendingRequest),
-      ),
+    () => MyStaffAccessRequestResponseDto.from(pendingRequest),
   ],
   [
     'RoleRequestResponseDto pending',

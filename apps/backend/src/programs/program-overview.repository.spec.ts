@@ -1,9 +1,13 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramOverviewRepository } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { UserProfileService } from '../users/user-profile.service';
 
 function staffOverviewRepository(prisma: object): ProgramOverviewRepository {
-  return new ProgramOverviewRepository(prisma as never);
+  return new ProgramOverviewRepository(
+    prisma as never,
+    new PlatformRepository(),
+  );
 }
 
 async function completedTeamsByMilestone(
@@ -62,9 +66,12 @@ describe('ProgramOverviewRepository', () => {
           dueAt: new Date('2026-09-12T09:00:00.000Z'),
         },
       ]);
-      const repository = new ProgramOverviewRepository({
-        milestone: { findMany: milestoneFindMany },
-      } as never);
+      const repository = new ProgramOverviewRepository(
+        {
+          milestone: { findMany: milestoneFindMany },
+        } as never,
+        new PlatformRepository(),
+      );
 
       const result =
         await repository.findMilestoneSchedules(syntheticProgramId);
@@ -177,7 +184,10 @@ describe('ProgramOverviewRepository', () => {
       const prisma = {
         milestoneDocumentSubmission: { groupBy: submissionGroupBy },
       };
-      const repository = new ProgramOverviewRepository(prisma as never);
+      const repository = new ProgramOverviewRepository(
+        prisma as never,
+        new PlatformRepository(),
+      );
 
       const result = await repository.findSubmittedDocumentIds('app-1', [
         'doc-1',

@@ -10,19 +10,22 @@ import {
 import { reconcileStorageOrphans } from './cli';
 import { KNOWN_STORAGE_PREFIXES } from './programs/storage-orphan-reconciliation.service';
 
-jest.mock('./programs/prisma-storage-reference.repository', () => ({
-  PrismaStorageReferenceRepository: {
-    createStorageReferenceRepository: jest.fn(),
+const disconnect = jest.fn<Promise<void>, []>();
+
+jest.mock('./platform/prisma.service', () => ({
+  PrismaService: class {
+    $disconnect(): Promise<void> {
+      return disconnect();
+    }
   },
 }));
 
 describe('storage orphan reconciliation runner', () => {
   const runStartedAt = new Date('2026-08-12T02:00:00.000Z');
   const references = {
-    loadLiveKeys: jest.fn(),
-    isLiveKey: jest.fn(),
+    loadLiveKeys: jest.fn<Promise<ReadonlySet<string>>, []>(),
+    isLiveKey: jest.fn<Promise<boolean>, [string]>(),
   };
-  const disconnect = jest.fn<Promise<void>, []>();
   const close = jest.fn<Promise<void>, []>();
   const storage = { delete: jest.fn<Promise<void>, [string]>() };
   const inventory = { listObjects: jest.fn() };
@@ -51,14 +54,11 @@ describe('storage orphan reconciliation runner', () => {
       },
     ]);
     jest
-      .spyOn(
-        PrismaStorageReferenceRepository,
-        'createStorageReferenceRepository',
-      )
-      .mockReturnValue({
-        references,
-        disconnect,
-      });
+      .spyOn(PrismaStorageReferenceRepository.prototype, 'loadLiveKeys')
+      .mockImplementation(() => references.loadLiveKeys());
+    jest
+      .spyOn(PrismaStorageReferenceRepository.prototype, 'isLiveKey')
+      .mockImplementation((key) => references.isLiveKey(key));
     bootstrap = jest
       .spyOn(NestFactory, 'createApplicationContext')
       .mockResolvedValue(context as unknown as INestApplicationContext);
@@ -146,5 +146,26 @@ describe('storage orphan reconciliation runner', () => {
 
     await expect(reconcileStorageOrphans(['--report'])).rejects.toBe(error);
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([[['--report', '--delete']], [['--force']]])(
+    'rejects %j before connecting to storage',
+    async (args) => {
+      await expect(reconcileStorageOrphans(args)).rejects.toThrow(
+        'Exactly one mode',
+      );
+      expect(bootstrap).not.toHaveBeenCalled();
+      expect(output).toEqual([]);
+    },
+  );
+
+  it('treats no arguments as a report run', async () => {
+    await reconcileStorageOrphans([]);
+
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(JSON.parse(output[0] ?? '')).toMatchObject({
+      event: 'storage-orphan.result',
+      mode: 'report',
+    });
   });
 });

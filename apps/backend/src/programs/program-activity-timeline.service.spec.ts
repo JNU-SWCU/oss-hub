@@ -1,3 +1,4 @@
+import { ProgramViewerService } from './program-viewer.service';
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import type {
   ProgramActivityRepository,
@@ -103,6 +104,7 @@ describe('ProgramActivityService canonical activity', () => {
     const result = await new ProgramActivityService(
       repository,
       activityReads(findRepositoryActivity),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toEqual(new Date('2026-08-01T00:00:00.000Z'));
@@ -151,6 +153,7 @@ describe('ProgramActivityService canonical activity', () => {
     const result = await new ProgramActivityService(
       repository,
       activityReads(findRepositoryActivity),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toEqual(new Date('2026-08-02T00:00:00.000Z'));
@@ -180,6 +183,7 @@ describe('ProgramActivityService canonical activity', () => {
     const result = await new ProgramActivityService(
       repository,
       activityReads(findRepositoryActivity),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toBeNull();
@@ -207,6 +211,7 @@ describe('ProgramActivityService canonical activity', () => {
     const result = await new ProgramActivityService(
       repository,
       activityReads(findRepositoryActivity),
+      Object.create(ProgramViewerService.prototype) as ProgramViewerService,
     ).activityTimeline(student, 'MONTH');
 
     expect(result.dataAsOf).toEqual(new Date('2026-08-01T00:00:00.000Z'));
@@ -227,6 +232,7 @@ describe('ProgramActivityService canonical activity', () => {
       new ProgramActivityService(
         repository,
         activityReads(findRepositoryActivity),
+        Object.create(ProgramViewerService.prototype) as ProgramViewerService,
       ).activityTimeline(null, 'MONTH'),
     ).rejects.toMatchObject({ errorCode: { status: 403 } });
     expect(findStudentActivityApplications).not.toHaveBeenCalled();

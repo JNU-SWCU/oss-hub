@@ -1,3 +1,7 @@
+import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -170,7 +174,13 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
       $transaction,
       milestoneDocumentSubmission: { findMany: outsideSubmissionFindMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withCollectionSnapshot(async (store) => {
       const milestone = await store.findMilestone(syntheticMilestoneId);
@@ -240,7 +250,13 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
     const prisma = {
       milestoneDocument: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findByMilestoneId(syntheticMilestoneId);
 
@@ -273,7 +289,13 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
       .fn()
       .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' });
     const prisma = { user: { findFirst } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.findActiveUser(9001n);
 
@@ -288,7 +310,13 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
   it('교직원·관리자 권한과 관계없이 활성 학생 유형 계정만 찾는다', async () => {
     const findFirst = jest.fn().mockResolvedValue({ id: syntheticUserId });
     const prisma = { user: { findFirst } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.findActiveStudentByGithubId(9001n),
@@ -309,7 +337,13 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   it('승인된 신청 수를 센다', async () => {
     const count = jest.fn().mockResolvedValue(8);
     const prisma = { application: { count } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.countApprovedApplications('cuid-program');
 
@@ -324,7 +358,13 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.countSubmissionsByDocument(
       'cuid-program',
@@ -344,7 +384,13 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.countSubmissionsByDocument('cuid-program', [
       syntheticDocumentId,
@@ -358,7 +404,13 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.countSubmissionsByDocument('cuid-program', [
       syntheticDocumentId,
@@ -423,7 +475,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
 
   it('createDocument는 sortOrder를 잠금 아래에서 max+1로 정해 맨 뒤에 붙인다', async () => {
     const { prisma, create, aggregate, direct } = buildStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.createDocument(syntheticMilestoneId, {
@@ -457,7 +515,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   it('createDocument는 첫 항목이면 sortOrder를 1로 정한다', async () => {
     const { prisma, create, aggregate } = buildStorePrisma();
     aggregate.mockResolvedValue({ _max: { sortOrder: null } });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.withTransaction((store) =>
       store.createDocument(syntheticMilestoneId, {
@@ -482,7 +546,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   it('deleteDocument는 같은 트랜잭션에서 양식 파일을 먼저 지우고 서류 항목을 지운다', async () => {
     const { prisma, templateDeleteMany, documentDelete, direct } =
       buildStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.withTransaction((store) =>
       store.deleteDocument(syntheticDocumentId),
@@ -503,7 +573,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
 
   it('countSubmissionsForDocument는 해당 서류의 제출 수를 트랜잭션 안에서 센다', async () => {
     const { prisma, count, direct } = buildStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.countSubmissionsForDocument(syntheticDocumentId),
@@ -582,7 +658,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
   it('attachFile이 없으면(TEXT) 파일 붙이기를 건너뛴다', async () => {
     const { prisma, fileUpdateMany } = transactionPrisma({});
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -605,7 +687,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const { prisma, submissionUpsert } = transactionPrisma({
       $queryRaw: queryRaw,
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -637,7 +725,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const { prisma, submissionUpsert } = transactionPrisma({
       $queryRaw: queryRaw,
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -669,7 +763,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       { id: 'cuid-synthetic-review' },
       { status: SubmissionStatus.SUBMITTED },
     );
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -719,7 +819,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         findUnique: submissionFindUnique,
       },
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -748,7 +854,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       transactionPrisma({ $queryRaw: queryRaw }, null, {
         status: SubmissionStatus.SUBMITTED,
       });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -788,7 +900,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       $queryRaw: queryRaw,
       milestoneDocumentSubmission: { upsert: submissionUpsert },
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -819,7 +937,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const { prisma, submissionUpsert } = transactionPrisma({
       $queryRaw: queryRaw,
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -840,7 +964,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const { prisma, submissionUpsert, historyCreate, historyFindFirst } =
       transactionPrisma({});
     historyFindFirst.mockResolvedValue({ createdAt: latest });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -880,7 +1010,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         ]),
       },
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
     const result = await repository.upsertSubmission({
@@ -922,7 +1058,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const { prisma } = transactionPrisma({
       submissionFile: { updateMany: fileUpdateMany, findMany: jest.fn() },
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -946,7 +1088,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       {},
       { id: 'cuid-synthetic-review' },
     );
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -967,7 +1115,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       {},
       { id: 'cuid-synthetic-review' },
     );
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -984,7 +1138,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
   it('재제출은 리비전을 DB에서 1 올린다 — 교직원이 본 버전과 갈라지는 유일한 표식이다', async () => {
     const { prisma, submissionUpsert } = transactionPrisma({});
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -1004,7 +1164,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
   it('재제출은 현재 헤더와 별도로 RESUBMITTED 이력을 append한다', async () => {
     const { prisma, historyCreate } = transactionPrisma({});
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
     await repository.upsertSubmission({
@@ -1032,7 +1198,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
   it('첫 제출은 리비전을 직접 쓰지 않는다 — 시작값 1은 스키마 기본값이 준다', async () => {
     const { prisma, submissionUpsert } = transactionPrisma({});
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -1064,7 +1236,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       $queryRaw: queryRaw,
       milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
@@ -1082,7 +1260,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   it('잠금 뒤 현재 팀원이 아니면 제출·이력·첨부를 쓰지 않는다', async () => {
     const { prisma, submissionUpsert, historyCreate, fileUpdateMany, fence } =
       transactionPrisma({}, null, null, []);
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.upsertSubmission({
@@ -1124,9 +1308,17 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
         },
       ],
     });
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findMySubmission(
       syntheticDocumentId,
@@ -1172,9 +1364,17 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
         },
       ],
     });
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findMySubmission(
       syntheticDocumentId,
@@ -1252,7 +1452,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
   it('findSubmissionForReview는 (서류, 신청) 복합 키로 제출 한 건을 찾는다', async () => {
     const { prisma, submissionFindUnique } = buildReviewStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.findSubmissionForReview(
@@ -1302,7 +1508,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       revision: 3,
       histories: [{ id: 'cuid-synthetic-submission-history', revision: 2 }],
     });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.findSubmissionForReview(
@@ -1316,7 +1528,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
   it('findLatestReviewIdForSubmission은 수합 표와 같은 정렬로 최신 한 건의 id만 읽는다', async () => {
     const { prisma, reviewFindFirst } = buildReviewStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
@@ -1332,7 +1550,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
   it('판정이 없으면 findLatestReviewIdForSubmission은 null이다', async () => {
     const { prisma } = buildReviewStorePrisma({ latestReview: null });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
@@ -1344,7 +1568,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   it('createReview는 create로 판정을 쌓는다 — upsert/update로 덮어쓰지 않는다', async () => {
     const { prisma, reviewCreate, historyCreate, direct } =
       buildReviewStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
 
@@ -1400,7 +1630,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
   it('updateSubmissionStatus는 트랜잭션 안에서 제출 상태만 갱신한다', async () => {
     const { prisma, submissionUpdate, direct } = buildReviewStorePrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.withTransaction((store) =>
       store.updateSubmissionStatus(
@@ -1466,7 +1702,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
 
   it('lockDocument는 대상 행을 FOR UPDATE로 잠그고 다시 읽는다', async () => {
     const { prisma, transactionQueryRaw } = buildTransactionPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const locked = await repository.withTransaction((store) =>
       store.lockDocument(syntheticDocumentId),
@@ -1486,7 +1728,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   it('lockDocument는 행이 없으면 null을 돌려준다', async () => {
     const { prisma, transactionQueryRaw } = buildTransactionPrisma();
     transactionQueryRaw.mockResolvedValue([]);
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const locked = await repository.withTransaction((store) =>
       store.lockDocument(syntheticDocumentId),
@@ -1498,7 +1746,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   it('store.upsertTemplateFile은 트랜잭션 클라이언트에만 양식 upsert를 위임한다', async () => {
     const { prisma, transactionTemplateUpsert, directTemplateUpsert } =
       buildTransactionPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
     const uploadedAt = new Date('2026-09-01T00:00:00.000Z');
 
     await repository.withTransaction((store) =>
@@ -1551,7 +1805,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       },
     ]);
     const prisma = { application: { findMany } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result =
       await repository.findApprovedApplicationsForCollection('cuid-program');
@@ -1578,7 +1838,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   it('팀원은 TeamMember createdAt 오름차순으로 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { application: { findMany } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.findApprovedApplicationsForCollection('cuid-program');
 
@@ -1599,7 +1865,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       },
     ]);
     const prisma = { application: { findMany } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result =
       await repository.findApprovedApplicationsForCollection('cuid-program');
@@ -1616,7 +1888,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection([], now);
 
@@ -1646,7 +1924,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1697,9 +1981,17 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         reviewHistories: [],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1723,7 +2015,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1750,7 +2048,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1783,7 +2087,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1842,7 +2152,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1892,7 +2208,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
@@ -1912,7 +2234,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.findSubmissionsForCollection([syntheticDocumentId], now);
 
@@ -1936,7 +2264,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForArchive([], now);
 
@@ -1968,7 +2302,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
@@ -2015,9 +2355,17 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
@@ -2033,7 +2381,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.findSubmissionsForArchive([syntheticDocumentId], now);
 
@@ -2077,9 +2431,17 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     const [result] = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
@@ -2106,7 +2468,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
@@ -2126,7 +2494,13 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.findSubmissionsForArchive([syntheticDocumentId], now);
 
@@ -2177,7 +2551,13 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
@@ -2217,7 +2597,13 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
@@ -2240,9 +2626,17 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         reviewHistories: [],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     await expect(
       repository.findSubmittedSummaries(syntheticApplicationId, [
@@ -2256,7 +2650,13 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
@@ -2286,9 +2686,17 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
         reviewHistories: [],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
@@ -2327,9 +2735,17 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
         reviewHistories: [],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findMany },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findMany },
+      } as unknown as PrismaService),
+    );
 
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
@@ -2355,7 +2771,13 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     const prisma = {
       milestoneDocumentReviewHistory: { findFirst },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findLatestReview(
       syntheticDocumentId,
@@ -2385,7 +2807,13 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     const prisma = {
       milestoneDocumentReviewHistory: { findFirst },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.findLatestReview(syntheticDocumentId, syntheticApplicationId),
@@ -2399,7 +2827,13 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
       .fn()
       .mockResolvedValue({ programId: 'cuid-program' });
     const prisma = { application: { findUnique } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findApplicationProgramId(
       syntheticApplicationId,
@@ -2415,7 +2849,13 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
   it('신청이 없으면 null이다', async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
     const prisma = { application: { findUnique } } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findApplicationProgramId('cuid-none');
 
@@ -2443,7 +2883,13 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     const prisma = {
       milestoneDocumentSubmission: { findUnique },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
@@ -2497,9 +2943,17 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
         },
       ],
     });
-    const repository = new MilestoneDocumentsRepository({
-      milestoneDocumentSubmission: { findUnique },
-    } as unknown as PrismaService);
+    const repository = new MilestoneDocumentsRepository(
+      {
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository({
+        milestoneDocumentSubmission: { findUnique },
+      } as unknown as PrismaService),
+    );
 
     await expect(
       repository.findSubmissionFileForStaffDownload(
@@ -2518,7 +2972,13 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     const prisma = {
       milestoneDocumentSubmission: { findUnique },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
@@ -2534,7 +2994,13 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     const prisma = {
       milestoneDocumentSubmission: { findUnique },
     } as unknown as PrismaService;
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
@@ -2673,7 +3139,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   it('요청 순서대로 sortOrder를 1부터 다시 매기고 같은 트랜잭션 안에서 새 목록을 읽는다', async () => {
     const { prisma, committed, directUpdate, $transaction } =
       buildReorderPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const result = await repository.withTransaction((store) =>
       store.applyDocumentOrder(syntheticMilestoneId, [
@@ -2700,7 +3172,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
 
   it('중간 갱신이 실패하면 아무 항목의 순서도 바뀌지 않는다 — 부분 반영을 남기지 않는다', async () => {
     const { prisma, committed } = buildReorderPrisma({ failOnUpdateCall: 2 });
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await expect(
       repository.withTransaction((store) =>
@@ -2720,7 +3198,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
 
   it('갱신 where에 milestoneId를 함께 걸어 다른 마일스톤 항목이 섞이는 경로를 막는다', async () => {
     const { prisma, transactionUpdateArgs } = buildReorderPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.withTransaction((store) =>
       store.applyDocumentOrder(syntheticMilestoneId, [
@@ -2763,7 +3247,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
 
   it('잠금과 갱신이 한 트랜잭션 안에서 이 순서로 나간다 — 잠근 뒤에만 갱신한다', async () => {
     const { prisma, operations, lockQueries } = buildReorderPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     await repository.withTransaction(async (store) => {
       await store.lockMilestone(syntheticMilestoneId);
@@ -2798,7 +3288,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
 
   it('rejects document locks before the milestone stage without issuing SQL', async () => {
     const { prisma, lockQueries } = buildReorderPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
     await expect(
       repository.withTransaction((store) =>
         store.lockDocumentIdsOfMilestone(syntheticMilestoneId),
@@ -2905,7 +3401,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
 
   it('두 사람이 동시에 내도 한 번만 저장되고 나중 요청이 앞 내용을 덮지 않는다', async () => {
     const { prisma, submission, upsertCalls } = concurrentPrisma();
-    const repository = new MilestoneDocumentsRepository(prisma);
+    const repository = new MilestoneDocumentsRepository(
+      prisma,
+      new LockProgramTreeRepository(),
+      new PlatformRepository(),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new MilestoneDocumentCollectionReadRepository(prisma),
+    );
 
     const results = await Promise.allSettled([
       submitAs(repository, '먼저 도착한 재제출'),

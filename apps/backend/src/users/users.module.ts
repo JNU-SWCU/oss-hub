@@ -1,5 +1,7 @@
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { PlatformModule } from '../platform/platform.module';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -8,10 +10,7 @@ import { AdminProfileService } from './admin-profile.service';
 import { AccountDeactivationController } from './account-deactivation.controller';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import {
-  IndependentAuthorityRepository,
-  UsersAuthorityRepository,
-} from './independent-authority.repository';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
@@ -19,7 +18,6 @@ import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { UserProfileService } from './user-profile.service';
-import { UsersAuthorityService } from './users-authority.service';
 import { ConsentsController } from './consents.controller';
 import {
   ConsentsRepository,
@@ -33,7 +31,7 @@ import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 
 @Module({
-  imports: [PlatformModule, HttpSecurityModule],
+  imports: [PlatformModule],
 
   controllers: [
     AccountDeactivationController,
@@ -43,6 +41,9 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     ConsentsController,
   ],
   providers: [
+    AdminAccessReadOrderingRepository,
+    AdminAccessReadRepository,
+    AdminAccessHistoryRepository,
     AccountDeactivationRepository,
     AccountDeactivationService,
     AdminAccessRepository,
@@ -57,8 +58,6 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminProfileService,
     UsersRepository,
     UsersService,
-    UsersAuthorityRepository,
-    UsersAuthorityService,
     ConsentsService,
     ConsentsRepository,
     MemberOnboardingRepository,
@@ -67,7 +66,6 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
   ],
   exports: [
     UsersService,
-    UsersAuthorityService,
     ConsentsService,
     AdminAccessMutationService,
     AdminAccessService,

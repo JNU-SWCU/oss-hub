@@ -52,9 +52,9 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: () =>
+          getMe: async () =>
             Promise.resolve({
-              ...actor,
+              ...(await findActor()),
               githubId: 101n,
               nickname: 'synthetic',
               name: null,
@@ -66,7 +66,10 @@ beforeAll(async () => {
         },
       },
       { provide: ProgramAuthoringRepository, useValue: { findActor } },
-      { provide: ProgramNoticeFetchClient, useValue: { read } },
+      {
+        provide: ProgramNoticeFetchClient,
+        useValue: Object.assign(new ProgramNoticeFetchClient(), { read }),
+      },
       ProgramNoticePreviewService,
     ],
   })

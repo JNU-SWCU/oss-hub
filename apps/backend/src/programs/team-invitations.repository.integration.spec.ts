@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -33,7 +34,10 @@ const FILLER_ID = `${TEST_PREFIX}filler`;
 const OUTSIDER_ID = `${TEST_PREFIX}outsider`;
 const RESPONDED_AT = new Date('2026-08-10T00:00:00.000Z');
 const prisma = new PrismaService();
-const repository = new TeamInvitationsRepository(prisma);
+const repository = new TeamInvitationsRepository(
+  prisma,
+  new PlatformRepository(),
+);
 
 async function cleanup(): Promise<void> {
   await prisma.outboxEvent.deleteMany({

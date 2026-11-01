@@ -1,7 +1,12 @@
+import { ApplicationsService } from '../applications.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ApplicationListRequestDto } from './application-list-request.dto';
+
+const applicationsService = Object.create(
+  ApplicationsService.prototype,
+) as ApplicationsService;
 
 describe('ApplicationListRequestDto', () => {
   it('빈 쿼리에서 기본 페이지·필터를 사용한다', async () => {
@@ -10,7 +15,7 @@ describe('ApplicationListRequestDto', () => {
     const errors = await validate(query);
 
     expect(errors).toHaveLength(0);
-    expect(query.toQuery()).toEqual({
+    expect(applicationsService.listQueryFromRequest(query)).toEqual({
       page: 1,
       pageSize: 20,
       search: '',
@@ -52,7 +57,7 @@ describe('ApplicationListRequestDto', () => {
     const errors = await validate(query);
 
     expect(errors).toHaveLength(0);
-    expect(query.toQuery()).toEqual({
+    expect(applicationsService.listQueryFromRequest(query)).toEqual({
       page: 2,
       pageSize: 10,
       search: 'team-alpha',
@@ -74,14 +79,16 @@ describe('ApplicationListRequestDto', () => {
 
     expect(errors).toHaveLength(0);
     expect(query.mode).toBe('personal');
-    expect(query.toQuery()).toEqual({
+    expect(applicationsService.listQueryFromRequest(query)).toEqual({
       page: 1,
       pageSize: 20,
       search: '',
       status: 'all',
       view: 'default',
     });
-    expect(query.toQuery()).not.toHaveProperty('mode');
+    expect(applicationsService.listQueryFromRequest(query)).not.toHaveProperty(
+      'mode',
+    );
   });
 });
 
@@ -90,7 +97,9 @@ describe('ApplicationListRequestDto — view projection 선택', () => {
     const query = plainToInstance(ApplicationListRequestDto, {});
 
     expect(await validate(query)).toHaveLength(0);
-    expect(query.toQuery().view).toBe('default');
+    expect(applicationsService.listQueryFromRequest(query).view).toBe(
+      'default',
+    );
   });
 
   it('team-management 를 명시하면 그대로 전달한다', async () => {
@@ -99,7 +108,9 @@ describe('ApplicationListRequestDto — view projection 선택', () => {
     });
 
     expect(await validate(query)).toHaveLength(0);
-    expect(query.toQuery().view).toBe('team-management');
+    expect(applicationsService.listQueryFromRequest(query).view).toBe(
+      'team-management',
+    );
   });
 
   it('모르는 view 는 400 으로 거절한다 — 조용히 default 로 떨어뜨리지 않는다', async () => {

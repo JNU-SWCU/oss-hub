@@ -135,7 +135,7 @@ const SYNC_REQUESTED_AT = '2026-09-01T12:34:56.789Z';
 
 describe('repositoryAccessSyncEventData', () => {
   it('세 인자만으로 outbox row 전체를 결정한다', () => {
-    const row = PlatformRepository.repositoryAccessSyncEventData(
+    const row = new PlatformRepository().repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
@@ -160,7 +160,7 @@ describe('repositoryAccessSyncEventData', () => {
   it('호출 시점 wall clock 이 아니라 넘겨받은 시각에만 묶인다', () => {
     jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
     try {
-      const row = PlatformRepository.repositoryAccessSyncEventData(
+      const row = new PlatformRepository().repositoryAccessSyncEventData(
         SYNC_APPLICATION_ID,
         SYNC_TEAM_ID,
         SYNC_NOW,
@@ -181,27 +181,28 @@ describe('repositoryAccessSyncEventData', () => {
   });
 
   it('같은 신청·같은 시각만 한 key 로 합치고 이후 변경은 새 row 가 된다', () => {
-    const first = PlatformRepository.repositoryAccessSyncEventData(
+    const first = new PlatformRepository().repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
     );
-    const sameInstant = PlatformRepository.repositoryAccessSyncEventData(
+    const sameInstant = new PlatformRepository().repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       new Date(SYNC_NOW.getTime()),
     );
     const oneMillisecondLater =
-      PlatformRepository.repositoryAccessSyncEventData(
+      new PlatformRepository().repositoryAccessSyncEventData(
         SYNC_APPLICATION_ID,
         SYNC_TEAM_ID,
         new Date(SYNC_NOW.getTime() + 1),
       );
-    const otherApplication = PlatformRepository.repositoryAccessSyncEventData(
-      'other-application-id',
-      SYNC_TEAM_ID,
-      SYNC_NOW,
-    );
+    const otherApplication =
+      new PlatformRepository().repositoryAccessSyncEventData(
+        'other-application-id',
+        SYNC_TEAM_ID,
+        SYNC_NOW,
+      );
 
     expect(sameInstant.idempotencyKey).toBe(first.idempotencyKey);
     expect(oneMillisecondLater.idempotencyKey).not.toBe(first.idempotencyKey);
@@ -211,7 +212,7 @@ describe('repositoryAccessSyncEventData', () => {
 
 describe('parseRepositoryAccessSyncEvent', () => {
   it('factory 가 만든 payload 를 그대로 왕복한다', () => {
-    const { payload } = PlatformRepository.repositoryAccessSyncEventData(
+    const { payload } = new PlatformRepository().repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
@@ -303,7 +304,7 @@ describe('parseRepositoryAccessSyncEvent', () => {
       collaboratorGithubLogins: ['student-a'],
     };
     const { payload: accessSyncPayload } =
-      PlatformRepository.repositoryAccessSyncEventData(
+      new PlatformRepository().repositoryAccessSyncEventData(
         SYNC_APPLICATION_ID,
         SYNC_TEAM_ID,
         SYNC_NOW,

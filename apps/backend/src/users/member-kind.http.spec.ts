@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
@@ -91,7 +90,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
 
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
-      imports: [PlatformModule, HttpSecurityModule, AuthModule, UsersModule],
+      imports: [PlatformModule, AuthModule, UsersModule],
       controllers: [UserAccessController],
     }).useMocker((token) => (token === Function ? undefined : {}));
 

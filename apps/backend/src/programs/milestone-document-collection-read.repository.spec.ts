@@ -1,3 +1,5 @@
+import type { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 
@@ -5,7 +7,8 @@ describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
     it('bounds routine review history reads to the latest 50 rows', () => {
       expect(
-        MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+        new MilestoneDocumentCollectionReadRepository({} as PrismaService)
+          .boundedReviewHistoryQuery,
       ).toMatchObject({
         take: 50,
         orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
@@ -16,16 +19,14 @@ describe('milestone-document-history-query.repository', () => {
       const latest = new Date('2026-09-18T09:00:00.000Z');
 
       expect(
-        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
-          new Date('2026-09-18T08:59:59.000Z'),
-          latest,
-        ),
+        new MilestoneDocumentSubmissionRepository(
+          new PlatformRepository(),
+        ).nextHistoryCreatedAt(new Date('2026-09-18T08:59:59.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:00.001Z'));
       expect(
-        MilestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
-          new Date('2026-09-18T09:00:01.000Z'),
-          latest,
-        ),
+        new MilestoneDocumentSubmissionRepository(
+          new PlatformRepository(),
+        ).nextHistoryCreatedAt(new Date('2026-09-18T09:00:01.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:01.000Z'));
     });
   });

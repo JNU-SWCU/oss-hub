@@ -1,9 +1,10 @@
+import {
+  DeadlineDigestMailService,
+  mailSenderProvider,
+} from './deadline-digest-mail.service';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  DeadlineDigestService,
-  mailSenderProvider,
-} from './deadline-digest.service';
+import { DeadlineDigestService } from './deadline-digest.service';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
@@ -16,7 +17,6 @@ import {
   type MailSender,
 } from './gmail-mail.client';
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../platform/error-code.error';
 import type {
   DeadlineDigestRepositoryPort,
   DeadlineProgramSource,
@@ -48,6 +48,7 @@ describe('deadline digest cron', () => {
         {} as DeadlineDigestRepositoryPort,
         {} as MailSender,
         { FRONTEND_URL: 'https://oss.example' },
+        new DeadlineDigestMailService(),
       );
       scheduler.sendDeadlineDigests = sendDeadlineDigests;
       testingModule = await Test.createTestingModule({
@@ -112,6 +113,7 @@ describe('mail-sender-provider.service', () => {
   ): Promise<MailSender> {
     const moduleRef = await Test.createTestingModule({
       providers: [
+        DeadlineDigestMailService,
         mailSenderProvider,
         { provide: RUNTIME_CONFIG, useValue: snapshot },
       ],
@@ -126,13 +128,13 @@ describe('mail-sender-provider.service', () => {
 
     it('missing MAIL_MODE throws', () => {
       expect(() =>
-        DeadlineDigestService.resolveMailSender(frozenSnapshot({})),
+        new DeadlineDigestMailService().resolveMailSender(frozenSnapshot({})),
       ).toThrow(/MAIL_MODE/);
     });
 
     it('blank MAIL_MODE throws', () => {
       expect(() =>
-        DeadlineDigestService.resolveMailSender(
+        new DeadlineDigestMailService().resolveMailSender(
           frozenSnapshot({ MAIL_MODE: '   ' }),
         ),
       ).toThrow(/MAIL_MODE/);
@@ -140,19 +142,19 @@ describe('mail-sender-provider.service', () => {
 
     it('invalid MAIL_MODE throws', () => {
       expect(() =>
-        DeadlineDigestService.resolveMailSender(
+        new DeadlineDigestMailService().resolveMailSender(
           frozenSnapshot({ MAIL_MODE: 'production' }),
         ),
       ).toThrow(/MAIL_MODE/);
       expect(() =>
-        DeadlineDigestService.resolveMailSender(
+        new DeadlineDigestMailService().resolveMailSender(
           frozenSnapshot({ MAIL_MODE: 'real' }),
         ),
       ).toThrow(/MAIL_MODE/);
     });
 
     it('dry-run with complete credentials resolves LogMailClient', () => {
-      const sender = DeadlineDigestService.resolveMailSender(
+      const sender = new DeadlineDigestMailService().resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
           ...COMPLETE_GMAIL,
@@ -162,7 +164,7 @@ describe('mail-sender-provider.service', () => {
     });
 
     it('dry-run with incomplete credentials resolves LogMailClient', () => {
-      const sender = DeadlineDigestService.resolveMailSender(
+      const sender = new DeadlineDigestMailService().resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'dry-run',
         }),
@@ -170,7 +172,7 @@ describe('mail-sender-provider.service', () => {
       expect(sender).toBeInstanceOf(LogMailClient);
     });
     it('send with complete four credentials resolves GmailMailClient', () => {
-      const sender = DeadlineDigestService.resolveMailSender(
+      const sender = new DeadlineDigestMailService().resolveMailSender(
         frozenSnapshot({
           MAIL_MODE: 'send',
           ...COMPLETE_GMAIL,
@@ -193,13 +195,15 @@ describe('mail-sender-provider.service', () => {
         [missingKey]: undefined,
       };
       expect(() =>
-        DeadlineDigestService.resolveMailSender(frozenSnapshot(overrides)),
+        new DeadlineDigestMailService().resolveMailSender(
+          frozenSnapshot(overrides),
+        ),
       ).toThrow(/GMAIL_/);
     });
 
     it('send with blank Gmail credential throws', () => {
       expect(() =>
-        DeadlineDigestService.resolveMailSender(
+        new DeadlineDigestMailService().resolveMailSender(
           frozenSnapshot({
             MAIL_MODE: 'send',
             ...COMPLETE_GMAIL,
@@ -216,7 +220,7 @@ describe('mail-sender-provider.service', () => {
       ['GMAIL_OAUTH_REFRESH_TOKEN'],
     ] as const)('send with whitespace-only %s throws', (blankKey) => {
       expect(() =>
-        DeadlineDigestService.resolveMailSender(
+        new DeadlineDigestMailService().resolveMailSender(
           frozenSnapshot({
             MAIL_MODE: 'send',
             ...COMPLETE_GMAIL,
@@ -303,9 +307,6 @@ function setup() {
   const findDeadlineProgram: jest.MockedFunction<
     DeadlineDigestRepositoryPort['findDeadlineProgram']
   > = jest.fn().mockResolvedValue(source());
-  const findActiveStaffOrAdmin: jest.MockedFunction<
-    DeadlineDigestRepositoryPort['findActiveStaffOrAdmin']
-  > = jest.fn().mockResolvedValue(true);
   const findNotifiableStaff: jest.MockedFunction<
     DeadlineDigestRepositoryPort['findNotifiableStaff']
   > = jest
@@ -322,7 +323,6 @@ function setup() {
   const repository: jest.Mocked<DeadlineDigestRepositoryPort> = {
     findAutomaticProgramIds,
     findDeadlineProgram,
-    findActiveStaffOrAdmin,
     findNotifiableStaff,
     claimNotification,
     completeNotification,
@@ -333,7 +333,6 @@ function setup() {
   return {
     repository,
     findDeadlineProgram,
-    findActiveStaffOrAdmin,
     findNotifiableStaff,
     claimNotification,
     completeNotification,
@@ -344,6 +343,7 @@ function setup() {
       {
         FRONTEND_URL: 'https://oss.example',
       },
+      new DeadlineDigestMailService(),
     ),
   };
 }
@@ -362,10 +362,9 @@ describe('DeadlineDigestService Program preview and send', () => {
       studentGuidance: 'student-only <note>',
       staffGuidance: 'staff-only note',
     };
-    const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
+    const preview = await service.previewProgram('program-1', NOW, draft);
 
     await service.sendProgramFromPreview(
-      101n,
       'program-1',
       { ...preview, ...draft },
       new Date(NOW.getTime() + 6 * 60_000),
@@ -392,19 +391,18 @@ describe('DeadlineDigestService Program preview and send', () => {
       studentGuidance: 'temporary student guidance',
       staffGuidance: 'temporary staff guidance',
     };
-    const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
+    const preview = await service.previewProgram('program-1', NOW, draft);
     const later = new Date(NOW.getTime() + 10 * 60_000 + 1);
 
     await expect(
       service.sendProgramFromPreview(
-        101n,
         'program-1',
         { ...preview, ...draft },
         later,
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
-    const fresh = await service.previewProgram(101n, 'program-1', later, draft);
-    const independent = await service.previewProgram(101n, 'program-1', later);
+    const fresh = await service.previewProgram('program-1', later, draft);
+    const independent = await service.previewProgram('program-1', later);
 
     expect(fresh.studentPreviews[0]?.text).toContain(draft.studentGuidance);
     expect(fresh.staffPreview?.text).toContain(draft.staffGuidance);
@@ -419,7 +417,7 @@ describe('DeadlineDigestService Program preview and send', () => {
   it('returns rendered preview metadata without private recipient identities or addresses', async () => {
     const { service } = setup();
 
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     expect(preview).toMatchObject({
       applicationCount: 1,
@@ -449,10 +447,9 @@ describe('DeadlineDigestService Program preview and send', () => {
 
   it('recomputes the matching preview, sends multipart mail, and claims the Program-recipient daily key', async () => {
     const { claimNotification, send, service } = setup();
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     const result = await service.sendProgramFromPreview(
-      101n,
       'program-1',
       {
         previewedAt: preview.previewedAt,
@@ -479,10 +476,9 @@ describe('DeadlineDigestService Program preview and send', () => {
 
   it('교직원 요약을 미제출자 명단과 함께 학생과 다른 멱등 키로 보낸다', async () => {
     const { claimNotification, send, service } = setup();
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     const result = await service.sendProgramFromPreview(
-      101n,
       'program-1',
       preview,
       new Date(NOW.getTime() + 60_000),
@@ -535,10 +531,9 @@ describe('DeadlineDigestService Program preview and send', () => {
         },
       ]),
     );
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     await service.sendProgramFromPreview(
-      101n,
       'program-1',
       preview,
       new Date(NOW.getTime() + 60_000),
@@ -557,10 +552,9 @@ describe('DeadlineDigestService Program preview and send', () => {
     findNotifiableStaff.mockResolvedValue([
       { id: 'student-1', notificationEmail: 'student-1@example.com' },
     ]);
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     await service.sendProgramFromPreview(
-      101n,
       'program-1',
       preview,
       new Date(NOW.getTime() + 60_000),
@@ -577,7 +571,7 @@ describe('DeadlineDigestService Program preview and send', () => {
 
   it('교직원 수신자가 바뀌면 확인하지 않은 메일을 보내지 않는다', async () => {
     const { findNotifiableStaff, service, send } = setup();
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     findNotifiableStaff.mockResolvedValue([
       { id: 'staff-1', notificationEmail: 'staff-1@example.com' },
@@ -586,7 +580,6 @@ describe('DeadlineDigestService Program preview and send', () => {
 
     await expect(
       service.sendProgramFromPreview(
-        101n,
         'program-1',
         preview,
         new Date(NOW.getTime() + 60_000),
@@ -597,12 +590,11 @@ describe('DeadlineDigestService Program preview and send', () => {
 
   it('rejects a preview after ten minutes or when canonical eligibility changed', async () => {
     const { claimNotification, findDeadlineProgram, send, service } = setup();
-    const preview = await service.previewProgram(101n, 'program-1', NOW);
+    const preview = await service.previewProgram('program-1', NOW);
 
     claimNotification.mockResolvedValue(false);
     await expect(
       service.sendProgramFromPreview(
-        101n,
         'program-1',
         preview,
         new Date(NOW.getTime() + 10 * 60 * 1000),
@@ -610,7 +602,6 @@ describe('DeadlineDigestService Program preview and send', () => {
     ).resolves.toMatchObject({ duplicateCount: 1 });
     await expect(
       service.sendProgramFromPreview(
-        101n,
         'program-1',
         preview,
         new Date(NOW.getTime() + 10 * 60 * 1000 + 1),
@@ -626,24 +617,12 @@ describe('DeadlineDigestService Program preview and send', () => {
     });
     await expect(
       service.sendProgramFromPreview(
-        101n,
         'program-1',
         preview,
         new Date(NOW.getTime() + 60_000),
       ),
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
     expect(send).not.toHaveBeenCalled();
-  });
-
-  it('returns 403 before reading Program eligibility for a student caller', async () => {
-    const { findActiveStaffOrAdmin, findDeadlineProgram, service } = setup();
-    findActiveStaffOrAdmin.mockResolvedValue(false);
-
-    const result = service.previewProgram(202n, 'program-1', NOW);
-
-    await expect(result).rejects.toBeInstanceOf(DomainException);
-    await expect(result).rejects.toMatchObject({ errorCode: { status: 403 } });
-    expect(findDeadlineProgram).not.toHaveBeenCalled();
   });
 });
 

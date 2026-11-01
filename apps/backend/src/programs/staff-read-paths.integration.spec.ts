@@ -1,3 +1,6 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   AffiliationKind,
@@ -16,8 +19,6 @@ import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -52,14 +53,18 @@ const SEARCH_ONLY_MEMBER_NAME = '검색전용팀원이름';
 const SEARCH_ONLY_MEMBER_NICKNAME = 'search-only-login';
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma);
+const repository = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
+);
 const service = new ApplicationsService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new ApplicationJoinCodeService(
     { TEAM_JOIN_CODE_SECRET: 'synthetic-staff-read-paths-secret' },
     new JoinCodeSecretService(),
@@ -338,7 +343,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
 
   it('기존 목록 projection 의 응답 모양은 그대로다 — 중간 배포에서 옛 화면이 산다', async () => {
     const page = await service.listForProgram(
-      STAFF_GITHUB_ID,
       PROGRAM_ID,
       query({ view: 'default' }),
     );

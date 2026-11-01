@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
@@ -11,18 +12,19 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
+@Injectable()
 export class TeamDeletionScopeRepository {
-  static sameCounts(
+  sameCounts(
     left: TeamDeletionScopeCounts,
     right: TeamDeletionScopeCounts,
   ): boolean {
     return (
-      TeamDeletionScopeRepository.sameCountValues(left, right) &&
+      this.sameCountValues(left, right) &&
       left.scopeFingerprint === right.scopeFingerprint
     );
   }
 
-  static sameCountValues(
+  sameCountValues(
     left: TeamDeletionScopeCounts,
     right: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>,
   ): boolean {
@@ -36,7 +38,7 @@ export class TeamDeletionScopeRepository {
     );
   }
 
-  static async readTeamDeletionScopeCounts(
+  async readTeamDeletionScopeCounts(
     transaction: PrismaTypes.TransactionClient,
     teamId: string,
   ): Promise<TeamDeletionScopeCounts> {

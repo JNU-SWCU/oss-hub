@@ -18,10 +18,12 @@ import {
   AccessRequestsUserHistoryResponseDto,
   AccessRequestsUserPageResponseDto,
 } from './dto/access-requests-user-page-response.dto';
-import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
-type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+type SessionIdentity = Pick<
+  AuthenticatedRequest,
+  'sessionGithubId' | 'principal'
+>;
 
 @Controller('users')
 export class AccessRequestsController {
@@ -29,9 +31,8 @@ export class AccessRequestsController {
     @Inject(AdminAccessService)
     private readonly service: Pick<
       AdminAccessService,
-      'listRequests' | 'get' | 'getHistory'
+      'listRequests' | 'getFromRequest' | 'getHistoryFromRequest'
     >,
-    private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
   @Get('access/requests')
@@ -42,10 +43,7 @@ export class AccessRequestsController {
     @Query() query: AccessRequestsListRequestDto,
   ): Promise<AccessRequestsUserPageResponseDto> {
     return AccessRequestsUserPageResponseDto.from(
-      await this.service.listRequests(
-        request.sessionGithubId,
-        query.toRequestQuery(),
-      ),
+      await this.service.listRequests(request.principal, query),
     );
   }
 
@@ -56,9 +54,8 @@ export class AccessRequestsController {
     @Req() request: SessionIdentity,
     @Param('id') id: string,
   ): Promise<AccessRequestsUserDetailResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserDetailResponseDto.from(
-      await this.service.get(request.sessionGithubId, id),
+      await this.service.getFromRequest(request.principal, id),
     );
   }
 
@@ -70,13 +67,8 @@ export class AccessRequestsController {
     @Param('id') id: string,
     @Query() query: AccessRequestsHistoryRequestDto,
   ): Promise<AccessRequestsUserHistoryResponseDto> {
-    this.adminAccessMutationService.requireValidUserId(id);
     return AccessRequestsUserHistoryResponseDto.from(
-      await this.service.getHistory(
-        request.sessionGithubId,
-        id,
-        query.toQuery(),
-      ),
+      await this.service.getHistoryFromRequest(request.principal, id, query),
     );
   }
 }

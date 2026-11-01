@@ -20,8 +20,4 @@ export class MilestoneDocumentHistoryRequestDto {
   @Min(1)
   @Max(50)
   declare readonly limit?: number;
-
-  toQuery(): { readonly cursor: string | null; readonly limit: number } {
-    return { cursor: this.cursor ?? null, limit: this.limit ?? 20 };
-  }
 }

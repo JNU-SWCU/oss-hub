@@ -46,7 +46,6 @@ import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ApplicationJoinCodeService } from './application-preparations.service';
 import {
   DomainException,
@@ -123,6 +122,13 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
 
 const JOIN_CODE_ATTEMPTS = 5;
 
+export interface CreateApplicationRequest {
+  readonly answers: Readonly<Record<string, unknown>>;
+  readonly teamName?: string | null;
+  readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned?: boolean;
+}
+
 @Injectable()
 export class ApplicationsService {
   private readonly logger = new Logger(ApplicationsService.name);
@@ -130,11 +136,6 @@ export class ApplicationsService {
   constructor(
     private readonly repository: ApplicationsRepository,
     private readonly auditLog: AuditLogService,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     @Inject(ApplicationJoinCodeService)
     private readonly joinCodes: Pick<
       ApplicationJoinCodeService,
@@ -148,6 +149,35 @@ export class ApplicationsService {
 
   private readonly parseProvisionHistoryPayload = (payload: unknown) =>
     this.repositoryProvisionEventService.parseRepositoryProvisionEvent(payload);
+
+  createInputFromRequest(
+    request: CreateApplicationRequest,
+  ): CreateApplicationInput {
+    const trimmedTeamName = request.teamName?.trim();
+
+    return {
+      answers: request.answers,
+      teamName:
+        trimmedTeamName !== undefined && trimmedTeamName.length > 0
+          ? trimmedTeamName
+          : null,
+      applicationTemplateVersion: request.applicationTemplateVersion,
+      isRepositoryPublicationPlanned:
+        request.isRepositoryPublicationPlanned ?? true,
+    };
+  }
+
+  createFromRequest(
+    githubId: bigint,
+    programId: string,
+    request: CreateApplicationRequest,
+  ): Promise<CreatedApplication> {
+    return this.create(
+      githubId,
+      programId,
+      this.createInputFromRequest(request),
+    );
+  }
 
   async create(
     githubId: bigint,
@@ -356,14 +386,43 @@ export class ApplicationsService {
     }
   }
 
-  async listForProgram(
-    sessionGithubId: bigint,
+  listQueryFromRequest(request: ApplicationListQuery): ApplicationListQuery {
+    return {
+      page: request.page,
+      pageSize: request.pageSize,
+      search: request.search.trim(),
+      status: request.status,
+      view: request.view,
+    };
+  }
+
+  async listForProgramView(
     programId: string,
-    query: ApplicationListQuery,
+    request: ApplicationListQuery,
+  ): Promise<
+    | {
+        readonly view: 'team-management';
+        readonly page: TeamManagementListPage;
+      }
+    | { readonly view: 'default'; readonly page: ApplicationListPage }
+  > {
+    if (request.view === 'team-management') {
+      return {
+        view: 'team-management',
+        page: await this.listTeamManagementForProgram(programId, request),
+      };
+    }
+    return {
+      view: 'default',
+      page: await this.listForProgram(programId, request),
+    };
+  }
+
+  async listForProgram(
+    programId: string,
+    request: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+    const query = this.listQueryFromRequest(request);
     await this.requireProgram(programId);
     const page = await this.repository.listApplicationsForProgram(
       programId,
@@ -378,13 +437,10 @@ export class ApplicationsService {
   }
 
   async listTeamManagementForProgram(
-    sessionGithubId: bigint,
     programId: string,
-    query: ApplicationListQuery,
+    request: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+    const query = this.listQueryFromRequest(request);
     await this.requireProgram(programId);
     return this.repository.listTeamManagementForProgram(programId, query);
   }
@@ -396,13 +452,7 @@ export class ApplicationsService {
     }
   }
 
-  async getForStaff(
-    sessionGithubId: bigint,
-    applicationId: string,
-  ): Promise<StaffApplicationDetail> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+  async getForStaff(applicationId: string): Promise<StaffApplicationDetail> {
     const [application, reviewHistory] = await Promise.all([
       this.repository.findApplicationForStaff(applicationId),
       this.repository.listReviewHistory(applicationId),
@@ -420,22 +470,16 @@ export class ApplicationsService {
     };
   }
 
-  async staffSummary(sessionGithubId: bigint): Promise<StaffDashboardSummary> {
-    await this.authority.assertActiveStaff(sessionGithubId, () =>
-      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
-    );
+  async staffSummary(): Promise<StaffDashboardSummary> {
     return this.repository.listStaffDashboardSummary();
   }
 
   async decide(
-    actorGithubId: bigint,
+    actor: { readonly id: string; readonly githubId: bigint },
     applicationId: string,
     input: ApplicationDecisionCommand,
   ): Promise<ApplicationDecisionResult> {
-    const { actorId } = await this.authority.assertActiveStaff(
-      actorGithubId,
-      () => this.error(ApplicationsErrorCode.STAFF_ONLY),
-    );
+    const actorId = actor.id;
     const action =
       this.applicationAnswersService.applicationDecisionAction(input);
     const idempotencyKey = `repository-provision:${applicationId}`;
@@ -492,7 +536,7 @@ export class ApplicationsService {
 
         await this.auditLog.record(
           {
-            actorGithubId,
+            actorGithubId: actor.githubId,
             action: this.auditActionFor(plan.kind),
             targetType: 'APPLICATION',
             targetId: applicationId,

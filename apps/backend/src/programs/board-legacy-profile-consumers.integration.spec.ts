@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
@@ -148,30 +149,36 @@ afterAll(async () => {
 
 it('preserves canonical and legacy fallback projections across all three consumers', async () => {
   const staffInsights = new StaffInsightsRepository(prisma);
-  const board = new BoardRepository(prisma);
+  const board = new BoardRepository(prisma, new PlatformRepository());
 
   const students = await staffInsights.listStudents();
-  const canonicalCandidates =
-    await TeamInvitationsRepository.searchInvitationCandidates(
-      prisma,
-      programId,
-      'canonical-person',
-      legacyUserId,
-    );
-  const staleLegacyCandidates =
-    await TeamInvitationsRepository.searchInvitationCandidates(
-      prisma,
-      programId,
-      'legacy-person',
-      legacyUserId,
-    );
-  const legacyCandidates =
-    await TeamInvitationsRepository.searchInvitationCandidates(
-      prisma,
-      programId,
-      'legacy-only-person',
-      canonicalUserId,
-    );
+  const canonicalCandidates = await new TeamInvitationsRepository(
+    prisma,
+    new PlatformRepository(),
+  ).searchInvitationCandidates(
+    prisma,
+    programId,
+    'canonical-person',
+    legacyUserId,
+  );
+  const staleLegacyCandidates = await new TeamInvitationsRepository(
+    prisma,
+    new PlatformRepository(),
+  ).searchInvitationCandidates(
+    prisma,
+    programId,
+    'legacy-person',
+    legacyUserId,
+  );
+  const legacyCandidates = await new TeamInvitationsRepository(
+    prisma,
+    new PlatformRepository(),
+  ).searchInvitationCandidates(
+    prisma,
+    programId,
+    'legacy-only-person',
+    canonicalUserId,
+  );
   const posts = await board.findByProgramId(programId, 1, 20);
   const detail = await board.findDetailById(postId);
 

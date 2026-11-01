@@ -1,3 +1,7 @@
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
+import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
@@ -14,7 +18,6 @@ import { ApplicationsRepository } from './applications.repository';
 import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const prisma = new PrismaService();
 const namespace = randomBytes(4).toString('hex');
@@ -29,8 +32,18 @@ let oldId = '';
 let targetId = '';
 let caseNumber = 0;
 let targetGithubId = 0n;
-const repository = new StudentRepositoryUrlRepository(prisma);
-const applications = new ApplicationsRepository(prisma);
+const repository = new StudentRepositoryUrlRepository(
+  prisma,
+  new PlatformRepository(),
+  new StudentRepositoryUrlContextRepository(new PlatformRepository()),
+  new RepositoryProvisionGenerationRepository(),
+);
+const applications = new ApplicationsRepository(
+  prisma,
+  new ReviewHistoryWriterRepository(),
+  new RepositoryProvisionGenerationRepository(),
+  new PlatformRepository(),
+);
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
@@ -59,7 +72,6 @@ const service = new StudentRepositoryUrlService(
   { requireCurrent: jest.fn().mockResolvedValue(undefined) },
   audit,
   collectionTrigger,
-  new ProgramRulesService(),
   new RepositoryProvisionEventService(),
 );
 const input = {

@@ -1,3 +1,4 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -20,15 +21,11 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 import type { RepositoryPublishEligibility } from '../github/repository-publish.config';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
-const authority = {
-  assertActiveStaff: jest.fn().mockResolvedValue({ actorId: 'reviewer-1' }),
-};
 
 function reviewDependencies() {
   const target = {
@@ -60,53 +57,6 @@ function reviewDependencies() {
   } as jest.Mocked<Pick<RepositoriesService, 'publish'>>;
   return { target, store, repository, repositories, isSubmissionParticipant };
 }
-
-it.each(['context', 'review', 'publishRepository'] as const)(
-  '%s는 업무 조회와 GitHub 호출 전에 모듈 권한 오류로 거부한다',
-  async (method) => {
-    const { store, repository, repositories } = reviewDependencies();
-    const deniedAuthority = {
-      assertActiveStaff: jest.fn((_actor: bigint, forbidden: () => Error) =>
-        Promise.reject(forbidden()),
-      ),
-    };
-    const service = new SubmissionReviewsService(
-      repository,
-      repositories,
-      deniedAuthority,
-      new RepositoryPublishService(),
-      new RepositoryUrlService(),
-      new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
-    );
-    const result =
-      method === 'context'
-        ? service.context('submission-1', ACTOR_GITHUB_ID)
-        : method === 'review'
-          ? service.review(ACTOR_GITHUB_ID, 'submission-1', {
-              revision: 2,
-              decision: ReviewDecision.APPROVED,
-              comment: null,
-            })
-          : service.publishRepository('repository-1', ACTOR_GITHUB_ID);
-    await expect(result).rejects.toMatchObject({
-      errorCode: {
-        code: 'SUB_002',
-        status: 403,
-        message: '승인된 교직원 또는 관리자만 제출을 검토할 수 있습니다.',
-      },
-    });
-    expect(deniedAuthority.assertActiveStaff).toHaveBeenCalledWith(
-      ACTOR_GITHUB_ID,
-      expect.any(Function),
-    );
-    expect(repository.findReviewContext.mock.calls).toHaveLength(0);
-    expect(repository.findPublishEligibility.mock.calls).toHaveLength(0);
-    expect(repository.withTransaction.mock.calls).toHaveLength(0);
-    expect(store.createReview.mock.calls).toHaveLength(0);
-    expect(repositories.publish).not.toHaveBeenCalled();
-  },
-);
 
 function eligibilityRow(
   eligibility: RepositoryPublishEligibility,
@@ -145,15 +95,14 @@ describe('SubmissionReviewsService.review', () => {
       const service = new SubmissionReviewsService(
         repository,
         repositories,
-        authority,
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new SubmissionFileRulesService(),
+        new SubmissionFileAdmissionService(),
       );
 
       await expect(
-        service.review(ACTOR_GITHUB_ID, 'submission-1', {
+        service.review('reviewer-1', 'submission-1', {
           revision: 2,
           decision,
           comment: '검토 사유',
@@ -185,15 +134,14 @@ describe('SubmissionReviewsService.review', () => {
       const service = new SubmissionReviewsService(
         repository,
         repositories,
-        authority,
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new SubmissionFileRulesService(),
+        new SubmissionFileAdmissionService(),
       );
 
       const result = await service.review(
-        ACTOR_GITHUB_ID,
+        'reviewer-1',
         'submission-1',
         { revision: 2, decision, comment },
         REVIEWED_AT,
@@ -233,14 +181,13 @@ describe('SubmissionReviewsService.review', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
-    const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
+    const review = service.review('reviewer-1', 'submission-1', {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -261,14 +208,13 @@ describe('SubmissionReviewsService.review', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
-    const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
+    const review = service.review('reviewer-1', 'submission-1', {
       revision: 2,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -304,11 +250,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const result = await service.publishRepository(
@@ -344,11 +289,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -380,11 +324,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -416,11 +359,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -453,11 +395,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     const publish = service.publishRepository(
@@ -489,11 +430,10 @@ describe('SubmissionReviewsService.publishRepository', () => {
     const service = new SubmissionReviewsService(
       repository,
       repositories,
-      authority,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new SubmissionFileRulesService(),
+      new SubmissionFileAdmissionService(),
     );
 
     await expect(

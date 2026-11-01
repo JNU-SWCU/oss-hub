@@ -144,11 +144,11 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | `apps/backend/src/programs/program-overview.repository.ts:192`      | U    | program 내 milestone 및 문서 전체                                                |
 | `apps/backend/src/programs/program-overview.repository.ts:317`      | U    | program 내 application 전체                                                      |
 | `apps/backend/src/programs/program-overview.repository.ts:367`      | U    | program 내 application 전체                                                      |
-| `apps/backend/src/programs/program-overview.repository.ts:468`      | U    | program 내 team 및 구성원 전체                                                   |
-| `apps/backend/src/programs/public-eligibility.repository.ts:45`   | B    | 명시 repositoryIds IN; githubRepositoryId unique                                 |
+| `apps/backend/src/programs/program-overview.repository.ts:359`      | U    | program 내 team 및 구성원 전체                                                   |
+| `apps/backend/src/programs/public-eligibility.repository.ts:22`   | B    | 명시 repositoryIds IN; githubRepositoryId unique                                 |
 | `apps/backend/src/programs/public-project-metrics.repository.ts:51`  | B    | 명시 unique githubIds IN; user.githubId unique                                   |
 | `apps/backend/src/programs/public-project-metrics.repository.ts:63`  | B    | 명시 repositoryIds IN; githubRepositoryId unique; nested contribution 별도       |
-| `apps/backend/src/programs/public-project-metrics.repository.ts:118` | U    | repositoryIds만 제한; 기여자×날짜 축의 전체 contribution                         |
+| `apps/backend/src/programs/public-project-metrics.repository.ts:87` | U    | repositoryIds만 제한; 기여자×날짜 축의 전체 contribution                         |
 | `apps/backend/src/programs/public-projects.repository.ts:142`        | U    | 사용자 공개 project 전체; 가입/참여 프로그램 증가에 비례                         |
 | `apps/backend/src/programs/program-activity.repository.ts:37`                       | U    | programIds IN이어도 program별 repository 수에는 상한 없음                        |
 | `apps/backend/src/programs/program-activity.repository.ts:28`                               | U    | program의 application 전체와 관련 repository/구성원                              |
@@ -191,8 +191,8 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | `apps/backend/src/programs/submission-matrix.repository.ts:255`                          | U    | applicationIds만 제한; legacy milestone 축 상한 없음                             |
 | `apps/backend/src/programs/submissions.repository.ts:415`                                | U    | program의 checklist milestone 전체                                               |
 | `apps/backend/src/admin/system-status.repository.ts:254`                            | U    | PRESENT 저장소 전체 + stream 관계; system-status 집계                            |
-| `apps/backend/src/admin/system-status.repository.ts:351`                            | B    | 명시 githubRepositoryIds IN; githubRepositoryId unique, 원본 inventory 크기 상속 |
-| `apps/backend/src/admin/system-status.repository.ts:364`                            | B    | 명시 programIds IN, program PK; 원본 집합 크기 상속                              |
+| `apps/backend/src/admin/system-status.repository.ts:284`                            | B    | 명시 githubRepositoryIds IN; githubRepositoryId unique, 원본 inventory 크기 상속 |
+| `apps/backend/src/admin/system-status.repository.ts:297`                            | B    | 명시 programIds IN, program PK; 원본 집합 크기 상속                              |
 | `apps/backend/src/programs/team-invitations.repository.ts:104`                      | U    | 수신자의 team invitation 전체; 종료/재초대 이력 누적 가능                        |
 | `apps/backend/src/programs/team-invitations.repository.ts:140`                      | U    | 수신자의 pending preparation invitation 전체; 프로그램 축 상한 없음              |
 | `apps/backend/src/programs/team-invitations.repository.ts:195`                      | U    | team의 sent invitation 전체; 정원은 초대 이력 수의 상한 아님                     |
@@ -215,7 +215,7 @@ todo 19에서 프론트엔드 src, 남은 e2e, scripts, deploy, compose, Jenkins
 | Year filter         | EXTRACT(YEAR FROM endAt)와 날짜 범위 조건 비교                                                                | `apps/backend/src/programs/programs.repository.ts:91-102`                                                                                                                                                                                                                                                                                  |
 | History vs AuditLog | 이벤트 의미, 불변성, retention, actor 참조, PII, 도메인 재구성 이력과 횡단 감사의 중복 정리                   | `apps/backend/prisma/schema.prisma:90,395,670,693,831,877,976,1092,1170`. 이 버전은 LoginHistory, ApplicationReviewHistory, MilestoneDocumentSubmissionHistory, MilestoneDocumentReviewHistory, RepositoryIssuanceHistory, GithubUserActivityHistory, GithubIssueHistory, CollectionSweepHistory의 8개 *History + AuditLog. 초안의 7개를 정정         |
 | Collection*Lease    | 획득/갱신/expiry, fencing, 소유자, 재시작 안전성을 구별. 단순 History에 합치지 않음                           | `apps/backend/prisma/schema.prisma:1141,1153`의 CollectionSyncLease, CollectionCutoverLease. 이 버전은 2개 테이블로 초안의 3개를 정정. cursor는 lease와 다른 개념                                                                                                                                                                                     |
-| UserProfile         | 계정/인증 상태와 PII/소속 분리 유지 여부, join 비용, 누락 profile, studentId 유일성, 마이그레이션 호환성 비교 | `apps/backend/prisma/schema.prisma:25-82`, `apps/backend/src/platform/user-profile-read.repository.ts:1`, `apps/backend/src/platform/platform.repository.ts:1`. 분리 근거: `978014b24c3235d183a4443799f6fc75d8cabed6` (feat: 사용자 프로필을 호환 가능한 구조로 분리, 2026-07-31). 1:0..1 호환 추출과 backfill이었으므로 불필요한 join이라는 이유만으로 되돌리지 않음 |
+| UserProfile         | 계정/인증 상태와 PII/소속 분리 유지 여부, join 비용, 누락 profile, studentId 유일성, 마이그레이션 호환성 비교 | `apps/backend/prisma/schema.prisma:25-82`, `apps/backend/src/platform/user-profile-read.config.ts:1`, `apps/backend/src/platform/platform.repository.ts:1`. 분리 근거: `978014b24c3235d183a4443799f6fc75d8cabed6` (feat: 사용자 프로필을 호환 가능한 구조로 분리, 2026-07-31). 1:0..1 호환 추출과 backfill이었으므로 불필요한 join이라는 이유만으로 되돌리지 않음 |
 
 ### Todo 19 삭제 후 테이블 소유권
 

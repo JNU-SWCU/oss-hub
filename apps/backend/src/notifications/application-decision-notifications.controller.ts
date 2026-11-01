@@ -14,7 +14,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ApplicationDecisionNotificationsService } from './application-decision-notifications.service';
 import { ApplicationDecisionNotificationResponseDto } from './dto/application-decision-notification-response.dto';
 import { TeamDeletionNotificationResponseDto } from './dto/team-deletion-notification-response.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -2,7 +2,7 @@ import { Controller, Get, Header, Inject, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { MyRepositoriesResponseDto } from './dto/my-repositories-response.dto';
 import { RepositoriesReadService } from '../github/repositories-read.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

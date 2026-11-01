@@ -4,7 +4,7 @@ import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
 } from './milestone-document-feedback.repository';
-import { MilestoneDocumentRulesService } from '../programs/milestone-document-rules.service';
+import { MilestoneDocumentSubmissionWindowService } from '../programs/milestone-document-submission-window.service';
 
 interface MilestoneDocumentFeedbackItemResult {
   readonly id: string;
@@ -47,7 +47,7 @@ export class MilestoneDocumentFeedbackService {
     >,
     @Inject(MILESTONE_DOCUMENT_FEEDBACK_CLOCK)
     private readonly clock: MilestoneDocumentFeedbackClock,
-    private readonly milestoneDocumentRulesService: MilestoneDocumentRulesService,
+    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
   ) {}
 
   async recentForParticipant(
@@ -73,10 +73,12 @@ export class MilestoneDocumentFeedbackService {
   ): MilestoneDocumentFeedbackItemResult {
     const resubmissionOpen =
       isLatestReview &&
-      this.milestoneDocumentRulesService.isChangeRequestResubmissionOpen({
-        latestDecision: review.decision,
-        submissionStatus: review.submissionStatus,
-      });
+      this.milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen(
+        {
+          latestDecision: review.decision,
+          submissionStatus: review.submissionStatus,
+        },
+      );
     return {
       id: review.id,
       decision: review.decision,

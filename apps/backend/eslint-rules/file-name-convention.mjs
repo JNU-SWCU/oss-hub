@@ -7,6 +7,7 @@ const rootSuffixes = [
   '.repository',
   '.guard',
   '.interceptor',
+  '.decorator',
   '.filter',
   '.client',
   '.error',

@@ -1,3 +1,8 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -15,7 +20,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -24,18 +28,33 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const teamsService = new ProgramTeamsService(
-  new ProgramTeamsRepository(prisma),
+  new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ),
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogMetadataService(),
   ),
-  new ProgramTeamDeletionRepository(prisma),
-  { assertActiveStaff: () => Promise.resolve({ actorId: 'synthetic-staff' }) },
+  new ProgramTeamDeletionRepository(
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new ProgramRulesService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
 const prefix = `staff-evidence-${randomUUID()}`;
 const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
@@ -181,10 +200,11 @@ it('projects only linked repository facts inside the program window while retain
     ],
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    programId,
-    teamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ).findStaffTeamDetail(programId, teamId);
 
   expect(detail?.repositoryContributions?.members).toEqual([
     {
@@ -200,7 +220,7 @@ it('projects only linked repository facts inside the program window while retain
 
   expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
   expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
-  const view = await teamsService.getForStaff(githubId, programId, teamId);
+  const view = await teamsService.getForStaff(programId, teamId);
   expect(view.repositoryUrlHistory.items).toHaveLength(1);
   expect(view.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
     'actor-before-rename',
@@ -300,7 +320,11 @@ it('shows the outsider totals only while they were counted for this program wind
       observedAt: new Date('2026-09-01T00:00:00Z'),
     },
   });
-  const teams = new ProgramTeamsRepository(prisma);
+  const teams = new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  );
   const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
 
   expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
@@ -398,10 +422,11 @@ it('reads contributions of a program that never set an end date', async () => {
     },
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    scopedProgramId,
-    scopedTeamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(detail?.repositoryContributions).toMatchObject({
     window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
@@ -424,7 +449,7 @@ it('counts only the currently linked repository in program totals after a relink
 
   const [summary] = await new ProgramActivitySummaryService(
     new ProgramActivitySummaryRepository(prisma),
-    new ProgramActivityRepository(prisma),
+    new ProgramActivityRepository(prisma, new PlatformRepository()),
   ).summarize([programId]);
 
   expect(summary).toMatchObject({
@@ -511,10 +536,11 @@ it('counts issues for team members, so an issue-only member has observations', a
     ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
   });
 
-  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
-    scopedProgramId,
-    scopedTeamId,
-  );
+  const detail = await new ProgramTeamsRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+  ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(
     [...(detail?.repositoryContributions?.members ?? [])].sort((a, b) =>

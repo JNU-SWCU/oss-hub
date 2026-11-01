@@ -29,7 +29,7 @@ describe('readProgramDeletionScopeCounts', () => {
     } as unknown as PrismaService;
 
     await expect(
-      ProgramDeletionScopeRepository.readProgramDeletionScopeCounts(
+      new ProgramDeletionScopeRepository().readProgramDeletionScopeCounts(
         transaction,
         'synthetic-program',
       ),

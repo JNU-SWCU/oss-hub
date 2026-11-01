@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { HttpSecurityModule } from '../platform/http-security.module';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { UserAccessController } from './user-access.controller';
@@ -13,7 +12,7 @@ import {
 } from './system-status.service';
 
 @Module({
-  imports: [HttpSecurityModule, GithubModule, UsersModule],
+  imports: [GithubModule, UsersModule],
   controllers: [
     UserAccessController,
     AuditLogController,

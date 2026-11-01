@@ -82,11 +82,7 @@ it('비활성 계정은 교직원 요약과 학생 리마인더 어느 쪽도 �
 it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async () => {
   const preview = await harness
     .service(new RecordingMailSender())
-    .previewProgram(
-      DIGEST_FIXTURE.staffOnGithub,
-      DIGEST_FIXTURE.notifyProgram,
-      DIGEST_FIXTURE.now,
-    );
+    .previewProgram(DIGEST_FIXTURE.notifyProgram, DIGEST_FIXTURE.now);
 
   expect(preview).toMatchObject({
     applicationCount: 3,

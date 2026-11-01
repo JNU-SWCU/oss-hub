@@ -147,8 +147,51 @@ export interface DocumentDeliveryCoordinate {
   readonly firstSubmittedAt: Date;
 }
 
+@Injectable()
+export class MilestoneDocumentCollectionReadRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  withSnapshot<T>(
+    operation: (
+      store: MilestoneDocumentCollectionReadStoreRepository,
+    ) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(
+      (transaction) =>
+        operation(
+          new MilestoneDocumentCollectionReadStoreRepository(transaction, this),
+        ),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
+  readonly milestoneDocumentHistoryDescendingOrderBy = [
+    { createdAt: 'desc' },
+    { id: 'desc' },
+  ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+
+  readonly boundedReviewHistoryQuery = {
+    orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+    take: 50,
+    select: {
+      id: true,
+      decision: true,
+      comment: true,
+      reviewedAt: true,
+
+      resubmissionDueAt: true,
+      reviewer: { select: { nickname: true } },
+      submissionHistory: { select: { revision: true } },
+    },
+  } satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
+}
+
+@Injectable()
 export class MilestoneDocumentCollectionReadStoreRepository {
-  constructor(private readonly transaction: Prisma.TransactionClient) {}
+  constructor(
+    private readonly transaction: Prisma.TransactionClient,
+    private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
+  ) {}
 
   findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
     return this.transaction.milestone.findUnique({
@@ -279,7 +322,8 @@ export class MilestoneDocumentCollectionReadStoreRepository {
             },
           },
           reviewHistories: {
-            ...MilestoneDocumentCollectionReadRepository.boundedReviewHistoryQuery,
+            ...this.milestoneDocumentCollectionReadRepository
+              .boundedReviewHistoryQuery,
             take: 1,
           },
         },
@@ -309,43 +353,4 @@ export class MilestoneDocumentCollectionReadStoreRepository {
       };
     });
   }
-}
-
-@Injectable()
-export class MilestoneDocumentCollectionReadRepository {
-  constructor(private readonly prisma: PrismaService) {}
-
-  withSnapshot<T>(
-    operation: (
-      store: MilestoneDocumentCollectionReadStoreRepository,
-    ) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction(
-      (transaction) =>
-        operation(
-          new MilestoneDocumentCollectionReadStoreRepository(transaction),
-        ),
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-    );
-  }
-
-  static readonly milestoneDocumentHistoryDescendingOrderBy = [
-    { createdAt: 'desc' },
-    { id: 'desc' },
-  ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
-
-  static readonly boundedReviewHistoryQuery = {
-    orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-    take: 50,
-    select: {
-      id: true,
-      decision: true,
-      comment: true,
-      reviewedAt: true,
-
-      resubmissionDueAt: true,
-      reviewer: { select: { nickname: true } },
-      submissionHistory: { select: { revision: true } },
-    },
-  } satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
 }

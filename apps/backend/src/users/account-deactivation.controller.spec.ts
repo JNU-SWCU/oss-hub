@@ -1,3 +1,4 @@
+import { AccountDeactivationService } from './account-deactivation.service';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { AccountStatus } from '@prisma/client';
@@ -28,11 +29,14 @@ describe('AccountDeactivationController', () => {
     });
     const setHeader = jest.fn();
     const controller = new AccountDeactivationController(
-      { deactivate },
-      {
-        useSecureCookies: true,
-      } as AuthConfig,
-      new AuthSessionService(),
+      Object.assign(
+        Object.create(AccountDeactivationService.prototype) as object,
+        {
+          deactivate,
+          authConfig: { useSecureCookies: true } as AuthConfig,
+          authSessionService: new AuthSessionService(),
+        },
+      ) as unknown as AccountDeactivationService,
     );
 
     await expect(

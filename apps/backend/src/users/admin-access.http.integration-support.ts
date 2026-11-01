@@ -1,3 +1,4 @@
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
@@ -20,7 +21,10 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  databaseSessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -43,6 +47,7 @@ export class AdminAccessHttpHarness {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController, AccessRequestsController],
       providers: [
+        ...STATELESS_PROVIDERS,
         AdminAccessService,
         AdminAccessRepository,
         AdminAccessMutationService,
@@ -68,9 +73,8 @@ export class AdminAccessHttpHarness {
         {
           provide: AuthService,
           useValue: {
-            getMe: jest
-              .fn()
-              .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+            getMe: (githubId: bigint) =>
+              databaseSessionPrincipal(this.prisma, githubId),
           },
         },
       ],

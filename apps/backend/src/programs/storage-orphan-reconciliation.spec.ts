@@ -444,34 +444,3 @@ describe('PrismaStorageReferenceRepository', () => {
     });
   });
 });
-
-describe('reconcile-storage-orphans CLI arguments', () => {
-  it('인자 없음과 --report는 report이고 삭제는 --delete만 허용한다', () => {
-    expect(
-      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode(
-        [],
-      ),
-    ).toBe('report');
-    expect(
-      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
-        '--report',
-      ]),
-    ).toBe('report');
-    expect(
-      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
-        '--delete',
-      ]),
-    ).toBe('delete');
-    expect(() =>
-      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
-        '--report',
-        '--delete',
-      ]),
-    ).toThrow('Exactly one mode');
-    expect(() =>
-      StorageOrphanReconciliationService.parseStorageOrphanReconciliationMode([
-        '--force',
-      ]),
-    ).toThrow('Exactly one mode');
-  });
-});

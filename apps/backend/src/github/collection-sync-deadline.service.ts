@@ -1,5 +1,7 @@
+import { Injectable } from '@nestjs/common';
 import { RunDeadlineError } from './collection-inventory.error';
 
+@Injectable()
 export class CollectionSyncDeadlineService {
   constructor(private readonly now: () => Date) {}
 

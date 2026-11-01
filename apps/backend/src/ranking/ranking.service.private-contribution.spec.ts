@@ -1,3 +1,4 @@
+import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { ActivityVisibility } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
@@ -46,6 +47,7 @@ function serviceWith(rows: readonly ActivityRow[]): RankingService {
   return new RankingService(
     new RankingRepository(prisma),
     new RankingYearService(),
+    new CollectionScheduleService(),
   );
 }
 

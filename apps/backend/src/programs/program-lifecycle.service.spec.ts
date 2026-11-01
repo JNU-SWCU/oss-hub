@@ -1,3 +1,5 @@
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { AccountStatus, Prisma, ProgramLifecycle } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
@@ -133,9 +135,13 @@ function createDeleteService(
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramLifecycleService(
-    new ProgramLifecycleRepository(prisma),
+    new ProgramLifecycleRepository(
+      prisma,
+      new ProgramDeletionScopeRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,
@@ -285,36 +291,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
       targetType: 'PROGRAM',
       targetId: 'program-1',
     });
-  });
-
-  it('교직원·관리자 접근이 모두 없으면(학생) 403을 받고 조회조차 하지 않는다', async () => {
-    const { service, programFindUnique } = createDeleteService({
-      user: {
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-    });
-
-    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-    });
-    expect(programFindUnique).not.toHaveBeenCalled();
-  });
-
-  it('교직원 접근이 있어도 계정이 비활성이면 403을 받고 조회조차 하지 않는다', async () => {
-    const { service, programFindUnique } = createDeleteService({
-      user: {
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.DEACTIVATED,
-      },
-    });
-
-    await expect(service.delete(1001n, 'program-1')).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-    });
-    expect(programFindUnique).not.toHaveBeenCalled();
   });
 
   it('STAFF의 일반 삭제도 자식 데이터가 있으면 409 PRG_012로 막히고 감사 로그를 남기지 않는다', async () => {
@@ -675,9 +651,13 @@ function createPurgeService(
   } as unknown as PrismaService;
   const auditLog = { record } as unknown as AuditLogService;
   const service = new ProgramLifecycleService(
-    new ProgramLifecycleRepository(prisma),
+    new ProgramLifecycleRepository(
+      prisma,
+      new ProgramDeletionScopeRepository(),
+    ),
     auditLog,
     new AuditLogMetadataService(),
+    new PrismaSerializationRetryRepository(),
   );
   return {
     service,
@@ -1044,40 +1024,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       targetType: 'PROGRAM',
       targetId: 'program-1',
     });
-  });
-
-  it('교직원·관리자 접근이 모두 없으면(학생) purge 시도 시 403 PRG_011을 받고 프로그램을 조회하지 않는다', async () => {
-    const { service, programFindUnique } = createPurgeService({
-      user: {
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-    });
-
-    await expect(
-      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
-    ).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-    });
-    expect(programFindUnique).not.toHaveBeenCalled();
-  });
-
-  it('교직원 접근이 있어도 계정이 비활성이면 purge는 403 PRG_011이다', async () => {
-    const { service, programFindUnique } = createPurgeService({
-      user: {
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.DEACTIVATED,
-      },
-    });
-
-    await expect(
-      service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
-    ).rejects.toMatchObject({
-      errorCode: PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_DELETE_FORBIDDEN],
-    });
-    expect(programFindUnique).not.toHaveBeenCalled();
   });
 
   it('STAFF의 purge도 expectedScope가 어긋나면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {

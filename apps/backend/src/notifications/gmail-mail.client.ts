@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
 
 export interface DeadlineDigestMail {
@@ -21,6 +21,7 @@ export interface GmailSenderConfig {
   readonly refreshToken: string;
 }
 
+@Injectable()
 export class GmailMailClient implements MailSender {
   private readonly transporter: Transporter;
 
@@ -48,6 +49,7 @@ export class GmailMailClient implements MailSender {
   }
 }
 
+@Injectable()
 export class LogMailClient implements MailSender {
   private readonly logger = new Logger('LogMailSender');
 

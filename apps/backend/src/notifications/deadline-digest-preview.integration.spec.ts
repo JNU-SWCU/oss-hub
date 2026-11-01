@@ -15,7 +15,10 @@ import {
   DIGEST_FIXTURE,
   RecordingMailSender,
 } from './deadline-digest.integration-support';
-import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
+import {
+  protectedRouteGuardStub,
+  databaseSessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -33,10 +36,14 @@ beforeAll(async () => {
     controllers: [DeadlineDigestController],
     providers: [
       protectedRouteGuardStub({
-        canActivate(context: ExecutionContext) {
-          context
+        async canActivate(context: ExecutionContext) {
+          const request = context
             .switchToHttp()
-            .getRequest<AuthenticatedRequest>().sessionGithubId = githubId;
+            .getRequest<AuthenticatedRequest>();
+          request.sessionGithubId = githubId;
+          Object.assign(request, {
+            principal: await databaseSessionPrincipal(harness.prisma, githubId),
+          });
           return true;
         },
       }),

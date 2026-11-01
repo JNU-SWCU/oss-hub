@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
@@ -45,9 +46,12 @@ describe('팀 초대 대상 자격', () => {
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
     const repository = Object.assign(
-      new TeamInvitationsRepository({
-        user: { findUnique: jest.fn().mockResolvedValue(user) },
-      } as unknown as PrismaService),
+      new TeamInvitationsRepository(
+        {
+          user: { findUnique: jest.fn().mockResolvedValue(user) },
+        } as unknown as PrismaService,
+        new PlatformRepository(),
+      ),
       {
         findUserIdByGithubId: jest.fn().mockResolvedValue(leaderId),
         findTeamContext: jest.fn().mockResolvedValue({
@@ -83,9 +87,12 @@ describe('팀 초대 대상 자격', () => {
 
   it('후보 검색은 ACTIVE STUDENT만 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
-    const repository = new TeamInvitationsRepository({
-      user: { findMany },
-    } as unknown as PrismaService);
+    const repository = new TeamInvitationsRepository(
+      {
+        user: { findMany },
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
 
     await repository.searchCandidates(programId, 'octo', leaderId);
 
@@ -155,10 +162,13 @@ describe('팀 초대 대상 자격', () => {
       },
       $queryRaw: jest.fn().mockResolvedValue([{ id: teamId }]),
     };
-    const repository = new TeamInvitationsRepository({
-      $transaction: <T>(operation: (client: typeof tx) => Promise<T>) =>
-        operation(tx),
-    } as unknown as PrismaService);
+    const repository = new TeamInvitationsRepository(
+      {
+        $transaction: <T>(operation: (client: typeof tx) => Promise<T>) =>
+          operation(tx),
+      } as unknown as PrismaService,
+      new PlatformRepository(),
+    );
 
     const outcome = await repository.withAcceptTransaction(
       'cuid-synthetic-invitation',

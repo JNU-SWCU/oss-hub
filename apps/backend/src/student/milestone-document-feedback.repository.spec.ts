@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
@@ -22,7 +23,10 @@ function repositoryWith(
     milestoneDocumentReviewHistory: { findMany },
   } as unknown as PrismaService;
   return {
-    repository: new MilestoneDocumentFeedbackRepository(prisma),
+    repository: new MilestoneDocumentFeedbackRepository(
+      prisma,
+      new PlatformRepository(),
+    ),
     findUnique,
     findMany,
   };

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { CollectionProvidersService } from './collection-providers.service';
+import { COLLECTION_ACTIVITY_PROVIDERS } from './collection-public-token.service';
 import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 
 @Module({
   providers: [
     CollectionUserActivityRepository,
-    ...CollectionProvidersService.activityProviders,
+    ...COLLECTION_ACTIVITY_PROVIDERS,
   ],
   exports: [CollectionUserActivityService],
 })

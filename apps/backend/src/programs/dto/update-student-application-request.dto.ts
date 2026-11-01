@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import { IsDefined, IsInt, IsObject } from 'class-validator';
-import { type UpdateStudentApplicationInput } from '../applications.repository';
 
 export class UpdateStudentApplicationRequestDto {
   @IsDefined()
@@ -10,11 +9,4 @@ export class UpdateStudentApplicationRequestDto {
   @Type(() => Number)
   @IsInt()
   declare readonly applicationTemplateVersion: number;
-
-  toInput(): UpdateStudentApplicationInput {
-    return {
-      answers: this.answers,
-      applicationTemplateVersion: this.applicationTemplateVersion,
-    };
-  }
 }

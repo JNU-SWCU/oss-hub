@@ -25,14 +25,20 @@ import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-req
 import { TeamActivityResponseDto } from './dto/team-activity-response.dto';
 import {
   DeleteTeamResponseDto,
-  ProgramTeamResponseDto,
   RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
 } from './dto/program-team-response.dto';
 import { ProgramTeamsService } from './program-teams.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
+import { DomainException } from '../platform/error-code.error';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffOnly = () =>
+  new DomainException(TEAMS_ERROR_CODES[TeamsErrorCode.STAFF_ONLY]);
 
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -46,10 +52,9 @@ export class ProgramTeamsController {
       | 'listForStaff'
       | 'getForStaff'
       | 'getActivity'
-      | 'getRepositoryUrlHistory'
-      | 'repositoryUrlHistoryCursorFromRequest'
+      | 'getRepositoryUrlHistoryFromRequest'
       | 'rename'
-      | 'deleteForStaff'
+      | 'deleteForStaffFromRequest'
       | 'removeMemberForStaff'
       | 'transferLeaderForStaff'
     >,
@@ -60,11 +65,9 @@ export class ProgramTeamsController {
   async me(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
-  ): Promise<MyProgramTeamResponseDto<ProgramTeamResponseDto>> {
+  ): Promise<MyProgramTeamResponseDto> {
     const team = await this.service.getMe(request.sessionGithubId, programId);
-    return MyProgramTeamResponseDto.from(
-      team ? ProgramTeamResponseDto.from(team) : null,
-    );
+    return MyProgramTeamResponseDto.from(team);
   }
 
   @Delete('me')
@@ -92,28 +95,24 @@ export class ProgramTeamsController {
 
   @Get()
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async list(
-    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
   ): Promise<StaffProgramTeamResponseDto[]> {
-    return StaffProgramTeamResponseDto.fromAll(
-      await this.service.listForStaff(request.sessionGithubId, programId),
+    return (await this.service.listForStaff(programId)).map((view) =>
+      StaffProgramTeamResponseDto.from(view),
     );
   }
 
   @Get(':teamId')
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
   async detail(
-    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
   ): Promise<StaffTeamDetailResponseDto> {
     return StaffTeamDetailResponseDto.from(
-      await this.service.getForStaff(
-        request.sessionGithubId,
-        programId,
-        teamId,
-      ),
+      await this.service.getForStaff(programId, teamId),
     );
   }
 
@@ -142,11 +141,11 @@ export class ProgramTeamsController {
     @Query() query: RepositoryUrlHistoryRequestDto,
   ): Promise<RepositoryUrlHistoryResponseDto> {
     return RepositoryUrlHistoryResponseDto.from(
-      await this.service.getRepositoryUrlHistory(
+      await this.service.getRepositoryUrlHistoryFromRequest(
         request.sessionGithubId,
         programId,
         teamId,
-        this.service.repositoryUrlHistoryCursorFromRequest(query),
+        query,
       ),
     );
   }
@@ -216,12 +215,11 @@ export class ProgramTeamsController {
     @Body() body: DeleteTeamRequestDto,
   ): Promise<DeleteTeamResponseDto> {
     return DeleteTeamResponseDto.from(
-      await this.service.deleteForStaff(
+      await this.service.deleteForStaffFromRequest(
         request.sessionGithubId,
         programId,
         teamId,
-        body.expectedScope,
-        body.notificationMessage ?? null,
+        body,
       ),
     );
   }

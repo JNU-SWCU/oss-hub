@@ -1,8 +1,6 @@
-import {
-  extractProgramNotice,
-  parseProgramNoticeImageUrl,
-  parseProgramNoticeUrl,
-} from './program-notice-fetch.client';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+
+const client = new ProgramNoticeFetchClient();
 
 describe('program-notice-extraction', () => {
   const url = new URL(
@@ -15,7 +13,7 @@ describe('program-notice-extraction', () => {
   }
 
   it('keeps source paragraph, heading, line break and inline entity boundaries', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<h2>Overview</h2><p> First&nbsp; paragraph <strong>bold</strong>. </p><p>Second<br>line &amp; details.</p>',
       ),
@@ -28,7 +26,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps author spacers and section headings as single blank lines while paragraphs stay compact', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<p>Intro</p><p>Line two</p><h3>Schedule</h3><ul><li><p>Day one</p></li><li>Day two</li></ul><p>After list</p><p>&nbsp;</p><p>&nbsp;</p><p>Note</p><hr><p>Contact<br><br>Office</p>',
       ),
@@ -40,7 +38,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps ordered, unordered and nested list order without Markdown formatting', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<ol start="3"><li>First<ul><li>Nested A</li><li>Nested B</li></ul></li><li>Second</li></ol>',
       ),
@@ -52,7 +50,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps table column labels associated with each row value', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th>Day</th><th>Activity</th></tr><tr><td>One</td><td>Session A</td></tr><tr><td>Two</td><td>Session B</td></tr></table>',
       ),
@@ -64,7 +62,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps label/value table rows readable', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th>Audience</th><td>Everyone</td></tr><tr><th>Schedule</th><td>Day one<br>Day two</td></tr></table>',
       ),
@@ -76,7 +74,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps safe relative link targets as plain text and warns about registration instructions', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<p>신청: <a href="/education_single/?post_id=42">등록 안내</a></p>',
       ),
@@ -89,7 +87,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('discards executable content and unsafe link targets, keeping text only', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<script>alert(1)</script><style>body{color:red}</style><nav>Navigation</nav><iframe>hidden</iframe><p onclick="bad()">Safe <a href="javascript:alert(1)">label</a><img src="x" onerror="bad()"></p>',
       ),
@@ -100,7 +98,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('extracts deduplicated body posters while excluding OG logo and unsupported images', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         `<p>Text</p><img src="${image}"><img src="${image}"><img src="/wp-content/uploads/kboard_attached/1/209901/second.png"><img src="https://evil.example/poster.jpg">`,
       ),
@@ -114,7 +112,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('supports an image-only notice without inventing a description', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(`<p>&nbsp;</p><img src="${image}">`),
       url,
     );
@@ -123,7 +121,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('does not invent section breaks from dates, URLs or punctuation', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<p>Day: 2099-01-01 13:40–17:00, version 1.2/3.</p>'),
       url,
     );
@@ -139,12 +137,12 @@ describe('program-notice-extraction', () => {
   ])(
     'fails explicitly on missing structure, empty body or overlong content',
     (html) => {
-      expect(() => extractProgramNotice(html, url)).toThrow();
+      expect(() => client.extractProgramNotice(html, url)).toThrow();
     },
   );
 
   it('collapses excessive empty blocks while retaining paragraph breaks', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<p> One \r\n inline </p><p>&nbsp;</p><br><p> Two </p>'),
       url,
     );
@@ -152,7 +150,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('collapses incidental spaces across inline elements without flattening paragraphs', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<p>One <b> two </b> three</p><p>Four</p>'),
       url,
     );
@@ -160,7 +158,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('retains header-only tables as source text', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<table><tr><th>Day</th><th>Activity</th></tr></table>'),
       url,
     );
@@ -168,7 +166,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps spanning tables as source rows instead of guessing column labels', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th>Day</th><th colspan="2">Program</th></tr><tr><td rowspan="2">One</td><td>AM</td><td>Session A</td></tr><tr><td>PM</td><td>Session B</td></tr></table>',
       ),
@@ -180,7 +178,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('renders nested table rows once inside their cell without outer labels', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th>Item</th><th>Detail</th></tr><tr><td>Fee</td><td><table><tr><td>Student</td><td>Free</td></tr><tr><td>Staff</td><td>Paid</td></tr></table></td></tr></table>',
       ),
@@ -192,7 +190,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps caption and sectioned simple table labels while skipping hidden rows', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><caption>Schedule</caption><thead><tr><th>Day</th><th>Activity</th></tr></thead><tbody><tr><td rowspan="1">One</td><td>Session A</td></tr><tr style="display:none"><td>Hidden</td><td>Row</td></tr></tbody></table>',
       ),
@@ -202,7 +200,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('resolves long line-break runs within the default test timeout', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(`<p>a${' <br>'.repeat(49_000)}b</p>`),
       url,
     );
@@ -212,7 +210,10 @@ describe('program-notice-extraction', () => {
   it('rejects deeply nested markup while parsing instead of after a quadratic parse', () => {
     let error: unknown;
     try {
-      extractProgramNotice(document(`${'<ul><li>'.repeat(40_000)}x`), url);
+      client.extractProgramNotice(
+        document(`${'<ul><li>'.repeat(40_000)}x`),
+        url,
+      );
     } catch (caught) {
       error = caught;
     }
@@ -222,7 +223,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('does not pair row labels with values when the table has spanning cells', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th rowspan="2">Schedule</th><td>Day one</td></tr><tr><th>Place</th><td>Hall</td></tr></table>',
       ),
@@ -232,7 +233,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('does not indent a line because of source whitespace after a break or block', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<p>One<br> Two</p><div>Three</div> Four'),
       url,
     );
@@ -240,7 +241,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps visible text inside lists and skips hidden list items', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<ul><p>Intro</p><li>Visible</li><li hidden>Hidden</li><li style="display:none">Also hidden</li></ul>',
       ),
@@ -250,7 +251,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('keeps multi-line header cells on one line and skips blank header labels', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         '<table><tr><th>Day<br>Part</th><th></th><th>Activity</th></tr><tr><td>One</td><td>AM</td><td>Session A</td></tr></table>',
       ),
@@ -262,7 +263,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('does not append link targets for image-only or same-page links', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(
         `<p><a href="${image}"><img src="${image}"></a></p><p><a href="#top">맨 위로</a></p>`,
       ),
@@ -273,7 +274,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('treats zero-width-space paragraphs as section spacers', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document('<p>One</p><p>&#8203;</p><p>Two</p>'),
       url,
     );
@@ -281,7 +282,7 @@ describe('program-notice-extraction', () => {
   });
 
   it('uses a lazy poster URL when the src is an unsupported placeholder', () => {
-    const result = extractProgramNotice(
+    const result = client.extractProgramNotice(
       document(`<img src="data:image/gif;base64,AAAA" data-src="${image}">`),
       url,
     );
@@ -294,7 +295,7 @@ describe('program-notice-url', () => {
 
   it('canonicalizes a supported notice query order', () => {
     expect(
-      parseProgramNoticeUrl(
+      client.parseProgramNoticeUrl(
         'https://sojoong.kr/notice/notice-board/?mod=document&uid=123',
       ).href,
     ).toBe(source);
@@ -324,12 +325,12 @@ describe('program-notice-url', () => {
     source + '\n',
     source.replace('sojoong', 'so\tjoong'),
   ])('rejects unsupported or ambiguous notice URL %s', (input) => {
-    expect(() => parseProgramNoticeUrl(input)).toThrow();
+    expect(() => client.parseProgramNoticeUrl(input)).toThrow();
   });
 
   it('resolves a relative poster from the supported notice body', () => {
     expect(
-      parseProgramNoticeImageUrl(
+      client.parseProgramNoticeImageUrl(
         '/wp-content/uploads/kboard_attached/1/209901/poster.jpg',
         new URL(source),
       )?.href,
@@ -350,12 +351,12 @@ describe('program-notice-url', () => {
     'https://user:@sojoong.kr/wp-content/uploads/kboard_attached/poster.jpg',
     'data:image/png;base64,AAAA',
   ])('rejects an unsafe or unsupported poster %s', (input) => {
-    expect(parseProgramNoticeImageUrl(input)).toBeNull();
+    expect(client.parseProgramNoticeImageUrl(input)).toBeNull();
   });
 
   it('supports normal WordPress body poster uploads', () => {
     expect(
-      parseProgramNoticeImageUrl(
+      client.parseProgramNoticeImageUrl(
         'https://sojoong.kr/wp-content/uploads/2030/01/poster.jpg',
       )?.href,
     ).toBe('https://sojoong.kr/wp-content/uploads/2030/01/poster.jpg');
@@ -363,7 +364,7 @@ describe('program-notice-url', () => {
 
   it('canonicalizes UTF-8 poster filenames without losing Korean or spaces', () => {
     expect(
-      parseProgramNoticeImageUrl(
+      client.parseProgramNoticeImageUrl(
         'https://sojoong.kr/wp-content/uploads/2030/01/%ED%95%A9%EC%84%B1%20%ED%8F%AC%EC%8A%A4%ED%84%B0.jpg',
       )?.href,
     ).toBe(
@@ -373,7 +374,7 @@ describe('program-notice-url', () => {
 
   it('rejects a raw non-ASCII poster name whose canonical form exceeds the cover column', () => {
     expect(
-      parseProgramNoticeImageUrl(
+      client.parseProgramNoticeImageUrl(
         `https://sojoong.kr/wp-content/uploads/2030/01/${'가'.repeat(300)}.jpg`,
       ),
     ).toBeNull();
@@ -385,7 +386,7 @@ describe('program-notice-url', () => {
   ])(
     'rejects paths or fragments normalized away by the URL parser: %s',
     (input) => {
-      expect(() => parseProgramNoticeUrl(input)).toThrow();
+      expect(() => client.parseProgramNoticeUrl(input)).toThrow();
     },
   );
 
@@ -393,7 +394,7 @@ describe('program-notice-url', () => {
     'rejects encoded poster path ambiguity %s',
     (segment) => {
       expect(
-        parseProgramNoticeImageUrl(
+        client.parseProgramNoticeImageUrl(
           `https://sojoong.kr/wp-content/uploads/${segment}/poster.jpg`,
         ),
       ).toBeNull();

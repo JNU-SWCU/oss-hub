@@ -35,6 +35,10 @@ describe('AdminProfileService.patchProfile', () => {
           new UserProfileService(),
         ),
       ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
     );
 
     await expect(
@@ -78,6 +82,10 @@ describe('AdminProfileService.patchProfile', () => {
             new UserProfileService(),
           ),
         ),
+        new AdminAccessMutationService(
+          new AuditLogMetadataService(),
+          new UserProfileService(),
+        ),
       );
 
       await expect(
@@ -107,6 +115,10 @@ describe('AdminProfileService.patchProfile', () => {
           new AuditLogMetadataService(),
           new UserProfileService(),
         ),
+      ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
       ),
     );
 

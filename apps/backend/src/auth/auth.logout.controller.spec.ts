@@ -1,3 +1,4 @@
+import { AuthFlowService } from './auth-flow.service';
 import { AccountStatus } from '@prisma/client';
 import type { Response } from 'express';
 import { LoginHistoryService, AuthService } from './auth.service';
@@ -55,13 +56,15 @@ describe('AuthController logout', () => {
   const incrementSessionVersion = jest.fn();
   const recordLogout = jest.fn();
   const controller = new AuthController(
-    { findMe, incrementSessionVersion } as unknown as AuthService,
-    {
-      sessionSecret,
-      useSecureCookies: true,
-    } as unknown as AuthConfig,
-    { recordLogout } as unknown as LoginHistoryService,
-    new AuthSessionService(),
+    new AuthFlowService(
+      { findMe, incrementSessionVersion } as unknown as AuthService,
+      {
+        sessionSecret,
+        useSecureCookies: true,
+      } as unknown as AuthConfig,
+      { recordLogout } as unknown as LoginHistoryService,
+      new AuthSessionService(),
+    ),
   );
 
   beforeEach(() => {

@@ -183,7 +183,10 @@ function lockTeamRow(
 
 @Injectable()
 export class TeamInvitationsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findUserIdByGithubId(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findUnique({
@@ -348,7 +351,7 @@ export class TeamInvitationsRepository {
     query: string,
     excludeUserId: string,
   ): Promise<InvitationCandidateRecord[]> {
-    return TeamInvitationsRepository.searchInvitationCandidates(
+    return this.searchInvitationCandidates(
       this.prisma,
       programId,
       query,
@@ -503,7 +506,7 @@ export class TeamInvitationsRepository {
     now: Date = new Date(),
     onOk?: AcceptInvitationOnOk,
   ): Promise<AcceptInvitationOutcome> {
-    return TeamInvitationsRepository.acceptTeamInvitationTransaction(
+    return this.acceptTeamInvitationTransaction(
       this.prisma,
       invitationId,
       inviteeId,
@@ -512,7 +515,7 @@ export class TeamInvitationsRepository {
     );
   }
 
-  static async searchInvitationCandidates(
+  async searchInvitationCandidates(
     prisma: Pick<PrismaService, 'user'>,
     programId: string,
     query: string,
@@ -525,7 +528,7 @@ export class TeamInvitationsRepository {
         accountStatus: AccountStatus.ACTIVE,
         OR: [
           { nickname: { contains: query, mode: 'insensitive' } },
-          PlatformRepository.userProfileNameWhere(query),
+          this.platformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
       },
@@ -546,7 +549,7 @@ export class TeamInvitationsRepository {
     }));
   }
 
-  static async acceptTeamInvitationTransaction(
+  async acceptTeamInvitationTransaction(
     prisma: PrismaService,
     invitationId: string,
     inviteeId: string,
@@ -652,7 +655,12 @@ export class TeamInvitationsRepository {
           data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
         });
 
-        await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+        await enqueueRepositoryAccessSyncEvents(
+          this.platformRepository,
+          tx,
+          teamId,
+          now,
+        );
 
         if (onOk) {
           await onOk(
@@ -705,18 +713,19 @@ type AccessSyncTx = Pick<
 >;
 
 async function enqueueRepositoryAccessSyncEvents(
+  platformRepository: PlatformRepository,
   tx: AccessSyncTx,
   teamId: string,
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: PlatformRepository.repositoryAccessSyncTargetWhere(teamId),
+    where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      PlatformRepository.repositoryAccessSyncEventData(
+      platformRepository.repositoryAccessSyncEventData(
         application.id,
         teamId,
         now,

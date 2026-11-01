@@ -1,7 +1,6 @@
 import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { DomainException } from '../platform/error-code.error';
 import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
 import {
@@ -72,15 +71,22 @@ export interface BoardCommentWriteInput {
 export class BoardService {
   constructor(
     private readonly repository: BoardRepository,
-    private readonly authority: UsersAuthorityService,
     private readonly userProfileService: UserProfileService,
   ) {}
 
+  listQueryFromRequest(request: {
+    readonly page?: number;
+    readonly limit?: number;
+  }): BoardPostListQuery {
+    return { page: request.page ?? 1, limit: request.limit ?? 20 };
+  }
+
   async listPosts(
     programId: string,
-    query: BoardPostListQuery,
+    request: { readonly page?: number; readonly limit?: number },
     sessionGithubId: bigint,
   ): Promise<BoardPostsPageResult> {
+    const query = this.listQueryFromRequest(request);
     const { actorId, actorIsStaff } = await this.assertAccess(
       programId,
       sessionGithubId,
@@ -233,11 +239,7 @@ export class BoardService {
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE)
       throw forbidden();
     if (actor.hasStaffAccess || actor.hasAdminAccess) {
-      const { actorId } = await this.authority.assertActiveStaff(
-        sessionGithubId,
-        forbidden,
-      );
-      return { actorId, actorIsStaff: true };
+      return { actorId: actor.id, actorIsStaff: true };
     }
     if (!(await this.repository.isApprovedParticipant(programId, actor.id)))
       throw forbidden();

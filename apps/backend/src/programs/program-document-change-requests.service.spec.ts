@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -11,12 +13,13 @@ import {
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
 } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentRulesService } from './milestone-document-rules.service';
-import { ProgramRulesService } from './program-rules.service';
 
-const milestoneDocumentRulesService = new MilestoneDocumentRulesService(
-  new ProgramRulesService(),
-);
+const programDocumentChangeRequestsService =
+  new ProgramDocumentChangeRequestsService(
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');
@@ -51,16 +54,6 @@ function programs(
         applicantName: null,
         memberNicknames: [],
       })),
-    ),
-  };
-}
-
-function authority(allowed = true) {
-  return {
-    assertActiveStaff: jest.fn((_githubId: bigint, error: () => Error) =>
-      allowed
-        ? Promise.resolve({ actorId: 'staff-1' })
-        : Promise.reject(error()),
     ),
   };
 }
@@ -115,8 +108,7 @@ function service(input: {
     service: new ProgramDocumentChangeRequestsService(
       repo as unknown as MilestoneDocumentsRepository,
       input.programs ?? programs(),
-      authority(input.allowed ?? true),
-      new MilestoneDocumentRulesService(new ProgramRulesService()),
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
     ),
   };
 }
@@ -130,7 +122,9 @@ function request(
     comment: '양식을 바꿔 다시 내 주세요.',
     resubmissionDueAt: dueAt,
     expectedVersion:
-      milestoneDocumentRulesService.changeRequestTargetsVersion(previewed),
+      programDocumentChangeRequestsService.changeRequestTargetsVersion(
+        previewed,
+      ),
     ...overrides,
   };
 }
@@ -144,7 +138,7 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
     const { service: subject, repo } = service({});
 
     await expect(
-      subject.targets(1n, programId, { kind: 'PROGRAM' }),
+      subject.targets(programId, { kind: 'PROGRAM' }),
     ).resolves.toEqual({
       counts: {
         SUBMITTED: 1,
@@ -153,7 +147,9 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
         REJECTED: 0,
       },
       version:
-        milestoneDocumentRulesService.changeRequestTargetsVersion(previewed),
+        programDocumentChangeRequestsService.changeRequestTargetsVersion(
+          previewed,
+        ),
     });
     expect(repo.findChangeRequestCandidates).toHaveBeenCalledWith(programId, [
       'application-a',
@@ -170,10 +166,12 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
     });
 
     await expect(
-      subject.targets(1n, programId, { kind: 'TEAM', teamId: 'team-x' }),
+      subject.targets(programId, { kind: 'TEAM', teamId: 'team-x' }),
     ).resolves.toEqual({
       counts: { SUBMITTED: 0, CHANGES_REQUESTED: 0, APPROVED: 0, REJECTED: 0 },
-      version: milestoneDocumentRulesService.changeRequestTargetsVersion([]),
+      version: programDocumentChangeRequestsService.changeRequestTargetsVersion(
+        [],
+      ),
     });
     expect(reader.findApprovedTeams.mock.calls).toEqual([
       [programId, 'team-x'],
@@ -184,29 +182,13 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
     );
   });
 
-  it('교직원이 아니면 아무것도 읽지 않고 거절한다', async () => {
-    const reader = programs();
-    const { service: subject, repo } = service({
-      programs: reader,
-      allowed: false,
-    });
-
-    const error = await subject
-      .targets(1n, programId, { kind: 'PROGRAM' })
-      .catch((caught: unknown) => caught);
-
-    expect(code(error)).toBe(MilestoneDocumentsErrorCode.STAFF_ONLY);
-    expect(reader.findProgram.mock.calls).toEqual([]);
-    expect(repo.findChangeRequestCandidates).not.toHaveBeenCalled();
-  });
-
   it('없는 프로그램이면 거절한다', async () => {
     const reader = programs();
     reader.findProgram.mockResolvedValue(null);
     const { service: subject } = service({ programs: reader });
 
     const error = await subject
-      .targets(1n, programId, { kind: 'PROGRAM' })
+      .targets(programId, { kind: 'PROGRAM' })
       .catch((caught: unknown) => caught);
 
     expect(code(error)).toBe(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
@@ -219,7 +201,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     const { service: subject } = service({ store });
 
     await expect(
-      subject.requestChanges(1n, programId, request(), () => now),
+      subject.requestChanges('staff-1', programId, request(), () => now),
     ).resolves.toEqual({ requestedCount: 2 });
 
     expect(store.lockProgramDocumentIds).toHaveBeenCalledWith(programId);
@@ -252,7 +234,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
 
     await subject
       .requestChanges(
-        1n,
+        'staff-1',
         programId,
         request({ scope: { kind: 'TEAM', teamId: 'team-a' } }),
         () => now,
@@ -281,7 +263,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
 
     await expect(
       subject.requestChanges(
-        1n,
+        'staff-1',
         programId,
         request({ includeFinalDecisions: true }),
         () => now,
@@ -303,7 +285,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     const { service: subject } = service({ store });
 
     const error = await subject
-      .requestChanges(1n, programId, request(), () => now)
+      .requestChanges('staff-1', programId, request(), () => now)
       .catch((caught: unknown) => caught);
 
     expect(code(error)).toBe(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
@@ -320,7 +302,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     const { service: subject } = service({ store });
 
     await expect(
-      subject.requestChanges(1n, programId, request(), () => now),
+      subject.requestChanges('staff-1', programId, request(), () => now),
     ).resolves.toEqual({ requestedCount: 2 });
   });
 
@@ -329,7 +311,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
 
     const error = await subject
       .requestChanges(
-        1n,
+        'staff-1',
         programId,
         request({ resubmissionDueAt: now }),
         () => now,
@@ -339,17 +321,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     expect(code(error)).toBe(
       MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
     );
-    expect(repo.withTransaction).not.toHaveBeenCalled();
-  });
-
-  it('교직원이 아니면 잠그지 않고 거절한다', async () => {
-    const { service: subject, repo } = service({ allowed: false });
-
-    const error = await subject
-      .requestChanges(1n, programId, request(), () => now)
-      .catch((caught: unknown) => caught);
-
-    expect(code(error)).toBe(MilestoneDocumentsErrorCode.STAFF_ONLY);
     expect(repo.withTransaction).not.toHaveBeenCalled();
   });
 });

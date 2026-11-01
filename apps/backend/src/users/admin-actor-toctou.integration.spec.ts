@@ -1,3 +1,8 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -54,7 +59,14 @@ it(
 
     const mutationBackend = backendPid();
     const service = new AdminAccessService(
-      new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
+      new AdminAccessRepository(
+        pidCapturingPrisma(mutationBackend.capture),
+        new AdminAccessHistoryRepository(),
+        new AdminAccessReadRepository(
+          new AdminAccessReadOrderingRepository(),
+          new PlatformRepository(),
+        ),
+      ),
       auditLog,
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
@@ -105,7 +117,14 @@ it(
     const mutationBackend = backendPid();
     const service = new AdminAccessService(
       new PausingActorReadAdminAccessRepository(
-        new AdminAccessRepository(pidCapturingPrisma(mutationBackend.capture)),
+        new AdminAccessRepository(
+          pidCapturingPrisma(mutationBackend.capture),
+          new AdminAccessHistoryRepository(),
+          new AdminAccessReadRepository(
+            new AdminAccessReadOrderingRepository(),
+            new PlatformRepository(),
+          ),
+        ),
         async () => {
           reachedActorRead.resolve();
           await releaseMutation.promise;
@@ -160,7 +179,19 @@ it(
     const mutationBackend = backendPid();
     const service = new AdminProfileService(
       new PausingActorReadAdminProfileRepository(
-        new AdminProfileRepository(pidCapturingPrisma(mutationBackend.capture)),
+        new AdminProfileRepository(
+          pidCapturingPrisma(mutationBackend.capture),
+          new AdminAccessRepository(
+            pidCapturingPrisma(mutationBackend.capture),
+            new AdminAccessHistoryRepository(),
+            new AdminAccessReadRepository(
+              new AdminAccessReadOrderingRepository(),
+              new PlatformRepository(),
+            ),
+          ),
+          new PrismaSerializationRetryRepository(),
+          new PlatformRepository(),
+        ),
         async () => {
           reachedActorRead.resolve();
           await releaseMutation.promise;
@@ -174,6 +205,10 @@ it(
           new AuditLogMetadataService(),
           new UserProfileService(),
         ),
+      ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
       ),
     );
 
@@ -219,7 +254,19 @@ it(
 
     const mutationBackend = backendPid();
     const service = new AdminProfileService(
-      new AdminProfileRepository(pidCapturingPrisma(mutationBackend.capture)),
+      new AdminProfileRepository(
+        pidCapturingPrisma(mutationBackend.capture),
+        new AdminAccessRepository(
+          pidCapturingPrisma(mutationBackend.capture),
+          new AdminAccessHistoryRepository(),
+          new AdminAccessReadRepository(
+            new AdminAccessReadOrderingRepository(),
+            new PlatformRepository(),
+          ),
+        ),
+        new PrismaSerializationRetryRepository(),
+        new PlatformRepository(),
+      ),
       auditLog,
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
@@ -228,6 +275,10 @@ it(
           new AuditLogMetadataService(),
           new UserProfileService(),
         ),
+      ),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
       ),
     );
 

@@ -2,7 +2,6 @@ import {
   type CanActivate,
   type ExecutionContext,
   Injectable,
-  SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
@@ -28,20 +27,6 @@ export const PUBLIC_ROUTE_METADATA = Symbol('public-route');
 export const OPTIONAL_SESSION_ROUTE_METADATA = Symbol('optional-session-route');
 
 export const PROTECTED_ROUTE_METADATA = Symbol('protected-route');
-
-type AuthRouteDecorator = ClassDecorator & MethodDecorator;
-
-export function Public(): AuthRouteDecorator {
-  return SetMetadata(PUBLIC_ROUTE_METADATA, true);
-}
-
-export function OptionalSession(): AuthRouteDecorator {
-  return SetMetadata(OPTIONAL_SESSION_ROUTE_METADATA, true);
-}
-
-export function Protected(): AuthRouteDecorator {
-  return SetMetadata(PROTECTED_ROUTE_METADATA, true);
-}
 
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
@@ -107,10 +92,6 @@ export class AuthenticationGuard implements CanActivate {
     attachAuthenticatedPrincipal(request, principal, githubId);
     return true;
   }
-}
-
-export function assertNeverHttpAuth(auth: never): never {
-  throw new TypeError(`Unexpected HTTP authentication kind: ${String(auth)}`);
 }
 
 function attachAnonymousAuth(

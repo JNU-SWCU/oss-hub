@@ -2,6 +2,7 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { OriginGuard } from '../platform/origin.guard';
+import { RolesGuard } from '../platform/roles.guard';
 import { PROTECTED_ROUTE_METADATA } from '../auth/authentication.guard';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
@@ -183,7 +184,7 @@ describe('program-lifecycle.controller', () => {
       expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
-      ).toEqual([OriginGuard]);
+      ).toEqual([OriginGuard, RolesGuard]);
     });
 
     it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
@@ -214,7 +215,7 @@ describe('program-lifecycle.controller', () => {
       );
       expect(
         Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
-      ).toEqual([OriginGuard]);
+      ).toEqual([OriginGuard, RolesGuard]);
     });
   });
 });
@@ -282,14 +283,22 @@ const publicDetail: ProgramDetailResult = {
 
 describe('ProgramsController read boundaries', () => {
   const creation = { create: jest.fn() };
-  const programs = {
-    detail: jest.fn(),
-    list: jest.fn(),
-    statusCounts: jest.fn(),
-    endedYears: jest.fn(),
-  };
-  const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
+  const activity = Object.assign(
+    Object.create(ProgramActivityService.prototype) as object,
+    { activity: jest.fn(), programViewerService: viewers },
+  );
+  const programs = Object.assign(
+    Object.create(ProgramsService.prototype) as object,
+    {
+      detail: jest.fn(),
+      list: jest.fn(),
+      statusCounts: jest.fn(),
+      endedYears: jest.fn(),
+      programViewerService: viewers,
+    },
+  );
+
   let controller: ProgramsController;
   let moduleRef: TestingModule;
 
@@ -335,15 +344,13 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, anonymousRequest() as never);
+    await controller.list(query, anonymousRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
     expect(programs.list).toHaveBeenCalledWith(
@@ -364,15 +371,13 @@ describe('ProgramsController read boundaries', () => {
     const viewer = { githubId: 101n, userId: 'student-1', role: 'STUDENT' };
     viewers.fromGithubId.mockResolvedValue(viewer);
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, authenticatedRequest() as never);
+    await controller.list(query, authenticatedRequest() as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
     expect(programs.list).toHaveBeenCalledWith(
@@ -396,15 +401,13 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'all' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'all' as const,
     };
 
-    await controller.list(query as never, anonymousRequest(true) as never);
+    await controller.list(query, anonymousRequest(true) as never);
 
     expect(viewers.fromGithubId).toHaveBeenCalledWith(null);
   });
@@ -424,17 +427,15 @@ describe('ProgramsController read boundaries', () => {
       role: null,
     });
     const query = {
-      toQuery: () => ({
-        page: 1,
-        pageSize: 20,
-        search: '',
-        status: 'recruiting' as const,
-        sort: 'name' as const,
-        direction: 'asc' as const,
-      }),
+      page: 1,
+      pageSize: 20,
+      search: '',
+      status: 'recruiting' as const,
+      sort: 'name' as const,
+      direction: 'asc' as const,
     };
 
-    await controller.list(query as never, anonymousRequest() as never);
+    await controller.list(query, anonymousRequest() as never);
 
     expect(programs.list).toHaveBeenCalledWith(
       {
@@ -468,7 +469,7 @@ describe('ProgramsController read boundaries', () => {
   it('프로그램 생성은 공용 세션·origin guard 뒤에 있다', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('create')),
-    ).toEqual([OriginGuard]);
+    ).toEqual([OriginGuard, RolesGuard]);
   });
 
   it('returns ended years over HTTP before matching the detail route', async () => {

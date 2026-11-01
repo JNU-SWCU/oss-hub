@@ -1,3 +1,6 @@
+import { ProgramScheduleService } from '../programs/program-schedule.service';
+import { MilestoneDocumentSubmissionWindowService } from '../programs/milestone-document-submission-window.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import {
   ApplicationStatus,
@@ -10,8 +13,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
-import { MilestoneDocumentRulesService } from '../programs/milestone-document-rules.service';
-import { ProgramRulesService } from '../programs/program-rules.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,9 +30,9 @@ const milestoneName = '합성 중간 보고';
 const now = new Date('2026-09-20T03:00:00.000Z');
 const prisma = new PrismaService();
 const service = new MilestoneDocumentFeedbackService(
-  new MilestoneDocumentFeedbackRepository(prisma),
+  new MilestoneDocumentFeedbackRepository(prisma, new PlatformRepository()),
   () => now,
-  new MilestoneDocumentRulesService(new ProgramRulesService()),
+  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
 );
 
 async function cleanup(): Promise<void> {

@@ -43,29 +43,40 @@ export interface OauthSettings {
 const MIN_SESSION_SECRET_BYTES = 32;
 const CALLBACK_PATH = '/api/v1/auth/github/callback';
 
-@Injectable()
-export class AuthConfig {
-  private readonly runtimeConfig: RuntimeConfig;
-  private readonly oauth: OauthSettings;
-
+interface AuthSettings {
   readonly sessionSecret: Uint8Array;
   readonly frontendUrl: string;
-  readonly allowedOrigin: string;
   readonly useSecureCookies: boolean;
+  readonly oauth: OauthSettings;
+  readonly initialRoleMap: InitialAccountSeedMap;
+}
 
-  private readonly initialRoleMap: InitialAccountSeedMap;
+@Injectable()
+export class AuthConfig {
+  private settings: AuthSettings | undefined;
 
-  constructor(@Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig) {
-    this.runtimeConfig = runtimeConfig;
-    this.sessionSecret = this.loadSessionSecret();
-    const frontend = this.loadFrontendUrl();
-    this.frontendUrl = frontend.origin;
-    this.allowedOrigin = this.frontendUrl;
-    this.useSecureCookies = frontend.useSecureCookies;
-    this.oauth = this.loadOauthSettings();
-    this.initialRoleMap = AuthConfig.parseInitialRoles(
-      this.runtimeConfig.AUTH_INITIAL_ROLES,
-    );
+  constructor(
+    @Inject(RUNTIME_CONFIG) private readonly runtimeConfig: RuntimeConfig,
+  ) {}
+
+  get sessionSecret(): Uint8Array {
+    return this.loadedSettings().sessionSecret;
+  }
+
+  get frontendUrl(): string {
+    return this.loadedSettings().frontendUrl;
+  }
+
+  get allowedOrigin(): string {
+    return this.frontendUrl;
+  }
+
+  get useSecureCookies(): boolean {
+    return this.loadedSettings().useSecureCookies;
+  }
+
+  validate(): void {
+    this.loadedSettings();
   }
 
   static parseInitialRoles(raw: string | undefined): InitialAccountSeedMap {
@@ -96,11 +107,30 @@ export class AuthConfig {
   }
 
   resolveInitialRole(githubId: bigint): InitialAccountSeed | null {
-    return this.initialRoleMap.get(githubId) ?? null;
+    return this.loadedSettings().initialRoleMap.get(githubId) ?? null;
   }
 
   requireOauth(): OauthSettings {
-    return this.oauth;
+    return this.loadedSettings().oauth;
+  }
+
+  private loadedSettings(): AuthSettings {
+    this.settings ??= this.loadSettings();
+    return this.settings;
+  }
+
+  private loadSettings(): AuthSettings {
+    const sessionSecret = this.loadSessionSecret();
+    const frontend = this.loadFrontendUrl();
+    return {
+      sessionSecret,
+      frontendUrl: frontend.origin,
+      useSecureCookies: frontend.useSecureCookies,
+      oauth: this.loadOauthSettings(frontend.origin),
+      initialRoleMap: AuthConfig.parseInitialRoles(
+        this.runtimeConfig.AUTH_INITIAL_ROLES,
+      ),
+    };
   }
 
   private loadSessionSecret(): Uint8Array {
@@ -129,10 +159,10 @@ export class AuthConfig {
     };
   }
 
-  private loadOauthSettings(): OauthSettings {
+  private loadOauthSettings(frontendUrl: string): OauthSettings {
     const clientId = this.runtimeConfig.GITHUB_OAUTH_CLIENT_ID;
     const clientSecret = this.runtimeConfig.GITHUB_OAUTH_CLIENT_SECRET;
-    const callbackUrl = this.deriveCallbackUrl();
+    const callbackUrl = `${frontendUrl}${CALLBACK_PATH}`;
     const configuredCallbackUrl = this.runtimeConfig.GITHUB_OAUTH_CALLBACK_URL;
 
     if (configuredCallbackUrl !== undefined && configuredCallbackUrl !== '') {
@@ -151,10 +181,6 @@ export class AuthConfig {
       throw new Error('GITHUB_OAUTH_CLIENT_ID/SECRET이 필수입니다.');
     }
     return { clientId, clientSecret, callbackUrl };
-  }
-
-  private deriveCallbackUrl(): string {
-    return `${this.frontendUrl}${CALLBACK_PATH}`;
   }
 
   private parseCanonicalOrigin(raw: string, envName: string): URL {

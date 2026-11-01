@@ -1,3 +1,5 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { authorityFactsFor } from './canonical-user-fixture';
 import {
   AccountStatus,
@@ -32,13 +34,16 @@ const toDetail = (row: AdminAccessUserDetailRow | null) =>
   ).toAdminAccessUserDetailRecord(row);
 
 const toRecord = (
-  user: Parameters<typeof AdminAccessReadRepository.toAdminAccessUserRow>[0],
+  user: Parameters<AdminAccessReadRepository['toAdminAccessUserRow']>[0],
 ) =>
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
   ).toAdminAccessUserRecord(
-    AdminAccessReadRepository.toAdminAccessUserRow(user),
+    new AdminAccessReadRepository(
+      new AdminAccessReadOrderingRepository(),
+      new PlatformRepository(),
+    ).toAdminAccessUserRow(user),
   );
 
 const adminAccessMutationService = new AdminAccessMutationService(
@@ -60,10 +65,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'pending-staff',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'pending-staff'),
     );
 
     expect(detail).toMatchObject({
@@ -92,10 +97,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'student',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'student'),
     );
 
     expect(detail).toMatchObject({
@@ -117,10 +122,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'unassigned',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'unassigned'),
     );
 
     expect(detail).toMatchObject({
@@ -144,10 +149,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'revoked-staff',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'revoked-staff'),
     );
 
     expect(detail).toMatchObject({
@@ -171,10 +176,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'selected-student',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'selected-student'),
     );
 
     expect(detail).toMatchObject({
@@ -196,10 +201,10 @@ describe('admin access read profile completeness', () => {
     );
 
     const detail = toDetail(
-      await AdminAccessReadRepository.findAdminAccessUserById(
-        prisma,
-        'revoked-staff-projection',
-      ),
+      await new AdminAccessReadRepository(
+        new AdminAccessReadOrderingRepository(),
+        new PlatformRepository(),
+      ).findAdminAccessUserById(prisma, 'revoked-staff-projection'),
     );
 
     expect(detail?.pendingRequest).toBeNull();

@@ -9,10 +9,7 @@ import {
 import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  CollectionCommit,
-  requestFingerprintKey,
-} from './collection-app.client';
+import { CollectionCommit } from './collection-app.client';
 import type {
   CollectionIncrementalRepository,
   CollectionRepositoryRow,
@@ -875,7 +872,7 @@ export class CollectionSyncService {
         result.commits,
         registeredGithubIds,
         result.commits[0]?.sha ?? null,
-        requestFingerprintKey(result.fingerprint),
+        runtime.client.requestFingerprintKey(result.fingerprint),
         null,
       );
     }
@@ -910,7 +907,7 @@ export class CollectionSyncService {
       result.commits,
       registeredGithubIds,
       headSha,
-      requestFingerprintKey(result.fingerprint),
+      runtime.client.requestFingerprintKey(result.fingerprint),
       probe.etag,
     );
   }
@@ -1115,7 +1112,7 @@ export class CollectionSyncService {
       this.onlyTeamAuthored(result.pullRequests, teamMembers),
       registeredGithubIds,
       result.newFrontier,
-      requestFingerprintKey(result.fingerprint),
+      runtime.client.requestFingerprintKey(result.fingerprint),
       teamMembershipFrontier,
     );
   }
@@ -1164,7 +1161,7 @@ export class CollectionSyncService {
       this.onlyTeamAuthored(listing.releases, teamMembers),
       registeredGithubIds,
       probe.frontier ? probe.frontier.probe : null,
-      requestFingerprintKey(probe.fingerprint),
+      runtime.client.requestFingerprintKey(probe.fingerprint),
       probe.etag,
     );
   }
@@ -1214,7 +1211,7 @@ export class CollectionSyncService {
       issues,
       registeredGithubIds,
       result.newFrontier,
-      requestFingerprintKey(result.fingerprint),
+      runtime.client.requestFingerprintKey(result.fingerprint),
       teamMembershipFrontier,
     );
   }

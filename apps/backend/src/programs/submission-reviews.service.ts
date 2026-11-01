@@ -23,7 +23,6 @@ import {
   type PublishEligibilitySource,
 } from './submission-reviews.repository';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
@@ -35,7 +34,7 @@ import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
@@ -60,15 +59,10 @@ export class SubmissionReviewsService {
     private readonly repository: SubmissionReviewsRepositoryPort,
     @Inject(RepositoriesService)
     private readonly repositories: Pick<RepositoriesService, 'publish'>,
-    @Inject(UsersAuthorityService)
-    private readonly authority: Pick<
-      UsersAuthorityService,
-      'assertActiveStaff'
-    >,
     private readonly repositoryPublishService: RepositoryPublishService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
-    private readonly submissionFileRulesService: SubmissionFileRulesService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
   ) {}
 
   reviewInputFromRequest(request: {
@@ -111,11 +105,7 @@ export class SubmissionReviewsService {
     }
   }
 
-  async context(
-    submissionId: string,
-    actorGithubId: bigint,
-  ): Promise<SubmissionReviewContext> {
-    await this.assertStaff(actorGithubId);
+  async context(submissionId: string): Promise<SubmissionReviewContext> {
     const row = await this.repository.findReviewContext(submissionId);
     if (row === null) {
       throw new DomainException(
@@ -203,13 +193,24 @@ export class SubmissionReviewsService {
     };
   }
 
+  reviewFromRequest(
+    reviewerId: string,
+    submissionId: string,
+    request: Parameters<SubmissionReviewsService['reviewInputFromRequest']>[0],
+  ): Promise<SubmissionReviewResult> {
+    return this.review(
+      reviewerId,
+      submissionId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+
   async review(
-    actorGithubId: bigint,
+    reviewerId: string,
     submissionId: string,
     input: CreateSubmissionReviewInput,
     reviewedAt = new Date(),
   ): Promise<SubmissionReviewResult> {
-    const { actorId: reviewerId } = await this.assertStaff(actorGithubId);
     return this.repository.withTransaction(async (store) => {
       const target = await store.findReviewTarget(submissionId);
       if (target === null) {
@@ -267,12 +268,20 @@ export class SubmissionReviewsService {
     });
   }
 
+  publishRepositoryFromRequest(
+    repositoryId: string,
+    actorGithubId: bigint,
+    request: { readonly isConfirmed: boolean },
+  ): Promise<RepositoryPublishResult> {
+    this.assertPublishConfirmed(request);
+    return this.publishRepository(repositoryId, actorGithubId);
+  }
+
   async publishRepository(
     repositoryId: string,
     actorGithubId: bigint,
     publishedAt = new Date(),
   ): Promise<RepositoryPublishResult> {
-    await this.assertStaff(actorGithubId);
     const eligibilityRow =
       await this.repository.findPublishEligibility(repositoryId);
     if (eligibilityRow === null) {
@@ -339,18 +348,6 @@ export class SubmissionReviewsService {
     };
   }
 
-  private assertStaff(actorGithubId: bigint): Promise<{ actorId: string }> {
-    return this.authority.assertActiveStaff(
-      actorGithubId,
-      () =>
-        new DomainException(
-          SUBMISSION_REVIEWS_ERROR_CODES[
-            SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED
-          ],
-        ),
-    );
-  }
-
   private toRevisionRecord(
     history: ReviewContextRow['histories'][number],
     now: Date,
@@ -384,7 +381,7 @@ export class SubmissionReviewsService {
         fileId: file.id,
         fileName: file.originalFileName,
         contentType:
-          this.submissionFileRulesService.safeSubmissionFileContentType(
+          this.submissionFileAdmissionService.safeSubmissionFileContentType(
             file.originalFileName,
           ),
         size: file.sizeBytes,

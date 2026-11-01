@@ -69,7 +69,10 @@ const studentDashboardApplicationSelect = {
 
 @Injectable()
 export class StudentDashboardRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
 
   async findParticipatingApplications(
     sessionGithubId: bigint,
@@ -81,7 +84,9 @@ export class StudentDashboardRepository {
     if (user === null) return [];
 
     return this.prisma.application.findMany({
-      where: PlatformRepository.programApplicationParticipantWhere(user.id),
+      where: this.platformRepository.programApplicationParticipantWhere(
+        user.id,
+      ),
       orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
       select: studentDashboardApplicationSelect,
     });

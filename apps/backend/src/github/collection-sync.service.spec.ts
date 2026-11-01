@@ -9,8 +9,9 @@ import {
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../platform/prisma.service';
+import { CollectionAppClient } from './collection-app.client';
+import type { CollectionAppConfigValues } from './collection-app.config';
 import type {
-  CollectionAppClient,
   CollectionCommit,
   CollectionIssue,
   CollectionPullRequest,
@@ -613,7 +614,16 @@ const commit = (
   ...overrides,
 });
 
+const fingerprintKeys = new CollectionAppClient(
+  {} as CollectionAppConfigValues,
+  {
+    getToken: () => Promise.resolve('synthetic-token'),
+    clear: () => undefined,
+  },
+);
+
 interface ClientMock {
+  requestFingerprintKey: jest.Mock<string, [RequestFingerprint]>;
   listInstallationRepositories: jest.Mock<Promise<ProviderRepository[]>, []>;
   getRepository: jest.Mock<Promise<ProviderRepository>, [string, string]>;
   probeDefaultBranchHead: jest.Mock<
@@ -647,6 +657,11 @@ interface ClientMock {
 
 function createClient(repositories: ProviderRepository[]): ClientMock {
   return {
+    requestFingerprintKey: jest
+      .fn<string, [RequestFingerprint]>()
+      .mockImplementation((fingerprint) =>
+        fingerprintKeys.requestFingerprintKey(fingerprint),
+      ),
     listInstallationRepositories: jest
       .fn<Promise<ProviderRepository[]>, []>()
       .mockResolvedValue(repositories),

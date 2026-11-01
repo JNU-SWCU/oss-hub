@@ -19,7 +19,7 @@ import {
   StudentApplicationResponseDto,
 } from './dto/student-application-response.dto';
 import { StudentApplicationManagementService } from './student-application-management.service';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
 
 type StudentApplicationRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -44,9 +44,7 @@ export class StudentApplicationsController {
       request.sessionGithubId,
       programId,
     );
-    return MyStudentApplicationResponseDto.from(
-      application ? StudentApplicationResponseDto.from(application) : null,
-    );
+    return MyStudentApplicationResponseDto.from(application);
   }
 
   @Patch()
@@ -57,11 +55,7 @@ export class StudentApplicationsController {
     @Body() body: UpdateStudentApplicationRequestDto,
   ): Promise<StudentApplicationResponseDto> {
     return StudentApplicationResponseDto.from(
-      await this.service.updateMine(
-        request.sessionGithubId,
-        programId,
-        body.toInput(),
-      ),
+      await this.service.updateMine(request.sessionGithubId, programId, body),
     );
   }
 

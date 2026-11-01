@@ -1,3 +1,6 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -11,7 +14,6 @@ import type {
   StudentRepositoryUrlContext,
   TeamRepositoryUrlContext,
 } from './student-repository-url-context.repository';
-import { ProgramRulesService } from './program-rules.service';
 
 const context: StudentRepositoryUrlContext = {
   id: 'application',
@@ -46,6 +48,8 @@ function fixture(
   const teamContext: TeamRepositoryUrlContext = { ...context, editor };
   const transaction = new StudentRepositoryUrlTransactionRepository(
     new PrismaService(),
+    new RepositoryProvisionGenerationRepository(),
+    new StudentRepositoryUrlContextRepository(new PlatformRepository()),
   );
   const lockTeamContext = jest
     .spyOn(transaction, 'lockTeamContext')
@@ -101,7 +105,6 @@ function fixture(
     consents,
     audit,
     collection,
-    new ProgramRulesService(),
     new RepositoryProvisionEventService(),
   );
   return {

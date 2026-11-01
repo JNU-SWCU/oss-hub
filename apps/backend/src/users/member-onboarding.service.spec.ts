@@ -51,6 +51,7 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
 
   constructor(
     userRole: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
+    private readonly platformRepository: PlatformRepository,
     requests: StaffAccessRequestRecord[] = [],
     accountStatus: AccountStatus = AccountStatus.ACTIVE,
     profile: UserProfileView = EMPTY_PROFILE,
@@ -85,7 +86,7 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
   }
 
   requestStaffAccess(userId: string): Promise<StaffAccessRequestOutcome> {
-    return PlatformRepository.requestStaffAccess(
+    return this.platformRepository.requestStaffAccess(
       {
         staffAccessRequest: {
           findFirst: (() => this.findPendingRequest()) as never,
@@ -169,6 +170,7 @@ function createService(
 ): { service: MemberOnboardingService; store: InMemoryRolesStore } {
   const store = new InMemoryRolesStore(
     role,
+    new PlatformRepository(),
     requests,
     accountStatus,
     profile,

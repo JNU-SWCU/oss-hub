@@ -18,9 +18,21 @@ import { ApplicationListPageResponseDto } from './dto/application-list-page-resp
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
 import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
-import { Protected } from '../auth/authentication.guard';
+import { Protected } from '../auth/auth-route.decorator';
+import { STAFF_AUDIENCE } from '../platform/roles.guard';
+import { Roles } from '../platform/roles.decorator';
+import { DomainException } from '../platform/error-code.error';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './applications-error-code.error';
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
+
+const staffListOnly = () =>
+  new DomainException(
+    APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_LIST_ONLY],
+  );
 
 @Controller('programs/:programId/applications')
 export class ProgramApplicationsController {
@@ -28,36 +40,23 @@ export class ProgramApplicationsController {
     @Inject(ApplicationsService)
     private readonly service: Pick<
       ApplicationsService,
-      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+      'createFromRequest' | 'listForProgramView'
     >,
   ) {}
 
   @Get()
   @Protected()
+  @Roles(STAFF_AUDIENCE, staffListOnly)
   async list(
-    @Req() request: ApplicationSessionRequest,
     @Param('programId') programId: string,
     @Query() query: ApplicationListRequestDto,
   ): Promise<
     ApplicationListPageResponseDto | TeamManagementListPageResponseDto
   > {
-    const listQuery = query.toQuery();
-    if (listQuery.view === 'team-management') {
-      return TeamManagementListPageResponseDto.from(
-        await this.service.listTeamManagementForProgram(
-          request.sessionGithubId,
-          programId,
-          listQuery,
-        ),
-      );
-    }
-    return ApplicationListPageResponseDto.from(
-      await this.service.listForProgram(
-        request.sessionGithubId,
-        programId,
-        listQuery,
-      ),
-    );
+    const listed = await this.service.listForProgramView(programId, query);
+    return listed.view === 'team-management'
+      ? TeamManagementListPageResponseDto.from(listed.page)
+      : ApplicationListPageResponseDto.from(listed.page);
   }
 
   @Post()
@@ -69,10 +68,10 @@ export class ProgramApplicationsController {
     @Param('programId') programId: string,
     @Body() body: CreateApplicationRequestDto,
   ): Promise<CreateApplicationResponseDto> {
-    const application = await this.service.create(
+    const application = await this.service.createFromRequest(
       request.sessionGithubId,
       programId,
-      body.toInput(),
+      body,
     );
     return CreateApplicationResponseDto.from(application);
   }

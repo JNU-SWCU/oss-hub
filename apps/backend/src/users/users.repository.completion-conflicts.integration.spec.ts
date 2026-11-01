@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -32,7 +33,7 @@ type PhoneAuditCallback = Parameters<
 >[2];
 
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma);
+const repository = new UsersRepository(prisma, new PlatformRepository());
 const recordPhoneAudit = jest
   .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
   .mockResolvedValue(undefined);

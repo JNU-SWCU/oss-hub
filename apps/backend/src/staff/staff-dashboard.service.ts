@@ -67,10 +67,8 @@ export class StaffDashboardService {
     private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
 
-  async summary(
-    sessionGithubId: bigint,
-  ): Promise<StaffDashboardComposedSummary> {
-    const base = await this.applications.staffSummary(sessionGithubId);
+  async summary(): Promise<StaffDashboardComposedSummary> {
+    const base = await this.applications.staffSummary();
     const programIds = base.programs.map((program) => program.id);
     const [activities, submissions] = await Promise.all([
       this.activities.summarize(programIds),

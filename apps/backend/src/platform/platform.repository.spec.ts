@@ -122,7 +122,7 @@ describe('submission-membership-lock.repository', () => {
     it('현재 팀 구성원이면 Program → Team 잠금 뒤 되읽은 사실로 true 를 돌려준다', async () => {
       const { tx, order, findUnique, queryRaw } = buildHarness();
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -147,7 +147,7 @@ describe('submission-membership-lock.repository', () => {
     it('User 행은 잠그지 않는다 — 잠금 순서를 뒤집을 여지를 남기지 않는다', async () => {
       const { tx, queryRaw } = buildHarness();
 
-      await PlatformRepository.lockSubmissionMembership(
+      await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -160,7 +160,7 @@ describe('submission-membership-lock.repository', () => {
     it('신청서가 없으면 아무 행도 잠그지 않고 false 를 돌려준다', async () => {
       const { tx, order, queryRaw } = buildHarness({ application: null });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -174,7 +174,7 @@ describe('submission-membership-lock.repository', () => {
     it('프로그램 행이 사라졌으면 팀을 잠그지 않고 false 를 돌려준다', async () => {
       const { tx, order } = buildHarness({ programExists: false });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -187,7 +187,7 @@ describe('submission-membership-lock.repository', () => {
     it('팀 행이 사라졌으면 멤버십을 되읽지 않고 false 를 돌려준다', async () => {
       const { tx, order, findFirst } = buildHarness({ teamExists: false });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -203,7 +203,7 @@ describe('submission-membership-lock.repository', () => {
         team: { leaderId: LEADER_ID, memberUserIds: [LEADER_ID] },
       });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         MEMBER_ID,
@@ -222,7 +222,7 @@ describe('submission-membership-lock.repository', () => {
         team: { leaderId: LEADER_ID, memberUserIds: [LEADER_ID, MEMBER_ID] },
       });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         DEPARTED_ID,
@@ -236,7 +236,7 @@ describe('submission-membership-lock.repository', () => {
         team: { leaderId: LEADER_ID, memberUserIds: [MEMBER_ID] },
       });
 
-      const allowed = await PlatformRepository.lockSubmissionMembership(
+      const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
         APPLICATION_ID,
         LEADER_ID,
@@ -251,7 +251,7 @@ describe('submission-membership-lock.repository', () => {
       queryRaw.mockImplementationOnce(() => Promise.reject(failure));
 
       await expect(
-        PlatformRepository.lockSubmissionMembership(
+        new PlatformRepository().lockSubmissionMembership(
           tx,
           APPLICATION_ID,
           MEMBER_ID,
@@ -266,7 +266,7 @@ describe('submission-membership-lock.repository', () => {
       findFirst.mockImplementationOnce(() => Promise.reject(failure));
 
       await expect(
-        PlatformRepository.lockSubmissionMembership(
+        new PlatformRepository().lockSubmissionMembership(
           tx,
           APPLICATION_ID,
           MEMBER_ID,
@@ -320,7 +320,7 @@ describe('user-profile-write.repository', () => {
     it('학번이 비어 있던 프로필에 제약 아래로 학번을 넣는다', async () => {
       const { transaction, updateMany } = harness();
 
-      const outcome = await PlatformRepository.fillStudentIdIfEmpty(
+      const outcome = await new PlatformRepository().fillStudentIdIfEmpty(
         transaction,
         userId,
         studentId,
@@ -338,7 +338,7 @@ describe('user-profile-write.repository', () => {
         owner: { userId: 'other-user' },
       });
 
-      const outcome = await PlatformRepository.fillStudentIdIfEmpty(
+      const outcome = await new PlatformRepository().fillStudentIdIfEmpty(
         transaction,
         userId,
         studentId,
@@ -352,7 +352,11 @@ describe('user-profile-write.repository', () => {
       const { transaction } = harness({ owner: { userId } });
 
       await expect(
-        PlatformRepository.fillStudentIdIfEmpty(transaction, userId, studentId),
+        new PlatformRepository().fillStudentIdIfEmpty(
+          transaction,
+          userId,
+          studentId,
+        ),
       ).resolves.toBe('conflict');
     });
 
@@ -360,7 +364,11 @@ describe('user-profile-write.repository', () => {
       const { transaction } = harness({ updatedCount: 0 });
 
       await expect(
-        PlatformRepository.fillStudentIdIfEmpty(transaction, userId, studentId),
+        new PlatformRepository().fillStudentIdIfEmpty(
+          transaction,
+          userId,
+          studentId,
+        ),
       ).resolves.toBe('conflict');
     });
 
@@ -368,7 +376,11 @@ describe('user-profile-write.repository', () => {
       const { transaction } = harness({ updateError: uniqueConstraintError() });
 
       await expect(
-        PlatformRepository.fillStudentIdIfEmpty(transaction, userId, studentId),
+        new PlatformRepository().fillStudentIdIfEmpty(
+          transaction,
+          userId,
+          studentId,
+        ),
       ).resolves.toBe('taken');
     });
 
@@ -377,7 +389,11 @@ describe('user-profile-write.repository', () => {
       const { transaction } = harness({ updateError: failure });
 
       await expect(
-        PlatformRepository.fillStudentIdIfEmpty(transaction, userId, studentId),
+        new PlatformRepository().fillStudentIdIfEmpty(
+          transaction,
+          userId,
+          studentId,
+        ),
       ).rejects.toBe(failure);
     });
   });

@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -9,11 +10,10 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -89,8 +89,21 @@ beforeAll(async () => {
     providers: [
       ...STATELESS_PROVIDERS,
       RepositoryPublishService,
+      {
+        provide: StudentRepositoryUrlService,
+        useValue: new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
+      },
       ProgramTeamsService,
       ProgramTeamsRepository,
+      ProgramTeamRepositoryEvidenceRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },
       AuditLogMetadataService,
       { provide: AuditLogService, useValue: {} },
@@ -102,8 +115,6 @@ beforeAll(async () => {
       },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
-      UsersAuthorityService,
-      UsersAuthorityRepository,
       {
         provide: AuthService,
         useValue: {

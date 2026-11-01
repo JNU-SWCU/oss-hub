@@ -1,7 +1,4 @@
-import type {
-  ObjectInventoryPort,
-  ObjectStoragePort,
-} from '../platform/object-storage.types';
+import { Injectable } from '@nestjs/common';
 import { type StorageReferenceRepository } from './prisma-storage-reference.repository';
 
 export const DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS = 60 * 60 * 1_000;
@@ -89,6 +86,7 @@ function classifyStorageObjects(
   return { orphanKeys, recentObjectKeys };
 }
 
+@Injectable()
 export class StorageOrphanReconciliationService {
   constructor(
     private readonly references: StorageReferenceRepository,
@@ -138,52 +136,5 @@ export class StorageOrphanReconciliationService {
       deletedKeys,
       skippedReferencedKeys,
     };
-  }
-
-  static parseStorageOrphanReconciliationMode(
-    args: readonly string[],
-  ): StorageOrphanReconciliationMode {
-    if (args.length === 0 || (args.length === 1 && args[0] === '--report')) {
-      return 'report';
-    }
-    if (args.length === 1 && args[0] === '--delete') return 'delete';
-    throw new Error('Exactly one mode is allowed: --report or --delete');
-  }
-
-  static async runStorageOrphanReconciliation(
-    mode: StorageOrphanReconciliationMode,
-    references: StorageReferenceRepository,
-    objectStorage: ObjectStoragePort,
-    objectInventory: ObjectInventoryPort,
-  ): Promise<void> {
-    const inventory: StorageObjectInventory = {
-      listObjects: () => objectInventory.listObjects(KNOWN_STORAGE_PREFIXES),
-      delete: (key) => objectStorage.delete(key),
-    };
-    const reconciliation = new StorageOrphanReconciliationService(
-      references,
-      inventory,
-    );
-
-    const result = await reconciliation.reconcile({
-      mode,
-      onDeletePlan: (keys) => {
-        process.stdout.write(
-          `${JSON.stringify({ event: 'storage-orphan.delete-plan', keys })}\n`,
-        );
-      },
-    });
-    process.stdout.write(
-      `${JSON.stringify({
-        event: 'storage-orphan.result',
-        mode: result.mode,
-        runStartedAt: result.runStartedAt.toISOString(),
-        cutoffAt: result.cutoffAt.toISOString(),
-        orphanKeys: result.orphanKeys,
-        recentObjectCount: result.recentObjectKeys.length,
-        deletedKeys: result.deletedKeys,
-        skippedReferencedKeys: result.skippedReferencedKeys,
-      })}\n`,
-    );
   }
 }

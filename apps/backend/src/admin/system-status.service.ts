@@ -1,5 +1,4 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import { Inject, Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import {
   SystemStatusRepository,
@@ -112,18 +111,11 @@ export class SystemStatusService {
   constructor(
     private readonly repository: SystemStatusRepository,
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
+    private readonly collectionSchedule: CollectionScheduleService,
   ) {}
 
-  async getStatus(actorGithubId: bigint): Promise<SystemStatusResult> {
-    const actor = await this.repository.findActor(actorGithubId);
-    if (
-      actor?.hasAdminAccess !== true ||
-      actor.accountStatus !== AccountStatus.ACTIVE
-    ) {
-      throw new ForbiddenException('Active administrator access is required');
-    }
-
-    const nextCycleAt = CollectionScheduleService.nextScheduledCollectionAt(
+  async getStatus(): Promise<SystemStatusResult> {
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       this.clock(),
     );
     const [rows, finalFailureCount, streamRows, activity, externalStatus] =

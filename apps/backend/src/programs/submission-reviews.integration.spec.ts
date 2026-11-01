@@ -1,3 +1,7 @@
+import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionsRepository } from './submissions.repository';
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
@@ -32,13 +36,10 @@ import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/users-authority.service';
-import { UsersAuthorityRepository } from '../users/independent-authority.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileRulesService } from './submission-file-rules.service';
 
 const repositoryUrlService = new RepositoryUrlService();
 
@@ -55,22 +56,28 @@ const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogMetadataService(),
 );
-const repositoriesRepository = new RepositoriesRepository(prisma);
+const repositoriesRepository = new RepositoriesRepository(
+  prisma,
+  new RepositoryProvisionGenerationRepository(),
+);
 const repositories = new RepositoriesService(
   repositoriesRepository,
-  github,
+  github as unknown as GithubAppClient,
   auditLog,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(prisma),
+  new SubmissionReviewsRepository(
+    prisma,
+    new PlatformRepository(),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
+  ),
   repositories,
-  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new SubmissionFileRulesService(),
+  new SubmissionFileAdmissionService(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -249,17 +256,14 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 팀형 최신 revision 판정을 트랜잭션으로 저장하고 중복을 막는다', async () => {
-    const before = await service.context(
-      EXISTING_SUBMISSION_ID,
-      REVIEWER_GITHUB_ID,
-    );
+    const before = await service.context(EXISTING_SUBMISSION_ID);
     expect(before.application).toMatchObject({
       applicationMode: 'TEAM',
       displayName: 'seed-milestones-team',
     });
     expect(before.currentRevision.review).toBeNull();
 
-    await service.review(REVIEWER_GITHUB_ID, EXISTING_SUBMISSION_ID, {
+    await service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -278,7 +282,7 @@ describe('SubmissionReviewsService integration', () => {
       reviewHistories: [{ decision: ReviewDecision.APPROVED }],
     });
     await expect(
-      service.review(REVIEWER_GITHUB_ID, EXISTING_SUBMISSION_ID, {
+      service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
         revision: 1,
         decision: ReviewDecision.APPROVED,
         comment: null,
@@ -289,10 +293,7 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
-    const context = await service.context(
-      CHANGES_REQUESTED_SUBMISSION_ID,
-      REVIEWER_GITHUB_ID,
-    );
+    const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
 
     expect(context.currentRevision.review).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,
@@ -399,8 +400,8 @@ describe('SubmissionReviewsService integration', () => {
       repositoriesRepository,
     );
     const concurrentRepositories = new RepositoriesService(
-      barrierRepository,
-      github,
+      barrierRepository as unknown as RepositoriesRepository,
+      github as unknown as GithubAppClient,
       auditLog,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),

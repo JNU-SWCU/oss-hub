@@ -1,3 +1,4 @@
+import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -6,7 +7,6 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {
@@ -20,9 +20,11 @@ import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
 
@@ -67,12 +69,19 @@ const service = new ProgramTeamsService(
   { findStaffTeamDetail } as unknown as ProgramTeamsRepository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ readScopeCounts }),
-  new UsersAuthorityService({ findActorByGithubId: findUnique }),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
-  new ProgramRulesService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
 
 const getForStaff = jest.fn(
@@ -114,9 +123,10 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: {
-          getMe: jest
-            .fn()
-            .mockResolvedValue({ id: 'synthetic', sessionVersion: 0 }),
+          getMe: async () =>
+            sessionPrincipal(
+              (await findUnique()) as Parameters<typeof sessionPrincipal>[0],
+            ),
         },
       },
       {
@@ -173,7 +183,7 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
     repositoryUrlHistory: { items: [], nextCursor: null },
     deletionScope: DELETION_SCOPE,
   });
-  expect(getForStaff).toHaveBeenCalledWith(5001n, PROGRAM_ID, TEAM_ID);
+  expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
   expect(findStaffTeamDetail).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
   expect(readScopeCounts).toHaveBeenCalledWith(TEAM_ID);
 });

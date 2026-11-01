@@ -1,7 +1,7 @@
-import { ProgramCategory, AccountStatus } from '@prisma/client';
+import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
-import { UsersAuthorityService } from '../users/users-authority.service';
 import type {
   ProgramTeamsRepository,
   RecordTeamMembershipAudit,
@@ -30,7 +30,6 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramRulesService } from './program-rules.service';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
@@ -75,19 +74,6 @@ const DETAIL: TeamDetailRecord = {
     },
   ],
 };
-
-const ACTIVE_STAFF_ACTOR = {
-  id: 'synthetic-staff',
-  hasStaffAccess: true,
-  hasAdminAccess: false,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
-function buildAuthority(): UsersAuthorityService {
-  return new UsersAuthorityService({
-    findActorByGithubId: jest.fn().mockResolvedValue(ACTIVE_STAFF_ACTOR),
-  });
-}
 
 function buildService(overrides: {
   readonly student?: TeamStudentActor | null;
@@ -147,12 +133,19 @@ function buildService(overrides: {
       repository,
       { record } as unknown as AuditLogService,
       deletionRepository,
-      buildAuthority(),
       new AuditLogMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
-      new ProgramRulesService(),
+      new StudentRepositoryUrlService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
     ),
     repository,
     deletionRepository,
@@ -576,12 +569,19 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         repository,
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
-        buildAuthority(),
         new AuditLogMetadataService(),
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
-        new ProgramRulesService(),
+        new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
       ),
       accessed,
       leave,
