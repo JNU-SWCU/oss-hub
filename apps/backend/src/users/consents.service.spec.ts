@@ -103,7 +103,7 @@ describe('ConsentsService.getCurrent', () => {
   });
 
   it.each(['2026-08-11', '2026-10-19'])(
-    '%s 동의자는 새 정책에 다시 동의해야 한다',
+    '%s 동의자는 계속 동의한 상태이고 동의한 버전을 함께 돌려준다',
     async (previousVersion) => {
       const { service, createConsent } = buildService({
         findConsent: jest.fn((_userId: string, policyVersion: string) =>
@@ -117,16 +117,26 @@ describe('ConsentsService.getCurrent', () => {
 
       const status = await service.getCurrent(syntheticGithubId);
 
-      expect(status.consented).toBe(false);
+      expect(status.consented).toBe(true);
+      expect(status.acceptedPolicyVersion).toBe(previousVersion);
       expect(status.policy.policyVersion).toBe(CONSENT_POLICY_VERSION);
       await expect(
         service.requireCurrent(syntheticGithubId),
-      ).rejects.toMatchObject({
-        errorCode: { code: ConsentErrorCode.REQUIRED_CONSENT_MISSING },
-      });
+      ).resolves.toBeUndefined();
       expect(createConsent).not.toHaveBeenCalled();
     },
   );
+
+  it('동의 기록이 없으면 동의한 버전은 null이다', async () => {
+    const { service } = buildService({
+      findConsent: jest.fn(() => Promise.resolve(null)),
+    });
+
+    const status = await service.getCurrent(syntheticGithubId);
+
+    expect(status.consented).toBe(false);
+    expect(status.acceptedPolicyVersion).toBeNull();
+  });
 
   it.each(['2026-07-21', '2026-08-04'])(
     '%s 동의만으로는 현재 동의 요건을 충족하지 않는다',

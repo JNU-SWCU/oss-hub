@@ -19,6 +19,7 @@ const currentPolicy: CurrentConsent = {
     { key: 'BETA', label: '두 번째 항목', documentUrl: '/policies/beta' },
   ],
   consented: false,
+  acceptedPolicyVersion: null,
   nextUrl: '/next-from-server',
 };
 
@@ -67,6 +68,7 @@ test('현재 동의 여부에 따라 빈 ready 또는 응답 경로 redirecting�
   const consentedPolicy: CurrentConsent = {
     ...currentPolicy,
     consented: true,
+    acceptedPolicyVersion: null,
   };
   expect(applyCurrentConsent(consentedPolicy)).toEqual({
     kind: 'redirecting',
@@ -130,6 +132,7 @@ test('stale 후 정책 버전이나 항목이 바뀌면 선택을 초기화하�
       { key: 'GAMMA', label: '새 항목', documentUrl: '/policies/gamma' },
     ],
     consented: false,
+    acceptedPolicyVersion: null,
     nextUrl: '/changed-next-from-server',
   };
 

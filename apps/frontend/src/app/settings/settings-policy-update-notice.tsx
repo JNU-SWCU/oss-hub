@@ -19,8 +19,7 @@ export function SettingsPolicyUpdateNotice() {
       </h2>
       <p className="break-keep text-sm text-muted-foreground">
         2026년 11월 1일부터 로그인할 때 조회하는 비공개 저장소 기여 건수를 랭킹
-        지표 합계에 포함합니다. 기존 회원은 다음 로그인 때 변경된 안내를
-        확인하고 한 번 동의하면 계속 이용할 수 있습니다.
+        지표 합계에 포함합니다. 기존 회원에게는 이 변경을 공지로 안내합니다.
       </p>
       <a
         href="/policies/github-activity"

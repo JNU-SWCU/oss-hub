@@ -12,6 +12,7 @@ export interface CurrentConsent {
   readonly policyVersion: string;
   readonly requiredItems: readonly ConsentRequiredItem[];
   readonly consented: boolean;
+  readonly acceptedPolicyVersion: string | null;
   readonly nextUrl: string;
 }
 
@@ -64,6 +65,8 @@ function parseCurrentConsent(value: unknown): CurrentConsent {
     value.requiredItems.length === 0 ||
     !value.requiredItems.every(isRequiredItem) ||
     typeof value.consented !== 'boolean' ||
+    (value.acceptedPolicyVersion !== null &&
+      !isNonEmptyString(value.acceptedPolicyVersion)) ||
     !isInternalPath(value.nextUrl)
   ) {
     throw new ConsentResponseError();
@@ -78,6 +81,7 @@ function parseCurrentConsent(value: unknown): CurrentConsent {
     policyVersion: value.policyVersion,
     requiredItems: value.requiredItems.map((item) => ({ ...item })),
     consented: value.consented,
+    acceptedPolicyVersion: value.acceptedPolicyVersion,
     nextUrl: value.nextUrl,
   };
 }

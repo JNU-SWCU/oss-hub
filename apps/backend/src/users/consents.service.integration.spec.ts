@@ -167,7 +167,7 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
   });
 
   it.each(['2026-08-11', '2026-10-19'])(
-    '%s 동의자는 새 정책 동의가 필요하고 기존 행은 보존된다',
+    '%s 동의자는 재동의 없이 계속 이용하고 기존 행은 보존된다',
     async (previousVersion) => {
       const existingConsent = await prisma.consent.create({
         data: {
@@ -178,11 +178,11 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       });
 
       const status = await service.getCurrent(consentRequiredGithubId);
-      expect(status.consented).toBe(false);
-      expect(status.policy.policyVersion).toBe('2026-11-01');
+      expect(status.consented).toBe(true);
+      expect(status.acceptedPolicyVersion).toBe(previousVersion);
       await expect(
         service.requireCurrent(consentRequiredGithubId),
-      ).rejects.toMatchObject({ errorCode: { code: 'CON_003' } });
+      ).resolves.toBeUndefined();
 
       const rows = await prisma.consent.findMany({
         where: { userId: consentRequiredUserId },
