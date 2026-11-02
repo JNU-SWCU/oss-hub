@@ -71,7 +71,8 @@ else if (a[0] === 'inspect') {
     if (state.failure === 'diagnostic-hang') { console.error('SYNTHETIC_DIAGNOSTIC_HUNG'); setInterval(()=>{},10000); }
     if (state.failure === 'diagnostic') process.exit(47);
   } else if (op === 'exec') {
-    if (a.includes('node')) {
+    if (a.at(-1) === 'FRONTEND_URL') output('https://public.example.test/');
+    else if (a.includes('node')) {
       if (state.active === 'candidate' && state.failure === 'key-digest') output('mismatch');
       else { const role = a.at(-1).includes('collection') ? 'collection' : 'operations'; output(crypto.createHash('sha256').update(state.mountedKeys[role]).digest('hex')); }
     } else if (a.at(-1) === '-t' && candidate && ['nginx','diagnostic'].includes(state.failure)) process.exit(48);
@@ -493,6 +494,18 @@ test('quoted CRLF storage uses strict parser and compares active tuple', (t) => 
     0,
   );
 });
+test('activation smokes the origin the running backend serves', (t) => {
+  const f = fixture(t);
+  f.capture();
+  const r = f.activate();
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(
+    f
+      .ledger()
+      .some((c) => c.url === 'https://public.example.test/api/v1/health'),
+  );
+});
+
 test('legacy configuration survives activation into persistent snapshot', (t) => {
   const f = fixture(t);
   f.capture();
@@ -586,6 +599,7 @@ for (const mode of ['ok', 'status', 'transport'])
   test(`shared HTTP smoke ${mode}`, (t) => {
     const f = fixture(t);
     const r = f.invoke('bash', [join(helpers, 'smoke-release.sh')], {
+      PUBLIC_ORIGIN: 'https://public.example.test',
       CURL_BAD_STATUS: mode === 'status' ? '1' : '0',
       CURL_TRANSPORT_FAILURE: mode === 'transport' ? '1' : '0',
     });
@@ -593,6 +607,7 @@ for (const mode of ['ok', 'status', 'transport'])
     if (mode === 'ok') {
       const calls = f.ledger();
       assert.equal(calls.filter((c) => c.command === 'curl').length, 16);
+      assert.ok(calls.some((c) => c.url === 'https://public.example.test/'));
       assert.ok(
         calls.some(
           (c) => c.url.endsWith('/Submission-Files') && c.method === 'POST',
@@ -717,7 +732,9 @@ test('original previous key drift never certifies recovery', (t) => {
 
 test('every smoke request including uploads has finite curl deadlines', (t) => {
   const f = fixture(t);
-  const r = f.invoke('bash', [join(helpers, 'smoke-release.sh')]);
+  const r = f.invoke('bash', [join(helpers, 'smoke-release.sh')], {
+    PUBLIC_ORIGIN: 'https://public.example.test',
+  });
   assert.equal(r.status, 0, r.stderr);
   const calls = f.ledger().filter((c) => c.command === 'curl');
   assert.equal(calls.length, 16);
@@ -783,6 +800,7 @@ process.exit(result.status ?? 1);
     'bash',
     [join(helpers, 'smoke-release.sh')],
     {
+      PUBLIC_ORIGIN: 'https://public.example.test',
       REAL_CURL: realCurl.stdout.trim(),
       LOOPBACK_URL: `http://127.0.0.1:${server.address().port}/`,
       NO_PROXY: '127.0.0.1',

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 set +x
+: "${PUBLIC_ORIGIN:?}"
 controller_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 curl_limits=(--connect-timeout 5 --max-time 15 --retry-max-time 30)
 require_status() {
@@ -13,8 +14,8 @@ require_status() {
   fi
 }
 require_status 404 GET http://127.0.0.1:8081/
-require_status 200 GET https://jnu-oss-hub.com/
-for origin in http://127.0.0.1:8081 https://jnu-oss-hub.com; do
+require_status 200 GET "$PUBLIC_ORIGIN/"
+for origin in http://127.0.0.1:8081 "$PUBLIC_ORIGIN"; do
   headers=()
   if [[ "$origin" == http:* ]]; then
     headers=(-H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1')

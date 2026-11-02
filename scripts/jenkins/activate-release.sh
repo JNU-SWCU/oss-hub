@@ -42,7 +42,9 @@ check_serving() {
   verify_keys "${1:-}" || return $?
   "${compose[@]}" exec -T nginx nginx -t || return $?
   "${compose[@]}" exec -T nginx nginx -s reload || return $?
-  bash "$controller_dir/scripts/jenkins/smoke-release.sh"
+  local public_origin
+  public_origin="$("${compose[@]}" exec -T backend printenv FRONTEND_URL)" || return $?
+  PUBLIC_ORIGIN="${public_origin%/}" bash "$controller_dir/scripts/jenkins/smoke-release.sh"
 }
 recover() {
   local original=$?
