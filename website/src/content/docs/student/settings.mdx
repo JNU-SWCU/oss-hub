@@ -19,6 +19,7 @@ import Verified from '~/components/Verified.astro';
 4. 저장하면 `저장되었습니다.`가 나옵니다.
 </Steps>
 <Shot src="student/settings.webp" alt="설정 화면. 프로필, 알림 수신, 계정 관리 영역이 있습니다." caption="설정" />
+<Shot src="student/settings-notify.webp" alt="알림 수신 영역. 수신 이메일과 마감 임박 알림 받기 체크 칸이 있습니다." caption="알림 수신" />
 
 제품이 보내는 메일은 마감이 가까운 일정 안내뿐입니다. 이 메일은 `마감 임박 알림 받기`를 켠 사람에게 갑니다. 학번을 잘못 적었다면 `관리자`에게 문의해야 하며, 정정 절차는 화면에서 확인되지 않습니다. <Verified status="policy" />
 
@@ -29,8 +30,10 @@ import Verified from '~/components/Verified.astro';
 <Steps>
 1. `설정`의 `계정 관리`에서 `계정 비활성화`를 누릅니다.
 2. `계정을 비활성화하시겠습니까?` 창의 안내를 읽습니다.
-3. `비활성화하고 로그아웃`을 누릅니다.
+3. ① `비활성화하고 로그아웃`을 누릅니다.
 </Steps>
+<Shot src="student/settings-account.webp" alt="계정 관리 영역. 비활성화하면 즉시 로그아웃되며 제출물과 이력은 삭제되지 않는다는 안내와 계정 비활성화 버튼이 있습니다." caption="계정 관리" />
+<Shot src="student/settings-deactivate-dialog.webp" alt="계정을 비활성화하시겠습니까? 확인 창. 취소와 비활성화하고 로그아웃 버튼이 있고 ①이 비활성화하고 로그아웃 버튼을 가리킵니다." caption="① 비활성화하고 로그아웃" />
 
 <Success>
 `계정이 비활성화되었습니다` 화면이 나오고 `홈으로 돌아가기`로 나갈 수 있습니다.
