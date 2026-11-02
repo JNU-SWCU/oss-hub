@@ -9,7 +9,7 @@
 <p align="center">학생은 프로그램을 찾아 팀으로 신청하고 서류를 제출합니다. 교직원은 신청을 승인·반려하고 제출물을 검토합니다. 승인된 팀은 서비스가 만든 GitHub 저장소나 직접 연결한 저장소에서 활동하고, 그 기록을 서비스에서 확인합니다.</p>
 
 <p align="center">
-  <b>학생과 교직원</b>은 <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>에서 이용합니다. 이 저장소는 서비스의 소스 코드이며, <b>기여할 개발자</b>는 <a href="#로컬에서-시작하기">로컬에서 시작하기</a>로 내려받아 실행합니다.
+  <b>학생과 교직원</b>은 <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>에서 이용하고, 사용법은 <a href="https://jnu-swcu.github.io/oss-hub/">사용 가이드</a>에서 봅니다. 이 저장소는 서비스의 소스 코드이며, <b>기여할 개발자</b>는 <a href="#로컬에서-시작하기">로컬에서 시작하기</a>로 내려받아 실행합니다.
 </p>
 
 <p align="center">
@@ -31,11 +31,11 @@
 
 <p align="center">
   <a href="https://jnu-oss-hub.com"><b>서비스 바로가기</b></a> •
+  <a href="https://jnu-swcu.github.io/oss-hub/"><b>사용 가이드</b></a> •
   <a href="#화면-예시">화면 예시</a> •
   <a href="#주요-기능">주요 기능</a> •
   <a href="#참여-흐름">참여 흐름</a> •
   <a href="#로컬에서-시작하기">로컬에서 시작하기</a> •
-  <a href="#기술-구성">기술 구성</a> •
   <a href="#기여하기">기여하기</a>
 </p>
 

@@ -9,7 +9,7 @@
 <p align="center">Students find a program, apply as a team, and submit documents. Faculty and staff approve or reject applications and review submissions. Approved teams work in a GitHub repository the service creates or one they connect themselves, and the service shows that record.</p>
 
 <p align="center">
-  <b>Students, faculty, and staff</b> use it at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. This repository is the source code of the service, and <b>contributing developers</b> download and run it by following <a href="#getting-started-locally">Getting started locally</a>.
+  <b>Students, faculty, and staff</b> use it at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a> and can follow the <a href="https://jnu-swcu.github.io/oss-hub/">user guide</a> (in Korean). This repository is the source code of the service, and <b>contributing developers</b> download and run it by following <a href="#getting-started-locally">Getting started locally</a>.
 </p>
 
 <p align="center">
@@ -31,11 +31,11 @@
 
 <p align="center">
   <a href="https://jnu-oss-hub.com"><b>Visit OSS Hub</b></a> •
+  <a href="https://jnu-swcu.github.io/oss-hub/"><b>User guide</b></a> •
   <a href="#screenshots">Screenshots</a> •
   <a href="#features">Features</a> •
   <a href="#participation-workflow">Workflow</a> •
   <a href="#getting-started-locally">Getting started</a> •
-  <a href="#technology">Technology</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
