@@ -9,7 +9,7 @@ description: >-
   Block PR submission if that evidence is missing.
   Use write-github-comment for comments, manage-qa-tickets for QA tickets, and run-release-qa for release QA.
 metadata:
-  version: "1.14.1"
+  version: "1.14.2"
 ---
 
 # Submit PR Evidence
@@ -209,8 +209,7 @@ An empty `내가 고친 UX 문제` section means the flow was not tried directly
 If there were zero issues, describe what was reviewed and why there was no issue.
 
 First write the body to a file outside the repository and pass `bash scripts/check-pr-body.sh <본문 파일>`.
-The Claude Code hook blocks `gh pr create` for a body that has not passed.
-Other runtimes do not have that hook, so this step and the template checkboxes are the safeguard.
+This step and the template checkboxes are the safeguard. No hook or CI job enforces this check.
 
 ## PR writing principles
 

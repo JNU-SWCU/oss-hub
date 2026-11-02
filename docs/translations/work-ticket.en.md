@@ -20,7 +20,6 @@ Follow [readability.md](../../skills/submit-pr-evidence/references/readability.e
 ```markdown
 ## 시작
 담당자는 본인 에이전트에 한 줄: `oss-hub 티켓 #<번호> 진행해줘`
-(에이전트가 gh로 이 본문을 가져와 AGENTS.md 규칙 아래 수행)
 ```
 
 It tells the assignee to ask their agent to work on the numbered OSS Hub ticket; the quoted execution block is retained from the runtime template.

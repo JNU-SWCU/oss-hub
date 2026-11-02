@@ -42,7 +42,7 @@ interface RankingViewProps {
 const EMPTY_CELL = '-';
 
 const RANKING_METRIC_DESCRIPTION =
-  'Commit · PR · Issue · Repo를 합산합니다. Star는 내 저장소와 그해 직접 커밋·PR한 조직 저장소의 누적입니다.';
+  'Commit · PR · Issue · Repo · Star를 합산합니다. Star는 내 공개 저장소와 소속 조직 공개 저장소 중 그해 직접 커밋·PR한 곳의 누적입니다.';
 
 const NO_RANK_CHANGES: ReadonlyMap<string, RankingRankChange> = new Map();
 const RankChangesContext = createContext(NO_RANK_CHANGES);

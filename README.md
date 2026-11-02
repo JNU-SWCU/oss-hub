@@ -63,7 +63,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top"><b>팀 활동</b><br>1시간마다 GitHub 활동을 모아 팀원별 주간 추이로 보여 줍니다.<br><br><img src="docs/assets/readme/team-activity.webp" alt="우리 팀 활동 화면. Commit 탭에 팀원별 주간 활동 꺾은선 그래프와 마지막 수집 시각이 보입니다." width="100%"></td>
-    <td width="50%" valign="top"><b>활동 랭킹</b><br>학생의 GitHub 계정 활동을 Commit, PR, Issue, Repo, Star 합계로 줄 세웁니다. 표는 로그인 없이 볼 수 있습니다. 실명과 학과 열은 교직원과 관리자에게만 보입니다.<br><br><img src="docs/assets/readme/ranking.webp" alt="활동 랭킹 표. 순위, 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 보입니다." width="100%"></td>
+    <td width="50%" valign="top"><b>활동 랭킹</b><br>학생의 GitHub 계정 활동을 Commit, PR, Issue, Repo, Star 합계로 줄 세웁니다. 표는 로그인 없이 볼 수 있습니다.<br><br><img src="docs/assets/readme/ranking.webp" alt="활동 랭킹 표. 순위, 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 보입니다." width="100%"></td>
   </tr>
 </table>
 
@@ -86,6 +86,7 @@ flowchart LR
   Apply --> Decision{신청 판정}
   Decision -->|승인| Work[활동·서류 제출]
   Decision -->|반려| Rejected[반려]
+  Rejected -->|신청 기간 안에 팀장이 수정| Apply
   Work --> Review{서류 검토}
   Review -->|보완 요청| Work
   Review -->|승인·반려| Done[검토 완료]
@@ -93,7 +94,7 @@ flowchart LR
 
 1. **탐색.** 신청 기간, 운영 일정, 제출 항목을 로그인 없이 봅니다.
 2. **팀 구성·신청.** GitHub로 로그인해 팀 이름을 정하고 이름이나 GitHub 아이디로 팀원을 초대합니다. 신청서는 팀장만 낼 수 있습니다.
-3. **신청 판정.** 교직원이 팀별로 승인하거나 반려하면 결과가 앱 알림으로 갑니다. 저장소 발급을 켠 프로그램은 승인된 팀에 비공개 저장소를 만들고 팀원을 초대합니다.
+3. **신청 판정.** 교직원이 팀별로 승인하거나 반려하면 결과가 앱 알림으로 갑니다. 저장소 발급을 켠 프로그램은 승인된 팀에 비공개 저장소를 만들고 팀원을 초대합니다. 반려된 신청은 신청 기간 안에 팀장이 고쳐서 다시 낼 수 있습니다.
 4. **활동·서류 제출.** 팀은 저장소에서 활동합니다. 서류는 승인된 신청에서만 낼 수 있습니다.
 5. **서류 검토.** 교직원이 서류마다 승인·보완 요청·반려를 정합니다. 승인과 반려는 최종입니다. 보완 요청을 받으면 정해진 기한까지 다시 냅니다. 마감 뒤에 다시 낸 서류는 검토가 끝날 때까지 고칠 수 없습니다.
 
