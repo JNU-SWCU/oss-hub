@@ -1,12 +1,16 @@
 <p align="center">
   <a href="https://jnu-oss-hub.com">
-    <img src="docs/assets/readme-hero.svg" alt="OSS Hub" width="100%">
+    <img src="docs/assets/readme-hero.svg" alt="OSS Hub, the service for Chonnam National University open-source programs" width="100%">
   </a>
 </p>
 
-<h3 align="center">A web service connecting students' open-source activities with programs run by faculty and staff</h3>
+<h3 align="center">A web service for running and joining the open-source programs of Chonnam National University's SW-Centered University Project Group</h3>
 
-<p align="center">OSS Hub brings program discovery, team formation, applications, document submission and review, and GitHub repositories and activity together in one place.</p>
+<p align="center">Students find competitions, hackathons, contribution challenges, study groups, and seminars, apply as a team, and submit documents. Faculty and staff approve or reject applications and review submissions. Each team's GitHub repository and activity show up in the service.</p>
+
+<p align="center">
+  <b>Students, faculty, and staff</b> start at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. <b>Developers contributing to this repository</b> start at <a href="#getting-started-locally">Getting started locally</a>.
+</p>
 
 <p align="center">
   <a href="README.md">한국어</a> · <b>English</b>
@@ -16,10 +20,11 @@
   <a href="https://github.com/JNU-SWCU/oss-hub/releases"><img src="https://img.shields.io/github/v/release/JNU-SWCU/oss-hub?color=003399&label=release" alt="Latest release"></a>
   <a href="https://github.com/JNU-SWCU/oss-hub/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JNU-SWCU/oss-hub/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://jnu-oss-hub.com"><img src="https://img.shields.io/badge/service-jnu--oss--hub.com-2aab63" alt="Service URL"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT license"></a>
   <br>
-  <img src="https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white" alt="Next.js">
-  <img src="https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white" alt="NestJS">
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white" alt="Next.js 15">
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11">
+  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
   <img src="https://img.shields.io/badge/Node.js-24%2B-5FA04E?logo=nodedotjs&logoColor=white" alt="Node.js 24 or later">
   <img src="https://img.shields.io/badge/pnpm-11-F69220?logo=pnpm&logoColor=white" alt="pnpm 11">
 </p>
@@ -37,7 +42,7 @@
 ---
 
 > [!NOTE]
-> The application interface and screenshots are currently in Korean. English reading references are available for the retained skills and templates. Each translation links back to its authoritative Korean source.
+> The application and screenshots are in Korean, and Korean is the authoritative version of the documentation. English translations of the skills and ticket templates sit beside their Korean sources.
 
 ## Features
 
@@ -219,6 +224,7 @@ compose.yml              # Production runtime
 
 Keep changes within the issue's scope and acceptance criteria, and record the verification you actually performed in the PR.
 Before contributing, read [Getting started locally](#getting-started-locally), the [PR evidence workflow](skills/submit-pr-evidence/SKILL.md), and the [public safety checks](scripts/check-public-safe.sh).
+See the [contribution guide](CONTRIBUTING.md) for the full steps, the [code of conduct](CODE_OF_CONDUCT.md) for participation rules, and the [security policy](SECURITY.md) to report a vulnerability. The guide, code of conduct, and security policy are in Korean.
 
 <details>
 <summary><b>Development and verification commands</b></summary>
@@ -257,3 +263,7 @@ Use `pnpm --filter frontend e2e:install` to install the browser, and see the [Pl
 | Pre-deployment checks                             | [CI workflow](.github/workflows/ci.yml)              |
 
 See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.
+
+## License
+
+[MIT](LICENSE)

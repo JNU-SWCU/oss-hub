@@ -1,12 +1,16 @@
 <p align="center">
   <a href="https://jnu-oss-hub.com">
-    <img src="docs/assets/readme-hero.svg" alt="OSS Hub" width="100%">
+    <img src="docs/assets/readme-hero.svg" alt="OSS Hub, 전남대학교 오픈소스 프로그램 운영 서비스" width="100%">
   </a>
 </p>
 
-<h3 align="center">학생의 오픈소스 활동과 교직원의 프로그램 운영을 연결하는 웹 서비스</h3>
+<h3 align="center">전남대학교 SW중심대학사업단의 오픈소스 프로그램을 운영하고 참여하는 웹 서비스</h3>
 
-<p align="center">프로그램 탐색과 팀 구성부터 신청, 서류 제출·검토, GitHub 저장소와 활동 확인까지 한곳에서 이어갑니다.</p>
+<p align="center">학생은 경진대회·해커톤·기여 챌린지·스터디·세미나를 찾아 팀으로 신청하고 서류를 제출합니다. 교직원은 신청을 승인·반려하고 제출물을 검토합니다. 팀의 GitHub 저장소와 활동은 서비스 안에서 확인합니다.</p>
+
+<p align="center">
+  <b>학생과 교직원</b>은 <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>에서, <b>이 저장소에 기여할 개발자</b>는 <a href="#로컬에서-시작하기">로컬에서 시작하기</a>부터 시작합니다.
+</p>
 
 <p align="center">
   <b>한국어</b> · <a href="README.en.md">English</a>
@@ -16,10 +20,11 @@
   <a href="https://github.com/JNU-SWCU/oss-hub/releases"><img src="https://img.shields.io/github/v/release/JNU-SWCU/oss-hub?color=003399&label=release" alt="최신 릴리스"></a>
   <a href="https://github.com/JNU-SWCU/oss-hub/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JNU-SWCU/oss-hub/ci.yml?branch=main&label=CI" alt="CI 상태"></a>
   <a href="https://jnu-oss-hub.com"><img src="https://img.shields.io/badge/service-jnu--oss--hub.com-2aab63" alt="서비스 주소"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT 라이선스"></a>
   <br>
-  <img src="https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white" alt="Next.js">
-  <img src="https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white" alt="NestJS">
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white" alt="Next.js 15">
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11">
+  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
   <img src="https://img.shields.io/badge/Node.js-24%2B-5FA04E?logo=nodedotjs&logoColor=white" alt="Node.js 24 이상">
   <img src="https://img.shields.io/badge/pnpm-11-F69220?logo=pnpm&logoColor=white" alt="pnpm 11">
 </p>
@@ -216,6 +221,7 @@ compose.yml              # 운영 런타임
 
 변경 사항은 이슈의 범위와 완료 조건에 맞춰 작성하고, 실제 수행한 검증을 PR에 기록합니다.
 기여를 시작할 때는 [로컬에서 시작하기](#로컬에서-시작하기), [PR 증거 절차](skills/submit-pr-evidence/SKILL.md), [공개 안전 검사](scripts/check-public-safe.sh)를 먼저 확인하세요.
+자세한 절차는 [기여 안내](CONTRIBUTING.md), 참여 규칙은 [행동 강령](CODE_OF_CONDUCT.md), 취약점 신고는 [보안 정책](SECURITY.md)을 따릅니다.
 
 <details>
 <summary><b>개발과 검증 명령</b></summary>
@@ -254,3 +260,7 @@ DB 통합 테스트는 전용 격리 실행기를 사용하고, 브라우저 테
 | 배포 전 확인               | [CI workflow](.github/workflows/ci.yml)            |
 
 기능 개선과 알려진 문제의 최신 상태는 [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues)에서 확인할 수 있습니다.
+
+## 라이선스
+
+[MIT](LICENSE)
