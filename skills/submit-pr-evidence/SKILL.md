@@ -8,7 +8,7 @@ description: >-
   해당 증거가 없으면 PR을 막는다.
   코멘트는 write-github-comment, QA 티켓은 manage-qa-tickets, 릴리스 QA는 run-release-qa를 쓴다.
 metadata:
-  version: "1.14.1"
+  version: "1.14.2"
 ---
 
 # Submit PR Evidence
@@ -190,8 +190,7 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
 0건이면 무엇을 검토했고 왜 문제가 없었는지를 문장으로 적는다.
 
 본문은 저장소 밖 파일로 먼저 쓰고 `bash scripts/check-pr-body.sh <본문 파일>`을 통과시킨다.
-Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
-다른 runtime에는 그 hook이 없으므로 이 단계와 템플릿 체크박스가 방어선이다.
+이 단계와 템플릿 체크박스가 방어선이다. 이 검사를 자동으로 막는 hook이나 CI는 없다.
 
 ## PR 본문 작성 원칙
 
