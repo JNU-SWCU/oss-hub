@@ -6,7 +6,11 @@ import {
 } from '../../../../../../test-support/list-screen-root';
 
 const mocks = vi.hoisted(() => ({
-  session: { hasStaffAccess: false, hasAdminAccess: false },
+  session: {
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+  },
   getBoardPost: vi.fn(),
 }));
 
@@ -74,12 +78,16 @@ describe('BoardDetailRoute staff treatment', () => {
 
   it.each([
     ['학생', false, false, false],
-    ['학생+관리자', false, true, true],
+    ['학생+관리자', false, true, false],
     ['교직원', true, false, true],
   ])(
     '%s 계정의 고정 컨트롤은 백엔드 권한과 같다',
     async (_, hasStaffAccess, hasAdminAccess, canPin) => {
-      mocks.session = { hasStaffAccess, hasAdminAccess };
+      mocks.session = {
+        memberKind: hasStaffAccess ? 'STAFF' : 'STUDENT',
+        hasStaffAccess,
+        hasAdminAccess,
+      };
 
       await act(async () => {
         root.render(<BoardDetailRoute programId="program-1" postId="post-1" />);

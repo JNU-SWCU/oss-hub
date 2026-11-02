@@ -1,28 +1,21 @@
-import {
-  AccountStatus,
-  AffiliationKind,
-  LoginHistoryEvent,
-  MemberKind,
-} from '@prisma/client';
+import { userAuditRows } from './user-history.integration-fixture';
+import { flatProfileFixture } from './canonical-user-fixture';
+import { AffiliationKind, MemberKind } from './user-contract.config';
+import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { RolesErrorCode } from './roles-error-code.error';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const harness = new AdminAccessHttpHarness('reads', 9_003_900_000n);
-
+const harness = new AdminAccessHttpHarness('reads', 9003900000n);
 beforeAll(async () => {
   await harness.start();
 });
-
 afterAll(async () => {
   await harness.stop();
 });
-
 it('serves all four bounded read routes with explicit response DTOs', async () => {
   const actor = await harness.createUser(
     'reads-actor',
@@ -45,7 +38,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       loginAt,
     },
   });
-
   const [list, facets, detail, history] = await Promise.all([
     harness.request(
       'GET',
@@ -64,7 +56,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
       actor.githubId,
     ),
   ]);
-
   expect([list.status, facets.status, detail.status, history.status]).toEqual([
     200, 200, 200, 200,
   ]);
@@ -93,7 +84,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     loginHistory: { page: 1, limit: 1 },
   });
 });
-
 it('executes PATCH /users/:id/access through the real transaction and audit path', async () => {
   const actor = await harness.createUser(
     'patch-actor',
@@ -105,14 +95,12 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
     'STUDENT',
     AccountStatus.ACTIVE,
   );
-
   const response = await harness.request(
     'PATCH',
     `/users/${target.id}/access`,
     actor.githubId,
     accessBody({ desiredRole: 'STAFF' }),
   );
-
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toMatchObject({
     id: target.id,
@@ -120,10 +108,11 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    harness.prisma.auditLog.count({ where: { targetId: target.id } }),
+    userAuditRows(harness.prisma, { targetId: target.id }).then(
+      (rows) => rows.length,
+    ),
   ).resolves.toBe(1);
 });
-
 it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이후 리다이렉트 없이 404를 반환한다(PR04H)', async () => {
   const actor = await harness.createUser(
     'legacy-tombstone-actor',
@@ -135,30 +124,32 @@ it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이�
     'STUDENT',
     AccountStatus.ACTIVE,
   );
-
   const [listResponse, roleResponse] = await Promise.all([
     harness.request('GET', '/users', actor.githubId),
     harness.request('PATCH', `/users/${target.id}/role`, actor.githubId, {
       role: 'STAFF',
     }),
   ]);
-
   expect(listResponse.status).toBe(404);
   expect(listResponse.redirected).toBe(false);
   expect(roleResponse.status).toBe(404);
   expect(roleResponse.redirected).toBe(false);
   await expect(
-    harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    harness.prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: target.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: false,
-    hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    harness.prisma.auditLog.count({ where: { targetId: target.id } }),
+    userAuditRows(harness.prisma, { targetId: target.id }).then(
+      (rows) => rows.length,
+    ),
   ).resolves.toBe(0);
 });
-
 function accessBody(overrides: Readonly<Record<string, unknown>>) {
   return {
     expectedRole: 'STUDENT',
@@ -169,14 +160,11 @@ function accessBody(overrides: Readonly<Record<string, unknown>>) {
     ...overrides,
   };
 }
-
 it('returns 401/AUT_003 for an anonymous access-list request', async () => {
   const response = await harness.request('GET', '/users/access');
-
   expect(response.status).toBe(401);
   await expect(response.json()).resolves.toMatchObject({ code: 'AUT_003' });
 });
-
 it.each([
   ['STAFF', 'STAFF'],
   ['STUDENT', 'STUDENT'],
@@ -186,16 +174,13 @@ it.each([
     role,
     AccountStatus.ACTIVE,
   );
-
   const response = await harness.request(
     'GET',
     '/users/access',
     actor.githubId,
   );
-
   await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
 });
-
 it.each([
   ['access', (id: string) => `/users/${id}/access`],
   ['profile', (id: string) => `/users/${id}/profile`],
@@ -216,27 +201,29 @@ it.each([
       route === 'access'
         ? accessBody({ desiredRole: 'STAFF' })
         : { name: '합성 새 이름' };
-
     const response = await harness.request(
       'PATCH',
       path(target.id),
       actor.githubId,
       body,
     );
-
     await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
     await expect(
-      harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      harness.prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      approvalStatus: 'NOT_REQUIRED',
+      admin: null,
     });
     await expect(
-      harness.prisma.auditLog.count({ where: { targetId: target.id } }),
+      userAuditRows(harness.prisma, { targetId: target.id }).then(
+        (rows) => rows.length,
+      ),
     ).resolves.toBe(0);
   },
 );
-
 it('lets STAFF read the pending queue but not the directory', async () => {
   const staff = await harness.createUser(
     'queue-staff',
@@ -254,21 +241,20 @@ it('lets STAFF read the pending queue but not the directory', async () => {
     AccountStatus.ACTIVE,
   );
   await harness.createPendingRequest(pending.id);
-
   const [directory, queue] = await Promise.all([
     harness.request('GET', '/users/access', staff.githubId),
     harness.request('GET', '/users/access/requests', staff.githubId),
   ]);
-
   await expectProblem(directory, 403, RolesErrorCode.ADMIN_ONLY);
   expect(queue.status).toBe(200);
-  const body = (await queue.json()) as {
-    readonly items: readonly { readonly id: string }[];
-  };
-  expect(body.items.map((item) => item.id)).toContain(pending.id);
-  expect(body.items.map((item) => item.id)).not.toContain(student.id);
+  const body: unknown = await queue.json();
+  const pendingItem: unknown = expect.objectContaining({ id: pending.id });
+  const pendingItems: unknown = expect.arrayContaining([pendingItem]);
+  expect(body).toMatchObject({ items: pendingItems });
+  const studentItem: unknown = expect.objectContaining({ id: student.id });
+  const studentItems: unknown = expect.arrayContaining([studentItem]);
+  expect(body).not.toMatchObject({ items: studentItems });
 });
-
 it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
   const staff = await harness.createUser(
     'approve-staff',
@@ -291,8 +277,14 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
   await harness.prisma.user.update({
     where: { id: pending.id },
     data: {
-      selectedMemberKind: MemberKind.STUDENT,
-      profile: { create: pendingProfile },
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+      ...flatProfileFixture(pendingProfile),
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
   const request = await harness.createPendingRequest(pending.id);
@@ -301,7 +293,6 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     'STUDENT',
     AccountStatus.ACTIVE,
   );
-
   const detail = await harness.request(
     'GET',
     `/users/${pending.id}/access`,
@@ -317,7 +308,7 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     `/users/${pending.id}/access`,
     staff.githubId,
     accessBody({
-      expectedRole: 'STUDENT',
+      expectedRole: null,
       desiredRole: 'STAFF',
       expectedPendingRequest: { id: request.id, status: 'PENDING' },
       requestDecision: { decision: 'APPROVE' },
@@ -329,7 +320,6 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     staff.githubId,
     accessBody({ desiredRole: 'STAFF' }),
   );
-
   expect(detail.status).toBe(200);
   await expectProblem(missing, 404, RolesErrorCode.USER_NOT_FOUND);
   if (approve.status !== 200) {
@@ -339,53 +329,47 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
   }
   await expectProblem(setRole, 403, RolesErrorCode.ADMIN_ONLY);
   await expect(
-    harness.prisma.user.findUniqueOrThrow({ where: { id: pending.id } }),
+    harness.prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: pending.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: true,
-    hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    admin: null,
   });
   await expect(
-    harness.prisma.auditLog.count({
-      where: {
-        targetId: request.id,
-        action: 'STAFF_ROLE_REQUEST_APPROVED',
-      },
-    }),
+    userAuditRows(harness.prisma, {
+      targetId: request.id,
+      action: 'STAFF_ROLE_REQUEST_APPROVED',
+    }).then((rows) => rows.length),
   ).resolves.toBe(1);
 });
-
 it('returns 400/ROL_011 for an invalid user id', async () => {
   const actor = await harness.createUser(
     'invalid-id-actor',
     'ADMIN',
     AccountStatus.ACTIVE,
   );
-
   const response = await harness.request(
     'GET',
     '/users/invalid%20id/access',
     actor.githubId,
   );
-
   await expectProblem(response, 400, RolesErrorCode.INVALID_USER_ID);
 });
-
 it('returns 404/ROL_010 for a missing user', async () => {
   const actor = await harness.createUser(
     'missing-actor',
     'ADMIN',
     AccountStatus.ACTIVE,
   );
-
   const response = await harness.request(
     'GET',
     '/users/missing-user/access',
     actor.githubId,
   );
-
   await expectProblem(response, 404, RolesErrorCode.USER_NOT_FOUND);
 });
-
 async function expectProblem(
   response: Response,
   status: number,

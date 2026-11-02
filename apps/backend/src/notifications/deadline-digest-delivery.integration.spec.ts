@@ -130,9 +130,8 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
     DIGEST_FIXTURE.now,
   );
 
-  expect(result).toMatchObject({ sentCount: 1, staffRecipientCount: 2 });
+  expect(result).toMatchObject({ sentCount: 1, staffRecipientCount: 1 });
   expect(manual.sent.map((mail) => mail.to).sort()).toEqual([
-    'admin-on@example.com',
     'staff-on@example.com',
     'student-missing@example.com',
   ]);
@@ -155,7 +154,6 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
     select: { userId: true, idempotencyKey: true, status: true },
   });
   expect(ledger.map((row) => row.idempotencyKey).sort()).toEqual([
-    `deadline-digest-staff:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.adminOn}`,
     `deadline-digest-staff:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.staffOn}`,
     `deadline-digest:2026-08-14:${DIGEST_FIXTURE.notifyProgram}:${DIGEST_FIXTURE.studentMissing}`,
   ]);
@@ -167,7 +165,7 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
     DIGEST_FIXTURE.now,
   );
 
-  expect(manual.sent).toHaveLength(3);
+  expect(manual.sent).toHaveLength(2);
 });
 
 it('수신 이메일을 변경하면 다음 발송 대상 주소가 새 값이 된다', async () => {

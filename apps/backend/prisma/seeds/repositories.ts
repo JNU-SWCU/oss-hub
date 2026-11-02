@@ -14,9 +14,9 @@ import {
   seedNameWithOwner,
   seedRepositoryId,
   SeedStats,
-  upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { upsertSeedUser } from './user';
 import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
 
 const joinCodeSecretService = new JoinCodeSecretService();

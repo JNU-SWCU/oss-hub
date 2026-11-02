@@ -1,4 +1,4 @@
-import { authorityFactsFor } from '../users/canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
@@ -69,13 +69,12 @@ export class ProgramAuthoringIntegrationHarness {
       [...label].reduce((sum, value) => sum + value.charCodeAt(0), 0),
     );
     return this.prisma.user.create({
-      data: {
+      data: canonicalUserCreateFromLabel(role, {
         id: `${AUTHORING_TEST_PREFIX}actor:${label}`,
         githubId: 9_748_000_000_000n + ordinal,
         nickname: `synthetic-p5-${label}`,
-        ...authorityFactsFor(role),
         accountStatus: AccountStatus.ACTIVE,
-      },
+      }),
       select: { id: true, githubId: true },
     });
   }
@@ -161,6 +160,9 @@ export class ProgramAuthoringIntegrationHarness {
     });
     await this.prisma.program.deleteMany({
       where: { name: { startsWith: AUTHORING_TEST_PREFIX } },
+    });
+    await this.prisma.admin.deleteMany({
+      where: { user: { id: { startsWith: AUTHORING_TEST_PREFIX } } },
     });
     await this.prisma.user.deleteMany({
       where: { id: { startsWith: AUTHORING_TEST_PREFIX } },

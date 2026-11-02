@@ -336,7 +336,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(scopeBar()).toBeNull();
   });
 
-  it('미해결 호환 ADMIN(교직원+관리자)은 시트에 모든 그룹을 본다', async () => {
+  it('신분 미선택 관리자의 옛 교직원 flag는 운영 그룹을 열지 않는다', async () => {
     mockSession(UNRESOLVED_COMPATIBILITY_ADMIN_SESSION);
     await renderFrame('/dashboard');
 
@@ -347,7 +347,7 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(
       dlg?.querySelector('[role="group"][aria-label="교직원"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       dlg?.querySelector('[role="group"][aria-label="관리자"]'),
     ).not.toBeNull();
@@ -521,20 +521,15 @@ describe('AppFrame 스코프 바와 메뉴 시트 — 통합', () => {
     expect(dialog()).toBeNull();
   });
 
-  it('프로그램 개요에서 화면을 전환하면 주소가 그대로여도 시트가 닫힌다', async () => {
+  it('학생에게는 모바일 시트에서도 운영 화면 전환이 없다', async () => {
     mockSession({ ...STUDENT_SESSION, hasStaffAccess: true });
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
     await renderFrame('/programs/prog-1');
     await openSheet();
     const viewSwitch = dialog()?.querySelector('button[data-view-switch]');
-    if (!(viewSwitch instanceof HTMLButtonElement))
-      throw new Error('화면 전환 버튼을 찾지 못했습니다');
-
-    await act(async () => viewSwitch.click());
-
-    expect(mocks.push).toHaveBeenCalledWith('/programs/prog-1');
-    expect(dialog()).toBeNull();
+    expect(viewSwitch).toBeNull();
+    expect(dialog()).not.toBeNull();
   });
 
   it('뷰포트가 데스크톱(shell 폭)으로 넘어가면 시트가 닫히고 스크롤 잠금이 풀린다', async () => {

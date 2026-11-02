@@ -1,9 +1,10 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
-  MemberKind,
+  UserType,
   Prisma,
   TeamInvitationStatus,
 } from '@prisma/client';
@@ -88,15 +89,13 @@ export interface InvitationCandidateRecord {
   readonly avatarUrl: string | null;
 }
 
-export interface StaffAuthorityRow {
-  readonly accountStatus: AccountStatus;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-}
+export type StaffAuthorityRow = Prisma.UserGetPayload<{
+  select: typeof USER_AUTHORITY_SELECT & { accountStatus: true };
+}>;
 
 export interface InviteeAccountRow {
   readonly accountStatus: AccountStatus;
-  readonly profile: { readonly memberKind: MemberKind } | null;
+  readonly type: UserType;
 }
 
 export type AcceptInvitationOutcome =
@@ -162,7 +161,7 @@ function toSentTeamInvitationRecord(
     invitee: {
       id: invitation.invitee.id,
       nickname: invitation.invitee.nickname,
-      name: invitation.invitee.profile?.name ?? null,
+      name: invitation.invitee.name ?? null,
       avatarUrl: invitation.invitee.avatarUrl,
     },
   };
@@ -229,8 +228,7 @@ export class TeamInvitationsRepository {
       programName: invitation.team.program.name,
 
       invitedByDisplayName:
-        invitation.invitedBy.profile?.name?.trim() ||
-        invitation.invitedBy.nickname,
+        invitation.invitedBy.name?.trim() || invitation.invitedBy.nickname,
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
@@ -278,7 +276,7 @@ export class TeamInvitationsRepository {
         teamName: row.preparation.name,
         programName: row.preparation.program.name,
         invitedByDisplayName:
-          row.preparation.leader.profile?.name?.trim() ||
+          row.preparation.leader.name?.trim() ||
           row.preparation.leader.nickname,
         memberCount: row.preparation._count.participants,
         teamMaxSize: row.preparation.program.teamMaxSize,
@@ -330,8 +328,7 @@ export class TeamInvitationsRepository {
       where: { id: userId },
       select: {
         accountStatus: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
       },
     });
   }
@@ -341,7 +338,7 @@ export class TeamInvitationsRepository {
       where: { id: userId },
       select: {
         accountStatus: true,
-        profile: { select: { memberKind: true } },
+        type: true,
       },
     });
   }
@@ -386,6 +383,10 @@ export class TeamInvitationsRepository {
           const actorMembership = await tx.teamMember.findUnique({
             where: {
               teamId_userId: { teamId: team.id, userId: input.actorId },
+              user: {
+                ...STUDENT_MEMBER_WHERE,
+                accountStatus: AccountStatus.ACTIVE,
+              },
             },
             select: { userId: true },
           });
@@ -544,7 +545,7 @@ export class TeamInvitationsRepository {
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
-      name: user.profile?.name ?? null,
+      name: user.name ?? null,
       avatarUrl: user.avatarUrl,
     }));
   }
@@ -604,12 +605,12 @@ export class TeamInvitationsRepository {
           select: {
             id: true,
             accountStatus: true,
-            profile: { select: { memberKind: true } },
+            type: true,
           },
         });
         if (
           !invitee ||
-          invitee.profile?.memberKind !== MemberKind.STUDENT ||
+          invitee.type !== UserType.STUDENT ||
           invitee.accountStatus !== AccountStatus.ACTIVE
         ) {
           return { kind: 'invitee-not-eligible' };
@@ -698,13 +699,18 @@ async function isActiveStaffActor(
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
-      hasStaffAccess: true,
-      hasAdminAccess: true,
+      ...USER_AUTHORITY_SELECT,
       accountStatus: true,
     },
   });
   if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
-  return user.hasStaffAccess || user.hasAdminAccess;
+  return (
+    user.type === 'STAFF' &&
+    user.approvalStatus === 'APPROVED' &&
+    user.profileCreatedAt !== null &&
+    user.name !== null &&
+    user.department !== null
+  );
 }
 
 type AccessSyncTx = Pick<

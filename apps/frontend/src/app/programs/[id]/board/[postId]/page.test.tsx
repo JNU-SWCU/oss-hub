@@ -19,14 +19,14 @@ vi.mock('./board-detail-route', () => ({
 import Page from './page';
 
 describe('ProgramBoardDetailRoutePage access contract', () => {
-  it('관리자 단독 계정도 게시글을 연다', async () => {
+  it('학생과 승인된 교직원만 게시글을 연다', async () => {
     const html = renderToStaticMarkup(
       await Page({
         params: Promise.resolve({ id: 'program-1', postId: 'post-1' }),
       }),
     );
 
-    expect(html).toContain('data-allow="student,staff,admin"');
+    expect(html).toContain('data-allow="student,staff"');
     expect(html).toContain('board detail');
   });
 });

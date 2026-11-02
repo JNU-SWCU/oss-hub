@@ -1,5 +1,6 @@
 import type { AuthorityLabel } from '../../users/authority-label.types';
-import type { AccountStatus, MemberKind } from '@prisma/client';
+import type { AccountStatus, ApprovalStatus } from '@prisma/client';
+import type { MemberKind } from '../../users/user-contract.config';
 import type {
   AdminAccessFacets,
   AdminAccessPendingRequest,
@@ -32,6 +33,8 @@ export class AdminAccessUserResponseDto {
   declare readonly memberKind: AdminAccessUser['memberKind'];
   declare readonly hasStaffAccess: boolean;
   declare readonly hasAdminAccess: boolean;
+  declare readonly approvalStatus: ApprovalStatus;
+  declare readonly approvalRequestId: string | null;
   declare readonly accountStatus: AccountStatus;
   declare readonly isSelf: boolean;
   declare readonly isProfileComplete: boolean;
@@ -48,6 +51,8 @@ export class AdminAccessUserResponseDto {
       memberKind: user.memberKind,
       hasStaffAccess: user.hasStaffAccess,
       hasAdminAccess: user.hasAdminAccess,
+      approvalStatus: user.approvalStatus,
+      approvalRequestId: user.approvalRequestId,
       accountStatus: user.accountStatus,
       isSelf: user.isSelf,
       isProfileComplete: user.isProfileComplete,
@@ -95,6 +100,8 @@ export class AdminAccessMutationResponseDto {
   declare readonly role: AuthorityLabel | null;
   declare readonly accountStatus: AccountStatus;
   declare readonly pendingRequest: PendingRequestResponseDto | null;
+  declare readonly approvalStatus: ApprovalStatus;
+  declare readonly approvalRequestId: string | null;
   declare readonly decidedRequest: AdminAccessMutationResult['decidedRequest'];
 
   static from(
@@ -106,6 +113,8 @@ export class AdminAccessMutationResponseDto {
       accountStatus: result.accountStatus,
       pendingRequest: toPendingRequest(result.pendingRequest),
       decidedRequest: result.decidedRequest,
+      approvalStatus: result.approvalStatus,
+      approvalRequestId: result.approvalRequestId,
     };
   }
 }
@@ -116,6 +125,8 @@ export class IndependentAuthorityMutationResponseDto {
   declare readonly memberKind: MemberKind | null;
   declare readonly hasStaffAccess: boolean;
   declare readonly hasAdminAccess: boolean;
+  declare readonly approvalStatus: ApprovalStatus;
+  declare readonly approvalRequestId: string | null;
 
   static from(
     result: IndependentAuthorityMutationResult,
@@ -126,6 +137,8 @@ export class IndependentAuthorityMutationResponseDto {
       memberKind: result.memberKind,
       hasStaffAccess: result.hasStaffAccess,
       hasAdminAccess: result.hasAdminAccess,
+      approvalStatus: result.approvalStatus,
+      approvalRequestId: result.approvalRequestId,
     };
   }
 }

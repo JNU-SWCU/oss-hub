@@ -1,6 +1,8 @@
 import { Transform } from 'class-transformer';
+import { ApprovalStatus } from '@prisma/client';
 import {
   IsBoolean,
+  IsEnum,
   IsDefined,
   IsString,
   Matches,
@@ -21,6 +23,16 @@ export class PatchMemberKindRequestDto {
   @IsDefined()
   @IsBoolean()
   declare readonly expectedHasStaffAccess: boolean;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsEnum(ApprovalStatus)
+  declare readonly expectedApprovalStatus?: ApprovalStatus;
+
+  @ValidateIf(
+    (_object, value: unknown) => value !== undefined && value !== null,
+  )
+  @IsString()
+  declare readonly expectedApprovalRequestId?: string | null;
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Transform(trimString)

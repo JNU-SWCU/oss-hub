@@ -1,12 +1,13 @@
+import { MemberKind } from './user-contract.config';
 import { AdminAccessRepository } from './admin-access.repository';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
-import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import { Prisma } from '@prisma/client';
+import type { UserHistoryTransaction } from './user-history.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { USER_PROFILE_SELECT } from '../platform/user-profile-read.config';
-import { PlatformRepository } from '../platform/platform.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 
@@ -33,7 +34,7 @@ export type AdminProfileLegacyFields = {
 export type AdminProfileApplyOutcome = 'applied' | 'studentIdTaken';
 
 export interface AdminProfileTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly auditLogWriter: UserHistoryTransaction;
 
   lockActiveAdmins(): Promise<void>;
   findActor(githubId: bigint): Promise<AdminAccessActor | null>;
@@ -72,7 +73,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessRepository: AdminAccessRepository,
     private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
-    private readonly platformRepository: PlatformRepository,
+    private readonly transitions: UserTransitionRepository,
   ) {}
 
   withTransaction<T>(
@@ -127,6 +128,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     transaction: Prisma.TransactionClient,
     userId: string,
   ): Promise<AdminProfileTargetRecord | null> {
+    await this.transitions.lock(transaction, userId);
     const user = await transaction.user.findUnique({
       where: { id: userId },
       select: ADMIN_PROFILE_TARGET_SELECT,
@@ -141,18 +143,22 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     changedFields: Partial<AdminProfileWriteFields>,
   ): Promise<AdminProfileApplyOutcome> {
     try {
-      await this.platformRepository.upsertUserProfile(
-        transaction,
-        userId,
-        {
-          ...fields,
-
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: fields.department,
+      if (Object.keys(changedFields).length === 0) return 'applied';
+      const current = await transaction.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { profileCreatedAt: true, type: true, departmentType: true },
+      });
+      const now = new Date();
+      await transaction.user.update({
+        where: { id: userId },
+        data: {
+          ...changedFields,
+          departmentType:
+            current.type === 'STUDENT' ? 'DEPARTMENT' : current.departmentType,
+          profileCreatedAt: current.profileCreatedAt ?? now,
+          profileUpdatedAt: now,
         },
-        withAffiliationName(changedFields),
-      );
+      });
       return 'applied';
     } catch (error) {
       if (
@@ -173,9 +179,9 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     if (Object.keys(fields).length === 0) {
       return;
     }
-    await transaction.userProfile.updateMany({
-      where: { userId },
-      data: withAffiliationName(fields),
+    await transaction.user.update({
+      where: { id: userId },
+      data: { ...fields, profileUpdatedAt: new Date() },
     });
   }
 }
@@ -184,22 +190,14 @@ function toAdminProfileTargetRecord(
   user: PrismaAdminProfileTarget,
 ): AdminProfileTargetRecord {
   const profile = {
-    name: user.profile?.name ?? null,
-    studentId: user.profile?.studentId ?? null,
-    department: user.profile?.department ?? null,
+    name: user.name,
+    studentId: user.studentId,
+    department: user.department,
   };
   return {
     id: user.id,
     githubLogin: user.nickname,
     ...profile,
-    memberKind: user.profile?.memberKind ?? null,
+    memberKind: user.type === 'UNSELECTED' ? null : user.type,
   };
-}
-
-function withAffiliationName<T extends { readonly department?: string }>(
-  fields: T,
-): T & { readonly affiliationName?: string } {
-  return fields.department === undefined
-    ? fields
-    : { ...fields, affiliationName: fields.department };
 }

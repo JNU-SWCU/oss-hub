@@ -1,9 +1,11 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -28,7 +30,7 @@ const prisma = new PrismaService();
 const inbox = new TeamInvitationsRepository(prisma, new PlatformRepository());
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const preparations = new ApplicationPreparationsService(
   new ApplicationPreparationsRepository(prisma, new PlatformRepository()),
@@ -102,17 +104,14 @@ describe('application preparation integration', () => {
         data: {
           ...actor,
           nickname: actor.id,
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: actor.id,
-              memberKind: MemberKind.STUDENT,
-              studentId: actor.githubId.toString(),
-              department: 'synthetic',
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: 'synthetic',
-            },
-          },
+          name: actor.id,
+          type: MemberKind.STUDENT,
+          studentId: actor.githubId.toString(),
+          department: 'synthetic',
+          departmentType: AffiliationKind.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          approvalStatus: 'NOT_REQUIRED',
         },
       });
     }

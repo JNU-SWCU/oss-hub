@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
   AdminAccessMutationService,
@@ -58,7 +58,8 @@ export class AdminAccessService {
   constructor(
     @Inject(AdminAccessRepository)
     private readonly repository: AdminAccessRepositoryPort,
-    private readonly auditLog: AuditLogService,
+    @Inject(UserHistoryRepository)
+    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 

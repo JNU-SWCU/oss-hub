@@ -3,9 +3,9 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import {
   AccountStatus,
   ApplicationStatus,
-  MemberKind,
   RepositoryConnectionMode,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramTeamsRepository } from './program-teams.repository';
 import {
@@ -37,8 +37,13 @@ beforeAll(async () => {
     data: {
       githubId: staffGithubId,
       nickname: staffLogin,
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      type: MemberKind.STAFF,
+      approvalStatus: 'APPROVED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
     },
     select: { id: true },
   }));

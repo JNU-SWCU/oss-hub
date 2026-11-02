@@ -1,4 +1,4 @@
-import type { AuditLogService } from '../platform/audit-log.service';
+import type { UserHistoryRepository } from './user-history.repository';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { RolesErrorCode } from './roles-error-code.error';
@@ -80,7 +80,7 @@ function diffAdminProfileFields(
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;
-  readonly auditLog: AuditLogService;
+  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {

@@ -74,22 +74,19 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
 
   it('treats only ACTIVE administrators as authorized operators', async () => {
     findUnique.mockResolvedValueOnce({
-      hasStaffAccess: false,
-      hasAdminAccess: true,
+      admin: { userId: 'admin-1' },
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(1n)).resolves.toBe(true);
 
     findUnique.mockResolvedValueOnce({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      admin: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(2n)).resolves.toBe(false);
 
     findUnique.mockResolvedValueOnce({
-      hasStaffAccess: false,
-      hasAdminAccess: true,
+      admin: { userId: 'admin-1' },
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(repository.findActiveAdminByGithubId(3n)).resolves.toBe(false);
@@ -256,10 +253,14 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     readonly accountStatus?: AccountStatus;
   }) {
     findUnique.mockResolvedValue({
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      accountStatus: AccountStatus.ACTIVE,
-      ...overrides,
+      accountStatus: overrides.accountStatus ?? AccountStatus.ACTIVE,
+      id: overrides.id,
+      type: overrides.hasStaffAccess ? 'STAFF' : 'STUDENT',
+      approvalStatus: overrides.hasStaffAccess ? 'APPROVED' : 'NOT_REQUIRED',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      name: 'Synthetic requester',
+      department: 'Synthetic department',
+      admin: overrides.hasAdminAccess ? { userId: overrides.id } : null,
     });
   }
 
@@ -347,11 +348,11 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   });
 
   it.each([
-    ['staff', { hasStaffAccess: true }],
-    ['admin', { hasAdminAccess: true }],
+    ['staff', { hasStaffAccess: true }, true],
+    ['admin', { hasAdminAccess: true }, false],
   ])(
-    'keeps the active %s exception without a participant filter',
-    async (_label, access) => {
+    'limits the active %s exception to approved staff',
+    async (_label, access, allowed) => {
       requester({ id: 'user-staff', ...access });
 
       const file = await repository.findDownloadableFile(
@@ -360,10 +361,11 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
         NOW,
       );
 
-      expect(file).toMatchObject({ id: 'file-attached' });
-      const where = findFirst.mock.calls[0]![0].where;
-      expect(where).not.toHaveProperty('application');
-      expect(where).not.toHaveProperty('OR');
+      if (allowed) {
+        expect(file).toMatchObject({ id: 'file-attached' });
+      } else {
+        expect(file).toBeNull();
+      }
     },
   );
 

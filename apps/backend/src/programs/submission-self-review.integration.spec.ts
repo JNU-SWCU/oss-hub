@@ -55,7 +55,7 @@ const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];
 const operators = [
   { kind: 'staff', hasStaffAccess: true, hasAdminAccess: false },
-  { kind: 'admin', hasStaffAccess: false, hasAdminAccess: true },
+  { kind: 'staff-admin', hasStaffAccess: true, hasAdminAccess: true },
 ] as const;
 
 async function review(
@@ -146,8 +146,21 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       await fixture.prisma.user.update({
         where: { id: flowIds.student },
         data: {
-          hasStaffAccess: testCase.hasStaffAccess,
-          hasAdminAccess: testCase.hasAdminAccess,
+          type: testCase.hasStaffAccess ? 'STAFF' : 'STUDENT',
+          approvalStatus:
+            (testCase.hasStaffAccess ? 'STAFF' : 'STUDENT') === 'STAFF'
+              ? testCase.hasStaffAccess
+                ? 'APPROVED'
+                : 'PENDING'
+              : 'NOT_REQUIRED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
+          ...(testCase.hasAdminAccess
+            ? { admin: { create: { origin: 'MIGRATION' as const } } }
+            : {}),
         },
       });
 
@@ -189,8 +202,21 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       await fixture.prisma.user.update({
         where: { id: flowIds.staff },
         data: {
-          hasStaffAccess: operator.hasStaffAccess,
-          hasAdminAccess: operator.hasAdminAccess,
+          type: operator.hasStaffAccess ? 'STAFF' : 'STUDENT',
+          approvalStatus:
+            (operator.hasStaffAccess ? 'STAFF' : 'STUDENT') === 'STAFF'
+              ? operator.hasStaffAccess
+                ? 'APPROVED'
+                : 'PENDING'
+              : 'NOT_REQUIRED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
+          ...(operator.hasAdminAccess
+            ? { admin: { create: { origin: 'MIGRATION' as const } } }
+            : {}),
         },
       });
 

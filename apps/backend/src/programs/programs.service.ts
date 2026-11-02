@@ -207,13 +207,10 @@ export class ProgramsService {
     githubId: bigint,
     request: { readonly view?: string },
   ): Promise<ProgramDetailResult> {
+    void request;
     return this.detail(
       programId,
-      await this.programViewerService.fromGithubId(
-        githubId,
-        programId,
-        request.view === 'operations',
-      ),
+      await this.programViewerService.fromGithubId(githubId),
     );
   }
 
@@ -268,7 +265,7 @@ export class ProgramsService {
       });
     }
 
-    if (viewer.role === 'STAFF' || viewer.role === 'ADMIN') {
+    if (viewer.role === 'STAFF') {
       const programIds = items.map((item) => item.id);
       const counts =
         await this.repository.countApplicationsByProgram(programIds);
@@ -313,7 +310,7 @@ export class ProgramsService {
           ? await this.findStudentApplicationAxes(programId, viewer.userId)
           : null;
       const staffApplications =
-        viewer.role === 'STAFF' || viewer.role === 'ADMIN'
+        viewer.role === 'STAFF'
           ? (await this.repository.findApprovedApplications(programId)).map(
               (application) => this.toTargetSubmissionAxes(application),
             )

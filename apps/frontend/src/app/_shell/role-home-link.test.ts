@@ -87,7 +87,7 @@ describe('역할별 첫 메뉴 href = 역할 홈 경로', () => {
     expect(STAFF_MENU[0].href).toBe(roleHomePath());
   });
 
-  it('ADMIN_MENU의 첫 메뉴 href는 roleHomePath()와 같다', () => {
-    expect(ADMIN_MENU[0].href).toBe(roleHomePath());
+  it('관리자 메뉴는 운영 대시보드 대신 사용자 관리에서 시작한다', () => {
+    expect(ADMIN_MENU[0].href).toBe('/dashboard/users');
   });
 });

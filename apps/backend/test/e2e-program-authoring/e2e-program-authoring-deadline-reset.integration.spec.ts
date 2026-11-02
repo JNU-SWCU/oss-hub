@@ -1,5 +1,5 @@
 import { DeadlineDigestMailService } from '../../src/notifications/deadline-digest-mail.service';
-import { MemberKind } from '@prisma/client';
+import { MemberKind } from '../../src/users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { canonicalUserCreate } from '../../src/users/canonical-user-fixture';

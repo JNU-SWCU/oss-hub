@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "currentVersion": "2026-11-01",
+  "compatibleVersions": ["2026-10-19", "2026-08-11"],
+  "hashScope": "Exact Git source blob bytes, not rendered HTML or deployment evidence.",
+  "acceptanceSnapshot": {
+    "status": "unknown",
+    "reason": "Acceptance records store policyVersion, not a source commit or blob. Git history alone cannot identify the deployed snapshot shown to each member."
+  },
+  "documents": {
+    "PRIVACY_COLLECTION": "/policies/privacy",
+    "GITHUB_ACTIVITY": "/policies/github-activity",
+    "ORG_REPOSITORY_TERMS": "/policies/org-repository-terms"
+  },
+  "versions": [
+    {
+      "version": "2026-11-01",
+      "snapshots": [
+        {
+          "description": "Current checkout source after the notice-only change; not the first source published under this version.",
+          "commit": "394c33497e60201c13a1cf5536b1036b23b6e802",
+          "matchesCheckout": true,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/src/app/policies/privacy/page.tsx",
+              "blob": "a7708cbcbe53565e29ba07bed583deeee2d16ebc",
+              "sha256": "6f19012a281c1b5eee4d1d282a63b24a1562a9d1f826d9111e6d8aab3076ceac"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/src/app/policies/github-activity/page.tsx",
+              "blob": "5e50c0a01580891ab2b3d4cb1d97d193e8f92b48",
+              "sha256": "50dacdf41462e2337de6f10cc70caf2f0028fe36d7808b0e4f61503f9cbbc299"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/src/app/policies/org-repository-terms/page.tsx",
+              "blob": "967c94d9cd5135c5d9afd6b3c5ded425b038b77e",
+              "sha256": "d29f89ceffbd1fa4dfbf25d4a5f34aae55d929b3fbf1e14b9ab49807c55b5dd9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": "2026-10-19",
+      "snapshots": [
+        {
+          "description": "Initial versioned HTML files.",
+          "commit": "0ddde31e64be213ab39b19cd2d06dcb755572bfb",
+          "matchesCheckout": false,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/public/policies/privacy/2026-10-19.html",
+              "blob": "7d64b7b801389eda25a5fdfaf1bb8c08afd149e4",
+              "sha256": "4d5a4a4efcc1c78abdcbc0d723158094fb66bb208f0a4fc291622a744d8ca4cb"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/public/policies/github-activity/2026-10-19.html",
+              "blob": "5e4a8a3594fd8b42230f6ecda860823cfa849789",
+              "sha256": "0a4ca3e517f5423af2f64207bb8a2d8950866d576825136e70effd7394229bc9"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/public/policies/org-repository-terms/2026-10-19.html",
+              "blob": "9719699ab84c5b67e046e1945b2da4c31ea7d35a",
+              "sha256": "30267c50c4acc5fc73d6f5cbd4a5d9e383d5bba2255290a47eb1513f919b98fb"
+            }
+          }
+        },
+        {
+          "description": "Same version revised for role-specific ranking visibility; final HTML blobs before removal in 6ad2adc779f6b4599b5e33dbbe071bcbf5a21c85.",
+          "commit": "28a67beed721bf0ccf05fbaeb9955932e2cd5956",
+          "matchesCheckout": false,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/public/policies/privacy/2026-10-19.html",
+              "blob": "852e47802ec58c64defe160c59e7f241eba80565",
+              "sha256": "f6a4cbd9898696f158ca53fed25369e7292eb73cc0430d8fc94b9b13b5bfa6d6"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/public/policies/github-activity/2026-10-19.html",
+              "blob": "9a85de45633e696129a5d3c8b8386ed9895d0af9",
+              "sha256": "3f0303e053ca75445a08c63ccd7f222081323ca41b317a5fe58a8fce90187645"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/public/policies/org-repository-terms/2026-10-19.html",
+              "blob": "9719699ab84c5b67e046e1945b2da4c31ea7d35a",
+              "sha256": "30267c50c4acc5fc73d6f5cbd4a5d9e383d5bba2255290a47eb1513f919b98fb"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": "2026-08-11",
+      "snapshots": [
+        {
+          "description": "Initial versioned HTML files.",
+          "commit": "e6c0bf265050e0c04772de0d5f5385588b947491",
+          "matchesCheckout": false,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/public/policies/privacy/2026-08-11.html",
+              "blob": "85916e7cac246d1e4c197cfb4039d8a7914772ac",
+              "sha256": "4982bd3f3bb59c5eda57684a7040aa8963f34110fe9f0e34ea8baacd5c877f54"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/public/policies/github-activity/2026-08-11.html",
+              "blob": "89e4c5b33711425a18e1fc7ebcbdf518fe19736d",
+              "sha256": "130ee180865944766fd44793ff6ee83b6d41d774b192be1bc9f002b2a31e0814"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/public/policies/org-repository-terms/2026-08-11.html",
+              "blob": "0ca44a643ccfdef74e643b52ff36cc767564b199",
+              "sha256": "e8f3c387f1e93497c1b7e92ce82caa2b16c04d67fd24beb4ce63083a1af763a4"
+            }
+          }
+        },
+        {
+          "description": "Same version reformatted; final HTML blobs before removal in 6ad2adc779f6b4599b5e33dbbe071bcbf5a21c85.",
+          "commit": "fd994763241457d110d241becf0e983b9904d417",
+          "matchesCheckout": false,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/public/policies/privacy/2026-08-11.html",
+              "blob": "b854cf9f27c71e79c93f53d456b6cba99bdbe1bb",
+              "sha256": "ea8c6aec31166a31a8a76e4a520342b3fc65aef571841d896f359c7859ee7eb8"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/public/policies/github-activity/2026-08-11.html",
+              "blob": "ef864fdf14bfd2215887ed2949f4e46eeb5e7dad",
+              "sha256": "887475a819c107212c1e342b6fafada163f09991409cded66eb07c41a04f186c"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/public/policies/org-repository-terms/2026-08-11.html",
+              "blob": "0ca44a643ccfdef74e643b52ff36cc767564b199",
+              "sha256": "e8f3c387f1e93497c1b7e92ce82caa2b16c04d67fd24beb4ce63083a1af763a4"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

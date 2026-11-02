@@ -43,7 +43,7 @@ function eligibleRow(): ReviewContextRow {
     application: {
       id: 'application-1',
       teamId: 'team-1',
-      applicant: { nickname: 'applicant', profile: { name: 'Applicant' } },
+      applicant: { nickname: 'applicant', name: 'Applicant' },
       team: { name: 'Synthetic Team' },
       isRepositoryPublicationPlanned: true,
       provisionJob: {
@@ -212,7 +212,7 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
     publish: jest.fn().mockResolvedValue({
       id: 'repository-1',
       githubRepositoryId: 123n,
-      profile: { name: 'synthetic-repository' },
+      name: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repository',
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,

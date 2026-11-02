@@ -3,8 +3,6 @@ import { SubmissionFileAdmissionService } from './submission-file-admission.serv
 import { SubmissionInputService } from './submission-input.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
-  AffiliationKind,
-  MemberKind,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -12,6 +10,7 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   offsetDays,
@@ -131,22 +130,22 @@ describe('SubmissionsService checklist/resubmission integration', () => {
           id: OUTSIDER_USER_ID,
           githubId: seedGithubId(OUTSIDER_USER_ID),
           nickname: OUTSIDER_USER_ID,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
       ],
       skipDuplicates: true,
     });
-    await prisma.userProfile.upsert({
-      where: { userId: OUTSIDER_USER_ID },
-      update: {},
-      create: {
-        userId: OUTSIDER_USER_ID,
+    await prisma.user.update({
+      where: { id: OUTSIDER_USER_ID },
+      data: {
         name: '합성 외부 학생',
         studentId: '261098',
         department: '합성 학과',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성 학과',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
 

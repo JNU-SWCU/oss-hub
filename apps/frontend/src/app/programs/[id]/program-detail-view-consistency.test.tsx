@@ -120,14 +120,11 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
       }),
     );
     mocks.getProgramOverview.mockRejectedValue(new TypeError('unavailable'));
-    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = input instanceof Request ? input.url : String(input);
-      const operations = url.endsWith('/viewer?view=operations');
-      const role = operations
-        ? mocks.hasAdminAccess
-          ? 'ADMIN'
-          : 'STAFF'
-        : 'STUDENT';
+    fetchMock = vi.fn(async () => {
+      const role =
+        mocks.memberKind === 'STAFF' && mocks.hasStaffAccess
+          ? 'STAFF'
+          : 'STUDENT';
       return new Response(
         JSON.stringify({
           ...DETAIL,
@@ -176,10 +173,6 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
         }),
       );
       await renderScreen();
-      if (role === 'dual') {
-        expect(mocks.getProgramOverview).not.toHaveBeenCalled();
-        expect(fetchMock).not.toHaveBeenCalled();
-      }
       if (role !== 'staff') {
         await act(async () => resolveParticipation({ status: 'APPROVED' }));
       }
@@ -195,42 +188,39 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     return container.querySelector('main a[href$="/edit"]');
   }
 
-  async function switchView() {
-    const button = container.querySelector<HTMLButtonElement>(
-      '[data-slot="program-scope-sidebar"] button[data-view-switch]',
-    );
-    expect(button).not.toBeNull();
-    await act(async () => button?.click());
-  }
-
   it.each(['STAFF', 'ADMIN'] as const)(
     '참여 조회 503 뒤 %s 메뉴와 본문을 함께 보여준다',
     async (role) => {
+      mocks.memberKind = role === 'STAFF' ? 'STAFF' : 'STUDENT';
       mocks.hasStaffAccess = role === 'STAFF';
       mocks.hasAdminAccess = role === 'ADMIN';
       await renderScreen();
-      expect(container.textContent).toContain('팀 관리');
-      expect(editLink()).not.toBeNull();
-      expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1', true);
+      expect(container.textContent?.includes('팀 관리')).toBe(role === 'STAFF');
+      expect(editLink() !== null).toBe(role === 'STAFF');
+      expect(mocks.getProgramOverview).toHaveBeenCalledWith(
+        'program-1',
+        role === 'STAFF',
+      );
     },
   );
 
-  it('참여 확인 뒤 학생 화면을 기본으로 바꾸고 명시적 운영 화면과 왕복한다', async () => {
+  it('실제 신분이 바뀔 때만 학생과 운영 도구를 전환한다', async () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await renderScreen();
     expect(container.textContent).toContain('우리 팀');
     expect(editLink()).toBeNull();
-    await switchView();
+    mocks.memberKind = 'STAFF';
+    await renderScreen();
     expect(container.textContent).toContain('팀 관리');
     expect(editLink()).not.toBeNull();
-    await switchView();
+    mocks.memberKind = 'STUDENT';
+    await renderScreen();
     expect(container.textContent).toContain('우리 팀');
     expect(editLink()).toBeNull();
-    expect(mocks.router.replace).not.toHaveBeenCalled();
-    expect(mocks.router.push).toHaveBeenLastCalledWith('/programs/program-1');
+    expect(container.querySelector('button[data-view-switch]')).toBeNull();
   });
 
-  it('저장된 운영 화면은 hydration 전후 학생 조회나 본문을 노출하지 않는다', async () => {
+  it('학생의 저장된 운영 값은 hydration 뒤에도 운영 도구를 열지 않는다', async () => {
     sessionStorage.setItem('oss-hub-program-operations-view:program-1', 'true');
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await act(async () => root.unmount());
@@ -248,13 +238,13 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     await act(async () => {
       root = hydrateRoot(container, screen);
     });
-    expect(editLink()).not.toBeNull();
+    expect(editLink()).toBeNull();
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).endsWith('/viewer')),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       mocks.getProgramOverview.mock.calls.every(
-        ([, operations]) => operations === true,
+        ([, operations]) => operations === false,
       ),
     ).toBe(true);
   });
@@ -285,24 +275,23 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await renderScreen();
     expect(editLink()).toBeNull();
-    expect(container.querySelector('button[data-view-switch]')).not.toBeNull();
+    expect(container.querySelector('button[data-view-switch]')).toBeNull();
   });
 
-  it('쓰기만 차단되어도 저장된 운영 값을 메모리에서 해제한다', async () => {
+  it('storage 쓰기가 막혀도 학생에게 운영 권한이 생기지 않는다', async () => {
     sessionStorage.setItem('oss-hub-program-operations-view:program-1', 'true');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('full', 'QuotaExceededError');
     });
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await renderScreen();
-    expect(editLink()).not.toBeNull();
-    await switchView();
+    expect(editLink()).toBeNull();
     expect(editLink()).toBeNull();
     await renderScreen();
     expect(editLink()).toBeNull();
   });
 
-  it('storage 읽기와 쓰기가 실패해도 화면 전환을 메모리에 유지한다', async () => {
+  it('storage 읽기와 쓰기가 실패해도 학생 신분을 유지한다', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError');
     });
@@ -311,15 +300,14 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
     });
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
     await renderScreen();
-    await switchView();
-    expect(editLink()).not.toBeNull();
+    expect(editLink()).toBeNull();
     await renderScreen();
-    expect(editLink()).not.toBeNull();
-    await switchView();
+    expect(editLink()).toBeNull();
     expect(editLink()).toBeNull();
   });
 
   it('운영 사이드바 집계에는 개인의 서류 수 대신 완료한 팀 수를 표시한다', async () => {
+    mocks.memberKind = 'STAFF';
     mocks.getProgramOverview.mockImplementation(
       async (
         _programId: string,

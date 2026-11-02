@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import type {
@@ -8,11 +8,9 @@ import type {
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
 >;
-
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
 const input: PatchUserProfileInput = {
@@ -20,7 +18,6 @@ const input: PatchUserProfileInput = {
   studentId,
   department: '인공지능학부',
 };
-
 type StoredUser = {
   readonly id: string;
   readonly name: string | null;
@@ -32,7 +29,6 @@ type StoredUser = {
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
 };
-
 function buildService(
   overrides: {
     readonly user?: StoredUser | null;
@@ -88,7 +84,6 @@ function buildService(
     updateProfileFields,
   };
 }
-
 async function captureDomainException(
   operation: () => Promise<unknown>,
 ): Promise<DomainException> {
@@ -102,7 +97,6 @@ async function captureDomainException(
   }
   throw new Error('Expected DomainException');
 }
-
 describe('기존 데이터 호환', () => {
   it('세 항목을 모두 채운 기존 사용자는 어떤 역할에서도 완료다', async () => {
     for (const role of ['STUDENT', 'STAFF'] as const) {
@@ -115,14 +109,12 @@ describe('기존 데이터 호환', () => {
           memberKind: role,
         },
       });
-
       await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
         studentId,
         isComplete: true,
       });
     }
   });
-
   it('학번이 null인 기존 교직원은 학번을 요구받지 않고 이름·학과만 갱신한다', async () => {
     const existingStaff = {
       id: 'synthetic-user',
@@ -137,12 +129,10 @@ describe('기존 데이터 호환', () => {
       buildService({
         user: existingStaff,
       });
-
     const profile = await service.patchMyProfile(githubId, {
       name: '수정된 이름',
       department: '소프트웨어공학과',
     });
-
     expect(profile).toEqual({
       name: '수정된 이름',
       studentId: null,
@@ -156,7 +146,6 @@ describe('기존 데이터 호환', () => {
       {
         name: '수정된 이름',
         department: '소프트웨어공학과',
-
         affiliationKind: AffiliationKind.DEPARTMENT,
         affiliationName: '소프트웨어공학과',
       },
@@ -165,7 +154,6 @@ describe('기존 데이터 호환', () => {
     );
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
-
   it('관리자 갱신도 이름·학과를 함께 보낸다', async () => {
     const existingAdmin = {
       id: 'synthetic-user',
@@ -179,12 +167,10 @@ describe('기존 데이터 호환', () => {
     const { service, updateProfileFields } = buildService({
       user: existingAdmin,
     });
-
     const profile = await service.patchMyProfile(githubId, {
       name: '수정된 이름',
       department: input.department,
     });
-
     expect(profile.department).toBe(input.department);
     expect(updateProfileFields).toHaveBeenCalledWith(
       existingAdmin,
@@ -198,7 +184,6 @@ describe('기존 데이터 호환', () => {
       expect.any(Function),
     );
   });
-
   it('교직원이 학번을 실어 보내면 400 검증 오류로 거부한다', async () => {
     const stored = {
       id: 'synthetic-user',
@@ -210,11 +195,9 @@ describe('기존 데이터 호환', () => {
     const { service, updateProfileFields, fillStudentId } = buildService({
       user: stored,
     });
-
     const error = await captureDomainException(() =>
       service.patchMyProfile(githubId, input),
     );
-
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,

@@ -1,4 +1,5 @@
-import type { AccountStatus, MemberKind } from '@prisma/client';
+import { type MemberKind } from '../users/user-contract.config';
+import type { AccountStatus } from '@prisma/client';
 import type { Request } from 'express';
 import type {
   LOGIN_HISTORY_EVENTS,

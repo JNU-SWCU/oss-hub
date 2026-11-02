@@ -4,8 +4,8 @@ import {
   ProgramLifecycle,
   RepositoryConnectionMode,
   RepositoryVisibility,
-  StaffAccessRequestStatus,
 } from '@prisma/client';
+import { StaffAccessRequestStatus } from '../users/user-contract.config';
 import {
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,

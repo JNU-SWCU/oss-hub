@@ -20,14 +20,12 @@ import {
   type AdminAccessLoginHistoryPage,
   type AdminAccessStaffAccessRequestHistoryPage,
 } from './admin-access-read-ordering.repository';
-
 class TwoPartyBarrier {
   private arrivals = 0;
   private release: (() => void) | null = null;
   private readonly released = new Promise<void>((resolve) => {
     this.release = resolve;
   });
-
   async wait(): Promise<void> {
     this.arrivals += 1;
     if (this.arrivals === 2) {
@@ -36,39 +34,34 @@ class TwoPartyBarrier {
     await this.released;
   }
 }
-
 class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
   constructor(
     private readonly store: AdminAccessTransactionStore,
     private readonly onRevokedRequestWritten: () => Promise<void>,
   ) {}
-
   get auditLogWriter() {
     return this.store.auditLogWriter;
   }
-
-  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return this.store.findActorByGithubId(githubId);
+  findActorByGithubId(
+    githubId: bigint,
+    forUpdate?: boolean,
+  ): Promise<AdminAccessActor | null> {
+    return this.store.findActorByGithubId(githubId, forUpdate);
   }
-
   lockActiveAdmins(): Promise<number> {
     return this.store.lockActiveAdmins();
   }
-
   findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
-
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
     return this.store.compareAndSwapAccess(input);
   }
-
   decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean> {
     return this.store.decidePendingRequest(input);
   }
-
   async insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
@@ -77,13 +70,11 @@ class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
     return inserted;
   }
 }
-
 export class PausingRevocationAdminAccessRepository implements AdminAccessRepositoryPort {
   constructor(
     private readonly repository: AdminAccessRepositoryPort,
     private readonly onRevokedRequestWritten: () => Promise<void>,
   ) {}
-
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -96,41 +87,39 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
       ),
     );
   }
-
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
     return this.repository.findActorByGithubId(githubId);
   }
-
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
   }
-
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
     return this.repository.facets(query);
   }
-
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
-
   listStaffAccessRequestHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
     return this.repository.listStaffAccessRequestHistory(userId, page);
   }
-
   listLoginHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessLoginHistoryPage> {
     return this.repository.listLoginHistory(userId, page);
   }
 }
-
 class PausingActorRevalidationTransactionStore implements AdminAccessTransactionStore {
   private actorReadCount = 0;
-
   constructor(
     private readonly store: AdminAccessTransactionStore,
     private readonly hooks: {
@@ -138,22 +127,20 @@ class PausingActorRevalidationTransactionStore implements AdminAccessTransaction
       readonly onAfterLock?: () => Promise<void>;
     },
   ) {}
-
   get auditLogWriter() {
     return this.store.auditLogWriter;
   }
-
   async findActorByGithubId(
     githubId: bigint,
+    forUpdate?: boolean,
   ): Promise<AdminAccessActor | null> {
-    const actor = await this.store.findActorByGithubId(githubId);
+    const actor = await this.store.findActorByGithubId(githubId, forUpdate);
     this.actorReadCount += 1;
     if (this.actorReadCount === 1 && this.hooks.onFirstActorRead) {
       await this.hooks.onFirstActorRead();
     }
     return actor;
   }
-
   async lockActiveAdmins(): Promise<number> {
     const count = await this.store.lockActiveAdmins();
     if (this.hooks.onAfterLock) {
@@ -161,28 +148,23 @@ class PausingActorRevalidationTransactionStore implements AdminAccessTransaction
     }
     return count;
   }
-
   findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
-
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
     return this.store.compareAndSwapAccess(input);
   }
-
   decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean> {
     return this.store.decidePendingRequest(input);
   }
-
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
     return this.store.insertRevokedRequest(input);
   }
 }
-
 export class PausingActorRevalidationAdminAccessRepository implements AdminAccessRepositoryPort {
   constructor(
     private readonly repository: AdminAccessRepositoryPort,
@@ -191,7 +173,6 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
       readonly onAfterLock?: () => Promise<void>;
     },
   ) {}
-
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -201,75 +182,68 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
       ),
     );
   }
-
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
     return this.repository.findActorByGithubId(githubId);
   }
-
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
   }
-
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
     return this.repository.facets(query);
   }
-
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
-
   listStaffAccessRequestHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
     return this.repository.listStaffAccessRequestHistory(userId, page);
   }
-
   listLoginHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessLoginHistoryPage> {
     return this.repository.listLoginHistory(userId, page);
   }
 }
-
 class DecisionFailureTransactionStore implements AdminAccessTransactionStore {
   constructor(private readonly store: AdminAccessTransactionStore) {}
-
   get auditLogWriter() {
     return this.store.auditLogWriter;
   }
-
-  findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
-    return this.store.findActorByGithubId(githubId);
+  findActorByGithubId(
+    githubId: bigint,
+    forUpdate?: boolean,
+  ): Promise<AdminAccessActor | null> {
+    return this.store.findActorByGithubId(githubId, forUpdate);
   }
-
   lockActiveAdmins(): Promise<number> {
     return this.store.lockActiveAdmins();
   }
-
   findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null> {
     return this.store.findUserForUpdate(userId);
   }
-
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
     return this.store.compareAndSwapAccess(input);
   }
-
   decidePendingRequest(): Promise<boolean> {
     return Promise.resolve(false);
   }
-
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
     return this.store.insertRevokedRequest(input);
   }
 }
-
 export class FailingDecisionAdminAccessRepository implements AdminAccessRepositoryPort {
   constructor(private readonly repository: AdminAccessRepositoryPort) {}
-
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -277,70 +251,63 @@ export class FailingDecisionAdminAccessRepository implements AdminAccessReposito
       operation(new DecisionFailureTransactionStore(store)),
     );
   }
-
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null> {
     return this.repository.findActorByGithubId(githubId);
   }
-
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     return this.repository.list(query);
   }
-
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets> {
     return this.repository.facets(query);
   }
-
   findById(userId: string): Promise<AdminAccessUserDetailRow | null> {
     return this.repository.findById(userId);
   }
-
   listStaffAccessRequestHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
     return this.repository.listStaffAccessRequestHistory(userId, page);
   }
-
   listLoginHistory(
     userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessLoginHistoryPage> {
     return this.repository.listLoginHistory(userId, page);
   }
 }
-
 class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactionStore {
   constructor(
     private readonly store: IndependentAuthorityTransactionStore,
     private readonly barrier: TwoPartyBarrier,
   ) {}
-
   get auditLogWriter() {
     return this.store.auditLogWriter;
   }
-
   findActorByGithubId(githubId: bigint) {
     return this.store.findActorByGithubId(githubId);
   }
-
   async lockActiveAdmins(): Promise<number> {
     await this.barrier.wait();
     return this.store.lockActiveAdmins();
   }
-
   findUserForUpdate(userId: string) {
     return this.store.findUserForUpdate(userId);
   }
-
   updateAuthority(
     userId: string,
     transition: Parameters<
       IndependentAuthorityTransactionStore['updateAuthority']
     >[1],
-  ): Promise<void> {
+  ) {
     return this.store.updateAuthority(userId, transition);
   }
-
   insertRevokedRequest(
     input: Parameters<
       IndependentAuthorityTransactionStore['insertRevokedRequest']
@@ -349,14 +316,11 @@ class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactio
     return this.store.insertRevokedRequest(input);
   }
 }
-
 export class BarrierIndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {
   private readonly barrier = new TwoPartyBarrier();
-
   constructor(
     private readonly repository: IndependentAuthorityRepositoryPort,
   ) {}
-
   withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
   ): Promise<T> {

@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
@@ -9,11 +10,11 @@ import { ProgramDeletionScopeRepository } from './program-deletion-scope.reposit
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ApplicationStatus,
-  MemberKind,
   MilestoneSubmissionType,
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
@@ -66,6 +67,7 @@ const editor = new ProgramEditorService(
     new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
+  new UserProfileService(),
 );
 
 const sentMails: DeadlineDigestMail[] = [];
@@ -122,27 +124,34 @@ async function seed(): Promise<void> {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
         nickname: 'deadline-staff',
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         accountStatus: 'ACTIVE',
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
       {
         id: LEADER_ID,
         githubId: 9_127_000_002n,
         nickname: 'deadline-leader',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
         notificationEmail: 'deadline-leader@example.invalid',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: MEMBER_ID,
         githubId: 9_127_000_003n,
         nickname: 'deadline-member',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
         notificationEmail: 'deadline-member@example.invalid',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     ],
   });

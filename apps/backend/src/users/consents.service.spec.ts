@@ -1,29 +1,24 @@
+import { UserPolicyRepository } from './user-policy.repository';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentErrorCode } from './consent-error-code.error';
-import {
-  ConsentsRepository,
-  ConsentRecord,
-} from './member-onboarding.repository';
+import { ConsentRecord } from './member-onboarding.repository';
 import {
   ConsentsService,
   CONSENT_POLICY_VERSION,
   CONSENT_ITEM_KEYS,
   CURRENT_CONSENT_POLICY,
 } from './consents.service';
-
 const syntheticGithubId = 424242n;
 const syntheticUserId = 'cuid-synthetic-consent-user';
 const syntheticConsent: ConsentRecord = {
   policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
   consentedAt: new Date('2026-07-19T01:00:00.000Z'),
 };
-
 const allRequiredKeys = CURRENT_CONSENT_POLICY.requiredItems.map(
   (item) => item.key,
 );
-
-function buildService(overrides: Partial<ConsentsRepository> = {}): {
+function buildService(overrides: Partial<UserPolicyRepository> = {}): {
   service: ConsentsService;
   findUserByGithubId: jest.Mock;
   findConsent: jest.Mock;
@@ -40,7 +35,7 @@ function buildService(overrides: Partial<ConsentsRepository> = {}): {
     findConsent,
     createConsent,
     ...overrides,
-  } as unknown as ConsentsRepository;
+  } as unknown as UserPolicyRepository;
   return {
     service: new ConsentsService(repository),
     findUserByGithubId,
@@ -48,7 +43,6 @@ function buildService(overrides: Partial<ConsentsRepository> = {}): {
     createConsent,
   };
 }
-
 async function captureDomainException(
   run: () => Promise<unknown>,
 ): Promise<DomainException> {
@@ -62,10 +56,8 @@ async function captureDomainException(
   }
   throw new Error('DomainException이 발생해야 합니다.');
 }
-
 it('issue-99 exact accepted-item set', async () => {
   const { service, createConsent } = buildService();
-
   await expect(
     service.accept(syntheticGithubId, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
@@ -76,13 +68,10 @@ it('issue-99 exact accepted-item set', async () => {
   });
   expect(createConsent).not.toHaveBeenCalled();
 });
-
 describe('ConsentsService.getCurrent', () => {
   it('미동의 사용자는 consented=false와 현행 정책을 받는다', async () => {
     const { service, findConsent } = buildService();
-
     const status = await service.getCurrent(syntheticGithubId);
-
     expect(status.consented).toBe(false);
     expect(status.policy).toBe(CURRENT_CONSENT_POLICY);
     expect(status.policy.nextUrl).toBe('/onboarding/role');
@@ -91,17 +80,13 @@ describe('ConsentsService.getCurrent', () => {
       CURRENT_CONSENT_POLICY.policyVersion,
     );
   });
-
   it('현행 버전 동의가 있으면 consented=true다 — 재방문 자동 통과 근거', async () => {
     const { service } = buildService({
       findConsent: jest.fn().mockResolvedValue(syntheticConsent),
     });
-
     const status = await service.getCurrent(syntheticGithubId);
-
     expect(status.consented).toBe(true);
   });
-
   it.each(['2026-08-11', '2026-10-19'])(
     '%s 동의자는 계속 동의한 상태이고 동의한 버전을 함께 돌려준다',
     async (previousVersion) => {
@@ -114,9 +99,7 @@ describe('ConsentsService.getCurrent', () => {
           ),
         ),
       });
-
       const status = await service.getCurrent(syntheticGithubId);
-
       expect(status.consented).toBe(true);
       expect(status.acceptedPolicyVersion).toBe(previousVersion);
       expect(status.policy.policyVersion).toBe(CONSENT_POLICY_VERSION);
@@ -126,18 +109,14 @@ describe('ConsentsService.getCurrent', () => {
       expect(createConsent).not.toHaveBeenCalled();
     },
   );
-
   it('동의 기록이 없으면 동의한 버전은 null이다', async () => {
     const { service } = buildService({
       findConsent: jest.fn(() => Promise.resolve(null)),
     });
-
     const status = await service.getCurrent(syntheticGithubId);
-
     expect(status.consented).toBe(false);
     expect(status.acceptedPolicyVersion).toBeNull();
   });
-
   it.each(['2026-07-21', '2026-08-04'])(
     '%s 동의만으로는 현재 동의 요건을 충족하지 않는다',
     async (previousVersion) => {
@@ -150,7 +129,6 @@ describe('ConsentsService.getCurrent', () => {
           ),
         ),
       });
-
       expect((await service.getCurrent(syntheticGithubId)).consented).toBe(
         false,
       );
@@ -162,20 +140,16 @@ describe('ConsentsService.getCurrent', () => {
       expect(createConsent).not.toHaveBeenCalled();
     },
   );
-
   it('세션 githubId의 사용자 행이 없으면 401 CON_001을 던진다', async () => {
     const { service } = buildService({
       findUserByGithubId: jest.fn().mockResolvedValue(null),
     });
-
     const exception = await captureDomainException(() =>
       service.getCurrent(syntheticGithubId),
     );
-
     expect(exception.errorCode.code).toBe(ConsentErrorCode.UNAUTHENTICATED);
     expect(exception.errorCode.status).toBe(401);
   });
-
   it('비활성 계정은 사용자 행이 있어도 401 CON_001로 차단한다', async () => {
     const { service, findConsent } = buildService({
       findUserByGithubId: jest.fn().mockResolvedValue({
@@ -183,16 +157,13 @@ describe('ConsentsService.getCurrent', () => {
         accountStatus: AccountStatus.DEACTIVATED,
       }),
     });
-
     const exception = await captureDomainException(() =>
       service.getCurrent(syntheticGithubId),
     );
-
     expect(exception.errorCode.code).toBe(ConsentErrorCode.UNAUTHENTICATED);
     expect(findConsent).not.toHaveBeenCalled();
   });
 });
-
 describe('ConsentsService.requireCurrent', () => {
   it('새 버전에 동의하면 현재 동의 요건을 충족한다', async () => {
     const records = new Map<string, ConsentRecord>();
@@ -206,45 +177,36 @@ describe('ConsentsService.requireCurrent', () => {
         return Promise.resolve(record);
       }),
     });
-
     await service.accept(syntheticGithubId, {
       policyVersion: CONSENT_POLICY_VERSION,
       acceptedItems: allRequiredKeys,
     });
-
     await expect(
       service.requireCurrent(syntheticGithubId),
     ).resolves.toBeUndefined();
   });
-
   it('현행 정책 동의가 있으면 후속 온보딩을 허용한다', async () => {
     const { service } = buildService({
       findConsent: jest.fn().mockResolvedValue(syntheticConsent),
     });
-
     await expect(service.requireCurrent(syntheticGithubId)).resolves.toBe(
       undefined,
     );
   });
-
   it('현행 정책 미동의 사용자는 422 CON_003으로 거부한다', async () => {
     const { service } = buildService();
-
     const exception = await captureDomainException(() =>
       service.requireCurrent(syntheticGithubId),
     );
-
     expect(exception.errorCode.code).toBe(
       ConsentErrorCode.REQUIRED_CONSENT_MISSING,
     );
     expect(exception.errorCode.status).toBe(422);
   });
 });
-
 describe('ConsentsService.accept', () => {
   it('새 동의는 08/11 버전으로 제출할 수 없다', async () => {
     const { service, createConsent } = buildService();
-
     await expect(
       service.accept(syntheticGithubId, {
         policyVersion: '2026-08-11',
@@ -255,15 +217,12 @@ describe('ConsentsService.accept', () => {
     });
     expect(createConsent).not.toHaveBeenCalled();
   });
-
   it('현행 버전 + 필수 항목 전체 동의는 레코드를 만들고 nextUrl을 돌려준다', async () => {
     const { service, createConsent } = buildService();
-
     const grant = await service.accept(syntheticGithubId, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
       acceptedItems: allRequiredKeys,
     });
-
     expect(createConsent).toHaveBeenCalledWith(
       syntheticUserId,
       CURRENT_CONSENT_POLICY.policyVersion,
@@ -274,35 +233,28 @@ describe('ConsentsService.accept', () => {
       nextUrl: '/onboarding/role',
     });
   });
-
   it('acceptedItems 순서는 판정에 영향을 주지 않는다', async () => {
     const { service } = buildService();
-
     const grant = await service.accept(syntheticGithubId, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
       acceptedItems: [...allRequiredKeys].reverse(),
     });
-
     expect(grant.nextUrl).toBe('/onboarding/role');
   });
-
   it('과거 policyVersion은 항목도 잘못됐을 때 409 CON_002를 우선한다', async () => {
     const { service, createConsent } = buildService();
-
     const exception = await captureDomainException(() =>
       service.accept(syntheticGithubId, {
         policyVersion: 'privacy-activity-consent-v0',
         acceptedItems: [...allRequiredKeys, 'UNRELATED_KEY'],
       }),
     );
-
     expect(exception.errorCode.code).toBe(
       ConsentErrorCode.POLICY_VERSION_STALE,
     );
     expect(exception.errorCode.status).toBe(409);
     expect(createConsent).not.toHaveBeenCalled();
   });
-
   it.each([
     ['빈 목록', []],
     ['일부 누락', [CONSENT_ITEM_KEYS.PRIVACY_COLLECTION]],
@@ -316,14 +268,12 @@ describe('ConsentsService.accept', () => {
     '필수 항목 누락(%s)은 422 CON_003으로 거부하고 레코드를 만들지 않는다',
     async (_label, acceptedItems) => {
       const { service, createConsent } = buildService();
-
       const exception = await captureDomainException(() =>
         service.accept(syntheticGithubId, {
           policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
           acceptedItems: acceptedItems,
         }),
       );
-
       expect(exception.errorCode.code).toBe(
         ConsentErrorCode.REQUIRED_CONSENT_MISSING,
       );
@@ -331,10 +281,8 @@ describe('ConsentsService.accept', () => {
       expect(createConsent).not.toHaveBeenCalled();
     },
   );
-
   it('중복 항목은 422 CON_003으로 거부하고 레코드를 만들지 않는다', async () => {
     const { service, createConsent } = buildService();
-
     const exception = await captureDomainException(() =>
       service.accept(syntheticGithubId, {
         policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
@@ -344,26 +292,22 @@ describe('ConsentsService.accept', () => {
         ],
       }),
     );
-
     expect(exception.errorCode.code).toBe(
       ConsentErrorCode.REQUIRED_CONSENT_MISSING,
     );
     expect(exception.errorCode.status).toBe(422);
     expect(createConsent).not.toHaveBeenCalled();
   });
-
   it('세션 githubId의 사용자 행이 없으면 401 CON_001을 던진다', async () => {
     const { service } = buildService({
       findUserByGithubId: jest.fn().mockResolvedValue(null),
     });
-
     const exception = await captureDomainException(() =>
       service.accept(syntheticGithubId, {
         policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
         acceptedItems: allRequiredKeys,
       }),
     );
-
     expect(exception.errorCode.code).toBe(ConsentErrorCode.UNAUTHENTICATED);
   });
 });

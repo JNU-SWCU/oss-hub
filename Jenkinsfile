@@ -12,6 +12,8 @@ pipeline {
   triggers { cron('H/10 * * * *') }
   environment {
     COMPOSE_PROJECT_NAME = 'oss-hub'
+    UC_STATE_ROOT = '/var/lib/oss-hub/user-consolidation'
+    UC_ISOLATED_HOST = '0'
     BACKUP_DIR = '/var/lib/oss-hub/backups'
     BACKUP_RETENTION_N = '30'
     BUILD_CACHE_MAX_SPACE = '5GB'
@@ -24,6 +26,10 @@ pipeline {
           env.CONTROLLER_DIR = pwd()
           sh '''#!/usr/bin/env bash
 set -euo pipefail
+if [ "$(id -u)" != 0 ]; then
+  printf 'FAIL_CLOSED root-controller-required-for-user-consolidation-state\\n' >&2
+  exit 1
+fi
 node --input-type=module <<'NODE'
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -113,6 +119,7 @@ printf '%s' "$release_sha"
         script {
           def fields = sh(script: '''#!/usr/bin/env bash
 set -euo pipefail
+bash "$CONTROLLER_DIR/scripts/jenkins/user-consolidation-migrate.sh" --guard
 node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" | jq -er '[.decision,.tag,.sha,.imageId,.postgresId] | @tsv'
 ''', returnStdout: true).trim().split('\t')
           env.DEPLOY_NOOP = fields[0] == 'noop' ? 'true' : 'false'
@@ -312,8 +319,30 @@ docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}"
         }
       }
     }
-    stage('migration과 후보 nginx 사전 검증') {
+    stage('사용자 통합 migration 감지와 fenced 전환') {
       when { expression { env.DEPLOY_NOOP == 'false' } }
+      steps {
+        script {
+          env.USER_CONSOLIDATION = sh(script: '''#!/usr/bin/env bash
+set -euo pipefail
+bash "$CONTROLLER_DIR/scripts/jenkins/user-consolidation-migrate.sh" --detect
+''', returnStdout: true).trim()
+          if (!(env.USER_CONSOLIDATION in ['ordinary', 'required'])) {
+            error('사용자 통합 migration 상태를 확인하지 못했습니다.')
+          }
+          if (env.USER_CONSOLIDATION == 'required') {
+            withCredentials([
+              file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
+              usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
+            ]) {
+              sh 'bash "$CONTROLLER_DIR/scripts/jenkins/user-consolidation-migrate.sh" --start'
+            }
+          }
+        }
+      }
+    }
+    stage('migration과 후보 nginx 사전 검증') {
+      when { expression { env.DEPLOY_NOOP == 'false' && env.USER_CONSOLIDATION == 'ordinary' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
@@ -335,7 +364,7 @@ compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_
       }
     }
     stage('활성화와 실패 복구') {
-      when { expression { env.DEPLOY_NOOP == 'false' } }
+      when { expression { env.DEPLOY_NOOP == 'false' && env.USER_CONSOLIDATION == 'ordinary' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),

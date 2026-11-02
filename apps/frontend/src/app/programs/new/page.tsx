@@ -3,7 +3,7 @@ import { ProgramCreationPage } from '@/features/programs/authoring/program-creat
 
 export default function ProgramNewPage() {
   return (
-    <RolePanelShell allow={['staff', 'admin']}>
+    <RolePanelShell allow={['staff']}>
       <ProgramCreationPage />
     </RolePanelShell>
   );

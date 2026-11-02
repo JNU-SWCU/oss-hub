@@ -21,10 +21,10 @@ vi.mock('@/features/programs/authoring/program-creation-page', () => ({
 import ProgramNewPage from './page';
 
 describe('ProgramNewPage access contract', () => {
-  it('교직원 또는 관리자 접근이 있는 회원만 프로그램 생성 화면에 허용한다', () => {
+  it('승인된 교직원만 프로그램 생성 화면에 허용한다', () => {
     const html = renderToStaticMarkup(<ProgramNewPage />);
 
-    expect(html).toContain('data-allow="staff,admin"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).not.toContain('STUDENT');
   });
 
@@ -37,6 +37,6 @@ describe('ProgramNewPage access contract', () => {
 
     const html = renderToStaticMarkup(<ProgramNewPage />);
     expect(html).toContain('program creation');
-    expect(html).toContain('data-allow="staff,admin"');
+    expect(html).toContain('data-allow="staff"');
   });
 });

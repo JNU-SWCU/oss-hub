@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { profileRecord } from './member-authority-test-fixtures';
@@ -6,7 +6,6 @@ import type { UsersRepositoryPort } from './users.repository';
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 const usersService = new UsersService(
   undefined as never,
   undefined as never,
@@ -14,7 +13,6 @@ const usersService = new UsersService(
   new AuditLogMetadataService(),
   new UserProfileService(),
 );
-
 const student = profileRecord('negative-student');
 const staff = profileRecord('negative-staff', {
   memberKind: MemberKind.STAFF,
@@ -27,7 +25,6 @@ const validStudentInput = {
   department: '인공지능학부',
   phone: '1'.repeat(11),
 } as const;
-
 function errorCode(operation: () => unknown): string {
   try {
     operation();
@@ -39,7 +36,6 @@ function errorCode(operation: () => unknown): string {
   }
   throw new TypeError('Expected profile completion to fail');
 }
-
 describe('member authority completion negative contract', () => {
   it.each([
     [
@@ -66,15 +62,12 @@ describe('member authority completion negative contract', () => {
       ).toBe(SystemErrorCode.VALIDATION_FAILED);
     },
   );
-
   it('blank affiliation fails closed after normalization', () => {
     const input = { ...validStudentInput, department: '   ' };
-
     expect(
       errorCode(() => usersService.buildProfileCompletion(student, input)),
     ).toBe(SystemErrorCode.VALIDATION_FAILED);
   });
-
   it.each([
     [
       'missing student ID',
@@ -96,7 +89,6 @@ describe('member authority completion negative contract', () => {
       errorCode(() => usersService.buildProfileCompletion(target, input)),
     ).toBe(SystemErrorCode.VALIDATION_FAILED);
   });
-
   it('duplicate student ID maps to the stable conflict code', async () => {
     const completeProfileIfUnchanged = jest
       .fn()
@@ -114,9 +106,7 @@ describe('member authority completion negative contract', () => {
       new AuditLogMetadataService(),
       new UserProfileService(),
     );
-
     const completion = service.completeMyProfile(801020n, validStudentInput);
-
     await expect(completion).rejects.toMatchObject({
       errorCode: { code: 'USR_004', status: 409 },
     });

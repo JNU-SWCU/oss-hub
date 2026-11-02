@@ -1,10 +1,11 @@
 import { CollectionScheduleService } from '../../src/github/collection-schedule.service';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, ApprovalStatus, UserType } from '@prisma/client';
 import { AuditLogController } from '../../src/admin/audit-log.controller';
 import { AuditLogRepository } from '../../src/platform/audit-log.repository';
 import { AuditLogService } from '../../src/platform/audit-log.service';
+import { AuditLogReadService } from '../../src/platform/audit-log-read.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/applications.repository';
 import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
@@ -77,25 +78,30 @@ type Actor = {
   readonly hasCookie: boolean;
 };
 
-const roles: readonly Actor[] = [
-  ['ADMIN', true, true, AccountStatus.ACTIVE, true],
-  ['ADMIN without staff', false, true, AccountStatus.ACTIVE, true],
-  ['STAFF', true, false, AccountStatus.ACTIVE, true],
-  ['STUDENT', false, false, AccountStatus.ACTIVE, true],
-  ['inactive STAFF', true, false, AccountStatus.DEACTIVATED, true],
-  ['inactive ADMIN', true, true, AccountStatus.DEACTIVATED, true],
-  ['missing user', false, false, null, true],
-  ['anonymous', false, false, null, false],
-].map(
-  ([label, hasStaffAccess, hasAdminAccess, accountStatus, hasCookie]) =>
-    ({
-      label,
-      hasStaffAccess,
-      hasAdminAccess,
-      accountStatus,
-      hasCookie,
-    }) as Actor,
-);
+const roles: readonly Actor[] = (
+  [
+    ['ADMIN', true, true, AccountStatus.ACTIVE, true],
+    ['ADMIN without staff', false, true, AccountStatus.ACTIVE, true],
+    ['STAFF', true, false, AccountStatus.ACTIVE, true],
+    ['STUDENT', false, false, AccountStatus.ACTIVE, true],
+    ['inactive STAFF', true, false, AccountStatus.DEACTIVATED, true],
+    ['inactive ADMIN', true, true, AccountStatus.DEACTIVATED, true],
+    ['missing user', false, false, null, true],
+    ['anonymous', false, false, null, false],
+  ] satisfies readonly [
+    string,
+    boolean,
+    boolean,
+    AccountStatus | null,
+    boolean,
+  ][]
+).map(([label, hasStaffAccess, hasAdminAccess, accountStatus, hasCookie]) => ({
+  label,
+  hasStaffAccess,
+  hasAdminAccess,
+  accountStatus,
+  hasCookie,
+}));
 
 type Statuses = readonly [
   number,
@@ -147,12 +153,12 @@ const routes: readonly RouteCase[] = [
   {
     method: 'GET',
     path: 'dashboard/staff/summary',
-    statuses: [200, 200, 200, 403, 403, 403, 403, 401],
+    statuses: [200, 403, 200, 403, 403, 403, 403, 401],
   },
   {
     method: 'GET',
     path: 'dashboard/staff/insights',
-    statuses: [200, 200, 200, 403, 403, 403, 403, 401],
+    statuses: [200, 403, 200, 403, 403, 403, 403, 401],
   },
   {
     method: 'GET',
@@ -204,6 +210,8 @@ const routes: readonly RouteCase[] = [
       memberKind: 'STAFF',
       expectedMemberKind: 'STUDENT',
       expectedHasStaffAccess: false,
+      expectedApprovalStatus: ApprovalStatus.NOT_REQUIRED,
+      expectedApprovalRequestId: null,
     },
     statuses: [404, 404, 403, 403, 401, 401, 401, 401],
   },
@@ -234,7 +242,18 @@ describe('Audience authorization HTTP characterization', () => {
           name: '관리자',
           githubLogin: 'synthetic-actor',
           role: 'ADMIN',
-          memberKind: MemberKind.STAFF,
+          memberKind:
+            actor.hasStaffAccess || actor.hasAdminAccess ? 'STAFF' : 'STUDENT',
+          approvalStatus: actor.hasStaffAccess
+            ? ApprovalStatus.APPROVED
+            : actor.hasAdminAccess
+              ? ApprovalStatus.PENDING
+              : ApprovalStatus.NOT_REQUIRED,
+          approvalRequestId: null,
+          profileCreatedAt: new Date(0),
+          studentId:
+            actor.hasStaffAccess || actor.hasAdminAccess ? null : '260003',
+          department: 'Synthetic department',
           hasStaffAccess: actor.hasStaffAccess,
           hasAdminAccess: actor.hasAdminAccess,
           accountStatus: actor.accountStatus,
@@ -288,12 +307,17 @@ describe('Audience authorization HTTP characterization', () => {
         AdminAccessMutationService,
         AdminProfileMutationService,
         AuditLogService,
+        AuditLogReadService,
         SystemStatusService,
         CollectionScheduleService,
         {
           provide: AuthService,
           useValue: {
-            getMe: () => sessionPrincipal(actor),
+            getMe: () => ({
+              ...sessionPrincipal(actor),
+              memberKind: actorRow()?.memberKind ?? null,
+              isProfileComplete: actor.accountStatus !== null,
+            }),
           },
         },
         {
@@ -305,8 +329,14 @@ describe('Audience authorization HTTP characterization', () => {
                   ? null
                   : {
                       id: 'synthetic-actor',
-                      hasStaffAccess: actor.hasStaffAccess,
-                      hasAdminAccess: actor.hasAdminAccess,
+                      type:
+                        actor.hasStaffAccess || actor.hasAdminAccess
+                          ? UserType.STAFF
+                          : UserType.STUDENT,
+                      approvalStatus: actorRow()?.approvalStatus,
+                      admin: actor.hasAdminAccess
+                        ? { userId: 'synthetic-actor' }
+                        : null,
                       accountStatus: actor.accountStatus,
                     },
             },
@@ -366,15 +396,23 @@ describe('Audience authorization HTTP characterization', () => {
                   : {
                       id: 'synthetic-actor',
                       accountStatus: actor.accountStatus,
-                      hasStaffAccess: actor.hasStaffAccess,
-                      hasAdminAccess: actor.hasAdminAccess,
-                      profile: {
-                        memberKind:
-                          actor.hasStaffAccess || actor.hasAdminAccess
-                            ? MemberKind.STAFF
-                            : MemberKind.STUDENT,
-                      },
-                      staffAccessRequests: [],
+                      type:
+                        actor.hasStaffAccess || actor.hasAdminAccess
+                          ? UserType.STAFF
+                          : UserType.STUDENT,
+                      approvalStatus: actorRow()?.approvalStatus,
+                      admin: actor.hasAdminAccess
+                        ? { userId: 'synthetic-actor' }
+                        : null,
+                      name: 'Synthetic actor',
+                      studentId:
+                        actor.hasStaffAccess || actor.hasAdminAccess
+                          ? null
+                          : '260003',
+                      department: 'Synthetic department',
+                      departmentType: 'DEPARTMENT',
+                      profileCreatedAt: new Date(0),
+                      profileUpdatedAt: new Date(0),
                     },
               ),
           },

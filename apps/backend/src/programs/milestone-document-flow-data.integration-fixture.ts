@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 
 const prefix = 'qa152-document-flow';
@@ -25,24 +25,32 @@ export async function seedMilestoneDocumentFlow(
         id: flowIds.student,
         githubId: flowGithubIds.student,
         nickname: flowIds.student,
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: flowIds.staff,
         githubId: flowGithubIds.staff,
         nickname: flowIds.staff,
-        hasStaffAccess: true,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     ],
   });
-  await prisma.userProfile.create({
+  await prisma.user.update({
+    where: { id: flowIds.student },
     data: {
-      userId: flowIds.student,
       name: '합성 학생',
       department: '합성 학과',
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '합성 학과',
+      type: MemberKind.STUDENT,
+      departmentType: AffiliationKind.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
     },
   });
   await prisma.program.create({

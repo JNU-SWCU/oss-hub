@@ -75,13 +75,13 @@ describe('ProgramsPage 생성 capability', () => {
     expect(html).toContain('data-viewer-role="STUDENT"');
   });
 
-  it('관리자 권한은 백엔드 audience와 같이 생성 동선을 쓴다', () => {
+  it('관리자 권한만으로 프로그램을 만들 수 없다', () => {
     const studentAdmin = renderedCapability('STUDENT', false, true, true);
 
-    expect(studentAdmin).toContain('data-can-create="true"');
+    expect(studentAdmin).toContain('data-can-create="false"');
     expect(studentAdmin).toContain('data-viewer-role="STUDENT"');
     expect(renderedCapability(null, false, true, true)).toContain(
-      'data-can-create="true"',
+      'data-can-create="false"',
     );
     expect(renderedCapability(null, false, true, false)).toContain(
       'data-can-create="false"',

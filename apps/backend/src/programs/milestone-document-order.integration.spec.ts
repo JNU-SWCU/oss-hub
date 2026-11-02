@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
@@ -40,6 +41,7 @@ const service = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new UserProfileService(),
 );
 
 async function cleanup(): Promise<void> {
@@ -71,7 +73,13 @@ describe('MilestoneDocumentsService durable document order', () => {
         id: staffId,
         githubId: staffGithubId,
         nickname: staffId,
-        hasStaffAccess: true,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     });
     await prisma.program.create({

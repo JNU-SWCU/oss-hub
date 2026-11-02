@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
@@ -43,6 +44,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new UserProfileService(),
     );
 
     const result = await service
@@ -87,6 +89,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
         new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new UserProfileService(),
       ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
         limit: 20,
@@ -125,6 +128,16 @@ describe('MilestoneDocumentsService history download links', () => {
         id: 'user-1',
         hasStaffAccess: false,
         hasAdminAccess: false,
+        type: 'STUDENT',
+        approvalStatus: 'NOT_REQUIRED',
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: 'application-1',
@@ -153,6 +166,7 @@ describe('MilestoneDocumentsService history download links', () => {
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new UserProfileService(),
     );
 
     const result = await service
@@ -184,6 +198,7 @@ describe('MilestoneDocumentsService history download links', () => {
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new UserProfileService(),
     );
 
     const result = await service
@@ -214,6 +229,7 @@ describe('MilestoneDocumentsService history download links', () => {
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new UserProfileService(),
     );
 
     const result = await service

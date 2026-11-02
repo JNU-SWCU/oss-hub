@@ -4,7 +4,24 @@ import type {
   AdminAccessListItem,
   AdminAccessPendingRequest,
   AdminAccessRole,
+  AdminApprovalState,
 } from './admin-access-api-types';
+
+export function hasAdminApprovalState(
+  value: unknown,
+): value is AdminApprovalState {
+  return (
+    isRecord(value) &&
+    (value.approvalStatus === 'NOT_REQUIRED' ||
+      value.approvalStatus === 'PENDING' ||
+      value.approvalStatus === 'APPROVED' ||
+      value.approvalStatus === 'REJECTED' ||
+      value.approvalStatus === 'REVOKED') &&
+    (value.approvalRequestId === null ||
+      (typeof value.approvalRequestId === 'string' &&
+        value.approvalRequestId.length > 0))
+  );
+}
 
 export class AdminAccessResponseError extends Error {
   constructor() {

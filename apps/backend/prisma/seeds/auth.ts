@@ -1,15 +1,12 @@
-import { AccountStatus, StaffAccessRequestStatus, User } from '@prisma/client';
+import { AccountStatus, ApprovalStatus, type User } from '@prisma/client';
+import { offsetDays, seedId, SeedStats } from './helpers';
 import {
-  offsetDays,
-  prisma,
-  seedId,
-  SeedStats,
   type SeedRole,
   upsertConsent,
   upsertSeedProfile,
   upsertSeedUser,
-  upsertTracked,
-} from './helpers';
+  upsertSeedRequest,
+} from './user';
 
 export const AUTH_SCENARIOS = {
   'consent-required': seedId('auth', 'consent-required'),
@@ -47,6 +44,7 @@ async function setProfile(
     readonly name: string;
     readonly studentId: string | null;
     readonly department: string;
+    readonly type: 'STUDENT' | 'STAFF';
   },
 ): Promise<void> {
   await upsertSeedProfile({
@@ -54,34 +52,8 @@ async function setProfile(
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
-    memberKind: profile.studentId === null ? 'STAFF' : 'STUDENT',
+    type: profile.type,
   });
-}
-
-async function upsertStaffAccessRequest(
-  stats: SeedStats,
-  params: {
-    id: string;
-    userId: string;
-    status: StaffAccessRequestStatus;
-    createdAt: Date;
-    rejectionReason?: string;
-    decidedById?: string;
-    decidedAt?: Date;
-  },
-): Promise<void> {
-  const { id, ...rest } = params;
-  await upsertTracked(
-    stats,
-    'StaffAccessRequest',
-    () => prisma.staffAccessRequest.findUnique({ where: { id } }),
-    () =>
-      prisma.staffAccessRequest.upsert({
-        where: { id },
-        update: rest,
-        create: { id, ...rest },
-      }),
-  );
 }
 
 export async function seedAuth(stats: SeedStats): Promise<void> {
@@ -89,6 +61,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   await upsertConsent(stats, admin.id);
 
   await setProfile(admin.id, {
+    type: 'STAFF',
     name: '합성 관리자',
     studentId: null,
     department: '오픈소스 SW 개발 사업단',
@@ -97,6 +70,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   const adminSecond = await upsertUser(stats, 'admin-second', 'ADMIN');
   await upsertConsent(stats, adminSecond.id);
   await setProfile(adminSecond.id, {
+    type: 'STAFF',
     name: '합성 두 번째 관리자',
     studentId: null,
     department: '오픈소스 SW 개발 사업단',
@@ -124,6 +98,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   const profileComplete = await upsertUser(stats, 'profile-complete', null);
   await upsertConsent(stats, profileComplete.id);
   await setProfile(profileComplete.id, {
+    type: 'STUDENT',
     name: '합성 완료 사용자',
     studentId: ['20', '2601'].join(''),
     department: '인공지능학부',
@@ -139,14 +114,15 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   const staffPending = await upsertUser(stats, 'staff-pending', null);
   await upsertConsent(stats, staffPending.id);
   await setProfile(staffPending.id, {
+    type: 'STAFF',
     name: '합성 대기 사용자',
     studentId: null,
     department: '인공지능학부',
   });
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-pending', 'role-request'),
     userId: staffPending.id,
-    status: StaffAccessRequestStatus.PENDING,
+    status: ApprovalStatus.PENDING,
     createdAt: offsetDays(-10),
   });
 
@@ -158,14 +134,15 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   await upsertConsent(stats, staffPendingSecond.id);
 
   await setProfile(staffPendingSecond.id, {
+    type: 'STAFF',
     name: '합성 두 번째 대기 사용자',
     studentId: null,
     department: '소프트웨어공학과',
   });
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-pending-second', 'role-request'),
     userId: staffPendingSecond.id,
-    status: StaffAccessRequestStatus.PENDING,
+    status: ApprovalStatus.PENDING,
 
     createdAt: offsetDays(-5),
   });
@@ -173,14 +150,15 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   const staffRejected = await upsertUser(stats, 'staff-rejected', null);
   await upsertConsent(stats, staffRejected.id);
   await setProfile(staffRejected.id, {
+    type: 'STAFF',
     name: '합성 반려 사용자',
     studentId: null,
     department: '컴퓨터공학과',
   });
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-rejected', 'role-request'),
     userId: staffRejected.id,
-    status: StaffAccessRequestStatus.REJECTED,
+    status: ApprovalStatus.REJECTED,
     createdAt: offsetDays(-7),
     rejectionReason: '담당 프로그램 소속 확인 불가 (seed fixture)',
     decidedById: admin.id,
@@ -189,10 +167,10 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const staffApproved = await upsertUser(stats, 'staff-approved', 'STAFF');
   await upsertConsent(stats, staffApproved.id);
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-approved', 'role-request'),
     userId: staffApproved.id,
-    status: StaffAccessRequestStatus.APPROVED,
+    status: ApprovalStatus.APPROVED,
     createdAt: offsetDays(-9),
     decidedById: admin.id,
     decidedAt: offsetDays(-8),
@@ -200,15 +178,18 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
 
   const staffRevocable = await upsertUser(stats, 'staff-revocable', 'STAFF');
   await upsertConsent(stats, staffRevocable.id);
-  await setProfile(staffRevocable.id, {
+  await upsertSeedProfile({
+    userId: staffRevocable.id,
+    type: 'STAFF',
+    departmentType: 'DEPARTMENT',
     name: '합성 활성 교직원',
     studentId: '202605',
     department: '전자컴퓨터공학부',
   });
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-revocable', 'role-request'),
     userId: staffRevocable.id,
-    status: StaffAccessRequestStatus.APPROVED,
+    status: ApprovalStatus.APPROVED,
     createdAt: offsetDays(-4),
     decidedById: admin.id,
     decidedAt: offsetDays(-3),
@@ -221,18 +202,18 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   });
   await upsertConsent(stats, staffRevoked.id);
 
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-revoked', 'role-request-approved'),
     userId: staffRevoked.id,
-    status: StaffAccessRequestStatus.APPROVED,
+    status: ApprovalStatus.APPROVED,
     createdAt: offsetDays(-30),
     decidedById: admin.id,
     decidedAt: offsetDays(-29),
   });
-  await upsertStaffAccessRequest(stats, {
+  await upsertSeedRequest(stats, {
     id: seedId('auth', 'staff-revoked', 'role-request-revoked'),
     userId: staffRevoked.id,
-    status: StaffAccessRequestStatus.REVOKED,
+    status: ApprovalStatus.REVOKED,
     createdAt: offsetDays(-2),
     decidedById: admin.id,
     decidedAt: offsetDays(-1),

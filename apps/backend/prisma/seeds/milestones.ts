@@ -6,17 +6,16 @@ import {
   ProgramCategory,
   ReviewDecision,
   SubmissionStatus,
-  MemberKind,
+  UserType,
 } from '@prisma/client';
 import {
   offsetDays,
   prisma,
   seedId,
   SeedStats,
-  upsertSeedProfile,
-  upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { upsertSeedProfile, upsertSeedUser } from './user';
 import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
 
 const joinCodeSecretService = new JoinCodeSecretService();
@@ -296,7 +295,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     name: '합성 마일스톤 교직원',
     studentId: null,
     department: '합성 사업단',
-    memberKind: MemberKind.STAFF,
+    type: UserType.STAFF,
   });
   const applicantPersonal = await upsertSeedUser(stats, {
     id: APPLICANT_PERSONAL_ID,
@@ -307,7 +306,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     name: '합성 개인 신청자',
     studentId: '261001',
     department: '합성 학과',
-    memberKind: MemberKind.STUDENT,
+    type: UserType.STUDENT,
   });
   const teamLeader = await upsertSeedUser(stats, {
     id: TEAM_LEADER_ID,
@@ -318,7 +317,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     name: '합성 팀장',
     studentId: '261002',
     department: '합성 학과',
-    memberKind: MemberKind.STUDENT,
+    type: UserType.STUDENT,
   });
   const teamMember = await upsertSeedUser(stats, {
     id: TEAM_MEMBER_ID,
@@ -329,7 +328,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     name: '합성 팀원',
     studentId: '261003',
     department: '합성 학과',
-    memberKind: MemberKind.STUDENT,
+    type: UserType.STUDENT,
   });
 
   const personalTeamId = seedId('milestones', 'application-personal', 'team');

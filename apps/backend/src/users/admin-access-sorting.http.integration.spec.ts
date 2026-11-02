@@ -1,24 +1,19 @@
 import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const harness = new AdminAccessHttpHarness('sorting', 9_004_000_000n);
+const harness = new AdminAccessHttpHarness('sorting', 9004000000n);
 let actorGithubId: bigint;
-
 beforeAll(async () => {
   await harness.start();
   actorGithubId = (
     await harness.createUser('actor', 'ADMIN', AccountStatus.ACTIVE)
   ).githubId;
 });
-
 afterAll(() => harness.stop());
-
 it.each([
   ['name', 'asc'],
   ['createdAt', 'desc'],
@@ -31,10 +26,8 @@ it.each([
     `/users/access?sort=${sort}&direction=${direction}`,
     actorGithubId,
   );
-
   expect(response.status).toBe(200);
 });
-
 it.each([
   [
     'sort',
@@ -54,7 +47,6 @@ it.each([
       `/users/access?${query}`,
       actorGithubId,
     );
-
     expect(response.status).toBe(400);
     expect(response.headers.get('content-type')).toContain(
       'application/problem+json',
@@ -69,7 +61,6 @@ it.each([
     });
   },
 );
-
 it('returns account createdAt on the admin directory response without exposing phone', async () => {
   const accountCreatedAt = new Date('2026-07-29T00:00:00.000Z');
   const target = await harness.createUser(
@@ -81,13 +72,11 @@ it('returns account createdAt on the admin directory response without exposing p
     where: { id: target.id },
     data: { createdAt: accountCreatedAt },
   });
-
   const response = await harness.request(
     'GET',
     `/users/access?query=${target.nickname}`,
     actorGithubId,
   );
-
   expect(response.status).toBe(200);
   const body: unknown = await response.json();
   expect(body).toEqual(

@@ -242,23 +242,23 @@ it.each(
           actorIndex === 0
             ? 401
             : actor?.accountStatus === AccountStatus.ACTIVE &&
-                (actor.hasStaffAccess || actor.hasAdminAccess)
+                actor.hasStaffAccess
               ? allowedStatus
               : 403,
         code:
           actorIndex === 0
             ? 'AUT_003'
             : actor?.accountStatus === AccountStatus.ACTIVE &&
-                (actor.hasStaffAccess || actor.hasAdminAccess)
+                actor.hasStaffAccess
               ? allowedCode
               : 'SUB_002',
         detail:
           actorIndex === 0
             ? '로그인이 필요합니다.'
             : actor?.accountStatus === AccountStatus.ACTIVE &&
-                (actor.hasStaffAccess || actor.hasAdminAccess)
+                actor.hasStaffAccess
               ? allowedDetail
-              : '승인된 교직원 또는 관리자만 제출을 검토할 수 있습니다.',
+              : '승인된 교직원만 제출을 검토할 수 있습니다.',
       }),
     ),
   ),

@@ -2,11 +2,10 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
-  AffiliationKind,
   BoardPostCategory,
-  MemberKind,
   ProgramCategory,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -53,40 +52,46 @@ beforeEach(async () => {
         id: canonicalUserId,
         githubId: 9_690_000_001n,
         nickname: 'canonical-login',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: legacyUserId,
         githubId: 9_690_000_002n,
         nickname: 'legacy-login',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     ],
   });
-  await prisma.userProfile.createMany({
-    data: [
+  await Promise.all(
+    [
       {
         userId: canonicalUserId,
         name: 'canonical-person',
         studentId: '100001',
         department: 'canonical-department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'canonical-department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: legacyUserId,
         name: 'legacy-only-person',
         studentId: '100002',
         department: 'legacy-only-department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'legacy-only-department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
-    ],
-  });
+    ].map(({ userId, ...profile }) =>
+      prisma.user.update({ where: { id: userId }, data: profile }),
+    ),
+  );
   await prisma.program.create({
     data: {
       id: programId,

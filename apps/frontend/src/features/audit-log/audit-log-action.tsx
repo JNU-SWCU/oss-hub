@@ -1,10 +1,23 @@
 import { StatusBadge } from '@/components';
-import { AUDIT_LOG_ACTION_LABELS, type AuditLogAction } from './types';
+import {
+  AUDIT_LOG_ACTION_LABELS,
+  type AuditLogAction,
+  type AuditLogRecord,
+} from './types';
 
 export type ActionBadgeVariant =
   'approved' | 'closed' | 'pending' | 'recruiting' | 'rejected';
 
 const ACTION_BADGE_VARIANTS = {
+  SIGNED_UP: 'approved',
+  APPROVAL_REQUESTED: 'pending',
+  REQUEST_SUPERSEDED: 'closed',
+  APPROVED: 'approved',
+  REVOKED: 'closed',
+  GRANT_STAFF_ACCESS: 'approved',
+  REVOKE_STAFF_ACCESS: 'closed',
+  GRANT_ADMIN_ACCESS: 'approved',
+  REVOKE_ADMIN_ACCESS: 'closed',
   STAFF_ROLE_REQUEST_APPROVED: 'approved',
   STAFF_ROLE_REQUEST_REJECTED: 'rejected',
   STAFF_ROLE_REQUEST_REVOKED: 'closed',
@@ -38,13 +51,22 @@ function isAuditLogAction(action: string): action is AuditLogAction {
   return Object.hasOwn(AUDIT_LOG_ACTION_LABELS, action);
 }
 
-export function resolveAuditLogActionBadge(action: string): {
+export function resolveAuditLogActionBadge(
+  action: string,
+  typeSelection?: AuditLogRecord['typeSelection'],
+): {
   readonly label: string;
   readonly variant: ActionBadgeVariant;
 } {
   const knownAction = isAuditLogAction(action) ? action : null;
   return {
-    label: knownAction ? AUDIT_LOG_ACTION_LABELS[knownAction] : '기타 작업',
+    label: typeSelection
+      ? typeSelection.before === 'UNSELECTED'
+        ? '신분 선택'
+        : '신분 변경'
+      : knownAction
+        ? AUDIT_LOG_ACTION_LABELS[knownAction]
+        : '기타 작업',
     variant: knownAction ? ACTION_BADGE_VARIANTS[knownAction] : 'closed',
   };
 }

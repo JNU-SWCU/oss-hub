@@ -1,21 +1,28 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import {
+  userAuditRows,
+  writeApprovalFixture,
+  requestHistory,
+} from './user-history.integration-fixture';
+
+import { flatProfileFixture } from './canonical-user-fixture';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import {
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -23,58 +30,38 @@ import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(
   prisma,
   new AdminAccessHistoryRepository(),
-  new AdminAccessReadRepository(
-    new AdminAccessReadOrderingRepository(),
-    new PlatformRepository(),
-  ),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminRepository(prisma),
+  new UserTransitionRepository(),
 );
 const service = new AdminAccessService(
   repository,
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
   ),
 );
 let sequence = 0;
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
-afterAll(async () => {
-  await prisma.$transaction([
-    prisma.userProfile.deleteMany({
-      where: { userId: { startsWith: 'test:pr03:admin-access-mutation:' } },
-    }),
-    prisma.user.updateMany({
-      where: { id: { startsWith: 'test:pr03:admin-access-mutation:' } },
-      data: { hasAdminAccess: false, hasStaffAccess: false },
-    }),
-  ]);
-  await prisma.$disconnect();
-});
-
+afterAll(() => prisma.$disconnect());
 describe('Admin access atomic request decisions', () => {
   it('approves the request, grants STAFF, and appends one immutable audit row', async () => {
     const actor = await createUser('ADMIN', 'approve-actor');
     const target = await createUser(null, 'approve-target');
     const profile = {
       name: '합성 승인 대상',
-      studentId: `${9_100_000 + sequence}`,
+      studentId: `${9100000 + sequence}`,
       department: '소프트웨어공학과',
       memberKind: MemberKind.STUDENT,
       affiliationKind: AffiliationKind.DEPARTMENT,
@@ -83,16 +70,24 @@ describe('Admin access atomic request decisions', () => {
     await prisma.user.update({
       where: { id: target.id },
       data: {
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: { create: profile },
+        approvalRequestId: null,
+        approvalRequestedAt: null,
+        approvalDecidedAt: null,
+        approvalDecidedById: null,
+        approvalReason: null,
+        ...flatProfileFixture(profile),
+        profileCreatedAt: new Date(),
+        profileUpdatedAt: new Date(),
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
-    const request = await prisma.staffAccessRequest.create({
-      data: { id: `${target.id}:request`, userId: target.id },
+    const request = await writeApprovalFixture(prisma, {
+      id: `${target.id}:request`,
+      userId: target.id,
     });
-
     const result = await service.patchAccess(actor.githubId, target.id, {
-      expectedRole: 'STUDENT',
+      expectedRole: null,
       desiredRole: 'STAFF',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -104,7 +99,6 @@ describe('Admin access atomic request decisions', () => {
         decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE,
       },
     });
-
     expect(result).toMatchObject({
       role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
@@ -115,24 +109,29 @@ describe('Admin access atomic request decisions', () => {
       },
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'APPROVED',
+      admin: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
-      prisma.staffAccessRequest.findUniqueOrThrow({
-        where: { id: request.id },
-      }),
+      requestHistory(prisma)
+        .then((rows) => rows.filter((row) => row.id === request.id))
+        .then((rows) => {
+          const row = rows[0];
+          if (!row) throw new TypeError('Expected request history fixture');
+          return row;
+        }),
     ).resolves.toMatchObject({
       status: StaffAccessRequestStatus.APPROVED,
       decidedById: actor.id,
       rejectionReason: null,
     });
-    const logs = await prisma.auditLog.findMany({
-      where: { targetId: request.id },
-    });
+    const logs = await userAuditRows(prisma, { targetId: request.id });
     expect(logs).toHaveLength(1);
     expect(logs[0]).toMatchObject({
       action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
@@ -142,24 +141,23 @@ describe('Admin access atomic request decisions', () => {
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
     });
     await expect(
-      prisma.auditLog.update({
+      prisma.userHistory.update({
         where: { id: logs[0]?.id ?? 'missing' },
-        data: { action: 'SYNTHETIC_MUTATION' },
+        data: { event: 'PHONE_UPDATED' },
       }),
     ).rejects.toThrow();
   });
-
-  it('rejects a pending request without revoking independently granted staff access', async () => {
+  it('rejects a pending request and leaves the current staff approval rejected', async () => {
     const actor = await createUser('STAFF', 'staff-reject-actor');
     const target = await createUser('STAFF', 'staff-reject-target');
-    const request = await prisma.staffAccessRequest.create({
-      data: { id: `${target.id}:request`, userId: target.id },
+    const request = await writeApprovalFixture(prisma, {
+      id: `${target.id}:request`,
+      userId: target.id,
     });
-
     const result = await service.patchAccess(actor.githubId, target.id, {
-      expectedRole: 'STAFF',
-      desiredRole: 'STAFF',
-      expectedHasStaffAccess: true,
+      expectedRole: null,
+      desiredRole: null,
+      expectedHasStaffAccess: false,
       expectedHasAdminAccess: false,
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
@@ -172,29 +170,30 @@ describe('Admin access atomic request decisions', () => {
         reason: '합성 반려 사유',
       },
     });
-
     expect(result).toMatchObject({
-      role: 'STAFF',
+      role: null,
       decidedRequest: {
         id: request.id,
         status: StaffAccessRequestStatus.REJECTED,
       },
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'REJECTED',
+      admin: null,
     });
   });
-
   it('rejects a pending request and deactivates the account while preserving role', async () => {
     const actor = await createUser('ADMIN', 'reject-actor');
     const target = await createUser(null, 'reject-target');
-    const request = await prisma.staffAccessRequest.create({
-      data: { id: `${target.id}:request`, userId: target.id },
+    const request = await writeApprovalFixture(prisma, {
+      id: `${target.id}:request`,
+      userId: target.id,
     });
-
     await service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,
       desiredRole: null,
@@ -209,29 +208,36 @@ describe('Admin access atomic request decisions', () => {
         reason: '합성 반려 사유',
       },
     });
-
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      approvalStatus: 'REJECTED',
+      admin: null,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(
-      prisma.staffAccessRequest.findUniqueOrThrow({
-        where: { id: request.id },
-      }),
+      requestHistory(prisma)
+        .then((rows) => rows.filter((row) => row.id === request.id))
+        .then((rows) => {
+          const row = rows[0];
+          if (!row) throw new TypeError('Expected request history fixture');
+          return row;
+        }),
     ).resolves.toMatchObject({
       status: StaffAccessRequestStatus.REJECTED,
       rejectionReason: '합성 반려 사유',
       decidedById: actor.id,
     });
     await expect(
-      prisma.auditLog.count({ where: { targetId: request.id } }),
+      userAuditRows(prisma, { targetId: request.id }).then(
+        (rows) => rows.length,
+      ),
     ).resolves.toBe(1);
   });
 });
-
 async function createUser(
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   label: string,
@@ -240,7 +246,7 @@ async function createUser(
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access-mutation:${label}:${sequence}`,
-      githubId: 9_003_600_000n + BigInt(sequence),
+      githubId: 9003600000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
     }),
     select: { id: true, githubId: true },

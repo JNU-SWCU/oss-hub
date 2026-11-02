@@ -8,6 +8,7 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { SubmissionFilesService } from './submission-files.service';
 import { UsersModule } from '../users/users.module';
+import { UserProfileService } from '../users/user-profile.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -82,6 +83,7 @@ describe('ProgramsModule milestone documents', () => {
       MilestoneDocumentFileNameService,
       SubmissionFileAdmissionService,
       DownloadResponseService,
+      UserProfileService,
     ]);
   });
 

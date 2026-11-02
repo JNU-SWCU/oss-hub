@@ -212,7 +212,13 @@ const actors = [
     allowed: false,
   },
   { role: 'STAFF', githubId: 5103n, user: STAFF_USER, allowed: true },
-  { role: 'ADMIN', githubId: 5104n, user: ADMIN_USER, allowed: true },
+  { role: 'ADMIN', githubId: 5104n, user: ADMIN_USER, allowed: false },
+  {
+    role: 'STAFF+ADMIN',
+    githubId: 5105n,
+    user: { ...STAFF_USER, hasAdminAccess: true },
+    allowed: true,
+  },
 ];
 
 const guardedCells = actors.flatMap((actor) =>
@@ -369,14 +375,17 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   expect(listStaffTeams).toHaveBeenCalledWith(PROGRAM_ID);
 });
 
-it('ACTIVE ADMIN 도 통과한다', async () => {
+it('교직원 권한이 없는 ACTIVE ADMIN 은 거부한다', async () => {
   findUnique.mockResolvedValue(ADMIN_USER);
   listStaffTeams.mockResolvedValue([]);
 
   const response = await getTeams(await sessionCookieFor(5002n));
 
-  expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toEqual([]);
+  expect(response.status).toBe(403);
+  await expect(response.json()).resolves.toEqual(
+    staffOnlyProblem(LIST_INSTANCE),
+  );
+  expect(listStaffTeams).not.toHaveBeenCalled();
 });
 
 it.each([

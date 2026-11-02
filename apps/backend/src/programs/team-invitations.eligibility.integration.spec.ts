@@ -1,12 +1,12 @@
+import { ApprovalStatus, DepartmentType, UserType } from '@prisma/client';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
-  AffiliationKind,
-  MemberKind,
   ProgramCategory,
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -43,14 +43,17 @@ async function cleanup(): Promise<void> {
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
+  await prisma.admin.deleteMany({
+    where: { user: { id: { startsWith: TEST_PREFIX } } },
+  });
   await prisma.user.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
 }
 
 async function seedEligibilityFixture(): Promise<void> {
-  await prisma.user.createMany({
-    data: [
+  await Promise.all(
+    [
       {
         id: LEADER_ID,
         githubId: 9_300_000_001n,
@@ -73,15 +76,21 @@ async function seedEligibilityFixture(): Promise<void> {
         id: STAFF_ID,
         githubId: 9_300_000_004n,
         nickname: `${CANDIDATE_QUERY}-staff`,
-        hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
+        type: UserType.STAFF,
+        approvalStatus: ApprovalStatus.APPROVED,
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: DepartmentType.DEPARTMENT,
       },
       {
         id: ADMIN_ID,
         githubId: 9_300_000_005n,
         nickname: `${CANDIDATE_QUERY}-admin`,
-        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
+        ...{ admin: { create: { origin: 'MIGRATION' as const } } },
       },
       {
         id: DEACTIVATED_STUDENT_ID,
@@ -95,66 +104,75 @@ async function seedEligibilityFixture(): Promise<void> {
         nickname: `${CANDIDATE_QUERY}-unassigned`,
         accountStatus: AccountStatus.ACTIVE,
       },
-    ],
-  });
-  await prisma.userProfile.createMany({
-    data: [
+    ].map((data) => prisma.user.create({ data })),
+  );
+  await Promise.all(
+    [
       {
         userId: LEADER_ID,
         name: 'Synthetic user',
         studentId: '303001',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: INVITEE_ID,
         name: 'Synthetic user',
         studentId: '303002',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: ACTIVE_STUDENT_ID,
         name: 'Synthetic user',
         studentId: '303003',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: STAFF_ID,
         name: 'Synthetic user',
         studentId: null,
         department: 'Synthetic program office',
-        memberKind: MemberKind.STAFF,
-        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-        affiliationName: 'Synthetic program office',
+        type: MemberKind.STAFF,
+        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: ADMIN_ID,
+        approvalStatus: ApprovalStatus.PENDING,
         name: 'Synthetic user',
         studentId: null,
         department: 'Synthetic program office',
-        memberKind: MemberKind.STAFF,
-        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-        affiliationName: 'Synthetic program office',
+        type: MemberKind.STAFF,
+        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: DEACTIVATED_STUDENT_ID,
         name: 'Synthetic user',
         studentId: '303006',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
-    ],
-  });
+    ].map(({ userId, ...profile }) =>
+      prisma.user.update({ where: { id: userId }, data: profile }),
+    ),
+  );
   await prisma.program.create({
     data: {
       id: PROGRAM_ID,
@@ -231,17 +249,13 @@ describe('TeamInvitationsRepository eligibility integration', () => {
     [
       '교직원으로 역할 변경',
       {
-        hasStaffAccess: true,
-        selectedMemberKind: MemberKind.STAFF,
-        profile: {
-          update: {
-            memberKind: MemberKind.STAFF,
-            studentId: null,
-            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-            department: 'Synthetic program office',
-            affiliationName: 'Synthetic program office',
-          },
-        },
+        type: MemberKind.STAFF,
+        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        department: 'Synthetic program office',
+        approvalStatus: ApprovalStatus.APPROVED,
+        name: 'Synthetic staff',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     ],
     ['계정 비활성화', { accountStatus: AccountStatus.DEACTIVATED }],

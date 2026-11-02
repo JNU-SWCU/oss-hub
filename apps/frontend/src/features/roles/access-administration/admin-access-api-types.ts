@@ -9,6 +9,14 @@ type AdminAccessStaffAccessRequestStatus =
   'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
 type AdminAccessLoginEvent = 'LOGIN' | 'LOGOUT';
 
+export type AdminApprovalStatus =
+  'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+
+export interface AdminApprovalState {
+  readonly approvalStatus: AdminApprovalStatus;
+  readonly approvalRequestId: string | null;
+}
+
 export interface AdminAccessPendingRequest {
   readonly id: string;
   readonly status: 'PENDING';
@@ -137,7 +145,7 @@ export interface AdminAccessDecidedRequest {
   readonly status: 'APPROVED' | 'REJECTED' | 'REVOKED';
 }
 
-export interface AdminAccessMutationResponse {
+export interface AdminAccessMutationResponse extends AdminApprovalState {
   readonly id: string;
   readonly role: AdminAccessRole | null;
   readonly accountStatus: AdminAccessAccountStatus;

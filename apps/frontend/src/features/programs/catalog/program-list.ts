@@ -46,7 +46,7 @@ export function getProgramListHeading(status: ProgramListStatus): string {
 }
 
 export function getProgramListSubtitle(role: ViewerRole): string {
-  if (role === 'STAFF' || role === 'ADMIN') {
+  if (role === 'STAFF') {
     return '내가 운영하는 프로그램과 전체 프로그램입니다';
   }
   return '지금 참여 중이거나 지원할 수 있는 프로그램입니다';

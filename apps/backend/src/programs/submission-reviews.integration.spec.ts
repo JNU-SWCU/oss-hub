@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -6,13 +7,13 @@ import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
   ApplicationStatus,
-  MemberKind,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -54,7 +55,7 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const repositoriesRepository = new RepositoriesRepository(
   prisma,
@@ -109,8 +110,9 @@ async function createFreshPrivateRepository(): Promise<{
       id: applicantId,
       githubId: seedGithubId(applicantId),
       nickname: applicantId.replace(/:/g, '-'),
-      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
   const applicationId = seedId('repositories', scenarioId, 'application');

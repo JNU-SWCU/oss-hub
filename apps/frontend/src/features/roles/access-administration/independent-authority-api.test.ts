@@ -26,6 +26,8 @@ function detail(overrides: Record<string, unknown> = {}) {
     memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -60,6 +62,8 @@ describe('Task 8 independent authority API', () => {
           memberKind: 'STUDENT',
           hasStaffAccess: false,
           hasAdminAccess: true,
+          approvalStatus: 'NOT_REQUIRED',
+          approvalRequestId: null,
           accountStatus: 'ACTIVE',
           isSelf: false,
           isProfileComplete: false,
@@ -164,6 +168,17 @@ describe('Task 8 independent authority API', () => {
     ).toThrow('관리자 접근 API 응답 형식이 올바르지 않습니다.');
   });
 
+  it.each([
+    { approvalStatus: undefined },
+    { approvalStatus: null },
+    { approvalStatus: 'UNKNOWN' },
+    { approvalRequestId: undefined },
+    { approvalRequestId: '' },
+    { approvalRequestId: 42 },
+  ])('rejects an incomplete approval expectation %j', (fields) => {
+    expect(() => parseCanonicalAdminAccessDetail(detail(fields))).toThrow();
+  });
+
   it('rejects a canonical detail response that omits staff number', () => {
     const profile: Record<string, unknown> = { ...detail().profile };
     delete profile.staffNumber;
@@ -194,11 +209,15 @@ describe('Task 8 independent authority API', () => {
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
+      approvalStatus: 'APPROVED',
+      approvalRequestId: 'approved-request',
     });
     const request = {
       memberKind: 'STAFF',
       expectedMemberKind: 'STUDENT',
       expectedHasStaffAccess: false,
+      expectedApprovalStatus: 'NOT_REQUIRED',
+      expectedApprovalRequestId: null,
       studentId: '202601',
       department: '인공지능학부',
       staffNumber: 'staff-42',
@@ -221,6 +240,8 @@ describe('Task 8 independent authority API', () => {
         memberKind: 'STUDENT',
         hasStaffAccess: !admin,
         hasAdminAccess: admin,
+        approvalStatus: 'NOT_REQUIRED',
+        approvalRequestId: null,
       });
       const result = await patchAdminAuthority('target', command);
       expect(result).toMatchObject({
@@ -237,6 +258,8 @@ describe('Task 8 independent authority API', () => {
       memberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: true,
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
     });
     await expect(
       patchAdminAuthority('target', 'GRANT_ADMIN_ACCESS'),
@@ -246,6 +269,8 @@ describe('Task 8 independent authority API', () => {
       memberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: true,
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
     });
   });
 

@@ -1,9 +1,9 @@
 import {
   AccountStatus,
-  MemberKind,
   MilestoneDocumentKind,
   SubmissionFileLifecycle,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 
 const NOW = new Date('2026-09-20T00:00:00.000Z');
@@ -43,7 +43,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const activeStudent = {
       githubId: 34_290_000n,
       accountStatus: AccountStatus.ACTIVE,
-      profile: { is: { memberKind: MemberKind.STUDENT } },
+      type: MemberKind.STUDENT,
     };
     expect(findFirst).toHaveBeenCalledWith({
       where: {

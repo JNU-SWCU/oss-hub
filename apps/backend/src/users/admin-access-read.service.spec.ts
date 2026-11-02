@@ -7,16 +7,15 @@ import {
   InMemoryAdminAccessRepository,
   PENDING_REQUEST,
   accessUser,
-  adminActor,
+  adminActor as rawAdminActor,
   auditLogHarness,
-  staffActor,
+  staffActor as rawStaffActor,
   roleFacts,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {
     const repository = new InMemoryAdminAccessRepository();
@@ -33,18 +32,15 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     const result = await service.list(adminActor(), {
       query: '',
       page: 1,
       limit: 20,
     });
-
     expect(result.items).toEqual([
       expect.objectContaining({ id: 'admin', isSelf: true }),
     ]);
   });
-
   it('returns facets and separately bounded role-request/login histories', async () => {
     const repository = new InMemoryAdminAccessRepository();
     const service = new AdminAccessService(
@@ -55,7 +51,6 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     const [facets, history] = await Promise.all([
       service.facets(adminActor(), { query: '', page: 1, limit: 20 }),
       service.getHistory(adminActor(), 'target', {
@@ -63,14 +58,12 @@ describe('AdminAccessService reads', () => {
         loginHistory: { page: 3, limit: 10 },
       }),
     ]);
-
     expect(facets.roles.student).toBe(1);
     expect(history).toEqual({
       staffAccessRequests: { items: [], page: 2, limit: 5, total: 0 },
       loginHistory: { items: [], page: 3, limit: 10, total: 0 },
     });
   });
-
   it.each([
     [
       'deactivated',
@@ -96,13 +89,11 @@ describe('AdminAccessService reads', () => {
           new UserProfileService(),
         ),
       );
-
       await expect(
         service.list(actor, { query: '', page: 1, limit: 20 }),
       ).rejects.toMatchObject({ errorCode: { code, status } });
     },
   );
-
   it('requires an existing user before returning detail or histories', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.target = null;
@@ -114,7 +105,6 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     await expect(
       service.get(adminActor(), 'missing-user'),
     ).rejects.toMatchObject({
@@ -129,7 +119,6 @@ describe('AdminAccessService reads', () => {
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
   });
-
   it('lets STAFF list the pending queue but not the directory', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({
@@ -144,7 +133,6 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     await expect(
       service.list(staffActor(), { query: '', page: 1, limit: 20 }),
     ).rejects.toMatchObject({
@@ -161,7 +149,6 @@ describe('AdminAccessService reads', () => {
       items: [expect.objectContaining({ id: 'target' })],
     });
   });
-
   it('hides a user without a pending request from STAFF as ROL_010', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({ pendingRequest: null });
@@ -173,7 +160,6 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     await expect(service.get(staffActor(), 'target')).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
@@ -186,7 +172,6 @@ describe('AdminAccessService reads', () => {
       errorCode: { code: RolesErrorCode.USER_NOT_FOUND, status: 404 },
     });
   });
-
   it('lets STAFF read a pending target', async () => {
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({
@@ -201,10 +186,26 @@ describe('AdminAccessService reads', () => {
         new UserProfileService(),
       ),
     );
-
     await expect(service.get(staffActor(), 'target')).resolves.toMatchObject({
       id: 'target',
       pendingRequest: PENDING_REQUEST,
     });
   });
 });
+
+function adminActor(overrides: Parameters<typeof rawAdminActor>[0] = {}) {
+  const actor = rawAdminActor(overrides);
+  return {
+    ...actor,
+    hasStaffAccess: new UserProfileService().hasStaffAccess(actor),
+    isProfileComplete: actor.profileCreatedAt !== null,
+  };
+}
+function staffActor(overrides: Parameters<typeof rawStaffActor>[0] = {}) {
+  const actor = rawStaffActor(overrides);
+  return {
+    ...actor,
+    hasStaffAccess: new UserProfileService().hasStaffAccess(actor),
+    isProfileComplete: actor.profileCreatedAt !== null,
+  };
+}

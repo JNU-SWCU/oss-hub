@@ -27,7 +27,15 @@ export async function startArchiveHttp(
   const sessionSecret = new Uint8Array(32).fill(43);
   await fixture.prisma.user.update({
     where: { id: archiveId('user') },
-    data: { hasStaffAccess: true },
+    data: {
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
+    },
   });
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],

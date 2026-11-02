@@ -1,295 +1,169 @@
 import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+  requestHistory,
+  writeApprovalFixture,
+} from '../users/user-history.integration-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { AuthConfig, INITIAL_ACCOUNT_SEEDS } from '../platform/auth.config';
+import { canonicalUserCreate } from '../users/canonical-user-fixture';
 import { AuthRepository } from './auth.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const githubId = 9_600_000_000_009_001n;
-const staffGithubId = 9_600_000_000_009_002n;
-const pendingStaffGithubId = 9_600_000_000_009_003n;
-const revokedStaffGithubId = 9_600_000_000_009_004n;
-const rejectedStaffGithubId = 9_600_000_000_009_005n;
-const reapprovedStaffGithubId = 9_600_000_000_009_006n;
-const githubIds = [
-  githubId,
-  staffGithubId,
-  pendingStaffGithubId,
-  revokedStaffGithubId,
-  rejectedStaffGithubId,
-  reapprovedStaffGithubId,
-];
 const prisma = new PrismaService();
-
-function repositoryWithInitialSeed(
-  setting: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
-): AuthRepository {
-  const config = {
-    resolveInitialRole: jest
-      .fn()
-      .mockReturnValue(
-        setting === null ? null : INITIAL_ACCOUNT_SEEDS[setting],
-      ),
-  } as unknown as AuthConfig;
-  return new AuthRepository(prisma, config);
-}
-
-function upsertUser(
-  repository: AuthRepository,
-  profile: {
-    readonly githubId: bigint;
-    readonly login: string;
-    readonly name: string | null;
-    readonly avatarUrl: string | null;
-    readonly email: string | null;
-  },
-) {
-  return repository.withTransaction((store) => store.upsertUser(profile));
-}
-
-async function cleanup(): Promise<void> {
-  await prisma.staffAccessRequest.deleteMany({
-    where: { user: { githubId: { in: githubIds } } },
-  });
-  await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
-}
-
-beforeAll(async () => {
-  await prisma.$connect();
-});
-
-beforeEach(cleanup);
-afterAll(async () => {
-  await cleanup();
-  await prisma.$disconnect();
-});
-
-it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로그인은 UserProfile 이름을 보존한다', async () => {
-  const repository = repositoryWithInitialSeed(null);
-  const profile = {
-    githubId,
-    login: 'synthetic-oauth-user',
-    name: 'GitHub 합성 이름',
-    avatarUrl: null,
-    email: null,
-  };
-
-  const firstLogins = await Promise.all([
-    upsertUser(repository, profile),
-    upsertUser(repository, profile),
-  ]);
-  expect(firstLogins.filter((login) => login.isNew)).toHaveLength(1);
-
-  const newUser = await prisma.user.findUniqueOrThrow({
-    where: { githubId },
-    include: { profile: true },
-  });
-  expect(newUser.profile).toBeNull();
-
-  await prisma.$transaction([
-    prisma.userProfile.create({
-      data: {
-        userId: newUser.id,
-        name: '사용자 입력 이름',
-        studentId: '1'.repeat(6),
-        department: '인공지능학부',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '인공지능학부',
-      },
+const repository = new AuthRepository(prisma);
+const githubId = 9600000000009001n;
+const staffGithubId = 9600000000009002n;
+const pendingStaffGithubId = 9600000000009003n;
+const revokedStaffGithubId = 9600000000009004n;
+const rejectedStaffGithubId = 9600000000009005n;
+const reapprovedStaffGithubId = 9600000000009006n;
+const profile = {
+  githubId,
+  login: 'synthetic-oauth-user',
+  name: 'GitHub 합성 이름',
+  avatarUrl: null,
+  email: null,
+};
+function login(id: bigint) {
+  return repository.withTransaction((store) =>
+    store.upsertUser({
+      ...profile,
+      githubId: id,
+      login: `synthetic-oauth-${id}`,
     }),
-  ]);
-  const returningLogin = await upsertUser(repository, {
-    ...profile,
-    login: 'synthetic-oauth-user-renamed',
-    name: '변경된 GitHub 이름',
-  });
+  );
+}
+beforeAll(() => prisma.$connect());
+afterAll(() => prisma.$disconnect());
 
-  expect(returningLogin).toMatchObject({
+it('동시 최초 로그인은 GitHub 이름을 저장하지 않고 이후 로그인은 사용자 입력 이름을 보존한다', async () => {
+  const firstLogins = await Promise.all([
+    repository.withTransaction((store) => store.upsertUser(profile)),
+    repository.withTransaction((store) => store.upsertUser(profile)),
+  ]);
+  expect(firstLogins.filter((result) => result.isNew)).toHaveLength(1);
+  const user = await prisma.user.findUniqueOrThrow({ where: { githubId } });
+  expect(user).toMatchObject({
+    name: null,
+    profileCreatedAt: null,
+    type: 'UNSELECTED',
+  });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      type: 'STUDENT',
+      name: '사용자 입력 이름',
+      studentId: '900001',
+      department: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      profileCreatedAt: new Date(),
+      profileUpdatedAt: new Date(),
+    },
+  });
+  const returning = await repository.withTransaction((store) =>
+    store.upsertUser({
+      ...profile,
+      login: 'synthetic-oauth-user-renamed',
+      name: '변경된 GitHub 이름',
+    }),
+  );
+  expect(returning).toMatchObject({
     isNew: false,
     user: {
       nickname: 'synthetic-oauth-user-renamed',
       name: '사용자 입력 이름',
     },
   });
+  await expect(
+    prisma.userHistory.count({
+      where: { userId: user.id, event: 'SIGNED_UP' },
+    }),
+  ).resolves.toBe(1);
 });
 
-it('STAFF 초기 시드는 APPROVED StaffAccessRequest를 함께 만든다', async () => {
-  const repository = repositoryWithInitialSeed('STAFF');
-  await upsertUser(repository, {
-    githubId: staffGithubId,
-    login: 'synthetic-staff-user',
-    name: null,
-    avatarUrl: null,
-    email: null,
-  });
-
+it('최초 로그인은 예전 STAFF 시드 대상도 자동 승인하지 않는다', async () => {
+  await login(staffGithubId);
   const user = await prisma.user.findUniqueOrThrow({
     where: { githubId: staffGithubId },
+    include: { admin: true },
   });
-  const requests = await prisma.staffAccessRequest.findMany({
-    where: { userId: user.id },
+  expect(user).toMatchObject({
+    type: 'UNSELECTED',
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
+    admin: null,
   });
-  expect(user.selectedMemberKind).toBe(MemberKind.STAFF);
-  expect(user.hasStaffAccess).toBe(true);
-  expect(user.hasAdminAccess).toBe(false);
-  expect(requests).toHaveLength(1);
-  const [approvedRequest] = requests;
-  expect(approvedRequest).toMatchObject({
-    status: StaffAccessRequestStatus.APPROVED,
-    decidedById: null,
-  });
-  expect(approvedRequest?.decidedAt).not.toBeNull();
+  await expect(requestHistory(prisma, user.id)).resolves.toEqual([]);
 });
 
-it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하지 않는다', async () => {
+it.each([
+  ['회수', revokedStaffGithubId, 'REVOKED'],
+  ['반려', rejectedStaffGithubId, 'REJECTED'],
+  ['대기', pendingStaffGithubId, 'PENDING'],
+] as const)(
+  '%s 계정은 로그인으로 다시 승인되거나 요청이 바뀌지 않는다',
+  async (_, id, status) => {
+    const user = await prisma.user.create({
+      data: canonicalUserCreate({
+        id: `test:auth:preserve:${status}`,
+        githubId: id,
+        nickname: `synthetic-${status}`,
+        memberKind: 'STAFF',
+      }),
+    });
+    const request = await writeApprovalFixture(prisma, {
+      userId: user.id,
+      status,
+    });
+    const before = await requestHistory(prisma, user.id);
+    const result = await login(id);
+    expect(result.user).toMatchObject({
+      memberKind: 'STAFF',
+      approvalStatus: status,
+      hasAdminAccess: false,
+    });
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+    expect(stored).toMatchObject({
+      approvalStatus: status,
+      approvalRequestId: request.id,
+    });
+    await expect(requestHistory(prisma, user.id)).resolves.toEqual(before);
+  },
+);
+
+it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 승인과 이전 이력을 보존한다', async () => {
   const user = await prisma.user.create({
-    data: {
-      githubId: revokedStaffGithubId,
-      nickname: 'synthetic-revoked-staff-user',
-      accountStatus: AccountStatus.ACTIVE,
-      selectedMemberKind: null,
-    },
-  });
-  const revoked = await prisma.staffAccessRequest.create({
-    data: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
-  });
-  const repository = repositoryWithInitialSeed('STAFF');
-
-  const result = await upsertUser(repository, {
-    githubId: revokedStaffGithubId,
-    login: 'synthetic-revoked-staff-user',
-    name: null,
-    avatarUrl: null,
-    email: null,
-  });
-
-  expect(result.user.memberKind).toBeNull();
-  const persisted = await prisma.user.findUniqueOrThrow({
-    where: { githubId: revokedStaffGithubId },
-  });
-  expect(persisted.hasStaffAccess).toBe(false);
-
-  const requests = await prisma.staffAccessRequest.findMany({
-    where: { userId: user.id },
-  });
-  expect(requests).toHaveLength(1);
-  expect(requests[0]).toMatchObject({
-    id: revoked.id,
-    status: StaffAccessRequestStatus.REVOKED,
-  });
-});
-
-it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는다', async () => {
-  const user = await prisma.user.create({
-    data: {
-      githubId: rejectedStaffGithubId,
-      nickname: 'synthetic-rejected-staff-user',
-      accountStatus: AccountStatus.ACTIVE,
-      selectedMemberKind: null,
-    },
-  });
-  await prisma.staffAccessRequest.create({
-    data: { userId: user.id, status: StaffAccessRequestStatus.REJECTED },
-  });
-  const repository = repositoryWithInitialSeed('STAFF');
-
-  const result = await upsertUser(repository, {
-    githubId: rejectedStaffGithubId,
-    login: 'synthetic-rejected-staff-user',
-    name: null,
-    avatarUrl: null,
-    email: null,
-  });
-
-  expect(result.user.hasStaffAccess).toBe(true);
-  const requests = await prisma.staffAccessRequest.findMany({
-    where: { userId: user.id },
-    orderBy: { status: 'asc' },
-  });
-  expect(requests.map((request) => request.status)).toEqual([
-    StaffAccessRequestStatus.APPROVED,
-    StaffAccessRequestStatus.REJECTED,
-  ]);
-});
-
-it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 접근 권한과 이력이 그대로다', async () => {
-  const user = await prisma.user.create({
-    data: {
+    data: canonicalUserCreate({
+      id: 'test:auth:reapproved',
       githubId: reapprovedStaffGithubId,
-      nickname: 'synthetic-reapproved-staff-user',
-      accountStatus: AccountStatus.ACTIVE,
-      selectedMemberKind: MemberKind.STAFF,
+      nickname: 'synthetic-reapproved',
+      memberKind: 'STAFF',
       hasStaffAccess: true,
-    },
+    }),
   });
-  await prisma.staffAccessRequest.create({
-    data: { userId: user.id, status: StaffAccessRequestStatus.REVOKED },
+  await writeApprovalFixture(prisma, {
+    userId: user.id,
+    status: 'REVOKED',
+    createdAt: new Date('2026-02-01T00:00:00Z'),
   });
-  await prisma.staffAccessRequest.create({
-    data: { userId: user.id, status: StaffAccessRequestStatus.APPROVED },
+  const approved = await writeApprovalFixture(prisma, {
+    userId: user.id,
+    status: 'APPROVED',
+    createdAt: new Date('2026-02-02T00:00:00Z'),
   });
-  const repository = repositoryWithInitialSeed('STAFF');
-
-  const result = await upsertUser(repository, {
-    githubId: reapprovedStaffGithubId,
-    login: 'synthetic-reapproved-staff-user',
-    name: null,
-    avatarUrl: null,
-    email: null,
+  const before = await requestHistory(prisma, user.id);
+  const result = await login(reapprovedStaffGithubId);
+  expect(result.user.approvalStatus).toBe('APPROVED');
+  await expect(
+    prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+  ).resolves.toMatchObject({
+    approvalStatus: 'APPROVED',
+    approvalRequestId: approved.id,
   });
-
-  expect(result.user.hasStaffAccess).toBe(true);
-  const requests = await prisma.staffAccessRequest.findMany({
-    where: { userId: user.id },
-  });
-  expect(requests).toHaveLength(2);
-});
-
-it('기존 PENDING StaffAccessRequest는 STAFF 초기 시드에서 새로 만들지 않고 전이한다', async () => {
-  const user = await prisma.user.create({
-    data: {
-      githubId: pendingStaffGithubId,
-      nickname: 'synthetic-pending-staff-user',
-      accountStatus: AccountStatus.ACTIVE,
-    },
-  });
-  const pending = await prisma.staffAccessRequest.create({
-    data: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
-  });
-  const repository = repositoryWithInitialSeed('STAFF');
-
-  await upsertUser(repository, {
-    githubId: pendingStaffGithubId,
-    login: 'synthetic-pending-staff-user',
-    name: null,
-    avatarUrl: null,
-    email: null,
-  });
-
-  const persisted = await prisma.user.findUniqueOrThrow({
-    where: { githubId: pendingStaffGithubId },
-  });
-  expect(persisted.hasStaffAccess).toBe(true);
-  expect(persisted.hasAdminAccess).toBe(false);
-  const requests = await prisma.staffAccessRequest.findMany({
-    where: { userId: user.id },
-  });
-  expect(requests).toHaveLength(1);
-  const [transitionedRequest] = requests;
-  expect(transitionedRequest).toMatchObject({
-    id: pending.id,
-    status: StaffAccessRequestStatus.APPROVED,
-    decidedById: null,
-  });
-  expect(transitionedRequest?.decidedAt).not.toBeNull();
+  await expect(requestHistory(prisma, user.id)).resolves.toEqual(before);
+  expect(before).toHaveLength(2);
 });

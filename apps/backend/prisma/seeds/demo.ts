@@ -15,11 +15,9 @@ import {
   prisma,
   seedId,
   SeedStats,
-  upsertConsent,
-  upsertSeedProfile,
-  upsertSeedUser,
   upsertTracked,
 } from './helpers';
+import { upsertConsent, upsertSeedProfile, upsertSeedUser } from './user';
 import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
 
 const joinCodeSecretService = new JoinCodeSecretService();
@@ -164,7 +162,7 @@ async function upsertDemoStudent(
     name: student.name,
     studentId: student.studentId,
     department: student.department,
-    memberKind: 'STUDENT',
+    type: 'STUDENT',
   });
   await prisma.user.update({
     where: { id: user.id },
@@ -188,7 +186,7 @@ async function upsertDemoStaff(
     name: DEMO_STAFF_NAME,
     studentId: null,
     department: DEMO_STAFF_DEPARTMENT,
-    memberKind: 'STAFF',
+    type: 'STAFF',
   });
   await prisma.user.update({
     where: { id: user.id },
@@ -1432,13 +1430,8 @@ export async function teardownDemo(
   await countAndDelete('Program', () =>
     prisma.program.deleteMany({ where: seedIdFilter }),
   );
-  await countAndDelete('Consent', () =>
-    prisma.consent.deleteMany({
-      where: { userId: { startsWith: seedDemoPrefix } },
-    }),
-  );
-  await countAndDelete('UserProfile', () =>
-    prisma.userProfile.deleteMany({
+  await countAndDelete('UserPolicy', () =>
+    prisma.userPolicy.deleteMany({
       where: { userId: { startsWith: seedDemoPrefix } },
     }),
   );

@@ -1,7 +1,6 @@
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
   ApplicationStatus,
-  MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
@@ -10,6 +9,7 @@ import {
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoriesRepository } from './repositories.repository';
@@ -69,13 +69,15 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           id: CURRENT_USER_ID,
           githubId: 8_300_000_000_001n,
           nickname: `${PREFIX}-Current`,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
         {
           id: OTHER_USER_ID,
           githubId: 8_300_000_000_002n,
           nickname: `${PREFIX}-other`,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
       ],
     });

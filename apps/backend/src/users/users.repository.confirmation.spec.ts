@@ -1,190 +1,149 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { usersRepositoryHarness } from './users.repository.spec-support';
 import {
-  canonicalCompletion,
   profileRecord,
+  canonicalCompletion,
 } from './member-authority-test-fixtures';
-import {
-  callOrder,
-  usersRepositoryHarness as harness,
-} from './users.repository.spec-support';
 
-const student = profileRecord('user-finishing-student');
-const staff = profileRecord('user-finishing-staff', {
-  selectedMemberKind: MemberKind.STAFF,
-});
-const studentCompletion = canonicalCompletion({
-  name: '합성 학생',
-  studentId: '153401',
-  department: '인공지능학부',
-});
-const staffCompletion = canonicalCompletion(
-  {
-    name: '합성 교직원',
-    studentId: null,
-    department: '인공지능학부',
-  },
-  MemberKind.STAFF,
-  AffiliationKind.PROGRAM_OFFICE,
-);
-const phoneDigits = '5'.repeat(10);
-
-describe('UsersRepository 가입 마치기 확정', () => {
-  it('학생 완료는 승인 요청을 만들지 않는다', async () => {
-    const {
-      repository,
-      userUpdate,
-      staffAccessRequestCreate,
-      recordPhoneAudit,
-    } = harness(student);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      student,
-      studentCompletion,
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('completed');
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: student.id },
-      data: {
-        selectedMemberKind: MemberKind.STUDENT,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      },
-    });
-    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('교직원 완료는 승인 요청 하나를 연다', async () => {
-    const { repository, staffAccessRequestCreate, recordPhoneAudit } =
-      harness(staff);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      staff,
-      staffCompletion,
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('completed');
-    expect(staffAccessRequestCreate).toHaveBeenCalledWith({
-      data: { userId: staff.id },
-    });
-  });
-
-  it('이미 승인 대기 요청이 있으면 다시 만들지 않는다', async () => {
-    const {
-      repository,
-      staffAccessRequestFindFirst,
-      staffAccessRequestCreate,
-      recordPhoneAudit,
-    } = harness(staff);
-    staffAccessRequestFindFirst.mockResolvedValue({
-      id: 'synthetic-existing',
-      status: 'PENDING',
-    });
-
-    await repository.completeProfileIfUnchanged(
-      staff,
-      staffCompletion,
-      recordPhoneAudit,
-    );
-
-    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
-  });
-
-  it('잠금 뒤 스냅샷이 달라지면 확정 부수효과도 만들지 않는다', async () => {
-    const {
-      repository,
-      transactionFindUnique,
-      staffAccessRequestCreate,
-      recordPhoneAudit,
-    } = harness(staff);
-    transactionFindUnique.mockResolvedValue(null);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      staff,
-      { ...staffCompletion, phone: phoneDigits },
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('conflict');
-    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('이미 교직원 접근 권한이 있으면 승인받을 것이 없다', async () => {
-    const granted = profileRecord('user-granted-staff', {
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-    });
-    const { repository, staffAccessRequestCreate, recordPhoneAudit } =
-      harness(granted);
-
-    await repository.completeProfileIfUnchanged(
-      granted,
+async function complete(
+  kind: 'STUDENT' | 'STAFF',
+  options: {
+    readonly pending?: boolean;
+    readonly approved?: boolean;
+    readonly failPhone?: boolean;
+  } = {},
+) {
+  const h = usersRepositoryHarness(
+    profileRecord('user', {
+      memberKind: kind,
+      selectedMemberKind: kind,
+      approvalStatus:
+        kind === 'STAFF'
+          ? options.approved
+            ? 'APPROVED'
+            : 'PENDING'
+          : 'NOT_REQUIRED',
+      approvalRequestId: options.pending ? 'existing-request' : null,
+    }),
+  );
+  const expected = await h.repository.findByGithubId(4242n);
+  if (!expected) throw new TypeError('Missing fixture');
+  const input = {
+    ...canonicalCompletion(
       {
-        ...staffCompletion,
-        hasStaffAccess: true,
-        requestsStaffAccess: false,
+        name: 'Name',
+        studentId: kind === 'STUDENT' ? '123456' : null,
+        department: 'Department',
       },
-      recordPhoneAudit,
-    );
-
-    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
+      kind,
+    ),
+    phone: '01012345678',
+    requestsStaffAccess: kind === 'STAFF' && !options.approved,
+  };
+  if (options.failPhone)
+    h.recordPhoneAudit.mockRejectedValue(new Error('phone audit failure'));
+  return { h, expected, input };
+}
+it('student completion does not submit a staff request or alter independent Admin', async () => {
+  const { h, expected, input } = await complete('STUDENT');
+  h.replaceCurrent({ admin: { userId: 'user' } });
+  expect(
+    await h.repository.completeProfileIfUnchanged(
+      expected,
+      input,
+      h.recordPhoneAudit,
+    ),
+  ).toBe('completed');
+  expect(h.current()).toMatchObject({
+    type: 'STUDENT',
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
+    admin: { userId: 'user' },
   });
-
-  it('연락처 감사 콜백은 승인 요청보다 먼저 같은 writer로 불린다', async () => {
-    const {
-      repository,
-      userUpdate,
-      staffAccessRequestFindFirst,
-      staffAccessRequestCreate,
-      recordPhoneAudit,
-      transaction,
-      auditLogCreate,
-    } = harness(staff);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      staff,
-      { ...staffCompletion, phone: phoneDigits },
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('completed');
-    const [store, change] = recordPhoneAudit.mock.calls[0] ?? [];
-    expect(store?.auditLogWriter).toBe(transaction);
-    expect(change).toEqual({ user: staff, transition: 'set' });
-    expect(callOrder(userUpdate, 1)).toBeLessThan(callOrder(recordPhoneAudit));
-    expect(callOrder(recordPhoneAudit)).toBeLessThan(
-      callOrder(staffAccessRequestFindFirst),
-    );
-    expect(callOrder(staffAccessRequestFindFirst)).toBeLessThan(
-      callOrder(staffAccessRequestCreate),
-    );
-    expect(auditLogCreate).not.toHaveBeenCalled();
+  expect(
+    h.histories.filter((row) => row.event === 'APPROVAL_REQUESTED'),
+  ).toHaveLength(0);
+});
+it('staff completion submits exactly one pending request with a real identity', async () => {
+  const { h, expected, input } = await complete('STAFF');
+  expect(
+    await h.repository.completeProfileIfUnchanged(
+      expected,
+      input,
+      h.recordPhoneAudit,
+    ),
+  ).toBe('completed');
+  expect(h.current()?.approvalRequestId).toEqual(expect.any(String));
+  expect(
+    h.histories.filter((row) => row.event === 'APPROVAL_REQUESTED'),
+  ).toHaveLength(1);
+});
+it('an existing pending request is retained without a second request event', async () => {
+  const { h, expected, input } = await complete('STAFF', { pending: true });
+  await h.repository.completeProfileIfUnchanged(
+    expected,
+    input,
+    h.recordPhoneAudit,
+  );
+  expect(h.current()?.approvalRequestId).toBe('existing-request');
+  expect(
+    h.histories.filter((row) => row.event === 'APPROVAL_REQUESTED'),
+  ).toHaveLength(0);
+});
+it('a changed locked profile conflicts without profile or approval side effects', async () => {
+  const { h, expected, input } = await complete('STAFF');
+  h.replaceCurrent({ name: 'Concurrent name' });
+  expect(
+    await h.repository.completeProfileIfUnchanged(
+      expected,
+      input,
+      h.recordPhoneAudit,
+    ),
+  ).toBe('conflict');
+  expect(h.histories).toHaveLength(0);
+  expect(h.userUpdate).not.toHaveBeenCalled();
+});
+it('an already approved STAFF completion preserves approval without submitting a request', async () => {
+  const { h, expected, input } = await complete('STAFF', { approved: true });
+  await h.repository.completeProfileIfUnchanged(
+    expected,
+    input,
+    h.recordPhoneAudit,
+  );
+  expect(h.current()?.approvalStatus).toBe('APPROVED');
+  expect(
+    h.histories.filter((row) => row.event === 'APPROVAL_REQUESTED'),
+  ).toHaveLength(0);
+});
+it('phone auditing precedes staff request submission in the same transaction', async () => {
+  const { h, expected, input } = await complete('STAFF');
+  h.recordPhoneAudit.mockImplementation(
+    (store) =>
+      new Promise<void>((resolve) => {
+        expect(store.auditLogWriter).toBe(h.transaction);
+        expect(h.current()?.approvalRequestId).toBeNull();
+        resolve();
+      }),
+  );
+  await h.repository.completeProfileIfUnchanged(
+    expected,
+    input,
+    h.recordPhoneAudit,
+  );
+  expect(h.current()?.approvalRequestId).not.toBeNull();
+});
+it('phone audit failure prevents request submission and rolls back profile completion', async () => {
+  const { h, expected, input } = await complete('STAFF', { failPhone: true });
+  await expect(
+    h.repository.completeProfileIfUnchanged(
+      expected,
+      input,
+      h.recordPhoneAudit,
+    ),
+  ).rejects.toThrow('phone audit failure');
+  expect(h.current()).toMatchObject({
+    name: null,
+    profileCreatedAt: null,
+    approvalRequestId: null,
   });
-
-  it('연락처 감사 콜백이 실패하면 승인 요청도 열지 않는다', async () => {
-    const {
-      repository,
-      staffAccessRequestFindFirst,
-      staffAccessRequestCreate,
-      recordPhoneAudit,
-    } = harness(staff);
-    const failure = new Error('synthetic audit failure');
-    recordPhoneAudit.mockRejectedValue(failure);
-
-    await expect(
-      repository.completeProfileIfUnchanged(
-        staff,
-        { ...staffCompletion, phone: phoneDigits },
-        recordPhoneAudit,
-      ),
-    ).rejects.toBe(failure);
-
-    expect(recordPhoneAudit).toHaveBeenCalledTimes(1);
-    expect(staffAccessRequestFindFirst).not.toHaveBeenCalled();
-    expect(staffAccessRequestCreate).not.toHaveBeenCalled();
-  });
+  expect(h.histories).toHaveLength(0);
 });

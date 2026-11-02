@@ -18,6 +18,8 @@ export function adminDetail(
     memberKind: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,

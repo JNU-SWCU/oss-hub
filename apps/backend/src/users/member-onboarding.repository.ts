@@ -1,17 +1,17 @@
+import type { ApprovalStatus } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
-import {
-  Consent as PrismaConsent,
-  Prisma,
-  MemberKind,
-  StaffAccessRequestStatus,
-  type Prisma as PrismaTypes,
-  type StaffAccessRequest as PrismaStaffAccessRequest,
-  type AccountStatus,
-} from '@prisma/client';
+import { Prisma, type AccountStatus } from '@prisma/client';
+import { MemberKind, StaffAccessRequestStatus } from './user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
-import { PlatformRepository } from '../platform/platform.repository';
-import type { StaffAccessRequestOutcome } from '../platform/platform.repository';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import { USER_APPROVAL_SELECT } from './user-history.config';
+import type { RequestSnapshot } from './user-history.types';
+import { UserTransitionRepository } from './user-transition.repository';
+import { randomUUID } from 'node:crypto';
 
+type StaffAccessRequestOutcome = {
+  readonly requestStatus: StaffAccessRequestStatus | null;
+};
 export interface ConsentUser {
   readonly id: string;
   readonly accountStatus: AccountStatus;
@@ -31,12 +31,13 @@ type MemberProfileFields = {
 };
 
 export type MemberUser = {
+  readonly profileCreatedAt: Date | null;
+  readonly approvalStatus: ApprovalStatus;
   readonly id: string;
 
   readonly memberKind: MemberKind | null;
 
   readonly selectedMemberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
 
@@ -62,59 +63,6 @@ export type MemberKindSelectionState = {
   readonly selectedMemberKind: SelectableMemberKind | null;
 };
 
-@Injectable()
-export class ConsentsRepository {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async findUserByGithubId(githubId: bigint): Promise<ConsentUser | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { githubId },
-      select: { id: true, accountStatus: true },
-    });
-    return user ? { id: user.id, accountStatus: user.accountStatus } : null;
-  }
-
-  async findConsent(
-    userId: string,
-    policyVersion: string,
-  ): Promise<ConsentRecord | null> {
-    const consent = await this.prisma.consent.findUnique({
-      where: { userId_policyVersion: { userId, policyVersion } },
-    });
-    return consent ? this.toDomain(consent) : null;
-  }
-
-  async createConsent(
-    userId: string,
-    policyVersion: string,
-  ): Promise<ConsentRecord> {
-    try {
-      const created = await this.prisma.consent.create({
-        data: { userId, policyVersion },
-      });
-      return this.toDomain(created);
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const existing = await this.findConsent(userId, policyVersion);
-        if (existing) {
-          return existing;
-        }
-      }
-      throw error;
-    }
-  }
-
-  private toDomain(consent: PrismaConsent): ConsentRecord {
-    return {
-      policyVersion: consent.policyVersion,
-      consentedAt: consent.consentedAt,
-    };
-  }
-}
-
 export interface OnboardingTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
   updateSelectedMemberKind(
@@ -129,21 +77,11 @@ export interface OnboardingTransactionStore {
 
 const MEMBER_USER_SELECT = {
   id: true,
-  selectedMemberKind: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
   accountStatus: true,
-  profile: {
-    select: {
-      name: true,
-      studentId: true,
-      department: true,
-      memberKind: true,
-    },
-  },
-} as const satisfies PrismaTypes.UserSelect;
-
-type MemberUserRow = PrismaTypes.UserGetPayload<{
+  ...USER_AUTHORITY_SELECT,
+  ...USER_APPROVAL_SELECT,
+} as const satisfies Prisma.UserSelect;
+type MemberUserRow = Prisma.UserGetPayload<{
   select: typeof MEMBER_USER_SELECT;
 }>;
 
@@ -151,17 +89,85 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
 export class MemberOnboardingRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly platformRepository: PlatformRepository,
+    private readonly transitions: UserTransitionRepository,
   ) {}
-
-  async withTransaction<T>(
+  withTransaction<T>(
     operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(this.onboardingTransactionStore(transaction)),
+      operation({
+        findUserByGithubId: async (githubId) => {
+          await transaction.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+          );
+          const user = await transaction.user.findUnique({
+            where: { githubId },
+            select: MEMBER_USER_SELECT,
+          });
+          return user ? toMemberUser(user) : null;
+        },
+        updateSelectedMemberKind: async (userId, memberKind) => {
+          const before = await transaction.user.findUniqueOrThrow({
+            where: { id: userId },
+            select: { type: true },
+          });
+          if (before.type === memberKind) {
+            return toMemberUser(
+              await transaction.user.findUniqueOrThrow({
+                where: { id: userId },
+                select: MEMBER_USER_SELECT,
+              }),
+            );
+          }
+          const user = await transaction.user.update({
+            where: { id: userId },
+            data: {
+              type: memberKind,
+              approvalRequestId: null,
+              approvalRequestedAt: null,
+              approvalDecidedAt: null,
+              approvalDecidedById: null,
+              approvalReason: null,
+              approvalStatus:
+                memberKind === 'STAFF' ? 'PENDING' : 'NOT_REQUIRED',
+            },
+            select: MEMBER_USER_SELECT,
+          });
+          await transaction.userHistory.create({
+            data: {
+              id: 'user:' + randomUUID(),
+              userId,
+              actorId: userId,
+              event: 'TYPE_CHANGED',
+              source: 'APPLICATION',
+              data: {
+                schemaVersion: 1,
+                recordKind: 'TYPE_SELECTION',
+                before: before.type,
+                after: memberKind,
+              },
+            },
+          });
+          return toMemberUser(user);
+        },
+        findPendingRequest: async (userId) => {
+          const current = await this.findLatestRequestIn(transaction, userId);
+          return current?.status === 'PENDING' ? current : null;
+        },
+        findLatestRequest: (userId) =>
+          this.findLatestRequestIn(transaction, userId),
+        createPendingRequest: async (userId) =>
+          toStaffAccessRequest(
+            await this.transitions.requestStaffAccess(transaction, userId),
+          ),
+        requestStaffAccess: async (userId) => ({
+          requestStatus: (
+            await this.transitions.requestStaffAccess(transaction, userId)
+          ).status,
+        }),
+      }),
     );
   }
-
   async findUserByGithubId(githubId: bigint): Promise<MemberUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
@@ -169,125 +175,43 @@ export class MemberOnboardingRepository {
     });
     return user ? toMemberUser(user) : null;
   }
-
-  async findLatestRequest(
-    userId: string,
-  ): Promise<StaffAccessRequestRecord | null> {
-    const request = await this.prisma.staffAccessRequest.findFirst({
-      where: { userId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-    return request ? toStaffAccessRequest(request) : null;
+  findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null> {
+    return this.findLatestRequestIn(this.prisma, userId);
   }
-
-  private onboardingTransactionStore(
-    transaction: Prisma.TransactionClient,
-  ): OnboardingTransactionStore {
-    return {
-      requestStaffAccess: this.requestStaffAccessIn.bind(this, transaction),
-      findUserByGithubId: this.findUserByGithubIdIn.bind(this, transaction),
-      updateSelectedMemberKind: this.updateSelectedMemberKindIn.bind(
-        this,
-        transaction,
-      ),
-      findPendingRequest: this.findPendingRequestIn.bind(this, transaction),
-      findLatestRequest: this.findLatestRequestIn.bind(this, transaction),
-      createPendingRequest: this.createPendingRequestIn.bind(this, transaction),
-    };
-  }
-
-  private requestStaffAccessIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<StaffAccessRequestOutcome> {
-    return this.platformRepository.requestStaffAccess(transaction, userId);
-  }
-
-  private async findUserByGithubIdIn(
-    transaction: Prisma.TransactionClient,
-    githubId: bigint,
-  ): Promise<MemberUser | null> {
-    await transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
-    );
-    const user = await transaction.user.findUnique({
-      where: { githubId },
-      select: MEMBER_USER_SELECT,
-    });
-    return user ? toMemberUser(user) : null;
-  }
-
-  private async updateSelectedMemberKindIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-    memberKind: MemberKind,
-  ): Promise<MemberUser> {
-    const user = await transaction.user.update({
-      where: { id: userId },
-      data: { selectedMemberKind: memberKind },
-      select: MEMBER_USER_SELECT,
-    });
-    return toMemberUser(user);
-  }
-
-  private async findPendingRequestIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<StaffAccessRequestRecord | null> {
-    const request = await transaction.staffAccessRequest.findFirst({
-      where: { userId, status: StaffAccessRequestStatus.PENDING },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-    return request ? toStaffAccessRequest(request) : null;
-  }
-
   private async findLatestRequestIn(
     transaction: Prisma.TransactionClient,
     userId: string,
   ): Promise<StaffAccessRequestRecord | null> {
-    const request = await transaction.staffAccessRequest.findFirst({
-      where: { userId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    const user = await transaction.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, ...USER_APPROVAL_SELECT },
     });
+    const request = this.transitions.requestSnapshot(user);
     return request ? toStaffAccessRequest(request) : null;
   }
-
-  private async createPendingRequestIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<StaffAccessRequestRecord> {
-    const request = await transaction.staffAccessRequest.create({
-      data: { userId },
-    });
-    return toStaffAccessRequest(request);
-  }
 }
-
 function toMemberUser(user: MemberUserRow): MemberUser {
   return {
     id: user.id,
-    memberKind: user.profile?.memberKind ?? null,
-    selectedMemberKind: user.selectedMemberKind,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
+    profileCreatedAt: user.profileCreatedAt,
+    memberKind: user.type === 'UNSELECTED' ? null : user.type,
+    selectedMemberKind: user.type === 'UNSELECTED' ? null : user.type,
+    approvalStatus: user.approvalStatus,
+    hasAdminAccess: user.admin !== null,
     accountStatus: user.accountStatus,
     profile: {
-      name: user.profile?.name ?? null,
-      studentId: user.profile?.studentId ?? null,
-      department: user.profile?.department ?? null,
+      name: user.name,
+      studentId: user.studentId,
+      department: user.department,
     },
   };
 }
-
 function toStaffAccessRequest(
-  request: PrismaStaffAccessRequest,
+  request: RequestSnapshot,
 ): StaffAccessRequestRecord {
   return {
-    id: request.id,
-    userId: request.userId,
-    status: request.status,
-    rejectionReason: request.rejectionReason,
-    decidedAt: request.decidedAt,
-    createdAt: request.createdAt,
+    ...request,
+    createdAt: new Date(request.createdAt),
+    decidedAt: request.decidedAt === null ? null : new Date(request.decidedAt),
   };
 }

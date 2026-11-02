@@ -22,7 +22,7 @@ const SENT_TEAM_INVITATION_SELECT = {
     select: {
       id: true,
       nickname: true,
-      profile: { select: { name: true } },
+      name: true,
       avatarUrl: true,
     },
   },
@@ -40,7 +40,7 @@ const selectedInvitationRow = {
   invitee: {
     id: syntheticInviteeId,
     nickname: 'synthetic-invitee',
-    profile: { name: '합성 초대 대상' },
+    name: '합성 초대 대상',
     avatarUrl: 'https://example.invalid/avatar.png',
   },
 };
@@ -77,15 +77,13 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         id: { not: syntheticInviteeId },
-        profile: { is: { memberKind: 'STUDENT' } },
+        type: 'STUDENT',
         accountStatus: 'ACTIVE',
         OR: [
           { nickname: { contains: 'octo', mode: 'insensitive' } },
 
           {
-            profile: {
-              is: { name: { contains: 'octo', mode: 'insensitive' } },
-            },
+            name: { contains: 'octo', mode: 'insensitive' },
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
@@ -93,7 +91,7 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
       select: {
         id: true,
         nickname: true,
-        profile: { select: { name: true } },
+        name: true,
         avatarUrl: true,
       },
       orderBy: { nickname: 'asc' },
@@ -191,8 +189,12 @@ describe('TeamInvitationsRepository.createInvitation', () => {
 
       user: {
         findUnique: jest.fn().mockResolvedValue({
-          hasStaffAccess: false,
-          hasAdminAccess: false,
+          type: 'STUDENT',
+          approvalStatus: 'NOT_REQUIRED',
+          admin: null,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          name: 'Synthetic leader',
+          department: 'Synthetic department',
           accountStatus: 'ACTIVE',
         }),
       },
@@ -228,6 +230,13 @@ describe('TeamInvitationsRepository.createInvitation', () => {
     const [lockSql] = tx.$queryRaw.mock.calls[0] as [Prisma.Sql];
     expect(lockSql.sql).toContain('FOR UPDATE');
     expect(lockSql.values).toEqual([syntheticTeamId]);
+    expect(tx.teamMember.findUnique).toHaveBeenCalledWith({
+      where: {
+        teamId_userId: { teamId: syntheticTeamId, userId: syntheticLeaderId },
+        user: { type: 'STUDENT', accountStatus: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
     expect(create).toHaveBeenCalledWith({
       data: {
         teamId: syntheticTeamId,
@@ -264,7 +273,10 @@ describe('TeamInvitationsRepository.createInvitation', () => {
       invitee: {
         id: syntheticInviteeId,
         nickname: 'synthetic-invitee',
-        profile: null,
+        name: null,
+        department: null,
+        type: 'UNSELECTED',
+        profileCreatedAt: null,
         avatarUrl: null,
       },
     });

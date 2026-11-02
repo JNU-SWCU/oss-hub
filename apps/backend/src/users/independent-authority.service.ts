@@ -1,7 +1,7 @@
 import { DomainException } from '../platform/error-code.error';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import type {
   AuditLogRecordInput,
   IndependentAuthorityAuditAction,
@@ -76,8 +76,8 @@ export class IndependentAuthorityService {
   constructor(
     @Inject(IndependentAuthorityRepository)
     private readonly repository: IndependentAuthorityRepositoryPort,
-    @Inject(AuditLogService)
-    private readonly auditLog: Pick<AuditLogService, 'record'>,
+    @Inject(UserHistoryRepository)
+    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
     private readonly userProfileService: UserProfileService,
@@ -184,12 +184,26 @@ export class IndependentAuthorityService {
       if (current === enabled) {
         throw this.adminAccessMutationService.staleAccessError(before);
       }
+      if (
+        target === AUTHORITY_TARGETS.STAFF &&
+        enabled &&
+        (before.memberKind !== 'STAFF' ||
+          !before.isProfileComplete ||
+          before.pendingRequest !== null)
+      ) {
+        throw this.adminAccessMutationService.roleError(
+          RolesErrorCode.PENDING_REQUEST_DECISION_REQUIRED,
+        );
+      }
       const transition = this.resolveIndependentAuthorityTransition(
         before,
         target,
         enabled,
       );
-      await store.updateAuthority(userId, transition);
+      const approval = await store.updateAuthority(userId, {
+        ...transition,
+        actorId: actor.id,
+      });
       if (revokesStaffAccess(before, transition)) {
         await store.insertRevokedRequest({
           userId: before.id,
@@ -209,6 +223,10 @@ export class IndependentAuthorityService {
       );
       return {
         id: before.id,
+        approvalStatus: revokesStaffAccess(before, transition)
+          ? 'REVOKED'
+          : approval.approvalStatus,
+        approvalRequestId: approval.approvalRequestId,
         role: transition.role,
         memberKind: transition.memberKind,
         hasStaffAccess: transition.hasStaffAccess,

@@ -12,6 +12,8 @@ export const PENDING_DETAIL: CanonicalAdminAccessDetail = adminDetail({
   role: 'STUDENT',
   memberKind: 'STUDENT',
   hasStaffAccess: false,
+  approvalStatus: 'PENDING',
+  approvalRequestId: PENDING_REQUEST_ID,
   name: '합성 대기 사용자',
   pendingRequest: {
     id: PENDING_REQUEST_ID,
@@ -61,6 +63,8 @@ export function approvedResponse(): AdminAccessMutationResponse {
   return {
     id: 'target',
     role: 'STAFF',
+    approvalStatus: 'APPROVED',
+    approvalRequestId: PENDING_REQUEST_ID,
     accountStatus: 'ACTIVE',
     pendingRequest: null,
     decidedRequest: { id: PENDING_REQUEST_ID, status: 'APPROVED' },
@@ -71,6 +75,8 @@ export function rejectedResponse(): AdminAccessMutationResponse {
   return {
     id: 'target',
     role: 'STUDENT',
+    approvalStatus: 'REJECTED',
+    approvalRequestId: PENDING_REQUEST_ID,
     accountStatus: 'ACTIVE',
     pendingRequest: null,
     decidedRequest: { id: PENDING_REQUEST_ID, status: 'REJECTED' },

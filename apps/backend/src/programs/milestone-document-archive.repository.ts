@@ -109,7 +109,7 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: application.applicant.profile?.name ?? null,
+      applicantName: application.applicant.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

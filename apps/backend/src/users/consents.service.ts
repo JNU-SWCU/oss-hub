@@ -1,3 +1,4 @@
+import { UserPolicyRepository } from './user-policy.repository';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -5,11 +6,7 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from './consent-error-code.error';
-import {
-  ConsentsRepository,
-  ConsentRecord,
-  ConsentUser,
-} from './member-onboarding.repository';
+import { ConsentRecord, ConsentUser } from './member-onboarding.repository';
 
 export const CONSENT_POLICY_VERSION = '2026-11-01';
 
@@ -81,7 +78,7 @@ export interface AcceptConsentInput {
 
 @Injectable()
 export class ConsentsService {
-  constructor(private readonly repository: ConsentsRepository) {}
+  constructor(private readonly repository: UserPolicyRepository) {}
 
   async getCurrent(githubId: bigint): Promise<ConsentStatus> {
     const user = await this.requireUser(githubId);

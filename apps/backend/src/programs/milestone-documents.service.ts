@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionStatus,
@@ -101,6 +102,7 @@ export class MilestoneDocumentsService {
     private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   parseMilestoneDocumentContent(input: {
@@ -131,9 +133,23 @@ export class MilestoneDocumentsService {
     const documents = await this.repository.findByMilestoneId(milestoneId);
     const documentIds = documents.map((document) => document.id);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
+    const isStaff =
+      viewer !== null &&
+      this.userProfileService.isStaffEligible({
+        accountStatus: viewer.accountStatus,
+        memberKind: viewer.type === 'UNSELECTED' ? null : viewer.type,
+        hasStaffAccess:
+          viewer.type === 'STAFF' && viewer.approvalStatus === 'APPROVED',
+        isProfileComplete:
+          viewer.profileCreatedAt !== null &&
+          this.userProfileService.isCompleteProfileFields(
+            { ...viewer, studentId: null },
+            'STAFF',
+          ),
+      });
 
     const counts = new Map<string, { submitted: number; total: number }>();
-    if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
+    if (isStaff) {
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
         this.repository.countSubmissionsByDocument(
@@ -151,7 +167,7 @@ export class MilestoneDocumentsService {
 
     if (
       viewer !== null &&
-      ((!viewer.hasStaffAccess && !viewer.hasAdminAccess) ||
+      (!isStaff ||
         (await this.repository.findActiveStudentByGithubId(sessionGithubId)) !==
           null)
     ) {

@@ -1,9 +1,11 @@
+import type { MemberKind } from '../users/user-contract.config';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import type { UserProfileNameSource } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   BoardPostCategory,
-  type MemberKind,
+  type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -86,9 +88,7 @@ export interface CreateBoardCommentInput {
 
 const authorNameSelect = {
   nickname: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-  profile: { select: { name: true, memberKind: true } },
+  ...USER_AUTHORITY_SELECT,
 } as const;
 
 const commentSelect = {
@@ -134,8 +134,7 @@ export class BoardRepository {
       where: { githubId: sessionGithubId },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
       },
     });
@@ -298,12 +297,7 @@ interface CommentRow {
   authorId: string;
   body: string;
   createdAt: Date;
-  author: {
-    nickname: string;
-    hasStaffAccess: boolean;
-    hasAdminAccess: boolean;
-    profile: { readonly name: string; readonly memberKind: MemberKind } | null;
-  };
+  author: Prisma.UserGetPayload<{ select: typeof authorNameSelect }>;
 }
 
 interface PostDetailRow {
@@ -327,9 +321,12 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     postId: comment.postId,
     authorId: comment.authorId,
 
-    authorMemberKind: comment.author.profile?.memberKind ?? null,
-    authorHasStaffAccess: comment.author.hasStaffAccess,
-    authorHasAdminAccess: comment.author.hasAdminAccess,
+    authorMemberKind:
+      comment.author.type === 'UNSELECTED' ? null : comment.author.type,
+    authorHasStaffAccess:
+      comment.author.type === 'STAFF' &&
+      comment.author.approvalStatus === 'APPROVED',
+    authorHasAdminAccess: comment.author.admin !== null,
     authorName: resolveAuthorName(comment.author),
     body: comment.body,
     createdAt: comment.createdAt,
@@ -356,5 +353,5 @@ function toDetailRecord(post: PostDetailRow): BoardPostDetailRecord {
 function resolveAuthorName(
   author: UserProfileNameSource & { nickname: string },
 ): string {
-  return author.profile?.name ?? author.nickname;
+  return author.name ?? author.nickname;
 }

@@ -1,10 +1,7 @@
-import {
-  AccountStatus,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { MemberKind, StaffAccessRequestStatus } from './user-contract.config';
+import { AccountStatus } from '@prisma/client';
+import { PrismaService } from '../platform/prisma.service';
+import type { UserHistoryRepository } from './user-history.repository';
 import type {
   AdminAccessActor,
   AdminAccessInsertedRequest,
@@ -22,27 +19,31 @@ import {
   type AdminAccessLoginHistoryPage,
   type AdminAccessStaffAccessRequestHistoryPage,
 } from './admin-access-read-ordering.repository';
-
-export const ADMIN_GITHUB_ID = 9_131_300_001n;
-const TARGET_GITHUB_ID = 9_131_300_002n;
-export const STAFF_GITHUB_ID = 9_131_300_003n;
+export const ADMIN_GITHUB_ID = 9131300001n;
+const TARGET_GITHUB_ID = 9131300002n;
+export const STAFF_GITHUB_ID = 9131300003n;
 const ACCOUNT_CREATED_AT = new Date('2026-07-19T00:00:00.000Z');
-
 export function staffActor(
-  overrides: Partial<AdminAccessActor> = {},
+  overrides: Partial<AdminAccessActor> & {
+    readonly hasStaffAccess?: boolean;
+  } = {},
 ): AdminAccessActor {
   return adminActor({
     id: 'staff',
     githubId: STAFF_GITHUB_ID,
     githubLogin: 'synthetic-staff',
-    hasStaffAccess: true,
+    memberKind: MemberKind.STAFF,
+    approvalStatus: overrides.hasStaffAccess === false ? 'REVOKED' : 'APPROVED',
+    profileCreatedAt: ACCOUNT_CREATED_AT,
+    department: 'Department',
     hasAdminAccess: false,
     ...overrides,
   });
 }
-
 export function adminActor(
-  overrides: Partial<AdminAccessActor> = {},
+  overrides: Partial<AdminAccessActor> & {
+    readonly hasStaffAccess?: boolean;
+  } = {},
 ): AdminAccessActor {
   return {
     id: 'admin',
@@ -50,17 +51,19 @@ export function adminActor(
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
     hasAdminAccess: true,
-    hasStaffAccess: true,
+    memberKind: MemberKind.STAFF,
+    approvalStatus: overrides.hasStaffAccess === false ? 'REVOKED' : 'APPROVED',
+    profileCreatedAt: ACCOUNT_CREATED_AT,
+    department: 'Department',
     accountStatus: AccountStatus.ACTIVE,
     ...overrides,
   };
 }
-
 export function roleFacts(
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
 ): Pick<
   AdminAccessUserRow,
-  'memberKind' | 'hasStaffAccess' | 'hasAdminAccess'
+  'memberKind' | 'approvalStatus' | 'hasAdminAccess'
 > {
   return {
     memberKind:
@@ -69,14 +72,31 @@ export function roleFacts(
         : role === 'STAFF'
           ? MemberKind.STAFF
           : null,
-    hasStaffAccess: role === 'STAFF',
+    approvalStatus: role === 'STAFF' ? 'APPROVED' : 'NOT_REQUIRED',
     hasAdminAccess: role === 'ADMIN',
   };
 }
-
 export function accessUser(
-  overrides: Partial<AdminAccessUserRow> = {},
+  overrides: Partial<AdminAccessUserRow> & {
+    readonly hasStaffAccess?: boolean;
+  } = {},
 ): AdminAccessUserRow {
+  const { hasStaffAccess, ...raw } = overrides;
+  const memberKind =
+    hasStaffAccess === true || raw.pendingRequest
+      ? 'STAFF'
+      : raw.memberKind === undefined
+        ? 'STUDENT'
+        : raw.memberKind;
+  const approvalStatus =
+    hasStaffAccess === true
+      ? 'APPROVED'
+      : raw.pendingRequest
+        ? 'PENDING'
+        : hasStaffAccess === false && memberKind === 'STAFF'
+          ? 'REVOKED'
+          : (raw.approvalStatus ??
+            (memberKind === 'STAFF' ? 'REVOKED' : 'NOT_REQUIRED'));
   return {
     id: 'target',
     githubId: TARGET_GITHUB_ID,
@@ -84,43 +104,44 @@ export function accessUser(
     name: '합성 사용자',
     studentId: '123456',
     department: '소프트웨어공학과',
-    selectedMemberKind: null,
-    memberKind: MemberKind.STUDENT,
-    hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     createdAt: ACCOUNT_CREATED_AT,
     pendingRequest: null,
     lastLoginAt: null,
-    ...overrides,
+    profileCreatedAt: ACCOUNT_CREATED_AT,
+    approvalRequestId: raw.pendingRequest?.id ?? null,
+    ...raw,
+    memberKind,
+    selectedMemberKind:
+      raw.selectedMemberKind === undefined
+        ? memberKind
+        : raw.selectedMemberKind,
+    approvalStatus,
   };
 }
-
 export function auditLogHarness(): {
-  readonly service: AuditLogService;
+  readonly service: Pick<UserHistoryRepository, 'record'>;
   readonly record: jest.Mock;
 } {
   const record = jest.fn().mockResolvedValue({});
   return {
-    service: { record } as unknown as AuditLogService,
+    service: { record },
     record,
   };
 }
-
 type LegacyAdminAccessUserUpdate = Omit<
   AdminAccessUserUpdate,
   'desiredHasStaffAccess' | 'desiredHasAdminAccess'
 >;
-
 export class InMemoryAdminAccessRepository
   implements AdminAccessRepositoryPort, AdminAccessTransactionStore
 {
-  readonly auditLogWriter = {} as AuditLogTransactionWriter;
+  readonly auditLogWriter = new PrismaService();
   actor: AdminAccessActor | null = adminActor();
   target: AdminAccessUserRow | null = accessUser();
   authoritativeTarget: AdminAccessUserRow | null = null;
   activeAdminCount = 2;
-
   actorAfterLock: AdminAccessActor | null | undefined = undefined;
   userCasSucceeds = true;
   requestCasSucceeds = true;
@@ -128,18 +149,15 @@ export class InMemoryAdminAccessRepository
   userUpdates: LegacyAdminAccessUserUpdate[] = [];
   requestUpdates: AdminAccessPendingDecisionUpdate[] = [];
   revokedInserts: AdminAccessRevokedRequestInsert[] = [];
-
   withTransaction<T>(
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T> {
     return operation(this);
   }
-
   findActorByGithubId(): Promise<AdminAccessActor | null> {
     this.operations.push('find-actor');
     return Promise.resolve(this.actor);
   }
-
   list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord> {
     const target = this.target;
     return Promise.resolve({
@@ -157,30 +175,33 @@ export class InMemoryAdminAccessRepository
       },
     });
   }
-
   facets(query: AdminAccessListQuery) {
     return this.list(query).then((page) => page.facets);
   }
-
   findById(): Promise<AdminAccessUserDetailRow | null> {
     const target = this.authoritativeTarget ?? this.target;
-    return Promise.resolve(target ? { ...target, staffNumber: null } : null);
+    return Promise.resolve(
+      target ? { ...target, staffNumber: null, adminGrant: null } : null,
+    );
   }
-
   listStaffAccessRequestHistory(
     _userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessStaffAccessRequestHistoryPage> {
     return Promise.resolve({ items: [], ...page, total: 0 });
   }
-
   listLoginHistory(
     _userId: string,
-    page: { readonly page: number; readonly limit: number },
+    page: {
+      readonly page: number;
+      readonly limit: number;
+    },
   ): Promise<AdminAccessLoginHistoryPage> {
     return Promise.resolve({ items: [], ...page, total: 0 });
   }
-
   lockActiveAdmins(): Promise<number> {
     this.operations.push('lock-active-admins');
     if (this.actorAfterLock !== undefined) {
@@ -188,12 +209,10 @@ export class InMemoryAdminAccessRepository
     }
     return Promise.resolve(this.activeAdminCount);
   }
-
   findUserForUpdate(): Promise<AdminAccessUserRow | null> {
     this.operations.push('find-user-for-update');
     return Promise.resolve(this.target);
   }
-
   compareAndSwapAccess(input: AdminAccessUserUpdate): Promise<boolean> {
     this.operations.push('compare-and-swap-access');
     const { desiredHasStaffAccess, desiredHasAdminAccess, ...legacyUpdate } =
@@ -203,35 +222,42 @@ export class InMemoryAdminAccessRepository
       this.target = {
         ...this.target,
         accountStatus: input.desiredAccountStatus,
-        hasStaffAccess: desiredHasStaffAccess,
+        approvalStatus: desiredHasStaffAccess
+          ? 'APPROVED'
+          : this.target.memberKind === 'STAFF'
+            ? 'REVOKED'
+            : 'NOT_REQUIRED',
         hasAdminAccess: desiredHasAdminAccess,
       };
     }
     return Promise.resolve(this.userCasSucceeds);
   }
-
   decidePendingRequest(
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean> {
     this.operations.push('decide-pending-request');
     this.requestUpdates.push(input);
     if (this.requestCasSucceeds && this.target) {
-      this.target = { ...this.target, pendingRequest: null };
+      this.target = {
+        ...this.target,
+        pendingRequest: null,
+        approvalStatus: input.nextStatus,
+        approvalRequestId: input.requestId,
+      };
     }
     return Promise.resolve(this.requestCasSucceeds);
   }
-
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
     this.operations.push('insert-revoked-request');
     this.revokedInserts.push(input);
-    return Promise.resolve({ id: INSERTED_REVOKED_REQUEST_ID });
+    if (!this.target) throw new TypeError('Missing target');
+    const id = this.target.approvalRequestId ?? input.userId;
+    this.target = { ...this.target, approvalStatus: 'REVOKED' };
+    return Promise.resolve({ id });
   }
 }
-
-export const INSERTED_REVOKED_REQUEST_ID = 'request-revoked';
-
 export const PENDING_REQUEST = {
   id: 'request-pending',
   status: StaffAccessRequestStatus.PENDING,

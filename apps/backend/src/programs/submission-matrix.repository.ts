@@ -147,7 +147,7 @@ function toMatrixApplication(
   return {
     id: application.id,
     applicant: {
-      name: application.applicant.profile?.name ?? null,
+      name: application.applicant.name ?? null,
       nickname: application.applicant.nickname,
     },
     team: application.team

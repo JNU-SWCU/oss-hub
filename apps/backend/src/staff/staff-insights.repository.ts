@@ -47,7 +47,7 @@ export class StaffInsightsRepository {
     return rows.map((row) => ({
       id: row.id,
       githubId: row.githubId,
-      department: row.profile?.department ?? null,
+      department: row.department ?? null,
     }));
   }
 

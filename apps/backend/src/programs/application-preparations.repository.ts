@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
-  MemberKind,
+  UserType,
   Prisma,
   TeamInvitationStatus,
 } from '@prisma/client';
@@ -72,7 +72,7 @@ function view(row: PreparationRow, actorId: string): PreparationView {
     members: row.participants.map(({ user }) => ({
       userId: user.id,
       nickname: user.nickname,
-      name: user.profile?.name ?? null,
+      name: user.name ?? null,
       isLeader: user.id === row.leaderId,
     })),
   };
@@ -89,13 +89,13 @@ function invitation(row: InvitationRow): PreparationInvitation {
     teamName: row.preparation.name,
     programName: row.preparation.program.name,
     invitedByDisplayName:
-      row.preparation.leader.profile?.name ?? row.preparation.leader.nickname,
+      row.preparation.leader.name ?? row.preparation.leader.nickname,
     memberCount: row.preparation.participants.length,
     teamMaxSize: row.preparation.program.teamMaxSize,
     invitee: {
       id: row.user.id,
       nickname: row.user.nickname,
-      name: row.user.profile?.name ?? null,
+      name: row.user.name ?? null,
       avatarUrl: row.user.avatarUrl,
     },
   };
@@ -140,11 +140,11 @@ async function assertEligible(
 ): Promise<void> {
   const user = await tx.user.findUnique({
     where: { id: userId },
-    select: { accountStatus: true, profile: { select: { memberKind: true } } },
+    select: { accountStatus: true, type: true },
   });
   if (
     user?.accountStatus !== AccountStatus.ACTIVE ||
-    user.profile?.memberKind !== MemberKind.STUDENT
+    user.type !== UserType.STUDENT
   )
     throw new PreparationConflict('ineligible');
 }
@@ -269,7 +269,7 @@ export class ApplicationPreparationsRepository {
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
-      name: user.profile?.name ?? null,
+      name: user.name ?? null,
       avatarUrl: user.avatarUrl,
     }));
   }

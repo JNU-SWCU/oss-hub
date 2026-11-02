@@ -1,4 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { inLegacyUserSchema } from './legacy-user-migration.fixture';
 
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
@@ -93,9 +96,6 @@ async function cleanFixtures(): Promise<void> {
     where: { id: { startsWith: TEST_PREFIX } },
   });
   await prisma.team.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
-  await prisma.staffAccessRequest.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
-  });
   await prisma.program.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
@@ -196,15 +196,38 @@ describe('core schema invariants integration', () => {
   });
 
   it('사용자당 PENDING 역할 요청은 한 건만 허용한다', async () => {
-    await prisma.staffAccessRequest.create({
-      data: { id: `${TEST_PREFIX}role:first`, userId: USER_A_ID },
+    const migration = readFileSync(
+      join(
+        process.cwd(),
+        'prisma/migrations/20260720034625_core_schema_invariants/migration.sql',
+      ),
+      'utf8',
+    );
+    const pendingIndex = migration
+      .split(';')
+      .find((statement) =>
+        statement.includes(
+          'CREATE UNIQUE INDEX "RoleRequest_userId_pending_key"',
+        ),
+      );
+    if (pendingIndex === undefined)
+      throw new TypeError('Missing legacy pending-request index');
+    const duplicateInsert = inLegacyUserSchema(prisma, async (transaction) => {
+      await transaction.$executeRaw`INSERT INTO "User" ("id") VALUES (${USER_A_ID})`;
+      await transaction.$executeRawUnsafe(pendingIndex);
+      await transaction.$executeRaw`
+        INSERT INTO "RoleRequest" ("id", "userId")
+        VALUES (${`${TEST_PREFIX}role:first`}, ${USER_A_ID})
+      `;
+      await transaction.$executeRaw`
+        INSERT INTO "RoleRequest" ("id", "userId")
+        VALUES (${`${TEST_PREFIX}role:second`}, ${USER_A_ID})
+      `;
     });
-
-    const duplicateInsert = prisma.staffAccessRequest.create({
-      data: { id: `${TEST_PREFIX}role:second`, userId: USER_A_ID },
+    await expect(duplicateInsert).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { code: '23505' },
     });
-
-    await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it.each([

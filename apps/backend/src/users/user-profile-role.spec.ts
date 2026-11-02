@@ -1,195 +1,157 @@
-import { MemberKind } from '@prisma/client';
 import { UserProfileService } from './user-profile.service';
-
-const userProfileService = new UserProfileService();
-
+const service = new UserProfileService();
+const fields = {
+  name: 'Name',
+  studentId: null,
+  department: 'Department',
+  profileCreatedAt: new Date('2026-01-01'),
+};
 it.each([
-  ['STUDENT', { studentId: true, department: true }],
-  ['STAFF', { studentId: false, department: true }],
-] as const)('%s 회원 유형의 필수 항목 표', (memberKind, expected) => {
-  expect(userProfileService.profileFieldRequirement(memberKind)).toEqual(
-    expected,
-  );
+  ['STUDENT', true],
+  ['STAFF', false],
+] as const)('%s requires studentId=%s', (memberKind, studentId) => {
+  expect(service.profileFieldRequirement(memberKind)).toEqual({
+    studentId,
+    department: true,
+  });
 });
-
-it.each([[null], [undefined]] as const)(
-  '회원 유형이 %s이면 학생 기준으로 판정한다',
-  (memberKind) => {
-    expect(userProfileService.profileFieldRequirement(memberKind)).toEqual(
-      userProfileService.profileFieldRequirement('STUDENT'),
-    );
-  },
-);
-
 it.each([
   ['STUDENT', false],
   ['STAFF', true],
 ] as const)(
-  '%s 회원 유형에서 학번 없는 프로필의 완료 여부는 %s',
+  'checks %s completion without studentId',
   (memberKind, expected) => {
     expect(
-      userProfileService.isCompleteUserProfile({
-        id: 'synthetic-no-student-id',
-        name: '합성 사용자',
-        studentId: null,
-        department: '인공지능학부',
+      service.isCompleteUserProfile({
+        ...fields,
         memberKind,
+        selectedMemberKind: memberKind,
       }),
     ).toBe(expected);
   },
 );
-
-it.each([
-  ['STUDENT', false],
-  ['STAFF', false],
-] as const)(
-  '%s 회원 유형에서 소속 없는 프로필의 완료 여부는 %s',
-  (memberKind, expected) => {
+it.each(['STUDENT', 'STAFF'] as const)(
+  'requires department for %s',
+  (memberKind) => {
     expect(
-      userProfileService.isCompleteUserProfile({
-        id: 'synthetic-no-department',
-        name: '합성 사용자',
-        studentId: '153403',
+      service.isCompleteUserProfile({
+        ...fields,
         department: null,
+        studentId: '123456',
         memberKind,
-      }),
-    ).toBe(expected);
-  },
-);
-
-it('필수가 아니어도 실려 있는 값의 형식은 검사한다', () => {
-  expect(
-    userProfileService.isCompleteUserProfile({
-      id: 'synthetic-malformed-optional',
-      name: '합성 사용자',
-      studentId: '12A456',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-    }),
-  ).toBe(false);
-});
-
-it('이름이 없으면 어떤 회원 유형에서도 미완료다', () => {
-  for (const memberKind of ['STUDENT', 'STAFF', null] as const) {
-    expect(
-      userProfileService.isCompleteUserProfile({
-        id: 'synthetic-no-name',
-        name: null,
-        studentId: '153404',
-        department: '인공지능학부',
-        memberKind,
+        selectedMemberKind: memberKind,
       }),
     ).toBe(false);
-  }
-});
-
-it('backfill이 쓰는 엄격 판정은 세 항목이 모두 유효할 때만 참이다', () => {
-  expect(
-    userProfileService.isValidCompleteUserProfileFields({
-      name: '합성 사용자',
-      studentId: '153405',
-      department: '인공지능학부',
-    }),
-  ).toBe(true);
-  expect(
-    userProfileService.isValidCompleteUserProfileFields({
-      name: '합성 사용자',
-      studentId: '12A456',
-      department: '인공지능학부',
-    }),
-  ).toBe(false);
-
-  expect(
-    userProfileService.isValidCompleteUserProfileFields({
-      name: '합성 사용자',
-      studentId: '9'.repeat(9),
-      department: '인공지능학부',
-    }),
-  ).toBe(false);
-});
-
-it('승인 대기 교직원은 학번이 없어도 완료다', () => {
-  expect(
-    userProfileService.isCompleteUserProfile({
-      id: 'synthetic-pending-staff',
-      name: '합성 교직원',
-      studentId: null,
-      department: '인공지능학부',
-      memberKind: null,
-      hasPendingStaffRequest: true,
-    }),
-  ).toBe(true);
-});
-
-it('승인 대기 교직원의 학번은 필수가 아니다', () => {
-  expect(
-    userProfileService.profileFieldRequirement(
-      userProfileService.effectiveProfileMemberKind({
-        memberKind: null,
-        hasPendingStaffRequest: true,
-      }),
-    ),
-  ).toEqual({ studentId: false, department: true });
-});
-
-it('고른 역할이 비어 있어도 살아 있는 요청이 교직원 기준을 지킨다', () => {
-  expect(
-    userProfileService.effectiveProfileMemberKind({
-      memberKind: null,
-      hasPendingStaffRequest: true,
-    }),
-  ).toBe('STAFF');
-});
-
-it.each([
-  ['STUDENT', { studentId: true, department: true }],
-  ['STAFF', { studentId: false, department: true }],
-] as const)(
-  '확정 전에는 고른 회원 유형(%s)이 필수 항목을 정한다',
-  (selectedMemberKind, expected) => {
-    expect(
-      userProfileService.profileFieldRequirement(
-        userProfileService.effectiveProfileMemberKind({
-          memberKind: null,
-          hasPendingStaffRequest: false,
-          selectedMemberKind,
-        }),
-      ),
-    ).toEqual(expected);
   },
 );
-
-it('확정된 회원 유형이 고른 유형을 이긴다', () => {
+it('validates retained optional studentId and Unicode profile names', () => {
   expect(
-    userProfileService.effectiveProfileMemberKind({
-      memberKind: MemberKind.STAFF,
-      hasPendingStaffRequest: false,
-      selectedMemberKind: MemberKind.STUDENT,
+    service.isCompleteUserProfile({
+      ...fields,
+      studentId: '12A456',
+      memberKind: 'STAFF',
+      selectedMemberKind: 'STAFF',
     }),
-  ).toBe('STAFF');
-});
-
-it('회수된 교직원의 프로필은 회수 뒤에도 완료로 읽힌다', () => {
-  const revokedStaff = {
-    id: 'synthetic-user',
-    name: '합성 교직원',
-    studentId: null,
-    department: '인공지능학부',
-    memberKind: null,
-    hasPendingStaffRequest: false,
-    selectedMemberKind: MemberKind.STAFF,
-  };
-
-  expect(userProfileService.effectiveProfileMemberKind(revokedStaff)).toBe(
-    'STAFF',
-  );
-  expect(userProfileService.isCompleteUserProfile(revokedStaff)).toBe(true);
-
+  ).toBe(false);
   expect(
-    userProfileService.isCompleteUserProfile({
-      ...revokedStaff,
+    service.isCompleteUserProfile({
+      ...fields,
+      name: null,
+      memberKind: 'STAFF',
+      selectedMemberKind: 'STAFF',
+    }),
+  ).toBe(false);
+});
+it('does not infer STAFF from an old pending-request compatibility flag', () => {
+  expect(
+    service.effectiveProfileMemberKind({
+      memberKind: null,
+      selectedMemberKind: null,
+      hasPendingStaffRequest: true,
+    }),
+  ).toBeNull();
+  expect(
+    service.isCompleteUserProfile({
+      ...fields,
+      memberKind: null,
       selectedMemberKind: null,
     }),
   ).toBe(false);
 });
+it('keeps approved, rejected and revoked STAFF profile completion independent of access', () => {
+  expect(
+    service.isCompleteUserProfile({
+      ...fields,
+      memberKind: 'STAFF',
+      selectedMemberKind: 'STAFF',
+    }),
+  ).toBe(true);
+  expect(
+    service.isCompleteUserProfile({
+      ...fields,
+      profileCreatedAt: null,
+      memberKind: 'STAFF',
+      selectedMemberKind: 'STAFF',
+    }),
+  ).toBe(false);
+});
+it('keeps strict new studentId validation separate from stored legacy studentId validity', () => {
+  expect(
+    service.isValidCompleteUserProfileFields({
+      name: 'Name',
+      studentId: '123456',
+      department: 'Department',
+    }),
+  ).toBe(true);
+  expect(
+    service.isValidCompleteUserProfileFields({
+      name: 'Name',
+      studentId: '123456789',
+      department: 'Department',
+    }),
+  ).toBe(false);
+  expect(service.isStoredStudentId('123456789')).toBe(true);
+});
+it.each([
+  ['STUDENT', 'NOT_REQUIRED', false],
+  ['STAFF', 'PENDING', false],
+  ['STAFF', 'APPROVED', true],
+  ['STAFF', 'REJECTED', false],
+  ['STAFF', 'REVOKED', false],
+] as const)(
+  'projects %s %s staff access as %s',
+  (memberKind, approvalStatus, expected) => {
+    expect(
+      service.hasStaffAccess({ ...fields, memberKind, approvalStatus }),
+    ).toBe(expected);
+  },
+);
+it('does not grant staff access to an approved but unfinished profile', () => {
+  expect(
+    service.hasStaffAccess({
+      ...fields,
+      profileCreatedAt: null,
+      memberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
+    }),
+  ).toBe(false);
+});
+it.each([
+  ['STUDENT', false, true, 'ACTIVE', false],
+  ['STAFF', false, true, 'ACTIVE', false],
+  ['STAFF', true, true, 'ACTIVE', true],
+  ['STAFF', true, false, 'ACTIVE', false],
+  ['STAFF', true, true, 'DEACTIVATED', false],
+] as const)(
+  'operational eligibility enforces type, approval, completion and account status',
+  (memberKind, hasStaffAccess, isProfileComplete, accountStatus, expected) => {
+    expect(
+      service.isStaffEligible({
+        memberKind,
+        hasStaffAccess,
+        isProfileComplete,
+        accountStatus,
+      }),
+    ).toBe(expected);
+  },
+);

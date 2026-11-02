@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberKind {
+  STUDENT
+  STAFF
+}
+
+enum AffiliationKind {
+  DEPARTMENT
+  PROGRAM_OFFICE
+}
+
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  githubId           BigInt        @unique
+  nickname           String        @map("login")
+  avatarUrl          String?
+  phone              String?
+  accountStatus      AccountStatus @default(ACTIVE)
+  sessionVersion     Int           @default(0)
+  notificationEmail  String?
+  notifyEnabled      Boolean       @default(false)
+  selectedMemberKind MemberKind?
+  hasStaffAccess     Boolean       @default(false)
+  hasAdminAccess     Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  staffAccessRequests                    StaffAccessRequest[]                 @relation("StaffAccessRequestUser")
+  decidedStaffAccessRequests             StaffAccessRequest[]                 @relation("StaffAccessRequestDecidedBy")
+  consents                               Consent[]
+  applications                           Application[]                        @relation("ApplicationApplicant")
+  processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
+  applicationPreparations                ApplicationPreparation[]
+  preparationParticipants                ApplicationPreparationParticipant[]
+  ledTeams                               Team[]                               @relation("TeamLeader")
+  teamMemberships                        TeamMember[]
+  sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
+  receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
+  uploadedFiles                          SubmissionFile[]
+  uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
+  programAuthoringUploads                ProgramAuthoringUpload[]
+  programCreateRequests                  ProgramCreateRequest[]
+  milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
+  milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
+  milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
+  applicationReviewHistories             ApplicationReviewHistory[]
+  boardPosts                             BoardPost[]
+  boardComments                          BoardComment[]
+  notifications                          Notification[]
+  auditLogs                              AuditLog[]
+  loginHistories                         LoginHistory[]
+  profile                                UserProfile?
+}
+
+model UserProfile {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  studentId   String? @unique
+  staffNumber String?
+  department  String
+
+  memberKind      MemberKind
+  affiliationKind AffiliationKind
+  affiliationName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum LoginHistoryEvent {
+  LOGIN
+  LOGOUT
+}
+
+model LoginHistory {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  event    LoginHistoryEvent
+  provider String            @default("github")
+  success  Boolean
+  loginAt  DateTime          @default(now())
+
+  @@index([userId, loginAt])
+  @@index([userId, provider, event, success, loginAt, id])
+  @@index([userId, provider, loginAt, id])
+}
+
+enum StaffAccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+model StaffAccessRequest {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation("StaffAccessRequestUser", fields: [userId], references: [id])
+
+  status          StaffAccessRequestStatus @default(PENDING)
+  rejectionReason String?
+
+  decidedById String?
+  decidedBy   User?     @relation("StaffAccessRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status, createdAt, id])
+  @@index([userId, createdAt, id])
+}
+
+model Consent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  policyVersion String
+  consentedAt   DateTime @default(now())
+
+  @@unique([userId, policyVersion])
+}

@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useSession } from '@/features/auth/use-session';
+import { subscribeSessionInvalidation } from '@/lib/session-invalidation';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -31,6 +32,7 @@ function getQueryClient() {
 export function QueryProvider({ children }: { readonly children: ReactNode }) {
   const queryClient = getQueryClient();
   const session = useSession();
+  useEffect(() => subscribeSessionInvalidation(session.retry), [session.retry]);
   const identity =
     session.status === 'anonymous'
       ? null
@@ -43,6 +45,9 @@ export function QueryProvider({ children }: { readonly children: ReactNode }) {
           ])
         : undefined;
   const previousIdentity = useRef<string | null | undefined>(undefined);
+  const nickname =
+    session.status === 'authenticated' ? session.user?.nickname : undefined;
+  const previousNickname = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (identity === undefined) return;
@@ -50,10 +55,17 @@ export function QueryProvider({ children }: { readonly children: ReactNode }) {
       previousIdentity.current !== undefined &&
       previousIdentity.current !== identity
     ) {
-      queryClient.clear();
+      if (nickname !== undefined && previousNickname.current === nickname) {
+        queryClient.removeQueries({ type: 'inactive' });
+        queryClient.getMutationCache().clear();
+        void queryClient.resetQueries({ type: 'active' });
+      } else {
+        queryClient.clear();
+      }
     }
     previousIdentity.current = identity;
-  }, [identity, queryClient]);
+    previousNickname.current = nickname;
+  }, [identity, nickname, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

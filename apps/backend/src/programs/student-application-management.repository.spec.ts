@@ -20,7 +20,7 @@ const APPLICATION = {
   applicant: {
     id: 'applicant-1',
     nickname: 'applicant',
-    profile: { name: 'Applicant' },
+    name: 'Applicant',
   },
   answers: {
     applicantName: 'Applicant',

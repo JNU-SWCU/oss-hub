@@ -3,10 +3,10 @@ import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
   AccountStatus,
   ApplicationStatus,
-  MemberKind,
   RepositoryConnectionMode,
   TeamInvitationStatus,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
 
@@ -279,7 +279,7 @@ describe('acceptTeamInvitationTransaction', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: syntheticUserId,
-          profile: { memberKind: MemberKind.STUDENT },
+          type: MemberKind.STUDENT,
           accountStatus: AccountStatus.ACTIVE,
         }),
       },
@@ -453,7 +453,7 @@ describe('acceptTeamInvitationTransaction', () => {
       '비활성 계정',
       {
         id: syntheticUserId,
-        profile: { memberKind: MemberKind.STUDENT },
+        type: MemberKind.STUDENT,
         accountStatus: AccountStatus.DEACTIVATED,
       },
     ],
@@ -461,7 +461,7 @@ describe('acceptTeamInvitationTransaction', () => {
       '학생이 아닌 계정',
       {
         id: syntheticUserId,
-        profile: { memberKind: MemberKind.STAFF },
+        type: MemberKind.STAFF,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],
@@ -469,7 +469,10 @@ describe('acceptTeamInvitationTransaction', () => {
       '프로필 없음',
       {
         id: syntheticUserId,
-        profile: null,
+        name: null,
+        department: null,
+        type: 'UNSELECTED',
+        profileCreatedAt: null,
         accountStatus: AccountStatus.ACTIVE,
       },
     ],

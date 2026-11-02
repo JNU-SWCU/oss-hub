@@ -1,10 +1,18 @@
+import { writeApprovalFixture } from './user-history.integration-fixture';
+import { MemberKindProfileService } from './member-kind-profile.service';
+import { MemberKindService } from './member-kind.service';
+import { MemberKindRepository } from './member-kind.repository';
+import { IndependentAuthorityService } from './independent-authority.service';
+import { IndependentAuthorityRepository } from './independent-authority.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { AdminRepository } from './admin.repository';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -25,36 +33,38 @@ import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
   databaseSessionPrincipal,
 } from '../../test/global-authentication-guard.fixture';
-
 const authSessionService = new AuthSessionService();
-
 const sessionSecret = new Uint8Array(32).fill(17);
 const ADMIN_ACCESS_ALLOWED_ORIGIN = 'http://frontend.test';
-
 export class AdminAccessHttpHarness {
   constructor(
     private readonly fixtureNamespace: string,
     private readonly githubIdBase: bigint,
   ) {}
-
   readonly prisma = new PrismaService();
   private application: INestApplication | null = null;
   private baseUrl = '';
   private sequence = 0;
-
   async start(): Promise<void> {
     await this.prisma.$connect();
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController, AccessRequestsController],
       providers: [
         ...STATELESS_PROVIDERS,
+        AdminRepository,
+        UserTransitionRepository,
+        IndependentAuthorityRepository,
+        IndependentAuthorityService,
+        MemberKindRepository,
+        MemberKindService,
+        MemberKindProfileService,
         AdminAccessService,
         AdminAccessRepository,
         AdminAccessMutationService,
         AdminProfileService,
         AdminProfileRepository,
         AdminProfileMutationService,
-        AuditLogService,
+        UserHistoryRepository,
         AuditLogRepository,
         AuditLogMetadataService,
         UserProfileService,
@@ -78,9 +88,7 @@ export class AdminAccessHttpHarness {
           },
         },
       ],
-    })
-      .useMocker((token) => (token === Function ? undefined : {}))
-      .compile();
+    }).compile();
     this.application = moduleRef.createNestApplication();
     this.application.setGlobalPrefix('api/v1');
     this.application.useGlobalPipes(
@@ -94,12 +102,10 @@ export class AdminAccessHttpHarness {
     await this.application.listen(0, '127.0.0.1');
     this.baseUrl = await this.application.getUrl();
   }
-
   async stop(): Promise<void> {
     await this.application?.close();
     await this.prisma.$disconnect();
   }
-
   async createUser(
     label: string,
     role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
@@ -116,7 +122,6 @@ export class AdminAccessHttpHarness {
       select: { id: true, githubId: true, nickname: true },
     });
   }
-
   async request(
     method: 'GET' | 'PATCH',
     path: string,
@@ -137,30 +142,19 @@ export class AdminAccessHttpHarness {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
-
   async createPendingRequest(userId: string) {
-    return this.prisma.staffAccessRequest.create({
-      data: {
-        id: `${userId}:pending`,
-        userId,
-        status: 'PENDING',
-      },
-      select: { id: true },
+    return writeApprovalFixture(this.prisma, {
+      id: `${userId}:pending`,
+      userId,
+      status: 'PENDING',
     });
   }
-
   async demoteAllActiveAdmins(): Promise<void> {
-    await this.prisma.user.updateMany({
-      where: { hasAdminAccess: true, accountStatus: 'ACTIVE' },
-      data: { hasAdminAccess: false, hasStaffAccess: true },
+    await this.prisma.admin.deleteMany({
+      where: { user: { accountStatus: 'ACTIVE' } },
     });
   }
-
   private async cookie(githubId: bigint): Promise<string> {
-    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
-      sessionSecret,
-      githubId,
-      0,
-    )}`;
+    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
   }
 }
