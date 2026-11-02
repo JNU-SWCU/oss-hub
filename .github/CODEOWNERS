@@ -1,5 +1,4 @@
 
-/docs/rules/     @GoBeromsu
 /.github/        @GoBeromsu
 /.design-sync/contract.test.mjs @GoBeromsu
 /.githooks/pre-commit.test.sh    @GoBeromsu

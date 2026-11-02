@@ -9,7 +9,7 @@ description: >-
   Block PR submission if that evidence is missing.
   Use write-github-comment for comments, manage-qa-tickets for QA tickets, and run-release-qa for release QA.
 metadata:
-  version: "1.14.1"
+  version: "1.14.2"
 ---
 
 # Submit PR Evidence

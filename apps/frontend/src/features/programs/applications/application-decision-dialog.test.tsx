@@ -443,7 +443,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       );
     }
 
-    it('학생이 스스로 다시 신청할 수 없다는 사실을 창 안에서 말한다', async () => {
+    it('신청자가 신청서를 고쳐 다시 낼 수 있다는 사실을 창 안에서 말한다', async () => {
       await act(async () => root.render(<Harness action="REJECT" />));
 
       const notice = consequence();

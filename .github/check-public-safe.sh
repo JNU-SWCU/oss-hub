@@ -198,6 +198,17 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
       echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
       exit 2
     fi
+    case "$f" in
+      *.webp | *.ico)
+        if ! nul_bytes="$(set -o pipefail; git show "HEAD:$f" 2>/dev/null | LC_ALL=C tr -dc '\0' | wc -c)"; then
+          echo "::error::public-safe 변경 파일 blob을 읽을 수 없습니다."
+          exit 2
+        fi
+        if [ "${nul_bytes//[[:space:]]/}" != 0 ]; then
+          continue
+        fi
+        ;;
+    esac
     scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 
