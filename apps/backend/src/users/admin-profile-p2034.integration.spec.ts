@@ -92,6 +92,78 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
   afterAll(async () => {
     await prisma.$disconnect();
   });
+  it('미선택 사용자의 첫 학생 프로필과 신분 이력을 함께 만들고 관리자 자격을 보존한다', async () => {
+    const userId = await createTargetUser();
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        type: 'UNSELECTED',
+        name: null,
+        studentId: null,
+        department: null,
+        departmentType: null,
+        profileCreatedAt: null,
+        profileUpdatedAt: null,
+      },
+    });
+    const qualification = await prisma.admin.create({
+      data: { userId, origin: 'BOOTSTRAP' },
+    });
+    const actor = await createAdminActor('first-profile');
+    const actorRow = await prisma.user.findUniqueOrThrow({
+      where: { githubId: actor.githubId },
+    });
+    await new AdminProfileMutationService(
+      new AuditLogMetadataService(),
+      new UserProfileService(),
+      new AdminAccessMutationService(
+        new AuditLogMetadataService(),
+        new UserProfileService(),
+      ),
+    ).mutateAdminUserProfile(
+      { repository, auditLog },
+      {
+        actorGithubId: actor.githubId,
+        userId,
+        command: {
+          name: '합성 학생',
+          studentId: '987654',
+          department: '합성 학과',
+        },
+      },
+    );
+    const persisted = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    expect(persisted).toMatchObject({
+      type: 'STUDENT',
+      departmentType: 'DEPARTMENT',
+      name: '합성 학생',
+      studentId: '987654',
+      department: '합성 학과',
+      approvalStatus: 'NOT_REQUIRED',
+    });
+    expect(persisted.profileCreatedAt).toBeInstanceOf(Date);
+    expect(persisted.profileUpdatedAt).toBeInstanceOf(Date);
+    expect(await prisma.admin.findUnique({ where: { userId } })).toEqual(
+      qualification,
+    );
+    expect(
+      await prisma.userHistory.findMany({
+        where: { userId, event: 'TYPE_CHANGED' },
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        actorId: actorRow.id,
+        data: {
+          schemaVersion: 1,
+          recordKind: 'TYPE_SELECTION',
+          before: 'UNSELECTED',
+          after: 'STUDENT',
+        },
+      }),
+    ]);
+  });
   it('서로 다른 필드를 동시에 고치는 두 관리자 중 raw PrismaClientKnownRequestError는 절대 새어 나가지 않는다', async () => {
     const userId = await createTargetUser();
     const actorA = await createAdminActor('a');

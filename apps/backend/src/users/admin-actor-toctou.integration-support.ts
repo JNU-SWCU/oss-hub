@@ -134,8 +134,9 @@ class PausingActorReadProfileStore implements AdminProfileTransactionStore {
     userId: string,
     fields: AdminProfileWriteFields,
     changedFields: Partial<AdminProfileWriteFields>,
+    actorId: string,
   ): Promise<AdminProfileApplyOutcome> {
-    return this.store.applyProfile(userId, fields, changedFields);
+    return this.store.applyProfile(userId, fields, changedFields, actorId);
   }
   applyLegacyFields(
     userId: string,

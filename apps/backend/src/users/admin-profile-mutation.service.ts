@@ -185,6 +185,7 @@ export class AdminProfileMutationService {
               ? { department: input.command.department }
               : {}),
           },
+          actor.id,
         );
         if (outcome === 'studentIdTaken') {
           throw new DomainException(

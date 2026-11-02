@@ -1,4 +1,5 @@
 import { MemberKind } from './user-contract.config';
+import { randomUUID } from 'node:crypto';
 import { AdminAccessRepository } from './admin-access.repository';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { Inject, Injectable } from '@nestjs/common';
@@ -44,6 +45,7 @@ export interface AdminProfileTransactionStore {
     userId: string,
     fields: AdminProfileWriteFields,
     changedFields: Partial<AdminProfileWriteFields>,
+    actorId: string,
   ): Promise<AdminProfileApplyOutcome>;
   applyLegacyFields(
     userId: string,
@@ -141,6 +143,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     userId: string,
     fields: AdminProfileWriteFields,
     changedFields: Partial<AdminProfileWriteFields>,
+    actorId: string,
   ): Promise<AdminProfileApplyOutcome> {
     try {
       if (Object.keys(changedFields).length === 0) return 'applied';
@@ -149,16 +152,35 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
         select: { profileCreatedAt: true, type: true, departmentType: true },
       });
       const now = new Date();
+      const type = current.type === 'UNSELECTED' ? 'STUDENT' : current.type;
       await transaction.user.update({
         where: { id: userId },
         data: {
           ...changedFields,
+          type,
           departmentType:
-            current.type === 'STUDENT' ? 'DEPARTMENT' : current.departmentType,
+            type === 'STUDENT' ? 'DEPARTMENT' : current.departmentType,
           profileCreatedAt: current.profileCreatedAt ?? now,
           profileUpdatedAt: now,
         },
       });
+      if (current.type === 'UNSELECTED') {
+        await transaction.userHistory.create({
+          data: {
+            id: 'user:' + randomUUID(),
+            userId,
+            actorId,
+            event: 'TYPE_CHANGED',
+            source: 'APPLICATION',
+            data: {
+              schemaVersion: 1,
+              recordKind: 'TYPE_SELECTION',
+              before: current.type,
+              after: type,
+            },
+          },
+        });
+      }
       return 'applied';
     } catch (error) {
       if (
