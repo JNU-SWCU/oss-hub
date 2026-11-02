@@ -40,7 +40,7 @@ import Recover from '~/components/Recover.astro';
 </Steps>
 <Shot src="admin/applicant-reject-dialog.webp" alt="요청 반려 창. ①이 반려 사유 입력칸, ②가 반려 확정 버튼을 가리킵니다." caption="① 반려 사유 ② 반려 확정" />
 
-사유가 비어 있으면 `반려 확정`이 흐리게 비활성이고 눌리지 않습니다.
+사유가 비어 있으면 `반려 확정`이 흐리게 바뀌어 눌리지 않습니다.
 
 <Shot src="admin/applicant-reject-dialog-empty.webp" alt="반려 사유가 비어 있는 요청 반려 창. ①이 빈 반려 사유 입력칸을 가리키고 반려 확정 버튼은 흐리게 비활성입니다." caption="① 사유가 비면 `반려 확정`이 눌리지 않음" />
 
@@ -50,7 +50,7 @@ import Recover from '~/components/Recover.astro';
 
 ## 대기열이 비어 있을 때
 
-요청이 없으면 `승인 대기 중인 요청이 없습니다`가 나옵니다. 정상입니다. 검색 결과가 없을 때는 `검색 결과가 없습니다`가 나오고 `필터 초기화`로 전체 목록으로 돌아갑니다.
+요청이 없으면 `승인 대기 중인 요청이 없습니다`가 나옵니다. 정상입니다. 검색 결과가 없을 때는 `검색 결과가 없습니다`가 나오고 `필터 초기화`를 누르면 전체 목록으로 돌아갑니다.
 
 <Shot src="admin/applicants-search-empty.webp" alt="검색어에 맞는 요청이 없을 때의 가입 신청 화면. 검색 결과가 없습니다 문구와 필터 초기화 버튼이 보입니다." caption="검색 결과가 없을 때" />
 
