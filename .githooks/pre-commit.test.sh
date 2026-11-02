@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-hook="$(cd "$(dirname "$0")/.." && pwd)/.githooks/pre-commit"
+hook="$(cd "$(dirname "$0")" && pwd)/pre-commit"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 fail=0

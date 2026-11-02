@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-checker="$repo_root/scripts/check-submission-upload-route.sh"
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+checker="$repo_root/deploy/checks/check-submission-upload-route.sh"
 source_config="$repo_root/deploy/nginx/nginx.conf"
 fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/submission-upload-route.XXXXXX")
 trap 'rm -rf "$fixture_dir"' EXIT

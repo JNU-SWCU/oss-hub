@@ -34,6 +34,21 @@ const semver = (tag) => {
 const same = (a, b, reason) => {
   if (a !== b) fail(reason);
 };
+const verifyImage = (tag, sha, imageId) => {
+  if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) fail('invalid image identity');
+  const image = inspect('image', 'inspect', `oss-hub-backend:${tag}`);
+  same(image.Id, imageId, 'moved previous image tag');
+  same(
+    image.Config?.Labels?.['org.opencontainers.image.version'],
+    tag,
+    'image version mismatch',
+  );
+  same(
+    image.Config?.Labels?.['org.opencontainers.image.revision'],
+    sha,
+    'image revision mismatch',
+  );
+};
 const hash = (file) =>
   createHash('sha256').update(readFileSync(file)).digest('hex');
 const mount = (container, destination) => {
@@ -72,6 +87,12 @@ try {
         'previous key bytes changed',
       );
     }
+    process.exit(0);
+  }
+  if (mode === '--verify-image') {
+    if (process.argv.length !== 6) fail('invalid image verification arguments');
+    verifyImage(tag, sha, source);
+    process.stdout.write('ROLLBACK_PREFLIGHT=ok\n');
     process.exit(0);
   }
   const ids = docker(
@@ -125,18 +146,7 @@ try {
     `oss-hub-backend:${previousTag}`,
     'image tag mismatch',
   );
-  const image = inspect('image', 'inspect', backend.Config.Image);
-  same(image.Id, backend.Image, 'moved previous image tag');
-  same(
-    image.Config.Labels['org.opencontainers.image.version'],
-    previousTag,
-    'image version mismatch',
-  );
-  same(
-    image.Config.Labels['org.opencontainers.image.revision'],
-    previousSha,
-    'image revision mismatch',
-  );
+  verifyImage(previousTag, previousSha, backend.Image);
   if (tag === previousTag && sha !== previousSha)
     fail('same tag different revision');
   const comparison =

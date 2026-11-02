@@ -137,7 +137,7 @@ rebuild → capture → 채점.
 
 ### 프리뷰에 사람 이름을 쓸 때
 
-이 repo는 PUBLIC이고 scripts/check-public-safe.sh가 공개 안전 검사를 수행한다. 프리뷰는 커밋될 뿐
+이 repo는 PUBLIC이고 .github/check-public-safe.sh가 공개 안전 검사를 수행한다. 프리뷰는 커밋될 뿐
 아니라 디자인 프로젝트로 업로드되므로 더 노출된다. **가공 인물임이 자명한 이름만
 쓴다** — repo의 확립된 플레이스홀더는 `홍길동`이다(fixtures·테스트 16곳). 평범한
 실명형 이름(예: 흔한 성+두 글자 조합)은 실제 교직원처럼 읽히므로 쓰지 않는다.

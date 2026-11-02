@@ -182,5 +182,5 @@ These points must be exercised during QA.
 - Deployment contracts, backups, and rollback: [Jenkinsfile](../../../Jenkinsfile)
 - Review and merge gates: [CI workflow](../../../.github/workflows/ci.yml)
 - GitHub App integration and collection: [GithubModule](../../../apps/backend/src/github/github.module.ts)
-- Public content deny-list: [public-safety checker](../../../scripts/check-public-safe.sh)
+- Public content deny-list: [public-safety checker](../../../.github/check-public-safe.sh)
 - Release deployment and recovery execution: [Jenkinsfile](../../../Jenkinsfile)

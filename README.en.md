@@ -237,13 +237,12 @@ docs/
 ├── assets/              # README images
 ├── design-tokens/       # Design tokens
 └── translations/        # English PR and ticket templates
-scripts/                 # Development, checks, deployment helpers
-└── jenkins/             # Backend deployment steps
 skills/                  # Agent procedures for this repository
 guide/                   # User guide site (GitHub Pages)
-deploy/                  # nginx configuration
+deploy/                  # Deployment tools, nginx configuration, checks
 .github/workflows/       # CI and frontend deployment
 Jenkinsfile              # Backend deployment
+dev.sh                   # Local development entry point
 compose.dev.yml          # Local development infrastructure
 compose.yml              # Production runtime
 ```
@@ -260,7 +259,7 @@ compose.yml              # Production runtime
 
 ## Contributing
 
-Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash scripts/check-public-safe.sh` and make it pass before you open a PR.
+Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash .github/check-public-safe.sh` and make it pass before you open a PR.
 
 See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative. The repository's skills have `SKILL.en.md` versions, and `docs/translations/` has the templates in English.
 
@@ -288,7 +287,7 @@ Run these from the repository root. The [CI workflow](.github/workflows/ci.yml) 
 BACKEND_ORIGIN=https://backend.example.test pnpm build
 ```
 
-Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, run `pnpm format:check` before a push, and tidy branches after a merge on `main`.
+Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, and run `pnpm format:check` before a push.
 
 </details>
 

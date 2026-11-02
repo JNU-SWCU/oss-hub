@@ -41,7 +41,7 @@ NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend exec pris
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `demo` · `all`.
 
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
-- `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
+- `prisma migrate deploy`(예: `apps/backend/test/run-integration.sh`)는 자동 시드를 실행하지 않는다.
 - `NODE_ENV=production`에서는 실행을 거부한다.
 
   **production 실행 예외(`demo` profile 한정)**: `demo` profile은 소유자(@GoBeromsu)가
@@ -214,7 +214,7 @@ Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 �
 
 로컬 개발 DB를 초기화하려면 `pnpm db:reset`(=`prisma migrate reset --force`)을 쓴다. 이 명령은
 **공유 개발 DB(`localhost:5432/oss_hub`)를 대상**으로 하므로, 다른 사람과 공유 중인 DB에서는
-실행 전에 반드시 확인한다. CI/통합테스트는 `scripts/run-backend-integration.sh`가 매번 새로
+실행 전에 반드시 확인한다. CI/통합테스트는 `apps/backend/test/run-integration.sh`가 매번 새로
 띄우는 격리된 임시 컨테이너만 사용하며 공유 DB를 건드리지 않는다.
 
 ## 실제 계정 ↔ 역할 매핑

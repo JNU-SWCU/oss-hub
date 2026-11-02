@@ -33,6 +33,9 @@ else if (a[0] === 'inspect') {
   if (state.failure === 'inspect') process.exit(41);
   output([state.containers[a[1]]]);
 } else if (a[0] === 'image' && a[1] === 'inspect') {
+  if (state.failure === 'image-inspect') process.exit(41);
+  if (state.failure === 'image-empty-output') process.exit(0);
+  if (state.failure === 'image-malformed-output') { output('{'); process.exit(0); }
   const image = state.images[a.at(-1)];
   if (!image) process.exit(42);
   if (a.includes('--format')) {
@@ -64,6 +67,7 @@ else if (a[0] === 'inspect') {
     if (!(candidate && state.failure === 'partial-up')) ng.Mounts[0].Source = path.join(path.dirname(compose),'deploy/nginx');
     state.active = candidate ? 'candidate' : 'previous';
     save();
+    if (candidate && state.failure === 'recovery-image-drift') { state.images['oss-hub-backend:v1.0.0'].Id = image.Id; save(); process.exit(46); }
     if (candidate && state.failure === 'old-key-drift') { fs.writeFileSync(path.join(root,'secrets/old/collection.pem'), 'synthetic replaced old key'); process.exit(46); }
     if (candidate && state.failure === 'diagnostic-hang') { console.error('CANDIDATE_UP_FAILED'); process.exit(46); }
     if (candidate && ['partial-up','recovery','recovery-key-drift','recovery-mounted-key-drift'].includes(state.failure)) process.exit(46);
@@ -361,6 +365,122 @@ function fixture(t) {
   };
 }
 
+for (const degraded of [false, true])
+  test(`image-only preflight ignores ${degraded ? 'unhealthy and missing' : 'healthy'} containers`, (t) => {
+    const f = fixture(t);
+    if (degraded)
+      f.change((s) => {
+        s.containers.backend.State.Health.Status = 'unhealthy';
+        delete s.containers.nginx;
+      });
+    const before = readFileSync(join(f.root, 'state.json'));
+    const r = f.probe('v1.0.0', f.previousSha, '--verify-image', oldId);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, 'ROLLBACK_PREFLIGHT=ok\n');
+    assert.equal(r.stderr, '');
+    assert.deepEqual(f.ledger(), [
+      {
+        command: 'docker',
+        args: ['image', 'inspect', 'oss-hub-backend:v1.0.0'],
+      },
+    ]);
+    assert.deepEqual(readFileSync(join(f.root, 'state.json')), before);
+  });
+
+const invalidImages = {
+  'missing image': (s) => {
+    delete s.images['oss-hub-backend:v1.0.0'];
+  },
+  'inspect failure': (s) => {
+    s.failure = 'image-inspect';
+  },
+  'empty inspect output': (s) => {
+    s.failure = 'image-empty-output';
+  },
+  'malformed inspect output': (s) => {
+    s.failure = 'image-malformed-output';
+  },
+  'changed image id': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Id = newId;
+  },
+  'empty image id': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Id = '';
+  },
+  'missing image id': (s) => {
+    delete s.images['oss-hub-backend:v1.0.0'].Id;
+  },
+  'wrong version': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Config.Labels[
+      'org.opencontainers.image.version'
+    ] = 'v9.9.8';
+  },
+  'wrong revision': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Config.Labels[
+      'org.opencontainers.image.revision'
+    ] = 'a'.repeat(40);
+  },
+  'empty version': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Config.Labels[
+      'org.opencontainers.image.version'
+    ] = '';
+  },
+  'empty revision': (s) => {
+    s.images['oss-hub-backend:v1.0.0'].Config.Labels[
+      'org.opencontainers.image.revision'
+    ] = '';
+  },
+  'missing labels': (s) => {
+    delete s.images['oss-hub-backend:v1.0.0'].Config.Labels;
+  },
+  'empty metadata': (s) => {
+    s.images['oss-hub-backend:v1.0.0'] = {};
+  },
+};
+for (const [name, mutate] of Object.entries(invalidImages))
+  test(`image-only ${name} fails without container reads or mutations`, (t) => {
+    const f = fixture(t);
+    f.change(mutate);
+    const before = readFileSync(join(f.root, 'state.json'));
+    const r = f.probe('v1.0.0', f.previousSha, '--verify-image', oldId);
+    assert.notEqual(r.status, 0);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, /FAIL_CLOSED/);
+    assert.deepEqual(f.ledger(), [
+      {
+        command: 'docker',
+        args: ['image', 'inspect', 'oss-hub-backend:v1.0.0'],
+      },
+    ]);
+    assert.deepEqual(readFileSync(join(f.root, 'state.json')), before);
+  });
+
+for (const [name, tag, sha, args] of [
+  ['empty tag', '', 'a'.repeat(40), [oldId]],
+  ['malformed tag', 'v01.0.0', 'a'.repeat(40), [oldId]],
+  ['empty revision', 'v1.0.0', '', [oldId]],
+  ['malformed revision', 'v1.0.0', 'main', [oldId]],
+  ['empty image id', 'v1.0.0', 'a'.repeat(40), ['']],
+  ['missing image id', 'v1.0.0', 'a'.repeat(40), []],
+  ['short image id', 'v1.0.0', 'a'.repeat(40), ['sha256:short']],
+  [
+    'uppercase image id',
+    'v1.0.0',
+    'a'.repeat(40),
+    [`sha256:${'A'.repeat(64)}`],
+  ],
+  ['extra argument', 'v1.0.0', 'a'.repeat(40), [oldId, 'unexpected']],
+])
+  test(`image-only ${name} fails before Docker access`, (t) => {
+    const f = fixture(t);
+    const before = readFileSync(join(f.root, 'state.json'));
+    const r = f.probe(tag, sha, '--verify-image', ...args);
+    assert.notEqual(r.status, 0);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, /FAIL_CLOSED/);
+    assert.deepEqual(f.ledger(), []);
+    assert.deepEqual(readFileSync(join(f.root, 'state.json')), before);
+  });
+
 for (const [name, tag] of [
   ['same release', 'v1.0.0'],
   ['lower stable', 'v0.9.9'],
@@ -551,6 +671,17 @@ for (const failure of [
     const r = f.activate();
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /RECOVERY=ok/);
+    assert.equal(
+      r.status,
+      {
+        'key-swap': 52,
+        'partial-up': 46,
+        'key-digest': 1,
+        nginx: 48,
+        smoke: 1,
+        diagnostic: 48,
+      }[failure],
+    );
     const s = f.state();
     assert.equal(s.containers.backend.Image, oldId);
     assert.equal(
@@ -567,6 +698,20 @@ for (const failure of [
     );
     assert.equal(s.mountedKeys.collection, 'synthetic old collection');
     assert.equal(s.mountedKeys.operations, 'synthetic old operations');
+    const calls = f.ledger();
+    const swap = calls.findIndex(
+      (c) => c.command === 'key-swap' && c.target === join(f.secrets, 'old'),
+    );
+    assert.deepEqual(calls[swap + 1], {
+      command: 'docker',
+      args: ['image', 'inspect', 'oss-hub-backend:v1.0.0'],
+    });
+    assert.ok(calls[swap + 2].args.includes('up'));
+    assert.equal(calls[swap + 3].args[0], 'ps');
+    const serving = calls.findIndex(
+      (c, index) => index > swap && c.command === 'curl',
+    );
+    assert.ok(serving > swap + 3);
     assert.ok(
       f.ledger().some((c) => c.command === 'curl' && c.bytes === 4718592),
     );
@@ -576,6 +721,26 @@ for (const failure of [
         .some((c) => c.command === 'docker' && c.args.includes('prune')),
     );
   });
+test('recovery rejects a moved previous image before compose up and retains artifacts', (t) => {
+  const f = fixture(t);
+  f.capture();
+  f.change((s) => {
+    s.failure = 'recovery-image-drift';
+  });
+  const r = f.activate();
+  assert.equal(r.status, 46);
+  assert.match(r.stderr, /FAIL_CLOSED.*moved previous image tag/);
+  assert.match(r.stderr, /RECOVERY_FAILED/);
+  assert.doesNotMatch(r.stderr, /RECOVERY=ok/);
+  assert.equal(f.ledger().filter((c) => c.args?.includes('up')).length, 1);
+  assert.equal(
+    realpathSync(join(f.secrets, 'current')),
+    join(f.secrets, 'old'),
+  );
+  assert.ok(readFileSync(f.env.PREVIOUS_STATE).length);
+  assert.ok(readFileSync(f.env.CANDIDATE_COMPOSE).length);
+  assert.ok(!f.ledger().some((c) => c.args?.includes('prune')));
+});
 test('double failure preserves both artifacts and reports recovery failure', (t) => {
   const f = fixture(t);
   f.capture();

@@ -113,7 +113,7 @@ printf '%s' "$release_sha"
         script {
           def fields = sh(script: '''#!/usr/bin/env bash
 set -euo pipefail
-node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" | jq -er '[.decision,.tag,.sha,.imageId,.postgresId] | @tsv'
+node "$CONTROLLER_DIR/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" | jq -er '[.decision,.tag,.sha,.imageId,.postgresId] | @tsv'
 ''', returnStdout: true).trim().split('\t')
           env.DEPLOY_NOOP = fields[0] == 'noop' ? 'true' : 'false'
           env.PREV_TAG = fields[1]
@@ -143,8 +143,8 @@ mkdir -p /var/lib/oss-hub/runtime/releases
 test -w /var/lib/oss-hub/runtime/releases
 test -d "$SECRETS_DIR"
 test -w "$SECRETS_DIR"
-node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$CONTROLLER_DIR" "$SECRETS_DIR" "$PREVIOUS_KEY_IDENTITY" > "$PREVIOUS_STATE"
-bash "$CONTROLLER_DIR/scripts/jenkins/validate-rollback-images.sh"
+node "$CONTROLLER_DIR/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$CONTROLLER_DIR" "$SECRETS_DIR" "$PREVIOUS_KEY_IDENTITY" > "$PREVIOUS_STATE"
+node "$CONTROLLER_DIR/deploy/jenkins/probe-release-state.mjs" "$PREV_TAG" "$PREV_SHA" --verify-image "$PREV_BE_IMAGE_ID"
 test ! -L "$RELEASE_SOURCE"
 if [ ! -d "$RELEASE_SOURCE" ]; then
   git clone --no-checkout --no-hardlinks "$CONTROLLER_DIR" "$RELEASE_SOURCE"
@@ -153,7 +153,7 @@ git -C "$RELEASE_SOURCE" fetch --quiet "$CONTROLLER_DIR" "$RELEASE_SHA"
 git -C "$RELEASE_SOURCE" checkout --detach --force "$RELEASE_SHA"
 git -C "$RELEASE_SOURCE" clean -ffd
 test "$(git -C "$RELEASE_SOURCE" rev-parse HEAD)" = "$RELEASE_SHA"
-bash "$CONTROLLER_DIR/scripts/check-host-nginx-drift.sh" "$RELEASE_SOURCE/deploy/host-nginx/oss-hub.conf"
+diff -u "$RELEASE_SOURCE/deploy/host-nginx/oss-hub.conf" /etc/nginx/conf.d/oss-hub.conf
 '''
           env.CANDIDATE_COMPOSE = sh(script: '''#!/usr/bin/env bash
 set -euo pipefail
@@ -178,9 +178,9 @@ printf '%s/compose.yml' "$snapshot"
             env.STAGED_KEY_GENERATION = sh(script: '''#!/usr/bin/env bash
 set -euo pipefail
 set +x
-node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
-node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
-node "$CONTROLLER_DIR/scripts/jenkins/validate-github-app-credentials.mjs" "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC" >&2
+node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
+node "$CONTROLLER_DIR/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
+node "$CONTROLLER_DIR/deploy/jenkins/validate-github-app-credentials.mjs" "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC" >&2
 umask 027
 generation="$(mktemp -d "$SECRETS_DIR/gen.XXXXXX")"
 test "$(stat -c %g "$generation")" = 1000
@@ -216,8 +216,8 @@ docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 set +x
-node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
-node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
+node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
+node "$CONTROLLER_DIR/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
 export SUBMISSION_FILE_S3_ACCESS_KEY_ID="${R2_STORAGE_ACCESS_KEY_ID:?}"
 export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="${R2_STORAGE_SECRET_ACCESS_KEY:?}"
 docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
@@ -245,10 +245,10 @@ docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
             receipt_tmp="$(mktemp "${object_backup_target}.receipt.XXXXXX")"
             trap 'rm -rf "$object_backup_tmp"; rm -f "$object_list" "$object_manifest_tmp" "$receipt_tmp"' EXIT
 
-            export SUBMISSION_FILE_S3_ENDPOINT="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_ENDPOINT)"
-            export SUBMISSION_FILE_S3_REGION="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_REGION)"
-            export SUBMISSION_FILE_S3_BUCKET="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_BUCKET)"
-            export SUBMISSION_FILE_S3_FORCE_PATH_STYLE="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)"
+            export SUBMISSION_FILE_S3_ENDPOINT="$(node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_ENDPOINT)"
+            export SUBMISSION_FILE_S3_REGION="$(node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_REGION)"
+            export SUBMISSION_FILE_S3_BUCKET="$(node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_BUCKET)"
+            export SUBMISSION_FILE_S3_FORCE_PATH_STYLE="$(node "$CONTROLLER_DIR/deploy/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)"
             case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in
               true|false) ;;
               *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
@@ -341,7 +341,7 @@ compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
           usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
         ]) {
-          sh 'bash "$CONTROLLER_DIR/scripts/jenkins/activate-release.sh"'
+          sh 'bash "$CONTROLLER_DIR/deploy/jenkins/activate-release.sh"'
         }
       }
     }
@@ -393,8 +393,8 @@ done < "$images_inventory"
 
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
-bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR" "$BACKUP_RETENTION_N"
-bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
+bash "$CONTROLLER_DIR/deploy/jenkins/prune-deploy-backups.sh" "$BACKUP_DIR" "$BACKUP_RETENTION_N"
+bash "$CONTROLLER_DIR/deploy/jenkins/prune-deploy-backups.sh" "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
 echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''

@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-runner="$repo_root/scripts/run-backend-integration.sh"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+runner="$repo_root/apps/backend/test/run-integration.sh"
 fixture_root="$(mktemp -d "${TMPDIR:-/tmp}/oss-hub-integration-contract.XXXXXX")"
 fake_bin="$fixture_root/bin"
 command_log="$fixture_root/commands.log"

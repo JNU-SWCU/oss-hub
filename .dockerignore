@@ -19,3 +19,8 @@
 **/*.sqlite
 **/*.sqlite3
 **/*.db
+
+apps/backend/prisma/check-host-db-url.sh
+apps/backend/prisma/check-host-db-url.test.sh
+apps/backend/test/run-integration.sh
+apps/backend/test/run-integration.test.sh

@@ -38,10 +38,10 @@ report-only는 설치·기동·스위트·시나리오 준비를 하지 않고, 
 
 ## 시작 전 경계
 
-1. 공개 가능 범위는 `scripts/check-public-safe.sh`다. 실데이터·개인정보가 보이는 화면은 찍지 않는다.
+1. 공개 가능 범위는 `.github/check-public-safe.sh`다. 실데이터·개인정보가 보이는 화면은 찍지 않는다.
 2. 사용자 승인 없이 제품 코드, 운영 데이터, Issue, PR 상태를 수정하지 않는다.
 3. QA 중에는 결함을 고치지 않는다. 수정 범위는 따로 승인한다.
-4. 실행 범위(`recheck`·`delta`·`full`)만 `scripts/dev.sh`와 `references/qa-scenarios.md`를 읽는다. report-only는 그 준비를 요구하지 않는다.
+4. 실행 범위(`recheck`·`delta`·`full`)만 `dev.sh`와 `references/qa-scenarios.md`를 읽는다. report-only는 그 준비를 요구하지 않는다.
 5. 제품 QA 발견 목록의 SSOT는 GitHub Issue(QA 티켓)다.
    읽을 수 없으면 설치하지 말고 `확인 필요`로 남긴다.
 

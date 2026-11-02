@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 backend_directory="$repo_root/apps/backend"
 compose_file="$repo_root/compose.dev.yml"
 project_name="oss-hub-test-$(date +%s)-$$-$RANDOM"
