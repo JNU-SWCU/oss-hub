@@ -35,9 +35,9 @@ check_required_env() {
   if [ "${#missing[@]}" -gt 0 ]; then
     printf 'dev: 다음 env가 비어 있어 시작할 수 없습니다: %s\n' "${missing[*]}" >&2
     cat >&2 <<'GUIDE'
-dev: .envrc.example을 .envrc로 복사하고 "직접 채운다" 항목을 채운 뒤 direnv allow를 실행하세요.
+dev: .envrc.example을 .envrc로 복사하고 비어 있는 필수 값을 채운 뒤 direnv allow를 실행하세요.
 dev:   cp .envrc.example .envrc && direnv allow
-dev: 자세한 절차는 scripts/dev.sh와 compose.dev.yml를 따릅니다.
+dev: 비밀값 생성과 필수 값은 README.md의 "로컬에서 시작하기"를 따릅니다.
 GUIDE
     exit 1
   fi

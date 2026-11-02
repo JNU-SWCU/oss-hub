@@ -401,6 +401,24 @@ git -C "$FIXTURE_REPO" add src/credentials.service.ts docs/rules/security.md
 commit_fixture commit -qm 'test: credential-like source fixture'
 expect_pass '자격증명 유사 이름의 소스·정책 문서는 허용' scan_fixture_repo
 
+init_fixture_repo binary-image-with-email-bytes
+printf 'RIFF\000\000WEBP %s\000\001' "$blocked_contact" >"$FIXTURE_REPO/shot.webp"
+git -C "$FIXTURE_REPO" add shot.webp
+commit_fixture commit -qm 'test: binary image fixture'
+expect_pass 'NUL을 포함한 이미지 바이너리는 본문 검사를 건너뛴다' scan_fixture_repo
+
+init_fixture_repo text-with-nul-and-email
+printf 'note\000 %s\n' "$blocked_contact" >"$FIXTURE_REPO/note.txt"
+git -C "$FIXTURE_REPO" add note.txt
+commit_fixture commit -qm 'test: text file with NUL fixture'
+expect_fail 'NUL이 있는 텍스트 파일은 계속 검사한다' scan_fixture_repo
+
+init_fixture_repo image-extension-without-nul
+printf 'plain %s\n' "$blocked_contact" >"$FIXTURE_REPO/fake.webp"
+git -C "$FIXTURE_REPO" add fake.webp
+commit_fixture commit -qm 'test: image extension without NUL fixture'
+expect_fail 'NUL 없는 .webp는 계속 검사한다' scan_fixture_repo
+
 printf 'tests=%s passed=%s failed=%s\n' \
   "$((passed + failed))" "$passed" "$failed"
 

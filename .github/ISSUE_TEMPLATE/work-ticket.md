@@ -5,12 +5,11 @@ title: "[P0] <화면 이름>"
 labels: [ticket]
 ---
 
-<!-- 이 본문 형식의 원본은 skills/manage-qa-tickets/references/issue-ticket-contract.md다. 공통 규칙은 AGENTS.md가 원본 — 여기 반복하지 않는다. 이 티켓엔 이 화면의 기능 명세만. -->
+<!-- 이 본문 형식의 원본은 skills/manage-qa-tickets/references/issue-ticket-contract.md다. 이 티켓엔 이 화면의 기능 명세만. -->
 <!-- 공통 글쓰기 원칙: [readability.md](../../skills/submit-pr-evidence/references/readability.md). -->
 
 ## 시작
 담당자는 본인 에이전트에 한 줄: `oss-hub 티켓 #<번호> 진행해줘`
-(에이전트가 gh로 이 본문을 가져와 AGENTS.md 규칙 아래 수행)
 
 ## 문제
 - 영역: <frontend | backend | infra> — Owner @handle
