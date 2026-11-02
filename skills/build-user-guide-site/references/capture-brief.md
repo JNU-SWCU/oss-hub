@@ -15,10 +15,11 @@ OSS Hub 사용자 가이드 사이트(`website/`)에 실을 실제 화면을 찍
 ## 사용법
 
 ```js
-import { openAs, visit, shot, closeAll } from '<ROOT>/skills/build-user-guide-site/scripts/capture-lib.mjs';
+import { openAs, visit, shot, clipAround, closeAll } from '<ROOT>/skills/build-user-guide-site/scripts/capture-lib.mjs';
 const p = await openAs('<login>');
 await visit(p, '/my-repos');
 await shot(p, 'student', 'my-repos', { fullPage, clip, locator });
+const clip = await clipAround(p, [p.getByRole('heading', { name: '제목' }), p.locator('tbody tr').nth(4)]);
 await closeAll();
 ```
 
@@ -29,6 +30,12 @@ await closeAll();
 ## 촬영 기준
 
 - **한 장에 한 동작.** 본문 폭은 약 760px입니다. 1280px 전체 화면은 글자가 작아지므로, 화면 위치를 알려 주는 전체 화면은 절 시작에만 쓰고 나머지는 `locator`나 `clip`으로 카드, 표, 대화상자에 맞춥니다. 대화상자는 대화상자 요소만 찍습니다.
+- **잘리지 않게 찍습니다.** 독자가 "잘린 사진"으로 느끼는 경우는 네 가지입니다. 모두 다시 찍습니다.
+  - 가장자리에 줄이나 카드가 반쯤 걸린 사진. 아래쪽 경계는 줄과 줄, 카드와 카드 사이에 둡니다. `clip`을 눈대중 숫자로 정하지 말고 `clipAround(page, [첫 요소, 마지막 요소])`로 요소에 맞춥니다.
+  - 내용이 가장자리에 붙은 사진. 사방에 12px 이상 여백을 둡니다. `locator`로 찍으면 `shot`이 여백을 넣습니다. 둥근 카드 모서리가 잘려도 안 됩니다.
+  - 어느 화면인지 모르는 사진. 표의 한 줄만, 입력칸 한 줄만 찍지 않습니다. 구역 제목이나 표 머리글까지 함께 찍습니다. 높이 100px 미만의 띠 모양 사진은 대개 여기에 해당합니다.
+  - 내려 놓은 메뉴 뒤의 표 글자가 양옆으로 잘린 사진. 본문 영역 너비 전체를 찍습니다.
+  - 찍은 뒤 `python3 scripts/margin-check.py`로 가장자리 여백을 잽니다. `b0`처럼 0에 가까운 값이 나오면 이미지를 열어 확인합니다. 화면 전체를 찍은 사진의 어두운 배경은 예외입니다.
 - 글자가 잘리거나 로딩 중이거나 스켈레톤, 스피너가 남아 있으면 안 됩니다. 애니메이션과 데이터 로딩이 끝난 뒤 찍습니다.
 - 찍은 뒤 이미지를 Read로 직접 열어 확인합니다. 잘림, 빈 화면, 오류, 어색한 데이터가 보이면 다시 찍습니다.
 - 실제 이메일, 실제 사람 이름, 실제 GitHub 계정, 토큰이 보이면 찍지 말고 보고합니다. `allowLeak`은 쓰지 않습니다.

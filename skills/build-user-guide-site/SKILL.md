@@ -8,7 +8,7 @@ description: >-
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
   마일스톤마다 커밋·푸시·Pages 확인을 반복한다. 노션 핸드북은 build-oss-hub-handbook, PR은 submit-pr-evidence를 쓴다.
 metadata:
-  version: "1.0.4"
+  version: "1.0.5"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신
@@ -58,7 +58,7 @@ metadata:
 
 1. 보고한 시각 이후에 파일이 만들어졌는지(`ls -lT`).
 2. 장수가 맞는지.
-3. `scripts/contact-sheet.py <이미지 폴더> <출력 접두사>`로 접촉 인쇄를 만들어 눈으로 본다. 안 가려진 개인정보, 잘린 글자, 로딩 상태, 빨간 박스 위치, 개발 배지.
+3. `scripts/margin-check.py`로 여백을 재고, `scripts/contact-sheet.py <이미지 폴더> <출력 접두사>`로 접촉 인쇄를 만들어 눈으로 본다. 안 가려진 개인정보, 잘린 글자, 가장자리에 걸린 줄, 로딩 상태, 빨간 박스 위치, 개발 배지.
 4. 본문 금지어 grep, 빌드.
 
 눈으로 보기 전에는 커밋하지 않는다.
@@ -74,6 +74,7 @@ metadata:
 | 파일 | 용도 |
 |---|---|
 | `scripts/capture-lib.mjs` | 합성 페르소나 세션, 블러, 빨간 박스, webp 저장. 박스 대상이 20px 미만이면 오류. `SESSION_SECRET` 환경 변수 필요 |
+| `scripts/margin-check.py` | 이미지 네 가장자리의 여백을 CSS px로 재서 내용이 붙거나 잘린 이미지를 찾는다 |
 | `scripts/smoke.mjs` | `node smoke.mjs <login\|anon> <경로>...` 경로가 열리는지, 개인정보와 개발 배지가 새는지 |
 | `scripts/visual-audit.mjs` | 배포 사이트를 네 조합으로 점검 |
 | `scripts/contact-sheet.py` | 이미지 접촉 인쇄(오케스트레이터 검수용) |

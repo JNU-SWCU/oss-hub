@@ -10,6 +10,7 @@ export const BASE_URL = process.env.GUIDE_BASE_URL ?? 'http://localhost:3310';
 export const SHOT_ROOT =
   process.env.GUIDE_SHOT_ROOT ?? join(ROOT, 'website/src/assets/shots');
 export const MARK_MIN_PX = 20;
+export const SHOT_PAD_PX = 12;
 
 const PG_CONTAINER =
   process.env.GUIDE_PG_CONTAINER ?? 'oss-hub-guide-postgres-1';
@@ -261,6 +262,29 @@ async function applyMarks(page, marks, mode, bounds) {
   );
 }
 
+export async function clipAround(page, targets, pad = SHOT_PAD_PX) {
+  const boxes = [];
+  for (const t of targets) {
+    const b = await toLocator(page, t).first().evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height };
+    });
+    boxes.push(b);
+  }
+  const doc = await page.evaluate(() => ({
+    w: document.documentElement.scrollWidth,
+    h: document.documentElement.scrollHeight,
+  }));
+  const x = Math.max(0, Math.min(...boxes.map((b) => b.x)) - pad);
+  const y = Math.max(0, Math.min(...boxes.map((b) => b.y)) - pad);
+  return {
+    x,
+    y,
+    width: Math.min(doc.w, Math.max(...boxes.map((b) => b.x + b.w)) + pad) - x,
+    height: Math.min(doc.h, Math.max(...boxes.map((b) => b.y + b.h)) + pad) - y,
+  };
+}
+
 export async function shot(page, role, name, opts = {}) {
   await settle(page);
   const problems = await leakCheck(page);
@@ -308,7 +332,7 @@ export async function shot(page, role, name, opts = {}) {
         document.documentElement.appendChild(s);
       });
     }
-    if (marks.length && loc) {
+    if (loc) {
       await loc.scrollIntoViewIfNeeded();
       const b = await loc.evaluate((e) => {
         const r = e.getBoundingClientRect();
@@ -319,7 +343,7 @@ export async function shot(page, role, name, opts = {}) {
           height: r.height,
         };
       });
-      const pad = 8;
+      const pad = SHOT_PAD_PX;
       const doc = await page.evaluate(() => ({
         w: document.documentElement.scrollWidth,
         h: document.documentElement.scrollHeight,
@@ -369,8 +393,6 @@ export async function shot(page, role, name, opts = {}) {
         clip: opts.clip,
         animations: 'disabled',
       });
-    } else if (loc) {
-      png = await loc.screenshot({ animations: 'disabled' });
     } else {
       png = await page.screenshot({
         fullPage: !!opts.fullPage,
