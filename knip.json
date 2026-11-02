@@ -9,7 +9,7 @@
     "unlisted",
     "binaries"
   ],
-  "ignore": [".gjc/**"],
+  "ignore": [".gjc/**", "website/**"],
   "workspaces": {
     ".": {
       "entry": [

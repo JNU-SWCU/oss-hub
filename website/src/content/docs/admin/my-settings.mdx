@@ -1,0 +1,46 @@
+---
+title: 내 설정과 알림
+description: 내 알림 수신을 정하고, 마지막 관리자 계정을 잠그지 않도록 주의합니다.
+sidebar:
+  order: 10
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+관리자 본인의 계정 설정입니다. 알림 수신과 계정 비활성화가 여기에 있습니다.
+
+## 알림 수신 정하기
+
+마감 임박 알림 요약 메일을 받을지 정합니다. 이 메일은 이메일을 등록하고 수신을 켠 활성 교직원과 관리자에게 갑니다. 프로그램별로 나뉘는지는 확인되지 않았습니다. <Verified status="policy" />
+
+<Steps>
+1. 위쪽에서 `설정`을 엽니다.
+2. `알림 수신`의 `수신 이메일`에 받을 주소를 입력합니다.
+3. `마감 임박 알림 받기`를 켭니다.
+4. `저장`을 누릅니다.
+</Steps>
+<Shot src="admin/settings-notifications.webp" alt="설정의 알림 수신 영역. 수신 이메일 입력칸과 마감 임박 알림 받기 선택칸, 저장 버튼이 있습니다." caption="알림 수신" />
+
+<Success>
+`저장되었습니다.`가 잠깐 나옵니다.
+</Success>
+
+## 내 계정 비활성화하기
+
+설정 맨 아래 `계정 관리`에서 내 계정을 직접 비활성화할 수 있습니다. 비활성화하면 바로 로그아웃되고, 다시 쓰려면 다른 관리자가 [재활성화](/oss-hub/admin/deactivate/)해야 합니다. 다른 관리자가 없다면 되돌릴 방법이 없으므로, 먼저 다른 활성 관리자가 있는지 확인하세요.
+
+<Steps>
+1. `계정 관리`의 ① `계정 비활성화`를 누릅니다.
+2. `계정을 비활성화하시겠습니까?` 창에서 `비활성화하고 로그아웃`을 누릅니다.
+3. `계정이 비활성화되었습니다` 화면이 나옵니다. `홈으로 돌아가기`로 나옵니다.
+</Steps>
+<Shot src="admin/settings-account.webp" alt="설정의 계정 관리 영역. 마지막 활성 관리자는 비활성화할 수 없다는 안내가 있고 ①이 계정 비활성화 버튼을 가리킵니다." caption="① 계정 비활성화" />
+
+활성 관리자가 한 명뿐이면 `마지막 활성 관리자는 계정을 비활성화할 수 없습니다. 다른 관리자를 먼저 지정해 주세요.`가 나오고 비활성화되지 않습니다. 서비스를 운영할 사람이 없어지는 일을 막기 위한 것입니다. [관리자 접근을 허용](/oss-hub/admin/change-role/)할 사람을 먼저 정하세요.
+
+<Recover title="저장이 되지 않을 때">
+`저장`을 다시 눌러 보세요. 계속 실패하면 잠시 뒤 다시 시도하세요.
+</Recover>

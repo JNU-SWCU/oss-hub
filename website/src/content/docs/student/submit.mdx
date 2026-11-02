@@ -1,0 +1,45 @@
+---
+title: 서류 제출하기
+description: 마일스톤별 서류를 글이나 파일로 제출합니다.
+sidebar:
+  order: 7
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+서류는 승인된 팀이 제출합니다. 신청이 없거나 승인 대기 중이면 제출할 수 없습니다. 제출 일정은 프로그램 상세의 `마일스톤`에서 확인합니다.
+
+## 일정 확인하기
+
+<Steps>
+1. 프로그램 상세의 `마일스톤`을 봅니다. 항목마다 마감까지 남은 날(D-N)과 상태 `승인`, `검토 대기`, `보완 요청`, `반려`, `미제출`이 있습니다.
+2. 제출하려면 `제출 현황`(`/programs/.../documents`)을 엽니다. 대시보드 카드의 `제출 현황`, `서류 내기`로도 갑니다.
+</Steps>
+<Shot src="student/program-milestones.webp" alt="프로그램 상세의 마일스톤 목록. 마감 D-N과 상태 배지가 있습니다." caption="마일스톤" />
+<Shot src="student/documents.webp" alt="제출 현황 표. 서류 제목과 상태가 줄마다 있습니다." caption="제출 현황" />
+
+## 제출하기
+
+<Steps>
+1. `제출 현황` 표에서 서류 제목을 누릅니다. 제출 창이 열립니다.
+2. 글로 내는 서류는 `제출 내용 *`에 씁니다.
+3. 파일로 내는 서류는 `1. 파일 선택 *`에서 파일을 고르고 `2. 선택 확인`에서 맞는지 본 뒤 `3. 제출`로 넘어갑니다. 받는 형식은 `.pdf`, `.hwp`, `.zip`이고 5 MB까지입니다.
+4. 필요하면 `제출 코멘트`에 교직원에게 남길 말을 씁니다. 선택 항목이고 2,000자까지입니다.
+5. `제출본 N번 제출`을 누릅니다. `제출하면 더 이상 바꿀 수 없습니다`가 나오면 `제출 확정`을 누릅니다.
+</Steps>
+<Shot src="student/submit-dialog.webp" alt="서류 제출 창. 제출 내용, 제출 코멘트, 취소와 제출 버튼이 있습니다." caption="제출 창" />
+
+제출 뒤에는 고칠 수 없습니다. 내용을 확인하고 확정하세요. 안내만 하는 항목은 `제출 없음 · 안내용`으로 보이며 낼 것이 없습니다.
+
+<Success>
+`제출을 완료했습니다`가 나오고 상태가 `검토 대기`가 됩니다. `교직원`이 검토하면 상태와 `교직원 코멘트`, `검토 시각`이 제출 창의 `현재 제출본`에 보입니다. 보완 요청을 받았다면 [재제출](/oss-hub/student/resubmit/)로 이어집니다.
+</Success>
+
+<Recover title="제출이 안 될 때">
+- 신청이 없거나 승인 대기라면 제출할 수 없습니다. [신청 결과](/oss-hub/student/my-team/)를 확인하세요.
+- `마감이 지나 제출할 수 없습니다`: 마감 뒤에는 제출할 수 없습니다. 사정이 있으면 `교직원`에게 문의하세요. 마감 연장 기준은 화면에서 확인되지 않습니다. <Verified status="policy" />
+- 파일이 올라가지 않으면 형식과 크기(5 MB)를 확인하세요.
+</Recover>

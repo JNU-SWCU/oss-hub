@@ -1,0 +1,33 @@
+---
+title: 보완 요청 받고 다시 제출하기
+description: 보완 요청이 온 서류를 확인하고 재제출합니다.
+sidebar:
+  order: 8
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+`교직원`이 서류를 검토해 보완이 필요하다고 판단하면 상태가 `보완 요청`이 됩니다. 다시 제출할 수 있는 것은 `보완 요청` 상태뿐입니다. `승인`이나 `반려`된 서류는 다시 낼 수 없습니다.
+
+<Steps>
+1. 대시보드에서 `새 피드백 있음` 칩을 누르거나 카드의 `다시 내기`를 누릅니다.
+2. 또는 프로그램 상세 `마일스톤`에서 보완 요청 항목의 ① `다시 제출` 링크를 누릅니다.
+3. 제출 창의 `현재 제출본`과 `교직원 코멘트`를 읽고 고칠 부분을 확인합니다.
+4. 내용을 고쳐 `제출본 N번 제출`을 누르고 `제출 확정`합니다.
+</Steps>
+<Shot src="student/dashboard-supplement.webp" alt="보완 요청이 온 대시보드 카드." caption="보완 요청 카드" />
+<Shot src="student/program-milestones-resubmit.webp" alt="마일스톤 목록. ①이 보완 요청 항목의 다시 제출 링크를 가리킵니다." caption="① 다시 제출" />
+<Shot src="student/dashboard-rejected.webp" alt="반려된 서류가 있는 대시보드 카드." caption="반려된 경우" />
+
+<Success>
+`제출본 {n}번을 제출했습니다. 검토 대기 상태로 전환되었습니다.`가 나옵니다. 이전 제출본은 기록으로 남고 새 제출본이 검토 대상입니다.
+</Success>
+
+<Recover title="다시 제출할 수 없을 때">
+- `마감이 지나 제출할 수 없습니다`: 마감 뒤에는 재제출도 막힙니다.
+- 반려된 서류는 이 화면에서 다시 낼 수 없습니다. `교직원`에게 문의하세요.
+- 자세한 제출 방법은 [서류 제출하기](/oss-hub/student/submit/)를 보세요.
+</Recover>

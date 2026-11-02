@@ -1,0 +1,11 @@
+---
+interface Props {
+  title?: string;
+}
+const { title = '성공 신호' } = Astro.props;
+---
+
+<aside class="callout success" aria-label={title}>
+  <p class="callout-title">{title}</p>
+  <div class="callout-body"><slot /></div>
+</aside>
