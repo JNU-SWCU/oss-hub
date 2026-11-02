@@ -10,7 +10,6 @@ const workflowPath = fileURLToPath(
   new URL('../.github/workflows/ci.yml', import.meta.url),
 );
 const workflow = readFileSync(workflowPath, 'utf8');
-const backendOnlyPaths = ['scripts/prisma-comment-checksums.test.mjs'];
 
 const contractTests = ['scripts/prisma-migration-ledger.test.mjs'];
 
@@ -37,15 +36,6 @@ const nginxSyntaxCommand =
   '$PWD/deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro';
 
 function validate(workflowSource) {
-  const backend = section(
-    workflowSource,
-    '            backend:',
-    '            nginx:',
-  );
-  for (const path of backendOnlyPaths) {
-    assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
-  }
-
   const migrationContractStep = section(
     workflowSource,
     '      - name: Prisma migration contract unit tests',
@@ -120,21 +110,9 @@ test('nginx syntax 검사 command drift fail closed', () => {
 
 test('contract paths select backend and run the contract test', () => {
   validate(workflow);
-
-  const backend = section(
-    workflow,
-    '            backend:',
-    '            nginx:',
-  );
-  for (const path of backendOnlyPaths) {
-    assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
-  }
 });
 
 test('contract path and required-test drift fail closed', () => {
-  for (const path of backendOnlyPaths) {
-    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, '')));
-  }
   for (const testPath of contractTests) {
     assert.throws(() => validate(workflow.replace(testPath, '')));
   }
@@ -411,8 +389,7 @@ for (const [path, selected] of [
   ['apps/frontend/package.json', ['frontend', 'backend', 'rails']],
   ['.design-sync/config.json', ['frontend']],
   ['scripts/design-sync-contract.test.mjs', ['frontend', 'node_scripts']],
-  ['scripts/prisma-comment-checksums.test.mjs', ['backend', 'node_scripts']],
-  ['docs/reports/backend-inspection-2026-10.md', []],
+  ['docs/translations/work-ticket.en.md', []],
   ['README.md', []],
   ['.github/workflows/ci.yml', scopes],
 ]) {

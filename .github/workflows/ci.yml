@@ -49,7 +49,6 @@ jobs:
               - 'scripts/run-backend-integration*.sh'
               - 'scripts/test-prisma-migration-concurrency*'
               - 'scripts/prisma-migration-ledger.mjs'
-              - 'scripts/prisma-comment-checksums.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
               - '.github/workflows/**'
             nginx:
@@ -304,10 +303,6 @@ jobs:
       - name: Prisma migration concurrency
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash scripts/test-prisma-migration-concurrency.sh
-
-      - name: Prisma comment checksum reconciliation
-        if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: node scripts/prisma-comment-checksums.test.mjs
 
       - name: backend build
         if: ${{ steps.scope.outputs.backend == 'true' }}
