@@ -207,3 +207,20 @@ h1#_top {
   overflow-x: auto;
   font-size: 0.9375rem;
 }
+
+starlight-theme-select label {
+  --sl-select-width: 6.5rem !important;
+}
+
+.pagination-links a {
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  box-shadow: none;
+  letter-spacing: -0.01em;
+}
+
+.pagination-links .link-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

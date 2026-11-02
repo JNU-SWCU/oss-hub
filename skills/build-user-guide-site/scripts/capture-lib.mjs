@@ -265,10 +265,12 @@ async function applyMarks(page, marks, mode, bounds) {
 export async function clipAround(page, targets, pad = SHOT_PAD_PX) {
   const boxes = [];
   for (const t of targets) {
-    const b = await toLocator(page, t).first().evaluate((e) => {
-      const r = e.getBoundingClientRect();
-      return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height };
-    });
+    const b = await toLocator(page, t)
+      .first()
+      .evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        return { x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height };
+      });
     boxes.push(b);
   }
   const doc = await page.evaluate(() => ({
