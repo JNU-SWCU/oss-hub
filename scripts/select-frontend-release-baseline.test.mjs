@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   mkdtempSync,
   mkdirSync,
@@ -283,7 +284,7 @@ test('CLI uses real git ancestry and recovers missed frontend changes with synth
       { mode: 0o755 },
     );
     const invoke = (overrides = {}) =>
-      execFileSync(process.execPath, [script.pathname], {
+      execFileSync(process.execPath, [fileURLToPath(script)], {
         cwd: directory,
         encoding: 'utf8',
         env: {
