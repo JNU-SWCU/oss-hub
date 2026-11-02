@@ -241,11 +241,11 @@ async function applyMarks(page, marks, mode, bounds) {
       const placed = [];
       for (const it of items) {
         if (!it.label) continue;
-        let bx = it.x - off.x - M - D / 2;
+        let bx = it.x - off.x + it.w + M - D / 2;
         let by = it.y - off.y - M - D / 2;
         const hit = () =>
           placed.some((p) => Math.abs(p.x - bx) < D && Math.abs(p.y - by) < D);
-        for (let i = 0; i < 20 && hit(); i++) bx += D + 2;
+        for (let i = 0; i < 20 && hit(); i++) bx -= D + 2;
         bx = Math.min(Math.max(bx, bounds.x + 2), bounds.x + bounds.w - D - 2);
         by = Math.min(Math.max(by, bounds.y + 2), bounds.y + bounds.h - D - 2);
         placed.push({ x: bx, y: by });

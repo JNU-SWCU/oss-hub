@@ -9,7 +9,7 @@
 - 데이터 안의 "오늘"은 촬영 기준일로 고정해 두고(이 사이트는 2026-11-02 KST) 날짜가 어긋나 보이지 않게 마일스톤 날짜를 정합니다.
 - 저장소 조직은 `JNU-SWCU`로 둡니다. 화면에 보이는 곳은 캡처 때 가립니다.
 - 시드는 `SEED_PROFILE=demo`로 `prisma db seed`를 돌려 기본 데이터를 만들고, 그 위에 준비 SQL로 가이드용 상태를 얹습니다.
-- AuditLog는 추가 전용 테이블이라 고치려면 `begin; set local session_replication_role=replica; ...; commit;` 안에서 합니다. 감사 로그 metadata는 엄격히 파싱되므로 형식이 틀린 행이 있으면 목록 API가 500을 냅니다. 행을 넣을 때 형식을 지키세요.
+- AuditLog는 추가 전용 테이블이라 고치려면 `begin; set local session_replication_role=replica; ...; commit;` 안에서 합니다. 감사 로그 metadata는 엄격히 파싱되므로 형식이 틀린 행이 있으면 목록 API가 500을 냅니다. 행을 넣을 때 형식을 지키세요. 합성 사용자를 SQL로 지우면 그 사용자가 행위자인 행도 같은 500을 내니 함께 지웁니다.
 
 ## 있어야 하는 페르소나(역할과 상태)
 
