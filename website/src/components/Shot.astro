@@ -108,4 +108,27 @@ if (!file) throw new Error(`Shot: src/assets/shots/${src} 파일이 없습니다
     cursor: pointer;
     z-index: 1;
   }
+  @media (max-width: 50rem) {
+    .shot-dialog {
+      width: 100vw;
+      max-width: 100vw;
+      max-height: 100dvh;
+      margin: 0;
+      border-radius: 0;
+    }
+    .shot-dialog::backdrop {
+      background: rgb(0 0 0 / 0.9);
+    }
+    .shot-dialog img {
+      width: max(100%, 1100px);
+      max-width: none;
+    }
+    .shot-close {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      float: none;
+      margin: 0;
+    }
+  }
 </style>
