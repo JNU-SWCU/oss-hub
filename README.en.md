@@ -63,7 +63,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top"><b>Team activity</b><br>GitHub activity collected every hour appears as a weekly trend for each team member.<br><br><img src="docs/assets/readme/team-activity.webp" alt="Team activity screen with the Commit tab open, a weekly line chart per member, and the last collection time." width="100%"></td>
-    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public, but only staff and administrators see the real name and department columns.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, blurred participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
+    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, blurred participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
   </tr>
 </table>
 
@@ -86,6 +86,7 @@ flowchart LR
   Apply --> Decision{Application decision}
   Decision -->|Approved| Work[Work and submit documents]
   Decision -->|Rejected| Rejected[Rejected]
+  Rejected -->|Leader revises within the application period| Apply
   Work --> Review{Document review}
   Review -->|Revision requested| Work
   Review -->|Approved or rejected| Done[Review finished]
@@ -93,7 +94,7 @@ flowchart LR
 
 1. **Browse.** Application dates, the schedule, and required documents are visible without signing in.
 2. **Form a team and apply.** Sign in with GitHub, name the team, and invite members by name or GitHub ID. Only the team leader can submit the application.
-3. **Application decision.** Staff approve or reject each team, and the result arrives as an in-app notification. If the program issues repositories, each approved team gets a private repository and its members get invitations.
+3. **Application decision.** Staff approve or reject each team, and the result arrives as an in-app notification. If the program issues repositories, each approved team gets a private repository and its members get invitations. A rejected application can be revised and resubmitted by the team leader while the application period is open.
 4. **Work and submit documents.** Teams work in their repository. Only approved applications can submit documents.
 5. **Document review.** Staff approve, reject, or request a revision for each document. Approval and rejection are final. After a revision request, the team resubmits by the date staff set. Once a team resubmits after the deadline, it cannot change the document until the review is done.
 
