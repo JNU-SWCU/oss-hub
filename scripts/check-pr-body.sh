@@ -347,10 +347,7 @@ main() {
     exit 2
   fi
 
-  if check_file "$file"; then
-    exit 0
-  fi
-  exit 1
+  check_file "$file" || exit 1
 }
 
 main "$@"
