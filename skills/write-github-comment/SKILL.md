@@ -99,7 +99,7 @@ frontend 화면 지적·제안은 그 컴포넌트의 요소 캡처(selector·UR
 올리기 전에 반드시 검사한다.
 
 ```bash
-ISSUE_TEXT="$(cat <draft>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft>)" bash .github/check-public-safe.sh --text-only
 ```
 
 ## 절차

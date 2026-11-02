@@ -44,7 +44,7 @@ check_serving() {
   "${compose[@]}" exec -T nginx nginx -s reload || return $?
   local public_origin
   public_origin="$("${compose[@]}" exec -T backend printenv FRONTEND_URL)" || return $?
-  PUBLIC_ORIGIN="${public_origin%/}" bash "$controller_dir/scripts/jenkins/smoke-release.sh"
+  PUBLIC_ORIGIN="${public_origin%/}" bash "$controller_dir/deploy/jenkins/smoke-release.sh"
 }
 recover() {
   local original=$?
@@ -52,13 +52,13 @@ recover() {
   printf 'ACTIVATION_FAILED status=%s\n' "$original" >&2
   if (
     set -e
-    node "$controller_dir/scripts/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation" || exit $?
+    node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation" || exit $?
     switch_keys "$previous_generation" || exit $?
     export IMAGE_TAG="$previous_tag"
     compose=(docker compose -p oss-hub -f "$previous_compose" --env-file "$OSS_HUB_ENV_FILE")
-    PREV_TAG="$previous_tag" PREV_SHA="$previous_sha" PREV_BE_IMAGE_ID="$previous_id" bash "$controller_dir/scripts/jenkins/validate-rollback-images.sh" || exit $?
+    node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-image "$previous_id" || exit $?
     "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 180 backend nginx || exit $?
-    node "$controller_dir/scripts/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null || exit $?
+    node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null || exit $?
     check_serving "$PREVIOUS_KEY_IDENTITY"
   ); then
     printf 'RECOVERY=ok; deployment remains failed\n' >&2
@@ -69,14 +69,14 @@ recover() {
 }
 
 [[ -f "$CANDIDATE_COMPOSE" && -d "$STAGED_KEY_GENERATION" && -L "$SECRETS_DIR/current" ]]
-node "$controller_dir/scripts/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null
-node "$controller_dir/scripts/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation"
+node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null
+node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation"
 verify_keys "$PREVIOUS_KEY_IDENTITY"
 trap recover ERR
 set -E
 switch_keys "$STAGED_KEY_GENERATION"
 "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 180 backend nginx
-node "$controller_dir/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$RELEASE_SOURCE" "$SECRETS_DIR" | jq -e --arg tag "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg compose "$CANDIDATE_COMPOSE" --arg generation "$STAGED_KEY_GENERATION" '.decision == "noop" and .tag == $tag and .sha == $sha and .compose == $compose and .generation == $generation' >/dev/null
+node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$RELEASE_SOURCE" "$SECRETS_DIR" | jq -e --arg tag "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg compose "$CANDIDATE_COMPOSE" --arg generation "$STAGED_KEY_GENERATION" '.decision == "noop" and .tag == $tag and .sha == $sha and .compose == $compose and .generation == $generation' >/dev/null
 check_serving
 trap - ERR
 printf 'ACTIVATION=ok\n'

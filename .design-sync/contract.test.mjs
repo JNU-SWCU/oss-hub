@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import {
   mkdtempSync,
+  realpathSync,
   mkdirSync,
   writeFileSync,
   readFileSync,
@@ -158,7 +159,9 @@ for (const failure of [null, 'compiler', 'copy', 'entry']) {
       ? `${failure} failure preserves existing artifacts and permits a successful rerun`
       : 'successful emission replaces stale declarations with fresh exports',
     () => {
-      const directory = mkdtempSync(path.join(tmpdir(), 'design-emission-'));
+      const directory = realpathSync(
+        mkdtempSync(path.join(tmpdir(), 'design-emission-')),
+      );
       try {
         const pkg = path.join(directory, 'apps/frontend');
         const temporary = path.join(directory, 'tmp');

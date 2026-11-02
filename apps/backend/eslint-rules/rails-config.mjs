@@ -1,14 +1,13 @@
 import path from 'node:path';
 import { realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { isBuiltin } from 'node:module';
+import { createRequire, isBuiltin } from 'node:module';
 import { defineConfig } from 'eslint/config';
 import { builtinRules } from 'eslint/use-at-your-own-risk';
 import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
 import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
-import { prismaEnumNames } from '../../../scripts/prisma-enum-names.mjs';
 import {
   configExports,
   injectableRoleClass,
@@ -17,6 +16,9 @@ import {
 import { noGenericRoleFileNames } from './no-generic-role-file-names.mjs';
 import { requestDtoNoMethods } from './request-dto-no-methods.mjs';
 import { thinController } from './thin-controller.mjs';
+
+const { $Enums } = createRequire(import.meta.url)('@prisma/client');
+const prismaEnumNames = Object.keys($Enums).sort();
 
 const layers = [
   'controller',

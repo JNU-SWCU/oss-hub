@@ -72,7 +72,7 @@ Broadening publication rights does not broaden these two permissions:
 
 ## Common guardrails
 
-1. Before any write, check the prohibited public content in the [public-safety checker](../../scripts/check-public-safe.sh).
+1. Before any write, check the prohibited public content in the [public-safety checker](../../.github/check-public-safe.sh).
 2. While managing tickets, do not change product code, deployment state, accounts, or test data.
    Implementation in the execution stage is the exception, and its scope is the ticket contract.
 3. A screen ticket covers one screen and one logical change; a ticket without a screen covers one artifact location and one logical change.
@@ -237,7 +237,7 @@ Run the public-safety check against that same draft file.
 Use the exact text to be published, not a summary.
 
 ```bash
-ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft-file>)" bash .github/check-public-safe.sh --text-only
 ```
 
 Fix flagged strings in the draft file, then check the same file again.

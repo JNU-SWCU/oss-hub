@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-pruner="$repo_root/scripts/prune-deploy-backups.sh"
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+pruner="$repo_root/deploy/jenkins/prune-deploy-backups.sh"
 jenkinsfile="$repo_root/Jenkinsfile"
-
-if [[ ! -x "$pruner" && -f "$pruner" ]]; then
-  chmod +x "$pruner"
-fi
 
 fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/prune-deploy-backups.XXXXXX")
 trap 'rm -rf "$fixture_root"' EXIT

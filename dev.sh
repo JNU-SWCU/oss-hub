@@ -3,7 +3,7 @@
 set -euo pipefail
 set -m
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
 FRONTEND_PORT=3000
@@ -37,7 +37,7 @@ check_required_env() {
     cat >&2 <<'GUIDE'
 dev: .envrc.example을 .envrc로 복사하고 "직접 채운다" 항목을 채운 뒤 direnv allow를 실행하세요.
 dev:   cp .envrc.example .envrc && direnv allow
-dev: 자세한 절차는 scripts/dev.sh와 compose.dev.yml를 따릅니다.
+dev: 자세한 절차는 dev.sh와 compose.dev.yml를 따릅니다.
 GUIDE
     exit 1
   fi

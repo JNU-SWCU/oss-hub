@@ -119,7 +119,7 @@ QA 캡처는 저장소 이력에 남을 산출물이 아니다.
 초안 제목과 본문 전문을 저장소 밖 임시 파일에 쓰고, 그 텍스트 그대로 검사한다.
 
 ```bash
-ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft-file>)" bash .github/check-public-safe.sh --text-only
 ```
 
 요약본이나 일부만 검사하지 않는다.

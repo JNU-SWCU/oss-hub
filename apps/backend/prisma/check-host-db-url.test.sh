@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-guard="$repo_root/scripts/check-host-db-url.sh"
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+guard="$repo_root/apps/backend/prisma/check-host-db-url.sh"
 
 passed=0
 failed=0

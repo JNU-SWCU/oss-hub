@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-checker="$repo_root/scripts/check-host-nginx.sh"
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+checker="$repo_root/deploy/checks/check-host-nginx.sh"
 host_source="$repo_root/deploy/host-nginx/oss-hub.conf"
 compose_source="$repo_root/deploy/nginx/nginx.conf"
 fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/host-nginx-contract.XXXXXX")
