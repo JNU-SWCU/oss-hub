@@ -1,0 +1,137 @@
+---
+import { Image } from 'astro:assets';
+
+interface Props {
+  src: string;
+  alt: string;
+  caption: string;
+}
+
+const { src } = Astro.props;
+const alt = Astro.props.alt.replaceAll('`', '');
+const caption = Astro.props.caption.replaceAll('`', '');
+const files = import.meta.glob<{ default: ImageMetadata }>(
+  '/src/assets/shots/**/*.{webp,png,jpg}',
+  { eager: true },
+);
+const file = files[`/src/assets/shots/${src}`];
+if (!file) throw new Error(`Shot: src/assets/shots/${src} 파일이 없습니다.`);
+const cssWidth = Math.round(file.default.width / 2);
+---
+
+<figure class="shot" style={`--shot-w: ${cssWidth}px`}>
+  <button type="button" class="shot-open" aria-label={`${alt} 크게 보기`}>
+    <Image
+      src={file.default}
+      alt={alt}
+      widths={[640, 960, 1440]}
+      sizes={`min(100vw, 46rem, ${cssWidth}px)`}
+    />
+  </button>
+  <figcaption>{caption}</figcaption>
+  <dialog class="shot-dialog" aria-label={alt}>
+    <form method="dialog">
+      <button class="shot-close" aria-label="닫기">닫기</button>
+    </form>
+    <Image src={file.default} alt={alt} widths={[1440, 2400]} sizes="96vw" loading="lazy" />
+  </dialog>
+</figure>
+
+<script>
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const open = target.closest('.shot-open');
+    if (open) {
+      open.parentElement?.querySelector('dialog')?.showModal();
+      return;
+    }
+    if (target instanceof HTMLDialogElement && target.classList.contains('shot-dialog')) {
+      target.close();
+    }
+  });
+</script>
+
+<style>
+  .shot {
+    margin: 1.75rem 0;
+  }
+  .shot-open {
+    display: block;
+    width: 100%;
+    max-width: var(--shot-w);
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+    border-radius: 0.625rem;
+  }
+  .shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0.625rem;
+    outline: 1px solid var(--guide-line);
+    outline-offset: -1px;
+    box-shadow: var(--guide-shadow);
+  }
+  figcaption {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--sl-color-gray-3);
+  }
+  .shot-dialog {
+    width: min(96vw, calc(var(--shot-w) * 2));
+    max-height: 94vh;
+    padding: 0;
+    border: 0;
+    border-radius: 0.75rem;
+    background: var(--sl-color-black);
+    overflow: auto;
+  }
+  .shot-dialog::backdrop {
+    background: rgb(0 0 0 / 0.72);
+  }
+  .shot-dialog img {
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .shot-close {
+    position: sticky;
+    top: 0.5rem;
+    float: right;
+    margin: 0.5rem 0.5rem 0 0;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--guide-line);
+    border-radius: 999px;
+    background: var(--sl-color-black);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    z-index: 1;
+  }
+  @media (max-width: 50rem) {
+    .shot-dialog {
+      width: 100vw;
+      max-width: 100vw;
+      max-height: 100dvh;
+      margin: 0;
+      border-radius: 0;
+    }
+    .shot-dialog::backdrop {
+      background: rgb(0 0 0 / 0.9);
+    }
+    .shot-dialog img {
+      width: max(100%, min(1100px, calc(var(--shot-w) * 2)));
+      max-width: none;
+    }
+    .shot-close {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      float: none;
+      margin: 0;
+    }
+  }
+</style>
