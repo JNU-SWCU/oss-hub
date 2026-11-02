@@ -1,9 +1,61 @@
 ---
 title: 교직원 가이드
-description: 교직원 역할의 업무별 사용 안내입니다.
+description: 교직원이 프로그램을 만들고, 신청과 제출 서류를 검토하고, 공지를 올리기까지의 사용 안내입니다.
 sidebar:
   label: 개요
   order: 0
 ---
+import { Steps } from '@astrojs/starlight/components';
+import Verified from '~/components/Verified.astro';
 
-교직원 업무별 안내가 이 아래에 추가됩니다.
+`교직원`은 OSS Hub에서 프로그램을 만들고, 학생 팀의 신청을 판정하고, 제출 서류를 검토하는 역할입니다. 가입 직후에는 관리자의 승인을 기다려야 합니다.
+
+이 가이드의 화면 이미지는 개인정보 보호를 위해 이름과 아이디를 흐리게 처리했습니다.
+
+## 교직원이 하는 일
+
+| 하는 일 | 어디서 |
+| --- | --- |
+| 역할 요청과 승인 대기 | 가입 2단계, 승인 대기 화면 |
+| 운영 현황 보기 | `운영 대시보드` |
+| 프로그램 만들기와 고치기 | `프로그램 만들기`, 프로그램의 편집 화면 |
+| 팀 신청 판정 | 프로그램의 `팀 관리` |
+| 서류 현황과 검토 | 프로그램의 `서류 현황`, `서류 수합` |
+| 공지 올리기 | 프로그램의 `게시판` |
+| 학생 활성 비교 | `학생 활성` |
+| 마감 안내 메일 | 프로그램 편집 화면의 `제출 마감 알림` |
+
+## 5분 안에 시작하기
+
+<Steps>
+1. GitHub 계정으로 로그인하고 가입 2단계에서 `교직원`을 고릅니다. [교직원으로 가입하고 승인 기다리기](/oss-hub/staff/first-entry/)를 보세요.
+2. 관리자가 승인하면 `운영 대시보드`가 열립니다. [운영 중인 프로그램 한눈에 보기](/oss-hub/staff/dashboard/)에서 화면을 익힙니다.
+3. `프로그램 만들기`로 [프로그램을 만들고](/oss-hub/staff/create-program/), 편집 화면에서 [제출 항목을 채웁니다](/oss-hub/staff/edit-program/).
+4. 학생이 신청하면 `팀 관리`에서 [승인하거나 반려합니다](/oss-hub/staff/decide-application/).
+5. 서류가 들어오면 `서류 수합`에서 [검토합니다](/oss-hub/staff/review-submission/).
+</Steps>
+
+## 업무별 안내
+
+- [교직원으로 가입하고 승인 기다리기](/oss-hub/staff/first-entry/): 역할 요청, 대기 화면, 반려되었을 때.
+- [운영 중인 프로그램 한눈에 보기](/oss-hub/staff/dashboard/): 신청·활동·제출 현황과 프로그램 찾기.
+- [프로그램 만들기](/oss-hub/staff/create-program/): 5단계 생성.
+- [프로그램 일정과 제출 항목 고치기](/oss-hub/staff/edit-program/): 일정, 마일스톤, 제출 항목, 삭제.
+- [팀 신청 승인하거나 반려하기](/oss-hub/staff/decide-application/)
+- [팀 상세에서 팀원·저장소·활동 보기](/oss-hub/staff/team-detail/): 저장소 공개와 팀 삭제 포함.
+- [팀별 서류 제출 현황 보고 내려받기](/oss-hub/staff/documents/): ZIP 내려받기와 보완 요청 일괄 발송.
+- [제출 서류 검토하기](/oss-hub/staff/review-submission/)
+- [마감 뒤에도 제출 받기(유예 기한)](/oss-hub/staff/grace-period/)
+- [제출 마감 안내 메일 보내기](/oss-hub/staff/reminder-mail/)
+- [학생 활성 비교해 보기](/oss-hub/staff/insights/)
+- [프로그램 게시판에 공지 올리기](/oss-hub/staff/board/)
+- [내 정보와 알림 설정 바꾸기](/oss-hub/staff/settings/)
+
+## 헷갈리기 쉬운 점
+
+- 왼쪽 `가입 신청`은 교직원 역할을 요청한 사람의 대기열입니다. 학생의 프로그램 신청은 프로그램의 `팀 관리`에서 판정합니다. 앞쪽은 [교직원 권한 요청 처리하기](/oss-hub/admin/applicants/)에서 설명합니다.
+- 신청 판정은 목록의 상태 선택으로 합니다. `검토 대기`에서 `승인`은 확인 창 없이 바로 적용됩니다.
+- 내가 속한 팀의 신청은 판정할 수 없습니다. 선택은 되지만 저장 때 거절됩니다.
+- 저장소가 만들어진 뒤에는 승인을 반려로 바꿀 수 없습니다.
+- 판정 결과는 학생에게 앱 안 알림으로 전달됩니다. <Verified status="needed" />
+- 계정을 다시 켜는 일은 `관리자`가 합니다. [계정 비활성화와 재활성화](/oss-hub/admin/deactivate/)를 보세요.

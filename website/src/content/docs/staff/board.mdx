@@ -1,0 +1,41 @@
+---
+title: 프로그램 게시판에 공지 올리기
+description: 프로그램 게시판에 공지를 쓰고, 고정하고, 고치고, 지웁니다.
+sidebar:
+  order: 12
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+프로그램 게시판은 그 프로그램에 참여하는 사람들이 보는 글 목록입니다. 프로그램 메뉴의 `게시판`에서 엽니다. 교직원이 올린 글은 자동으로 공지가 됩니다.
+
+## 공지 쓰기
+
+<Steps>
+1. 게시판에서 ① `공지 쓰기`를 누릅니다. 입력 양식이 열립니다.
+2. `제목`과 `내용`을 씁니다.
+3. ① `올리기`를 누릅니다. 그만두려면 `취소`를 누릅니다.
+</Steps>
+<Shot src="staff/board-list.webp" alt="게시판 목록. ①이 공지 쓰기 버튼을 가리킵니다." caption="① 공지 쓰기" />
+<Shot src="staff/board-notice-form.webp" alt="공지 작성 양식. 제목, 내용 입력칸이 있고 ①이 올리기 버튼을 가리킵니다." caption="① 올리기" />
+
+<Success>
+목록에 공지가 나타납니다. 공지를 올려도 메일은 따로 가지 않는 것으로 보입니다. <Verified status="needed" />
+</Success>
+
+## 공지 고정·수정·삭제하기
+
+글 제목을 눌러 상세를 엽니다. 상세에서 `고정`, `수정`, `삭제`를 누를 수 있습니다. 고정한 글은 목록 위에 두고, 풀 때는 ① `고정 해제`를 누릅니다.
+
+<Shot src="staff/board-detail.webp" alt="게시글 상세. 고정, 수정, 삭제 버튼이 있고 ①이 고정 해제 버튼을 가리킵니다." caption="① 고정 해제" />
+
+삭제는 되돌릴 수 없으니 확인한 뒤 진행하세요. 글을 수정하고 삭제하는 것은 작성자만 할 수 있습니다. 고정은 교직원만 할 수 있습니다. 댓글은 `댓글 달기`로 답합니다.
+
+<Recover title="막혔을 때">
+- `작성자만 수정·삭제할 수 있습니다.`: 다른 사람이 쓴 글입니다. 작성자에게 부탁하세요.
+- `교직원만 게시글을 고정할 수 있습니다.`: 교직원 권한이 있는 계정으로 시도하세요.
+- `아직 등록된 글이 없습니다`: 정상입니다. `첫 글을 남겨 보세요.`
+</Recover>
