@@ -10,26 +10,9 @@ const workflowPath = fileURLToPath(
   new URL('../.github/workflows/ci.yml', import.meta.url),
 );
 const workflow = readFileSync(workflowPath, 'utf8');
-const backendOnlyPaths = [
-  'scripts/member-authority-contract-contract*',
-  'scripts/member-authority-contract-sources.mjs',
-  'scripts/member-authority-contract-seed.mjs',
-  'scripts/check-member-authority-contract.sh',
-  'scripts/rehearse-member-authority-contract*',
-  'scripts/rehearse-legacy-submission-migrations*',
-  'scripts/rehearse-legacy-table-drop*',
-  'scripts/prisma-comment-checksums.test.mjs',
-];
+const backendOnlyPaths = ['scripts/prisma-comment-checksums.test.mjs'];
 
-const contractTests = [
-  'scripts/member-authority-contract-contract.test.mjs',
-
-  'scripts/prisma-migration-ledger.test.mjs',
-
-  'scripts/rehearse-legacy-submission-migrations.test.mjs',
-
-  'scripts/rehearse-legacy-table-drop.test.mjs',
-];
+const contractTests = ['scripts/prisma-migration-ledger.test.mjs'];
 
 const deploymentHardeningPaths = [
   'compose.yml',
@@ -71,11 +54,6 @@ function validate(workflowSource) {
   for (const testPath of contractTests) {
     assert.match(migrationContractStep, new RegExp(escapeRegex(testPath)));
   }
-
-  assert.match(
-    workflowSource,
-    /name: contract on real sources\s+if: [^\n]+\s+run: bash scripts\/check-member-authority-contract\.sh/,
-  );
 
   assert.match(
     workflowSource,
@@ -160,15 +138,6 @@ test('contract path and required-test drift fail closed', () => {
   for (const testPath of contractTests) {
     assert.throws(() => validate(workflow.replace(testPath, '')));
   }
-
-  assert.throws(() =>
-    validate(
-      workflow.replace(
-        'run: bash scripts/check-member-authority-contract.sh',
-        '',
-      ),
-    ),
-  );
 });
 
 function section(source, start, end) {

@@ -15,7 +15,6 @@
       "entry": [
         "scripts/**/*.test.mjs",
         "scripts/jenkins/probe-release-state.mjs",
-        "scripts/member-authority-contract-seed.mjs",
         "eslint.shared.mjs",
         "eslint-rules/no-comments.mjs",
         ".design-sync/compile-css.mjs",
