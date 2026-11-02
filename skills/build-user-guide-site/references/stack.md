@@ -13,7 +13,7 @@
 | 백엔드 | 4310 |
 | 메일 | `MAIL_MODE=dry-run` (실제 메일 없음) |
 | GitHub | 자격 증명 없음. 저장소 자동 생성 같은 호출은 일어나지 않습니다 |
-| 시드 | `SEED_PROFILE=demo pnpm exec prisma db seed` (apps/backend에서) |
+| 시드 | `SEED_PROFILE=auth`와 `SEED_PROFILE=demo`로 `pnpm exec prisma db seed`를 차례로 실행 (apps/backend에서) |
 
 값 묶음은 `skills/build-user-guide-site/scripts/stack.env.example`에 있습니다. 이것은 `.envrc.example` 위에 덮어쓰는 값이며, 나머지 변수(`DATABASE_URL`, OAuth 변수 등)는 `.envrc.example`에서 가져옵니다. `DATABASE_URL`은 `.envrc.example` 값에서 포트만 `55432`로 바꿉니다. 비밀번호 같은 값을 이 스킬에 적지 않습니다.
 
@@ -28,7 +28,7 @@
 1. 환경: `stack.env.example`을 `source`하고 `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`을 채웁니다. 나머지 변수는 `.envrc.example`에서 옮깁니다.
 2. 인프라: `docker compose -p oss-hub-guide -f compose.dev.yml up -d postgres object-storage` (컨테이너 이름은 `docker ps`로 확인했습니다. 서비스 이름은 compose 파일에서 확인하세요).
 3. 마이그레이션: `pnpm --filter backend exec prisma migrate deploy`.
-4. 시드: `cd apps/backend && SEED_PROFILE=demo pnpm exec prisma db seed`.
+4. 시드: `cd apps/backend && SEED_PROFILE=auth pnpm exec prisma db seed && SEED_PROFILE=demo pnpm exec prisma db seed`. `demo`만 돌리면 준비 SQL이 쓰는 계정이 없어 5단계가 외래 키 오류로 멈춥니다.
 5. 가이드용 상태: 준비 SQL을 `docker exec -i oss-hub-guide-postgres-1 psql -U oss -d oss_hub -v ON_ERROR_STOP=1 < <G>/prepare-db.sql`로 적용합니다. 합성 행을 더 넣을 때도 같은 명령을 씁니다.
 6. 백엔드: `apps/backend`에서 `PORT=4310`으로 `nest start`를 직접 시작합니다. `/my-repos`가 동작하려면 `GITHUB_APP_ORG=JNU-SWCU`가 필요합니다.
 7. 프런트: `PORT=3310`으로 `next dev`. 프런트는 `BACKEND_ORIGIN`으로 백엔드를 찾습니다.
