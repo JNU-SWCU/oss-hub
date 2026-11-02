@@ -2,7 +2,6 @@
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { selectReleaseDeployScope } from './select-release-deploy-scope-lib.mjs';
 
 const SHA = /^[0-9a-f]{40}$/;
 const RELEASE_TAG = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -127,9 +126,18 @@ export function selectFrontendReleaseDeployScope(
   try {
     if (!git.isAncestor(baselineSha, targetSha))
       return requireDeployment('deployment-history-unrelated');
-    const { frontend } = selectReleaseDeployScope(
-      git.changedPaths(baselineSha, targetSha),
-    );
+    const frontend = git.changedPaths(baselineSha, targetSha).some((line) => {
+      const path = line.trim();
+      return (
+        path.startsWith('apps/frontend/') ||
+        [
+          'package.json',
+          'pnpm-lock.yaml',
+          'pnpm-workspace.yaml',
+          '.npmrc',
+        ].includes(path)
+      );
+    });
     return {
       frontend,
       baselineSha,

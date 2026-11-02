@@ -29,7 +29,7 @@ if [ "${1:-}" = "--text-only" ]; then
 fi
 
 BASE_REF="${1:-origin/main}"
-SELF="scripts/check-public-safe.sh"
+SELF=".github/check-public-safe.sh"
 FAIL=0
 
 if [ "$TEXT_ONLY" -eq 0 ]; then

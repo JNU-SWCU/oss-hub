@@ -110,7 +110,7 @@ Refer to people only by `@handle`.
 Always check before publishing.
 
 ```bash
-ISSUE_TEXT="$(cat <draft>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft>)" bash .github/check-public-safe.sh --text-only
 ```
 
 ## Procedure

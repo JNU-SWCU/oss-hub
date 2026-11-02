@@ -27,9 +27,9 @@ for origin in http://127.0.0.1:8081 "$PUBLIC_ORIGIN"; do
   done
   require_status 401 GET "$origin/api/v1/submission-files/1" "${headers[@]}"
   if [[ "$origin" == http:* ]]; then
-    bash "$controller_dir/scripts/check-upload-body-runtime.sh" "$origin/api/v1/submission-files" "${curl_limits[@]}" --retry 5 --retry-connrefused "${headers[@]}"
+    bash "$controller_dir/deploy/jenkins/check-upload-body-runtime.sh" "$origin/api/v1/submission-files" "${curl_limits[@]}" --retry 5 --retry-connrefused "${headers[@]}"
   else
-    UPLOAD_BODY_PROBE_BYTES=4718592 bash "$controller_dir/scripts/check-upload-body-runtime.sh" "$origin/api/v1/submission-files" "${curl_limits[@]}" --retry 5 --retry-connrefused
+    UPLOAD_BODY_PROBE_BYTES=4718592 bash "$controller_dir/deploy/jenkins/check-upload-body-runtime.sh" "$origin/api/v1/submission-files" "${curl_limits[@]}" --retry 5 --retry-connrefused
   fi
 done
 printf 'RELEASE_SMOKE=ok\n'

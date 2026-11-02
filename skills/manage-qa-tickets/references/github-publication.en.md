@@ -124,7 +124,7 @@ Do not leave a caption without its image.
 Write the complete draft title and body to a temporary file outside the repository, and check that exact text.
 
 ```bash
-ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft-file>)" bash .github/check-public-safe.sh --text-only
 ```
 
 Do not check only a summary or excerpt.

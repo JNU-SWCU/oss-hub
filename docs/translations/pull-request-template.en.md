@@ -5,7 +5,7 @@
 English translation of the [Korean source](../../.github/pull_request_template.md).
 The Korean document remains authoritative.
 This is a reading guide, not an additional GitHub template.
-The Korean section headings, exemption prefixes, and checklist strings below are exact submission-checker inputs; retain them when submitting a PR.
+The Korean section headings, exemption prefixes, and checklist strings below follow the authoritative template; retain them when submitting a PR.
 Use the original template for a copyable submission body.
 
 [submit-pr-evidence](../../skills/submit-pr-evidence/SKILL.en.md) owns this format; complete its procedure before opening a PR.
@@ -137,7 +137,7 @@ Update this section after correcting findings and rerunning checks; it is not fi
 *Wrap-up*
 
 Use “none” for inapplicable exclusions, reviewer decisions, or environment prerequisites.
-Check all four checkboxes below.
+Check all three checkboxes below.
 For design specifications, name shared components/tokens and their source (component path under apps/frontend/src/components, docs/design-tokens/tokens.json, or Figma component link).
 If new colors or controls were created directly, explain what and why.
 With no screen changes, use `화면 변경 없음 — ` followed by a reason.
@@ -147,8 +147,7 @@ With no screen changes, use `화면 변경 없음 — ` followed by a reason.
 - `환경 전제:` `<new env/migration/manual procedure / none>`.
 - `디자인 규격:` shared components/tokens and specification source, or `화면 변경 없음 — ` followed by a reason.
 - [ ] 로컬 커밋을 전부 push했다
-- [ ] `bash scripts/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
-- [ ] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다
+- [ ] `bash .github/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
 - [ ] submit-pr-evidence 절차를 수행했다
 
-The four exact checkbox strings mean: all local commits pushed; public-safe passed with no real names/secrets/internal hosts/local paths in the body/captures; PR-body checker passed; submit-pr-evidence completed.
+The three checkbox strings mean: all local commits pushed; public-safe passed with no real names/secrets/internal hosts/local paths in the body/captures; submit-pr-evidence completed.

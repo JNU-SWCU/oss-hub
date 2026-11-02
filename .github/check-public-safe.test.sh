@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCANNER="$ROOT/scripts/check-public-safe.sh"
+SCANNER="$ROOT/.github/check-public-safe.sh"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/public-safe-email-test.XXXXXX")"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 
@@ -188,11 +188,11 @@ expect_forbidden_path_redacted() {
 
 init_fixture_repo() {
   FIXTURE_REPO="$TEMP_ROOT/$1"
-  mkdir -p "$FIXTURE_REPO/scripts"
-  cp "$SCANNER" "$FIXTURE_REPO/scripts/check-public-safe.sh"
+  mkdir -p "$FIXTURE_REPO/.github"
+  cp "$SCANNER" "$FIXTURE_REPO/.github/check-public-safe.sh"
   git -C "$FIXTURE_REPO" init -q
   printf 'synthetic baseline\n' >"$FIXTURE_REPO/README.md"
-  git -C "$FIXTURE_REPO" add README.md scripts/check-public-safe.sh
+  git -C "$FIXTURE_REPO" add README.md .github/check-public-safe.sh
   git -C "$FIXTURE_REPO" \
     -c user.name='Synthetic Contributor' \
     -c user.email="$git_identity" \
@@ -210,7 +210,7 @@ commit_fixture() {
 scan_fixture_repo() {
   (
     cd "$FIXTURE_REPO"
-    PR_TEXT='' bash scripts/check-public-safe.sh "$BASE_REF"
+    PR_TEXT='' bash .github/check-public-safe.sh "$BASE_REF"
   )
 }
 
@@ -335,9 +335,9 @@ commit_fixture commit -qm 'test: synthetic Korean path fixture'
 expect_fail '한글 경로의 금지 주소가 있는 변경 파일' scan_fixture_repo
 
 init_fixture_repo test-source
-cp "$ROOT/scripts/check-public-safe.test.sh" \
-  "$FIXTURE_REPO/scripts/check-public-safe.test.sh"
-git -C "$FIXTURE_REPO" add scripts/check-public-safe.test.sh
+cp "$ROOT/.github/check-public-safe.test.sh" \
+  "$FIXTURE_REPO/.github/check-public-safe.test.sh"
+git -C "$FIXTURE_REPO" add .github/check-public-safe.test.sh
 commit_fixture commit -qm 'test: synthetic regression source'
 expect_pass '회귀 테스트 소스 자체 public-safe 검사' scan_fixture_repo
 

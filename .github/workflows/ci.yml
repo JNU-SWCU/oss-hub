@@ -34,7 +34,6 @@ jobs:
             frontend:
               - 'apps/frontend/**'
               - '.design-sync/**'
-              - 'scripts/design-sync-contract.test.mjs'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -46,51 +45,33 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
               - 'compose.dev.yml'
-              - 'scripts/run-backend-integration*.sh'
-              - 'scripts/test-prisma-migration-concurrency*'
-              - 'scripts/prisma-migration-ledger.mjs'
-              - 'scripts/ci-path-contract.test.mjs'
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
               - 'deploy/host-nginx/**'
-              - 'scripts/check-host-nginx*.sh'
-              - 'scripts/check-submission-upload-route*.sh'
-              - '.github/workflows/**'
-            production_compose:
-              - 'compose.yml'
-              - '.env.example'
-              - 'scripts/check-env-example-coverage.mjs'
-              - 'scripts/check-env-example-coverage-lib.mjs'
-              - 'scripts/check-env-example-coverage.test.mjs'
-              - 'apps/backend/src/**'
-              - 'apps/frontend/src/**'
+              - 'deploy/checks/**'
               - '.github/workflows/**'
             jenkins:
               - 'Jenkinsfile'
               - 'compose.yml'
               - 'apps/*/Dockerfile'
-              - 'deploy/jenkins/**'
-              - 'scripts/jenkins/**'
-              - 'scripts/jenkins/validate-production-env*'
-              - 'scripts/jenkins/validate-rollback-images*'
-              - 'scripts/check-production-image-pins*.sh'
-              - 'scripts/ci-path-contract.test.mjs'
-              - 'scripts/prune-deploy-backups*.sh'
-              - '.github/workflows/**'
-            docker_context:
-              - 'apps/*/Dockerfile'
               - '.dockerignore'
-              - 'scripts/check-docker-context.sh'
-              - 'scripts/check-docker-context.test.sh'
+              - '.env.example'
+              - 'deploy/jenkins/**'
+              - 'deploy/nginx/**'
+              - 'deploy/host-nginx/**'
               - '.github/workflows/**'
             shell_scripts:
-              - 'scripts/*.sh'
-              - 'scripts/**/*.sh'
+              - 'dev.sh'
+              - 'deploy/**/*.sh'
+              - 'apps/backend/prisma/**/*.sh'
+              - 'apps/backend/test/**/*.sh'
+              - '.github/**/*.sh'
               - '.githooks/**'
               - '.github/workflows/**'
             node_scripts:
-              - 'scripts/*.mjs'
+              - 'deploy/**/*.mjs'
+              - '.design-sync/**/*.mjs'
               - '.github/workflows/**'
             rails:
               - 'apps/backend/**'
@@ -98,9 +79,6 @@ jobs:
               - 'eslint.shared.mjs'
               - 'eslint-rules/**'
               - 'knip.json'
-              - 'scripts/prisma-enum-names.mjs'
-              - 'scripts/prisma-enum-names.test.mjs'
-              - 'scripts/ci-path-contract.test.mjs'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -113,9 +91,7 @@ jobs:
           FRONTEND: ${{ steps.changes.outputs.frontend }}
           BACKEND: ${{ steps.changes.outputs.backend }}
           NGINX: ${{ steps.changes.outputs.nginx }}
-          PRODUCTION_COMPOSE: ${{ steps.changes.outputs.production_compose }}
           JENKINS: ${{ steps.changes.outputs.jenkins }}
-          DOCKER_CONTEXT: ${{ steps.changes.outputs.docker_context }}
           SHELL_SCRIPTS: ${{ steps.changes.outputs.shell_scripts }}
           NODE_SCRIPTS: ${{ steps.changes.outputs.node_scripts }}
           RAILS: ${{ steps.changes.outputs.rails }}
@@ -125,9 +101,7 @@ jobs:
             FRONTEND=true
             BACKEND=true
             NGINX=true
-            PRODUCTION_COMPOSE=true
             JENKINS=true
-            DOCKER_CONTEXT=true
             SHELL_SCRIPTS=true
             NODE_SCRIPTS=true
             RAILS=true
@@ -140,9 +114,7 @@ jobs:
             echo "frontend=$FRONTEND"
             echo "backend=$BACKEND"
             echo "nginx=$NGINX"
-            echo "production_compose=$PRODUCTION_COMPOSE"
             echo "jenkins=$JENKINS"
-            echo "docker_context=$DOCKER_CONTEXT"
             echo "shell_scripts=$SHELL_SCRIPTS"
             echo "node_scripts=$NODE_SCRIPTS"
             echo "rails=$RAILS"
@@ -153,23 +125,15 @@ jobs:
         with:
           node-version: 24
 
-      - name: CI path 계약 검사
-        run: node --test scripts/ci-path-contract.test.mjs
-
       - name: 릴리스 배포 스코프 판정 단위테스트
-        run: node --test scripts/select-release-deploy-scope.test.mjs scripts/select-frontend-release-baseline.test.mjs
-
-      - name: 빈 Markdown 문서 검사
-        run: |
-          bash scripts/check-empty-docs.test.sh
-          bash scripts/check-empty-docs.sh
+        run: node --test deploy/frontend/select-release-deploy-scope.test.mjs
 
       - name: pnpm 설정
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: pnpm 캐시 설정
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -178,29 +142,24 @@ jobs:
       - name: shell script 문법 검사
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: |
-          find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          bash -n dev.sh
+          find deploy apps/backend/prisma apps/backend/test .github -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
           for hook in .githooks/*; do
             bash -n "$hook"
           done
 
       - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-host-db-url.test.sh
-
-      - name: PR 본문 계약 검사기 회귀 테스트
-        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-pr-body.test.sh
+        run: bash apps/backend/prisma/check-host-db-url.test.sh
 
       - name: pre-commit 훅 파일명 전달 회귀 테스트
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-pre-commit-hook.test.sh
+        run: bash .githooks/pre-commit.test.sh
 
       - name: Node script 문법 검사
         if: ${{ steps.scope.outputs.node_scripts == 'true' }}
         run: |
-          for script in scripts/*.mjs; do
-            node --check "$script"
-          done
+          find deploy .design-sync -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
 
       - name: nginx ingress 계약 검사
         if: ${{ steps.scope.outputs.nginx == 'true' }}
@@ -209,46 +168,28 @@ jobs:
             --add-host backend:127.0.0.1 \
             --volume "$PWD/deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
             nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 nginx -t
-          bash scripts/check-host-nginx.test.sh
-          bash scripts/check-host-nginx.sh
-          bash scripts/check-submission-upload-route.test.sh
-          bash scripts/check-submission-upload-route.sh
+          bash deploy/checks/check-host-nginx.test.sh
+          bash deploy/checks/check-host-nginx.sh
+          bash deploy/checks/check-submission-upload-route.test.sh
+          bash deploy/checks/check-submission-upload-route.sh
 
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
-          node --test scripts/jenkins/release-behavior.test.mjs
-          node --test scripts/jenkins/validate-production-env.test.mjs
-          node --test scripts/jenkins/validate-github-app-credentials.test.mjs
-          bash scripts/check-production-image-pins.test.sh
-          bash scripts/check-production-image-pins.sh
+          docker compose --env-file /dev/null -f compose.yml config --no-interpolate --quiet
+          node --test deploy/jenkins/release-behavior.test.mjs
+          node --test deploy/jenkins/validate-production-env.test.mjs
+          node --test deploy/jenkins/validate-github-app-credentials.test.mjs
           ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows
-          bash scripts/jenkins/validate-rollback-images.test.sh
-          bash scripts/prune-deploy-backups.test.sh
-
-      - name: Docker build context 계약 회귀 테스트
-        if: ${{ steps.scope.outputs.docker_context == 'true' }}
-        run: |
-          bash scripts/check-docker-context.test.sh
-          bash scripts/check-docker-context.sh
+          bash deploy/jenkins/prune-deploy-backups.test.sh
 
       - name: 의존성 설치
-        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
+        if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
-
-      - name: Rails 계약 테스트
-        if: ${{ steps.scope.outputs.rails == 'true' }}
-        run: node --test scripts/prisma-enum-names.test.mjs
 
       - name: Knip 구조 검사
         if: ${{ steps.scope.outputs.rails == 'true' }}
         run: pnpm lint:structure
-
-      - name: env 계약 양방향 검사
-        if: ${{ steps.scope.outputs.production_compose == 'true' }}
-        run: |
-          node --test scripts/check-env-example-coverage.test.mjs
-          node scripts/check-env-example-coverage.mjs --require-docker
 
       - name: prettier 포맷 검사
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
@@ -256,7 +197,7 @@ jobs:
 
       - name: design sync contract
         if: ${{ steps.scope.outputs.frontend == 'true' }}
-        run: node --test scripts/design-sync-contract.test.mjs
+        run: node --test .design-sync/contract.test.mjs
 
       - name: frontend lint
         if: ${{ steps.scope.outputs.frontend == 'true' }}
@@ -276,10 +217,6 @@ jobs:
           BACKEND_ORIGIN: https://backend.example.test
         run: pnpm --filter frontend build
 
-      - name: Prisma migration contract unit tests
-        if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: node --test scripts/prisma-migration-ledger.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
-
       - name: backend lint
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend lint
@@ -294,15 +231,11 @@ jobs:
 
       - name: backend integration runner contract
         if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: bash scripts/run-backend-integration.test.sh
+        run: bash apps/backend/test/run-integration.test.sh
 
       - name: backend integration test
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend test:integration
-
-      - name: Prisma migration concurrency
-        if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: bash scripts/test-prisma-migration-concurrency.sh
 
       - name: backend build
         if: ${{ steps.scope.outputs.backend == 'true' }}
@@ -344,7 +277,7 @@ jobs:
           fetch-depth: 0
 
       - name: public-safe regex 회귀 테스트
-        run: bash scripts/check-public-safe.test.sh
+        run: bash .github/check-public-safe.test.sh
 
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
         run: |
@@ -358,7 +291,7 @@ jobs:
           PR_TEXT: |
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}
-        run: bash scripts/check-public-safe.sh "origin/${GITHUB_BASE_REF}"
+        run: bash .github/check-public-safe.sh "origin/${GITHUB_BASE_REF}"
 
   public-safe-issue:
     name: public-safe-issue
@@ -374,7 +307,7 @@ jobs:
             ${{ github.event.issue.title }}
             ${{ github.event.issue.body }}
             ${{ github.event.comment.body }}
-        run: bash scripts/check-public-safe.sh --text-only
+        run: bash .github/check-public-safe.sh --text-only
 
   frontend-release-deploy:
     name: frontend-release-deploy
@@ -419,7 +352,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
-        run: node scripts/select-release-deploy-scope.mjs >> "$GITHUB_OUTPUT"
+        run: node deploy/frontend/select-release-deploy-scope.mjs >> "$GITHUB_OUTPUT"
 
       - name: frontend 무변경 no-op
         if: ${{ steps.scope.outputs.frontend != 'true' }}

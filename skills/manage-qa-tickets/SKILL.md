@@ -62,7 +62,7 @@ QA·작업 티켓의 원본은 GitHub Issue 하나다.
 
 ## 공통 가드레일
 
-1. 쓰기 전에 [공개 안전 검사](../../scripts/check-public-safe.sh)의 공개 금지 항목을 확인한다.
+1. 쓰기 전에 [공개 안전 검사](../../.github/check-public-safe.sh)의 공개 금지 항목을 확인한다.
 2. 티켓을 관리하는 동안 제품 코드, 배포 상태, 계정, 테스트 데이터를 바꾸지 않는다.
    수행 단계의 구현은 예외이며 그때는 티켓 계약이 범위다.
 3. 화면 티켓은 화면 하나와 논리 변경 하나를, 화면 없는 티켓은 산출물 위치 하나와 논리 변경 하나를 다룬다.
@@ -220,7 +220,7 @@ issue-ticket-contract.md도 그 문서를 가리키고 여기서 되풀이하지
 요약이 아니라 발행할 텍스트 그대로다.
 
 ```bash
-ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
+ISSUE_TEXT="$(cat <draft-file>)" bash .github/check-public-safe.sh --text-only
 ```
 
 걸린 문자열은 초안 파일에서 고치고 같은 파일을 다시 검사한다.

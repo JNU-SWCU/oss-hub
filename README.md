@@ -237,13 +237,12 @@ docs/
 ├── assets/              # README 이미지
 ├── design-tokens/       # 디자인 토큰
 └── translations/        # PR·티켓 템플릿 영어판
-scripts/                 # 개발·검증·배포 보조 스크립트
-└── jenkins/             # 백엔드 배포 단계
 skills/                  # 저장소 전용 에이전트 작업 절차
 guide/                   # 사용자 가이드 사이트(GitHub Pages)
-deploy/                  # nginx 설정
+deploy/                  # 배포 도구·nginx 설정·검증
 .github/workflows/       # CI와 프런트엔드 배포
 Jenkinsfile              # 백엔드 배포
+dev.sh                   # 로컬 개발 실행
 compose.dev.yml          # 로컬 개발 인프라
 compose.yml              # 운영 런타임
 ```
@@ -260,7 +259,7 @@ compose.yml              # 운영 런타임
 
 ## 기여하기
 
-이슈에서 범위와 완료 조건을 정합니다. [로컬에서 시작하기](#로컬에서-시작하기)로 환경을 준비한 뒤 실제로 돌린 검증을 [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)에 따라 PR에 적습니다. PR을 열기 전에 `bash scripts/check-public-safe.sh`를 통과해야 합니다.
+이슈에서 범위와 완료 조건을 정합니다. [로컬에서 시작하기](#로컬에서-시작하기)로 환경을 준비한 뒤 실제로 돌린 검증을 [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)에 따라 PR에 적습니다. PR을 열기 전에 `bash .github/check-public-safe.sh`를 통과해야 합니다.
 
 자세한 내용은 [기여 안내](CONTRIBUTING.md), [행동 강령](CODE_OF_CONDUCT.md), [보안 정책](SECURITY.md)을 봅니다. 이 문서들의 기준본은 한국어입니다.
 
@@ -288,7 +287,7 @@ compose.yml              # 운영 런타임
 BACKEND_ORIGIN=https://backend.example.test pnpm build
 ```
 
-`git config core.hooksPath .githooks`를 실행하면 저장소의 Git 훅이 켜집니다. 커밋 메시지 형식과 스테이지한 앱 파일의 주석 금지를 검사합니다. 푸시 전에는 `pnpm format:check`를 돌리고 `main`에서 머지한 뒤에는 브랜치를 정리합니다.
+`git config core.hooksPath .githooks`를 실행하면 저장소의 Git 훅이 켜집니다. 커밋 메시지 형식과 스테이지한 앱 파일의 주석 금지를 검사합니다. 푸시 전에는 `pnpm format:check`를 돌립니다.
 
 </details>
 

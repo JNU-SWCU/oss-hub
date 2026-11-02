@@ -14,7 +14,7 @@
     "commitlint": "commitlint --config commitlint.config.cjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "dev": "bash scripts/dev.sh",
+    "dev": "bash dev.sh",
     "db:up": "docker compose -f compose.dev.yml up -d --wait",
     "db:migrate:dev": "pnpm --filter backend db:migrate:dev",
     "db:reset": "pnpm --filter backend db:reset",

@@ -49,6 +49,62 @@ function apiFor(runs, jobs) {
 }
 
 const history = (deployments, complete = true) => ({ deployments, complete });
+
+for (const [name, paths, expected] of [
+  [
+    'frontend descendants',
+    ['apps/frontend/src/app/page.tsx', 'apps/frontend/vercel.json'],
+    true,
+  ],
+  ...['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc'].map(
+    (manifest) => [`root manifest ${manifest}`, [manifest], true],
+  ),
+  [
+    'non-frontend changes',
+    [
+      'apps/backend/src/programs/programs.service.ts',
+      'apps/backend/prisma/schema.prisma',
+      'compose.yml',
+      'deploy/nginx/nginx.conf',
+      'Jenkinsfile',
+      'deploy/host-nginx/oss-hub.conf',
+      'docs/onboarding.md',
+      '.github/pull_request_template.md',
+      'skills/run-release-qa/SKILL.md',
+    ],
+    false,
+  ],
+  [
+    'exact file and directory boundaries',
+    [
+      'apps/frontend-legacy/src/page.tsx',
+      'apps/frontend',
+      'apps/backend-notes.md',
+      'nested/package.json',
+      'package.json.backup',
+      '.npmrc/child',
+    ],
+    false,
+  ],
+  ['empty diff', [], false],
+  ['blank lines', ['', '   ', '\t'], false],
+  ['trimmed frontend path', ['', ' \tapps/frontend/src/page.tsx\t '], true],
+  ['trimmed root manifest', [' \t.npmrc '], true],
+]) {
+  test(`frontend selection respects ${name}`, () => {
+    const result = selectFrontendReleaseDeployScope(
+      targetSha,
+      history([record(oldSha)]),
+      linearGit(paths),
+    );
+    assert.equal(result.frontend, expected);
+    assert.equal(
+      result.reason,
+      expected ? 'frontend-changed' : 'frontend-unchanged',
+    );
+  });
+}
+
 function linearGit(changedPaths) {
   const order = [oldSha, failedSha, targetSha, newerSha];
   return {
@@ -400,7 +456,7 @@ test('latest release proof requires an exact full published release tag', async 
 
 test('actual release job uses successful-deployment scope and serializes production', () => {
   const workflow = readFileSync(
-    new URL('../.github/workflows/ci.yml', import.meta.url),
+    new URL('../../.github/workflows/ci.yml', import.meta.url),
     'utf8',
   );
   const job = workflow.slice(workflow.indexOf('  frontend-release-deploy:'));
@@ -414,13 +470,16 @@ test('actual release job uses successful-deployment scope and serializes product
   assert.match(job, /RELEASE_SHA: \$\{\{ steps.release.outputs.sha \}\}/);
   assert.match(
     job,
-    /node scripts\/select-release-deploy-scope.mjs >> "\$GITHUB_OUTPUT"/,
+    /node deploy\/frontend\/select-release-deploy-scope.mjs >> "\$GITHUB_OUTPUT"/,
   );
   assert.doesNotMatch(job, /gh release list|grep -vFx/);
   const testStep = workflow
     .split('      - name: 릴리스 배포 스코프 판정 단위테스트')[1]
     .split('      - name:')[0];
-  assert.match(testStep, /scripts\/select-frontend-release-baseline.test.mjs/);
+  assert.match(
+    testStep,
+    /deploy\/frontend\/select-release-deploy-scope.test.mjs/,
+  );
   assert.doesNotMatch(testStep, /if:/);
 });
 
