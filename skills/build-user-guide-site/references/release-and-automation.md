@@ -20,7 +20,7 @@
 ## 자동화 구성 (파일에서 읽은 그대로)
 
 `.github/workflows/website-pages.yml`
-- 트리거: `main`과 `docs/user-guide-site`로의 push 중 `website/**` 또는 이 워크플로 파일이 바뀐 경우, 그리고 `workflow_dispatch`.
+- 트리거: `main`으로의 push 중 `website/**` 또는 이 워크플로 파일이 바뀐 경우, 그리고 `workflow_dispatch`.
 - 권한: `contents: read`. 동시성 그룹 `pages`(진행 중인 실행을 취소하지 않음).
 - `build` 작업: 체크아웃, pnpm 설정(`website/package.json`), Node 24(pnpm 캐시 키는 `website/pnpm-lock.yaml`), configure-pages, `pnpm install --frozen-lockfile`, `pnpm build`, `website/dist` 업로드. 작업 디렉터리는 `website`.
 - `deploy` 작업: `build` 뒤에 실행, `pages: write`와 `id-token: write`, 환경 `github-pages`, deploy-pages.
@@ -33,10 +33,10 @@
 
 ## 임시 설정과 머지 전 정리
 
-개발 중에 진행을 Pages에서 보려고 아래 두 가지를 임시로 열어 두었습니다. 최종 PR을 머지하기 전에 되돌립니다.
+큰 작업 중에 진행을 Pages에서 보려면 아래 두 가지를 임시로 엽니다. 최종 PR을 머지하기 전에 되돌립니다.
 
-1. `website-pages.yml`의 `branches: [main, docs/user-guide-site]`에서 `docs/user-guide-site`를 지웁니다.
-2. 저장소 설정의 `github-pages` 환경에서 허용 브랜치 정책을 `main`만 남기도록 되돌립니다(확인 필요: 현재 설정 값은 GitHub 설정에서 확인하세요).
+1. `website-pages.yml`의 `branches`에 작업 브랜치를 더합니다. 되돌릴 때 지웁니다.
+2. 저장소 설정의 `github-pages` 환경에 그 브랜치의 배포 정책을 더합니다. 되돌릴 때 그 정책만 지웁니다.
 
 ## 최종 PR
 

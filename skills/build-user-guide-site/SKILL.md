@@ -8,7 +8,7 @@ description: >-
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
   마일스톤마다 커밋·푸시·Pages 확인을 반복한다. 노션 핸드북은 build-oss-hub-handbook, PR은 submit-pr-evidence를 쓴다.
 metadata:
-  version: "1.0.1"
+  version: "1.0.2"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신

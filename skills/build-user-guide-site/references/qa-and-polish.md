@@ -20,6 +20,8 @@ node skills/build-user-guide-site/scripts/visual-audit.mjs [origin] [outJson]
 
 사용자는 "한국어의 특징을 고려해 윤문이 자연스럽게" 되기를 요구했습니다. 사실 확인이 끝난 뒤에 `humanize-korean` 스킬로 합니다. 사실을 먼저 확정해야 윤문이 사실을 바꾸지 않습니다.
 
+두 번 나눠 돌립니다. 1차는 조사, 번역투, 피동 같은 오류를 잡고, 2차는 역할별 에이전트가 끊기는 단문, 같은 어미 반복, 어긋난 주술 호응 같은 문장 흐름을 봅니다. 한 번에 맡기면 오류만 고치고 끝나기 쉽습니다. 오케스트레이터는 diff를 직접 읽고, 에이전트가 올린 사실 의심은 코드와 대조해 판단합니다.
+
 MDX 안전 규칙(윤문 에이전트에게 알립니다):
 
 - frontmatter, `import` 줄, 컴포넌트 태그(`<Steps>`, `<Shot>`, `<Success>`, `<Recover>`, `<Verified>`)와 그 속성(`src`, `alt`, `caption`, `status`)은 바꾸지 않습니다. `alt`와 `caption` 문장은 다듬어도 되지만 사람 이름과 아이디를 넣지 않습니다.
