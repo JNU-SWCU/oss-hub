@@ -1,7 +1,7 @@
 {
   "extraKnownMarketplaces": {
     "craft-skills": {
-      "source": { "source": "github", "repo": "GoBeromsu/craft-skills" },
+      "source": { "source": "github", "repo": "Xia-Ataraxia/craft-skills" },
       "autoUpdate": true
     }
   },
