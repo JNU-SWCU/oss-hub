@@ -35,7 +35,7 @@ import Verified from '~/components/Verified.astro';
 <Shot src="staff/team-detail-pending.webp" alt="팀 상세 화면. ①이 첫 수집을 기다리는 중입니다 안내를 가리킵니다. 아래에 저장소 공개 카드가 있습니다." caption="① 첫 수집을 기다리는 중" />
 <Shot src="staff/team-detail-failed.webp" alt="팀 상세 화면. ①이 최근 수집에 실패했습니다 안내를 가리킵니다." caption="① 최근 수집에 실패했습니다" />
 
-수집은 정각마다 시작합니다. 수집이 끝난 팀에는 `마지막 수집 {날짜}`가 나옵니다. 저장소별 수집 간격은 확인이 필요합니다. <Verified status="needed" />
+수집은 모든 저장소에 대해 매시 정각에 시작합니다. 수집이 끝난 팀에는 `마지막 수집 {날짜}`가 나옵니다. 저장소마다 간격을 따로 정할 수는 없습니다.
 
 ## 저장소 공개하기
 
@@ -59,7 +59,7 @@ import Verified from '~/components/Verified.astro';
 
 <Shot src="staff/review-publish-blocked.webp" alt="최종 제출 검토 화면의 저장소 공개 카드. ①이 모든 필수 마일스톤의 승인이 필요합니다 안내를 가리킵니다." caption="① 공개 조건이 아직 맞지 않을 때" />
 
-공개한 저장소를 다시 비공개로 돌리는 방법은 확인이 필요합니다. <Verified status="needed" />
+앱에는 공개한 저장소를 다시 비공개로 돌리는 기능이 없습니다.
 
 ## 팀 삭제하기
 
