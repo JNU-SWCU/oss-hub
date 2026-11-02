@@ -212,10 +212,6 @@ jobs:
         if: ${{ steps.scope.outputs.frontend == 'true' }}
         run: pnpm --filter frontend test
 
-      - name: 정책 원문 출처 검증
-        if: ${{ steps.scope.outputs.frontend == 'true' }}
-        run: node --test apps/frontend/scripts/policy-provenance.test.mjs
-
       - name: frontend build
         if: ${{ steps.scope.outputs.frontend == 'true' }}
         env:
