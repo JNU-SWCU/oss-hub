@@ -1,0 +1,19 @@
+---
+import { lastChecked, releaseVersion } from '~/site';
+---
+
+<p class="site-note">
+  마지막 확인일: {lastChecked} (KST) · 배포본 {releaseVersion}
+  <br />
+  화면 속 프로그램과 사람은 안내를 위해 만든 예시입니다.
+</p>
+
+<style>
+  .site-note {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--sl-color-gray-3);
+    word-break: keep-all;
+  }
+</style>

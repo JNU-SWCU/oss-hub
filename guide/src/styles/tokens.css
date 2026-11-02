@@ -1,0 +1,102 @@
+:root {
+  --sl-font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --sl-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --sl-color-white: #f2f4f6;
+  --sl-color-gray-1: #d1d6db;
+  --sl-color-gray-2: #b0b8c1;
+  --sl-color-gray-3: #8b95a1;
+  --sl-color-gray-4: #6b7684;
+  --sl-color-gray-5: #333d4b;
+  --sl-color-gray-6: #222832;
+  --sl-color-gray-7: #1b2029;
+  --sl-color-black: #14171c;
+
+  --sl-color-accent-low: #0c1f4d;
+  --sl-color-accent: #4a70c4;
+  --sl-color-accent-high: #adc1eb;
+
+  --sl-color-green-low: #003215;
+  --sl-color-green: #2aab63;
+  --sl-color-green-high: #96dcae;
+  --sl-color-orange-low: #3a2a0a;
+  --sl-color-orange: #e0a030;
+  --sl-color-orange-high: #f8e2b8;
+  --sl-color-red-low: #3b1313;
+  --sl-color-red: #d64545;
+  --sl-color-red-high: #f3c6c6;
+  --sl-color-blue-low: #0c1f4d;
+  --sl-color-blue: #4a70c4;
+  --sl-color-blue-high: #adc1eb;
+
+  --guide-brand: #7f9cdb;
+  --guide-success-fg: #96dcae;
+  --guide-success-bg: #0d2a1a;
+  --guide-warn-fg: #f8e2b8;
+  --guide-warn-bg: #2e2209;
+  --guide-info-fg: #adc1eb;
+  --guide-info-bg: #0f1d44;
+  --guide-line: color-mix(in srgb, #ffffff 12%, transparent);
+  --guide-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.35);
+}
+
+:root[data-theme='light'] {
+  --sl-color-white: #191f28;
+  --sl-color-gray-1: #333d4b;
+  --sl-color-gray-2: #4e5968;
+  --sl-color-gray-3: #5f6b78;
+  --sl-color-gray-4: #6b7684;
+  --sl-color-gray-5: #e5e8eb;
+  --sl-color-gray-6: #f2f4f6;
+  --sl-color-gray-7: #f9fafb;
+  --sl-color-black: #ffffff;
+
+  --sl-color-accent-low: #d6e0f5;
+  --sl-color-accent: #003399;
+  --sl-color-accent-high: #002266;
+
+  --sl-color-green-low: #c6edd4;
+  --sl-color-green: #00923f;
+  --sl-color-green-high: #004a20;
+  --sl-color-orange-low: #f8e2b8;
+  --sl-color-orange: #a06f1a;
+  --sl-color-orange-high: #805814;
+  --sl-color-red-low: #f3c6c6;
+  --sl-color-red: #c02626;
+  --sl-color-red-high: #a02f2f;
+  --sl-color-blue-low: #d6e0f5;
+  --sl-color-blue: #1f4aa8;
+  --sl-color-blue-high: #002266;
+
+  --guide-brand: #003399;
+  --guide-success-fg: #00622a;
+  --guide-success-bg: #e8f8ee;
+  --guide-warn-fg: #805814;
+  --guide-warn-bg: #fdf3e2;
+  --guide-info-fg: #002b80;
+  --guide-info-bg: #eef2fb;
+  --guide-line: color-mix(in srgb, #000000 10%, transparent);
+  --guide-shadow: 0 1px 2px rgb(0 20 70 / 0.06), 0 12px 32px rgb(0 20 70 / 0.1);
+}
+
+html {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+:focus-visible {
+  outline: 2px solid var(--guide-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

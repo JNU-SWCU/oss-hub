@@ -1,0 +1,45 @@
+---
+title: 활동과 랭킹 보기
+description: 팀 저장소의 GitHub 활동과 전체 랭킹을 확인합니다.
+sidebar:
+  order: 10
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+활동은 팀 저장소에서 자동으로 수집됩니다. 수집은 저장소가 연결된 뒤 시작되므로 [저장소](/oss-hub/student/repository/)가 먼저 준비되어야 합니다.
+
+## 내 활동
+
+<Steps>
+1. 왼쪽 메뉴에서 `내 활동`을 엽니다. 학생에게만 보이는 화면입니다.
+2. `월별` 또는 `연도별` 칩으로 기간 단위를 고릅니다.
+3. `참여 프로그램`에서 프로그램별 활동을, `활동 추이`에서 변화를 봅니다.
+</Steps>
+<Shot src="student/activity-month.webp" alt="내 활동 화면. ①이 선택된 월별 칩을 가리키고 아래에 참여 프로그램과 활동 추이 그래프가 있습니다." caption="① 월별" />
+<Shot src="student/activity-year.webp" alt="내 활동 화면을 연도별로 본 모습. ①이 선택된 연도별 칩을 가리킵니다." caption="① 연도별" />
+<Shot src="student/activity-programs.webp" alt="내 활동 화면 위쪽. 연도별 참여 프로그램 목록이 있습니다." caption="참여 프로그램" />
+
+활동 합계는 Commit, Pull Request, Release를 더한 값이고, Issue는 따로 셉니다. 팀 단위 활동은 `우리 팀`의 `우리 팀 활동`에서도 보입니다.
+
+<Shot src="student/team-activity.webp" alt="우리 팀 화면의 우리 팀 활동 영역." caption="우리 팀 활동" />
+
+## 랭킹
+
+위쪽 `랭킹`은 로그인하지 않아도 볼 수 있습니다. Commit, Pull Request, Issue, Repo를 합산한 순위입니다.
+
+<Shot src="intro/ranking.webp" alt="랭킹 화면." caption="랭킹" />
+<Shot src="intro/ranking-table.webp" alt="랭킹 표." caption="랭킹 표" />
+
+<Success>
+저장소에 쌓인 활동이 그래프와 숫자로 보입니다. 반영에는 수집 시간이 걸릴 수 있습니다.
+</Success>
+
+<Recover title="활동이 비어 있을 때">
+- 저장소가 연결되지 않았거나 아직 수집 전이면 활동이 비어 있습니다. [저장소 등록](/oss-hub/student/repository/)을 확인하세요.
+- 저장소에 커밋이 아직 없어도 비어 보입니다.
+</Recover>
+<Shot src="student/activity-empty.webp" alt="활동이 없을 때의 내 활동 화면." caption="활동이 없을 때" />

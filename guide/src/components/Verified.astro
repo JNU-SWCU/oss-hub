@@ -1,0 +1,39 @@
+---
+interface Props {
+  status: 'done' | 'needed' | 'policy';
+}
+const labels = {
+  done: '확인 완료',
+  needed: '확인 필요',
+  policy: '정책 확인 필요',
+};
+const { status } = Astro.props;
+---
+
+<span class:list={['verified', status]}>{labels[status]}</span>
+
+<style>
+  .verified {
+    display: inline-block;
+    padding: 0.05em 0.6em;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.7;
+    white-space: nowrap;
+    vertical-align: 0.1em;
+  }
+  .done {
+    color: var(--guide-success-fg);
+    background: var(--guide-success-bg);
+  }
+  .needed {
+    color: var(--guide-warn-fg);
+    background: var(--guide-warn-bg);
+  }
+  .policy {
+    color: var(--guide-info-fg);
+    background: var(--guide-info-bg);
+  }
+</style>
