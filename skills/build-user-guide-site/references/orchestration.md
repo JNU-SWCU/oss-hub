@@ -11,7 +11,7 @@
 | 2 | `capture-admin`, `capture-student`, `capture-staff` | 3개 병렬 | `capture-brief.md`, `facts-<role>.md` | webp 이미지, `manifest-<role>.md` |
 | 3 | `write-intro`, `write-admin`, `write-student`, `write-staff` | 4개 병렬 | `writer-brief.md`, 매니페스트 | mdx |
 | 4 | `factcheck-admin`, `factcheck-student`, (교직원) | 병렬 | 본문, 화면, 코드 | 불일치 목록 |
-| 5 | `visual-qa` | 단독 | 배포된 사이트 | 1440/390, 라이트/다크 점검 결과 |
+| 5 | `visual-audit` | 단독 | 배포된 사이트 | 네 조합 점검 결과 |
 | 6 | `polish-admin`, `polish-student`, `polish-staff` | 병렬 | 본문 | 윤문된 mdx |
 | 7 | Aside 독자 시험 | 단독 | 완성된 가이드 | 막힌 곳 목록 |
 
@@ -25,7 +25,7 @@
 
 1. 목표 한 문장과 이 단계가 전체에서 맡는 부분.
 2. `<ROOT>`(절대 경로)와 `<G>`, 읽을 파일 목록(`references/*-brief.md` 포함).
-3. 쓸 수 있는 곳과 쓰면 안 되는 곳. 자기 역할 폴더 밖은 수정하지 않고, `apps/`와 `scripts/`는 읽기만 하며, 커밋과 푸시는 하지 않습니다.
+3. 쓸 수 있는 곳과 쓰면 안 되는 곳. 자기 역할 폴더와 `<G>` 밖은 수정하지 않고, 커밋과 푸시는 하지 않습니다.
 4. 보고 형식(짧게). 장수, 못 한 것, 불일치, 결함 후보.
 5. 이미 배제한 것(예: 이미 떠 있는 스택을 재시작하지 말 것).
 
@@ -34,8 +34,8 @@
 - 캡처: `capture-brief.md` 전체. 로그인한 실제 브라우저로 찍지 말 것.
 - 집필: `writer-brief.md` 전체. 화면 > 사실표 > 코드 > 추측.
 - 사실 확인: 본문의 모든 주장(라벨, 순서, 조건, 성공 신호)을 화면과 코드에 대조하고, 고치지 말고 불일치만 `Area / Observed / Expected / Evidence`로 보고. 본문 수정은 집필 담당에게 돌려줍니다.
-- 시각 검수: `scripts/visual-audit.mjs`를 쓰고, 1440과 390, 라이트와 다크에서 링크, alt, 표 넘침, 콘솔 오류를 봅니다. `qa-and-polish.md` 참고.
-- 윤문: `humanize-korean` 스킬 사용, MDX 안전 규칙 지키기. `qa-and-polish.md` 참고.
+- 시각 검수: `skills/build-user-guide-site/scripts/visual-audit.mjs`를 씁니다. 조합과 항목은 `audit-and-polish.md`에 있습니다.
+- 윤문: `humanize-korean` 스킬 사용, MDX 안전 규칙 지키기. `audit-and-polish.md` 참고.
 
 ## 오케스트레이터가 직접 하는 검수
 
@@ -43,7 +43,7 @@
 
 1. 파일 시각: `ls -lT website/src/assets/shots/<role>/`로 보고된 시각 이후에 만들어졌는지 봅니다. 오래된 파일이면 이번에 찍은 것이 아닙니다.
 2. 장수: 보고한 숫자와 실제 파일 수를 맞춰 봅니다.
-3. 이미지: `scripts/contact-sheet.py website/src/assets/shots/<role> <scratch>/sheet-<role>`로 접촉 인쇄를 만들어 Read로 눈으로 봅니다. 확인할 것은 (a) 개인정보가 안 가려진 곳, (b) 잘린 글자와 로딩 상태, (c) 빨간 박스가 가리킨 곳, (d) 개발 배지와 토스트입니다. 의심스러운 한 장은 원본을 따로 엽니다.
+3. 이미지: `python3 skills/build-user-guide-site/scripts/margin-check.py`로 여백을 재고, `python3 skills/build-user-guide-site/scripts/contact-sheet.py website/src/assets/shots/<role> <scratch>/sheet-<role>`로 접촉 인쇄를 만들어 Read로 눈으로 봅니다. 확인할 것은 (a) 개인정보가 안 가려진 곳, (b) 잘린 글자, 가장자리에 걸린 줄, 로딩 상태, (c) 빨간 박스가 가리킨 곳, (d) 개발 배지와 토스트입니다. 의심스러운 한 장은 원본을 따로 엽니다.
 4. 본문: 금지어(이름, 이메일, `localhost`, `seed`, "합성", "버그")를 grep합니다.
 5. 빌드: `cd website && pnpm exec astro build --outDir <scratch>`를 직접 돌립니다.
 
@@ -54,4 +54,4 @@
 - 같은 DB를 여러 캡처 에이전트가 씁니다. 확정 동작은 자기 전용 페르소나로만 하고 매니페스트에 기록합니다.
 - 같은 `website/`에서 여러 빌드가 돌면 캐시가 충돌합니다. 집필 에이전트는 각자 다른 `--outDir`을 쓰고, 실패하면 잠시 뒤 다시 돌립니다.
 - 에이전트 각자는 자기 폴더만 씁니다. 캡처는 `shots/<role>/`, 집필은 `content/docs/<role>/`.
-- 훅이 `website/src/assets/shots/` 아래에 `.omc/state/...` 같은 상태 파일을 만든 적이 있습니다(`.gitignore`의 `.omc/` 규칙으로 무시됨). 커밋할 때 폴더 통째로 `git add`하지 말고 파일 경로를 명시하세요.
+- 커밋할 때 폴더 통째로 `git add`하지 말고 파일 경로를 명시합니다.

@@ -18,6 +18,23 @@ const outFile =
   process.argv[3] ??
   join(mkdtempSync(join(tmpdir(), 'guide-audit-')), 'audit.json');
 
+const PAGE_CONCURRENCY = 5;
+const LINK_CONCURRENCY = 8;
+
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
+}
+
 const VIEWPORTS = [
   [1440, 900, 'light'],
   [390, 844, 'light'],
@@ -43,7 +60,7 @@ for (const [w, h, scheme] of VIEWPORTS) {
     viewport: { width: w, height: h },
     colorScheme: scheme,
   });
-  for (const u of urls) {
+  const pages = await mapLimit(urls, PAGE_CONCURRENCY, async (u) => {
     const p = await ctx.newPage();
     const errs = [];
     const bad = [];
@@ -55,7 +72,6 @@ for (const [w, h, scheme] of VIEWPORTS) {
       if (r.status() >= 400) bad.push(r.status() + ' ' + r.url());
     });
     await p.goto(u, { waitUntil: 'networkidle' });
-    await p.waitForTimeout(300);
     await p.evaluate(async () => {
       for (let y = 0; y < document.body.scrollHeight; y += 600) {
         scrollTo(0, y);
@@ -114,9 +130,12 @@ for (const [w, h, scheme] of VIEWPORTS) {
       return o;
     });
     Object.assign(r, { url: u, vp: `${w}-${scheme}`, errs, bad });
-    res.push(r);
-    for (const l of r.links) if (!links.has(l)) links.set(l, u);
     await p.close();
+    return r;
+  });
+  for (const r of pages) {
+    res.push(r);
+    for (const l of r.links) if (!links.has(l)) links.set(l, r.url);
   }
   await ctx.close();
 }
@@ -137,16 +156,25 @@ for (const r of res) {
 }
 console.log('titles', [...new Set(res.map((r) => r.title))].join(' || '));
 
-const broken = [];
-for (const [l, from] of links) {
-  const u = l.split('#')[0];
-  const rr = await fetch(u, { redirect: 'follow' });
-  if (rr.status >= 400) broken.push(rr.status + ' ' + l + ' <- ' + from);
-  else if (l.includes('#')) {
-    const t = await rr.text();
-    const id = l.split('#')[1];
-    if (id && !t.includes('id="' + decodeURIComponent(id) + '"'))
-      broken.push('ANCHOR ' + l + ' <- ' + from);
-  }
-}
+const fetched = new Map();
+const fetchOnce = (u) => {
+  if (!fetched.has(u))
+    fetched.set(
+      u,
+      fetch(u, { redirect: 'follow' }).then(async (r) => ({
+        status: r.status,
+        html: await r.text(),
+      })),
+    );
+  return fetched.get(u);
+};
+const broken = (
+  await mapLimit([...links], LINK_CONCURRENCY, async ([l, from]) => {
+    const [u, id] = l.split('#');
+    const { status, html } = await fetchOnce(u);
+    if (status >= 400) return status + ' ' + l + ' <- ' + from;
+    if (id && !html.includes('id="' + decodeURIComponent(id) + '"'))
+      return 'ANCHOR ' + l + ' <- ' + from;
+  })
+).filter(Boolean);
 console.log('links', links.size, 'broken', broken);

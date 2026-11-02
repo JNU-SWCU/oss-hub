@@ -15,7 +15,7 @@
 | GitHub | 자격 증명 없음. 저장소 자동 생성 같은 호출은 일어나지 않습니다 |
 | 시드 | `SEED_PROFILE=demo pnpm exec prisma db seed` (apps/backend에서) |
 
-값 묶음은 `scripts/stack.env.example`에 있습니다. 이것은 `.envrc.example` 위에 덮어쓰는 값이며, 나머지 변수(`DATABASE_URL`, OAuth 변수 등)는 `.envrc.example`에서 가져옵니다. `DATABASE_URL`은 `.envrc.example` 값에서 포트만 `55432`로 바꿉니다. 비밀번호 같은 값을 이 스킬에 적지 않습니다.
+값 묶음은 `skills/build-user-guide-site/scripts/stack.env.example`에 있습니다. 이것은 `.envrc.example` 위에 덮어쓰는 값이며, 나머지 변수(`DATABASE_URL`, OAuth 변수 등)는 `.envrc.example`에서 가져옵니다. `DATABASE_URL`은 `.envrc.example` 값에서 포트만 `55432`로 바꿉니다. 비밀번호 같은 값을 이 스킬에 적지 않습니다.
 
 ## 비밀 값
 
@@ -29,12 +29,12 @@
 2. 인프라: `docker compose -p oss-hub-guide -f compose.dev.yml up -d postgres object-storage` (컨테이너 이름은 `docker ps`로 확인했습니다. 서비스 이름은 compose 파일에서 확인하세요).
 3. 마이그레이션: `pnpm --filter backend exec prisma migrate deploy`.
 4. 시드: `cd apps/backend && SEED_PROFILE=demo pnpm exec prisma db seed`.
-5. 가이드용 상태: 준비 SQL을 `scripts/psql.sh -v ON_ERROR_STOP=1 -f <G>/prepare-db.sql`로 적용합니다.
-6. 백엔드: `apps/backend`에서 `PORT=4310`으로 시작합니다. `scripts/dev.sh`는 OAuth 변수를 요구하므로, 이 스택에서는 `nest start`를 직접 돌렸습니다. `/my-repos`가 동작하려면 `GITHUB_APP_ORG=JNU-SWCU`가 필요합니다.
+5. 가이드용 상태: 준비 SQL을 `docker exec -i oss-hub-guide-postgres-1 psql -U oss -d oss_hub -v ON_ERROR_STOP=1 < <G>/prepare-db.sql`로 적용합니다. 합성 행을 더 넣을 때도 같은 명령을 씁니다.
+6. 백엔드: `apps/backend`에서 `PORT=4310`으로 `nest start`를 직접 시작합니다. `/my-repos`가 동작하려면 `GITHUB_APP_ORG=JNU-SWCU`가 필요합니다.
 7. 프런트: `PORT=3310`으로 `next dev`. 프런트는 `BACKEND_ORIGIN`으로 백엔드를 찾습니다.
-8. 점검: `curl http://localhost:4310/api/v1/health`가 응답하면 백엔드가 떠 있습니다(공개 엔드포인트, 확인함). 이어 `node scripts/smoke.mjs <login> /` 로 페이지를 점검합니다.
+8. 점검: `curl http://localhost:4310/api/v1/health`가 응답하면 백엔드가 떠 있습니다(공개 엔드포인트, 확인함). 이어 `node skills/build-user-guide-site/scripts/smoke.mjs <login> /` 로 페이지를 점검합니다.
 
-확인하지 못한 것: 위 명령의 정확한 플래그 조합은 이전 세션에서 실행한 명령을 복원하지 못해 표준 형태로 적었습니다. 막히면 `scripts/dev.sh`와 `package.json`의 `db:*` 스크립트를 읽고 맞추세요. `db:seed`와 `db:migrate:dev`는 `db:guard`(`scripts/check-host-db-url.sh`)가 `DATABASE_URL`의 포트와 DB 이름이 `POSTGRES_PORT`, `POSTGRES_DB`와 같은지 검사하므로, 이 검사를 거치려면 두 값을 일치시키세요.
+확인하지 못한 것: 위 명령의 플래그 조합은 표준 형태로 적었습니다. 막히면 `compose.dev.yml`과 `apps/backend/package.json`을 읽고 맞추세요. `DATABASE_URL`의 포트와 DB 이름은 `POSTGRES_PORT`, `POSTGRES_DB`와 같아야 합니다.
 
 ## 이미 떠 있는지 확인
 

@@ -1,14 +1,15 @@
 ---
 name: build-user-guide-site
 description: >-
-  OSS Hub 사용자 가이드 사이트(`website/`, Astro Starlight, GitHub Pages)를 처음부터 만들거나 화면이 바뀐 뒤 갱신하고 배포한다.
-  「가이드 사이트」「사용자 가이드」「튜토리얼 문서」「GitHub Pages 가이드」「관리자·학생·교직원 사용법 문서」
-  「가이드 업데이트·배포」「화면 캡처 다시」「스크린샷 갱신」「website/ 수정」 요청에 쓴다.
+  GitHub Pages로 배포하는 OSS Hub 사용자 가이드 사이트(`website/`, Astro Starlight)를 처음부터 만들거나 화면이 바뀐 뒤 갱신하고 배포한다.
+  「가이드 사이트」「GitHub Pages 가이드」「jnu-swcu.github.io/oss-hub」「website/ 수정」
+  「가이드 사이트 화면 캡처 다시」「가이드 스크린샷 갱신」「가이드 사이트 배포」 요청에 쓴다.
   격리 스택에서 합성 페르소나로 개인정보 없이 캡처하고(블러와 번호 붙은 빨간 박스),
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
-  마일스톤마다 커밋·푸시·Pages 확인을 반복한다. 노션 핸드북은 build-oss-hub-handbook, PR은 submit-pr-evidence를 쓴다.
+  마일스톤마다 푸시와 Pages 확인을 반복한다.
+  대상은 `website/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
 metadata:
-  version: "1.0.7"
+  version: "1.1.0"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신
@@ -47,39 +48,27 @@ metadata:
 2. **캡처.** `capture-foundation`이 스택, 시드, 페르소나를 준비한 뒤 `capture-admin`, `capture-student`, `capture-staff`를 병렬로 돌린다. 기준은 [`references/capture-brief.md`](references/capture-brief.md), 스택은 [`references/stack.md`](references/stack.md), 데이터는 [`references/personas.md`](references/personas.md).
 3. **집필.** `write-intro`와 `write-<role>` 세 개를 병렬로. 기준은 [`references/writer-brief.md`](references/writer-brief.md). 사실의 우선순위는 화면 > 사실표 > 코드 > 추측.
 4. **사실 확인.** `factcheck-<role>`이 본문 주장을 화면과 코드에 대조해 불일치를 보고한다. 고치는 것은 집필 담당이다.
-5. **시각 검수.** 배포된 사이트를 `scripts/visual-audit.mjs`로 1440/390, 라이트/다크에서 점검한다. [`references/qa-and-polish.md`](references/qa-and-polish.md).
+5. **시각 검수.** 배포된 사이트를 `scripts/visual-audit.mjs`로 점검한다. 조합과 항목은 [`references/audit-and-polish.md`](references/audit-and-polish.md)에 있다.
 6. **윤문.** 사실이 확정된 뒤 `polish-<role>`이 `humanize-korean` 스킬로 MDX를 깨지 않게 다듬는다.
 7. **독자 시험.** Aside로 완성된 가이드를 처음 읽는 사람처럼 격리 스택에서 따라 해 본다. 같은 문서에 방법이 있다.
 8. **릴리스.** 마일스톤마다 [`references/release-and-automation.md`](references/release-and-automation.md)의 한 바퀴를 돈다.
 
 ## 오케스트레이터가 직접 하는 검수
 
-에이전트 보고는 부풀려질 수 있다. 커밋 전에 직접 본다.
-
-1. 보고한 시각 이후에 파일이 만들어졌는지(`ls -lT`).
-2. 장수가 맞는지.
-3. `scripts/margin-check.py`로 여백을 재고, `scripts/contact-sheet.py <이미지 폴더> <출력 접두사>`로 접촉 인쇄를 만들어 눈으로 본다. 안 가려진 개인정보, 잘린 글자, 가장자리에 걸린 줄, 로딩 상태, 빨간 박스 위치, 개발 배지.
-4. 본문 금지어 grep, 빌드.
-
-눈으로 보기 전에는 커밋하지 않는다.
-
-## 릴리스 한 바퀴
-
-`git add <명시한 경로>` → `bash skills/build-user-guide-site/scripts/release-check.sh` → 커밋(한국어 Conventional Commit, 본문 "-한다" 체, 마지막 줄은 세션의 attribution) → `scripts/check-public-safe.sh origin/main` → 푸시 → Pages 실행 확인 → 사용자에게 짧게 보고. 폴더 통째로 `git add` 하지 않는다(훅이 만든 `.omc/` 상태 파일이 `shots/` 아래에 생길 수 있다).
-
-자동화는 `.github/workflows/website-pages.yml`(main 푸시 시 빌드와 배포)과 `website-check.yml`(PR은 빌드만)이다. 큰 작업 중에 브랜치에서 진행 상황을 배포하려면 그 브랜치를 푸시 트리거와 `github-pages` 환경 브랜치 정책에 임시로 더하고, PR을 열기 전에 둘 다 되돌린다. 최종 PR은 `submit-pr-evidence` 형식이며 티켓이 없으므로 본문 첫 줄이 `티켓 없음 — <이유>`다.
+에이전트 보고는 부풀려질 수 있다. 커밋 전에 [`references/orchestration.md`](references/orchestration.md)의 검수를 직접 한다. 눈으로 보기 전에는 커밋하지 않는다.
 
 ## 스크립트
 
+`scripts/`는 이 스킬 폴더 안을 뜻한다. 저장소 루트의 `scripts/`에는 의존하지 않는다. 명령은 저장소 루트에서 `skills/build-user-guide-site/scripts/...`로 부른다.
+
 | 파일 | 용도 |
 |---|---|
-| `scripts/capture-lib.mjs` | 합성 페르소나 세션, 블러, 빨간 박스, webp 저장. 박스 대상이 20px 미만이면 오류. `SESSION_SECRET` 환경 변수 필요 |
+| `scripts/capture-lib.mjs` | 합성 페르소나 세션, 블러, 빨간 박스, webp 저장. 박스 대상이 20px 미만이면 오류 |
 | `scripts/margin-check.py` | 이미지 네 가장자리의 여백을 CSS px로 재서 내용이 붙거나 잘린 이미지를 찾는다 |
 | `scripts/smoke.mjs` | `node smoke.mjs <login\|anon> <경로>...` 경로가 열리는지, 개인정보와 개발 배지가 새는지 |
 | `scripts/visual-audit.mjs` | 배포 사이트를 네 조합으로 점검 |
 | `scripts/contact-sheet.py` | 이미지 접촉 인쇄(오케스트레이터 검수용) |
 | `scripts/release-check.sh` | mdx가 참조하는 이미지가 모두 git 인덱스에 있는지 |
-| `scripts/psql.sh` | 격리 스택 DB에 psql |
 | `scripts/stack.env.example` | 격리 스택 환경 변수 이름과 비밀이 아닌 값 |
 
 스크립트는 비밀을 환경 변수로만 받고, 출력은 임시 폴더에 쓴다.
@@ -91,9 +80,9 @@ metadata:
 - [ ] 본문 번호와 이미지의 박스 번호가 맞다.
 - [ ] 라벨은 화면에 나온 그대로 백틱에 있다.
 - [ ] 이름, 이메일, 학번, localhost, 시드, 합성, "버그"가 본문, alt, caption에 없다.
-- [ ] `release-check.sh`와 `check-public-safe.sh`가 통과했다.
+- [ ] `release-check.sh`가 통과했다.
 - [ ] 푸시했고 Pages 실행이 성공했으며 배포 주소에서 변경이 보인다.
-- [ ] 제품 결함 후보는 본문이 아니라 별도 보고서에 있다.
+- [ ] 제품 결함 후보는 본문에 쓰지 않고 사용자에게 따로 알렸다.
 - [ ] 스택을 껐다(`down -v`) 또는 남길 이유를 적었다.
 
 ## 하지 않는 것
@@ -101,18 +90,12 @@ metadata:
 - 로그인된 실제 브라우저로 캡처하지 않는다. Aside는 독자 시험과 배포 주소 확인에만 쓴다.
 - 개인정보 외의 것을 가리지 않는다. 가리는 방법은 블러뿐이다.
 - 눈으로 보지 않은 이미지를 커밋하지 않는다.
-- `git add -A`, `git add .`, 폴더 통째 추가를 쓰지 않는다.
-- 제품 결함을 본문에서 "버그"라고 부르지 않는다. 현재 동작과 우회 방법을 쓰고 결함은 따로 보고한다.
-- `apps/`와 `scripts/`를 고치지 않는다. 코드에 주석을 새로 넣지 않는다.
-- `build-oss-hub-handbook` 스킬을 고치지 않는다(겹치는 부분은 아래).
-- 임시 브랜치 트리거를 머지 뒤까지 남기지 않는다.
+- 제품 결함을 본문에서 "버그"라고 부르지 않는다. 현재 동작과 우회 방법을 쓰고 결함은 사용자에게 따로 알린다.
+- `website/`, 그 워크플로 두 개, 이 스킬 폴더 밖은 고치지 않는다. 코드에 주석을 새로 넣지 않는다.
+- 임시 브랜치 트리거를 `main`에 남기지 않는다.
 
 ## 요구사항
 
-- Node 24 이상, pnpm, Docker(격리 스택), `gh`, Python 3 + Pillow(접촉 인쇄), Playwright와 `jose`(저장소의 `apps/frontend`, `apps/backend` 의존성에서 가져옴), 웹 사이트의 `sharp`.
+- Node 24 이상, pnpm, Docker(격리 스택), `gh`, Python 3 + Pillow, numpy(접촉 인쇄, 여백 측정), Playwright와 `jose`(저장소의 `apps/frontend`, `apps/backend` 의존성에서 가져옴), 웹 사이트의 `sharp`.
 - 환경 변수: `SESSION_SECRET`(스택을 띄운 값과 같게), 선택으로 `GUIDE_BASE_URL`, `GUIDE_SHOT_ROOT`, `GUIDE_PG_CONTAINER`, `GUIDE_SMOKE_DIR`.
-- 이 저장소의 `scripts/check-public-safe.sh`, `skills/submit-pr-evidence`, `humanize-korean` 스킬.
-
-## build-oss-hub-handbook과의 관계
-
-둘 다 역할별 작업 목록, 증거 상태(`확인 완료/확인 필요/정책 확인 필요`), 안전한 스크린샷 원칙, 첫 사용자를 위한 글쓰기, 제품 문제 별도 보고, 품질 체크리스트를 공유한다. 이 스킬은 전달 대상이 GitHub Pages이고, 격리 스택과 합성 페르소나, 서브에이전트 병렬 작업, 자동 배포가 더해졌다. 집필 전에 핸드북의 `references/quality-checklist.md`를 읽는다.
+- 윤문에 쓰는 `humanize-korean` 스킬.

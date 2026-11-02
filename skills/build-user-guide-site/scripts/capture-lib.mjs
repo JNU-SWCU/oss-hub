@@ -71,12 +71,12 @@ const CLEAN_CSS = `
   *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; scroll-behavior: auto !important; }
 `;
 
-const browsers = new Set();
+let browserPromise;
 
 export async function openAs(login, o = {}) {
   const { width = 1280, height = 800, dpr = 2, theme = 'light' } = o;
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
-  browsers.add(browser);
+  browserPromise ??= chromium.launch({ channel: 'chrome' });
+  const browser = await browserPromise;
   const ctx = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: dpr,
@@ -112,8 +112,9 @@ export async function openAs(login, o = {}) {
 }
 
 export async function closeAll() {
-  for (const b of browsers) await b.close().catch(() => {});
-  browsers.clear();
+  const pending = browserPromise;
+  browserPromise = undefined;
+  await pending?.then((b) => b.close()).catch(() => {});
 }
 
 export async function visit(page, path) {

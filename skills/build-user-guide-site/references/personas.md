@@ -5,7 +5,7 @@
 ## 원칙
 
 - 모든 이메일은 `*.invalid`, 이름은 합성 이름, 학번과 교직원 번호는 합성 값입니다.
-- 준비 SQL은 여러 번 돌려도 같은 결과가 나오도록 멱등으로 씁니다. `psql -v ON_ERROR_STOP=1`로 실행합니다(`scripts/psql.sh` 사용).
+- 준비 SQL은 여러 번 돌려도 같은 결과가 나오도록 멱등으로 씁니다. 실행 명령은 `stack.md`에 있습니다.
 - 데이터 안의 "오늘"은 촬영 기준일로 고정해 두고(이 사이트는 2026-11-02 KST) 날짜가 어긋나 보이지 않게 마일스톤 날짜를 정합니다.
 - 저장소 조직은 `JNU-SWCU`로 둡니다. 화면에 보이는 곳은 캡처 때 가립니다.
 - 시드는 `SEED_PROFILE=demo`로 `prisma db seed`를 돌려 기본 데이터를 만들고, 그 위에 준비 SQL로 가이드용 상태를 얹습니다.
@@ -52,7 +52,7 @@
 1. 어떤 화면에서 어떤 상태가 필요한지 한 줄로 적습니다.
 2. 준비 SQL에 멱등 INSERT로 더합니다(`ON CONFLICT DO NOTHING` 등).
 3. 이 표에 역할과 상태만 추가합니다. 이름과 로그인은 적지 않습니다.
-4. 캡처할 때 `openAs('<login>')`로 열어 `scripts/smoke.mjs`로 먼저 점검합니다.
+4. 캡처할 때 `openAs('<login>')`로 열어 `skills/build-user-guide-site/scripts/smoke.mjs`로 먼저 점검합니다.
 
 ## 준비 SQL의 보관
 
