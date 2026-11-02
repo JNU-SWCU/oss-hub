@@ -1,15 +1,15 @@
 <h1 align="center">
   <a href="https://jnu-oss-hub.com">
-    <img src="docs/assets/readme-hero.svg" alt="OSS Hub, the service for Chonnam National University open-source programs" width="100%">
+    <img src="docs/assets/readme-hero.svg" alt="OSS Hub. Chonnam National University · Open Source Hub" width="100%">
   </a>
 </h1>
 
-<h3 align="center">A web service for applying to and running the open-source competitions, hackathons, and study groups of Chonnam National University's SW-Centered University Project Group</h3>
+<h3 align="center">OSS Hub handles applications, teams, and document review for the open-source competitions, hackathons, and study groups run by Chonnam National University's SW-Centered University Project Group.</h3>
 
-<p align="center">Students find a program, apply as a team, and submit documents. Faculty and staff approve or reject applications and review submissions. Approved teams work in a GitHub repository the service creates or one they connect themselves, and the service shows that record.</p>
+<p align="center">Students sign in with GitHub, find a program, apply as a team, and submit documents such as plans and final deliverables. University staff approve or reject applications and review each document. Approved teams get a GitHub repository from the service or link one of their own. The service collects their commits, pull requests, and issues every hour.</p>
 
 <p align="center">
-  <b>Students, faculty, and staff</b> use it at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. This repository is the source code of the service, and <b>contributing developers</b> download and run it by following <a href="#getting-started-locally">Getting started locally</a>.
+  <b>Students and staff</b> use the service at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. The <a href="https://jnu-swcu.github.io/oss-hub/">user guide</a> is in Korean. This repository is the service's source code. <b>Developers</b> can run it locally by following <a href="#getting-started-locally">Getting started locally</a>.
 </p>
 
 <p align="center">
@@ -31,237 +31,278 @@
 
 <p align="center">
   <a href="https://jnu-oss-hub.com"><b>Visit OSS Hub</b></a> •
+  <a href="https://jnu-swcu.github.io/oss-hub/"><b>User guide</b></a> •
   <a href="#screenshots">Screenshots</a> •
   <a href="#features">Features</a> •
-  <a href="#participation-workflow">Workflow</a> •
+  <a href="#how-a-program-runs">How a program runs</a> •
   <a href="#getting-started-locally">Getting started</a> •
-  <a href="#technology">Technology</a> •
   <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-> [!NOTE]
-> The application and screenshots are in Korean, and Korean is the authoritative version of the documentation. English translations of the skills and ticket templates sit beside their Korean sources.
-
 ## Screenshots
 
 > [!NOTE]
-> These examples were captured using synthetic accounts and programs, not real user data. They show the interface at the time of capture and may differ from the current service.
+> The service and these screenshots are in Korean. The accounts and programs are synthetic, and names, GitHub IDs, photos, and student IDs are blurred. The screens may differ slightly from the live service.
+
+<p align="center">
+  <img src="docs/assets/readme/dashboard.webp" alt="Staff dashboard with counts of programs that are recruiting, running, and finished, and a row per program for applications, activity, and submissions." width="100%">
+  <br>
+  The staff dashboard shows one row per program: pending approvals, repository activity, missing documents, and documents awaiting review.
+</p>
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <b>Individual document deadlines and days remaining</b><br>
-      View the deadline, days remaining, and submission status separately for the project plan and final deliverable. The Korean interface labels the countdown as D-day, for example D-9 for nine days remaining.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.23.1/qa-1390-dday-after-submissions-element-87b8bce6-20261021.png" alt="Separate deadlines, D-day countdowns, and submission statuses for a synthetic project plan and final deliverable">
-    </td>
-    <td width="50%" valign="top">
-      <b>Application preparation and teammate invitations</b><br>
-      Fill in application information and invite teammates.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.22.0/qa20261020-preparation-after-desktop.png" alt="Application preparation and teammate invitations for a synthetic program">
-    </td>
+    <td width="50%" valign="top"><b>Browse programs</b><br>Anyone can filter programs by recruiting status and read the schedule without signing in.<br><br><img src="docs/assets/readme/programs.webp" alt="Program list with filters for all, recruiting, running, upcoming, and finished, above cards for synthetic programs." width="100%"></td>
+    <td width="50%" valign="top"><b>Apply as a team</b><br>The team leader finds members by name or GitHub ID and invites them. Submitting the application also registers the team.<br><br><img src="docs/assets/readme/apply.webp" alt="Application form with a team name field, team members and an invite button, and a personal data consent item." width="100%"></td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <b>Submission summary for faculty and staff</b><br>
-      View submission status by document type and find items to review.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.22.0/qa20261020-collection-after-desktop.png" alt="Submission summary for faculty and staff in a synthetic program">
-    </td>
-    <td width="50%" valign="top">
-      <b>Activity ranking</b><br>
-      Check activity rankings.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.24.14/notkt-ranking-star-after-desktop-ranking.png" alt="Activity ranking made up of synthetic users">
-    </td>
+    <td width="50%" valign="top"><b>Decide on applications</b><br>Staff approve or reject each team. A rejection needs a written reason.<br><br><img src="docs/assets/readme/team-review.webp" alt="Staff team management screen showing each team's application as pending, approved, or rejected." width="100%"></td>
+    <td width="50%" valign="top"><b>Submit documents</b><br>Each required document shows its own deadline and review result. D-9 means nine days left. After a revision request, the team resubmits by the date staff set.<br><br><img src="docs/assets/readme/submissions.webp" alt="Student submission screen listing each document with its deadline, days left such as D-9, and an approved or revision requested status." width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>Team activity</b><br>GitHub activity collected every hour appears as a weekly trend for each team member.<br><br><img src="docs/assets/readme/team-activity.webp" alt="Team activity screen with the Commit tab open, a weekly line chart per member, and the last collection time." width="100%"></td>
+    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public, but only staff and administrators see the real name and department columns.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, blurred participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
   </tr>
 </table>
 
 ## Features
 
-- 🧭 **Program discovery and applications.** Check program schedules and participation requirements, and prepare an application.
-- 👥 **Team formation and participation.** Invite teammates, check participation status, and apply as a team.
-- 📄 **Document submission.** Check the deadline, days remaining (D-day), and submission status for each submission item, such as a project plan or final deliverable, and submit files.
-- ✅ **Application decisions and submission review.** Approve or reject applications, view submission summaries by document type and team, and review submissions.
-- 🐙 **GitHub integration.** Sign in with GitHub, connect repositories, and view activity.
-- 🏆 **Sharing and communication.** Explore activities and updates through finished programs and public projects, rankings, discussion boards, and notifications.
+- 🧭 **Browse without an account.** The program list, program details, ranking, and public projects need no sign-in.
+- 👥 **Apply as a team.** The team leader invites members and submits the application, which also registers the team.
+- ✅ **Decide from one list.** Staff approve or reject each team from the team list, and a rejection needs a reason.
+- 🐙 **Repositories on approval.** If a program issues repositories, each approved team gets a private repository and its members get invitations.
+- 📄 **Documents tracked one by one.** Each required document has its own deadline and review status, and after a revision request the team can resubmit by a set date.
+- 📦 **Bulk download.** Staff download submitted files as a ZIP with a `제출현황.csv` manifest.
+- 📊 **Hourly activity and a public ranking.** The service collects GitHub activity every hour and shows a weekly chart per team member and a public ranking.
+- 📣 **Boards and notifications.** Each program has a board for notices and questions. Decisions arrive as in-app notifications and deadline reminders as email.
 
-## Participation workflow
+## How a program runs
 
 ```mermaid
 flowchart LR
-  Explore[Explore] --> Apply[Prepare and apply]
+  Explore[Browse] --> Apply[Form a team and apply]
   Apply --> Decision{Application decision}
-  Decision -->|Approved| Submit[Participate and submit]
+  Decision -->|Approved| Work[Work and submit documents]
   Decision -->|Rejected| Rejected[Rejected]
-  Submit --> Review{Submission review}
-  Review -->|Revision requested| Submit
+  Work --> Review{Document review}
+  Review -->|Revision requested| Work
+  Review -->|Approved or rejected| Done[Review finished]
 ```
 
-1. **Explore.** Check the application period, program schedule, and submission items.
-2. **Prepare and apply.** Form a team, fill in the required application information, and submit it.
-3. **Application decision.** Faculty and staff review the application and approve or reject it.
-4. **Participate, submit, and review.** Approved teams submit documents and make revisions based on review feedback.
+1. **Browse.** Application dates, the schedule, and required documents are visible without signing in.
+2. **Form a team and apply.** Sign in with GitHub, name the team, and invite members by name or GitHub ID. Only the team leader can submit the application.
+3. **Application decision.** Staff approve or reject each team, and the result arrives as an in-app notification. If the program issues repositories, each approved team gets a private repository and its members get invitations.
+4. **Work and submit documents.** Teams work in their repository. Only approved applications can submit documents.
+5. **Document review.** Staff approve, reject, or request a revision for each document. Approval and rejection are final. After a revision request, the team resubmits by the date staff set. Once a team resubmits after the deadline, it cannot change the document until the review is done.
 
-Application approval and the review outcome for each submission are managed separately.
-A project plan and a final deliverable are separate submission items, so their names, deadlines, and submission statuses remain distinct even when they share a due date.
+Approving an application does not approve its documents. A plan and a final report are separate items, so each keeps its own deadline and status even when the dates match.
+
+<details>
+<summary><b>Detailed rules for decisions and submissions</b></summary>
+
+- **Repository invitations.** Each member accepts their own GitHub invitation.
+- **Linking your own repository.** The team leader or staff can register it. A repository outside the organization must be public.
+- **Making a repository public.** If the team said on the application that it plans to make it public, staff can make it public after the program ends and required documents are approved.
+- **Files.** The service accepts PDF, HWP, and ZIP files up to 5 MB.
+- **Grace deadlines.** When staff set a grace deadline, the service accepts submissions until then and marks them late.
+- **Deadline email.** If the program turns this on, members of approved teams that have not submitted a required document due within 24 hours get an email at 9:00 a.m. each day. Each member must also turn on email and set a mail address in their settings.
+- **Ranking and collection scope.** The [GitHub activity policy](https://jnu-oss-hub.com/policies/github-activity) (in Korean) explains what is collected and shown.
+
+</details>
 
 ### Roles
 
-| Role                          | Main capabilities                                                                                                                     |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Student · STUDENT**         | Apply to programs, join teams, submit and resubmit documents for approved applications, and view their own repositories and activity. |
-| **Faculty and staff · STAFF** | Manage programs, approve or reject applications, review submissions, and request revisions.                                           |
-| **Administrator · ADMIN**     | Manage programs, plus users, permissions, audit logs, and system administration.                                                      |
+| Role | Starts | Can do | Guide (Korean) |
+| --- | --- | --- | --- |
+| **Student** (학생) · `STUDENT` | On sign-up | Apply to programs, join teams, submit and resubmit documents, see their own repositories and activity | [Student guide](https://jnu-swcu.github.io/oss-hub/student/) |
+| **Staff** (교직원) · `STAFF`, meaning faculty and administrative staff | After approval | Create programs, including filling one in from a notice URL, decide on applications, review documents and request revisions, see student activity statistics | [Staff guide](https://jnu-swcu.github.io/oss-hub/staff/) |
+| **Administrator** (관리자) · `ADMIN` | When granted | Everything staff can do, plus users and permissions, audit logs, system status, and manual collection | [Administrator guide](https://jnu-swcu.github.io/oss-hub/admin/) |
 
-Membership type and operational permissions are managed separately, and one account can have multiple permissions.
-Faculty and staff handle application decisions; administrators with the relevant operational permissions can also make these decisions.
+Member type and administrator permission are separate, so one account can be both staff and an administrator. Neither staff nor administrators can decide on their own team's application or review its documents.
 
-> [!IMPORTANT]
-> Neither faculty and staff nor administrators can decide on applications or review submissions from a team they belong to.
+### Getting help
+
+- The [FAQ](https://jnu-swcu.github.io/oss-hub/faq/) (in Korean) answers common questions.
+- Ask the staff member in charge or an administrator about a specific program.
+- Report bugs and suggest changes in [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues).
+- Report security problems through the [security policy](SECURITY.md), not a public issue.
 
 ## Getting started locally
 
-**Prerequisites:** Node.js 24 or later · pnpm 11.0.0 (set by `packageManager`) · Docker and Docker Compose · direnv integrated with your shell
+You need Node.js 24 or later (CI uses 24), Docker Compose, bash, and OpenSSL. Node.js 25 and later no longer ship corepack, so if the `corepack` command is missing, run `npm install -g corepack` first.
 
 ```bash
 git clone https://github.com/JNU-SWCU/oss-hub.git
 cd oss-hub
 corepack enable
 pnpm install
+
 cp .envrc.example .envrc
-```
+echo "export SESSION_SECRET=$(openssl rand -hex 32)" >> .envrc
+echo "export TEAM_JOIN_CODE_SECRET=$(openssl rand -hex 32)" >> .envrc
+source .envrc
 
-`pnpm install` also generates the backend's Prisma Client.
-Follow the instructions in `.envrc` to generate and enter **two different signing keys** (`SESSION_SECRET` and `TEAM_JOIN_CODE_SECRET`), then start the app.
-
-```bash
-direnv allow
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Once it starts, the app is at <http://localhost:3000>. If you use direnv, you can run `direnv allow` in place of `source .envrc`.
 
-<details>
-<summary><b>GitHub sign-in and test accounts</b></summary>
-
-To use GitHub sign-in, also enter the Client ID and Client Secret of a development OAuth App in `.envrc`.
-The example OAuth values are placeholders and cannot be used to sign in.
-
-The OAuth App's local callback URL must match:
-
-```text
-http://localhost:3000/api/v1/auth/github/callback
-```
-
-See the [development script](scripts/dev.sh) and [`.envrc.example`](.envrc.example) for GitHub App integration and test accounts with different roles.
-Configure roles for test accounts in `AUTH_INITIAL_ROLES` in `.envrc` before their first sign-in.
-Do not commit `.envrc` or private key files to Git.
-Use `.envrc.example` as the starting point for local configuration; `.env.example` lists the environment variables required by the production Compose setup.
-
-</details>
-
-<details>
-<summary><b>What <code>pnpm dev</code> does, and stopping development</b></summary>
-
-This command checks required settings and ports `3000` and `4000`, starts the development infrastructure, applies existing migrations, and then starts the frontend and backend.
-The applications run on the host with hot reload; Docker runs the development PostgreSQL database and file storage.
-`compose.yml` is for production; local development uses `compose.dev.yml`.
-
-After stopping the applications with `Ctrl+C`, stop the development infrastructure if you no longer need it.
-Your saved development data is retained.
+The program list starts empty. To fill it, load the synthetic demo data (4 programs, 14 students, 1 staff member) from another terminal.
 
 ```bash
-docker compose -f compose.dev.yml stop
+source .envrc
+SEED_PROFILE=demo pnpm db:seed
+```
+
+> [!NOTE]
+> There is no development login. You can browse public pages without one, but signing in requires a GitHub OAuth App of your own.
+
+<details>
+<summary><b>GitHub sign-in and role accounts</b></summary>
+
+1. Create an OAuth App at <https://github.com/settings/developers>. Set the Homepage URL to `http://localhost:3000` and the callback URL to this address.
+
+   ```text
+   http://localhost:3000/api/v1/auth/github/callback
+   ```
+
+2. Replace `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET` in `.envrc` with the values GitHub gave you.
+3. To get an administrator account, set `AUTH_INITIAL_ROLES` to `<numeric GitHub ID>:ADMIN` before the first sign-in. Separate several entries with commas. The role can be `ADMIN`, `STAFF`, or `STUDENT`. Find a numeric ID at `https://api.github.com/users/<login>`. The value applies only to an active account that has no role or profile yet.
+4. Run `source .envrc` again and restart `pnpm dev`.
+
+The server starts with the GitHub App values blank. Fill them in only to try repository creation and activity collection. Git ignores `.envrc` and `secrets/`, and neither should ever be committed. `.env.example` lists production Compose values and is not for local development.
+
+To remove the demo data, run this command.
+
+```bash
+source .envrc
+pnpm --filter backend exec prisma db seed -- --profile demo --teardown
 ```
 
 </details>
 
-## Technology
+<details>
+<summary><b>What <code>pnpm dev</code> does and how to stop it</b></summary>
 
-| Area                           | Technologies                                                                |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| Frontend                       | Next.js App Router, React, TypeScript, Tailwind CSS, Radix UI               |
-| Backend                        | NestJS, TypeScript, Prisma                                                  |
-| Data and files                 | PostgreSQL, private Cloudflare R2 file storage                              |
-| Authentication and integration | GitHub OAuth, GitHub repository and activity collection                     |
-| Verification                   | Vitest, Jest, Playwright with Chrome, GitHub Actions                        |
-| Deployment                     | Vercel for the frontend; Docker Compose, nginx, and Jenkins for the backend |
+`pnpm dev` checks six required environment variables (`DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`) and ports 3000 and 4000. It then starts PostgreSQL and an S3-compatible mock file store in Docker, applies migrations, and starts the frontend and backend. It does not seed data.
 
-The main request flow in production is:
+The apps run on the host with hot reload, and when one exits the other stops too. `pnpm install` generates the Prisma Client. `MAIL_MODE=dry-run` in `.envrc.example` logs mail instead of sending it. [compose.dev.yml](compose.dev.yml) is the local infrastructure and [compose.yml](compose.yml) is the production runtime.
+
+| Command | Result |
+| --- | --- |
+| `Ctrl+C` | Stops the frontend and backend. Containers keep running. |
+| `docker compose -f compose.dev.yml stop` | Stops the containers and keeps the data. |
+| `docker compose -f compose.dev.yml down` | Removes the containers and keeps the data in volumes. |
+| `docker compose -f compose.dev.yml down -v` | Removes the containers and volumes, which deletes the data. |
+
+</details>
+
+## Architecture
+
+| Area | Technology |
+| --- | --- |
+| Frontend | Next.js App Router, React, TypeScript, Tailwind CSS, Radix UI |
+| Backend | NestJS, TypeScript, Prisma |
+| Data and files | PostgreSQL, private Cloudflare R2 |
+| Auth and integrations | GitHub OAuth, GitHub App for repository creation and activity collection, Gmail for mail |
+| Testing | Vitest, Jest, Playwright with Chrome, GitHub Actions |
+| Deployment | Vercel for the frontend, Docker Compose, nginx, and Jenkins for the backend |
+
+This is how the main requests flow in production.
 
 ```mermaid
 flowchart LR
-  Browser[Browser] --> Frontend[Next.js · Vercel]
-  Frontend -->|Authenticated API requests| Ingress[nginx]
-  Ingress --> Backend[NestJS API]
+  Browser[Browser] --> Frontend[Next.js on Vercel]
+  Frontend -->|Authenticated API requests| Nginx[nginx]
+  Nginx --> Backend[NestJS]
   Backend --> Database[(PostgreSQL)]
-  Backend --> Files[(Private R2 file storage)]
+  Backend --> Storage[(Cloudflare R2)]
+  Backend -->|Repositories and activity| GitHub[GitHub]
 ```
 
-The browser uses `/api/v1` on the same domain as the frontend, and the backend handles access to the database and file storage.
-See the [production configuration](compose.yml) and [backend module composition](apps/backend/src/app.module.ts) for detailed boundaries and deployment arrangements.
+The browser calls the API at `/api/v1` on the frontend's domain, and only the backend reaches the database and file storage. See [compose.yml](compose.yml) for the production setup and [app.module.ts](apps/backend/src/app.module.ts) for the backend modules.
 
 <details>
-<summary><b>Repository structure</b></summary>
+<summary><b>Repository layout</b></summary>
 
 ```text
 apps/
-├── frontend/            # Next.js UI, features, and browser tests
-└── backend/             # NestJS API, business rules, and background jobs
-    └── prisma/          # Data model and migrations
-docs/design-tokens/      # Design tokens
-scripts/                 # Development, verification, and deployment helpers
-skills/                  # Repository-specific agent workflows
-deploy/                  # nginx and Jenkins configuration
-.github/workflows/       # CI
+├── frontend/            # Next.js screens, features, browser tests
+└── backend/             # NestJS API, business rules, scheduled jobs
+    └── prisma/          # Data model, migrations, seeds
+docs/
+├── assets/              # README images
+├── design-tokens/       # Design tokens
+└── translations/        # English PR and ticket templates
+scripts/                 # Development, checks, deployment helpers
+└── jenkins/             # Backend deployment steps
+skills/                  # Agent procedures for this repository
+deploy/                  # nginx configuration
+.github/workflows/       # CI and frontend deployment
+Jenkinsfile              # Backend deployment
 compose.dev.yml          # Local development infrastructure
 compose.yml              # Production runtime
 ```
 
 </details>
 
-## Contributing
-
-Keep changes within the issue's scope and acceptance criteria, and record the verification you actually performed in the PR.
-Before contributing, read [Getting started locally](#getting-started-locally), the [PR evidence workflow](skills/submit-pr-evidence/SKILL.md), and the [public safety checks](scripts/check-public-safe.sh).
-See the [contribution guide](CONTRIBUTING.md) for the full steps, the [code of conduct](CODE_OF_CONDUCT.md) for participation rules, and the [security policy](SECURITY.md) to report a vulnerability. The guide, code of conduct, and security policy are in Korean.
-
 <details>
-<summary><b>Development and verification commands</b></summary>
+<summary><b>Deployment</b></summary>
 
-Run these commands from the repository root.
-Choose the checks required for your changes using the [CI workflow](.github/workflows/ci.yml).
-
-| Purpose                                   | Command                                  |
-| ----------------------------------------- | ---------------------------------------- |
-| Check code and structure                  | `pnpm lint`                              |
-| Check types                               | `pnpm typecheck`                         |
-| Run frontend tests and backend unit tests | `pnpm test`                              |
-| Build all applications                    | `pnpm build`                             |
-| Check formatting                          | `pnpm format:check`                      |
-| Run backend database integration tests    | `pnpm --filter backend test:integration` |
-| Run browser tests                         | `pnpm --filter frontend e2e`             |
-| Create a development migration            | `pnpm db:migrate:dev`                    |
-
-`pnpm test` does not include backend database integration tests or browser tests.
-Database integration tests use a dedicated isolated runner, and browser tests use installed Chrome with a separate test environment.
-Use `pnpm --filter frontend e2e:install` to install the browser, and see the [Playwright configuration](apps/frontend/playwright.config.ts) for the browser test settings.
+- **Frontend.** Publishing a `vX.Y.Z` Release from a tag on `main` makes GitHub Actions deploy to Vercel, but only when the frontend changed.
+- **Backend.** Jenkins checks for the latest Release about every 10 minutes. It confirms the tag is on `main`, backs up the database and file storage, builds the Docker image, and applies migrations. If the smoke test fails, it rolls back to the previous release.
 
 </details>
 
-### Documentation guide
+## Contributing
 
-| Topic                                             | Document                                             |
-| ------------------------------------------------- | ---------------------------------------------------- |
-| Joining the team and starting your first task     | [Getting started locally](#getting-started-locally)  |
-| Environment setup, sign-in, and local development | [Development script](scripts/dev.sh)                 |
-| System boundaries and request flow                | [Production configuration](compose.yml)              |
-| Backend module composition                        | [AppModule](apps/backend/src/app.module.ts)          |
-| Tests for each changed path and pre-deployment checks | [CI workflow](.github/workflows/ci.yml)              |
-| Writing and reviewing PRs                         | [PR evidence workflow](skills/submit-pr-evidence/SKILL.md) |
-| Public repository safety and data protection      | [Public safety checks](scripts/check-public-safe.sh) |
+Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash scripts/check-public-safe.sh` and make it pass before you open a PR.
 
-See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.
+See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative. The repository's skills have `SKILL.en.md` versions, and `docs/translations/` has the templates in English.
+
+<details>
+<summary><b>Development and test commands</b></summary>
+
+Run these from the repository root. The [CI workflow](.github/workflows/ci.yml) shows which checks each changed path needs.
+
+| Purpose | Command |
+| --- | --- |
+| Lint and structure checks | `pnpm lint` |
+| Type checks | `pnpm typecheck` |
+| Frontend tests and backend unit tests | `pnpm test` |
+| Build all apps | `pnpm build` |
+| Format check | `pnpm format:check` |
+| Backend database integration tests | `pnpm --filter backend test:integration` |
+| Browser tests | `pnpm --filter frontend e2e` |
+| Create a development migration | `pnpm db:migrate:dev` |
+
+`pnpm test` leaves out the database integration tests and the browser tests. Integration tests use a dedicated isolated runner, and browser tests use an installed Chrome and a separate test environment. Run `pnpm --filter frontend e2e:install` to prepare the browser. The [Playwright config](apps/frontend/playwright.config.ts) has the details.
+
+`pnpm build` needs an allowlisted HTTPS `BACKEND_ORIGIN`. In a shell that has loaded `.envrc`, pass the value CI uses.
+
+```bash
+BACKEND_ORIGIN=https://backend.example.test pnpm build
+```
+
+Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, run `pnpm format:check` before a push, and tidy branches after a merge on `main`.
+
+</details>
+
+### Documentation map
+
+| What you want to know | Document |
+| --- | --- |
+| Contribution steps and where to start | [CONTRIBUTING.md](CONTRIBUTING.md) (Korean) |
+| Writing a PR and its evidence | [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md) |
+| What must stay out of a public repository | [Public safety check](skills/submit-pr-evidence/references/public-safety-check.en.md) |
+| Tests per changed path, and deployment | [CI workflow](.github/workflows/ci.yml) |
+| Database and seeds | [Prisma notes](apps/backend/prisma/README.md) (Korean) |
+| Frontend feature structure | [Features notes](apps/frontend/src/features/README.md) (Korean) |
+| Design tokens and Figma | [Figma plugin notes](apps/frontend/figma-plugin/README.md) (Korean) |
+| QA tickets and release QA | [Managing QA tickets](skills/manage-qa-tickets/SKILL.en.md), [Release QA](skills/run-release-qa/SKILL.en.md) |
+| PR and issue templates | [PR template](docs/translations/pull-request-template.en.md), [work ticket](docs/translations/work-ticket.en.md) |
 
 ## License
 

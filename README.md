@@ -1,15 +1,15 @@
 <h1 align="center">
   <a href="https://jnu-oss-hub.com">
-    <img src="docs/assets/readme-hero.svg" alt="OSS Hub, 전남대학교 오픈소스 프로그램 운영 서비스" width="100%">
+    <img src="docs/assets/readme-hero.svg" alt="OSS Hub. Chonnam National University · Open Source Hub" width="100%">
   </a>
 </h1>
 
-<h3 align="center">전남대학교 SW중심대학사업단이 여는 오픈소스 경진대회·해커톤·스터디의 신청과 운영을 맡는 웹 서비스</h3>
+<h3 align="center">전남대학교 SW중심대학사업단의 오픈소스 경진대회·해커톤·스터디를 신청부터 서류 검토까지 운영하는 웹 서비스</h3>
 
-<p align="center">학생은 프로그램을 찾아 팀으로 신청하고 서류를 제출합니다. 교직원은 신청을 승인·반려하고 제출물을 검토합니다. 승인된 팀은 서비스가 만든 GitHub 저장소나 직접 연결한 저장소에서 활동하고, 그 기록을 서비스에서 확인합니다.</p>
+<p align="center">학생은 GitHub 계정으로 로그인해 프로그램을 찾고 팀으로 신청한 뒤 계획서와 결과물 같은 서류를 냅니다. 교직원은 신청을 승인하거나 반려하고 서류를 검토합니다. 승인된 팀은 서비스가 만들어 주는 GitHub 저장소나 직접 연결한 저장소에서 활동합니다. 서비스는 커밋, PR, 이슈 같은 활동을 1시간마다 모아 보여 줍니다.</p>
 
 <p align="center">
-  <b>학생과 교직원</b>은 <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>에서 이용합니다. 이 저장소는 서비스의 소스 코드이며, <b>기여할 개발자</b>는 <a href="#로컬에서-시작하기">로컬에서 시작하기</a>로 내려받아 실행합니다.
+  <b>학생과 교직원</b>은 <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>에서 바로 이용합니다. 사용법은 <a href="https://jnu-swcu.github.io/oss-hub/">사용 가이드</a>에서 봅니다. 이 저장소는 서비스의 소스 코드입니다. <b>기여할 개발자</b>는 <a href="#로컬에서-시작하기">로컬에서 시작하기</a>를 따라 직접 실행해 봅니다.
 </p>
 
 <p align="center">
@@ -31,11 +31,11 @@
 
 <p align="center">
   <a href="https://jnu-oss-hub.com"><b>서비스 바로가기</b></a> •
+  <a href="https://jnu-swcu.github.io/oss-hub/"><b>사용 가이드</b></a> •
   <a href="#화면-예시">화면 예시</a> •
   <a href="#주요-기능">주요 기능</a> •
   <a href="#참여-흐름">참여 흐름</a> •
   <a href="#로컬에서-시작하기">로컬에서 시작하기</a> •
-  <a href="#기술-구성">기술 구성</a> •
   <a href="#기여하기">기여하기</a>
 </p>
 
@@ -44,159 +44,185 @@
 ## 화면 예시
 
 > [!NOTE]
-> 합성 계정과 합성 프로그램으로 촬영한 기능 예시이며, 실제 사용자 데이터가 아닙니다. 촬영 시점의 화면으로 현재 서비스와 일부 차이가 있을 수 있습니다.
+> 합성 데이터로 촬영한 화면입니다. 프로그램과 사람은 모두 예시입니다. 이름·GitHub 아이디·사진·학번은 흐리게 처리했습니다. 촬영 시점의 화면이라 현재 서비스와 조금 다를 수 있습니다.
+
+<p align="center">
+  <img src="docs/assets/readme/dashboard.webp" alt="교직원 운영 대시보드. 모집중·진행중·종료 프로그램 수와 프로그램별 신청, 활동, 제출 현황이 보입니다." width="100%">
+  <br>
+  교직원 화면입니다. 프로그램마다 승인 대기, 저장소 활동, 미제출과 검토 대기 건수를 한 줄로 보여 줍니다.
+</p>
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <b>서류별 마감과 D-day</b><br>
-      계획서와 결과물의 마감일, 남은 날짜와 제출 상태를 각각 확인합니다.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.23.1/qa-1390-dday-after-submissions-element-87b8bce6-20261021.png" alt="합성 계획서와 결과물의 개별 마감일, D-day, 제출 상태">
-    </td>
-    <td width="50%" valign="top">
-      <b>신청 준비와 팀원 초대</b><br>
-      신청 정보를 작성하고 팀원을 초대합니다.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.22.0/qa20261020-preparation-after-desktop.png" alt="합성 프로그램의 신청 준비와 팀원 초대 화면">
-    </td>
+    <td width="50%" valign="top"><b>프로그램 둘러보기</b><br>로그인하지 않아도 모집 상태별로 프로그램을 찾고 일정을 볼 수 있습니다.<br><br><img src="docs/assets/readme/programs.webp" alt="프로그램 목록. 전체, 모집중, 진행중, 예정, 종료 필터와 합성 프로그램 카드가 보입니다." width="100%"></td>
+    <td width="50%" valign="top"><b>팀으로 신청하기</b><br>팀장이 이름이나 GitHub 아이디로 팀원을 찾아 초대합니다. 팀장이 신청서를 내면 팀도 함께 등록됩니다.<br><br><img src="docs/assets/readme/apply.webp" alt="프로그램 신청서. 팀 이름 입력칸, 팀 구성원과 초대 버튼, 개인정보 수집·이용 동의 항목이 보입니다." width="100%"></td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <b>교직원의 서류 수합 요약</b><br>
-      서류별 제출 현황을 요약해서 보고 검토할 대상을 찾습니다.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.22.0/qa20261020-collection-after-desktop.png" alt="합성 프로그램의 교직원 서류 수합 요약 화면">
-    </td>
-    <td width="50%" valign="top">
-      <b>활동 랭킹</b><br>
-      활동 랭킹을 확인합니다.<br><br>
-      <img src="https://github.com/JNU-SWCU/oss-hub/releases/download/v0.24.14/notkt-ranking-star-after-desktop-ranking.png" alt="합성 사용자로 구성한 활동 랭킹 화면">
-    </td>
+    <td width="50%" valign="top"><b>신청 판정</b><br>교직원이 팀별로 승인하거나 반려합니다. 반려할 때는 사유를 적어야 합니다.<br><br><img src="docs/assets/readme/team-review.webp" alt="교직원의 팀 관리 화면. 팀별 신청 상태가 검토 대기, 승인, 반려로 표시되어 있습니다." width="100%"></td>
+    <td width="50%" valign="top"><b>서류 제출</b><br>제출 항목마다 마감과 검토 결과를 따로 보여 줍니다. 보완 요청을 받으면 정해진 기한까지 다시 냅니다.<br><br><img src="docs/assets/readme/submissions.webp" alt="학생의 제출 현황 화면. 서류별 마감, D-9 같은 남은 날짜, 승인과 보완 요청 상태가 보입니다." width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>팀 활동</b><br>1시간마다 GitHub 활동을 모아 팀원별 주간 추이로 보여 줍니다.<br><br><img src="docs/assets/readme/team-activity.webp" alt="우리 팀 활동 화면. Commit 탭에 팀원별 주간 활동 꺾은선 그래프와 마지막 수집 시각이 보입니다." width="100%"></td>
+    <td width="50%" valign="top"><b>활동 랭킹</b><br>학생의 GitHub 계정 활동을 Commit, PR, Issue, Repo, Star 합계로 줄 세웁니다. 표는 로그인 없이 볼 수 있습니다. 실명과 학과 열은 교직원과 관리자에게만 보입니다.<br><br><img src="docs/assets/readme/ranking.webp" alt="활동 랭킹 표. 순위, 흐리게 처리한 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 보입니다." width="100%"></td>
   </tr>
 </table>
 
 ## 주요 기능
 
-- 🧭 **프로그램 탐색·신청.** 프로그램의 일정과 참여 조건을 확인하고 신청을 준비합니다.
-- 👥 **팀 구성·참여.** 팀원을 초대하고 참여 상태를 확인하며 팀 단위로 신청합니다.
-- 📄 **서류 제출.** 계획서·결과물 등 프로그램별 제출 항목의 마감, D-day와 제출 상태를 확인하고 파일을 제출합니다.
-- ✅ **신청 판정·제출 검토.** 신청을 승인·반려하고, 서류별 수합 요약과 팀별 현황을 보며 제출물을 검토합니다.
-- 🐙 **GitHub 연동.** GitHub 계정으로 로그인하고 저장소를 연결해 활동을 확인합니다.
-- 🏆 **활동 공유·소통.** 종료된 프로그램과 공개 프로젝트, 랭킹, 게시판과 알림을 통해 활동과 소식을 확인합니다.
+- 🧭 **로그인 없이 둘러보기.** 프로그램 목록과 상세, 랭킹, 공개 프로젝트를 계정 없이 볼 수 있습니다.
+- 👥 **팀원 초대와 팀 신청.** 팀장이 팀원을 초대하고 신청서를 내면 팀도 함께 등록됩니다.
+- ✅ **목록에서 바로 판정.** 교직원이 팀 목록에서 승인·반려합니다. 반려할 때는 사유를 남깁니다.
+- 🐙 **승인된 팀의 저장소 발급.** 저장소 발급을 켠 프로그램은 승인된 팀에 비공개 저장소를 만들고 팀원을 초대합니다.
+- 📄 **서류별 마감과 상태.** 제출 항목마다 마감과 검토 결과를 따로 보여 줍니다. 보완 요청을 받으면 기한 안에 다시 냅니다.
+- 📦 **서류 일괄 내려받기.** 제출 파일을 `제출현황.csv`와 함께 ZIP으로 받습니다.
+- 📊 **1시간마다 활동 수집.** GitHub 활동을 모아 팀원별 주간 그래프와 공개 랭킹으로 보여 줍니다.
+- 📣 **게시판과 알림.** 프로그램별 공지·질문 게시판이 있습니다. 판정 결과는 앱 알림으로, 마감 안내는 메일로 받습니다.
 
 ## 참여 흐름
 
 ```mermaid
 flowchart LR
-  Explore[탐색] --> Apply[준비·신청]
+  Explore[탐색] --> Apply[팀 구성·신청]
   Apply --> Decision{신청 판정}
-  Decision -->|승인| Submit[활동·제출]
+  Decision -->|승인| Work[활동·서류 제출]
   Decision -->|반려| Rejected[반려]
-  Submit --> Review{제출물 검토}
-  Review -->|보완 요청| Submit
+  Work --> Review{서류 검토}
+  Review -->|보완 요청| Work
+  Review -->|승인·반려| Done[검토 완료]
 ```
 
-1. **탐색.** 프로그램의 신청 기간, 운영 일정과 제출 항목을 확인합니다.
-2. **준비·신청.** 팀을 구성하고 필요한 신청 정보를 작성해 제출합니다.
-3. **신청 판정.** 교직원이 신청을 검토하고 승인 또는 반려합니다.
-4. **활동·제출·검토.** 승인된 팀이 서류를 제출하고, 검토 결과에 따라 보완합니다.
+1. **탐색.** 신청 기간, 운영 일정, 제출 항목을 로그인 없이 봅니다.
+2. **팀 구성·신청.** GitHub로 로그인해 팀 이름을 정하고 이름이나 GitHub 아이디로 팀원을 초대합니다. 신청서는 팀장만 낼 수 있습니다.
+3. **신청 판정.** 교직원이 팀별로 승인하거나 반려하면 결과가 앱 알림으로 갑니다. 저장소 발급을 켠 프로그램은 승인된 팀에 비공개 저장소를 만들고 팀원을 초대합니다.
+4. **활동·서류 제출.** 팀은 저장소에서 활동합니다. 서류는 승인된 신청에서만 낼 수 있습니다.
+5. **서류 검토.** 교직원이 서류마다 승인·보완 요청·반려를 정합니다. 승인과 반려는 최종입니다. 보완 요청을 받으면 정해진 기한까지 다시 냅니다. 마감 뒤에 다시 낸 서류는 검토가 끝날 때까지 고칠 수 없습니다.
 
-신청 승인과 개별 제출물의 검토 결과는 별도로 관리합니다.
-계획서와 결과물도 각각의 제출 항목이므로 마감일이 같더라도 이름·마감·제출 상태를 구분합니다.
+신청 승인과 서류 승인은 별개입니다. 계획서와 결과물은 서로 다른 제출 항목입니다. 마감일이 같아도 마감과 제출 상태를 따로 봅니다.
+
+<details>
+<summary><b>판정과 제출의 세부 규칙</b></summary>
+
+- **저장소 초대.** GitHub 초대는 팀원이 각자 수락합니다.
+- **직접 만든 저장소 연결.** 팀장이나 교직원이 등록합니다. 운영 조직 밖의 저장소라면 공개 저장소여야 합니다.
+- **공개 전환.** 프로그램이 끝나고 필수 서류가 승인된 뒤, 신청서에서 공개 예정으로 표시한 팀의 저장소를 교직원이 공개로 바꿉니다.
+- **파일.** PDF, HWP, ZIP을 5 MB까지 받습니다.
+- **유예 기한.** 교직원이 유예 기한을 정하면 원래 마감 뒤에도 그 시각까지 받습니다. 이렇게 낸 서류는 지각 제출로 표시합니다.
+- **마감 안내 메일.** 프로그램에서 켜 두면 매일 오전 9시에 메일이 갑니다. 받는 사람은 24시간 안에 마감인 필수 서류를 아직 내지 않은 승인 팀의 팀원입니다. 팀원도 설정에서 메일 수신을 켜고 메일 주소를 등록해야 합니다.
+- **랭킹과 수집 범위.** 수집 항목과 공개 범위는 [GitHub 활동 수집·공개 범위](https://jnu-oss-hub.com/policies/github-activity)에서 설명합니다.
+
+</details>
 
 ### 역할
 
-| 역할               | 주요 사용 범위                                                                |
-| ------------------ | ----------------------------------------------------------------------------- |
-| **학생 · STUDENT** | 프로그램 신청, 팀 참여, 승인된 신청의 서류 제출·재제출, 본인 저장소·활동 확인 |
-| **교직원 · STAFF** | 프로그램 운영, 신청 승인·반려, 제출물 검토와 보완 요청                        |
-| **운영자 · ADMIN** | 프로그램 운영 권한에 더해 사용자·권한, 감사 로그와 시스템 관리                |
+| 역할 | 시작 | 하는 일 | 가이드 |
+| --- | --- | --- | --- |
+| 학생 · `STUDENT` | 가입 즉시 | 프로그램 신청, 팀 참여, 서류 제출과 재제출, 본인 저장소와 활동 확인 | [학생 가이드](https://jnu-swcu.github.io/oss-hub/student/) |
+| 교직원 · `STAFF` | 승인 후 | 프로그램 생성(공지 글 주소로 내용 채우기 포함), 신청 판정, 서류 검토와 보완 요청, 학생 활성 통계 | [교직원 가이드](https://jnu-swcu.github.io/oss-hub/staff/) |
+| 관리자 · `ADMIN` | 권한 부여 후 | 교직원 업무에 더해 사용자와 권한 관리, 감사 로그, 시스템 상태 확인과 수동 수집 | [관리자 가이드](https://jnu-swcu.github.io/oss-hub/admin/) |
 
-회원 유형과 운영 권한은 별도로 관리되며, 한 계정에 여러 권한이 부여될 수 있습니다.
-신청 판정은 교직원의 업무이며, 운영 권한을 가진 운영자도 수행할 수 있습니다.
+회원 유형과 관리자 권한은 따로 관리하므로 한 계정이 교직원이면서 관리자일 수 있습니다. 교직원도 관리자도 자기 팀의 신청을 판정하거나 서류를 검토할 수 없습니다.
 
-> [!IMPORTANT]
-> 교직원과 운영자 모두 자신이 참여한 팀의 신청을 판정하거나 제출물을 검토할 수 없습니다.
+### 도움 받기
+
+- 자주 묻는 질문은 [FAQ](https://jnu-swcu.github.io/oss-hub/faq/)에 있습니다.
+- 프로그램 운영 문의는 담당 교직원이나 관리자에게 합니다.
+- 오류 제보와 기능 제안은 [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues)에 올립니다.
+- 보안 취약점은 공개 이슈 대신 [보안 정책](SECURITY.md)을 따라 알립니다.
 
 ## 로컬에서 시작하기
 
-**필요한 도구:** Node.js 24 이상 · pnpm 11.0.0(`packageManager` 기준) · Docker와 Docker Compose · 셸에 연동한 direnv
+준비물은 Node.js 24 이상(CI는 24를 씁니다), Docker Compose, bash, OpenSSL입니다. Node.js 25부터는 corepack이 함께 오지 않습니다. `corepack` 명령이 없으면 먼저 `npm install -g corepack`을 실행합니다.
 
 ```bash
 git clone https://github.com/JNU-SWCU/oss-hub.git
 cd oss-hub
 corepack enable
 pnpm install
+
 cp .envrc.example .envrc
-```
+echo "export SESSION_SECRET=$(openssl rand -hex 32)" >> .envrc
+echo "export TEAM_JOIN_CODE_SECRET=$(openssl rand -hex 32)" >> .envrc
+source .envrc
 
-`pnpm install`은 백엔드의 Prisma Client도 생성합니다.
-`.envrc`의 안내에 따라 **서로 다른 서명 키 두 개**(`SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`)를 생성해 입력한 뒤 실행합니다.
-
-```bash
-direnv allow
 pnpm dev
 ```
 
-[http://localhost:3000](http://localhost:3000)에서 접속합니다.
+준비가 끝나면 <http://localhost:3000>에서 화면이 열립니다. direnv를 쓴다면 `source .envrc` 대신 `direnv allow`를 실행해도 됩니다.
 
-<details>
-<summary><b>GitHub 로그인과 테스트 계정 설정</b></summary>
+처음에는 프로그램 목록이 비어 있습니다. 다른 터미널에서 합성 시연 데이터(프로그램 4개, 학생 14명, 교직원 1명)를 넣으면 목록을 채울 수 있습니다.
 
-실제 GitHub 로그인을 사용하려면 개발용 OAuth App의 Client ID와 Client Secret도 `.envrc`에 입력해야 합니다.
-예제의 OAuth 값은 로그인에 사용할 수 없는 placeholder입니다.
-
-OAuth App의 로컬 콜백 주소는 다음과 일치해야 합니다.
-
-```text
-http://localhost:3000/api/v1/auth/github/callback
+```bash
+source .envrc
+SEED_PROFILE=demo pnpm db:seed
 ```
 
-GitHub App 연동과 역할별 테스트 계정 준비는 [개발 실행 스크립트](scripts/dev.sh)와 [`.envrc.example`](.envrc.example)을 참고하세요.
-역할별 테스트 계정은 첫 로그인 전에 `.envrc`의 `AUTH_INITIAL_ROLES`에 설정합니다.
-`.envrc`와 개인키 파일은 Git에 올리지 않습니다.
-로컬 설정의 시작점은 `.envrc.example`이며, `.env.example`은 운영 Compose가 요구하는 환경 변수 목록입니다.
+> [!NOTE]
+> 개발용 로그인은 없습니다. 화면은 로그인 없이 볼 수 있습니다. 로그인까지 해 보려면 직접 만든 GitHub OAuth App이 필요합니다.
+
+<details>
+<summary><b>GitHub 로그인과 역할 계정</b></summary>
+
+1. <https://github.com/settings/developers>에서 OAuth App을 만듭니다. Homepage URL은 `http://localhost:3000`입니다. 콜백 주소는 다음과 같습니다.
+
+   ```text
+   http://localhost:3000/api/v1/auth/github/callback
+   ```
+
+2. `.envrc`의 `GITHUB_OAUTH_CLIENT_ID`와 `GITHUB_OAUTH_CLIENT_SECRET`을 발급받은 값으로 바꿉니다.
+3. 관리자 계정이 필요하면 첫 로그인 전에 `AUTH_INITIAL_ROLES`를 `<GitHub 숫자 ID>:ADMIN` 형식으로 적습니다. 여러 명은 쉼표로 잇습니다. 역할은 `ADMIN`, `STAFF`, `STUDENT` 중에서 고릅니다. 숫자 ID는 `https://api.github.com/users/<아이디>`에서 봅니다. 이 값은 역할과 프로필이 아직 없는 활성 계정에만 적용됩니다.
+4. `source .envrc`를 다시 실행하고 `pnpm dev`를 재시작합니다.
+
+GitHub App 관련 값은 비워 두어도 서버가 뜹니다. 저장소 발급과 활동 수집을 시험할 때만 채웁니다. `.envrc`와 `secrets/`는 Git이 무시합니다. 커밋하면 안 됩니다. `.env.example`은 운영 Compose용 목록이므로 로컬 개발에는 쓰지 않습니다.
+
+시연 데이터를 지울 때는 다음 명령을 실행합니다.
+
+```bash
+source .envrc
+pnpm --filter backend exec prisma db seed -- --profile demo --teardown
+```
 
 </details>
 
 <details>
-<summary><b><code>pnpm dev</code>가 하는 일과 개발 종료</b></summary>
+<summary><b><code>pnpm dev</code>가 하는 일과 종료 방법</b></summary>
 
-이 명령은 필수 설정과 포트 `3000`·`4000`을 확인하고, 개발 인프라 기동과 기존 마이그레이션 적용 후 프런트엔드·백엔드를 실행합니다.
-앱은 호스트에서 hot reload로 실행되며, Docker는 개발용 PostgreSQL과 파일 저장소에 사용합니다.
-`compose.yml`은 운영용이며 로컬 실행에는 `compose.dev.yml`을 사용합니다.
+`pnpm dev`는 필수 환경 변수 6개(`DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`)와 포트 3000·4000을 확인합니다. 이어서 Docker로 PostgreSQL과 S3 호환 모의 파일 저장소를 띄우고, 마이그레이션을 적용한 뒤 프런트엔드와 백엔드를 시작합니다. 시드는 자동으로 넣지 않습니다.
 
-`Ctrl+C`로 앱을 종료한 뒤, 개발 인프라도 더 쓰지 않으면 다음 명령으로 중지합니다.
-저장된 개발 데이터는 유지됩니다.
+앱은 Docker가 아니라 호스트에서 hot reload로 돕니다. 프런트엔드와 백엔드 중 하나가 끝나면 나머지도 함께 멈춥니다. Prisma Client는 `pnpm install`이 생성합니다. `.envrc.example`의 `MAIL_MODE=dry-run`은 메일을 보내지 않고 로그만 남깁니다. [compose.dev.yml](compose.dev.yml)은 로컬 인프라, [compose.yml](compose.yml)은 운영 런타임입니다.
 
-```bash
-docker compose -f compose.dev.yml stop
-```
+| 명령 | 결과 |
+| --- | --- |
+| `Ctrl+C` | 프런트엔드와 백엔드를 멈춥니다. 컨테이너는 계속 돕니다. |
+| `docker compose -f compose.dev.yml stop` | 컨테이너를 멈춥니다. 데이터는 남습니다. |
+| `docker compose -f compose.dev.yml down` | 컨테이너를 지웁니다. 볼륨의 데이터는 남습니다. |
+| `docker compose -f compose.dev.yml down -v` | 컨테이너와 볼륨을 함께 지웁니다. 데이터도 사라집니다. |
 
 </details>
 
 ## 기술 구성
 
-| 영역        | 기술                                                          |
-| ----------- | ------------------------------------------------------------- |
-| 프런트엔드  | Next.js App Router, React, TypeScript, Tailwind CSS, Radix UI |
-| 백엔드      | NestJS, TypeScript, Prisma                                    |
-| 데이터·파일 | PostgreSQL, 비공개 Cloudflare R2 파일 저장소                  |
-| 인증·연동   | GitHub OAuth, GitHub 저장소·활동 수집                         |
-| 검증        | Vitest, Jest, Playwright · Chrome, GitHub Actions             |
-| 배포        | 프런트엔드 Vercel, 백엔드 Docker Compose · nginx · Jenkins    |
+| 영역 | 사용 기술 |
+| --- | --- |
+| 프런트엔드 | Next.js App Router, React, TypeScript, Tailwind CSS, Radix UI |
+| 백엔드 | NestJS, TypeScript, Prisma |
+| 데이터와 파일 | PostgreSQL, 비공개 Cloudflare R2 |
+| 인증과 연동 | GitHub OAuth, GitHub App(저장소 생성과 활동 수집), Gmail(메일 발송) |
+| 검증 | Vitest, Jest, Playwright와 Chrome, GitHub Actions |
+| 배포 | 프런트엔드 Vercel, 백엔드 Docker Compose·nginx·Jenkins |
 
 운영 환경의 주요 요청 흐름입니다.
 
 ```mermaid
 flowchart LR
   Browser[브라우저] --> Frontend[Next.js · Vercel]
-  Frontend -->|인증된 API 요청| Ingress[nginx]
-  Ingress --> Backend[NestJS API]
+  Frontend -->|인증된 API 요청| Nginx[nginx]
+  Nginx --> Backend[NestJS]
   Backend --> Database[(PostgreSQL)]
-  Backend --> Files[(비공개 R2 파일 저장소)]
+  Backend --> Storage[(Cloudflare R2)]
+  Backend -->|저장소 생성·활동 수집| GitHub[GitHub]
 ```
 
-브라우저는 프런트엔드와 같은 도메인의 `/api/v1`을 사용하며, 데이터베이스와 파일 저장소 접근은 백엔드가 담당합니다.
-세부 경계와 배포 방식은 [운영 구성](compose.yml)과 [백엔드 모듈 구성](apps/backend/src/app.module.ts)을 참고하세요.
+브라우저는 프런트엔드와 같은 도메인의 `/api/v1`으로 API를 부릅니다. 데이터베이스와 파일 저장소에는 백엔드만 접근합니다. 운영 구성은 [compose.yml](compose.yml)에, 백엔드 모듈 구성은 [app.module.ts](apps/backend/src/app.module.ts)에 있습니다.
 
 <details>
 <summary><b>저장소 구조</b></summary>
@@ -204,61 +230,79 @@ flowchart LR
 ```text
 apps/
 ├── frontend/            # Next.js 화면·기능·브라우저 테스트
-└── backend/             # NestJS API·업무 규칙·작업 처리
-    └── prisma/          # 데이터 모델·마이그레이션
-docs/design-tokens/      # 디자인 토큰
+└── backend/             # NestJS API·업무 규칙·예약 작업
+    └── prisma/          # 데이터 모델·마이그레이션·시드
+docs/
+├── assets/              # README 이미지
+├── design-tokens/       # 디자인 토큰
+└── translations/        # PR·티켓 템플릿 영어판
 scripts/                 # 개발·검증·배포 보조 스크립트
+└── jenkins/             # 백엔드 배포 단계
 skills/                  # 저장소 전용 에이전트 작업 절차
-deploy/                  # nginx·Jenkins 설정
-.github/workflows/       # CI
+deploy/                  # nginx 설정
+.github/workflows/       # CI와 프런트엔드 배포
+Jenkinsfile              # 백엔드 배포
 compose.dev.yml          # 로컬 개발 인프라
 compose.yml              # 운영 런타임
 ```
 
 </details>
 
+<details>
+<summary><b>배포</b></summary>
+
+- **프런트엔드.** `main`의 태그로 `vX.Y.Z` Release를 게시하면 프런트엔드가 바뀐 경우에만 GitHub Actions가 Vercel에 배포합니다.
+- **백엔드.** Jenkins가 약 10분마다 최신 Release를 확인합니다. 태그가 `main`에 있는지 확인한 뒤 DB와 파일 저장소를 백업하고 Docker 이미지를 빌드한 다음 마이그레이션을 적용합니다. 스모크 테스트가 실패하면 이전 릴리스로 되돌립니다.
+
+</details>
+
 ## 기여하기
 
-변경 사항은 이슈의 범위와 완료 조건에 맞춰 작성하고, 실제 수행한 검증을 PR에 기록합니다.
-기여를 시작할 때는 [로컬에서 시작하기](#로컬에서-시작하기), [PR 증거 절차](skills/submit-pr-evidence/SKILL.md), [공개 안전 검사](scripts/check-public-safe.sh)를 먼저 확인하세요.
-자세한 절차는 [기여 안내](CONTRIBUTING.md), 참여 규칙은 [행동 강령](CODE_OF_CONDUCT.md), 취약점 신고는 [보안 정책](SECURITY.md)을 따릅니다.
+이슈에서 범위와 완료 조건을 정합니다. [로컬에서 시작하기](#로컬에서-시작하기)로 환경을 준비한 뒤 실제로 돌린 검증을 [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)에 따라 PR에 적습니다. PR을 열기 전에 `bash scripts/check-public-safe.sh`를 통과해야 합니다.
+
+자세한 내용은 [기여 안내](CONTRIBUTING.md), [행동 강령](CODE_OF_CONDUCT.md), [보안 정책](SECURITY.md)을 봅니다. 이 문서들의 기준본은 한국어입니다.
 
 <details>
 <summary><b>개발과 검증 명령</b></summary>
 
-저장소 루트에서 실행합니다.
-변경한 경로에 필요한 검증은 [CI workflow](.github/workflows/ci.yml)를 기준으로 선택합니다.
+저장소 루트에서 실행합니다. 변경한 경로에 필요한 검증은 [CI workflow](.github/workflows/ci.yml)를 기준으로 고릅니다.
 
-| 목적                                 | 명령                                     |
-| ------------------------------------ | ---------------------------------------- |
-| 코드·구조 검사                       | `pnpm lint`                              |
-| 타입 검사                            | `pnpm typecheck`                         |
-| 프런트엔드 테스트·백엔드 단위 테스트 | `pnpm test`                              |
-| 전체 앱 빌드                         | `pnpm build`                             |
-| 포맷 검사                            | `pnpm format:check`                      |
-| 백엔드 DB 통합 테스트                | `pnpm --filter backend test:integration` |
-| 브라우저 테스트                      | `pnpm --filter frontend e2e`             |
-| 개발 마이그레이션 생성               | `pnpm db:migrate:dev`                    |
+| 목적 | 명령 |
+| --- | --- |
+| 코드·구조 검사 | `pnpm lint` |
+| 타입 검사 | `pnpm typecheck` |
+| 프런트엔드 테스트와 백엔드 단위 테스트 | `pnpm test` |
+| 전체 앱 빌드 | `pnpm build` |
+| 포맷 검사 | `pnpm format:check` |
+| 백엔드 DB 통합 테스트 | `pnpm --filter backend test:integration` |
+| 브라우저 테스트 | `pnpm --filter frontend e2e` |
+| 개발 마이그레이션 생성 | `pnpm db:migrate:dev` |
 
-`pnpm test`에는 백엔드 DB 통합 테스트와 브라우저 테스트가 포함되지 않습니다.
-DB 통합 테스트는 전용 격리 실행기를 사용하고, 브라우저 테스트는 설치된 Chrome과 별도 테스트 환경을 사용합니다.
-브라우저 준비 명령은 `pnpm --filter frontend e2e:install`이며, 세부 실행 조건은 [Playwright 설정](apps/frontend/playwright.config.ts)을 참고하세요.
+`pnpm test`에는 백엔드 DB 통합 테스트와 브라우저 테스트가 들어 있지 않습니다. DB 통합 테스트는 전용 격리 실행기를 씁니다. 브라우저 테스트는 설치된 Chrome과 별도 테스트 환경을 씁니다. 브라우저 준비 명령은 `pnpm --filter frontend e2e:install`입니다. 실행 조건은 [Playwright 설정](apps/frontend/playwright.config.ts)에 있습니다.
+
+`pnpm build`에는 허용 목록에 있는 HTTPS `BACKEND_ORIGIN`이 필요합니다. `.envrc`를 불러온 셸에서는 CI와 같은 값을 넘깁니다.
+
+```bash
+BACKEND_ORIGIN=https://backend.example.test pnpm build
+```
+
+`git config core.hooksPath .githooks`를 실행하면 저장소의 Git 훅이 켜집니다. 커밋 메시지 형식과 스테이지한 앱 파일의 주석 금지를 검사합니다. 푸시 전에는 `pnpm format:check`를 돌리고 `main`에서 머지한 뒤에는 브랜치를 정리합니다.
 
 </details>
 
 ### 문서 길잡이
 
-| 알고 싶은 내용             | 문서                                               |
-| -------------------------- | -------------------------------------------------- |
-| 팀 참여와 첫 작업 시작     | [로컬에서 시작하기](#로컬에서-시작하기)            |
-| 환경 설정·로그인·로컬 실행 | [개발 실행 스크립트](scripts/dev.sh)               |
-| 시스템 경계와 요청 흐름    | [운영 구성](compose.yml)                           |
-| 백엔드 모듈 구성           | [AppModule](apps/backend/src/app.module.ts)        |
-| 변경 경로별 테스트와 배포 전 확인 | [CI workflow](.github/workflows/ci.yml)            |
-| PR 작성과 검토             | [PR 증거 절차](skills/submit-pr-evidence/SKILL.md) |
-| 공개 저장소와 데이터 보호  | [공개 안전 검사](scripts/check-public-safe.sh)     |
-
-기능 개선과 알려진 문제의 최신 상태는 [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues)에서 확인할 수 있습니다.
+| 알고 싶은 내용 | 문서 |
+| --- | --- |
+| 기여 순서와 시작점 | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| PR 작성과 증거 | [PR 증거 절차](skills/submit-pr-evidence/SKILL.md) |
+| 공개 저장소에 올리면 안 되는 것 | [공개 안전 점검](skills/submit-pr-evidence/references/public-safety-check.md) |
+| 변경 경로별 테스트와 배포 | [CI workflow](.github/workflows/ci.yml) |
+| 데이터베이스와 시드 | [Prisma 안내](apps/backend/prisma/README.md) |
+| 프런트엔드 기능 구조 | [features 안내](apps/frontend/src/features/README.md) |
+| 디자인 토큰과 Figma 연동 | [Figma 플러그인 안내](apps/frontend/figma-plugin/README.md) |
+| QA 티켓과 릴리스 QA | [QA 티켓 관리](skills/manage-qa-tickets/SKILL.md), [릴리스 QA](skills/run-release-qa/SKILL.md) |
+| PR과 이슈 양식 | [PR 템플릿](.github/pull_request_template.md), [작업 티켓](.github/ISSUE_TEMPLATE/work-ticket.md) |
 
 ## 라이선스
 
