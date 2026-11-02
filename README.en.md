@@ -1,15 +1,15 @@
-<p align="center">
+<h1 align="center">
   <a href="https://jnu-oss-hub.com">
     <img src="docs/assets/readme-hero.svg" alt="OSS Hub, the service for Chonnam National University open-source programs" width="100%">
   </a>
-</p>
+</h1>
 
-<h3 align="center">A web service for running and joining the open-source programs of Chonnam National University's SW-Centered University Project Group</h3>
+<h3 align="center">A web service for applying to and running the open-source competitions, hackathons, and study groups of Chonnam National University's SW-Centered University Project Group</h3>
 
-<p align="center">Students find competitions, hackathons, contribution challenges, study groups, and seminars, apply as a team, and submit documents. Faculty and staff approve or reject applications and review submissions. Each team's GitHub repository and activity show up in the service.</p>
+<p align="center">Students find a program, apply as a team, and submit documents. Faculty and staff approve or reject applications and review submissions. Approved teams work in a GitHub repository the service creates or one they connect themselves, and the service shows that record.</p>
 
 <p align="center">
-  <b>Students, faculty, and staff</b> start at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. <b>Developers contributing to this repository</b> start at <a href="#getting-started-locally">Getting started locally</a>.
+  <b>Students, faculty, and staff</b> use it at <a href="https://jnu-oss-hub.com">jnu-oss-hub.com</a>. This repository is the source code of the service, and <b>contributing developers</b> download and run it by following <a href="#getting-started-locally">Getting started locally</a>.
 </p>
 
 <p align="center">
@@ -31,8 +31,8 @@
 
 <p align="center">
   <a href="https://jnu-oss-hub.com"><b>Visit OSS Hub</b></a> •
-  <a href="#features">Features</a> •
   <a href="#screenshots">Screenshots</a> •
+  <a href="#features">Features</a> •
   <a href="#participation-workflow">Workflow</a> •
   <a href="#getting-started-locally">Getting started</a> •
   <a href="#technology">Technology</a> •
@@ -43,15 +43,6 @@
 
 > [!NOTE]
 > The application and screenshots are in Korean, and Korean is the authoritative version of the documentation. English translations of the skills and ticket templates sit beside their Korean sources.
-
-## Features
-
-- 🧭 **Program discovery and applications.** Check program schedules and participation requirements, and prepare an application.
-- 👥 **Team formation and participation.** Invite teammates, check participation status, and apply as a team.
-- 📄 **Document submission.** Check the deadline, days remaining (D-day), and submission status for each submission item, such as a project plan or final deliverable, and submit files.
-- ✅ **Application decisions and submission review.** Approve or reject applications, view submission summaries by document type and team, and review submissions.
-- 🐙 **GitHub integration.** Sign in with GitHub, connect repositories, and view activity.
-- 🏆 **Sharing and communication.** Explore activities and updates through finished programs and public projects, rankings, discussion boards, and notifications.
 
 ## Screenshots
 
@@ -84,6 +75,15 @@
     </td>
   </tr>
 </table>
+
+## Features
+
+- 🧭 **Program discovery and applications.** Check program schedules and participation requirements, and prepare an application.
+- 👥 **Team formation and participation.** Invite teammates, check participation status, and apply as a team.
+- 📄 **Document submission.** Check the deadline, days remaining (D-day), and submission status for each submission item, such as a project plan or final deliverable, and submit files.
+- ✅ **Application decisions and submission review.** Approve or reject applications, view submission summaries by document type and team, and review submissions.
+- 🐙 **GitHub integration.** Sign in with GitHub, connect repositories, and view activity.
+- 🏆 **Sharing and communication.** Explore activities and updates through finished programs and public projects, rankings, discussion boards, and notifications.
 
 ## Participation workflow
 
@@ -257,10 +257,9 @@ Use `pnpm --filter frontend e2e:install` to install the browser, and see the [Pl
 | Environment setup, sign-in, and local development | [Development script](scripts/dev.sh)                 |
 | System boundaries and request flow                | [Production configuration](compose.yml)              |
 | Backend module composition                        | [AppModule](apps/backend/src/app.module.ts)          |
-| Tests required for each changed path              | [CI workflow](.github/workflows/ci.yml)              |
+| Tests for each changed path and pre-deployment checks | [CI workflow](.github/workflows/ci.yml)              |
 | Writing and reviewing PRs                         | [PR evidence workflow](skills/submit-pr-evidence/SKILL.md) |
 | Public repository safety and data protection      | [Public safety checks](scripts/check-public-safe.sh) |
-| Pre-deployment checks                             | [CI workflow](.github/workflows/ci.yml)              |
 
 See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.
 
