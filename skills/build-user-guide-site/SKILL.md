@@ -8,7 +8,7 @@ description: >-
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
   마일스톤마다 커밋·푸시·Pages 확인을 반복한다. 노션 핸드북은 build-oss-hub-handbook, PR은 submit-pr-evidence를 쓴다.
 metadata:
-  version: "1.0.6"
+  version: "1.0.7"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신
@@ -67,7 +67,7 @@ metadata:
 
 `git add <명시한 경로>` → `bash skills/build-user-guide-site/scripts/release-check.sh` → 커밋(한국어 Conventional Commit, 본문 "-한다" 체, 마지막 줄은 세션의 attribution) → `scripts/check-public-safe.sh origin/main` → 푸시 → Pages 실행 확인 → 사용자에게 짧게 보고. 폴더 통째로 `git add` 하지 않는다(훅이 만든 `.omc/` 상태 파일이 `shots/` 아래에 생길 수 있다).
 
-자동화는 `.github/workflows/website-pages.yml`(main 푸시 시 빌드와 배포)과 `website-check.yml`(PR은 빌드만)이다. 개발 중 임시로 연 `docs/user-guide-site` 브랜치 트리거와 `github-pages` 환경 브랜치 정책은 머지 전에 되돌린다. 최종 PR은 `submit-pr-evidence` 형식이며 티켓이 없으므로 본문 첫 줄이 `티켓 없음 — <이유>`다.
+자동화는 `.github/workflows/website-pages.yml`(main 푸시 시 빌드와 배포)과 `website-check.yml`(PR은 빌드만)이다. 큰 작업 중에 브랜치에서 진행 상황을 배포하려면 그 브랜치를 푸시 트리거와 `github-pages` 환경 브랜치 정책에 임시로 더하고, PR을 열기 전에 둘 다 되돌린다. 최종 PR은 `submit-pr-evidence` 형식이며 티켓이 없으므로 본문 첫 줄이 `티켓 없음 — <이유>`다.
 
 ## 스크립트
 
