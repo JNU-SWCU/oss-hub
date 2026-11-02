@@ -1,15 +1,15 @@
 ---
 name: build-user-guide-site
 description: >-
-  GitHub Pages로 배포하는 OSS Hub 사용자 가이드 사이트(`website/`, Astro Starlight)를 처음부터 만들거나 화면이 바뀐 뒤 갱신하고 배포한다.
-  「가이드 사이트」「GitHub Pages 가이드」「jnu-swcu.github.io/oss-hub」「website/ 수정」
+  GitHub Pages로 배포하는 OSS Hub 사용자 가이드 사이트(`guide/`, Astro Starlight)를 처음부터 만들거나 화면이 바뀐 뒤 갱신하고 배포한다.
+  「가이드 사이트」「GitHub Pages 가이드」「jnu-swcu.github.io/oss-hub」「guide/ 수정」
   「가이드 사이트 화면 캡처 다시」「가이드 스크린샷 갱신」「가이드 사이트 배포」 요청에 쓴다.
   격리 스택에서 합성 페르소나로 개인정보 없이 캡처하고(블러와 번호 붙은 빨간 박스),
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
   마일스톤마다 푸시와 Pages 확인을 반복한다.
-  대상은 `website/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
+  대상은 `guide/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신
@@ -18,9 +18,9 @@ metadata:
 
 ## Output contract
 
-- `website/`(Astro 7, Starlight 0.42, base `/oss-hub`)가 빌드되고, 사이드바는 서비스 소개 → 시작하기 → 관리자 → 학생 → 교직원 → 자주 묻는 질문 순이다.
+- `guide/`(Astro 7, Starlight 0.42, base `/oss-hub`)가 빌드되고, 사이드바는 서비스 소개 → 시작하기 → 관리자 → 학생 → 교직원 → 자주 묻는 질문 순이다.
 - 모든 작업 페이지는 목적 → 번호 단계와 이미지 → 성공 신호(`Success`) → 막혔을 때(`Recover`) 순서다.
-- 이미지는 `website/src/assets/shots/<role>/<name>.webp`이고 개인정보는 블러, 설명은 번호 붙은 빨간 박스뿐이다.
+- 이미지는 `guide/src/assets/shots/<role>/<name>.webp`이고 개인정보는 블러, 설명은 번호 붙은 빨간 박스뿐이다.
 - 본문에 이름, 아이디, 이메일, 학번, localhost, 시드, 합성 데이터, "버그"가 없다.
 - 마일스톤마다 커밋하고 푸시했고 Pages 실행이 성공했다.
 
@@ -35,7 +35,7 @@ metadata:
 
 | 상황 | 시작점 |
 |---|---|
-| `website/`가 없다 | 1단계부터. `references/site-scaffold.md` |
+| `guide/`가 없다 | 1단계부터. `references/site-scaffold.md` |
 | 화면 몇 곳이 바뀌었다 | 2단계에서 바뀐 화면만 다시 찍고 3단계로 |
 | 새 기능이 생겼다 | 사실표에 항목을 더하고 2단계부터 해당 역할만 |
 | 문장만 고친다 | 3단계, 6단계. 이미지는 건드리지 않음 |
@@ -91,7 +91,7 @@ metadata:
 - 개인정보 외의 것을 가리지 않는다. 가리는 방법은 블러뿐이다.
 - 눈으로 보지 않은 이미지를 커밋하지 않는다.
 - 제품 결함을 본문에서 "버그"라고 부르지 않는다. 현재 동작과 우회 방법을 쓰고 결함은 사용자에게 따로 알린다.
-- `website/`, 그 워크플로 두 개, 이 스킬 폴더 밖은 고치지 않는다. 코드에 주석을 새로 넣지 않는다.
+- `guide/`, 그 워크플로 두 개, 이 스킬 폴더 밖은 고치지 않는다. 코드에 주석을 새로 넣지 않는다.
 - 임시 브랜치 트리거를 `main`에 남기지 않는다.
 
 ## 요구사항

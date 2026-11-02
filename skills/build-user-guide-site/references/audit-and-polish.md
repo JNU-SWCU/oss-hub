@@ -33,7 +33,7 @@ MDX 안전 규칙(윤문 에이전트에게 알립니다):
 - 의미를 바꾸지 않습니다. 조건, 순서, 경고, 숫자를 지우거나 새 주장을 넣지 않습니다.
 - 위험 경고는 해당 동작 직전에 남깁니다.
 
-윤문 뒤에는 `cd website && pnpm exec astro build --outDir <scratch>`로 빌드를 확인하고, `git diff`로 컴포넌트 속성과 라벨이 안 바뀌었는지 훑습니다. 번역투와 AI 투 기준은 `writer-brief.md`의 한국어 절입니다.
+윤문 뒤에는 `cd guide && pnpm exec astro build --outDir <scratch>`로 빌드를 확인하고, `git diff`로 컴포넌트 속성과 라벨이 안 바뀌었는지 훑습니다. 번역투와 AI 투 기준은 `writer-brief.md`의 한국어 절입니다.
 
 ## Aside
 

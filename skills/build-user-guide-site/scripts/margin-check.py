@@ -6,7 +6,7 @@ def first(lines):
     for i,l in enumerate(lines):
         if (np.abs(l-np.median(l))>40).mean()>0.004: return i/2
     return len(lines)/2
-ROOT=Path(os.environ.get('GUIDE_SHOT_ROOT') or Path(__file__).resolve().parents[3]/'website/src/assets/shots')
+ROOT=Path(os.environ.get('GUIDE_SHOT_ROOT') or Path(__file__).resolve().parents[3]/'guide/src/assets/shots')
 rows=[]
 for f in sorted(ROOT.rglob('*.webp')):
     a=np.asarray(Image.open(f).convert('L')).astype(int);h,w=a.shape

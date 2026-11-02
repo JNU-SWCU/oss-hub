@@ -239,7 +239,7 @@ docs/
 scripts/                 # 개발·검증·배포 보조 스크립트
 └── jenkins/             # 백엔드 배포 단계
 skills/                  # 저장소 전용 에이전트 작업 절차
-website/                 # 사용자 가이드 사이트(GitHub Pages)
+guide/                   # 사용자 가이드 사이트(GitHub Pages)
 deploy/                  # nginx 설정
 .github/workflows/       # CI와 프런트엔드 배포
 Jenkinsfile              # 백엔드 배포

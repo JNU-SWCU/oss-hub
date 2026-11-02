@@ -6,7 +6,7 @@
 
 | 단계 | 에이전트 | 병렬 | 입력 | 산출 |
 |---|---|---|---|---|
-| 0 | `site-scaffold` | 단독(새로 만들 때만) | `site-scaffold.md` | `website/` 골격 |
+| 0 | `site-scaffold` | 단독(새로 만들 때만) | `site-scaffold.md` | `guide/` 골격 |
 | 1 | `capture-foundation` | 단독 | `stack.md`, `personas.md` | 스택, 시드, 준비 SQL, 페르소나 점검 |
 | 2 | `capture-admin`, `capture-student`, `capture-staff` | 3개 병렬 | `capture-brief.md`, `facts-<role>.md` | webp 이미지, `manifest-<role>.md` |
 | 3 | `write-intro`, `write-admin`, `write-student`, `write-staff` | 4개 병렬 | `writer-brief.md`, 매니페스트 | mdx |
@@ -41,17 +41,17 @@
 
 에이전트 보고는 부풀려질 수 있습니다. 보고를 믿고 커밋하지 마세요.
 
-1. 파일 시각: `ls -lT website/src/assets/shots/<role>/`로 보고된 시각 이후에 만들어졌는지 봅니다. 오래된 파일이면 이번에 찍은 것이 아닙니다.
+1. 파일 시각: `ls -lT guide/src/assets/shots/<role>/`로 보고된 시각 이후에 만들어졌는지 봅니다. 오래된 파일이면 이번에 찍은 것이 아닙니다.
 2. 장수: 보고한 숫자와 실제 파일 수를 맞춰 봅니다.
-3. 이미지: `python3 skills/build-user-guide-site/scripts/margin-check.py`로 여백을 재고, `python3 skills/build-user-guide-site/scripts/contact-sheet.py website/src/assets/shots/<role> <scratch>/sheet-<role>`로 접촉 인쇄를 만들어 Read로 눈으로 봅니다. 확인할 것은 (a) 개인정보가 안 가려진 곳, (b) 잘린 글자, 가장자리에 걸린 줄, 로딩 상태, (c) 빨간 박스가 가리킨 곳, (d) 개발 배지와 토스트입니다. 의심스러운 한 장은 원본을 따로 엽니다.
+3. 이미지: `python3 skills/build-user-guide-site/scripts/margin-check.py`로 여백을 재고, `python3 skills/build-user-guide-site/scripts/contact-sheet.py guide/src/assets/shots/<role> <scratch>/sheet-<role>`로 접촉 인쇄를 만들어 Read로 눈으로 봅니다. 확인할 것은 (a) 개인정보가 안 가려진 곳, (b) 잘린 글자, 가장자리에 걸린 줄, 로딩 상태, (c) 빨간 박스가 가리킨 곳, (d) 개발 배지와 토스트입니다. 의심스러운 한 장은 원본을 따로 엽니다.
 4. 본문: 금지어(이름, 이메일, `localhost`, `seed`, "합성", "버그")를 grep합니다.
-5. 빌드: `cd website && pnpm exec astro build --outDir <scratch>`를 직접 돌립니다.
+5. 빌드: `cd guide && pnpm exec astro build --outDir <scratch>`를 직접 돌립니다.
 
 문제가 있으면 해당 에이전트에게 다시 돌려보냅니다(`SendMessage`). 직접 고치지 않습니다.
 
 ## 병렬 작업의 주의
 
 - 같은 DB를 여러 캡처 에이전트가 씁니다. 확정 동작은 자기 전용 페르소나로만 하고 매니페스트에 기록합니다.
-- 같은 `website/`에서 여러 빌드가 돌면 캐시가 충돌합니다. 집필 에이전트는 각자 다른 `--outDir`을 쓰고, 실패하면 잠시 뒤 다시 돌립니다.
+- 같은 `guide/`에서 여러 빌드가 돌면 캐시가 충돌합니다. 집필 에이전트는 각자 다른 `--outDir`을 쓰고, 실패하면 잠시 뒤 다시 돌립니다.
 - 에이전트 각자는 자기 폴더만 씁니다. 캡처는 `shots/<role>/`, 집필은 `content/docs/<role>/`.
 - 커밋할 때 폴더 통째로 `git add`하지 말고 파일 경로를 명시합니다.

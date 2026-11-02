@@ -1,4 +1,4 @@
 interface:
   display_name: 'OSS Hub 사용자 가이드 사이트'
   short_description: '격리 스택 캡처와 병렬 집필로 가이드 사이트를 만들고 Pages에 배포합니다'
-  default_prompt: 'Use $build-user-guide-site to build or update the OSS Hub user guide site in website/, starting from references/user-preferences.md.'
+  default_prompt: 'Use $build-user-guide-site to build or update the OSS Hub user guide site in guide/, starting from references/user-preferences.md.'

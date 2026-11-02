@@ -2,7 +2,7 @@
 
 캡처 서브에이전트에게 그대로 넘기는 문서입니다. `<ROOT>`는 저장소(워크트리) 루트, `<G>`는 저장소 밖 작업 폴더입니다(오케스트레이터가 정해서 알려 줍니다).
 
-OSS Hub 사용자 가이드 사이트(`website/`)에 실을 실제 화면을 찍습니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 대충 찍은 화면은 곧바로 품질 하락입니다.
+OSS Hub 사용자 가이드 사이트(`guide/`)에 실을 실제 화면을 찍습니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 대충 찍은 화면은 곧바로 품질 하락입니다.
 
 ## 경로와 도구
 
@@ -24,7 +24,7 @@ await closeAll();
 ```
 
 - `openAs(login, { width, height, dpr, theme })`: 비로그인은 `null`.
-- 결과: `website/src/assets/shots/<role>/<name>.webp`. 이름은 짧은 영어 kebab-case.
+- 결과: `guide/src/assets/shots/<role>/<name>.webp`. 이름은 짧은 영어 kebab-case.
 - `smoke.mjs <login|anon> <path>...`로 경로가 열리는지, 개인정보나 개발 배지가 새지 않는지 먼저 점검할 수 있습니다.
 
 ## 촬영 기준

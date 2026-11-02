@@ -1,14 +1,14 @@
 # 사이트 골격 (처음부터 만들 때)
 
-`website/`가 이미 있으면 이 문서는 읽기만 하고 넘어갑니다. 아래는 현재 파일에서 읽은 사실입니다.
+`guide/`가 이미 있으면 이 문서는 읽기만 하고 넘어갑니다. 아래는 현재 파일에서 읽은 사실입니다.
 
 ## 스택
 
 - Astro 7.4.4, `@astrojs/starlight` 0.42.8, `sharp` 0.35.5. 패키지 이름 `oss-hub-guide`, pnpm 11.0.0, Node 24 이상.
-- 루트 워크스페이스와 독립입니다. `website/pnpm-workspace.yaml`은 `packages: []`이고 `allowBuilds`에 `esbuild`, `sharp`를 둡니다. 자체 `pnpm-lock.yaml`을 가집니다.
+- 루트 워크스페이스와 독립입니다. `guide/pnpm-workspace.yaml`은 `packages: []`이고 `allowBuilds`에 `esbuild`, `sharp`를 둡니다. 자체 `pnpm-lock.yaml`을 가집니다.
 - 스크립트: `pnpm dev`, `pnpm build`(`dist/`와 Pagefind 검색 색인 생성), `pnpm preview --port 4331`.
 
-## 설정 (`website/astro.config.ts`)
+## 설정 (`guide/astro.config.ts`)
 
 - `site: 'https://jnu-swcu.github.io'`, `base: '/oss-hub'`.
 - Starlight 제목 `OSS Hub 사용 가이드`, 기본 로케일 `ko`(root), GitHub 링크 `https://github.com/JNU-SWCU/oss-hub`.
@@ -19,7 +19,7 @@
 ## 파일 배치
 
 ```
-website/
+guide/
   astro.config.ts
   src/site.ts                 lastChecked, releaseVersion, serviceUrl
   src/content.config.ts
@@ -53,13 +53,13 @@ website/
 
 - frontmatter: `title`, `description`, `sidebar.order`. 역할 폴더의 `index.mdx`는 order 0.
 - MDX 가져오기: `Steps`는 `@astrojs/starlight/components`에서, 나머지는 `~/components/<Name>.astro`에서 가져옵니다.
-- 현재 페이지 목록(변경될 수 있으니 `ls website/src/content/docs/*/`로 다시 확인): 관리자(지원자, 감사 로그, 역할 변경, 비활성화, 프로그램 삭제, 사용자 찾기, 첫 진입, 인사이트, 내 설정, 시스템 상태), 학생(활동, 신청, 게시판, 프로그램 찾기, 초대, 내 팀, 저장소, 재제출, 설정, 가입, 제출), 교직원(프로그램 만들기, 대시보드, 프로그램 고치기, 첫 진입).
+- 현재 페이지 목록(변경될 수 있으니 `ls guide/src/content/docs/*/`로 다시 확인): 관리자(지원자, 감사 로그, 역할 변경, 비활성화, 프로그램 삭제, 사용자 찾기, 첫 진입, 인사이트, 내 설정, 시스템 상태), 학생(활동, 신청, 게시판, 프로그램 찾기, 초대, 내 팀, 저장소, 재제출, 설정, 가입, 제출), 교직원(프로그램 만들기, 대시보드, 프로그램 고치기, 첫 진입).
 
 ## 처음부터 만드는 순서
 
 1. 위 스택과 설정으로 골격을 만들고 `pnpm install`, `pnpm build`가 통하는지 봅니다.
 2. 컴포넌트 다섯 개와 스타일을 만듭니다.
 3. 빈 `index.mdx` 세 개와 `intro`, `start`, `faq`를 만들어 사이드바 순서를 확인합니다.
-4. `.github/workflows/website-pages.yml`과 `website-check.yml`을 만듭니다(내용은 `release-and-automation.md`).
+4. `.github/workflows/guide-pages.yml`과 `guide-check.yml`을 만듭니다(내용은 `release-and-automation.md`).
 5. 저장소 설정에서 Pages 소스를 GitHub Actions로 둡니다.
 6. 캡처와 집필로 넘어갑니다(`orchestration.md`).

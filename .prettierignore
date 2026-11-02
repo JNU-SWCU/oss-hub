@@ -32,4 +32,4 @@ apps/frontend/.ds-css
 apps/frontend/ds-types
 apps/frontend/eslint-suppressions.json
 
-website/
+guide/

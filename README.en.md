@@ -239,7 +239,7 @@ docs/
 scripts/                 # Development, checks, deployment helpers
 └── jenkins/             # Backend deployment steps
 skills/                  # Agent procedures for this repository
-website/                 # User guide site (GitHub Pages)
+guide/                   # User guide site (GitHub Pages)
 deploy/                  # nginx configuration
 .github/workflows/       # CI and frontend deployment
 Jenkinsfile              # Backend deployment

@@ -2,12 +2,12 @@
 
 집필 서브에이전트에게 그대로 넘기는 문서입니다. `<ROOT>`는 저장소(워크트리) 루트, `<G>`는 저장소 밖 작업 폴더입니다.
 
-OSS Hub 사용자 가이드(`website/`, Astro Starlight)의 본문을 씁니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 요구는 "서비스 소개부터 사용 방법까지, 관리자 → 학생 → 교직원 순서로, 한국어로 자연스럽게, 최고 수준의 품질"입니다.
+OSS Hub 사용자 가이드(`guide/`, Astro Starlight)의 본문을 씁니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 요구는 "서비스 소개부터 사용 방법까지, 관리자 → 학생 → 교직원 순서로, 한국어로 자연스럽게, 최고 수준의 품질"입니다.
 
 ## 먼저 읽을 것
 
 - `<G>/facts-<role>.md`, `<G>/manifest-<role>.md`
-- `website/src/content/docs/<role>/index.mdx`, `website/src/components/`
+- `guide/src/content/docs/<role>/index.mdx`, `guide/src/components/`
 - **사실의 우선순위: 화면(매니페스트의 대조 결과) > 사실표 > 코드 > 추측.** 라벨은 화면에 나온 그대로 씁니다. 모르면 지어내지 말고 `apps/` 코드를 읽어 확인하거나 `<Verified status="needed" />`로 표시합니다. `apps/`는 읽기만 합니다.
 
 ## 역할별로 빠뜨리지 않을 작업
@@ -42,7 +42,7 @@ import Verified from '~/components/Verified.astro';
 참여 조건 <Verified status="done" />
 ```
 
-- `Shot`의 `src`는 `website/src/assets/shots/` 기준이고 `alt`와 `caption`은 필수입니다. 없는 파일은 빌드가 실패합니다.
+- `Shot`의 `src`는 `guide/src/assets/shots/` 기준이고 `alt`와 `caption`은 필수입니다. 없는 파일은 빌드가 실패합니다.
 - `Verified`의 status는 `done`(확인 완료), `needed`(확인 필요), `policy`(정책 확인 필요)입니다.
 - `Success`의 기본 제목은 "성공 신호", `Recover`의 기본 제목은 "막혔을 때"이며 `title`로 바꿀 수 있습니다.
 - 사이드바는 `sidebar.order`로 만들어집니다. `index.mdx`(order 0, 개요)는 유지합니다.
@@ -79,7 +79,7 @@ import Verified from '~/components/Verified.astro';
 ## 검증
 
 ```bash
-cd <ROOT>/website && pnpm exec astro build --outDir <G>/build-<role>
+cd <ROOT>/guide && pnpm exec astro build --outDir <G>/build-<role>
 ```
 
 통과해야 합니다. 다른 집필 에이전트가 동시에 돌리므로 캐시 충돌로 실패하면 잠시 뒤 다시 돌립니다. 이미지 위치나 번호가 본문과 어긋나는지 눈으로 읽어 확인합니다.

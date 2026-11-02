@@ -8,7 +8,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const ROOT = resolve(HERE, '../../..');
 export const BASE_URL = process.env.GUIDE_BASE_URL ?? 'http://localhost:3310';
 export const SHOT_ROOT =
-  process.env.GUIDE_SHOT_ROOT ?? join(ROOT, 'website/src/assets/shots');
+  process.env.GUIDE_SHOT_ROOT ?? join(ROOT, 'guide/src/assets/shots');
 export const MARK_MIN_PX = 20;
 export const SHOT_PAD_PX = 12;
 
@@ -21,7 +21,7 @@ const { chromium } = createRequire(join(ROOT, 'apps/frontend/package.json'))(
 const { SignJWT } = createRequire(join(ROOT, 'apps/backend/package.json'))(
   'jose',
 );
-const sharp = createRequire(join(ROOT, 'website/package.json'))('sharp');
+const sharp = createRequire(join(ROOT, 'guide/package.json'))('sharp');
 
 function loadSecret() {
   const raw = process.env.SESSION_SECRET;

@@ -3,14 +3,14 @@
 GitHub Pages(`https://jnu-swcu.github.io/oss-hub/`)로 배포하는 Astro + Starlight 사이트입니다. 루트 pnpm 워크스페이스와 별개이며 자체 lockfile을 씁니다.
 
 ```sh
-cd website
+cd guide
 pnpm install
 pnpm dev       # 개발 서버
 pnpm build     # dist/ 와 Pagefind 색인 생성
 pnpm preview --port 4331
 ```
 
-PR이면 `.github/workflows/website-check.yml`이 빌드만 검증하고, `main`에 머지되면 `.github/workflows/website-pages.yml`이 Pages에 배포합니다. 두 워크플로는 `website/**` 변경에만 반응합니다.
+PR이면 `.github/workflows/guide-check.yml`이 빌드만 검증하고, `main`에 머지되면 `.github/workflows/guide-pages.yml`이 Pages에 배포합니다. 두 워크플로는 `guide/**` 변경에만 반응합니다.
 
 ## 문서 작성
 
