@@ -1,0 +1,4 @@
+interface:
+  display_name: 'OSS Hub 사용자 가이드 사이트'
+  short_description: '격리 스택 캡처와 병렬 집필로 가이드 사이트를 만들고 Pages에 배포합니다'
+  default_prompt: 'Use $build-user-guide-site to build or update the OSS Hub user guide site in website/. Read references/user-preferences.md first. Capture only on the isolated stack with synthetic personas, blur personal data only, and explain with numbered red boxes. Orchestrate subagents in parallel for capture, writing, fact-check, visual QA, and Korean polish. Review a contact sheet by eye before every commit. Release in small milestones with explicit git add paths, release-check.sh, check-public-safe.sh, push, and a Pages run check. Never capture with a logged-in real browser and never put secrets, names, emails, or student numbers in the guide.'
