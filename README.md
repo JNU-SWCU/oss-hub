@@ -44,7 +44,7 @@
 ## 화면 예시
 
 > [!NOTE]
-> 합성 데이터로 촬영한 화면입니다. 프로그램과 사람은 모두 예시입니다. 이름·GitHub 아이디·사진·학번은 흐리게 처리했습니다. 촬영 시점의 화면이라 현재 서비스와 조금 다를 수 있습니다.
+> 예시 데이터로 촬영한 화면입니다. 프로그램과 사람은 모두 예시입니다. 촬영 시점의 화면이라 현재 서비스와 조금 다를 수 있습니다.
 
 <p align="center">
   <img src="docs/assets/readme/dashboard.webp" alt="교직원 운영 대시보드. 모집중·진행중·종료 프로그램 수와 프로그램별 신청, 활동, 제출 현황이 보입니다." width="100%">
@@ -63,7 +63,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top"><b>팀 활동</b><br>1시간마다 GitHub 활동을 모아 팀원별 주간 추이로 보여 줍니다.<br><br><img src="docs/assets/readme/team-activity.webp" alt="우리 팀 활동 화면. Commit 탭에 팀원별 주간 활동 꺾은선 그래프와 마지막 수집 시각이 보입니다." width="100%"></td>
-    <td width="50%" valign="top"><b>활동 랭킹</b><br>학생의 GitHub 계정 활동을 Commit, PR, Issue, Repo, Star 합계로 줄 세웁니다. 표는 로그인 없이 볼 수 있습니다.<br><br><img src="docs/assets/readme/ranking.webp" alt="활동 랭킹 표. 순위, 흐리게 처리한 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 보입니다." width="100%"></td>
+    <td width="50%" valign="top"><b>활동 랭킹</b><br>학생의 GitHub 계정 활동을 Commit, PR, Issue, Repo, Star 합계로 줄 세웁니다. 표는 로그인 없이 볼 수 있습니다.<br><br><img src="docs/assets/readme/ranking.webp" alt="활동 랭킹 표. 순위, 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 보입니다." width="100%"></td>
   </tr>
 </table>
 

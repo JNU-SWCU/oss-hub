@@ -44,7 +44,7 @@
 ## Screenshots
 
 > [!NOTE]
-> The service and these screenshots are in Korean. The accounts and programs are synthetic, and names, GitHub IDs, photos, and student IDs are blurred. The screens may differ slightly from the live service.
+> The service and these screenshots are in Korean. The people, GitHub IDs, and programs shown are made-up examples. The screens may differ slightly from the live service.
 
 <p align="center">
   <img src="docs/assets/readme/dashboard.webp" alt="Staff dashboard with counts of programs that are recruiting, running, and finished, and a row per program for applications, activity, and submissions." width="100%">
@@ -63,7 +63,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top"><b>Team activity</b><br>GitHub activity collected every hour appears as a weekly trend for each team member.<br><br><img src="docs/assets/readme/team-activity.webp" alt="Team activity screen with the Commit tab open, a weekly line chart per member, and the last collection time." width="100%"></td>
-    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, blurred participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
+    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
   </tr>
 </table>
 
