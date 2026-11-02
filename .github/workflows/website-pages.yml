@@ -2,7 +2,7 @@ name: website-pages
 
 on:
   push:
-    branches: [main, docs/user-guide-site]
+    branches: [main]
     paths:
       - 'website/**'
       - '.github/workflows/website-pages.yml'

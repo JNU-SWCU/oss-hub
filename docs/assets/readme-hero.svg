@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-labelledby="title">
+  <title id="title">OSS Hub</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#000d29" />
+      <stop offset="0.55" stop-color="#002266" />
+      <stop offset="1" stop-color="#003399" />
+    </linearGradient>
+    <clipPath id="frame">
+      <rect width="1280" height="400" rx="24" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="400" fill="url(#sky)" />
+    <g stroke="#adc1eb" stroke-opacity="0.22" stroke-width="1.5" fill="none">
+      <path d="M660 70 L790 150 L930 60 L1080 130 L1210 80" />
+      <path d="M790 150 L760 300 L900 340 L1040 280 L1080 130" />
+      <path d="M930 60 L1040 280 M760 300 L640 340 M1040 280 L1200 330" />
+    </g>
+    <g fill="#adc1eb" fill-opacity="0.65">
+      <circle cx="660" cy="70" r="4" />
+      <circle cx="1210" cy="80" r="4" />
+      <circle cx="640" cy="340" r="4" />
+      <circle cx="900" cy="340" r="4" />
+      <circle cx="1200" cy="330" r="4" />
+      <circle cx="760" cy="300" r="5" />
+      <circle cx="930" cy="60" r="5" />
+    </g>
+    <circle cx="1010" cy="165" r="118" fill="#7f9cdb" fill-opacity="0.5" />
+    <rect x="800" y="150" width="150" height="150" rx="28" transform="rotate(-12 875 225)" fill="#96dcae" fill-opacity="0.42" />
+    <circle cx="1088" cy="272" r="40" fill="#ffffff" fill-opacity="0.92" />
+    <path d="M1058 296 L1088 244 L1118 296 Z" fill="#4a70c4" />
+    <circle cx="790" cy="150" r="20" fill="#2aab63" />
+    <text x="88" y="212" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="104" font-weight="800" letter-spacing="-2" fill="#ffffff">OSS Hub</text>
+    <rect x="92" y="240" width="112" height="10" rx="5" fill="#2aab63" />
+    <text x="92" y="296" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" font-weight="500" fill="#d6e0f5">Chonnam National University · Open Source Hub</text>
+  </g>
+</svg>
