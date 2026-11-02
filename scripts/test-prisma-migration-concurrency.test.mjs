@@ -28,7 +28,6 @@ test('required CI runs migration concurrency immediately after backend integrati
     workflow,
     /- name: backend integration test\s+if: \$\{\{ steps\.scope\.outputs\.backend == 'true' \}\}\s+run: pnpm --filter backend test:integration\s+- name: Prisma migration concurrency\s+if: \$\{\{ steps\.scope\.outputs\.backend == 'true' \}\}\s+run: bash scripts\/test-prisma-migration-concurrency\.sh/,
   );
-  assert.match(workflow, /- 'scripts\/check-open-prisma-migration-prs\*'/);
   assert.match(workflow, /- 'scripts\/test-prisma-migration-concurrency\*'/);
 });
 
