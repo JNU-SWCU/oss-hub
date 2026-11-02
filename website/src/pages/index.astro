@@ -29,7 +29,7 @@ const flow = [
     no: '02',
     title: '팀 구성·신청',
     body: '팀 이름을 정하고 팀원을 초대한 뒤 신청서를 냅니다.',
-    alt: '프로그램 신청 화면. 신청서의 팀 이름 입력칸과 팀 구성원 영역이 보입니다.',
+    alt: '프로그램 신청 화면. 신청서의 팀 이름 입력칸과 팀 구성원 영역, 개인정보 동의 칸, 신청 제출 버튼이 보입니다.',
   },
   {
     name: 'decide',
@@ -335,14 +335,14 @@ const nav = [
   .btn.primary:hover { filter: brightness(1.1); }
 
   .frame {
-    position: relative; aspect-ratio: 16 / 10; overflow: hidden;
+    overflow: hidden;
     border-radius: 0.9rem; background: var(--sl-color-gray-7);
     outline: 1px solid var(--guide-line); outline-offset: -1px; box-shadow: var(--guide-shadow);
   }
-  .frame img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .frame img { display: block; width: 100%; height: auto; }
   .frame-hero { margin-top: clamp(2.5rem, 6vw, 4.5rem); }
   .empty {
-    position: absolute; inset: 0; display: grid; place-items: center;
+    aspect-ratio: 16 / 10; display: grid; place-items: center;
     font-size: 0.875rem; color: var(--sl-color-gray-4);
     background: linear-gradient(135deg, var(--sl-color-gray-7), var(--sl-color-gray-6));
   }
