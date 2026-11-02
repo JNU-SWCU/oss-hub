@@ -33,6 +33,8 @@ website/
   public/favicon.svg
 ```
 
+랜딩의 이미지 틀은 비율을 강제하지 않습니다. `aspect-ratio`와 `object-fit: cover`를 함께 쓰면 제대로 찍은 세로 이미지도 소리 없이 잘립니다. 이미지는 `width: 100%; height: auto`로 두고, 고정 비율은 이미지가 없을 때의 빈 틀에만 씁니다.
+
 `src/site.ts`는 `lastChecked`(마지막으로 화면을 확인한 날짜), `releaseVersion`(대조한 제품 버전), `serviceUrl`(`https://jnu-oss-hub.com`)을 가집니다. 화면을 다시 확인할 때마다 앞의 둘을 고칩니다.
 
 ## 컴포넌트 계약
