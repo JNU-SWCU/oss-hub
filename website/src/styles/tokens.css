@@ -1,7 +1,5 @@
-@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
-
 :root {
-  --sl-font: 'Pretendard Variable', Pretendard, -apple-system, system-ui,
+  --sl-font: 'Noto Sans KR', -apple-system, system-ui,
     'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --sl-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 

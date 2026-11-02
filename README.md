@@ -6,7 +6,7 @@
 
 프로그램 탐색과 팀 구성부터 신청, 서류 제출·검토, GitHub 저장소와 활동 확인까지 한곳에서 이어갑니다.
 
-[서비스 바로가기](https://jnu-oss-hub.com) · [로컬에서 시작하기](#로컬에서-시작하기) · [이슈](https://github.com/JNU-SWCU/oss-hub/issues) · [릴리스](https://github.com/JNU-SWCU/oss-hub/releases)
+[서비스 바로가기](https://jnu-oss-hub.com) · [사용자 가이드](https://jnu-swcu.github.io/oss-hub/) · [로컬에서 시작하기](#로컬에서-시작하기) · [이슈](https://github.com/JNU-SWCU/oss-hub/issues) · [릴리스](https://github.com/JNU-SWCU/oss-hub/releases)
 
 ## 목차
 
@@ -178,6 +178,7 @@ apps/
 └── backend/             # NestJS API·업무 규칙·작업 처리
     └── prisma/          # 데이터 모델·마이그레이션
 docs/design-tokens/      # 디자인 토큰
+website/                 # 사용자 가이드 사이트(GitHub Pages)
 scripts/                 # 개발·검증·배포 보조 스크립트
 skills/                  # 저장소 전용 에이전트 작업 절차
 deploy/                  # nginx·Jenkins 설정
@@ -213,6 +214,7 @@ DB 통합 테스트는 전용 격리 실행기를 사용하고, 브라우저 테
 
 | 알고 싶은 내용             | 문서                                               |
 | -------------------------- | -------------------------------------------------- |
+| 역할별 사용 방법           | [사용자 가이드](https://jnu-swcu.github.io/oss-hub/) · [사이트 작업 안내](website/README.md) |
 | 팀 참여와 첫 작업 시작     | [로컬에서 시작하기](#로컬에서-시작하기)                       |
 | 환경 설정·로그인·로컬 실행 | [개발 실행 스크립트](scripts/dev.sh)          |
 | 시스템 경계와 요청 흐름    | [운영 구성](compose.yml)                   |

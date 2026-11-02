@@ -6,7 +6,7 @@
 
 OSS Hub brings program discovery, team formation, applications, document submission and review, and GitHub repositories and activity together in one place.
 
-[Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](#getting-started-locally) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
+[Visit OSS Hub](https://jnu-oss-hub.com) · [User guide (Korean)](https://jnu-swcu.github.io/oss-hub/) · [Developer onboarding](#getting-started-locally) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
 
 The application interface and screenshots are currently in Korean.
 English reading references are available for the retained skills and templates.
@@ -183,6 +183,7 @@ apps/
 └── backend/             # NestJS API, business rules, and background jobs
     └── prisma/          # Data model and migrations
 docs/design-tokens/      # Design tokens
+website/                 # User guide site (GitHub Pages)
 scripts/                 # Development, verification, and deployment helpers
 skills/                  # Repository-specific agent workflows
 deploy/                  # nginx and Jenkins configuration
@@ -218,6 +219,7 @@ Before contributing, read the [onboarding guide](#getting-started-locally), [PR 
 
 | Topic                                             | Document                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------- |
+| How each role uses the service                    | [User guide (Korean)](https://jnu-swcu.github.io/oss-hub/) · [Site workflow](website/README.md) |
 | Joining the team and starting your first task     | [Onboarding](#getting-started-locally)                            |
 | Environment setup, sign-in, and local development | [Development script](scripts/dev.sh)                |
 | System boundaries and request flow                | [Production configuration](compose.yml)                        |

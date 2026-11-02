@@ -10,7 +10,7 @@ pnpm build     # dist/ 와 Pagefind 색인 생성
 pnpm preview --port 4331
 ```
 
-`main`에 `website/**` 변경이 합쳐지면 `.github/workflows/website-pages.yml`이 배포합니다.
+PR이면 `.github/workflows/website-check.yml`이 빌드만 검증하고, `main`에 머지되면 `.github/workflows/website-pages.yml`이 Pages에 배포합니다. 두 워크플로는 `website/**` 변경에만 반응합니다.
 
 ## 문서 작성
 

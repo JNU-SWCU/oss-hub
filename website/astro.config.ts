@@ -18,6 +18,20 @@ export default defineConfig({
           href: 'https://github.com/JNU-SWCU/oss-hub',
         },
       ],
+      head: [
+        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.googleapis.com' } },
+        {
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'stylesheet',
+            href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap',
+          },
+        },
+      ],
       customCss: ['~/styles/tokens.css', '~/styles/docs.css'],
       components: { Footer: './src/components/Footer.astro' },
       sidebar: [
