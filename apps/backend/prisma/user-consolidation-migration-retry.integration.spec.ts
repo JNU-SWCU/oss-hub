@@ -67,7 +67,7 @@ it('undoes generation rotation on a failed fresh forward and retries without los
     );
     await sql(
       url,
-      `UPDATE "User" SET phone='01012345678' WHERE id='student-admin'`,
+      `UPDATE "User" SET phone='00012345678' WHERE id='student-admin'`,
     );
     const latest = await sourceSnapshot(url);
     const generation = await sql(

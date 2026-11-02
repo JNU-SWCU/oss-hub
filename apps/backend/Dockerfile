@@ -39,7 +39,7 @@ RUN apk add --no-cache curl
 COPY --from=builder --chown=node:node /deploy ./
 COPY --from=builder --chown=node:node /workspace/apps/backend/dist ./dist
 COPY --from=builder --chown=node:node /workspace/apps/backend/prisma ./prisma
-COPY --chown=node:node scripts/prisma-migration-ledger.mjs ./scripts/prisma-migration-ledger.mjs
+COPY --chown=node:node deploy/jenkins/user-consolidation-watchdog-state.mjs ./deploy/jenkins/user-consolidation-watchdog-state.mjs
 
 USER node
 

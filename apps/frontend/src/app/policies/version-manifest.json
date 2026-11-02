@@ -17,9 +17,9 @@
       "version": "2026-11-01",
       "snapshots": [
         {
-          "description": "Current checkout source after the notice-only change; not the first source published under this version.",
+          "description": "Source after the notice-only change, before the subsequent main policy-copy correction; not the first source published under this version.",
           "commit": "394c33497e60201c13a1cf5536b1036b23b6e802",
-          "matchesCheckout": true,
+          "matchesCheckout": false,
           "documents": {
             "PRIVACY_COLLECTION": {
               "path": "apps/frontend/src/app/policies/privacy/page.tsx",
@@ -30,6 +30,28 @@
               "path": "apps/frontend/src/app/policies/github-activity/page.tsx",
               "blob": "5e50c0a01580891ab2b3d4cb1d97d193e8f92b48",
               "sha256": "50dacdf41462e2337de6f10cc70caf2f0028fe36d7808b0e4f61503f9cbbc299"
+            },
+            "ORG_REPOSITORY_TERMS": {
+              "path": "apps/frontend/src/app/policies/org-repository-terms/page.tsx",
+              "blob": "967c94d9cd5135c5d9afd6b3c5ded425b038b77e",
+              "sha256": "d29f89ceffbd1fa4dfbf25d4a5f34aae55d929b3fbf1e14b9ab49807c55b5dd9"
+            }
+          }
+        },
+        {
+          "description": "Current checkout source after main policy-copy corrections; version unchanged upstream.",
+          "commit": "5f6cb48d9b6066c8c359d06311dead51587ca014",
+          "matchesCheckout": true,
+          "documents": {
+            "PRIVACY_COLLECTION": {
+              "path": "apps/frontend/src/app/policies/privacy/page.tsx",
+              "blob": "ed7f06d70df4ff7538566d38f1287ecdf497c2cf",
+              "sha256": "f339fd095d1f8bd90d912010432d448998f8b304def8fd947b636b8c32b4b2cc"
+            },
+            "GITHUB_ACTIVITY": {
+              "path": "apps/frontend/src/app/policies/github-activity/page.tsx",
+              "blob": "c86a43bf2172866d6e0f512c3d0f29c65a05d285",
+              "sha256": "3733f66490269bf8711417a95bcdda0715e9ec852dff521f426b6b964f23834d"
             },
             "ORG_REPOSITORY_TERMS": {
               "path": "apps/frontend/src/app/policies/org-repository-terms/page.tsx",

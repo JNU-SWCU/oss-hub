@@ -46,10 +46,10 @@ Do not register it as a new finding; cite only its existing URL/number.
 
 ## Boundaries before starting
 
-1. `scripts/check-public-safe.sh` defines what may be public. Do not capture screens displaying real data or personal information.
+1. `.github/check-public-safe.sh` defines what may be public. Do not capture screens displaying real data or personal information.
 2. Do not alter product code, production data, or Issue/PR state without user approval.
 3. Do not fix defects during QA. Obtain approval for the fix scope separately.
-4. Only execution scopes (`recheck`, `delta`, `full`) read `scripts/dev.sh` and `references/qa-scenarios.md` as preparation. Report-only does not require this preparation.
+4. Only execution scopes (`recheck`, `delta`, `full`) read `dev.sh` and `references/qa-scenarios.md` as preparation. Report-only does not require this preparation.
 5. GitHub Issues (QA tickets) are the single source of truth for product QA findings. If they cannot be read, mark them `확인 필요`; do not install tools to compensate.
 
 ## 0. Read records

@@ -27,7 +27,7 @@ The table skeleton is the `## Before / After` section of the [PR template](../..
 
 ### Visual/component changes — `| 요소 |`
 
-The fixed table marker `| 요소 |` means “element”; retain its Korean spelling for the checker.
+The fixed table marker `| 요소 |` means “element”; retain its Korean spelling to match the template.
 Capture only the area needed to identify the changed component.
 Do not capture the entire screen and explain the target only in a caption.
 
@@ -42,7 +42,7 @@ The authoritative procedure for element captures, including selector selection a
 
 ### Nonvisual browser changes — `| 동작 |`
 
-The fixed table marker `| 동작 |` means “behavior”; retain its Korean spelling for the checker.
+The fixed table marker `| 동작 |` means “behavior”; retain its Korean spelling to match the template.
 For browser-routing or runtime-boundary changes that leave rendered components unchanged, do not invent `| 요소 |` rows.
 Open `## Before / After` with `비시각 브라우저 변경 — <비어 있지 않은 이유>` (“nonvisual browser change — <nonempty reason>”), retaining the Korean declaration and replacing the placeholder with the reason.
 That line is not an exemption.
@@ -54,12 +54,12 @@ For a PR without a ticket, use a no-ticket slug in place of the issue number.
 
 ## Manually inspect public safety before uploading
 
-Open the two saved images and visually inspect them for anything prohibited from public disclosure by the [public-safety checker](../../../scripts/check-public-safe.sh).
+Open the two saved images and visually inspect them for anything prohibited from public disclosure by the [public-safety checker](../../../.github/check-public-safe.sh).
 Do not copy that deny-list here: copies silently diverge when the original changes.
 If anything prohibited is visible, do not upload; capture again with synthetic data.
 Capture without session tokens, cookie values, devtools panels, or authentication-related query parameters visible on screen.
 Image metadata, such as device, path, or location information in EXIF, is invisible on screen but remains in the file; remove it before uploading or save the image again in a way that retains no metadata.
-`scripts/check-public-safe.sh` does not inspect these images: it scans repository text, while evidence images live outside the repository.
+`.github/check-public-safe.sh` does not inspect these images: it scans repository text, while evidence images live outside the repository.
 This is therefore a manual verification gate without automation.
 
 ## Upload assets to an already published Release

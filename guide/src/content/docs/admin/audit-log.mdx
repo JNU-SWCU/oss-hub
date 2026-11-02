@@ -21,7 +21,7 @@ import Recover from '~/components/Recover.astro';
 5. ③ `조회`를 누릅니다.
 </Steps>
 <Shot src="admin/audit-full.webp" alt="감사 로그 화면. 조회 조건 영역과 기록 표가 있고 ①이 왼쪽 메뉴의 감사 로그를 가리킵니다." caption="① 감사 로그 메뉴" />
-<Shot src="admin/audit-filter-bar.webp" alt="감사 로그의 조회 조건 영역. ①이 행위자, ②가 작업 종류, ③이 조회 버튼을 가리킵니다." caption="① 행위자 ② 작업 종류 ③ 조회" />
+<Shot src="admin/audit-filter-bar.webp" alt="감사 로그의 조회 조건 영역. ①이 행위자, ②가 작업 종류, ③이 조회 버튼을 가리킵니다." caption="① 행위자 ② 작업 종류 ③ 조회. 날짜 칸의 표기 순서는 브라우저 언어에 따라 다릅니다" />
 
 조건을 모두 비우려면 `초기화`를 누릅니다.
 
@@ -44,7 +44,7 @@ import Recover from '~/components/Recover.astro';
 | 수집 | 수집 실행, 제출 파일 정리 재시도 |
 | 신청 | 신청 제출, 신청 승인, 신청 반려, 검토 대기로 |
 
-`승인`과 `신청 승인`은 다릅니다. `승인`은 [교직원 권한 요청](/oss-hub/admin/applicants/)을 승인한 기록이고, `신청 승인`은 프로그램 지원자를 승인한 기록입니다. 목록에 없는 종류는 `기타 작업`으로 나옵니다.
+`승인`과 `신청 승인`은 다릅니다. `승인`은 [교직원 권한 요청](/oss-hub/admin/applicants/)을 승인한 기록이고, `신청 승인`은 프로그램 지원자를 승인한 기록입니다. 목록에 없는 종류는 `기타 작업`으로 나오고, 내용에 `GRANT_ADMIN_ACCESS` 같은 영문 작업명이 그대로 보입니다.
 
 <Success>
 조건에 맞는 기록이 최신순으로 나오고 아래 `총 N건`이 바뀝니다.
@@ -53,7 +53,7 @@ import Recover from '~/components/Recover.astro';
 <Recover title="기록이 없거나 불러오지 못할 때">
 `기록이 없습니다` / `조회 조건을 바꿔 보세요.`가 나오면 조건에 맞는 기록이 없다는 뜻입니다. `행위자`의 철자와 기간을 확인하고 `초기화`로 다시 시작하세요.
 
-<Shot src="admin/audit-empty.webp" alt="기록이 없는 감사 로그. ①이 일치하는 기록이 없는 행위자 입력값을 가리킵니다." caption="① 일치하는 기록이 없는 행위자" />
+<Shot src="admin/audit-empty.webp" alt="기록이 없는 감사 로그. ①이 일치하는 기록이 없는 행위자 입력값을 가리킵니다." caption="① 일치하는 기록이 없는 행위자. 날짜 칸의 표기 순서는 브라우저 언어에 따라 다릅니다" />
 
 `감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.`가 나오면 `다시 시도`를 누르세요. 반복되면 [시스템 상태](/oss-hub/admin/system-status/)를 확인하세요.
 </Recover>

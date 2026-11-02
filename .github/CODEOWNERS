@@ -1,16 +1,12 @@
 
-/docs/rules/     @GoBeromsu
 /.github/        @GoBeromsu
-/scripts/         @GoBeromsu
-/scripts/check-env-example-coverage*.mjs     @GoBeromsu
-/scripts/check-host-nginx*.sh                @GoBeromsu
-/scripts/check-submission-upload-route*.sh   @GoBeromsu
-/scripts/jenkins/                  @GoBeromsu
-/scripts/prune-deploy-backups.sh      @GoBeromsu
-/scripts/prune-deploy-backups.test.sh @GoBeromsu
+/.design-sync/contract.test.mjs @GoBeromsu
+/.githooks/pre-commit.test.sh    @GoBeromsu
+/dev.sh                        @GoBeromsu
 
 /apps/backend/src/auth/ @GoBeromsu
 /apps/backend/prisma/   @GoBeromsu
+/apps/backend/test/run-integration*.sh @GoBeromsu
 
 /Jenkinsfile     @GoBeromsu
 /compose*.yml       @GoBeromsu

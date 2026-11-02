@@ -36,7 +36,7 @@ async function complete(
       },
       kind,
     ),
-    phone: '01012345678',
+    phone: '00012345678',
     requestsStaffAccess: kind === 'STAFF' && !options.approved,
   };
   if (options.failPhone)

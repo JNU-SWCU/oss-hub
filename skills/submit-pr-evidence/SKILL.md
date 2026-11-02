@@ -8,7 +8,7 @@ description: >-
   해당 증거가 없으면 PR을 막는다.
   코멘트는 write-github-comment, QA 티켓은 manage-qa-tickets, 릴리스 QA는 run-release-qa를 쓴다.
 metadata:
-  version: "1.14.1"
+  version: "1.14.2"
 ---
 
 # Submit PR Evidence
@@ -18,7 +18,7 @@ metadata:
 
 ## Output contract
 
-산출물은 `scripts/check-pr-body.sh`와 `scripts/check-public-safe.sh`를 통과한 PR 본문 파일이다.
+산출물은 이 스킬과 템플릿에 따라 자기 점검하고 `.github/check-public-safe.sh`를 통과한 PR 본문 파일이다.
 첫 줄은 `Closes #<번호>`, `Refs #<번호>`, 또는 비어 있지 않은 `티켓 없음 — <이유>`다.
 이슈 완료 조건을 이번 PR이 모두 채웠으면 `Closes`다.
 증거 있는 PR 범위는 병합 가능하지만 이슈 의무가 남으면 `Refs`다.
@@ -62,7 +62,7 @@ metadata:
 빈 `하지 않을 것`은 경계 없음이 아니라 미기록이다.
 `선행 의존성`이 미충족이거나 순환이면 부분 구현을 시작하지 않고 그 번호를 보고한다.
 
-공개 안전 검사는 [scripts/check-public-safe.sh](../../scripts/check-public-safe.sh)를 따른다.
+공개 안전 검사는 [.github/check-public-safe.sh](../../.github/check-public-safe.sh)를 따른다.
 `할 일`만 구현하고 `하지 않을 것`에 적힌 경로는 0건 수정한다.
 완료 조건은 한 항목씩 실제로 구동한 뒤에만 체크한다.
 
@@ -81,7 +81,7 @@ lint와 typecheck가 통과해도 rebase 잔여물이 옛 코드를 먼저 반�
 찍지 못한 화면, 띄우지 못한 상태, 그리지 못한 흐름은 면제가 아니다.
 
 적용 여부는 사람이 diff를 보고 판단한다.
-`scripts/check-pr-body.sh`는 본문 형식만 검사하며 해당 여부를 대신하지 않는다.
+이 스킬과 템플릿에 따라 본문 형식과 증거를 자기 점검한다.
 
 ### 화면·브라우저·소비 화면 → 캡처
 
@@ -161,7 +161,7 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
 ## PR 본문 순서
 
 템플릿은 [`.github/pull_request_template.md`](../../.github/pull_request_template.md) 하나다.
-[`scripts/check-pr-body.sh`](../../scripts/check-pr-body.sh)가 절 제목과 예외 문구를 글자 단위로 검사한다.
+템플릿과 대조해 절 제목·순서와 예외 문구를 자기 점검한다.
 
 사람이 읽는 것을 위에, diff가 이미 말하는 것을 아래에 둔다.
 
@@ -189,9 +189,8 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
 `내가 고친 UX 문제`가 비어 있으면 직접 눌러보지 않은 것이다.
 0건이면 무엇을 검토했고 왜 문제가 없었는지를 문장으로 적는다.
 
-본문은 저장소 밖 파일로 먼저 쓰고 `bash scripts/check-pr-body.sh <본문 파일>`을 통과시킨다.
-Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
-다른 runtime에는 그 hook이 없으므로 이 단계와 템플릿 체크박스가 방어선이다.
+본문은 저장소 밖 파일로 먼저 쓰고 이 스킬과 템플릿에 따라 자기 점검한다.
+해당 증거와 예외 사유를 확인한 뒤 템플릿 체크박스를 채운다.
 
 ## PR 본문 작성 원칙
 
@@ -229,7 +228,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 
 ## PR을 연다
 
-1. `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반을 검사한다. PUBLIC repo이므로 본문·코멘트에도 같은 기준을 적용한다. 텍스트만이면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only`를 쓴다.
+1. `bash .github/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반을 검사한다. PUBLIC repo이므로 본문·코멘트에도 같은 기준을 적용한다. 텍스트만이면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only`를 쓴다.
 2. `gh pr create --body-file <경로>`로 연다. 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽는다.
 3. 연리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 카드를 In Review로 옮긴다. 티켓 없는 PR이면 없는 카드를 만들지 않는다.
 4. PR이 Issue를 `Closes` 또는 `Refs`로 가리키면 GitHub가 링크하므로 PR URL을 Issue 코멘트로 남기지 않는다.
@@ -265,8 +264,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 
 - `gh` — Issue가 있을 때의 view, PR 생성, 보드 카드 이동.
 - `git` — 변경 이력과 브랜치 확인.
-- `bash scripts/check-public-safe.sh`
-- `bash scripts/check-pr-body.sh <본문 파일>`
+- `bash .github/check-public-safe.sh`
 - 화면 수동 점검이 해당되면 설치된 Aside CLI(`aside`, `aside repl`). 없는 명령을 만들지 않는다.
 - 브라우저 자동 회귀가 해당되면 기존 `pnpm --filter frontend e2e`.
 
@@ -281,7 +279,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 - [ ] 화면이 해당되면 [UX 안티패턴](references/ux-antipatterns.md) 스물네 줄이 `<details>` 안에서 근거와 함께 찼고 위반을 열기 전에 고쳤다.
 - [ ] diff에서 과잉 구현을 걸렀고, ponytail을 쓰기 위해 새로 설치하지 않았다.
 - [ ] backend 로직이 해당되면 mermaid 또는 DOT를 `## 흐름 다이어그램`에 넣었고 실데이터·시크릿을 노드에 넣지 않았다.
-- [ ] `bash scripts/check-public-safe.sh`를 실행했다.
+- [ ] `bash .github/check-public-safe.sh`를 실행했다.
 - [ ] 검증된 PR을 열었고, 보드 카드가 있으면 In Review로 옮겼다.
 - [ ] PR이 Issue를 가리키면 PR URL을 Issue 코멘트로 다시 남기지 않았다.
 - [ ] 화면이 해당되고 답이 없었던 인터뷰만 물었고, 에이전트가 대신 답한 것이 0건이다.
@@ -290,6 +288,5 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 - [ ] `## 정리`의 `- 디자인 규격:` 줄에 공용 컴포넌트·토큰과 규격 출처를 적었거나, 화면 변경이 없으면 예외 문구다.
 - [ ] `## 내가 고친 UX 문제`가 채워졌거나, 화면 없으면 예외 문구다.
 - [ ] 미첨부 placeholder 주석이 0건이다.
-- [ ] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다.
 - [ ] 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽었고 이미지가 렌더되는지 확인했다.
 - [ ] 첫 줄이 결론이다 — [readability.md](references/readability.md) 자기 점검을 통과했다.

@@ -9,7 +9,7 @@ function harness() {
     id: 'user',
     githubId: 123n,
     nickname: 'synthetic',
-    phone: '01012345678',
+    phone: '00012345678',
     type: 'STUDENT',
     name: 'Name',
     studentId: '123456',

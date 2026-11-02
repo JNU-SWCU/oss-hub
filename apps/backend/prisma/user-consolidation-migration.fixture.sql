@@ -32,7 +32,7 @@ INSERT INTO "User" (
   "createdAt","updatedAt"
 )
 SELECT id,9900000000 + row_number() OVER (ORDER BY id),id,selected::"MemberKind",
-  staff,admin,CASE WHEN id='student-admin' THEN '01000000000' END,
+  staff,admin,CASE WHEN id='student-admin' THEN '00000000000' END,
   CASE WHEN id='student-admin' THEN 'fixture@example.invalid' END,
   id='student-admin',
   (CASE WHEN id='filler-141' THEN 'DEACTIVATED' ELSE 'ACTIVE' END)::"AccountStatus",

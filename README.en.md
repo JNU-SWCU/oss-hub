@@ -44,7 +44,7 @@
 ## Screenshots
 
 > [!NOTE]
-> The service and these screenshots are in Korean. The accounts and programs are synthetic, and names, GitHub IDs, photos, and student IDs are blurred. The screens may differ slightly from the live service.
+> The service and these screenshots are in Korean. The people, GitHub IDs, and programs shown are made-up examples. The screens may differ slightly from the live service.
 
 <p align="center">
   <img src="docs/assets/readme/dashboard.webp" alt="Staff dashboard with counts of programs that are recruiting, running, and finished, and a row per program for applications, activity, and submissions." width="100%">
@@ -63,7 +63,7 @@
   </tr>
   <tr>
     <td width="50%" valign="top"><b>Team activity</b><br>GitHub activity collected every hour appears as a weekly trend for each team member.<br><br><img src="docs/assets/readme/team-activity.webp" alt="Team activity screen with the Commit tab open, a weekly line chart per member, and the last collection time." width="100%"></td>
-    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public, but only staff and administrators see the real name and department columns.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, blurred participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
+    <td width="50%" valign="top"><b>Activity ranking</b><br>Students rank by the sum of Commit, PR, Issue, Repo, and Star counts from their GitHub accounts. The table is public.<br><br><img src="docs/assets/readme/ranking.webp" alt="Ranking table with rank, participant, Commit, PR, Issue, Repo, Star, and total columns." width="100%"></td>
   </tr>
 </table>
 
@@ -86,6 +86,7 @@ flowchart LR
   Apply --> Decision{Application decision}
   Decision -->|Approved| Work[Work and submit documents]
   Decision -->|Rejected| Rejected[Rejected]
+  Rejected -->|Leader revises within the application period| Apply
   Work --> Review{Document review}
   Review -->|Revision requested| Work
   Review -->|Approved or rejected| Done[Review finished]
@@ -93,7 +94,7 @@ flowchart LR
 
 1. **Browse.** Application dates, the schedule, and required documents are visible without signing in.
 2. **Form a team and apply.** Sign in with GitHub, name the team, and invite members by name or GitHub ID. Only the team leader can submit the application.
-3. **Application decision.** Staff approve or reject each team, and the result arrives as an in-app notification. If the program issues repositories, each approved team gets a private repository and its members get invitations.
+3. **Application decision.** Staff approve or reject each team, and the result arrives as an in-app notification. If the program issues repositories, each approved team gets a private repository and its members get invitations. A rejected application can be revised and resubmitted by the team leader while the application period is open.
 4. **Work and submit documents.** Teams work in their repository. Only approved applications can submit documents.
 5. **Document review.** Staff approve, reject, or request a revision for each document. Approval and rejection are final. After a revision request, the team resubmits by the date staff set. Once a team resubmits after the deadline, it cannot change the document until the review is done.
 
@@ -236,13 +237,12 @@ docs/
 ├── assets/              # README images
 ├── design-tokens/       # Design tokens
 └── translations/        # English PR and ticket templates
-scripts/                 # Development, checks, deployment helpers
-└── jenkins/             # Backend deployment steps
 skills/                  # Agent procedures for this repository
 guide/                   # User guide site (GitHub Pages)
-deploy/                  # nginx configuration
+deploy/                  # Deployment tools, nginx configuration, checks
 .github/workflows/       # CI and frontend deployment
 Jenkinsfile              # Backend deployment
+dev.sh                   # Local development entry point
 compose.dev.yml          # Local development infrastructure
 compose.yml              # Production runtime
 ```
@@ -259,7 +259,7 @@ compose.yml              # Production runtime
 
 ## Contributing
 
-Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash scripts/check-public-safe.sh` and make it pass before you open a PR.
+Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash .github/check-public-safe.sh` and make it pass before you open a PR.
 
 See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative. The repository's skills have `SKILL.en.md` versions, and `docs/translations/` has the templates in English.
 
@@ -287,7 +287,7 @@ Run these from the repository root. The [CI workflow](.github/workflows/ci.yml) 
 BACKEND_ORIGIN=https://backend.example.test pnpm build
 ```
 
-Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, run `pnpm format:check` before a push, and tidy branches after a merge on `main`.
+Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks. They check commit message format and ban comments in staged app files, and run `pnpm format:check` before a push.
 
 </details>
 

@@ -71,7 +71,7 @@ describe('flat User profile completion writes', () => {
       expected,
       {
         ...canonicalCompletion({ ...fields, studentId: '123456' }),
-        phone: '01012345678',
+        phone: '00012345678',
       },
       h.recordPhoneAudit,
     );
@@ -123,7 +123,7 @@ describe('profile and phone updates', () => {
     const { h, expected } = await fixture();
     await h.repository.updateProfileFields(
       { ...expected, githubId: undefined, githubLogin: undefined },
-      { ...fields, phone: '01012345678' },
+      { ...fields, phone: '00012345678' },
       h.recordStaffNumberAudit,
       h.recordPhoneAudit,
     );
@@ -145,7 +145,7 @@ describe('profile and phone updates', () => {
     await expect(
       h.repository.updateProfileFields(
         expected,
-        { ...fields, phone: '01012345678' },
+        { ...fields, phone: '00012345678' },
         h.recordStaffNumberAudit,
         h.recordPhoneAudit,
       ),
@@ -155,7 +155,7 @@ describe('profile and phone updates', () => {
   });
   it.each([
     [null, 'set'],
-    ['01000000000', 'replaced'],
+    ['00000000000', 'replaced'],
   ] as const)(
     'audits phone replacement from %s using latest locked value',
     async (phone, transition) => {
@@ -163,11 +163,11 @@ describe('profile and phone updates', () => {
       h.replaceCurrent({ phone });
       await h.repository.updateProfileFields(
         expected,
-        { ...fields, phone: '01012345678' },
+        { ...fields, phone: '00012345678' },
         h.recordStaffNumberAudit,
         h.recordPhoneAudit,
       );
-      expect(h.current()?.phone).toBe('01012345678');
+      expect(h.current()?.phone).toBe('00012345678');
       const user: unknown = expect.objectContaining({ phone });
       expect(h.recordPhoneAudit).toHaveBeenCalledWith(
         { auditLogWriter: h.transaction },
@@ -176,10 +176,10 @@ describe('profile and phone updates', () => {
     },
   );
   it('does not write or audit an identical profile and phone', async () => {
-    const { h, expected } = await fixture('STUDENT', { phone: '01012345678' });
+    const { h, expected } = await fixture('STUDENT', { phone: '00012345678' });
     await h.repository.updateProfileFields(
       expected,
-      { ...fields, phone: '01012345678' },
+      { ...fields, phone: '00012345678' },
       h.recordStaffNumberAudit,
       h.recordPhoneAudit,
     );
@@ -192,7 +192,7 @@ describe('profile and phone updates', () => {
     await expect(
       h.repository.updateProfileFields(
         expected,
-        { name: 'Changed', department: 'Changed', phone: '01012345678' },
+        { name: 'Changed', department: 'Changed', phone: '00012345678' },
         h.recordStaffNumberAudit,
         h.recordPhoneAudit,
       ),
@@ -274,7 +274,7 @@ describe('locked staffNumber updates', () => {
     );
     await h.repository.updateProfileFields(
       expected,
-      { ...fields, staffNumber: 'next', phone: '01012345678' },
+      { ...fields, staffNumber: 'next', phone: '00012345678' },
       h.recordStaffNumberAudit,
       h.recordPhoneAudit,
     );
@@ -351,13 +351,13 @@ describe('initial studentId fill', () => {
     const { h, expected } = await fixture('STUDENT', { studentId: null });
     expect(
       await h.repository.fillStudentId(
-        { expected, studentId: '654321', phone: '01012345678' },
+        { expected, studentId: '654321', phone: '00012345678' },
         h.recordPhoneAudit,
       ),
     ).toBe('filled');
     expect(h.current()).toMatchObject({
       studentId: '654321',
-      phone: '01012345678',
+      phone: '00012345678',
     });
     expect(h.recordPhoneAudit).toHaveBeenCalledTimes(1);
   });
@@ -365,7 +365,7 @@ describe('initial studentId fill', () => {
     const { h, expected } = await fixture();
     expect(
       await h.repository.fillStudentId(
-        { expected, studentId: '654321', phone: '01012345678' },
+        { expected, studentId: '654321', phone: '00012345678' },
         h.recordPhoneAudit,
       ),
     ).toBe('conflict');
@@ -377,7 +377,7 @@ describe('initial studentId fill', () => {
     h.recordPhoneAudit.mockRejectedValue(new Error('phone audit failure'));
     await expect(
       h.repository.fillStudentId(
-        { expected, studentId: '654321', phone: '01012345678' },
+        { expected, studentId: '654321', phone: '00012345678' },
         h.recordPhoneAudit,
       ),
     ).rejects.toThrow('phone audit failure');

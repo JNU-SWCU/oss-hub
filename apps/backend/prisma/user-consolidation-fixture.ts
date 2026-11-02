@@ -55,7 +55,7 @@ async function loadUserConsolidationFixture(
       selectedMemberKind: row.selected,
       hasStaffAccess: row.staff ?? false,
       hasAdminAccess: row.admin ?? false,
-      phone: index === 5 ? '01000000000' : null,
+      phone: index === 5 ? '00000000000' : null,
       notificationEmail: index === 5 ? 'synthetic@example.invalid' : null,
       notifyEnabled: index === 5,
       accountStatus: index === 161 ? 'DEACTIVATED' : 'ACTIVE',

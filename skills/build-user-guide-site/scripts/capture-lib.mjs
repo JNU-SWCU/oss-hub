@@ -176,26 +176,10 @@ export async function leakCheck(page) {
   return problems;
 }
 
-const BLUR_PX = 8;
 const MARK_COLOR = '#E5242A';
 
 function toLocator(page, target) {
   return typeof target === 'string' ? page.locator(target) : target;
-}
-
-async function applyBlur(page, target) {
-  const loc = toLocator(page, target);
-  const n = await loc.count();
-  if (!n) throw new Error(`blur target matched nothing: ${String(target)}`);
-  await loc.evaluateAll(
-    (els, px) =>
-      els.forEach((e) => {
-        if (!e.hasAttribute('data-guide-blur'))
-          e.setAttribute('data-guide-blur', e.style.filter || '');
-        e.style.setProperty('filter', `blur(${px}px)`, 'important');
-      }),
-    BLUR_PX,
-  );
 }
 
 async function applyMarks(page, marks, mode, bounds) {
@@ -297,13 +281,11 @@ export async function shot(page, role, name, opts = {}) {
         problems.join('\n  '),
     );
   }
-  const blur = opts.blur ?? [];
   const marks = (opts.marks ?? []).map((m) =>
     typeof m === 'string' || typeof m?.count === 'function' ? { target: m } : m,
   );
   let png;
   try {
-    for (const t of blur) await applyBlur(page, t);
     const loc = opts.locator
       ? typeof opts.locator === 'string'
         ? page.locator(opts.locator).first()
@@ -409,10 +391,6 @@ export async function shot(page, role, name, opts = {}) {
       document
         .querySelectorAll('[data-guide-dialog]')
         .forEach((e) => e.removeAttribute('data-guide-dialog'));
-      document.querySelectorAll('[data-guide-blur]').forEach((e) => {
-        e.style.filter = e.getAttribute('data-guide-blur') || '';
-        e.removeAttribute('data-guide-blur');
-      });
     });
   }
   const dir = join(opts.dir ?? SHOT_ROOT, role);

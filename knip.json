@@ -13,18 +13,18 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/**/*.test.mjs",
-        "scripts/jenkins/probe-release-state.mjs",
-        "scripts/jenkins/user-consolidation-watchdog-access.mjs",
-        "scripts/jenkins/user-consolidation-watchdog-state.mjs",
+        "deploy/**/*.test.mjs",
+        "deploy/jenkins/probe-release-state.mjs",
+        "deploy/jenkins/user-consolidation-watchdog-access.mjs",
+        "deploy/jenkins/user-consolidation-watchdog-state.mjs",
         "eslint.shared.mjs",
         "eslint-rules/no-comments.mjs",
         ".design-sync/compile-css.mjs",
         ".design-sync/emit-types.mjs",
+        ".design-sync/contract.test.mjs",
         ".design-sync/previews/*.tsx"
       ],
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-      "ignoreDependencies": ["@prisma/client"],
       "paths": {
         "frontend": ["./apps/frontend/src/components/index.ts"]
       }

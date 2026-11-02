@@ -18,7 +18,7 @@ export const migrationId = '20261102160000_consolidate_user_domain';
 const backend = process.cwd();
 const sqlDirectory = resolve(
   backend,
-  '../../scripts/jenkins/user-consolidation',
+  '../../deploy/jenkins/user-consolidation',
 );
 const configuredUrl = process.env.DATABASE_URL;
 assertIsolatedIntegrationDatabase({

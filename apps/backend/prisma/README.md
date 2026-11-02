@@ -7,13 +7,13 @@
 
 ```bash
 # 기본값(profile=auth, 안전한 최소 시드)
-pnpm --filter backend prisma db seed
+pnpm --filter backend exec prisma db seed
 
 # profile 지정 — env
-SEED_PROFILE=intake pnpm --filter backend prisma db seed
+SEED_PROFILE=intake pnpm --filter backend exec prisma db seed
 
 # profile 지정 — CLI 인자
-pnpm --filter backend prisma db seed -- --profile milestones
+pnpm --filter backend exec prisma db seed -- --profile milestones
 
 # oss-hub profile — 명시적 비운영 환경, 확인값, 정확히 네 개의 ADMIN 항목이 필요
 # 각 항목은 githubId:login:ADMIN[:displayName] — displayName은 선택이며 넣으면 그 계정의
@@ -21,27 +21,27 @@ pnpm --filter backend prisma db seed -- --profile milestones
 NODE_ENV=<development|test|staging|preview> OSS_HUB_SEED_CONFIRMATION=NON_PRODUCTION OSS_HUB_TEAM_ACCOUNTS='<github-id-1>:<github-login-1>:ADMIN:<display-name-1>,<github-id-2>:<github-login-2>:ADMIN:<display-name-2>,<github-id-3>:<github-login-3>:ADMIN:<display-name-3>,<github-id-4>:<github-login-4>:ADMIN:<display-name-4>' pnpm --filter backend db:seed -- --profile oss-hub
 
 # demo profile — 비운영 환경(기본값 NODE_ENV). 사업단 톤의 합성 시연 데이터(프로그램·학생·팀·게시판)를 만든다.
-pnpm --filter backend prisma db seed -- --profile demo
+pnpm --filter backend exec prisma db seed -- --profile demo
 
 # demo profile — production 실행(예외). 소유자가 명시적으로 승인한 플랜에 기록된 건만 허용된다
 # (아래 "production 실행 예외" 절 참조). 이 플래그 없이는 다른 모든 profile과 동일하게
 # production에서 거부된다.
-NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend prisma db seed -- --profile demo
+NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend exec prisma db seed -- --profile demo
 
 # demo profile teardown — 이 profile이 만든 seed:demo:* 행 전부를 의존성 순서로 일괄
 # 삭제한다(qa-econovation-batch TODO 15). 비운영 환경은 시드와 동일한 NODE_ENV 게이트만
 # 통과하면 된다.
-pnpm --filter backend prisma db seed -- --profile demo --teardown
+pnpm --filter backend exec prisma db seed -- --profile demo --teardown
 
 # demo profile teardown — production 실행(예외). 시드와 동일한 SEED_DEMO_ALLOW_PRODUCTION=1
 # 게이트를 통과해야 한다 — 새 시드 예외를 추가하지 않는다.
-NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend prisma db seed -- --profile demo --teardown
+NODE_ENV=production SEED_DEMO_ALLOW_PRODUCTION=1 pnpm --filter backend exec prisma db seed -- --profile demo --teardown
 ```
 
 profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `program-overview` · `oss-hub` · `demo` · `all`.
 
 - `prisma migrate reset`/`migrate dev`는 이 시드 훅을 자동 실행한다(기본값 `auth`만 돈다 — 안전한 최소).
-- `prisma migrate deploy`(예: `scripts/run-backend-integration.sh`)는 자동 시드를 실행하지 않는다.
+- `prisma migrate deploy`(예: `apps/backend/test/run-integration.sh`)는 자동 시드를 실행하지 않는다.
 - `NODE_ENV=production`에서는 실행을 거부한다.
 
   **production 실행 예외(`demo` profile 한정)**: `demo` profile은 소유자(@GoBeromsu)가
@@ -146,14 +146,14 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
 
 - `demo` — `seeds/demo.ts`: 내일 시연을 위한 "사업단이 실제 운영하는 느낌"의 합성 데이터다. 다른
   profile을 참조하지 않고 자체 Program·User·Team backbone을 만든다. 이 profile은 GithubRepository·
-  Contribution 등 수집/랭킹 테이블을 **절대** 만들지 않는다(`prisma/AGENTS.md` 시드 규칙 #5) —
+  Contribution 등 수집/랭킹 테이블을 **절대** 만들지 않는다 —
   Econovation 공개 저장소 수집 등록은 별도의 실제 ADMIN discovery/enrollment 경로 + 실제 sweep으로만
   이루어진다.
   - 프로그램 4개 — 전남대 SW중심대학사업단이 공개 운영하는 실제 프로그램 유형(하계 SW인턴십
     연계 → `CORPORATE_INTERNSHIP`, 오픈소스 SW개발자 대회(에코노베이션 연계) → `OSS_CONTEST`,
     신입생 SW역량 강화 → `SW_VALUE_SPREAD`, 소중마일리지 연계 비교과 → `BASIC`)을 모델로 한
     이름·설명이지만, 일정은 모두 `offsetDays` 상대값으로 만든 합성값이다(실제 공지 일정
-    미복사 — `prisma/AGENTS.md` 시드 규칙 #3·#4). 각 프로그램 설명과 마일스톤 안내는 "모집
+    미복사). 각 프로그램 설명과 마일스톤 안내는 "모집
     배경/지원 대상/운영 방식/문의 안내" 구성으로 사업단 공개 페이지(sojoong.kr)의 톤·용어를
     참고해 계획서처럼 읽히도록 재작성됐다(TODO 15) — 본문을 그대로 옮기지 않고, 문의 안내의
     담당자 이메일도 합성(`.invalid`)이다.
@@ -214,7 +214,7 @@ Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 �
 
 로컬 개발 DB를 초기화하려면 `pnpm db:reset`(=`prisma migrate reset --force`)을 쓴다. 이 명령은
 **공유 개발 DB(`localhost:5432/oss_hub`)를 대상**으로 하므로, 다른 사람과 공유 중인 DB에서는
-실행 전에 반드시 확인한다. CI/통합테스트는 `scripts/run-backend-integration.sh`가 매번 새로
+실행 전에 반드시 확인한다. CI/통합테스트는 `apps/backend/test/run-integration.sh`가 매번 새로
 띄우는 격리된 임시 컨테이너만 사용하며 공유 DB를 건드리지 않는다.
 
 ## 실제 계정 ↔ 역할 매핑

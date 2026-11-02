@@ -9,7 +9,7 @@ description: >-
   Block PR submission if that evidence is missing.
   Use write-github-comment for comments, manage-qa-tickets for QA tickets, and run-release-qa for release QA.
 metadata:
-  version: "1.14.1"
+  version: "1.14.2"
 ---
 
 # Submit PR Evidence
@@ -19,14 +19,14 @@ metadata:
 English translation of the [Korean source](SKILL.md).
 The Korean document remains authoritative.
 This is a reading reference; skill execution continues to use `SKILL.md`.
-Checker-sensitive Korean headings and phrases below are retained verbatim and explained in English.
+Template-defined Korean headings and phrases below are retained verbatim and explained in English.
 
 Do not open an OSS Hub PR without evidence.
 Success means the PR exactly matches the contract, every applicable completion criterion is demonstrated before opening it, and no files outside the boundary are changed.
 
 ## Output contract
 
-The deliverable is a PR body file that passes `scripts/check-pr-body.sh` and `scripts/check-public-safe.sh`.
+The deliverable is a PR body file self-reviewed against this skill and the template that passes `.github/check-public-safe.sh`.
 Its first line is `Closes #<번호>`, `Refs #<번호>`, or a nonempty `티켓 없음 — <이유>` (“No ticket — <reason>”; `<번호>` means the issue number).
 Use `Closes` when this PR satisfies every Issue completion criterion.
 Use `Refs` when the evidenced PR scope can be merged but Issue obligations remain.
@@ -70,7 +70,7 @@ Do not start implementation if any of the three sections is empty.
 An empty `하지 않을 것` means exclusions are unrecorded, not that there is no boundary.
 If `선행 의존성` (“Prerequisite dependencies”) is unmet or cyclic, report the ticket number without starting a partial implementation.
 
-Follow [scripts/check-public-safe.sh](../../scripts/check-public-safe.sh) for public-safety checks.
+Follow [.github/check-public-safe.sh](../../.github/check-public-safe.sh) for public-safety checks.
 Implement only `할 일` and make zero changes to paths listed under `하지 않을 것`.
 Check each completion criterion only after actually running it.
 
@@ -90,7 +90,7 @@ Exempt inapplicable sections only with an exemption phrase and a nonempty reason
 An uncaptured screen, a state that could not be opened, or a flow that could not be drawn is not an exemption.
 
 A person decides applicability by reviewing the diff.
-`scripts/check-pr-body.sh` checks only body formatting; it does not determine applicability.
+Self-review body formatting and evidence against this skill and the template.
 
 ### Screens, browsers, and consuming screens → captures
 
@@ -177,7 +177,7 @@ For ticketless work, do not create an Issue; proceed only after agreeing again w
 ## PR body order
 
 There is one runtime template: [`.github/pull_request_template.md`](../../docs/translations/pull-request-template.en.md) (English reading guide).
-[`scripts/check-pr-body.sh`](../../scripts/check-pr-body.sh) checks section headings and exemption phrases character for character.
+Self-review section headings, order, and exemption phrases against the template.
 
 Put what a person needs to read first; place what the diff already says later.
 
@@ -208,9 +208,8 @@ Do not use them for applicable evidence that could not be produced.
 An empty `내가 고친 UX 문제` section means the flow was not tried directly.
 If there were zero issues, describe what was reviewed and why there was no issue.
 
-First write the body to a file outside the repository and pass `bash scripts/check-pr-body.sh <본문 파일>`.
-The Claude Code hook blocks `gh pr create` for a body that has not passed.
-Other runtimes do not have that hook, so this step and the template checkboxes are the safeguard.
+First write the body to a file outside the repository and self-review it against this skill and the template.
+Check applicable evidence and exemption reasons before completing the template checkboxes.
 
 ## PR writing principles
 
@@ -248,7 +247,7 @@ Pass its final self-check before publishing.
 
 ## Open the PR
 
-1. Run `bash scripts/check-public-safe.sh` to check changed files and commit messages for public-safety violations.
+1. Run `bash .github/check-public-safe.sh` to check changed files and commit messages for public-safety violations.
    This is a PUBLIC repository, so apply the same standard to bodies and comments.
    For text only, use `--text-only` from [references/public-safety-check.md](references/public-safety-check.en.md).
 2. Open with `gh pr create --body-file <경로>`.
@@ -291,8 +290,7 @@ Update that section when checks are rerun.
 
 - `gh` — View Issues when they exist, create PRs, and move board cards.
 - `git` — Inspect change history and branches.
-- `bash scripts/check-public-safe.sh`
-- `bash scripts/check-pr-body.sh <본문 파일>`
+- `bash .github/check-public-safe.sh`
 - For applicable manual screen checks, the installed Aside CLI (`aside`, `aside repl`).
   Do not invent nonexistent commands.
 - For applicable automated browser regressions, the existing `pnpm --filter frontend e2e`.
@@ -308,7 +306,7 @@ Update that section when checks are rerun.
 - [ ] For an applicable screen, all twenty-four [UX antipattern](references/ux-antipatterns.en.md) rows contain evidence inside `<details>`, and violations were fixed before opening.
 - [ ] I removed excess implementation from the diff and did not install ponytail just to run it.
 - [ ] For applicable backend logic, I put Mermaid or DOT under `## 흐름 다이어그램` without real data or secrets in nodes.
-- [ ] I ran `bash scripts/check-public-safe.sh`.
+- [ ] I ran `bash .github/check-public-safe.sh`.
 - [ ] I opened the verified PR and moved an existing board card to In Review.
 - [ ] If the PR points to an Issue, I did not repost the PR URL as an Issue comment.
 - [ ] I asked only previously unanswered interview questions for applicable screens, with zero answers supplied by the agent on the author's behalf.
@@ -317,6 +315,5 @@ Update that section when checks are rerun.
 - [ ] The `- 디자인 규격:` line under `## 정리` lists shared components, tokens, and specification sources, or uses the exemption phrase if there is no screen change.
 - [ ] `## 내가 고친 UX 문제` is filled, or uses the exemption phrase if there is no screen.
 - [ ] There are zero unattached placeholder comments.
-- [ ] `bash scripts/check-pr-body.sh <본문 파일>` passed.
 - [ ] After opening, I read the body back with `gh pr view <n> --json body` and checked that images render.
 - [ ] The first line states the conclusion — I passed the [readability.md](references/readability.en.md) self-check.

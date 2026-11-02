@@ -95,7 +95,7 @@ it('starts a fresh generation after rollback and acknowledged old application wr
     try {
       expect(
         await prisma.$transaction([
-          prisma.$executeRaw`UPDATE "User" SET phone='01012345678' WHERE id='student-admin'`,
+          prisma.$executeRaw`UPDATE "User" SET phone='00012345678' WHERE id='student-admin'`,
           prisma.$executeRaw`INSERT INTO "Consent" (id,"userId","policyVersion","consentedAt")
             VALUES ('consent:retry','student-admin','2026-11-02','2026-11-02')`,
         ]),
@@ -159,7 +159,7 @@ it('rejects source tampering within a fenced attempt instead of refreshing its s
         migration.replace(
           '-- checkpoint: snapshot',
           `-- checkpoint: snapshot
-UPDATE public."User" SET phone='01012345678' WHERE id='student-admin';`,
+UPDATE public."User" SET phone='00012345678' WHERE id='student-admin';`,
         ),
       ),
     ).rejects.toThrow(/account field conservation mismatch/);
