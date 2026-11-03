@@ -39,6 +39,18 @@ stale_state: 기존 백업을 덮어쓰지 않는다. 영수증과 다른 덤프
 변이 검사 (결함을 넣고 해당 테스트만 실행, 전부 EXIT=1, 확인 후 원복):
 ON_ERROR_STOP 제거 / 점검 실패 무시 / 잘린 덤프 검사 제거 / 객체 복사 출력 차단 제거 / 격리 라벨 검사 제거 / 복원 건수 비교 무시
 
+게이트 지적 반영 (attempt 2):
+P1: bounded.mjs가 예약한 SIGKILL 전에 끝나 TERM을 무시하는 후손이 남았다. 이제 프로세스 그룹이 사라진 뒤에만 끝난다.
+red: 수정 전 node --test deploy/jenkins/program-migration/bounded.test.mjs EXIT=1, tests 4, pass 1, fail 3 (시간 초과, 전달된 SIGTERM, 정상 종료).
+green: 수정 후 같은 명령 EXIT=0, tests 4, pass 4, fail 0. 게이트 재현 명령은 EXIT=124이고 출력된 PID가 사라졌다.
+수정 후 재실행:
+bun test deploy/jenkins/program-migration EXIT=0, 46 pass, 0 fail
+node --test deploy/jenkins/program-migration/*.test.mjs EXIT=0, tests 46, pass 46, fail 0
+shellcheck -x -P SCRIPTDIR deploy/jenkins/program-migration/*.sh EXIT=0
+corepack pnpm exec prettier --check . EXIT=0
+pnpm lint:structure EXIT=0
+위 앞쪽의 bun test deploy/jenkins와 scripts 타입체크 수치는 attempt 1 결과이며 이번에 다시 돌리지 않았다.
+
 아직 증명하지 못한 것:
 실제 운영 덤프와 실제 이전 이미지로 돌린 리허설은 없다. heavy slot 승인과 각 Todo의 매니페스트가 필요하다.
 scripts/check-pr-body.sh는 현재 트리에 없어 실행할 수 없다. 공개 안전 검사는 .github/check-public-safe.sh로 실행했다.
