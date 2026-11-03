@@ -427,7 +427,9 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
 
     expect(html).not.toContain('aria-label="합성 사용자 회원 유형"');
     expect(html).not.toContain('<output');
-    expect(html).toContain('admin-access-row-synthetic-user-member-kind-control');
+    expect(html).toContain(
+      'admin-access-row-synthetic-user-member-kind-control',
+    );
     expect(html).toContain('가입 유형 되돌리기');
     expect(html).toContain('aria-label="합성 사용자 관리자 접근"');
     expect(html).toContain('aria-label="합성 사용자 계정 상태"');

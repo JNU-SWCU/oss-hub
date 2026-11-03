@@ -415,9 +415,9 @@ for (const [name, kind, approvalStatus] of [
       name: '가입 유형 되돌리기',
       exact: true,
     });
-    await expect(row.locator('[id$="-member-kind-control"]:visible')).toHaveText(
-      kind === 'STUDENT' ? '학생' : '교직원',
-    );
+    await expect(
+      row.locator('[id$="-member-kind-control"]:visible'),
+    ).toHaveText(kind === 'STUDENT' ? '학생' : '교직원');
     await reset.click();
     const dialog = dialogNamed(page, '가입 유형 되돌리기');
     await expect(dialog).toContainText(
@@ -922,7 +922,9 @@ test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크
         'mobile row height',
       ).toBeLessThanOrEqual(MAX_MOBILE_ROW_HEIGHT);
       const row = rowOf(page, '합성 사용자 01');
-      await expect(row.locator('[id$="-member-kind-control"]:visible')).toHaveText('학생');
+      await expect(
+        row.locator('[id$="-member-kind-control"]:visible'),
+      ).toHaveText('학생');
       for (const control of ['관리자 접근', '계정 상태']) {
         await expect(
           row.getByRole('combobox', { name: control, exact: true }),
