@@ -47,7 +47,7 @@ const detail: CanonicalAdminAccessDetail = {
     isComplete: true,
   },
 };
-const action = 'RESET_MEMBER_KIND';
+const action = 'SET_STATUS_DEACTIVATED';
 let container: HTMLDivElement;
 let root: Root;
 let current: ReturnType<typeof useInlineAdminAccessMutation>;

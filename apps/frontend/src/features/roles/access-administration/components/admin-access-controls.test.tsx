@@ -141,21 +141,26 @@ describe('shared access controls', () => {
     },
   );
   it.each(['cell', 'stacked'] as const)(
-    'passes reset return-focus target in %s layout',
+    'renders only membership text without reset or its reason in %s layout',
     (layout) => {
       const request = renderAll(
-        item({ pendingRequest: PENDING_REQUEST }),
+        item({ pendingRequest: PENDING_REQUEST, isSelf: true }),
         layout,
       );
-      const button = Array.from(container.querySelectorAll('button')).find(
-        (candidate) => candidate.textContent === '가입 유형 되돌리기',
-      );
-      if (!button) throw new TypeError('Reset action missing');
-      act(() => button.click());
-      expect(request).toHaveBeenCalledExactlyOnceWith(
-        'RESET_MEMBER_KIND',
-        button,
-      );
+      const memberKind = container.querySelector('#row-1-member-kind-control');
+      expect(memberKind?.textContent).toBe('학생');
+      expect(
+        Array.from(container.querySelectorAll('button')).some(
+          (button) => button.textContent === '가입 유형 되돌리기',
+        ),
+      ).toBe(false);
+      expect(
+        container.querySelector('#row-1-member-kind-reset-reason'),
+      ).toBeNull();
+      act(() => {
+        memberKind?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(request).not.toHaveBeenCalled();
     },
   );
   it('blocks all mutation controls while processing', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import type { InlineAdminAccessMutationAction } from './use-inline-admin-access-mutation';
 import { Button } from '@/components/ui/button';
 
 import {
@@ -32,7 +33,6 @@ import {
 
 export type AdminAccessControlKind =
   'memberKind' | 'adminAccess' | 'accountStatus';
-type AdminAccessControlLayout = 'field' | 'cell' | 'stacked';
 
 const LAYOUT = {
   field: { frame: 'grid gap-2', trigger: 'h-11' },
@@ -43,6 +43,27 @@ const LAYOUT = {
   },
 } as const;
 
+type AdminAccessControlProps = {
+  readonly kind: AdminAccessControlKind;
+  readonly target: AdminAccessDirectoryItem;
+  readonly disabled: boolean;
+  readonly idPrefix: string;
+} & (
+  | {
+      readonly layout: 'field';
+      readonly onRequestAction: (
+        action: Exclude<AdminAccessMutationAction, 'APPROVE' | 'REJECT'>,
+      ) => void;
+    }
+  | {
+      readonly layout: 'cell' | 'stacked';
+      readonly onRequestAction: (
+        action: InlineAdminAccessMutationAction,
+        trigger?: HTMLElement | null,
+      ) => void;
+    }
+);
+
 export function AdminAccessControl({
   kind,
   target,
@@ -50,21 +71,38 @@ export function AdminAccessControl({
   onRequestAction,
   layout,
   idPrefix,
-}: {
-  readonly kind: AdminAccessControlKind;
-  readonly target: AdminAccessDirectoryItem;
-  readonly disabled: boolean;
-  readonly onRequestAction: (
-    action: Exclude<AdminAccessMutationAction, 'APPROVE' | 'REJECT'>,
-    trigger?: HTMLElement | null,
-  ) => void;
-  readonly layout: AdminAccessControlLayout;
-  readonly idPrefix: string;
-}) {
+}: AdminAccessControlProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const guards = deriveAdminAccessGuards(target);
   const isField = layout === 'field';
   if (kind === 'memberKind') {
+    const controlId = idPrefix + '-member-kind-control';
+    const label =
+      layout !== 'cell' ? (
+        <span className="text-sm font-medium" id={controlId + '-label'}>
+          회원 유형
+        </span>
+      ) : null;
+    const memberKind = (
+      <span
+        id={controlId}
+        className="text-sm"
+        {...(layout !== 'cell'
+          ? { 'aria-labelledby': controlId + '-label' }
+          : {})}
+      >
+        {target.memberKind
+          ? ROLE_LABEL[target.memberKind]
+          : UNASSIGNED_ROLE_LABEL}
+      </span>
+    );
+    if (!isField)
+      return (
+        <div className={LAYOUT[layout].frame}>
+          {label}
+          {memberKind}
+        </div>
+      );
     const reason = target.isSelf
       ? '자신의 가입 유형은 되돌릴 수 없습니다.'
       : target.memberKind === null
@@ -72,53 +110,32 @@ export function AdminAccessControl({
         : target.hasAdminAccess
           ? '관리자 권한을 먼저 해제해 주세요.'
           : null;
-    const controlId = idPrefix + '-member-kind-control';
     const reasonId = idPrefix + '-member-kind-reset-reason';
     return (
-      <div className={LAYOUT[layout].frame}>
-        {layout !== 'cell' ? (
-          <span className="text-sm font-medium" id={controlId + '-label'}>
-            회원 유형
-          </span>
-        ) : null}
-        <div className="grid max-w-44 gap-2">
+      <div className={LAYOUT.field.frame}>
+        {label}
+        <div className="grid min-w-0 max-w-44 gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              id={controlId}
-              className="text-sm"
-              {...(layout !== 'cell'
-                ? { 'aria-labelledby': controlId + '-label' }
-                : {})}
-            >
-              {target.memberKind
-                ? ROLE_LABEL[target.memberKind]
-                : UNASSIGNED_ROLE_LABEL}
-            </span>
+            {memberKind}
             <Button
-              ref={triggerRef}
               type="button"
               variant="destructive"
               size="xs"
-              className={layout === 'cell' ? 'h-9' : 'h-11'}
+              className="h-11"
               disabled={disabled || reason !== null}
               aria-describedby={reason ? reasonId : undefined}
-              onClick={() => {
-                if (isField)
-                  onRequestAction(
-                    ADMIN_ACCESS_MUTATION_ACTIONS.RESET_MEMBER_KIND,
-                  );
-                else
-                  onRequestAction(
-                    ADMIN_ACCESS_MUTATION_ACTIONS.RESET_MEMBER_KIND,
-                    triggerRef.current,
-                  );
-              }}
+              onClick={() =>
+                onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.RESET_MEMBER_KIND)
+              }
             >
               가입 유형 되돌리기
             </Button>
           </div>
           {reason ? (
-            <p id={reasonId} className="text-sm text-muted-foreground">
+            <p
+              id={reasonId}
+              className="min-w-0 whitespace-normal break-words text-sm text-muted-foreground"
+            >
               {reason}
             </p>
           ) : null}
@@ -195,7 +212,12 @@ export function AdminAccessControl({
 
   return (
     <>
-      <div className={LAYOUT[layout].frame}>
+      <div
+        className={LAYOUT[layout].frame}
+        onClick={(event) => {
+          if (!isField) event.stopPropagation();
+        }}
+      >
         {layout !== 'cell' ? (
           <label className="text-sm font-medium" htmlFor={controlId}>
             {control.label}

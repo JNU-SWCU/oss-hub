@@ -16,7 +16,7 @@ import {
 
 export type InlineAdminAccessMutationAction = Exclude<
   AdminAccessMutationAction,
-  'APPROVE' | 'REJECT'
+  'APPROVE' | 'REJECT' | 'RESET_MEMBER_KIND'
 >;
 
 const conflictMessage =

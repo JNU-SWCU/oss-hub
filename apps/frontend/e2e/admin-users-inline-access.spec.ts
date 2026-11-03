@@ -398,7 +398,47 @@ async function openDirectory(
   ).toBeVisible();
   await settle(page);
   await expect(tableRegion(page)).toContainText('합성 사용자 19');
+  await expect(
+    tableRegion(page).getByRole('button', {
+      name: '가입 유형 되돌리기',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    tableRegion(page).locator('[id$="-member-kind-reset-reason"]'),
+  ).toHaveCount(0);
   return store;
+}
+
+async function openUserDetail(page: Page, name: string): Promise<Locator> {
+  await rowOf(page, name)
+    .locator('[id$="-member-kind-control"]:visible')
+    .click();
+  const detail = dialogNamed(page, '사용자 목록 상세');
+  await expect(detail).toBeVisible();
+  await expect(detail.locator('#admin-member-kind-control')).toBeVisible();
+  return detail;
+}
+async function expectResetBlocked(
+  detail: Locator,
+  reasonText: string,
+): Promise<void> {
+  await expect(
+    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeDisabled();
+  const reason = detail.locator('#admin-member-kind-reset-reason');
+  await expect(reason).toHaveText(reasonText);
+  const bounds = await reason.evaluate((element) => {
+    if (!element.parentElement) throw new Error('Missing reason container');
+    return {
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      right: element.getBoundingClientRect().right,
+      containerRight: element.parentElement.getBoundingClientRect().right,
+    };
+  });
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.containerRight);
 }
 
 for (const [name, kind, approvalStatus] of [
@@ -411,13 +451,14 @@ for (const [name, kind, approvalStatus] of [
     const audit = installBrowserAudit(page);
     const store = await openDirectory(page, DESKTOP);
     const row = rowOf(page, name);
-    const reset = row.getByRole('button', {
-      name: '가입 유형 되돌리기',
-      exact: true,
-    });
     await expect(
       row.locator('[id$="-member-kind-control"]:visible'),
     ).toHaveText(kind === 'STUDENT' ? '학생' : '교직원');
+    const userDetail = await openUserDetail(page, name);
+    const reset = userDetail.getByRole('button', {
+      name: '가입 유형 되돌리기',
+      exact: true,
+    });
     await reset.click();
     const dialog = dialogNamed(page, '가입 유형 되돌리기');
     await expect(dialog).toContainText(
@@ -434,11 +475,18 @@ for (const [name, kind, approvalStatus] of [
       '#admin-access-row-' + id + '-member-kind-control:visible',
     );
     await expect(refreshedKind).toHaveText('미지정');
+    await expect(userDetail.locator('#admin-member-kind-control')).toHaveText(
+      '미지정',
+    );
+    await expectResetBlocked(userDetail, '선택된 가입 유형이 없습니다.');
+    await userDetail.getByRole('button', { name: '닫기', exact: true }).click();
+    await expect(userDetail).toBeHidden();
     await expect(
-      refreshedKind
-        .locator('..')
-        .getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
-    ).toBeDisabled();
+      tableRegion(page).getByRole('button', {
+        name: '가입 유형 되돌리기',
+        exact: true,
+      }),
+    ).toHaveCount(0);
     expect(store.patches).toEqual([
       {
         path: '/api/v1/users/' + id + '/member-kind/reset',
@@ -580,7 +628,7 @@ test('드롭다운을 열고 닫아도 상세가 열리지 않고 드롭다운 �
   audit.assertClean();
 });
 
-test('자기 계정 초기화와 권한 회수는 막고 대기 신청자 초기화는 허용한다 (1280px)', async ({
+test('상세에서 본인·관리자 초기화를 막고 대기 신청자는 허용하며 인라인 권한 회수 제한을 유지한다 (1280px)', async ({
   page,
 }) => {
   const audit = installBrowserAudit(page);
@@ -599,20 +647,22 @@ test('자기 계정 초기화와 권한 회수는 막고 대기 신청자 초기
   await page.keyboard.press('Escape');
   await expect(page.getByRole('listbox')).toHaveCount(0);
 
-  await expect(
-    rowOf(page, SYNTHETIC_SELF.name).getByRole('button', {
-      name: '가입 유형 되돌리기',
-      exact: true,
-    }),
-  ).toBeDisabled();
-  await expect(
-    rowOf(page, '합성 사용자 05').getByRole('button', {
-      name: '가입 유형 되돌리기',
-      exact: true,
-    }),
-  ).toBeEnabled();
-
   expect(store.detailGets).toBe(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const self = await openUserDetail(page, SYNTHETIC_SELF.name);
+  await expectResetBlocked(self, '자신의 가입 유형은 되돌릴 수 없습니다.');
+  await self.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(self).toBeHidden();
+  const admin = await openUserDetail(page, '합성 사용자 02');
+  await expectResetBlocked(admin, '관리자 권한을 먼저 해제해 주세요.');
+  await admin.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(admin).toBeHidden();
+  const pending = await openUserDetail(page, '합성 사용자 05');
+  await expect(
+    pending.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeEnabled();
+  await pending.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(pending).toBeHidden();
   expect(store.patches).toEqual([]);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   audit.assertClean();
@@ -623,7 +673,8 @@ test('초기화 409는 확인 대화상자의 오류 영역에 서버 문구를 
 }) => {
   const audit = installBrowserAudit(page);
   const store = await openDirectory(page, DESKTOP);
-  await rowOf(page, '합성 사용자 03')
+  const userDetail = await openUserDetail(page, '합성 사용자 03');
+  await userDetail
     .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
     .click();
   const dialog = dialogNamed(page, '가입 유형 되돌리기');
@@ -636,9 +687,7 @@ test('초기화 409는 확인 대화상자의 오류 영역에 서버 문구를 
       'ROL_025',
     ),
   };
-  await refreshAfterClick(
-    dialog.getByRole('button', { name: '되돌리기', exact: true }),
-  );
+  await dialog.getByRole('button', { name: '되돌리기', exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('alert')).toHaveText(detail);
   expect(store.patches).toHaveLength(1);
@@ -873,7 +922,12 @@ async function captureWidth(
 async function captureDialog(page: Page, dir: string): Promise<void> {
   await page.setViewportSize(DESKTOP);
   await settle(page);
-  await rowOf(page, '합성 사용자 01')
+  const detail = await openUserDetail(page, '합성 사용자 01');
+  await expect(
+    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeVisible();
+  await captureFull(page, dir, 'detail-reset-1440');
+  await detail
     .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
     .click();
   const dialog = dialogNamed(page, '가입 유형 되돌리기');
@@ -881,6 +935,8 @@ async function captureDialog(page: Page, dir: string): Promise<void> {
   await captureFull(page, dir, 'dialog-1440');
   await dialog.getByRole('button', { name: '취소' }).click();
   await expect(dialog).toBeHidden();
+  await detail.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(detail).toBeHidden();
 }
 
 test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크롤 없음, 390px 행 높이 320px 이하', async ({
