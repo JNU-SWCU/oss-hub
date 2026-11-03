@@ -35,7 +35,7 @@ const CURSOR = {
   stroke: 'var(--muted-foreground)',
   strokeDasharray: '4 4',
 } as const;
-const MARGIN = { top: 8, right: 16, left: 0, bottom: 0 } as const;
+const MARGIN = { top: 16, right: 20, left: 0, bottom: 0 } as const;
 const FADED_OPACITY = 0.28;
 
 function Note(props: { readonly state: string; readonly text: string }) {
@@ -203,13 +203,14 @@ export function RankingHistoryChart({
                 name={line.githubLogin}
                 stroke={line.color}
                 strokeWidth={line.strokeWidth}
-                strokeDasharray={line.dash}
                 strokeOpacity={opacityOf(line)}
                 hide={hidden.has(line.githubLogin)}
                 onMouseEnter={() => setFocused(line.githubLogin)}
                 onMouseLeave={() => setFocused(null)}
                 className={line.faded ? undefined : styles.sketched}
-                dot={line.showDot ? { r: 2.5 } : false}
+                dot={(props: { cx?: number; cy?: number; index: number }) => (
+                  <LineDot key={props.index} line={line} {...props} />
+                )}
                 activeDot={line.isViewer}
                 connectNulls={false}
                 isAnimationActive={false}
@@ -253,6 +254,47 @@ function WobbleDefs() {
   );
 }
 
+const AVATAR_SIZE = 24;
+
+function LineDot({
+  line,
+  cx,
+  cy,
+  index,
+}: {
+  readonly line: RankingHistoryLine;
+  readonly cx?: number;
+  readonly cy?: number;
+  readonly index: number;
+}) {
+  if (cx === undefined || cy === undefined) return <g />;
+  if (index === line.tipIndex && !line.faded) {
+    const r = AVATAR_SIZE / 2;
+    const clipId = `ranking-avatar-${line.key}`;
+    return (
+      <g data-line-avatar={line.githubLogin}>
+        <clipPath id={clipId}>
+          <circle cx={cx} cy={cy} r={r} />
+        </clipPath>
+        <circle cx={cx} cy={cy} r={r + 2} fill={line.color} />
+        <image
+          href={`https://github.com/${line.githubLogin}.png?size=${String(AVATAR_SIZE * 2)}`}
+          x={cx - r}
+          y={cy - r}
+          width={AVATAR_SIZE}
+          height={AVATAR_SIZE}
+          clipPath={`url(#${clipId})`}
+        />
+      </g>
+    );
+  }
+  return line.showDot ? (
+    <circle cx={cx} cy={cy} r={2.5} fill={line.color} />
+  ) : (
+    <g />
+  );
+}
+
 function Swatch({ line }: { readonly line: RankingHistoryLine }) {
   return (
     <svg
@@ -268,7 +310,6 @@ function Swatch({ line }: { readonly line: RankingHistoryLine }) {
         y2={2}
         stroke={line.color}
         strokeWidth={3}
-        strokeDasharray={line.dash}
       />
     </svg>
   );

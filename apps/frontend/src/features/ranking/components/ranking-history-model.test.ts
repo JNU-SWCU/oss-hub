@@ -79,28 +79,15 @@ test('범례는 상위 10명과 열람자만 담고, 열람자 선은 전용 색
   );
 });
 
-test('상위 10명은 색·선모양 조합이 서로 겹치지 않는다', () => {
+test('상위 10명은 색이 모두 다르다', () => {
   const chart = buildRankingHistoryChart(timelineOf(rankedSeries(12)), null);
-  const identities = chart.legend.map(
-    (line) => `${line.color}|${String(line.dash)}`,
-  );
+  const colors = chart.legend.map((line) => line.color);
 
-  expect(chart.legend.find((line) => line.finalRank === 1)?.color).toBe(
-    'var(--chart-1)',
-  );
-  expect(
-    chart.legend.find((line) => line.finalRank === 1)?.dash,
-  ).toBeUndefined();
-  expect(chart.legend.find((line) => line.finalRank === 4)?.dash).toBe('7 5');
   expect(chart.legend.map((line) => line.strokeWidth)).toEqual([
     2.8, 2.8, 2.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8,
   ]);
-  expect(
-    new Set(
-      chart.legend.filter((line) => !line.isViewer).map((line) => line.color),
-    ),
-  ).toEqual(new Set(['var(--chart-1)', 'var(--chart-2)']));
-  expect(new Set(identities).size).toBe(identities.length);
+  expect(new Set(colors).size).toBe(10);
+  expect(colors).not.toContain('var(--chart-3)');
 });
 
 test('계열이 없으면 행도 없다', () => {
