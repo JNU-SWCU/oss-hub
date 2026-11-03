@@ -38,9 +38,9 @@ export default defineConfig({
       sidebar: [
         { label: '서비스 소개', slug: 'intro' },
         { label: '시작하기', slug: 'start' },
-        { label: '관리자', items: [{ autogenerate: { directory: 'admin' } }] },
-        { label: '학생', items: [{ autogenerate: { directory: 'student' } }] },
-        { label: '교직원', items: [{ autogenerate: { directory: 'staff' } }] },
+        { label: '관리자', collapsed: true, items: [{ autogenerate: { directory: 'admin' } }] },
+        { label: '학생', collapsed: true, items: [{ autogenerate: { directory: 'student' } }] },
+        { label: '교직원', collapsed: true, items: [{ autogenerate: { directory: 'staff' } }] },
         { label: '자주 묻는 질문', slug: 'faq' },
       ],
     }),

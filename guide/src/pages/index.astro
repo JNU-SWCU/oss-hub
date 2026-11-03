@@ -4,7 +4,7 @@ import '~/styles/tokens.css';
 import Shot from '~/components/Shot.astro';
 import SiteNote from '~/components/SiteNote.astro';
 import ThemeToggle from '~/components/ThemeToggle.astro';
-import { serviceUrl } from '~/site';
+import { lastChecked, releaseVersion, serviceUrl } from '~/site';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const images = import.meta.glob<{ default: ImageMetadata }>(
@@ -166,6 +166,7 @@ const nav = [
             <span>역할별 가이드</span>
             {roles.map((r) => <a href={r.href}>{r.name}</a>)}
           </nav>
+          <p class="meta"><span aria-hidden="true"></span>배포본 {releaseVersion} 기준 · {lastChecked} 확인</p>
           </div>
         </div>
         <div class="wrap">
@@ -333,7 +334,7 @@ const nav = [
   h1 span { color: var(--guide-brand); }
   h1 {
     margin-top: 1rem; max-width: 18ch;
-    font-size: clamp(2.25rem, 3.5vw + 1.25rem, 3.5rem); font-weight: 700; line-height: 1.2;
+    font-size: clamp(2.25rem, 4.5vw + 1rem, 4.5rem); font-weight: 750; line-height: 1.15;
     letter-spacing: -0.025em; color: var(--sl-color-white);
   }
   .lede { margin-top: 1.5rem; max-width: 34rem; text-wrap: pretty; font-size: clamp(1rem, 0.6vw + 0.9rem, 1.1875rem); color: var(--sl-color-gray-2); }
@@ -350,6 +351,9 @@ const nav = [
   .hero-roles span { margin-right: 0.25rem; color: var(--sl-color-gray-3); }
   .hero-roles a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 600; color: var(--sl-color-white); text-decoration: underline; text-decoration-color: var(--guide-brand); text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
   .hero-roles a:hover { color: var(--guide-brand); }
+  .meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--sl-color-gray-3); }
+  .meta span { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2aab63; box-shadow: 0 0 0 3px color-mix(in srgb, #2aab63 25%, transparent); }
+  main p, .facts li { text-wrap: pretty; word-break: keep-all; }
 
   .frame {
     overflow: hidden;

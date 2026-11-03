@@ -79,6 +79,7 @@ h1#_top {
 }
 
 .sl-markdown-content {
+  text-wrap: pretty;
   letter-spacing: -0.011em;
   word-break: keep-all;
   color: var(--sl-color-gray-1);
