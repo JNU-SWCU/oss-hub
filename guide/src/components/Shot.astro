@@ -4,12 +4,13 @@ import { Image } from 'astro:assets';
 interface Props {
   src: string;
   alt: string;
-  caption: string;
+  caption?: string;
+  sizes?: string;
 }
 
-const { src } = Astro.props;
+const { src, sizes } = Astro.props;
 const alt = Astro.props.alt.replaceAll('`', '');
-const caption = Astro.props.caption.replaceAll('`', '');
+const caption = Astro.props.caption?.replaceAll('`', '');
 const files = import.meta.glob<{ default: ImageMetadata }>(
   '/src/assets/shots/**/*.{webp,png,jpg}',
   { eager: true },
@@ -25,10 +26,10 @@ const cssWidth = Math.round(file.default.width / 2);
       src={file.default}
       alt={alt}
       widths={[640, 960, 1440]}
-      sizes={`min(100vw, 46rem, ${cssWidth}px)`}
+      sizes={sizes ?? `min(100vw, 46rem, ${cssWidth}px)`}
     />
   </button>
-  <figcaption>{caption}</figcaption>
+  {caption && <figcaption>{caption}</figcaption>}
   <dialog class="shot-dialog" aria-label={alt}>
     <form method="dialog">
       <button class="shot-close" aria-label="닫기">닫기</button>

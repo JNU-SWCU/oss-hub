@@ -1,7 +1,9 @@
 ---
 import { Image } from 'astro:assets';
 import '~/styles/tokens.css';
+import Shot from '~/components/Shot.astro';
 import SiteNote from '~/components/SiteNote.astro';
+import ThemeToggle from '~/components/ThemeToggle.astro';
 import { serviceUrl } from '~/site';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -134,10 +136,7 @@ const nav = [
         <nav aria-label="주요 메뉴" class="menu">
           {nav.map(([label, href]) => <a href={href}>{label}</a>)}
         </nav>
-        <button type="button" id="theme" class="theme" aria-label="화면 테마 전환">
-          <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
-          <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg>
-        </button>
+        <ThemeToggle />
         <details class="menu-m">
           <summary aria-label="메뉴">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
@@ -200,11 +199,7 @@ const nav = [
                 <h3>{s.title}</h3>
                 <p>{s.body}</p>
               </header>
-              <div class="frame">
-                {shot(s.name)
-                  ? <Image src={shot(s.name)} alt={s.alt} widths={[640, 960, 1440]} sizes="(min-width: 1200px) 1120px, 92vw" />
-                  : <span class="empty">화면 준비 중</span>}
-              </div>
+              <Shot src={`landing/${s.name}.webp`} alt={s.alt} sizes="(min-width: 1200px) 1120px, 92vw" />
             </article>
           ))}
         </div>
@@ -259,15 +254,6 @@ const nav = [
       <div class="wrap"><SiteNote /></div>
     </footer>
 
-    <script>
-      document.getElementById('theme')?.addEventListener('click', () => {
-        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = next;
-        try {
-          localStorage.setItem('starlight-theme', next);
-        } catch {}
-      });
-    </script>
   </body>
 </html>
 
@@ -311,16 +297,8 @@ const nav = [
   .menu a { padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.9375rem; color: var(--sl-color-gray-2); }
   .menu a:hover { background: var(--sl-color-gray-6); color: var(--sl-color-white); }
   @media (min-width: 62rem) { .menu { display: flex; } }
-  .theme {
-    margin-left: auto; display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
-    border: 1px solid var(--guide-line); border-radius: 0.6rem; background: none;
-    color: var(--sl-color-gray-1); cursor: pointer;
-  }
-  @media (min-width: 62rem) { .theme { margin-left: 0.25rem; } }
-  .theme:hover { background: var(--sl-color-gray-6); }
-  .i-sun { display: none; }
-  html[data-theme='dark'] .i-sun { display: block; }
-  html[data-theme='dark'] .i-moon { display: none; }
+  .theme-toggle { margin-left: auto; }
+  @media (min-width: 62rem) { .theme-toggle { margin-left: 0.25rem; } }
 
   .hero { padding: clamp(3rem, 8vw, 6.5rem) 0 0; position: relative; isolation: isolate; }
   .menu-m { position: relative; }
@@ -379,7 +357,7 @@ const nav = [
     .frame-hero { aspect-ratio: 16 / 10; }
     .frame-hero img { width: 100%; max-width: 100%; margin-left: 0; }
   }
-  html[data-theme='dark'] .frame img { filter: brightness(0.9); }
+  html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.9); }
   html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 30px 80px rgb(0 0 0 / 50%); }
   .empty {
     aspect-ratio: 16 / 10; display: grid; place-items: center;
@@ -398,6 +376,7 @@ const nav = [
 
   .flow { padding-top: clamp(4rem, 9vw, 8rem); }
   .step { margin-top: clamp(3rem, 7vw, 6rem); }
+  .step .shot { margin: 0; }
   .step header { display: grid; gap: 0.5rem 2rem; margin-bottom: 1.5rem; }
   .no {
     font-size: clamp(2.25rem, 4vw, 3.5rem); font-weight: 600; line-height: 1; letter-spacing: -0.03em;

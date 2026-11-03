@@ -13,7 +13,7 @@
 - `site: 'https://jnu-swcu.github.io'`, `base: '/oss-hub'`.
 - Starlight 제목 `OSS Hub 사용 가이드`, 기본 로케일 `ko`(root), GitHub 링크 `https://github.com/JNU-SWCU/oss-hub`.
 - 글꼴: Pretendard Variable 동적 서브셋을 jsDelivr `<link>`(preconnect `cdn.jsdelivr.net`, `orioncactus/pretendard@v1.3.9`)로 불러옵니다. 대체 글꼴에 Noto Sans KR을 둡니다.
-- `customCss`: `~/styles/tokens.css`, `~/styles/docs.css`. Footer 컴포넌트는 `./src/components/Footer.astro`로 덮어씁니다.
+- `customCss`: `~/styles/tokens.css`, `~/styles/docs.css`. Footer는 `./src/components/Footer.astro`, ThemeSelect는 `./src/components/ThemeToggle.astro`로 덮어씁니다.
 - 사이드바 순서: 서비스 소개(`intro`), 시작하기(`start`), 관리자(`admin` 자동 생성), 학생(`student`), 교직원(`staff`), 자주 묻는 질문(`faq`).
 
 ## 파일 배치

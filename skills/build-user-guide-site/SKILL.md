@@ -11,7 +11,7 @@ description: >-
   대상은 `guide/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
 argument-hint: "[update|full] [low|mid|high]"
 metadata:
-  version: "1.5.0"
+  version: "1.5.1"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신

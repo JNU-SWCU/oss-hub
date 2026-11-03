@@ -31,7 +31,10 @@ export default defineConfig({
       ],
       customCss: ['~/styles/tokens.css', '~/styles/docs.css'],
       logo: { src: './src/assets/logo.svg' },
-      components: { Footer: './src/components/Footer.astro' },
+      components: {
+        Footer: './src/components/Footer.astro',
+        ThemeSelect: './src/components/ThemeToggle.astro',
+      },
       sidebar: [
         { label: '서비스 소개', slug: 'intro' },
         { label: '시작하기', slug: 'start' },
