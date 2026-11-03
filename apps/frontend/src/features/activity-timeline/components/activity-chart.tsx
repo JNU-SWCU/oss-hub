@@ -90,6 +90,7 @@ export function ActivityChart({
       <div aria-hidden="true" className="h-80 min-h-80 w-full overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
+            accessibilityLayer={false}
             data={orderedPoints.chart}
             margin={{ top: 12, right: 12, left: -12, bottom: 4 }}
           >
