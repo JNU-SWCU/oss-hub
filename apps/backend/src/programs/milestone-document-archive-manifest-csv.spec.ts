@@ -191,7 +191,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
             team: team(),
             cells: [
               cell(CONSENT_DOCUMENT.id, {
-                state: 'PENDING',
+                state: 'SUBMITTED',
                 submittedAt: new Date('2026-08-09T05:30:00Z'),
                 path: '동의서/합성팀_동의서.pdf',
               }),
@@ -253,7 +253,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
   describe('칸 표기', () => {
     const stateCases: [MilestoneDocumentArchiveCellState, string][] = [
       ['NOT_SUBMITTED', '미제출'],
-      ['PENDING', '검토 대기'],
+      ['SUBMITTED', '검토 대기'],
       ['APPROVED', '승인'],
       ['CHANGES_REQUESTED', '보완 요청'],
       ['REJECTED', '반려'],
@@ -283,7 +283,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
             team: team(),
             cells: [
               cell(CONSENT_DOCUMENT.id, {
-                state: 'PENDING',
+                state: 'SUBMITTED',
                 submittedAt: new Date('2026-08-09T15:30:00Z'),
               }),
             ],
@@ -309,7 +309,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
             team: team(),
             cells: [
               cell(CONSENT_DOCUMENT.id, {
-                state: 'PENDING',
+                state: 'SUBMITTED',
                 submittedAt: new Date('2026-08-09T05:30:00Z'),
               }),
             ],
@@ -425,7 +425,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
             team: team(),
             cells: [
               cell(PLAN_DOCUMENT.id, {
-                state: 'PENDING',
+                state: 'SUBMITTED',
                 submittedAt: new Date('2026-08-09T05:30:00Z'),
                 omission: 'SUBMISSION_UNAVAILABLE',
               }),

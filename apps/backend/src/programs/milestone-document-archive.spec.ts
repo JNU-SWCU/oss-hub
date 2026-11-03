@@ -247,12 +247,12 @@ describe('buildMilestoneDocumentArchivePlan', () => {
       'doc-b',
     ]);
     expect(result.manifest[0]?.cells[0]?.state).toBe('NOT_SUBMITTED');
-    expect(result.manifest[0]?.cells[1]?.state).toBe('PENDING');
+    expect(result.manifest[0]?.cells[1]?.state).toBe('SUBMITTED');
   });
 
   describe('제출 상태 다섯 갈래', () => {
     it.each([
-      [SubmissionStatus.SUBMITTED, 'PENDING'],
+      [SubmissionStatus.SUBMITTED, 'SUBMITTED'],
       [SubmissionStatus.APPROVED, 'APPROVED'],
       [SubmissionStatus.CHANGES_REQUESTED, 'CHANGES_REQUESTED'],
       [SubmissionStatus.REJECTED, 'REJECTED'],
@@ -268,7 +268,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
     expect(result.entries).toHaveLength(0);
     expect(result.manifest[0]?.cells[0]).toMatchObject({
-      state: 'PENDING',
+      state: 'SUBMITTED',
       submittedAt,
       path: null,
       omission: 'FILE_UNAVAILABLE',

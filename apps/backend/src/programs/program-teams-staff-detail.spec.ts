@@ -2,7 +2,7 @@ import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, RepositoryProvisionJobStatus } from '@prisma/client';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
 import {
   ProgramTeamsRepository,
@@ -78,6 +78,54 @@ function buildService(overrides: {
 }
 
 describe('ProgramTeamsService.getForStaff', () => {
+  it.each([
+    RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+    RepositoryProvisionJobStatus.FAILED_FINAL,
+  ])(
+    'returns the original provisioning status %s without an API alias',
+    async (status) => {
+      const { service } = buildService({
+        detail: {
+          repositoryContributions: null,
+          repositoryUrlHistory: { rows: [], hasMore: false },
+          id: TEAM_ID,
+          name: 'synthetic team',
+          leaderId: 'synthetic-leader',
+          members: [],
+          application: {
+            id: 'synthetic-application',
+            status: 'APPROVED',
+            repositoryConnectionMode: 'NEW',
+            repositoryUrl: null,
+            isRepositoryPublicationPlanned: false,
+            milestoneDocumentSubmissions: [],
+            repository: null,
+            updatedAt: new Date('2026-08-09T00:00:00Z'),
+            job: {
+              repositoryId: null,
+              status,
+              updatedAt: new Date('2026-08-09T00:00:00Z'),
+              lastErrorCode: 'GITHUB_OPERATIONS_RATE_LIMITED',
+            },
+            outbox: {
+              status: 'PROCESSED',
+              createdAt: new Date('2026-08-09T00:00:00Z'),
+            },
+            program: {
+              repositoryProvisioningEnabled: true,
+              endAt: new Date('2026-12-31T00:00:00Z'),
+              milestones: [],
+            },
+          },
+        },
+      });
+
+      const result = await service.getForStaff(PROGRAM_ID, TEAM_ID);
+
+      expect(result.application?.repositoryProvisioning.jobStatus).toBe(status);
+    },
+  );
+
   it('팀장을 멤버 배열 맨 앞으로 올리고 신청이 없으면 application: null', async () => {
     const { service } = buildService({
       detail: {

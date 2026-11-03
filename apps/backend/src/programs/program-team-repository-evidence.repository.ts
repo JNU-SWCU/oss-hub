@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { ApplicationStatus } from '@prisma/client';
+import type {
+  ApplicationStatus,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
@@ -144,15 +147,8 @@ export interface ProgramTeamView {
   readonly members: readonly TeamMemberView[];
 }
 
-export type TeamRepositoryProvisioningJobStatus =
-  | 'NOT_REQUESTED'
-  | 'DISABLED'
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'SUCCEEDED'
-  | 'RETRYABLE_FAILED'
-  | 'FAILED'
-  | 'ANOMALOUS';
+type TeamRepositoryProvisioningJobStatus =
+  'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
 
 export type TeamRepositoryProvisioningSafeErrorClass =
   'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';

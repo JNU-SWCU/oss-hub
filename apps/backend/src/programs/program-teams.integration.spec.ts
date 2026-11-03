@@ -55,6 +55,28 @@ describe('program storage invariants', () => {
     await prisma.user.deleteMany({ where: { id: prefix } });
   });
 
+  it('uses the composite primary key after the preceding app release stopped using old columns', async () => {
+    const primaryKeys = await prisma.$queryRaw<{ columns: string[] }[]>`
+      SELECT array_agg(a.attname ORDER BY k.ordinality)::text[] AS columns
+      FROM pg_constraint c
+      CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ordinality)
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+      WHERE c.conrelid = '"TeamMember"'::regclass AND c.contype = 'p'
+    `;
+    expect(primaryKeys).toEqual([{ columns: ['teamId', 'userId'] }]);
+
+    const legacyColumns = await prisma.$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND (
+          (table_name = 'TeamMember' AND column_name IN ('id', 'name', 'email', 'department'))
+          OR (table_name = 'Team' AND column_name = 'joinCodeDigest')
+          OR (table_name = 'TeamInvitation' AND column_name = 'invitedAt')
+        )
+    `;
+    expect(legacyColumns).toEqual([]);
+  });
+
   it('leaves a team whose membership was inserted without a surrogate ID', async () => {
     await prisma.program.create({ data: program });
     await prisma.$executeRaw`

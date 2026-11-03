@@ -136,7 +136,7 @@ export interface ReviewHistoryEntry {
   readonly rejectionReason: string | null;
 }
 
-export type RepositoryProvisioningJobStatus =
+type RepositoryProvisioningJobStatus =
   | 'NOT_REQUESTED'
   | 'DISABLED'
   | 'PENDING'
@@ -144,8 +144,6 @@ export type RepositoryProvisioningJobStatus =
   | 'SUCCEEDED'
   | 'FAILED_RETRYABLE'
   | 'FAILED_FINAL'
-  | 'RETRYABLE_FAILED'
-  | 'FAILED'
   | 'ANOMALOUS';
 
 type RepositoryProvisioningSafeErrorClass =
@@ -153,7 +151,8 @@ type RepositoryProvisioningSafeErrorClass =
 
 export interface RepositoryProvisioning {
   readonly enabled: boolean;
-  readonly jobStatus: RepositoryProvisioningJobStatus;
+  readonly jobStatus:
+    RepositoryProvisioningJobStatus | 'RETRYABLE_FAILED' | 'FAILED';
   readonly updatedAt: string;
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }

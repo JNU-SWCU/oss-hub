@@ -20,7 +20,7 @@ import {
   ArchiveProgram,
 } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
-import { SubmissionStatus } from '@prisma/client';
+import type { SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 
@@ -51,7 +51,7 @@ type MilestoneDocumentArchiveEntry =
     };
 
 export type MilestoneDocumentArchiveCellState =
-  'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
+  'NOT_SUBMITTED' | SubmissionStatus;
 
 type MilestoneDocumentArchiveOmission =
   | 'FILE_UNAVAILABLE'
@@ -91,12 +91,6 @@ export interface BuildMilestoneDocumentArchivePlanInput {
 
 function cellKey(applicationId: string, documentId: string): string {
   return `${applicationId}::${documentId}`;
-}
-
-function submittedState(
-  status: SubmissionStatus,
-): MilestoneDocumentArchiveCellState {
-  return status === SubmissionStatus.SUBMITTED ? 'PENDING' : status;
 }
 
 function archiveOmissionLabel(
@@ -156,7 +150,7 @@ const CELL_STATE_LABELS: Readonly<
   Record<MilestoneDocumentArchiveCellState, string>
 > = {
   NOT_SUBMITTED: '미제출',
-  PENDING: '검토 대기',
+  SUBMITTED: '검토 대기',
   APPROVED: '승인',
   CHANGES_REQUESTED: '보완 요청',
   REJECTED: '반려',
@@ -631,7 +625,7 @@ export class MilestoneDocumentArchiveService {
           };
         }
 
-        const state = submittedState(submission.status);
+        const state = submission.status;
         const cellEntries = this.buildEntries({
           team,
           document,
