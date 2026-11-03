@@ -331,8 +331,20 @@ describe('locked staffNumber updates', () => {
 });
 
 describe('initial studentId fill', () => {
+  it('rejects studentId writes to STAFF without changing profile or phone', async () => {
+    const { h, expected } = await fixture('STAFF', { studentId: null });
+    expect(
+      await h.repository.fillStudentId(
+        { expected, studentId: '654321', phone: '00012345678' },
+        h.recordPhoneAudit,
+      ),
+    ).toBe('conflict');
+    expect(h.current()?.studentId).toBeNull();
+    expect(h.userUpdate).not.toHaveBeenCalled();
+    expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+  });
   it('stores a missing studentId on the existing User without inventing a profile record', async () => {
-    const { h, expected } = await fixture('STAFF', {
+    const { h, expected } = await fixture('STUDENT', {
       studentId: null,
       profileCreatedAt: null,
     });

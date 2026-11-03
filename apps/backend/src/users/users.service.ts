@@ -538,7 +538,7 @@ export class UsersService {
         if (input.studentId !== undefined) {
           throw invalidProfile('학번은 학생만 저장할 수 있습니다.');
         }
-        return user.studentId;
+        return null;
     }
   }
 

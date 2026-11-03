@@ -1,7 +1,6 @@
 import { writeApprovalFixture } from './user-history.integration-fixture';
-import { MemberKindProfileService } from './member-kind-profile.service';
-import { MemberKindService } from './member-kind.service';
-import { MemberKindRepository } from './member-kind.repository';
+import { MemberRegistrationResetService } from './member-registration-reset.service';
+import { MemberRegistrationResetRepository } from './member-registration-reset.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { UserTransitionRepository } from './user-transition.repository';
@@ -55,9 +54,8 @@ export class AdminAccessHttpHarness {
         UserTransitionRepository,
         IndependentAuthorityRepository,
         IndependentAuthorityService,
-        MemberKindRepository,
-        MemberKindService,
-        MemberKindProfileService,
+        MemberRegistrationResetRepository,
+        MemberRegistrationResetService,
         AdminAccessService,
         AdminAccessRepository,
         AdminAccessMutationService,

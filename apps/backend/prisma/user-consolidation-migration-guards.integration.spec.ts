@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import {
   artifact,
   cleanupMigrationFixture,
@@ -228,5 +230,41 @@ it('preserves original audits and canonicalizes compound imports with immutable 
       );
     }
     await sql(url, await artifact('reconcile'));
+  });
+});
+
+it('archives non-student student IDs before enforcing the student-only CHECK', async () => {
+  await inMigrationDatabase(async (url) => {
+    await forward(url);
+    const before = await sql(
+      url,
+      `SELECT count(*) FROM "User" WHERE "studentId" IS NOT NULL AND type <> 'STUDENT'`,
+    );
+    const migration = await readFile(
+      resolve(
+        process.cwd(),
+        'prisma/migrations/20261103120000_student_id_requires_student_type/migration.sql',
+      ),
+      'utf8',
+    );
+    await sql(url, migration);
+    expect(
+      await sql(
+        url,
+        `SELECT count(*) FROM "UserHistory" WHERE "sourcePart" = 'student_id_requires_student_type' AND event = 'PROFILE_UPDATED' AND "actorId" IS NULL AND data #>> '{metadata,changes,0,field}' = 'studentId' AND data #>> '{metadata,changes,0,before}' IS NOT NULL AND data #>> '{metadata,changes,0,after}' IS NULL`,
+      ),
+    ).toBe(before);
+    expect(
+      await sql(
+        url,
+        `SELECT count(*) FROM "User" WHERE "studentId" IS NOT NULL AND type <> 'STUDENT'`,
+      ),
+    ).toBe('0');
+    await expect(
+      sql(
+        url,
+        `UPDATE "User" SET "studentId"='923499' WHERE id='staff-retained-id'`,
+      ),
+    ).rejects.toThrow(/User_studentId_requires_student_check/);
   });
 });

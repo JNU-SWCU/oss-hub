@@ -8,7 +8,6 @@ import { AdminProfileMutationService } from '../../src/users/admin-profile-mutat
 import { UsersService } from '../../src/users/users.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
-import { MemberKindService } from '../../src/users/member-kind.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
 import { UserProfileService } from '../../src/users/user-profile.service';
 import { BadRequestException, ValidationPipe, type Type } from '@nestjs/common';
@@ -18,7 +17,7 @@ import { AdminAccessListRequestDto } from '../../src/admin/dto/admin-access-list
 import { PatchAdminAccessRequestDto } from '../../src/admin/dto/patch-admin-access-request.dto';
 import { PatchAdminUserProfileRequestDto } from '../../src/admin/dto/patch-admin-user-profile-request.dto';
 import { PatchIndependentAuthorityRequestDto } from '../../src/admin/dto/patch-independent-authority-request.dto';
-import { PatchMemberKindRequestDto } from '../../src/admin/dto/patch-member-kind-request.dto';
+import { ResetMemberRegistrationRequestDto } from '../../src/admin/dto/reset-member-registration-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from '../../src/programs/dto/create-milestone-document-submission-request.dto';
 import { CreateProgramDocumentChangeRequestRequestDto } from '../../src/programs/dto/create-program-document-change-request-request.dto';
 import {
@@ -60,9 +59,6 @@ const independentAuthorityService = Object.create(
   IndependentAuthorityService.prototype,
 ) as IndependentAuthorityService;
 const usersService = Object.create(UsersService.prototype) as UsersService;
-const memberKindService = Object.create(
-  MemberKindService.prototype,
-) as MemberKindService;
 const rankingYearService = new RankingYearService();
 const adminAccessService = Object.create(
   AdminAccessService.prototype,
@@ -264,37 +260,33 @@ parityCases(
   },
   (dto) => independentAuthorityService.adminCommandFromRequest(dto),
 );
-const MEMBER_KIND_BASE = {
-  memberKind: 'STAFF',
-  expectedMemberKind: 'STUDENT',
-  expectedHasStaffAccess: false,
-};
-parityCases(
-  PatchMemberKindRequestDto,
-  {
-    valid: MEMBER_KIND_BASE,
-    'with staff number': { ...MEMBER_KIND_BASE, staffNumber: ' A-1234 ' },
-    'digit staff number': { ...MEMBER_KIND_BASE, staffNumber: ' 1234567 ' },
-    'null staff number': { ...MEMBER_KIND_BASE, staffNumber: null },
-    'blank staff number': { ...MEMBER_KIND_BASE, staffNumber: '  ' },
-    'long staff number': { ...MEMBER_KIND_BASE, staffNumber: 's'.repeat(100) },
-    'with student fields': {
-      ...MEMBER_KIND_BASE,
-      memberKind: 'STUDENT',
-      studentId: ' 123456 ',
-      department: ' 학과 ',
-    },
-    'bad student id': { ...MEMBER_KIND_BASE, studentId: 'abc' },
-    'blank department': { ...MEMBER_KIND_BASE, department: ' ' },
-    'unknown member kind': { ...MEMBER_KIND_BASE, memberKind: 'NOPE' },
-    'non-boolean access': {
-      ...MEMBER_KIND_BASE,
-      expectedHasStaffAccess: 'yes',
-    },
-    missing: {},
+parityCases(ResetMemberRegistrationRequestDto, {
+  valid: {
+    expectedMemberKind: 'STUDENT',
+    expectedApprovalStatus: 'NOT_REQUIRED',
+    expectedApprovalRequestId: null,
   },
-  (dto) => memberKindService.commandFromRequest(dto),
-);
+  pending: {
+    expectedMemberKind: 'STAFF',
+    expectedApprovalStatus: 'PENDING',
+    expectedApprovalRequestId: 'synthetic-request',
+  },
+  missing: {},
+  'missing request id': {
+    expectedMemberKind: 'STUDENT',
+    expectedApprovalStatus: 'NOT_REQUIRED',
+  },
+  'unknown kind': {
+    expectedMemberKind: 'NOPE',
+    expectedApprovalStatus: 'NOT_REQUIRED',
+    expectedApprovalRequestId: null,
+  },
+  'unknown status': {
+    expectedMemberKind: 'STUDENT',
+    expectedApprovalStatus: 'NOPE',
+    expectedApprovalRequestId: null,
+  },
+});
 parityCases(
   UpdateMyProfileRequestDto,
   {

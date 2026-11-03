@@ -18,7 +18,7 @@ import { AdminProfileService } from '../users/admin-profile.service';
 import { AdminProfileMutationService } from '../users/admin-profile-mutation.service';
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import { IndependentAuthorityService } from '../users/independent-authority.service';
-import { MemberKindService } from '../users/member-kind.service';
+import { MemberRegistrationResetService } from '../users/member-registration-reset.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from '../users/user-profile.service';
@@ -353,7 +353,7 @@ function authorityServiceHarness() {
 }
 
 function memberKindServiceHarness() {
-  return onPrototype(MemberKindService.prototype, {
-    patchMemberKind: jest.fn(),
-  }) as MemberKindService & { patchMemberKind: jest.Mock };
+  return onPrototype(MemberRegistrationResetService.prototype, {
+    resetFromRequest: jest.fn(),
+  }) as MemberRegistrationResetService & { resetFromRequest: jest.Mock };
 }

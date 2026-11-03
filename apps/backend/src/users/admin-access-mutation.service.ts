@@ -283,7 +283,10 @@ function isLegacyDisplayRoleLowering(
   if (currentRole === 'ADMIN') {
     return desiredRole === 'STAFF' || desiredRole === 'STUDENT';
   }
-  return currentRole === 'STAFF' && desiredRole === 'STUDENT';
+  return (
+    (currentRole === 'STAFF' && desiredRole === 'STUDENT') ||
+    (currentRole === 'STUDENT' && desiredRole === 'STAFF')
+  );
 }
 
 function isRevocable(current: AdminAccessTableCurrentState): boolean {
@@ -569,6 +572,14 @@ export class AdminAccessMutationService {
         );
         if (!transition.outcome.allowed) {
           throw this.roleError(transition.outcome.code);
+        }
+        if (
+          (input.command.desiredRole === 'STAFF' &&
+            beforeRow.memberKind !== 'STAFF') ||
+          (input.command.desiredRole === 'STUDENT' &&
+            beforeRow.memberKind !== 'STUDENT')
+        ) {
+          throw this.roleError(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED);
         }
         this.enforceAdminAccessGuards(
           actor,

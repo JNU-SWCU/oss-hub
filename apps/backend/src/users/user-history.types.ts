@@ -38,6 +38,7 @@ type UserAuditMetadata =
   | UserPhoneAuditMetadata;
 
 export type UserAuditInput = {
+  readonly beforeProfile?: Readonly<Record<string, string | null>>;
   readonly actorGithubId: bigint;
   readonly action: string;
   readonly targetType: string;

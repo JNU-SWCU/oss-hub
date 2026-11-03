@@ -61,7 +61,7 @@ it('keeps auth personas and request snapshots idempotent without granting staff 
   });
   expect(revocable).toMatchObject({
     type: 'STAFF',
-    studentId: '202605',
+    studentId: null,
     departmentType: 'DEPARTMENT',
     approvalStatus: 'APPROVED',
     approvalDecidedById: admin.id,

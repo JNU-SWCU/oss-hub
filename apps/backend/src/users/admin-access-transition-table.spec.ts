@@ -96,7 +96,8 @@ function expectedTransitionOutcome(
     if (
       (current.role === 'ADMIN' &&
         (desired.role === 'STAFF' || desired.role === 'STUDENT')) ||
-      (current.role === 'STAFF' && desired.role === 'STUDENT')
+      (current.role === 'STAFF' && desired.role === 'STUDENT') ||
+      (current.role === 'STUDENT' && desired.role === 'STAFF')
     ) {
       return denied(RolesErrorCode.INDEPENDENT_AUTHORITY_REQUIRED, 400);
     }

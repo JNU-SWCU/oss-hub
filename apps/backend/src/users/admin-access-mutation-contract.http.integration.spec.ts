@@ -253,6 +253,7 @@ it('revokes requestless STAFF access without fabricating an application', async 
 });
 it.each([
   ['STAFF', 'STUDENT', 'STAFF', true, false],
+  ['STUDENT', 'STAFF', 'STUDENT', false, false],
   ['ADMIN', 'STUDENT', 'ADMIN', false, true],
   ['ADMIN', 'STAFF', 'ADMIN', false, true],
 ] as const)(
