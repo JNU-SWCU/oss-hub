@@ -206,8 +206,8 @@ h1#_top {
 }
 
 :root[data-theme='dark'] .shot img {
-  filter: brightness(0.88) contrast(1.02);
-  outline-color: rgb(255 255 255 / 8%);
+  filter: brightness(0.94) contrast(1.03);
+  outline-color: rgb(255 255 255 / 10%);
 }
 
 .sl-markdown-content table {
