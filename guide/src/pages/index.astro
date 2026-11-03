@@ -157,7 +157,7 @@ const nav = [
           </div>
           <div>
           <p class="lede">
-            OSS Hub는 사업단의 오픈소스 프로그램을 운영하는 웹 서비스입니다. 학생은 신청하고 서류를 내며, 교직원은 신청을 판정하고 검토합니다.
+            OSS Hub는 사업단의 오픈소스 프로그램을 운영하는 웹 서비스입니다.
             이 가이드는 관리자, 학생, 교직원이 각자 화면에서 할 일을 순서대로 안내합니다.
           </p>
           <div class="cta">
@@ -326,6 +326,7 @@ const nav = [
     content: ''; position: absolute; inset: 0 0 auto 0; height: 38rem; z-index: -1;
     background:
       radial-gradient(60rem 30rem at 80% 6%, color-mix(in srgb, var(--sl-color-accent) 32%, transparent), transparent 70%);
+    mask-image: linear-gradient(#000 55%, transparent);
   }
   .eyebrow { display: inline-flex; padding: 0.3rem 0.8rem; border: 1px solid var(--guide-line); border-radius: 999px; font-size: 0.8125rem; font-weight: 600; color: var(--guide-brand); }
   h1 span { color: var(--guide-brand); }
@@ -334,7 +335,7 @@ const nav = [
     font-size: clamp(2.25rem, 3.5vw + 1.25rem, 3.5rem); font-weight: 700; line-height: 1.2;
     letter-spacing: -0.025em; color: var(--sl-color-white);
   }
-  .lede { margin-top: 1.5rem; max-width: 40rem; text-wrap: pretty; font-size: clamp(1rem, 0.6vw + 0.9rem, 1.1875rem); color: var(--sl-color-gray-2); }
+  .lede { margin-top: 1.5rem; max-width: 34rem; text-wrap: pretty; font-size: clamp(1rem, 0.6vw + 0.9rem, 1.1875rem); color: var(--sl-color-gray-2); }
   .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
   .btn {
     display: inline-flex; align-items: center; min-height: 2.9rem; padding: 0 1.4rem;
@@ -351,14 +352,14 @@ const nav = [
     outline: 1px solid var(--guide-line); outline-offset: -1px; box-shadow: var(--guide-shadow);
   }
   .frame img { display: block; width: 100%; height: auto; }
-  .frame-hero { margin-top: clamp(2.5rem, 6vw, 4.5rem); aspect-ratio: 4 / 5; }
+  .frame-hero { margin-top: clamp(2.5rem, 6vw, 4.5rem); aspect-ratio: 4 / 5; box-shadow: var(--guide-shadow), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
   .frame-hero img { width: 220%; max-width: none; margin-left: -42.5%; mask-image: linear-gradient(#000 80%, transparent); }
   @media (min-width: 48rem) {
     .frame-hero { aspect-ratio: 16 / 10; }
     .frame-hero img { width: 100%; max-width: 100%; margin-left: 0; }
   }
-  html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.9); }
-  html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 30px 80px rgb(0 0 0 / 50%); }
+  html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.95); }
+  html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
   .empty {
     aspect-ratio: 16 / 10; display: grid; place-items: center;
     font-size: 0.875rem; color: var(--sl-color-gray-4);
