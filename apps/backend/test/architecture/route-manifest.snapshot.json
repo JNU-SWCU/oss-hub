@@ -640,8 +640,8 @@
     "access": "PROTECTED"
   },
   {
-    "method": "PATCH",
-    "path": "/api/v1/users/:id/member-kind",
+    "method": "POST",
+    "path": "/api/v1/users/:id/member-kind/reset",
     "access": "PROTECTED"
   },
   {

@@ -6,6 +6,7 @@ import {
   Inject,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -26,8 +27,8 @@ import {
 } from './dto/admin-access-user-page-response.dto';
 import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-authority-request.dto';
 import { IndependentAuthorityService } from '../users/independent-authority.service';
-import { PatchMemberKindRequestDto } from './dto/patch-member-kind-request.dto';
-import { MemberKindService } from '../users/member-kind.service';
+import { ResetMemberRegistrationRequestDto } from './dto/reset-member-registration-request.dto';
+import { MemberRegistrationResetService } from '../users/member-registration-reset.service';
 import { Protected } from '../auth/auth-route.decorator';
 
 type SessionIdentity = Pick<
@@ -53,10 +54,10 @@ export class UserAccessController {
       IndependentAuthorityService,
       'patchAdminAccessFromRequest'
     >,
-    @Inject(MemberKindService)
+    @Inject(MemberRegistrationResetService)
     private readonly memberKindService: Pick<
-      MemberKindService,
-      'patchMemberKindFromRequest'
+      MemberRegistrationResetService,
+      'resetFromRequest'
     >,
   ) {}
 
@@ -135,16 +136,16 @@ export class UserAccessController {
     );
   }
 
-  @Patch(':id/member-kind')
+  @Post(':id/member-kind/reset')
   @Protected()
   @UseGuards(OriginGuard)
-  async patchMemberKind(
+  async resetMemberRegistration(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
-    @Body() body: PatchMemberKindRequestDto,
+    @Body() body: ResetMemberRegistrationRequestDto,
   ): Promise<IndependentAuthorityMutationResponseDto> {
     return IndependentAuthorityMutationResponseDto.from(
-      await this.memberKindService.patchMemberKindFromRequest(
+      await this.memberKindService.resetFromRequest(
         request.sessionGithubId,
         id,
         body,

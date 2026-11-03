@@ -61,7 +61,7 @@ it('keeps auth personas and request snapshots idempotent without granting staff 
   });
   expect(revocable).toMatchObject({
     type: 'STAFF',
-    studentId: '202605',
+    studentId: null,
     departmentType: 'DEPARTMENT',
     approvalStatus: 'APPROVED',
     approvalDecidedById: admin.id,
@@ -145,7 +145,7 @@ it('keeps disposable demo initialization free of immutable histories so existing
   });
   expect(complete).toMatchObject({
     type: 'STAFF',
-    studentId: '262601',
+    studentId: null,
     approvalStatus: 'APPROVED',
   });
   expect(await prisma.userHistory.count({ where: { userId: user.id } })).toBe(
@@ -155,4 +155,23 @@ it('keeps disposable demo initialization free of immutable histories so existing
     0,
   );
   await prisma.user.delete({ where: { id: user.id } });
+});
+
+it('clears a synthetic student ID when reseeding a staff persona', async () => {
+  const id = seedId('test', 'staff-persona-student-id');
+  await upsertSeedUser(new SeedStats(), { id, role: 'STUDENT' });
+  await upsertSeedProfile({
+    userId: id,
+    type: 'STUDENT',
+    name: '합성 학생',
+    studentId: '923452',
+    department: '합성 학과',
+    departmentType: 'DEPARTMENT',
+  });
+  await upsertSeedUser(new SeedStats(), { id, role: 'STAFF' });
+  expect(await prisma.user.findUniqueOrThrow({ where: { id } })).toMatchObject({
+    type: 'STAFF',
+    studentId: null,
+  });
+  await prisma.user.delete({ where: { id } });
 });

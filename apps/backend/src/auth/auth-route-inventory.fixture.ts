@@ -183,7 +183,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/programs/:programId/teams/:teamId/repository-url',
   'PROTECTED PATCH /api/v1/users/:id/access',
   'PROTECTED PATCH /api/v1/users/:id/admin-access',
-  'PROTECTED PATCH /api/v1/users/:id/member-kind',
   'PROTECTED PATCH /api/v1/users/:id/profile',
   'PROTECTED PATCH /api/v1/users/me/account/deactivate',
   'PROTECTED PATCH /api/v1/users/me/notification-email',
@@ -226,5 +225,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED POST /api/v1/team-invitations/:invitationId/cancel',
   'PROTECTED POST /api/v1/team-invitations/:invitationId/decline',
   'PROTECTED POST /api/v1/team-invitations/teams/:teamId/invitations',
+  'PROTECTED POST /api/v1/users/:id/member-kind/reset',
   'PROTECTED POST /api/v1/users/me/profile',
 ] as const;

@@ -118,7 +118,7 @@ export function flatProfileFixture(profile: {
 }) {
   return {
     name: profile.name,
-    studentId: profile.studentId,
+    studentId: profile.memberKind === 'STUDENT' ? profile.studentId : null,
     department: profile.department,
     type: profile.memberKind,
     departmentType: profile.departmentType,

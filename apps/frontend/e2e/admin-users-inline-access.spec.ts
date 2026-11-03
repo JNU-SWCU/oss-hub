@@ -72,9 +72,9 @@ function problem(
   };
 }
 
-type PatchKind = 'member-kind' | 'admin-access' | 'access';
+type PatchKind = 'member-kind/reset' | 'admin-access' | 'access';
 const PATCH_KINDS: readonly PatchKind[] = [
-  'member-kind',
+  'member-kind/reset',
   'admin-access',
   'access',
 ];
@@ -152,22 +152,17 @@ function applyPatch(
   kind: PatchKind,
   body: Record<string, unknown>,
 ): SyntheticAdminUserRow {
-  if (kind === 'member-kind') {
-    const memberKind = body.memberKind;
-    if (memberKind !== 'STUDENT' && memberKind !== 'STAFF') {
-      throw new TypeError(`unexpected memberKind: ${String(memberKind)}`);
-    }
-    const hasStaffAccess = memberKind === 'STAFF';
-    const hasAdminAccess = row.hasAdminAccess;
+  if (kind === 'member-kind/reset') {
     return {
       ...row,
-      memberKind,
-      hasStaffAccess,
-      hasAdminAccess,
-      approvalStatus: hasStaffAccess ? 'APPROVED' : 'NOT_REQUIRED',
-      approvalRequestId: hasStaffAccess ? `${row.id}-type-change` : null,
+      memberKind: null,
+      name: null,
+      isProfileComplete: false,
+      hasStaffAccess: false,
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
       pendingRequest: null,
-      role: roleOf(memberKind, hasStaffAccess, hasAdminAccess),
+      role: null,
     };
   }
   if (kind === 'admin-access') {
@@ -211,9 +206,8 @@ async function handlePatch(
   const current = store.rows.find((row) => row.id === id);
   if (!current) throw new Error(`unknown synthetic user: ${id}`);
   if (
-    kind === 'member-kind' &&
+    kind === 'member-kind/reset' &&
     (body.expectedMemberKind !== current.memberKind ||
-      body.expectedHasStaffAccess !== current.hasStaffAccess ||
       body.expectedApprovalStatus !== current.approvalStatus ||
       body.expectedApprovalRequestId !== current.approvalRequestId)
   ) {
@@ -226,7 +220,21 @@ async function handlePatch(
   }
   const next = applyPatch(current, kind, body);
   store.rows = store.rows.map((row) => (row.id === id ? next : row));
-  store.details[id] = { ...store.details[id], ...next };
+  store.details[id] = {
+    ...store.details[id],
+    ...next,
+    ...(kind === 'member-kind/reset'
+      ? {
+          profile: {
+            name: null,
+            studentId: null,
+            department: null,
+            staffNumber: null,
+            isComplete: false,
+          },
+        }
+      : {}),
+  };
   await fulfillJson(
     route,
     kind === 'access'
@@ -253,6 +261,21 @@ async function handlePatch(
 
 function adminUsersHandlers(store: AdminUsersStore): MemberAccessApiHandlers {
   const handlers: Record<string, (route: Route) => Promise<void>> = {
+    'GET /api/v1/consents/current': async (route) => {
+      await fulfillJson(route, {
+        policyVersion: '2026-11-01',
+        requiredItems: [
+          {
+            key: 'privacy',
+            label: '개인정보 수집·이용',
+            documentUrl: '/policies/privacy',
+          },
+        ],
+        acceptedPolicyVersion: '2026-11-01',
+        consented: true,
+        nextUrl: '/dashboard/users',
+      });
+    },
     'GET /api/v1/users/access': async (route) => {
       const failure = store.failNextListGetWith;
       if (failure) {
@@ -285,8 +308,9 @@ function adminUsersHandlers(store: AdminUsersStore): MemberAccessApiHandlers {
     handlers[`GET ${base}/access/history`] = async (route) =>
       fulfillJson(route, adminUserHistoryFor(row));
     for (const kind of PATCH_KINDS) {
-      handlers[`PATCH ${base}/${kind}`] = async (route) =>
-        handlePatch(store, row.id, kind, route);
+      handlers[
+        `${kind === 'member-kind/reset' ? 'POST' : 'PATCH'} ${base}/${kind}`
+      ] = async (route) => handlePatch(store, row.id, kind, route);
     }
   }
   return handlers;
@@ -374,111 +398,108 @@ async function openDirectory(
   ).toBeVisible();
   await settle(page);
   await expect(tableRegion(page)).toContainText('합성 사용자 19');
+  await expect(
+    tableRegion(page).getByRole('button', {
+      name: '가입 유형 되돌리기',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    tableRegion(page).locator('[id$="-member-kind-reset-reason"]'),
+  ).toHaveCount(0);
   return store;
 }
 
-test('행에서 학생을 교직원으로 바꾸면 확인 후 PATCH 하고 목록을 조용히 갱신한다 (1280px)', async ({
-  page,
-}) => {
-  const audit = installBrowserAudit(page);
-  const store = await openDirectory(page, { width: 1280, height: 900 });
-  const trigger = cellControl(page, '합성 사용자 01', '회원 유형');
-  await expect(trigger).toHaveText('학생');
-  const scrollTop = await scrollTopOf(page);
-
-  await choose(trigger, '교직원');
-  const dialog = dialogNamed(page, '교직원으로 변경');
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('교직원 접근 권한이 부여됩니다.');
-  expect(store.detailGets).toBe(1);
-  expect(store.patches).toEqual([]);
-  await refreshAfterClick(
-    dialog.getByRole('button', { name: '변경', exact: true }),
-  );
-  await expect(dialog).toBeHidden();
-
-  expect(store.patches).toEqual([
-    {
-      path: '/api/v1/users/synthetic-id-01/member-kind',
-      body: {
-        memberKind: 'STAFF',
-        expectedMemberKind: 'STUDENT',
-        expectedHasStaffAccess: false,
-        expectedApprovalStatus: 'NOT_REQUIRED',
-        expectedApprovalRequestId: null,
-        staffNumber: null,
-      },
-    },
-  ]);
-  await expect(trigger).toHaveText('교직원');
-  await expect(panel(page).getByRole('status')).toHaveText(
-    adminAccessMutationSuccessMessage('SET_MEMBER_STAFF', 'synthetic-user-01'),
-  );
-  await expect(page.getByText('사용자 목록을 불러오는 중…')).toHaveCount(0);
-  await expect(page).toHaveURL(/\/dashboard\/users$/);
-  await expect(dialogNamed(page, '사용자 목록 상세')).toHaveCount(0);
-  expect(await scrollTopOf(page)).toBe(scrollTop);
-  await expect(trigger).toBeFocused();
-  audit.assertClean();
-});
-
-test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이고 학번만 입력한다 (1440px)', async ({
-  page,
-}) => {
-  const audit = installBrowserAudit(page);
-  const store = createStore();
-  const staff = store.details['synthetic-id-04'];
-  store.details['synthetic-id-04'] = {
-    ...staff,
-    profile: {
-      ...staff.profile,
-      studentId: null,
-      department: '소프트웨어공학과',
-    },
-  };
-  await openDirectory(page, DESKTOP, store);
-  const trigger = cellControl(page, '합성 사용자 04', '회원 유형');
-  await expect(trigger).toHaveText('교직원');
-
-  await choose(trigger, '학생');
-  const dialog = dialogNamed(page, '학생으로 변경');
-  await expect(dialog).toBeVisible();
+async function openUserDetail(page: Page, name: string): Promise<Locator> {
+  await rowOf(page, name)
+    .locator('[id$="-member-kind-control"]:visible')
+    .click();
+  const detail = dialogNamed(page, '사용자 목록 상세');
+  await expect(detail).toBeVisible();
+  await expect(detail.locator('#admin-member-kind-control')).toBeVisible();
+  return detail;
+}
+async function expectResetBlocked(
+  detail: Locator,
+  reasonText: string,
+): Promise<void> {
   await expect(
-    dialog.getByText('소프트웨어공학과', { exact: true }),
-  ).toBeVisible();
-  await expect(dialog.getByText('저장된 학과를 사용합니다.')).toBeVisible();
-  await expect(dialog.locator('#admin-member-kind-department')).toHaveCount(0);
-  await dialog.locator('#admin-member-kind-student-id').fill('123456');
-  await refreshAfterClick(
-    dialog.getByRole('button', { name: '변경', exact: true }),
-  );
-  await expect(dialog).toBeHidden();
+    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeDisabled();
+  const reason = detail.locator('#admin-member-kind-reset-reason');
+  await expect(reason).toHaveText(reasonText);
+  const bounds = await reason.evaluate((element) => {
+    if (!element.parentElement) throw new Error('Missing reason container');
+    return {
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      right: element.getBoundingClientRect().right,
+      containerRight: element.parentElement.getBoundingClientRect().right,
+    };
+  });
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.containerRight);
+}
 
-  expect(store.patches).toEqual([
-    {
-      path: '/api/v1/users/synthetic-id-04/member-kind',
-      body: {
-        memberKind: 'STUDENT',
-        expectedMemberKind: 'STAFF',
-        expectedHasStaffAccess: true,
-        expectedApprovalStatus: 'APPROVED',
-        expectedApprovalRequestId: null,
-        studentId: '123456',
-        department: '소프트웨어공학과',
+for (const [name, kind, approvalStatus] of [
+  ['합성 사용자 01', 'STUDENT', 'NOT_REQUIRED'],
+  ['합성 사용자 04', 'STAFF', 'APPROVED'],
+] as const) {
+  test(`가입 유형 초기화 후 프로필이 지워지고 미지정으로 갱신된다: ${kind}`, async ({
+    page,
+  }) => {
+    const audit = installBrowserAudit(page);
+    const store = await openDirectory(page, DESKTOP);
+    const row = rowOf(page, name);
+    await expect(
+      row.locator('[id$="-member-kind-control"]:visible'),
+    ).toHaveText(kind === 'STUDENT' ? '학생' : '교직원');
+    const userDetail = await openUserDetail(page, name);
+    const reset = userDetail.getByRole('button', {
+      name: '가입 유형 되돌리기',
+      exact: true,
+    });
+    await reset.click();
+    const dialog = dialogNamed(page, '가입 유형 되돌리기');
+    await expect(dialog).toContainText(
+      '프로필이 지워지고 본인이 처음부터 다시 가입합니다. 활동 기록이 있으면 되돌릴 수 없습니다.',
+    );
+    await expect(dialog.locator('input')).toHaveCount(0);
+    expect(store.patches).toEqual([]);
+    await refreshAfterClick(
+      dialog.getByRole('button', { name: '되돌리기', exact: true }),
+    );
+    await expect(dialog).toBeHidden();
+    const id = kind === 'STUDENT' ? 'synthetic-id-01' : 'synthetic-id-04';
+    const refreshedKind = page.locator(
+      '#admin-access-row-' + id + '-member-kind-control:visible',
+    );
+    await expect(refreshedKind).toHaveText('미지정');
+    await expect(userDetail.locator('#admin-member-kind-control')).toHaveText(
+      '미지정',
+    );
+    await expectResetBlocked(userDetail, '선택된 가입 유형이 없습니다.');
+    await userDetail.getByRole('button', { name: '닫기', exact: true }).click();
+    await expect(userDetail).toBeHidden();
+    await expect(
+      tableRegion(page).getByRole('button', {
+        name: '가입 유형 되돌리기',
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    expect(store.patches).toEqual([
+      {
+        path: '/api/v1/users/' + id + '/member-kind/reset',
+        body: {
+          expectedMemberKind: kind,
+          expectedApprovalStatus: approvalStatus,
+          expectedApprovalRequestId: null,
+        },
       },
-    },
-  ]);
-  await expect(trigger).toHaveText('학생');
-  await expect(panel(page).getByRole('status')).toHaveText(
-    adminAccessMutationSuccessMessage(
-      'SET_MEMBER_STUDENT',
-      'synthetic-user-04',
-    ),
-  );
-  await expect(trigger).toBeFocused();
-  await expect(page).toHaveURL(/\/dashboard\/users$/);
-  audit.assertClean();
-});
+    ]);
+    audit.assertClean();
+  });
+}
 
 for (const width of [MOBILE.width, 1280] as const) {
   test(`15번째 행을 바꾸면 알림이 화면 안에 보이고 스크롤과 포커스가 유지된다 (${width}px)`, async ({
@@ -587,7 +608,7 @@ test('드롭다운을 열고 닫아도 상세가 열리지 않고 드롭다운 �
 }) => {
   const audit = installBrowserAudit(page);
   const store = await openDirectory(page, { width: 1280, height: 900 });
-  const trigger = cellControl(page, '합성 사용자 03', '회원 유형');
+  const trigger = cellControl(page, '합성 사용자 03', '관리자 접근');
   await trigger.click();
   await expect(page.getByRole('listbox')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -607,7 +628,7 @@ test('드롭다운을 열고 닫아도 상세가 열리지 않고 드롭다운 �
   audit.assertClean();
 });
 
-test('자기 권한 회수는 막고 대기 신청자의 명시적 신분 변경은 허용한다 (1280px)', async ({
+test('상세에서 본인·관리자 초기화를 막고 대기 신청자는 허용하며 인라인 권한 회수 제한을 유지한다 (1280px)', async ({
   page,
 }) => {
   const audit = installBrowserAudit(page);
@@ -626,50 +647,56 @@ test('자기 권한 회수는 막고 대기 신청자의 명시적 신분 변경
   await page.keyboard.press('Escape');
   await expect(page.getByRole('listbox')).toHaveCount(0);
 
-  const pendingKind = cellControl(page, '합성 사용자 05', '회원 유형');
-  await expect(pendingKind).toBeEnabled();
-  await expect(pendingKind).toHaveText('교직원');
-
   expect(store.detailGets).toBe(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const self = await openUserDetail(page, SYNTHETIC_SELF.name);
+  await expectResetBlocked(self, '자신의 가입 유형은 되돌릴 수 없습니다.');
+  await self.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(self).toBeHidden();
+  const admin = await openUserDetail(page, '합성 사용자 02');
+  await expectResetBlocked(admin, '관리자 권한을 먼저 해제해 주세요.');
+  await admin.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(admin).toBeHidden();
+  const pending = await openUserDetail(page, '합성 사용자 05');
+  await expect(
+    pending.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeEnabled();
+  await pending.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(pending).toBeHidden();
   expect(store.patches).toEqual([]);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   audit.assertClean();
 });
 
-test('409 응답은 충돌 알림을 띄우고 목록을 다시 조회한다 (1280px)', async ({
+test('초기화 409는 확인 대화상자의 오류 영역에 서버 문구를 보인다', async ({
   page,
 }) => {
   const audit = installBrowserAudit(page);
-  const store = await openDirectory(page, { width: 1280, height: 900 });
-  const trigger = cellControl(page, '합성 사용자 03', '회원 유형');
-  await choose(trigger, '교직원');
-  const dialog = dialogNamed(page, '교직원으로 변경');
-  await expect(dialog).toBeVisible();
+  const store = await openDirectory(page, DESKTOP);
+  const userDetail = await openUserDetail(page, '합성 사용자 03');
+  await userDetail
+    .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
+    .click();
+  const dialog = dialogNamed(page, '가입 유형 되돌리기');
+  const detail = '활동 기록이 있는 계정은 되돌릴 수 없습니다.';
   store.failNextPatchWith = {
     problem: problem(
       409,
-      '다른 처리자가 회원 유형을 먼저 변경했습니다.',
-      '/api/v1/users/synthetic-id-03/member-kind',
-      'ROL_014',
+      detail,
+      '/api/v1/users/synthetic-id-03/member-kind/reset',
+      'ROL_025',
     ),
   };
-  await refreshAfterClick(
-    dialog.getByRole('button', { name: '변경', exact: true }),
-  );
-
-  const conflict = panel(page)
-    .getByRole('alert')
-    .filter({ hasText: CONFLICT_NOTICE });
-  await expect(conflict).toBeVisible();
-  await expect(dialog).toBeHidden();
+  await dialog.getByRole('button', { name: '되돌리기', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('alert')).toHaveText(detail);
   expect(store.patches).toHaveLength(1);
-  await expect(trigger).toHaveText('학생');
-  await expect(trigger).toBeFocused();
+  await dialog.getByRole('button', { name: '취소', exact: true }).click();
   audit.assertClean([
     {
       status: 409,
-      path: '/api/v1/users/synthetic-id-03/member-kind',
-      method: 'PATCH',
+      path: '/api/v1/users/synthetic-id-03/member-kind/reset',
+      method: 'POST',
     },
   ]);
 });
@@ -895,13 +922,21 @@ async function captureWidth(
 async function captureDialog(page: Page, dir: string): Promise<void> {
   await page.setViewportSize(DESKTOP);
   await settle(page);
-  const trigger = cellControl(page, '합성 사용자 01', '회원 유형');
-  await choose(trigger, '교직원');
-  const dialog = dialogNamed(page, '교직원으로 변경');
+  const detail = await openUserDetail(page, '합성 사용자 01');
+  await expect(
+    detail.getByRole('button', { name: '가입 유형 되돌리기', exact: true }),
+  ).toBeVisible();
+  await captureFull(page, dir, 'detail-reset-1440');
+  await detail
+    .getByRole('button', { name: '가입 유형 되돌리기', exact: true })
+    .click();
+  const dialog = dialogNamed(page, '가입 유형 되돌리기');
   await expect(dialog).toBeVisible();
   await captureFull(page, dir, 'dialog-1440');
   await dialog.getByRole('button', { name: '취소' }).click();
   await expect(dialog).toBeHidden();
+  await detail.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(detail).toBeHidden();
 }
 
 test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크롤 없음, 390px 행 높이 320px 이하', async ({
@@ -943,7 +978,10 @@ test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크
         'mobile row height',
       ).toBeLessThanOrEqual(MAX_MOBILE_ROW_HEIGHT);
       const row = rowOf(page, '합성 사용자 01');
-      for (const control of ['회원 유형', '관리자 접근', '계정 상태']) {
+      await expect(
+        row.locator('[id$="-member-kind-control"]:visible'),
+      ).toHaveText('학생');
+      for (const control of ['관리자 접근', '계정 상태']) {
         await expect(
           row.getByRole('combobox', { name: control, exact: true }),
         ).toBeVisible();

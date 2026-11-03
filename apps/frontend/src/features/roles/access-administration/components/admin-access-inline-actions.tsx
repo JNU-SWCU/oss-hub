@@ -41,10 +41,7 @@ export function AdminAccessInlineControls({
     ? [kind]
     : (['memberKind', 'adminAccess', 'accountStatus'] as const);
   return (
-    <div
-      className={kind ? 'w-fit' : 'grid basis-full gap-2'}
-      onClick={(event) => event.stopPropagation()}
-    >
+    <div className={kind ? 'w-fit' : 'grid basis-full gap-2'}>
       {kinds.map((controlKind) => (
         <AdminAccessControl
           key={controlKind}

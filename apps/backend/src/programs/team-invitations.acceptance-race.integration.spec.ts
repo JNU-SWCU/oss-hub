@@ -202,6 +202,7 @@ describe('Team invitation acceptance transaction races', () => {
       '역할 변경 트랜잭션',
       {
         type: MemberKind.STAFF,
+        studentId: null,
         departmentType: DepartmentType.PROGRAM_OFFICE,
         department: 'Synthetic program office',
         approvalStatus: 'APPROVED',

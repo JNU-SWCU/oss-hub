@@ -17,16 +17,8 @@ type AdminMemberKind = 'STUDENT' | 'STAFF';
 export type AdminAuthorityCommand =
   'GRANT_ADMIN_ACCESS' | 'REVOKE_ADMIN_ACCESS';
 
-export interface MemberKindMutationFields {
-  readonly studentId?: string;
-  readonly department?: string;
-  readonly staffNumber?: string | null;
-}
-
-export interface MemberKindMutationRequest extends MemberKindMutationFields {
-  readonly memberKind: AdminMemberKind;
+export interface MemberKindMutationRequest {
   readonly expectedMemberKind: AdminMemberKind;
-  readonly expectedHasStaffAccess: boolean;
   readonly expectedApprovalStatus: AdminApprovalStatus;
   readonly expectedApprovalRequestId: string | null;
 }
@@ -55,7 +47,7 @@ export function isAdminAccessDirectoryItem(
   );
 }
 
-export type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
+type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
   readonly staffNumber: string | null;
 };
 
@@ -159,14 +151,14 @@ export async function fetchCanonicalAdminAccessDetail(
 
 async function patchIndependentMutation(
   id: string,
-  path: 'member-kind' | 'admin-access',
+  path: 'member-kind/reset' | 'admin-access',
   body: MemberKindMutationRequest | { readonly command: AdminAuthorityCommand },
   signal?: AbortSignal,
 ): Promise<IndependentAuthorityMutationResponse> {
   const value = await apiClient<unknown>(
     `users/${encodeURIComponent(id)}/${path}`,
     {
-      method: 'PATCH',
+      method: path === 'member-kind/reset' ? 'POST' : 'PATCH',
       body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     },
@@ -174,12 +166,12 @@ async function patchIndependentMutation(
   return parseIndependentAuthorityMutationResponse(value);
 }
 
-export function patchMemberKind(
+export function resetMemberKind(
   id: string,
   request: MemberKindMutationRequest,
   signal?: AbortSignal,
 ): Promise<IndependentAuthorityMutationResponse> {
-  return patchIndependentMutation(id, 'member-kind', request, signal);
+  return patchIndependentMutation(id, 'member-kind/reset', request, signal);
 }
 
 export function patchAdminAuthority(

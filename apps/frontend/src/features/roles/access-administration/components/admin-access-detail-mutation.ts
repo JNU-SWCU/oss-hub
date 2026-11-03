@@ -2,10 +2,7 @@ import {
   isIndependentAuthorityMutationAction,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
-import type {
-  CanonicalAdminAccessDetail,
-  MemberKindMutationFields,
-} from '../independent-authority-api';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 
 export interface AdminAccessDetailMutationController {
   readonly confirmAction: AdminAccessMutationAction | null;
@@ -16,7 +13,7 @@ export interface AdminAccessDetailMutationController {
   readonly successMessage: string | null;
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
   readonly onCancel: () => void;
-  readonly onConfirm: (fields?: MemberKindMutationFields) => void;
+  readonly onConfirm: () => void;
   readonly onReasonChange: (reason: string) => void;
 }
 
@@ -37,20 +34,13 @@ export function adminAccessMutationDialogCopy(
       destructive: false,
     };
   }
-  if (action === 'SET_MEMBER_STUDENT') {
+  if (action === 'RESET_MEMBER_KIND') {
     return {
-      title: '학생으로 변경',
-      description: '교직원 접근 권한이 해제됩니다.',
-      confirmLabel: '변경',
+      title: '가입 유형 되돌리기',
+      description:
+        '프로필이 지워지고 본인이 처음부터 다시 가입합니다. 활동 기록이 있으면 되돌릴 수 없습니다.',
+      confirmLabel: '되돌리기',
       destructive: true,
-    };
-  }
-  if (action === 'SET_MEMBER_STAFF') {
-    return {
-      title: '교직원으로 변경',
-      description: '교직원 접근 권한이 부여됩니다.',
-      confirmLabel: '변경',
-      destructive: false,
     };
   }
   if (isIndependentAuthorityMutationAction(action)) {

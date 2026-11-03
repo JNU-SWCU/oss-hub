@@ -45,7 +45,7 @@ export function AdminAccessMutationActions({
       <CardHeader>
         <CardTitle>접근 변경</CardTitle>
         <CardDescription>
-          회원 유형, 관리자 접근, 계정 상태를 서로 독립적으로 변경합니다.
+          가입 유형을 확인하고 관리자 접근과 계정 상태를 변경합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6">

@@ -7,7 +7,7 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { MemberKindService } from './member-kind.service';
+import { MemberRegistrationResetService } from './member-registration-reset.service';
 import { UserProfileService } from './user-profile.service';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
@@ -49,7 +49,7 @@ describe('UsersModule admin access wiring', () => {
       AdminAccessService,
       AdminProfileService,
       IndependentAuthorityService,
-      MemberKindService,
+      MemberRegistrationResetService,
       UserProfileService,
     ]);
   });

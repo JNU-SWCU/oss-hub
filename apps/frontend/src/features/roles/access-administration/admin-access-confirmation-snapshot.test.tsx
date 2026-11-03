@@ -29,13 +29,15 @@ vi.mock('./components/admin-access-detail-content', () => ({
     state.kind === 'ready' ? (
       <div>
         <output>{state.detail.approvalRequestId}</output>
-        <Button onClick={() => mutation.onRequestAction('SET_MEMBER_STUDENT')}>
+        <Button onClick={() => mutation.onRequestAction('RESET_MEMBER_KIND')}>
           Open
         </Button>
         {mutation.confirmAction ? (
           <Button onClick={() => mutation.onConfirm()}>Confirm</Button>
         ) : null}
-        <div data-conflict={mutation.conflictNotice !== null} />
+        <div data-conflict={mutation.conflictNotice !== null}>
+          {mutation.dialogError}
+        </div>
       </div>
     ) : null,
 }));
@@ -65,7 +67,7 @@ it('keeps the confirmed approval tuple when background data replaces a request',
       status: 409,
       code: 'ROL_013',
       detail: 'Replacement request',
-      instance: '/users/target/member-kind',
+      instance: '/users/target/member-kind/reset',
     }),
   );
   const root = await renderWithQuery(
@@ -96,11 +98,10 @@ it('keeps the confirmed approval tuple when background data replaces a request',
 
   expect(executeAdminAccessMutation).toHaveBeenCalledExactlyOnceWith(
     'target',
-    'SET_MEMBER_STUDENT',
+    'RESET_MEMBER_KIND',
     observed,
     '',
-    undefined,
   );
-  expect(root.container.querySelectorAll('button')).toHaveLength(1);
-  expect(root.container.querySelector('[data-conflict="true"]')).not.toBeNull();
+  expect(root.container.querySelectorAll('button')).toHaveLength(2);
+  expect(root.container.textContent).toContain('Replacement request');
 });

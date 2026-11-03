@@ -23,9 +23,27 @@ export enum RolesErrorCode {
   SELF_ACCESS_MUTATION_FORBIDDEN = 'ROL_020',
   INDEPENDENT_AUTHORITY_REQUIRED = 'ROL_021',
   SELF_ADMIN_REVOKE_FORBIDDEN = 'ROL_022',
+  SELF_REGISTRATION_RESET_FORBIDDEN = 'ROL_023',
+  ADMIN_REGISTRATION_RESET_FORBIDDEN = 'ROL_024',
+  ACTIVE_REGISTRATION_RESET_FORBIDDEN = 'ROL_025',
 }
 
 export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
+  [RolesErrorCode.SELF_REGISTRATION_RESET_FORBIDDEN]: {
+    code: RolesErrorCode.SELF_REGISTRATION_RESET_FORBIDDEN,
+    status: 409,
+    message: '자신의 가입 유형은 되돌릴 수 없습니다.',
+  },
+  [RolesErrorCode.ADMIN_REGISTRATION_RESET_FORBIDDEN]: {
+    code: RolesErrorCode.ADMIN_REGISTRATION_RESET_FORBIDDEN,
+    status: 409,
+    message: '관리자 권한을 먼저 해제해 주세요.',
+  },
+  [RolesErrorCode.ACTIVE_REGISTRATION_RESET_FORBIDDEN]: {
+    code: RolesErrorCode.ACTIVE_REGISTRATION_RESET_FORBIDDEN,
+    status: 409,
+    message: '활동 기록이 있는 계정은 되돌릴 수 없습니다.',
+  },
   [RolesErrorCode.INVALID_ROLE_SELECTION]: {
     code: RolesErrorCode.INVALID_ROLE_SELECTION,
     status: 400,

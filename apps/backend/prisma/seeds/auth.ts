@@ -183,7 +183,7 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
     type: 'STAFF',
     departmentType: 'DEPARTMENT',
     name: '합성 활성 교직원',
-    studentId: '202605',
+    studentId: null,
     department: '전자컴퓨터공학부',
   });
   await upsertSeedRequest(stats, {

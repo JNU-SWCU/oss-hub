@@ -213,24 +213,6 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       before.accountStatus !== input.expectedAccountStatus
     )
       return false;
-    if (
-      input.desiredHasStaffAccess &&
-      !input.expectedHasStaffAccess &&
-      !input.decidesPendingRequest &&
-      before.type !== 'STAFF'
-    ) {
-      const changed = await this.transitions.changeType(transaction, {
-        userId: input.userId,
-        actorId: input.actorId,
-        expected: {
-          type: input.expectedType,
-          approvalStatus: input.expectedApprovalStatus,
-          approvalRequestId: input.expectedApprovalRequestId,
-        },
-        profile: { memberKind: 'STAFF' },
-      });
-      if (changed === null) return false;
-    }
     if (input.desiredHasAdminAccess !== input.expectedHasAdminAccess) {
       await this.admins.setAuthority(transaction, {
         userId: input.userId,

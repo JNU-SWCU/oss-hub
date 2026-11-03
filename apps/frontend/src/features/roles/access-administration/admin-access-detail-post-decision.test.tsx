@@ -71,95 +71,6 @@ async function mount(workspace: AccessWorkspace): Promise<void> {
   });
 }
 
-function chooseRoleOption(id: string, label: string): void {
-  const trigger = container.querySelector(`#${id}`);
-  if (
-    !(trigger instanceof HTMLButtonElement) ||
-    trigger.getAttribute('role') !== 'combobox'
-  ) {
-    throw new TypeError(`드롭다운을 찾지 못했습니다: ${id}`);
-  }
-
-  act(() => {
-    trigger.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        button: 0,
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-      }),
-    );
-    trigger.dispatchEvent(
-      new PointerEvent('pointerup', {
-        button: 0,
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-      }),
-    );
-    trigger.click();
-  });
-
-  expect(trigger.getAttribute('aria-expanded')).toBe('true');
-  const listboxId = trigger.getAttribute('aria-controls');
-  const listbox = listboxId
-    ? document.getElementById(listboxId)
-    : document.querySelector<HTMLElement>(
-        '[role="listbox"][data-state="open"]',
-      );
-  if (
-    !listbox ||
-    listbox.getAttribute('role') !== 'listbox' ||
-    listbox.getAttribute('data-state') !== 'open'
-  ) {
-    throw new TypeError(`목록을 열지 못했습니다: ${id}`);
-  }
-
-  const option = Array.from(
-    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
-  ).find((candidate) => candidate.textContent?.trim() === label);
-  if (!option) {
-    throw new TypeError(`선택지를 찾지 못했습니다: ${label}`);
-  }
-
-  act(() => {
-    option.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        button: 0,
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-      }),
-    );
-    option.dispatchEvent(
-      new PointerEvent('pointermove', {
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-        clientX: 100,
-        clientY: 100,
-      }),
-    );
-    option.dispatchEvent(
-      new PointerEvent('pointerup', {
-        button: 0,
-        bubbles: true,
-        cancelable: true,
-        pointerType: 'mouse',
-      }),
-    );
-    option.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    option.click();
-  });
-}
-
 async function approve(): Promise<void> {
   await act(async () => {
     clickButton(container, '승인');
@@ -397,7 +308,10 @@ describe('회원 유형 — 낡은 화면에서 이미 변경된 값을 고르�
     executeAdminAccessMutation.mockRejectedValue(new ApiError(conflict));
     await mount('directory');
 
-    chooseRoleOption('admin-member-kind-control', '학생');
+    const reset = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === '가입 유형 되돌리기',
+    );
+    act(() => reset?.click());
     expect(document.querySelector('#admin-member-kind-student-id')).toBeNull();
     expect(document.querySelector('#admin-member-kind-department')).toBeNull();
     await act(async () => {
@@ -419,20 +333,17 @@ describe('회원 유형 — 낡은 화면에서 이미 변경된 값을 고르�
     expect(executeAdminAccessMutation).toHaveBeenCalledTimes(1);
     expect(executeAdminAccessMutation).toHaveBeenCalledWith(
       'target',
-      'SET_MEMBER_STUDENT',
+      'RESET_MEMBER_KIND',
       staleDetail,
       '',
-      { department: '인공지능학부' },
     );
-    expect(loadAdminAccessDetail).toHaveBeenCalledTimes(2);
-    expect(document.body.textContent).toContain(
-      '다른 처리자가 먼저 변경했습니다',
-    );
+    expect(document.body.textContent).toContain('접근 상태가 변경되었습니다.');
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).not.toContain('처리를 완료했습니다');
     const refreshed = container.querySelector('#admin-member-kind-control');
-    expect(refreshed).toBeInstanceOf(HTMLButtonElement);
-    expect(refreshed?.getAttribute('role')).toBe('combobox');
-    expect(refreshed?.textContent).toContain('학생');
+    expect(refreshed).toBeInstanceOf(HTMLSpanElement);
+    expect(refreshed?.getAttribute('role')).not.toBe('combobox');
+    expect(refreshed?.textContent).toContain('교직원');
   });
 });
 

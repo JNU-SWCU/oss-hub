@@ -250,6 +250,7 @@ describe('TeamInvitationsRepository eligibility integration', () => {
       '교직원으로 역할 변경',
       {
         type: MemberKind.STAFF,
+        studentId: null,
         departmentType: DepartmentType.PROGRAM_OFFICE,
         department: 'Synthetic program office',
         approvalStatus: ApprovalStatus.APPROVED,

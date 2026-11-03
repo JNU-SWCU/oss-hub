@@ -53,11 +53,11 @@ import { AccessRequestsController } from '../../src/staff/access-requests.contro
 import { AdminAccessRepository } from '../../src/users/admin-access.repository';
 import { AdminProfileRepository } from '../../src/users/admin-profile.repository';
 import { IndependentAuthorityRepository } from '../../src/users/independent-authority.repository';
-import { MemberKindRepository } from '../../src/users/member-kind.repository';
+import { MemberRegistrationResetRepository } from '../../src/users/member-registration-reset.repository';
 import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileService } from '../../src/users/admin-profile.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
-import { MemberKindService } from '../../src/users/member-kind.service';
+import { MemberRegistrationResetService } from '../../src/users/member-registration-reset.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
@@ -115,7 +115,7 @@ type Statuses = readonly [
 ];
 
 type RouteCase = {
-  readonly method: 'GET' | 'PATCH';
+  readonly method: 'GET' | 'PATCH' | 'POST';
   readonly path: string;
   readonly body?: Record<string, unknown>;
   readonly statuses: Statuses;
@@ -204,12 +204,10 @@ const routes: readonly RouteCase[] = [
     statuses: [404, 404, 403, 403, 401, 401, 401, 401],
   },
   {
-    method: 'PATCH',
-    path: 'users/user-1/member-kind',
+    method: 'POST',
+    path: 'users/user-1/member-kind/reset',
     body: {
-      memberKind: 'STAFF',
       expectedMemberKind: 'STUDENT',
-      expectedHasStaffAccess: false,
       expectedApprovalStatus: ApprovalStatus.NOT_REQUIRED,
       expectedApprovalRequestId: null,
     },
@@ -302,7 +300,7 @@ describe('Audience authorization HTTP characterization', () => {
         AdminAccessService,
         AdminProfileService,
         IndependentAuthorityService,
-        MemberKindService,
+        MemberRegistrationResetService,
         AuditLogMetadataService,
         AdminAccessMutationService,
         AdminProfileMutationService,
@@ -471,7 +469,10 @@ describe('Audience authorization HTTP characterization', () => {
           provide: IndependentAuthorityRepository,
           useValue: { withTransaction },
         },
-        { provide: MemberKindRepository, useValue: { withTransaction } },
+        {
+          provide: MemberRegistrationResetRepository,
+          useValue: { withTransaction },
+        },
         {
           provide: AuditLogRepository,
           useValue: {

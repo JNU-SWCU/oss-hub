@@ -273,7 +273,7 @@ function createUser(input: SyntheticUser) {
         ? {}
         : {
             name: input.profileName,
-            studentId: profileStudentId,
+            studentId: input.role === 'STUDENT' ? profileStudentId : null,
             department: profileDepartment,
             type: MemberKind.STUDENT,
             departmentType: DepartmentType.DEPARTMENT,

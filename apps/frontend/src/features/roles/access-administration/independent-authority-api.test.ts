@@ -5,7 +5,7 @@ import {
   isAdminAccessDirectoryItem,
   parseCanonicalAdminAccessDetail,
   patchAdminAuthority,
-  patchMemberKind,
+  resetMemberKind,
 } from './independent-authority-api';
 import { parseAdminAccessListPage } from './admin-access-api';
 
@@ -202,33 +202,31 @@ describe('Task 8 independent authority API', () => {
     );
   });
 
-  it('patches member kind with explicit canonical fields', async () => {
+  it('resets registration with the observed approval tuple', async () => {
     vi.mocked(apiClient).mockResolvedValue({
       id: 'target',
-      role: 'ADMIN',
-      memberKind: 'STAFF',
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-      approvalStatus: 'APPROVED',
-      approvalRequestId: 'approved-request',
+      role: null,
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
     });
     const request = {
-      memberKind: 'STAFF',
       expectedMemberKind: 'STUDENT',
-      expectedHasStaffAccess: false,
       expectedApprovalStatus: 'NOT_REQUIRED',
       expectedApprovalRequestId: null,
-      studentId: '202601',
-      department: '인공지능학부',
-      staffNumber: 'staff-42',
     } as const;
     await expect(
-      patchMemberKind('target:user', request),
-    ).resolves.toMatchObject({ hasStaffAccess: true, hasAdminAccess: true });
-    expect(apiClient).toHaveBeenCalledWith('users/target%3Auser/member-kind', {
-      method: 'PATCH',
-      body: JSON.stringify(request),
-    });
+      resetMemberKind('target:user', request),
+    ).resolves.toMatchObject({ hasStaffAccess: false, hasAdminAccess: false });
+    expect(apiClient).toHaveBeenCalledWith(
+      'users/target%3Auser/member-kind/reset',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      },
+    );
   });
 
   it.each([['GRANT_ADMIN_ACCESS', true] as const])(
