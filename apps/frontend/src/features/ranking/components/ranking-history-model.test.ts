@@ -3,6 +3,7 @@ import type { RankingTimeline, RankingTimelineSeries } from '../types';
 import {
   buildRankingHistoryChart,
   formatRankChange,
+  rankingHistoryAvatarSlots,
   rankingHistoryLogRows,
   rankingHistoryLogTicks,
   rankingRankChanges,
@@ -143,4 +144,15 @@ test('로그 보기는 0점을 1로 올리고 빈 달은 비워 두며, 눈금�
     { label: '2월', s0: 1200, s1: 40 },
   ]);
   expect(rankingHistoryLogTicks(chart.lines)).toEqual([1, 10, 100, 1000]);
+});
+
+test('선 끝 아바타는 겹치지 않게 벌리고 플롯 안에 머문다', () => {
+  expect(rankingHistoryAvatarSlots([50, 52, 200], 20, 0, 300)).toEqual([
+    50, 70, 200,
+  ]);
+  expect(rankingHistoryAvatarSlots([295, 300], 20, 0, 300)).toEqual([280, 300]);
+  expect(rankingHistoryAvatarSlots([0, 0, 0], 20, 10, 30)).toEqual([
+    10, 20, 30,
+  ]);
+  expect(rankingHistoryAvatarSlots([], 20, 0, 300)).toEqual([]);
 });

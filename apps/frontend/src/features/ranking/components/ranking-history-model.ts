@@ -6,9 +6,9 @@ import type {
 
 const LEGEND_LIMIT = 10;
 const LEAD_LIMIT = 3;
-const SERIES_COLORS = [
-  25, 260, 145, 330, 200, 50, 290, 175, 0, 115,
-].map((hue) => `oklch(0.64 0.17 ${String(hue)})`);
+const SERIES_COLORS = [25, 260, 145, 330, 200, 50, 290, 175, 0, 115].map(
+  (hue) => `oklch(0.64 0.17 ${String(hue)})`,
+);
 const VIEWER_COLOR = 'var(--chart-3)';
 const REST_COLOR =
   'color-mix(in oklch, var(--muted-foreground) 55%, var(--card))';
@@ -34,7 +34,7 @@ export interface RankingHistoryLine {
   readonly tipIndex: number;
 }
 
-interface RankingHistoryRow {
+export interface RankingHistoryRow {
   readonly label: string;
   readonly [seriesKey: string]: number | string | null;
 }
@@ -188,4 +188,36 @@ function byPaintOrder(
 function paintPriorityOf(line: RankingHistoryLine): number {
   if (line.isViewer) return 2;
   return line.finalRank <= LEGEND_LIMIT ? 1 : 0;
+}
+
+export function rankingHistoryAvatarSlots(
+  tips: readonly number[],
+  gap: number,
+  top: number,
+  bottom: number,
+): readonly number[] {
+  const order = tips
+    .map((_tip, index) => index)
+    .sort((a, b) => (tips[a] ?? 0) - (tips[b] ?? 0));
+  const step = Math.min(gap, (bottom - top) / Math.max(1, order.length - 1));
+  const slots = order.map((index) => tips[index] ?? 0);
+  for (let i = 0; i < slots.length; i += 1) {
+    slots[i] = Math.max(
+      slots[i] ?? 0,
+      top,
+      i === 0 ? top : (slots[i - 1] ?? 0) + step,
+    );
+  }
+  for (let i = slots.length - 1; i >= 0; i -= 1) {
+    slots[i] = Math.min(
+      slots[i] ?? 0,
+      bottom,
+      i === slots.length - 1 ? bottom : (slots[i + 1] ?? 0) - step,
+    );
+  }
+  const placed = new Array<number>(tips.length);
+  order.forEach((index, rank) => {
+    placed[index] = slots[rank] ?? 0;
+  });
+  return placed;
 }
