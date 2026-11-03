@@ -30,6 +30,7 @@ export default defineConfig({
         },
       ],
       customCss: ['~/styles/tokens.css', '~/styles/docs.css'],
+      logo: { src: './src/assets/logo.svg' },
       components: { Footer: './src/components/Footer.astro' },
       sidebar: [
         { label: '서비스 소개', slug: 'intro' },
