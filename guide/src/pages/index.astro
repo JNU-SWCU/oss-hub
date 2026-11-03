@@ -70,7 +70,7 @@ const roles = [
 const faq = [
   {
     q: '한 계정이 교직원이면서 관리자일 수 있나요?',
-    a: '네. 회원 유형과 관리자 권한을 따로 관리합니다.',
+    a: '네. 회원 유형과 관리자 접근을 따로 관리합니다.',
   },
   {
     q: '교직원이나 관리자도 자기 팀의 신청을 판정할 수 있나요?',
@@ -184,7 +184,7 @@ const nav = [
           <ul class="facts">
             <li><strong>프로그램 신청</strong>모집 중인 프로그램의 일정을 확인하고 팀으로 신청합니다.</li>
             <li><strong>서류 제출</strong>서류마다 마감을 확인해 내고 검토 결과를 받습니다.</li>
-            <li><strong>GitHub 연동</strong>GitHub 계정으로 로그인하며, 팀 저장소의 활동이 기록됩니다.</li>
+            <li><strong>GitHub 연동</strong>GitHub 계정으로 로그인합니다. 팀 저장소의 활동도 기록됩니다.</li>
           </ul>
         </div>
       </section>
@@ -353,10 +353,10 @@ const nav = [
   }
   .frame img { display: block; width: 100%; height: auto; }
   .frame-hero { margin-top: clamp(2.5rem, 6vw, 4.5rem); aspect-ratio: 4 / 5; box-shadow: var(--guide-shadow), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
-  .frame-hero img { width: 220%; max-width: none; margin-left: -42.5%; mask-image: linear-gradient(#000 80%, transparent); }
+  .frame-hero img { width: 220%; max-width: none; margin: -9.5% 0 0 -42.5%; mask-image: linear-gradient(#000 80%, transparent); }
   @media (min-width: 48rem) {
     .frame-hero { aspect-ratio: 16 / 10; }
-    .frame-hero img { width: 100%; max-width: 100%; margin-left: 0; }
+    .frame-hero img { width: 100%; max-width: 100%; margin: 0; }
   }
   html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.95); }
   html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
