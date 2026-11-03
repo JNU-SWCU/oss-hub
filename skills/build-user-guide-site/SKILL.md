@@ -11,7 +11,7 @@ description: >-
   대상은 `guide/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
 argument-hint: "[update|full] [low|mid|high]"
 metadata:
-  version: "1.5.2"
+  version: "1.6.0"
 ---
 
 # 사용자 가이드 사이트 만들기와 갱신
@@ -61,7 +61,7 @@ metadata:
 3. **집필.** `write-intro`와 `write-<role>` 세 개를 병렬로. 기준은 [`references/writer-brief.md`](references/writer-brief.md). 사실의 우선순위는 화면 > 사실표 > 코드 > 추측.
 4. **사실 확인.** `factcheck-<role>`이 본문 주장을 화면과 코드에 대조해 불일치를 보고한다. 고치는 것은 집필 담당이다.
 5. **시각 검수.** 배포된 사이트를 `scripts/visual-audit.mjs`로 점검한다. 조합과 항목은 [`references/audit-and-polish.md`](references/audit-and-polish.md)에 있다.
-6. **윤문.** 사실이 확정된 뒤 `polish-<role>`이 `humanize-korean` 스킬로 MDX를 깨지 않게 다듬는다.
+6. **윤문과 교정.** 사실이 확정된 뒤 `polish-<role>`이 `humanize-korean` 스킬로 MDX를 깨지 않게 다듬는다. 다시 읽을 때는 읽기 전용 교정 에이전트 세 개의 제안을 오케스트레이터가 골라 반영한다.
 7. **독자 시험.** Aside로 완성된 가이드를 처음 읽는 사람처럼 격리 스택에서 따라 해 본다. 같은 문서에 방법이 있다.
 8. **릴리스.** 마일스톤마다 [`references/release-and-automation.md`](references/release-and-automation.md)의 한 바퀴를 돈다.
 
@@ -94,6 +94,7 @@ metadata:
 - [ ] 라벨은 화면에 나온 그대로 백틱에 있다.
 - [ ] 이름, 이메일, 학번, localhost, 시드, 합성, "버그"가 본문, alt, caption에 없다.
 - [ ] `release-check.sh`가 통과했다.
+- [ ] 보고한 수정 개수는 `git diff --numstat`에서, 품질은 잴 수 있는 수치에서 왔다.
 - [ ] 푸시했고 Pages 실행이 성공했으며 배포 주소에서 변경이 보인다.
 - [ ] 제품 결함 후보는 본문에 쓰지 않고 사용자에게 따로 알렸다.
 - [ ] 스택을 껐다(`down -v`) 또는 남길 이유를 적었다.
