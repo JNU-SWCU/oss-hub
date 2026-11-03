@@ -9,7 +9,7 @@ import Shot from '~/components/Shot.astro';
 import Success from '~/components/Success.astro';
 import Recover from '~/components/Recover.astro';
 
-잘못 만든 프로그램을 정리해야 할 때 씁니다. 삭제는 관리자만이 아니라 교직원도 할 수 있습니다.
+잘못 만든 프로그램을 정리해야 할 때 씁니다. 관리자뿐 아니라 교직원도 삭제할 수 있습니다.
 
 <Shot src="admin/program-danger-zone.webp" alt="프로그램 편집 화면 맨 아래의 위험 영역. ①이 프로그램 삭제 버튼을 가리킵니다." caption="① 프로그램 삭제" />
 
@@ -41,7 +41,7 @@ import Recover from '~/components/Recover.astro';
 <Shot src="admin/program-delete-dialog.webp" alt="프로그램을 삭제할까요 확인 창. ①이 삭제될 데이터 건수 상자, ②가 삭제 버튼을 가리킵니다." caption="① 삭제될 데이터 ② 삭제" />
 
 <Success>
-프로그램 목록으로 이동하고, 목록 위에 `프로그램 전체 삭제를 완료했습니다` 안내가 나옵니다. 그 아래에 `지원서 N건 · 팀 N건 · 게시글 N건 …`처럼 지운 데이터 건수가 항목별로 나옵니다. 지울 데이터가 없었다면 `연결된 데이터가 없었습니다.`가 나옵니다. 잠깐 뜨는 알림이 아니라 목록 위에 머무는 안내입니다.
+프로그램 목록으로 이동하고, 목록 위에 `프로그램 전체 삭제를 완료했습니다` 안내가 나옵니다. 그 아래에 `지원서 N건 · 팀 N건 · 게시글 N건 …`처럼 지운 데이터 건수가 항목별로 나옵니다. 지울 데이터가 없었다면 `연결된 데이터가 없었습니다.`가 나옵니다. 잠깐 떴다 사라지는 알림이 아니라 목록 위에 계속 남아 있는 안내입니다.
 </Success>
 
 <Recover title="삭제가 끝나지 않을 때">
