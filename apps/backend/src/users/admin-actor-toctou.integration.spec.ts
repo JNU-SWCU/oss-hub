@@ -139,7 +139,7 @@ it(
     );
     const mutation = service.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STUDENT',
-      desiredRole: 'STAFF',
+      desiredRole: 'ADMIN',
       expectedAccountStatus: AccountStatus.ACTIVE,
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
@@ -156,7 +156,7 @@ it(
       releaseMutation.resolve();
       demotion.commit();
     }
-    await expect(mutation).resolves.toMatchObject({ role: 'STAFF' });
+    await expect(mutation).resolves.toMatchObject({ role: 'ADMIN' });
     await demotion.done;
     await expect(
       prisma.user.findUniqueOrThrow({
@@ -164,8 +164,8 @@ it(
         where: { id: target.id },
       }),
     ).resolves.toMatchObject({
-      approvalStatus: 'APPROVED',
-      admin: null,
+      approvalStatus: 'NOT_REQUIRED',
+      admin: { userId: target.id },
     });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,

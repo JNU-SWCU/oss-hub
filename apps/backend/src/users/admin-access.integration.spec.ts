@@ -157,7 +157,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     const target = await createUser('STUDENT', 'stale-target');
     await prisma.user.update({
       where: { id: target.id },
-      data: { type: 'STAFF', approvalStatus: 'APPROVED' },
+      data: { type: 'STAFF', studentId: null, approvalStatus: 'APPROVED' },
     });
     const body = {
       expectedRole: 'STUDENT',
