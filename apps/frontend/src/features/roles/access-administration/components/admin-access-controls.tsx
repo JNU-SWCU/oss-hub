@@ -77,17 +77,23 @@ export function AdminAccessControl({
     return (
       <div className={LAYOUT[layout].frame}>
         {layout !== 'cell' ? (
-          <label className="text-sm font-medium" htmlFor={controlId}>
+          <span className="text-sm font-medium" id={controlId + '-label'}>
             회원 유형
-          </label>
+          </span>
         ) : null}
-        <div className="grid max-w-48 gap-2">
+        <div className="grid max-w-44 gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <output id={controlId} className="text-sm">
+            <span
+              id={controlId}
+              className="text-sm"
+              {...(layout !== 'cell'
+                ? { 'aria-labelledby': controlId + '-label' }
+                : {})}
+            >
               {target.memberKind
                 ? ROLE_LABEL[target.memberKind]
                 : UNASSIGNED_ROLE_LABEL}
-            </output>
+            </span>
             <Button
               ref={triggerRef}
               type="button"

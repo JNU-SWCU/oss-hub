@@ -127,15 +127,17 @@ describe('shared access controls', () => {
       renderAll(item(), layout);
       expect(
         container.querySelector('#row-1-member-kind-control'),
-      ).toBeInstanceOf(HTMLOutputElement);
+      ).toBeInstanceOf(HTMLSpanElement);
       expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(2);
       expect(container.querySelectorAll('label')).toHaveLength(
-        layout === 'cell' ? 0 : 3,
+        layout === 'cell' ? 0 : 2,
       );
       if (layout !== 'cell')
-        expect(container.querySelector('label')?.htmlFor).toBe(
-          'row-1-member-kind-control',
-        );
+        expect(
+          container
+            .querySelector('#row-1-member-kind-control')
+            ?.getAttribute('aria-labelledby'),
+        ).toBe('row-1-member-kind-control-label');
     },
   );
   it.each(['cell', 'stacked'] as const)(

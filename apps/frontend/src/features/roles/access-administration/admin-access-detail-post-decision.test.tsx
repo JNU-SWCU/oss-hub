@@ -341,7 +341,7 @@ describe('회원 유형 — 낡은 화면에서 이미 변경된 값을 고르�
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).not.toContain('처리를 완료했습니다');
     const refreshed = container.querySelector('#admin-member-kind-control');
-    expect(refreshed).toBeInstanceOf(HTMLOutputElement);
+    expect(refreshed).toBeInstanceOf(HTMLSpanElement);
     expect(refreshed?.getAttribute('role')).not.toBe('combobox');
     expect(refreshed?.textContent).toContain('교직원');
   });

@@ -261,6 +261,21 @@ async function handlePatch(
 
 function adminUsersHandlers(store: AdminUsersStore): MemberAccessApiHandlers {
   const handlers: Record<string, (route: Route) => Promise<void>> = {
+    'GET /api/v1/consents/current': async (route) => {
+      await fulfillJson(route, {
+        policyVersion: '2026-11-01',
+        requiredItems: [
+          {
+            key: 'privacy',
+            label: '개인정보 수집·이용',
+            documentUrl: '/policies/privacy',
+          },
+        ],
+        acceptedPolicyVersion: '2026-11-01',
+        consented: true,
+        nextUrl: '/dashboard/users',
+      });
+    },
     'GET /api/v1/users/access': async (route) => {
       const failure = store.failNextListGetWith;
       if (failure) {
@@ -400,7 +415,7 @@ for (const [name, kind, approvalStatus] of [
       name: '가입 유형 되돌리기',
       exact: true,
     });
-    await expect(row.locator('output:visible')).toHaveText(
+    await expect(row.locator('[id$="-member-kind-control"]:visible')).toHaveText(
       kind === 'STUDENT' ? '학생' : '교직원',
     );
     await reset.click();
@@ -907,7 +922,7 @@ test('레이아웃: 문서 가로 넘침 없음, 1280px 이상 표 내부 스크
         'mobile row height',
       ).toBeLessThanOrEqual(MAX_MOBILE_ROW_HEIGHT);
       const row = rowOf(page, '합성 사용자 01');
-      await expect(row.locator('output:visible')).toHaveText('학생');
+      await expect(row.locator('[id$="-member-kind-control"]:visible')).toHaveText('학생');
       for (const control of ['관리자 접근', '계정 상태']) {
         await expect(
           row.getByRole('combobox', { name: control, exact: true }),
