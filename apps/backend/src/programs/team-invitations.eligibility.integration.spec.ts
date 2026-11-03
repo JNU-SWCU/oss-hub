@@ -6,7 +6,7 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -114,7 +114,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: '303001',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -124,7 +124,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: '303002',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -134,7 +134,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: '303003',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -144,7 +144,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: null,
         department: 'Synthetic program office',
         type: MemberKind.STAFF,
-        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        departmentType: DepartmentType.PROGRAM_OFFICE,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -155,7 +155,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: null,
         department: 'Synthetic program office',
         type: MemberKind.STAFF,
-        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        departmentType: DepartmentType.PROGRAM_OFFICE,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -165,7 +165,7 @@ async function seedEligibilityFixture(): Promise<void> {
         studentId: '303006',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -250,7 +250,7 @@ describe('TeamInvitationsRepository eligibility integration', () => {
       '교직원으로 역할 변경',
       {
         type: MemberKind.STAFF,
-        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        departmentType: DepartmentType.PROGRAM_OFFICE,
         department: 'Synthetic program office',
         approvalStatus: ApprovalStatus.APPROVED,
         name: 'Synthetic staff',

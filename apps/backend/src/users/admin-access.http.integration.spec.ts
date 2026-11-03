@@ -1,6 +1,6 @@
 import { userAuditRows } from './user-history.integration-fixture';
 import { flatProfileFixture } from './canonical-user-fixture';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { RolesErrorCode } from './roles-error-code.error';
@@ -271,8 +271,7 @@ it('lets STAFF approve a pending request and rejects SET_ROLE', async () => {
     studentId: '813017',
     department: '소프트웨어공학과',
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: '소프트웨어공학과',
+    departmentType: DepartmentType.DEPARTMENT,
   };
   await harness.prisma.user.update({
     where: { id: pending.id },

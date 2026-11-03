@@ -3,7 +3,7 @@ import { requestHistory } from './user-history.integration-fixture';
 import { AdminRepository } from './admin.repository';
 import { UserTransitionRepository } from './user-transition.repository';
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -61,8 +61,8 @@ export async function completeStaff(label: string) {
   const user = await createOnboardingUser(label, MemberKind.STAFF);
   await compatibilityUsers.completeMyProfile(user.githubId, {
     name: '합성 교직원',
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: '소프트웨어공학과',
+    departmentType: DepartmentType.DEPARTMENT,
+    department: '소프트웨어공학과',
   });
   return user;
 }

@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { type CompleteUserProfileInput } from './users.repository';
 import { type UserProfileRecord } from './profile-validation.config';
 type LegacyProfileWrite = {
@@ -9,13 +9,13 @@ type LegacyProfileWrite = {
 export function canonicalCompletion(
   profile: LegacyProfileWrite,
   memberKind: MemberKind = MemberKind.STUDENT,
-  affiliationKind: AffiliationKind = AffiliationKind.DEPARTMENT,
+  departmentType: DepartmentType = DepartmentType.DEPARTMENT,
 ): CompleteUserProfileInput {
   return {
     ...profile,
     memberKind,
-    affiliationKind,
-    affiliationName: profile.department,
+    departmentType,
+    department: profile.department,
     requestsStaffAccess: memberKind === MemberKind.STAFF,
   };
 }
@@ -36,8 +36,7 @@ export function profileRecord(
     githubLogin: id,
     selectedMemberKind: kind,
     memberKind: kind,
-    affiliationKind: null,
-    affiliationName: null,
+    departmentType: null,
     hasAdminAccess: false,
     name: null,
     studentId: null,

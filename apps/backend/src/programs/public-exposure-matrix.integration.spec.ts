@@ -14,7 +14,7 @@ import {
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
@@ -168,7 +168,7 @@ function canonicalStudentFields(name: string, department: string) {
       studentId,
       department,
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
     },
@@ -926,7 +926,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         studentId: '990009',
         department: 'synthetic-forbidden-department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         approvalStatus: 'NOT_REQUIRED',

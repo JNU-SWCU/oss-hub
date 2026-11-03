@@ -1,7 +1,7 @@
 import { requestHistory } from './user-history.integration-fixture';
 
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -39,7 +39,7 @@ it('student completion writes canonical profile and authority defaults atomicall
   await expect(storedMember(user.id)).resolves.toMatchObject({
     name: '합성 학생',
     type: MemberKind.STUDENT,
-    departmentType: AffiliationKind.DEPARTMENT,
+    departmentType: DepartmentType.DEPARTMENT,
     studentId: '801001',
     department: '인공지능학부',
     approvalStatus: 'NOT_REQUIRED',
@@ -50,8 +50,8 @@ it('staff completion writes program-office affiliation, null student ID, default
   const user = await createOnboardingUser('staff', MemberKind.STAFF);
   await users.completeMyProfile(user.githubId, {
     name: '  합성 교직원  ',
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '  합성 사업단  ',
+    departmentType: DepartmentType.PROGRAM_OFFICE,
+    department: '  합성 사업단  ',
   });
   const [stored, requests] = await Promise.all([
     storedMember(user.id),
@@ -60,7 +60,7 @@ it('staff completion writes program-office affiliation, null student ID, default
   expect(stored).toMatchObject({
     name: '합성 교직원',
     type: MemberKind.STAFF,
-    departmentType: AffiliationKind.PROGRAM_OFFICE,
+    departmentType: DepartmentType.PROGRAM_OFFICE,
     studentId: null,
     department: '합성 사업단',
     approvalStatus: 'PENDING',

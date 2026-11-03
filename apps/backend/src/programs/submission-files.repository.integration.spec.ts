@@ -9,7 +9,7 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -183,7 +183,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         studentId: '342002',
         department: '합성 학과',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },

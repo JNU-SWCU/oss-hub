@@ -22,7 +22,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -443,7 +443,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
           type: key === 'staff' ? MemberKind.STAFF : MemberKind.STUDENT,
           approvalStatus:
             key === 'staff' ? ('APPROVED' as const) : ('NOT_REQUIRED' as const),
-          departmentType: AffiliationKind.DEPARTMENT,
+          departmentType: DepartmentType.DEPARTMENT,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         }))

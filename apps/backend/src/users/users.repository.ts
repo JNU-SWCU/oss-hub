@@ -1,7 +1,7 @@
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { MemberKind, type AffiliationKind } from './user-contract.config';
+import { MemberKind, type DepartmentType } from './user-contract.config';
 import type { UserHistoryTransaction } from './user-history.repository';
 import { USER_APPROVAL_SELECT } from './user-history.config';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
@@ -19,8 +19,7 @@ export interface CompleteUserProfileInput {
   readonly department: string;
   readonly phone?: string;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
   readonly requestsStaffAccess: boolean;
 }
 
@@ -29,8 +28,7 @@ export interface UpdateProfileFieldsInput {
   readonly department: string;
   readonly phone?: string;
   readonly staffNumber?: string | null;
-  readonly affiliationKind?: AffiliationKind;
-  readonly affiliationName?: string;
+  readonly departmentType?: DepartmentType;
 }
 
 export type ProfileCompletionOutcome =
@@ -139,7 +137,7 @@ export class UsersRepository implements UsersRepositoryPort {
             name: input.name,
             studentId: input.studentId,
             department: input.department,
-            departmentType: input.affiliationKind,
+            departmentType: input.departmentType,
             profileCreatedAt: current.profileCreatedAt ?? now,
             profileUpdatedAt: now,
           },
@@ -246,8 +244,8 @@ export class UsersRepository implements UsersRepositoryPort {
       const profileChanged =
         fields.name !== current.name ||
         fields.department !== current.department ||
-        (fields.affiliationKind !== undefined &&
-          fields.affiliationKind !== current.departmentType) ||
+        (fields.departmentType !== undefined &&
+          fields.departmentType !== current.departmentType) ||
         (fields.staffNumber !== undefined &&
           fields.staffNumber !== current.staffNumber);
       if (profileChanged) {
@@ -256,9 +254,9 @@ export class UsersRepository implements UsersRepositoryPort {
           data: {
             name: fields.name,
             department: fields.department,
-            ...(fields.affiliationKind === undefined
+            ...(fields.departmentType === undefined
               ? {}
-              : { departmentType: fields.affiliationKind }),
+              : { departmentType: fields.departmentType }),
             ...(fields.staffNumber === undefined
               ? {}
               : { staffNumber: fields.staffNumber }),
@@ -361,8 +359,7 @@ function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
     staffNumber: user.staffNumber,
     memberKind: user.type === 'UNSELECTED' ? null : user.type,
     selectedMemberKind: user.type === 'UNSELECTED' ? null : user.type,
-    affiliationKind: user.departmentType,
-    affiliationName: user.department,
+    departmentType: user.departmentType,
     hasAdminAccess: user.admin !== null,
     hasPendingStaffRequest:
       user.approvalStatus === 'PENDING' && user.approvalRequestId !== null,
@@ -387,7 +384,7 @@ function sameProfileSnapshot(
         'staffNumber',
         'memberKind',
         'selectedMemberKind',
-        'affiliationKind',
+        'departmentType',
         'approvalStatus',
         'approvalRequestId',
       ] as const

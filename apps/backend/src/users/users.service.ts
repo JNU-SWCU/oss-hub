@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { Inject, Injectable } from '@nestjs/common';
 import { UserHistoryRepository } from './user-history.repository';
 import {
@@ -39,8 +39,7 @@ export interface PatchUserProfileInput {
   readonly department?: string;
   readonly phone?: string;
   readonly staffNumber?: string | null;
-  readonly affiliationKind?: AffiliationKind;
-  readonly affiliationName?: string;
+  readonly departmentType?: DepartmentType;
 }
 
 type NormalizedProfileRecord = Omit<
@@ -63,23 +62,17 @@ function nextProfileRecord(
     department: input.department,
     phone: input.phone ?? user.phone,
     memberKind: input.memberKind,
-    affiliationKind: input.affiliationKind,
-    affiliationName: input.affiliationName,
+    departmentType: input.departmentType,
   };
 }
 
-type Affiliation = {
-  readonly kind: AffiliationKind;
-  readonly name: string;
-};
-
-function requireAllowedAffiliation(
+function requireAllowedDepartmentType(
   memberKind: MemberKind,
-  affiliationKind: AffiliationKind,
+  departmentType: DepartmentType,
 ): void {
   switch (memberKind) {
     case MemberKind.STUDENT:
-      if (affiliationKind !== AffiliationKind.DEPARTMENT) {
+      if (departmentType !== DepartmentType.DEPARTMENT) {
         throw invalidProfile('학생 소속은 학과여야 합니다.');
       }
       return;
@@ -102,6 +95,7 @@ export interface UpdateMyProfileRequest {
   readonly phone?: string;
   readonly staffNumber?: string | null;
   readonly department?: string;
+  readonly departmentType?: string;
   readonly affiliationKind?: string;
   readonly affiliationName?: string;
 }
@@ -127,30 +121,43 @@ export class UsersService {
       ...(typeof request.studentId === 'string'
         ? { studentId: request.studentId }
         : {}),
-      ...(typeof request.department === 'string'
-        ? { department: request.department }
-        : {}),
+      ...this.requestedDepartment(request),
       ...(typeof request.phone === 'string' ? { phone: request.phone } : {}),
       ...(request.staffNumber !== undefined
         ? { staffNumber: request.staffNumber }
         : {}),
-      ...(typeof request.affiliationKind === 'string'
-        ? {
-            affiliationKind: this.parseRequestedAffiliationKind(
-              request.affiliationKind,
-            ),
-          }
-        : {}),
-      ...(typeof request.affiliationName === 'string'
-        ? { affiliationName: request.affiliationName }
+    };
+  }
+
+  private requestedDepartment(
+    request: UpdateMyProfileRequest,
+  ): Pick<PatchUserProfileInput, 'department' | 'departmentType'> {
+    const hasLegacyKind = typeof request.affiliationKind === 'string';
+    const hasLegacyName = typeof request.affiliationName === 'string';
+    const hasCurrent =
+      typeof request.department === 'string' ||
+      typeof request.departmentType === 'string';
+    if (hasLegacyKind !== hasLegacyName || (hasLegacyKind && hasCurrent)) {
+      throw invalidProfile('소속 유형과 이름을 하나의 형식으로 보내 주세요.');
+    }
+    const department = hasLegacyName
+      ? request.affiliationName
+      : request.department;
+    const departmentType = hasLegacyKind
+      ? request.affiliationKind
+      : request.departmentType;
+    return {
+      ...(typeof department === 'string' ? { department } : {}),
+      ...(typeof departmentType === 'string'
+        ? { departmentType: this.parseRequestedDepartmentType(departmentType) }
         : {}),
     };
   }
 
-  private parseRequestedAffiliationKind(value: string): AffiliationKind {
+  private parseRequestedDepartmentType(value: string): DepartmentType {
     switch (value) {
-      case AffiliationKind.DEPARTMENT:
-      case AffiliationKind.PROGRAM_OFFICE:
+      case DepartmentType.DEPARTMENT:
+      case DepartmentType.PROGRAM_OFFICE:
         return value;
       default:
         throw new DomainException({
@@ -236,8 +243,7 @@ export class UsersService {
     const next: UserProfileRecord = {
       ...user,
       ...fields,
-      affiliationKind: fields.affiliationKind ?? user.affiliationKind,
-      affiliationName: fields.affiliationName ?? user.affiliationName,
+      departmentType: fields.departmentType ?? user.departmentType,
       studentId: input.studentId ?? user.studentId,
       phone: fields.phone ?? user.phone,
     };
@@ -436,22 +442,17 @@ export class UsersService {
     if (!this.userProfileService.isValidUserName(name)) {
       throw invalidProfile('이름 형식이 올바르지 않습니다.');
     }
-    const affiliation = this.resolveAffiliation(user, input);
+    const { department, departmentType } = this.resolveDepartment(user, input);
     const memberKind = user.memberKind ?? user.selectedMemberKind ?? null;
     if (memberKind !== null) {
-      requireAllowedAffiliation(memberKind, affiliation.kind);
+      requireAllowedDepartmentType(memberKind, departmentType);
     }
     return {
       name,
-      department: affiliation.name,
+      department,
       ...this.patchPhone(input),
       ...this.patchStaffNumber(input),
-      ...(memberKind === null
-        ? {}
-        : {
-            affiliationKind: affiliation.kind,
-            affiliationName: affiliation.name,
-          }),
+      ...(memberKind === null ? {} : { departmentType }),
     };
   }
 
@@ -507,27 +508,30 @@ export class UsersService {
     return { staffNumber: normalized };
   }
 
-  private resolveAffiliation(
+  private resolveDepartment(
     user: UserProfileRecord,
     input: PatchUserProfileInput,
-  ): Affiliation {
-    const hasKind = input.affiliationKind !== undefined;
-    const hasName = input.affiliationName !== undefined;
-    if (hasKind !== hasName || (hasKind && input.department !== undefined)) {
-      throw invalidProfile('소속 유형과 이름을 하나의 형식으로 보내 주세요.');
+  ): { readonly department: string; readonly departmentType: DepartmentType } {
+    if (input.department === undefined) {
+      throw invalidProfile(
+        input.departmentType === undefined
+          ? '소속을 입력해 주세요.'
+          : '소속 유형과 이름을 하나의 형식으로 보내 주세요.',
+      );
     }
-    const kind = hasKind
-      ? input.affiliationKind
-      : (user.affiliationKind ?? AffiliationKind.DEPARTMENT);
-    const rawName = hasName ? input.affiliationName : input.department;
-    if (kind === undefined || rawName === undefined) {
-      throw invalidProfile('소속을 입력해 주세요.');
-    }
-    const name = this.userProfileService.normalizeProfileText(rawName);
-    if (!this.userProfileService.isValidDepartment(name)) {
+    const department = this.userProfileService.normalizeProfileText(
+      input.department,
+    );
+    if (!this.userProfileService.isValidDepartment(department)) {
       throw invalidProfile('소속 형식이 올바르지 않습니다.');
     }
-    return { kind, name };
+    return {
+      department,
+      departmentType:
+        input.departmentType ??
+        user.departmentType ??
+        DepartmentType.DEPARTMENT,
+    };
   }
 
   private completionStudentId(
@@ -571,19 +575,18 @@ export class UsersService {
     if (!this.userProfileService.isValidUserName(name)) {
       throw invalidProfile('이름 형식이 올바르지 않습니다.');
     }
-    const affiliation = this.resolveAffiliation(user, input);
-    requireAllowedAffiliation(memberKind, affiliation.kind);
+    const { department, departmentType } = this.resolveDepartment(user, input);
+    requireAllowedDepartmentType(memberKind, departmentType);
     const isApprovedStaff =
       memberKind === MemberKind.STAFF && user.approvalStatus === 'APPROVED';
 
     return {
       name,
       studentId: this.completionStudentId(memberKind, user, input),
-      department: affiliation.name,
+      department,
       ...this.completionPhone(memberKind, user, input),
       memberKind,
-      affiliationKind: affiliation.kind,
-      affiliationName: affiliation.name,
+      departmentType,
       requestsStaffAccess: memberKind === MemberKind.STAFF && !isApprovedStaff,
     };
   }

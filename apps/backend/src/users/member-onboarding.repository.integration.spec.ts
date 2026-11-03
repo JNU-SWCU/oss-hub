@@ -5,7 +5,7 @@ import {
 import { flatProfileFixture } from './canonical-user-fixture';
 import { UserTransitionRepository } from './user-transition.repository';
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -30,8 +30,7 @@ const STAFF_PROFILE = {
   studentId: null,
   department: '인공지능학부',
   memberKind: MemberKind.STAFF,
-  affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-  affiliationName: '인공지능학부',
+  departmentType: DepartmentType.PROGRAM_OFFICE,
 } as const;
 describe('MemberOnboardingRepository integration', () => {
   const prisma = new PrismaService();

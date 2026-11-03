@@ -5,7 +5,7 @@ import { ReviewHistoryWriterRepository } from './review-history-writer.repositor
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { ProgramCategory } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -108,7 +108,7 @@ describe('application preparation integration', () => {
           type: MemberKind.STUDENT,
           studentId: actor.githubId.toString(),
           department: 'synthetic',
-          departmentType: AffiliationKind.DEPARTMENT,
+          departmentType: DepartmentType.DEPARTMENT,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
           approvalStatus: 'NOT_REQUIRED',

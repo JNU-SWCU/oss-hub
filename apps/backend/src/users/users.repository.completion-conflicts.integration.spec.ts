@@ -1,5 +1,5 @@
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -141,8 +141,8 @@ it('완료된 프로필은 두 번째 요청으로 덮어쓰지 않는다', asyn
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
     ...firstProfile,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: firstProfile.department,
+    departmentType: DepartmentType.DEPARTMENT,
+    department: firstProfile.department,
   });
 });
 it('프로필 행이 없는 미완료 계정도 완료 저장할 수 있다', async () => {
@@ -152,8 +152,8 @@ it('프로필 행이 없는 미완료 계정도 완료 저장할 수 있다', as
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
     ...secondProfile,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: secondProfile.department,
+    departmentType: DepartmentType.DEPARTMENT,
+    department: secondProfile.department,
   });
 });
 it('미완료 계정은 유효한 값으로 완료할 수 있다', async () => {
@@ -161,8 +161,8 @@ it('미완료 계정은 유효한 값으로 완료할 수 있다', async () => {
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
     ...firstProfile,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: firstProfile.department,
+    departmentType: DepartmentType.DEPARTMENT,
+    department: firstProfile.department,
   });
 });
 it('이미 생성된 User과 충돌하면 선점된 행은 바뀌지 않는다', async () => {
@@ -183,7 +183,7 @@ it('이미 생성된 User과 충돌하면 선점된 행은 바뀌지 않는다',
       studentId: '153404',
       department: '인공지능학부',
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date(),
       profileUpdatedAt: new Date(),
     },
@@ -236,7 +236,6 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
     studentId: firstProfile.studentId,
     department: firstProfile.department,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: firstProfile.department,
+    departmentType: DepartmentType.DEPARTMENT,
   });
 });

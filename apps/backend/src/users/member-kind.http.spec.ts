@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
@@ -258,8 +258,7 @@ function profile(
     department: '합성 학과',
     staffNumber: null,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: '합성 학과',
+    departmentType: DepartmentType.DEPARTMENT,
     ...overrides,
   };
 }

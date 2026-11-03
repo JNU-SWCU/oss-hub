@@ -5,7 +5,7 @@ import {
   ProgramTrackType,
   type Prisma,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -112,7 +112,7 @@ async function seed(): Promise<void> {
         studentId: '920001',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -122,7 +122,7 @@ async function seed(): Promise<void> {
         studentId: '920005',
         department: 'Synthetic department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },

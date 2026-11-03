@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { AccountStatus, type Prisma } from '@prisma/client';
 export type CanonicalUserFixture = {
   readonly id: string;
@@ -51,8 +51,8 @@ export function canonicalUserCreate(
       : null,
     department,
     departmentType: isStudent
-      ? AffiliationKind.DEPARTMENT
-      : AffiliationKind.PROGRAM_OFFICE,
+      ? DepartmentType.DEPARTMENT
+      : DepartmentType.PROGRAM_OFFICE,
   };
 }
 function syntheticStudentId(githubId: bigint): string {
@@ -113,7 +113,7 @@ export function flatProfileFixture(profile: {
   readonly studentId: string | null;
   readonly department: string;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
+  readonly departmentType: DepartmentType;
   readonly staffNumber?: string | null;
 }) {
   return {
@@ -121,7 +121,7 @@ export function flatProfileFixture(profile: {
     studentId: profile.studentId,
     department: profile.department,
     type: profile.memberKind,
-    departmentType: profile.affiliationKind,
+    departmentType: profile.departmentType,
     ...(profile.staffNumber === undefined
       ? {}
       : { staffNumber: profile.staffNumber }),

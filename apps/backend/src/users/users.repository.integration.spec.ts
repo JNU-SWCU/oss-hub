@@ -1,7 +1,7 @@
 import { userAuditRows } from './user-history.integration-fixture';
 
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -43,8 +43,7 @@ type StoredProfileFields = {
   readonly staffNumber: string | null;
   readonly department: string;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
 };
 type PhoneAuditCallback = Parameters<
   UsersRepositoryPort['completeProfileIfUnchanged']
@@ -75,7 +74,7 @@ async function completeProfileFor(
     readonly department: string;
   },
   memberKind: MemberKind = MemberKind.STUDENT,
-  affiliationKind: AffiliationKind = AffiliationKind.DEPARTMENT,
+  departmentType: DepartmentType = DepartmentType.DEPARTMENT,
 ): Promise<ProfileCompletionOutcome> {
   const current = await repository.findByGithubId(profileGithubId);
   if (!current) {
@@ -83,7 +82,7 @@ async function completeProfileFor(
   }
   return repository.completeProfileIfUnchanged(
     current,
-    canonicalCompletion(profile, memberKind, affiliationKind),
+    canonicalCompletion(profile, memberKind, departmentType),
     recordPhoneAudit,
   );
 }
@@ -94,9 +93,9 @@ async function completeCurrentProfile(
     readonly department: string;
   },
   memberKind: MemberKind = MemberKind.STUDENT,
-  affiliationKind: AffiliationKind = AffiliationKind.DEPARTMENT,
+  departmentType: DepartmentType = DepartmentType.DEPARTMENT,
 ): Promise<ProfileCompletionOutcome> {
-  return completeProfileFor(githubId, profile, memberKind, affiliationKind);
+  return completeProfileFor(githubId, profile, memberKind, departmentType);
 }
 async function currentStoredProfile(id: bigint) {
   const current = await repository.findByGithubId(id);
@@ -108,7 +107,7 @@ function readProfileRow(
 ): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
     SELECT "name", "studentId", "staffNumber", "department",
-           "type" AS "memberKind", "departmentType" AS "affiliationKind", "department" AS "affiliationName"
+           "type" AS "memberKind", "departmentType" AS "departmentType", "department" AS "department"
     FROM "User"
     WHERE "id" = ${profileUserId} AND "profileCreatedAt" IS NOT NULL
   `;
@@ -231,8 +230,7 @@ it('학번·학과를 User에 저장하고 다시 조회한다', async () => {
     staffNumber: null,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: firstProfile.department,
+    departmentType: DepartmentType.DEPARTMENT,
     approvalStatus: 'NOT_REQUIRED',
     hasAdminAccess: false,
     hasPendingStaffRequest: false,
@@ -252,7 +250,7 @@ it('학번 없는 교직원 프로필은 User 행으로 저장된다', async () 
         department: '인공지능학부',
       },
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   await expect(readProfileRow()).resolves.toEqual([
@@ -262,15 +260,13 @@ it('학번 없는 교직원 프로필은 User 행으로 저장된다', async () 
       staffNumber: null,
       department: '인공지능학부',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
+      departmentType: DepartmentType.PROGRAM_OFFICE,
     },
   ]);
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
     selectedMemberKind: MemberKind.STAFF,
     memberKind: MemberKind.STAFF,
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '인공지능학부',
+    departmentType: DepartmentType.PROGRAM_OFFICE,
     studentId: null,
     department: '인공지능학부',
     approvalStatus: 'PENDING',
@@ -291,7 +287,7 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
         department: '인공지능학부',
       },
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   await repository.updateProfileFields(
@@ -299,8 +295,7 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
     {
       name: '합성 수정 교직원',
       department: '소프트웨어공학과',
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '소프트웨어공학과',
+      departmentType: DepartmentType.PROGRAM_OFFICE,
     },
     recordStaffNumberAudit,
     recordPhoneAudit,
@@ -312,8 +307,7 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
       staffNumber: null,
       department: '소프트웨어공학과',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '소프트웨어공학과',
+      departmentType: DepartmentType.PROGRAM_OFFICE,
     },
   ]);
 });
@@ -325,8 +319,7 @@ it('프로필 저장은 User 한 행에 canonical 사실을 남긴다', async ()
       ...expected,
       staffNumber: null,
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: expected.department,
+      departmentType: DepartmentType.DEPARTMENT,
     },
   ]);
 });
@@ -340,8 +333,7 @@ it('완료 후 이름·학과 수정도 User만 갱신한다', async () => {
     await currentStoredProfile(githubId),
     {
       ...mutableFields,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: mutableFields.department,
+      departmentType: DepartmentType.DEPARTMENT,
     },
     recordStaffNumberAudit,
     recordPhoneAudit,
@@ -352,8 +344,7 @@ it('완료 후 이름·학과 수정도 User만 갱신한다', async () => {
       staffNumber: null,
       ...mutableFields,
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: mutableFields.department,
+      departmentType: DepartmentType.DEPARTMENT,
     },
   ]);
 });
@@ -369,7 +360,7 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
       staffNumberSetGithubId,
       profile,
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   await prisma.user.update({
@@ -390,8 +381,8 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
       ...profile,
       staffNumber: '교직원-😀',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: profile.department,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
+      department: profile.department,
     },
   ]);
   const after = await repository.findByGithubId(staffNumberSetGithubId);
@@ -433,7 +424,7 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
       staffNumberReplaceGithubId,
       profile,
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberReplaceGithubId);
@@ -470,8 +461,8 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
       ...profile,
       staffNumber: '교체-번호',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: profile.department,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
+      department: profile.department,
     },
   ]);
   const audits = await readStaffNumberAudits(staffNumberReplaceUserId);
@@ -523,7 +514,7 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
       staffNumberClearGithubId,
       profile,
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberClearGithubId);
@@ -549,8 +540,8 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
       ...profile,
       staffNumber: null,
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: profile.department,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
+      department: profile.department,
     },
   ]);
   const audits = await readStaffNumberAudits(staffNumberClearUserId);
@@ -599,7 +590,7 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
       staffNumberOmittedGithubId,
       profile,
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberOmittedGithubId);
@@ -624,8 +615,7 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
       ...profile,
       staffNumber: '보존-번호',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: profile.department,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
     },
   ]);
   await expect(
@@ -644,7 +634,7 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
       staffNumberNoopGithubId,
       profile,
       MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
+      DepartmentType.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberNoopGithubId);
@@ -670,8 +660,8 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
       ...profile,
       staffNumber: '같은-번호',
       memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: profile.department,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
+      department: profile.department,
     },
   ]);
   await expect(
@@ -691,7 +681,7 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
     rollbackGithubId,
     profile,
     MemberKind.STAFF,
-    AffiliationKind.PROGRAM_OFFICE,
+    DepartmentType.PROGRAM_OFFICE,
   );
   const before = await readProfileRow(id);
   const failure = new Error('Synthetic audit failure');
@@ -725,7 +715,7 @@ it('읽은 뒤 학생으로 바뀐 계정은 잠긴 현재 회원 유형으로 �
     staleGithubId,
     profile,
     MemberKind.STAFF,
-    AffiliationKind.PROGRAM_OFFICE,
+    DepartmentType.PROGRAM_OFFICE,
   );
   const stale = await repository.findByGithubId(staleGithubId);
   if (!stale) throw new Error('합성 유형 변경 프로필이 존재해야 합니다.');
@@ -740,7 +730,7 @@ it('읽은 뒤 학생으로 바뀐 계정은 잠긴 현재 회원 유형으로 �
       approvalReason: null,
       type: MemberKind.STUDENT,
       studentId: '953107',
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
     },
   });
   const before = await readProfileRow(id);

@@ -118,7 +118,7 @@ export class UserTransitionRepository {
         readonly memberKind: 'STUDENT' | 'STAFF';
         readonly studentId?: string;
         readonly department?: string;
-        readonly affiliationKind?: 'DEPARTMENT' | 'PROGRAM_OFFICE';
+        readonly departmentType?: 'DEPARTMENT' | 'PROGRAM_OFFICE';
         readonly staffNumber?: string | null;
       };
     },
@@ -167,9 +167,9 @@ export class UserTransitionRepository {
         ...(input.profile.department === undefined
           ? {}
           : { department: input.profile.department }),
-        ...(input.profile.affiliationKind === undefined
+        ...(input.profile.departmentType === undefined
           ? {}
-          : { departmentType: input.profile.affiliationKind }),
+          : { departmentType: input.profile.departmentType }),
         ...(input.profile.staffNumber === undefined
           ? {}
           : { staffNumber: input.profile.staffNumber }),
@@ -177,8 +177,8 @@ export class UserTransitionRepository {
           input.profile.studentId !== before.studentId) ||
         (input.profile.department !== undefined &&
           input.profile.department !== before.department) ||
-        (input.profile.affiliationKind !== undefined &&
-          input.profile.affiliationKind !== before.departmentType) ||
+        (input.profile.departmentType !== undefined &&
+          input.profile.departmentType !== before.departmentType) ||
         (input.profile.staffNumber !== undefined &&
           input.profile.staffNumber !== before.staffNumber)
           ? { profileUpdatedAt: now }

@@ -1,6 +1,6 @@
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { AccountStatus, ActivityVisibility } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingService } from './ranking.service';
@@ -107,8 +107,8 @@ async function seed(member: SyntheticMember): Promise<void> {
             department,
             departmentType:
               member.memberKind === MemberKind.STAFF
-                ? AffiliationKind.PROGRAM_OFFICE
-                : AffiliationKind.DEPARTMENT,
+                ? DepartmentType.PROGRAM_OFFICE
+                : DepartmentType.DEPARTMENT,
             profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
             profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
           }),

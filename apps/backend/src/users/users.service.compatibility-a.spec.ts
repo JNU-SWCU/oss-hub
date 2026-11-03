@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import type {
@@ -146,8 +146,7 @@ describe('기존 데이터 호환', () => {
       {
         name: '수정된 이름',
         department: '소프트웨어공학과',
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '소프트웨어공학과',
+        departmentType: DepartmentType.DEPARTMENT,
       },
       expect.any(Function),
       expect.any(Function),
@@ -177,8 +176,7 @@ describe('기존 데이터 호환', () => {
       {
         name: '수정된 이름',
         department: input.department,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: input.department,
+        departmentType: DepartmentType.DEPARTMENT,
       },
       expect.any(Function),
       expect.any(Function),

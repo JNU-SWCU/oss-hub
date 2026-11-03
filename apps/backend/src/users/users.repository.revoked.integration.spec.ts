@@ -5,7 +5,7 @@ import {
 
 import { UserTransitionRepository } from './user-transition.repository';
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -196,7 +196,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
           department: '인공지능학부',
         },
         MemberKind.STAFF,
-        AffiliationKind.PROGRAM_OFFICE,
+        DepartmentType.PROGRAM_OFFICE,
       ),
       recordPhoneAudit,
     );
@@ -216,7 +216,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
       name: '합성 교직원',
       studentId: null,
       type: MemberKind.STAFF,
-      departmentType: AffiliationKind.PROGRAM_OFFICE,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
     });
     expect(requests).toHaveLength(2);
     expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);

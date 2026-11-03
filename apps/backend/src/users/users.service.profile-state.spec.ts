@@ -156,8 +156,7 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     {
       name: '수정된 이름',
       department: '소프트웨어공학과',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '소프트웨어공학과',
+      departmentType: 'DEPARTMENT',
     },
     expect.any(Function),
     expect.any(Function),

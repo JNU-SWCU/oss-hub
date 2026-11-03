@@ -1,7 +1,7 @@
 import { writeApprovalFixture } from './user-history.integration-fixture';
 
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -43,7 +43,7 @@ beforeAll(async () => {
       name: '합성 회수 교직원',
       studentId: null,
       department: '합성 사업단',
-      departmentType: AffiliationKind.PROGRAM_OFFICE,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
       profileCreatedAt: new Date(),
       profileUpdatedAt: new Date(),
       type: MemberKind.STAFF,

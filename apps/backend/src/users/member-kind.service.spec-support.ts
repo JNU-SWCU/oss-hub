@@ -35,8 +35,7 @@ export function target(
       department: 'Department',
       staffNumber: null,
       memberKind: 'STUDENT',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: 'Department',
+      departmentType: 'DEPARTMENT',
     },
     pendingRequest: null,
     ...overrides,
@@ -55,7 +54,7 @@ export function staffTarget(
     profile: {
       ...base.profile,
       memberKind: 'STAFF',
-      affiliationKind: 'PROGRAM_OFFICE',
+      departmentType: 'PROGRAM_OFFICE',
     },
     ...overrides,
   });
