@@ -1,0 +1,4 @@
+schema_version: '1.1'
+name: update-low-only-text
+expected_outcome: |
+  기준 커밋 뒤 바뀐 곳만 찾아 문구와 라벨만 코드에 맞추고, 이미지를 다시 찍거나 서브에이전트를 쓰지 않으며, 기준 커밋을 올리지 않는다.

@@ -27,9 +27,14 @@ body {
   color: var(--sl-color-white);
 }
 
+.site-title img {
+  height: 1.75rem;
+}
+
 .sidebar-content .large {
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--sl-color-white);
   letter-spacing: -0.01em;
 }
 
@@ -74,6 +79,7 @@ h1#_top {
 }
 
 .sl-markdown-content {
+  text-wrap: pretty;
   letter-spacing: -0.011em;
   word-break: keep-all;
   color: var(--sl-color-gray-1);
@@ -119,7 +125,7 @@ h1#_top {
   font-weight: 600;
   letter-spacing: inherit;
   color: var(--sl-color-white);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .sl-markdown-content ul,
@@ -139,6 +145,7 @@ h1#_top {
 
 .sl-steps > li {
   padding-inline-start: calc(var(--bullet-size) + 0.75rem);
+  padding-block-end: 0.5rem;
 }
 
 .sl-steps > li::before {
@@ -199,7 +206,8 @@ h1#_top {
 }
 
 :root[data-theme='dark'] .shot img {
-  filter: brightness(0.88);
+  filter: brightness(0.88) contrast(1.02);
+  outline-color: rgb(255 255 255 / 8%);
 }
 
 .sl-markdown-content table {
@@ -208,8 +216,30 @@ h1#_top {
   font-size: 0.9375rem;
 }
 
-starlight-theme-select label {
-  --sl-select-width: 6.5rem !important;
+@media (min-width: 50rem) {
+  .sl-markdown-content table {
+    display: table;
+    width: 100%;
+  }
+}
+
+.sl-markdown-content th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sl-color-gray-2);
+  background: var(--sl-color-gray-7);
+}
+
+.sl-markdown-content th:first-child {
+  border-top-left-radius: 0.5rem;
+}
+
+.sl-markdown-content :is(th, td):first-child {
+  padding-inline-start: 0.75rem;
+}
+
+.sl-markdown-content th:last-child {
+  border-top-right-radius: 0.5rem;
 }
 
 .pagination-links a {

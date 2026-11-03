@@ -4,12 +4,13 @@ import { Image } from 'astro:assets';
 interface Props {
   src: string;
   alt: string;
-  caption: string;
+  caption?: string;
+  sizes?: string;
 }
 
-const { src } = Astro.props;
+const { src, sizes } = Astro.props;
 const alt = Astro.props.alt.replaceAll('`', '');
-const caption = Astro.props.caption.replaceAll('`', '');
+const caption = Astro.props.caption?.replaceAll('`', '');
 const files = import.meta.glob<{ default: ImageMetadata }>(
   '/src/assets/shots/**/*.{webp,png,jpg}',
   { eager: true },
@@ -25,15 +26,16 @@ const cssWidth = Math.round(file.default.width / 2);
       src={file.default}
       alt={alt}
       widths={[640, 960, 1440]}
-      sizes={`min(100vw, 46rem, ${cssWidth}px)`}
+      sizes={sizes ?? `min(100vw, 46rem, ${cssWidth}px)`}
     />
   </button>
-  <figcaption>{caption}</figcaption>
-  <dialog class="shot-dialog" aria-label={alt}>
+  {caption && <figcaption>{caption}</figcaption>}
+  <dialog class="shot-dialog" aria-label={alt} autofocus>
     <form method="dialog">
       <button class="shot-close" aria-label="닫기">닫기</button>
     </form>
     <Image src={file.default} alt={alt} widths={[1440, 2400]} sizes="96vw" loading="lazy" />
+    <p class="shot-hint" aria-hidden="true">좌우로 밀어서 보기</p>
   </dialog>
 </figure>
 
@@ -81,43 +83,75 @@ const cssWidth = Math.round(file.default.width / 2);
     color: var(--sl-color-gray-3);
   }
   .shot-dialog {
-    width: min(96vw, calc(var(--shot-w) * 2));
-    max-height: 94vh;
+    width: min(92vw, calc(var(--shot-w) * 2));
+    max-height: 90vh;
+    margin: auto;
     padding: 0;
     border: 0;
     border-radius: 0.75rem;
     background: var(--sl-color-black);
     overflow: auto;
   }
+  .shot-hint {
+    display: none;
+  }
+  .shot-dialog:focus {
+    outline: none;
+  }
   .shot-dialog::backdrop {
     background: rgb(0 0 0 / 0.72);
+    backdrop-filter: blur(4px);
   }
   .shot-dialog img {
+    margin: 0;
     box-shadow: none;
     border-radius: 0;
   }
-  .shot-close {
+  .shot-dialog form {
     position: sticky;
     top: 0.5rem;
-    float: right;
-    margin: 0.5rem 0.5rem 0 0;
-    padding: 0.35rem 0.8rem;
-    border: 1px solid var(--guide-line);
+    z-index: 1;
+    height: 0;
+    margin: 0;
+    padding-inline-end: 0.5rem;
+    text-align: end;
+  }
+  .shot-close {
+    padding: 0.4rem 0.9rem;
+    border: 0;
     border-radius: 999px;
-    background: var(--sl-color-black);
-    color: var(--sl-color-white);
+    background: var(--sl-color-white);
+    color: var(--sl-color-black);
     font: inherit;
     font-size: 0.8125rem;
+    font-weight: 600;
+    box-shadow: var(--guide-shadow);
     cursor: pointer;
-    z-index: 1;
   }
   @media (max-width: 50rem) {
+    .shot-open::after {
+      content: '눌러서 크게 보기';
+      display: block;
+      margin-top: 0.5rem;
+      text-align: end;
+      color: var(--sl-color-gray-3);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
     .shot-dialog {
       width: 100vw;
       max-width: 100vw;
       max-height: 100dvh;
       margin: 0;
+      height: 100dvh;
+      padding-top: 3.25rem;
       border-radius: 0;
+      background: #0b0d12;
+    }
+    .shot-dialog[open] {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
     .shot-dialog::backdrop {
       background: rgb(0 0 0 / 0.9);
@@ -125,12 +159,28 @@ const cssWidth = Math.round(file.default.width / 2);
     .shot-dialog img {
       width: max(100%, min(1100px, calc(var(--shot-w) * 2)));
       max-width: none;
+      margin-block: auto;
+    }
+    .shot-hint {
+      display: block;
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      margin: 0;
+      padding: 0.4rem 0.9rem;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: rgb(15 18 25 / 0.82);
+      box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16);
+      color: #fff;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      white-space: nowrap;
     }
     .shot-close {
       position: fixed;
       top: 0.75rem;
       right: 0.75rem;
-      float: none;
       margin: 0;
     }
   }

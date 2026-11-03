@@ -43,3 +43,5 @@
 ## 갱신 때
 
 화면이 바뀌어도 같은 절차입니다. 바뀐 화면의 이미지만 다시 찍어 같은 파일 이름으로 덮어쓰고, 영향받는 본문과 `src/site.ts`의 `lastChecked`, `releaseVersion`을 고칩니다. 그 뒤 위 한 바퀴를 돕니다.
+
+`src/site.ts`의 `checkedCommit`은 가이드가 코드와 맞다고 확인한 마지막 `main` SHA입니다. 올리는 조건은 `SKILL.md`의 「어디서 시작할지」에 있습니다. 제품 변경과 함께 가이드를 고칠 때는 `checkedCommit`을 건드리지 않습니다. 그 시점에는 `main`의 SHA가 정해지지 않았고, 다음 `update`가 이미 맞춘 곳을 확인만 하고 지나갑니다.
