@@ -97,6 +97,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   };
 
   const cleanup = async (): Promise<void> => {
+    await prisma.githubUserActivityCycleSnapshot.deleteMany({
+      where: { githubId: { in: SEEDED_GITHUB_IDS } },
+    });
     await prisma.githubUserActivityHistory.deleteMany({
       where: { githubId: { in: SEEDED_GITHUB_IDS } },
     });
@@ -191,6 +194,29 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     expect(rows.some((row) => row.githubId === DEACTIVATED_GITHUB_ID)).toBe(
       false,
     );
+  });
+
+  it('순위 비교 스냅샷은 하루에 한 번만 찍고 다음 날 첫 sweep에서 갱신한다', async () => {
+    const repository = new CollectionUserActivityRepository(prisma);
+    const alphaSnapshot = () =>
+      prisma.githubUserActivityCycleSnapshot.findFirstOrThrow({
+        where: { githubId: ALPHA_GITHUB_ID },
+      });
+    await buildService().run();
+    const today = new Date(Date.now() - 60 * 60 * 1000);
+    await prisma.githubUserActivityCycleSnapshot.deleteMany();
+    await repository.snapshotCycle(today);
+    const first = await alphaSnapshot();
+
+    await prisma.githubUserActivityHistory.updateMany({
+      where: { githubId: ALPHA_GITHUB_ID },
+      data: { commitCount: 999 },
+    });
+    await repository.snapshotCycle(today);
+    expect((await alphaSnapshot()).commitCount).toBe(first.commitCount);
+
+    await repository.snapshotCycle(new Date(Date.now() + 60 * 60 * 1000));
+    expect((await alphaSnapshot()).commitCount).toBe(999);
   });
 
   it('마이그레이션은 기존 활동 행과 수치를 PUBLIC으로 보존한다 (stale_state)', async () => {

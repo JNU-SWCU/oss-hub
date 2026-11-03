@@ -29,6 +29,14 @@ const seoulMonthOf = (instant: Date): number =>
 const seoulYearOf = (instant: Date): number =>
   new Date(instant.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const seoulDayStartOf = (instant: Date): Date =>
+  new Date(
+    Math.floor((instant.getTime() + ASIA_SEOUL_OFFSET_MS) / DAY_MS) * DAY_MS -
+      ASIA_SEOUL_OFFSET_MS,
+  );
+
 @Injectable()
 export class CollectionUserActivityService {
   private readonly logger = new Logger(CollectionUserActivityService.name);
@@ -118,7 +126,7 @@ export class CollectionUserActivityService {
     const targetYears = years === undefined ? [currentYear] : [...years];
 
     try {
-      await this.repository.snapshotCycle();
+      await this.repository.snapshotCycle(seoulDayStartOf(startedAt));
     } catch (error) {
       this.logger.warn({
         event: 'collection.user_activity.snapshot_failed',

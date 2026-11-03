@@ -55,7 +55,12 @@ export class CollectionUserActivityRepository {
     });
   }
 
-  async snapshotCycle(): Promise<void> {
+  async snapshotCycle(dayStart: Date): Promise<void> {
+    const taken = await this.db.githubUserActivityCycleSnapshot.findFirst({
+      where: { snapshotAt: { gte: dayStart } },
+      select: { githubId: true },
+    });
+    if (taken !== null) return;
     await this.db.$transaction([
       this.db.githubUserActivityCycleSnapshot.deleteMany(),
       this.db
