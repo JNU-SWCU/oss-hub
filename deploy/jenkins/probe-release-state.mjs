@@ -7,7 +7,7 @@ import {
   lstatSync,
   writeFileSync,
 } from 'node:fs';
-import { join, isAbsolute } from 'node:path';
+import { join, isAbsolute, dirname, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseDotenv } from './validate-production-env.mjs';
 
@@ -141,11 +141,11 @@ try {
     !/^sha256:[a-f0-9]{64}$/.test(backend.Image)
   )
     fail('invalid image identity');
-  same(
-    backend.Config.Image,
-    `oss-hub-backend:${previousTag}`,
-    'image tag mismatch',
-  );
+  if (
+    backend.Config.Image !== `oss-hub-backend:${previousTag}` &&
+    backend.Config.Image !== backend.Image
+  )
+    fail('image tag mismatch');
   verifyImage(previousTag, previousSha, backend.Image);
   if (tag === previousTag && sha !== previousSha)
     fail('same tag different revision');
@@ -168,21 +168,33 @@ try {
         container.Config.Labels['com.docker.compose.project.config_files'];
       const directory =
         container.Config.Labels['com.docker.compose.project.working_dir'];
+      const files = config?.split(',') ?? [];
       if (
-        !config ||
-        config.includes(',') ||
-        !isAbsolute(config) ||
+        files.length < 1 ||
+        files.length > 2 ||
+        files.some((file) => !isAbsolute(file)) ||
         !directory ||
         !isAbsolute(directory)
       )
         fail('unsupported previous compose labels');
+      const canonicalFiles = files.map((file) => realpathSync(file));
+      if (files.length === 2) {
+        same(config, canonicalFiles.join(','), 'noncanonical compose files');
+        same(
+          directory,
+          realpathSync(directory),
+          'noncanonical working directory',
+        );
+      }
       return {
-        compose: realpathSync(config),
+        compose: canonicalFiles[0],
+        overlay: canonicalFiles[1],
         directory: realpathSync(directory),
       };
     });
     for (const path of paths) {
       same(path.compose, paths[0].compose, 'incoherent compose files');
+      same(path.overlay, paths[0].overlay, 'incoherent compose files');
       same(path.directory, paths[0].directory, 'incoherent working directory');
     }
     const nginx = mount(services.nginx, '/etc/nginx/conf.d');
@@ -196,6 +208,30 @@ try {
       join(paths[0].directory, 'compose.yml'),
       'unsupported compose path',
     );
+    if (paths[0].overlay !== undefined) {
+      const { directory, overlay } = paths[0];
+      const target = basename(directory);
+      if (!['candidate', 'previous'].includes(target))
+        fail('unsupported image overlay path');
+      same(
+        overlay,
+        join(dirname(directory), `${target}-image.json`),
+        'unsupported image overlay path',
+      );
+      const metadata = lstatSync(overlay);
+      if (
+        !metadata.isFile() ||
+        metadata.uid !== process.getuid() ||
+        (metadata.mode & 0o022) !== 0
+      )
+        fail('untrusted image overlay');
+      same(
+        JSON.stringify(JSON.parse(readFileSync(overlay, 'utf8'))),
+        JSON.stringify({ services: { backend: { image: backend.Image } } }),
+        'unsupported image overlay',
+      );
+      result.imageOverlay = { path: overlay, hash: hash(overlay) };
+    }
     const generation = realpathSync(join(secrets, 'current'));
     for (const role of ['collection', 'operations']) {
       same(
@@ -275,6 +311,11 @@ try {
         'composeHash',
       ])
         same(result[key], previous[key], `recovery ${key} mismatch`);
+      same(
+        JSON.stringify(result.imageOverlay),
+        JSON.stringify(previous.imageOverlay),
+        'recovery image overlay mismatch',
+      );
       same(
         JSON.stringify(result.nginxHashes),
         JSON.stringify(previous.nginxHashes),

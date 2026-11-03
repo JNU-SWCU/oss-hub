@@ -15,6 +15,8 @@
       "entry": [
         "deploy/**/*.test.mjs",
         "deploy/jenkins/probe-release-state.mjs",
+        "deploy/jenkins/user-consolidation-watchdog-access.mjs",
+        "deploy/jenkins/user-consolidation-watchdog-state.mjs",
         "eslint.shared.mjs",
         "eslint-rules/no-comments.mjs",
         ".design-sync/compile-css.mjs",
@@ -28,6 +30,7 @@
       }
     },
     "apps/backend": {
+      "ignoreBinaries": ["psql"],
       "entry": [
         "scripts/seed-ranking-monthly.mjs",
         "src/main.ts",

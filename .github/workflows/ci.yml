@@ -178,6 +178,7 @@ jobs:
         run: |
           docker compose --env-file /dev/null -f compose.yml config --no-interpolate --quiet
           node --test deploy/jenkins/release-behavior.test.mjs
+          node --test deploy/jenkins/user-consolidation*.test.mjs
           node --test deploy/jenkins/validate-production-env.test.mjs
           node --test deploy/jenkins/validate-github-app-credentials.test.mjs
           ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows
